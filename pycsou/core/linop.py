@@ -4,6 +4,7 @@ from typing import Union, Tuple, Optional, Iterable
 from abc import abstractmethod
 from numbers import Number
 import pylops
+from pylops.optimization.leastsquares import NormalEquationsInversion
 import scipy.sparse.linalg as spls
 import scipy.sparse as sparse
 import dask.array as da
@@ -82,7 +83,7 @@ class LinearOperator(DifferentiableMap):
         return self.tosciop()
 
     def topylop(self) -> pylops.LinearOperator:
-        return pylops.LinearOperator(Op=self.tosciop(), explicit=self.is_explicit)
+        return pylops.LinearOperator(Op=self.SciOp, explicit=self.is_explicit)
 
     @property
     def PyLop(self):
@@ -90,6 +91,23 @@ class LinearOperator(DifferentiableMap):
 
     def cond(self, **kwargs):
         return self.PyLop.cond(**kwargs)
+
+    def pinv(self, y: Union[Number, np.ndarray], eps: Number = 0, **kwargs) -> Union[Number, np.ndarray]:
+        return NormalEquationsInversion(Op=self.PyLop, Regs=None, data=y, epsI=eps, **kwargs, returninfo=False)
+
+    @property
+    def PinvOp(self):
+        return LinOpPinv(self)
+
+    @property
+    def dagger(self):
+        return self.PinvOp
+
+    def RowProjector(self):
+        return SymmetricLinearOperator(self * self.dagger)
+
+    def ColProjector(self):
+        return SymmetricLinearOperator(self.dagger * self)
 
     def __add__(self, other: Union['Map', 'DifferentiableMap', 'LinearOperator']) -> Union[
         'MapSum', 'DiffMapSum', 'LinOpSum']:
@@ -178,6 +196,57 @@ class SymmetricLinearOperator(LinearOperator):
         return self.__call__(y)
 
 
+class UnitaryOperator(LinearOperator):
+    def __init__(self, size: int, dtype: Optional[type] = None,
+                 is_explicit: bool = False, is_dense: bool = False, is_sparse: bool = False, is_dask: bool = False,
+                 is_symmetric: bool = False):
+        super(UnitaryOperator, self).__init__(shape=(size, size), dtype=dtype, is_explicit=is_explicit,
+                                              is_dense=is_dense,
+                                              is_sparse=is_sparse, is_dask=is_dask, is_symmetric=is_symmetric)
+        self.size = size
+
+    def RangeGram(self):
+        return IdentityOperator(size=self.size, dtype=self.dtype)
+
+    def DomainGram(self):
+        return IdentityOperator(size=self.size, dtype=self.dtype)
+
+    def eigenvals(self, k: int, which='LM', **kwargs: dict) -> np.ndarray:
+        return self.singularvals(k=k, which='LM', **kwargs)
+
+    def singularvals(self, k: int, which='LM', **kwargs: dict) -> np.ndarray:
+        if k > np.fmin(self.shape[0], self.shape[1]):
+            raise ValueError('The number of singular values must not exceed the smallest dimension size.')
+        return np.ones(shape=(k,))
+
+    def compute_lipschitz_cst(self, **kwargs: dict):
+        self.lipschitz_cst = self.diff_lipschitz_cst = 1
+
+    def pinv(self, y: Union[Number, np.ndarray], eps: Number = 0, **kwargs) -> Union[Number, np.ndarray]:
+        return self.adjoint(y)
+
+    @property
+    def PinvOp(self):
+        return self.H
+
+    def cond(self, **kwargs):
+        return 1
+
+
+class LinOpPinv(LinearOperator):
+    def __init__(self, LinOp: LinearOperator, eps: Number = 0):
+        self.LinOp = LinOp
+        self.eps = eps
+        super(LinOpPinv, self).__init__(shape=LinOp.H.shape, dtype=LinOp.dtype, is_explicit=False, is_dense=False,
+                                        is_dask=False, is_symmetric=LinOp.is_symmetric)
+
+    def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        return NormalEquationsInversion(Op=self.PyLop, Regs=None, data=x, epsI=self.eps, returninfo=False)
+
+    def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        return LinOpPinv(LinOp=self.LinOp.H, eps=self.eps).__call__(y)
+
+
 class PyLopLinearOperator(LinearOperator):
     def __init__(self, PyLop: pylops.LinearOperator, is_symmetric: bool = False, is_dense: bool = False,
                  is_sparse: bool = False):
@@ -258,10 +327,10 @@ class IdentityOperator(DiagonalOperator):
         super(IdentityOperator, self).__init__(diag)
 
 
-class ConstantMap(DiagonalOperator):
+class HomothetyMap(DiagonalOperator):
     def __init__(self, constant: Number):
-        cst = np.asarray(constant)
-        super(ConstantMap, self).__init__(diag=cst)
+        self.cst = np.asarray(constant)
+        super(HomothetyMap, self).__init__(diag=self.cst)
 
 
 class LinOpStack(LinearOperator, DiffMapStack):
@@ -292,11 +361,11 @@ class LinOpStack(LinearOperator, DiffMapStack):
             return np.concatenate(out_list, axis=0)
 
 
-class LinearOperatorVStack(LinOpStack):
+class LinOpVStack(LinOpStack):
     def __init__(self, *linops: Iterable[LinearOperator, ...]):
-        super(LinearOperatorVStack, self).__init__(*linops, axis=0)
+        super(LinOpVStack, self).__init__(*linops, axis=0)
 
 
-class LinearOperatorHStack(LinOpStack):
+class LinOpHStack(LinOpStack):
     def __init__(self, *linops: Iterable[LinearOperator, ...]):
-        super(LinearOperatorHStack, self).__init__(*linops, axis=1)
+        super(LinOpHStack, self).__init__(*linops, axis=1)

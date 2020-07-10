@@ -2,7 +2,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from typing import Union, Tuple, Optional, Any, Iterable
 from numbers import Number
-from pycsou.core.linop import LinearOperator, ConstantMap, LinOpHStack, LinOpVStack
+from pycsou.core.linop import LinearOperator, HomothetyMap, LinOpHStack, LinOpVStack
 from pycsou.util.misc import is_range_broadcastable, range_broadcast_shape
 
 
@@ -29,10 +29,19 @@ class Map(ABC):
 
     def __mul__(self, other: Union[Number, 'Map']) -> 'MapComp':
         if isinstance(other, Number):
-            other = ConstantMap(other)
+            other = HomothetyMap(constant=other)
 
         if isinstance(other, Map):
             return MapComp(self, other)
+        else:
+            raise NotImplementedError
+
+    def __rmul__(self, other: Union[Number, 'Map']) -> 'MapComp':
+        if isinstance(other, Number):
+            other = HomothetyMap(constant=other)
+
+        if isinstance(other, Map):
+            return MapComp(other, self)
         else:
             raise NotImplementedError
 
@@ -99,10 +108,10 @@ class DifferentiableMap(Map):
         self.diff_lipschitz_cst = diff_lipschitz_cst
 
     @abstractmethod
-    def jacobianT(self, arg: Union[Number, np.ndarray]) -> 'LinearOperator':
+    def jacobianT(self, arg: Union[Number, np.ndarray]) -> LinearOperator:
         pass
 
-    def gradient(self, arg: Union[Number, np.ndarray]) -> 'LinearOperator':
+    def gradient(self, arg: Union[Number, np.ndarray]) -> LinearOperator:
         return self.jacobianT(arg)
 
     def compute_lipschitz_cst(self):
@@ -135,7 +144,7 @@ class DiffMapSum(MapSum, DifferentiableMap):
                                    lipschitz_cst=self.map1.lipschitz_cst + self.map2.lipschitz_cst,
                                    diff_lipschitz_cst=self.map1.diff_lipschitz_cst + self.map2.diff_lipschitz_cst)
 
-    def jacobianT(self, arg: Union[Number, np.ndarray]) -> 'LinearOperator':
+    def jacobianT(self, arg: Union[Number, np.ndarray]) -> LinearOperator:
         return self.map1.jacobianT(arg) + self.map2.jacobianT(arg)
 
 
@@ -147,7 +156,7 @@ class DiffMapComp(MapComp, DifferentiableMap):
         DifferentiableMap.__init__(self, shape=self.shape, is_linear=self.is_linear,
                                    lipschitz_cst=lipschitz_cst, diff_lipschitz_cst=diff_lipschitz_cst)
 
-    def jacobianT(self, arg: Union[Number, np.ndarray]) -> 'LinearOperator':
+    def jacobianT(self, arg: Union[Number, np.ndarray]) -> LinearOperator:
         return self.map2.jacobianT(arg) * self.map1.jacobianT(self.map2(arg))
 
 
@@ -210,7 +219,7 @@ class DiffMapStack(MapStack, DifferentiableMap):
         DifferentiableMap.__init__(self, shape=self.shape, is_linear=self.is_linear, lipschitz_cst=lipschitz_cst,
                                    diff_lipschitz_cst=diff_lipschitz_cst)
 
-    def jacobianT(self, arg: Union[Number, np.ndarray]) -> Union['LinOpVStack', 'LinOpHStack']:
+    def jacobianT(self, arg: Union[Number, np.ndarray]) -> Union[LinOpHStack, LinOpHStack]:
         if self.axis == 0:
             jacobianT_list = [diffmap.jacobianT(arg) for diffmap in self.maps]
             return LinOpHStack(*jacobianT_list)
