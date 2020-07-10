@@ -1,8 +1,8 @@
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Union, Tuple, Optional, Any
+from typing import Union, Tuple, Optional, Any, Iterable
 from numbers import Number
-from pycsou.core.linop import LinearOperator, ConstantMap
+from pycsou.core.linop import LinearOperator, ConstantMap, LinOpHStack, LinOpVStack
 from pycsou.util.misc import is_range_broadcastable, range_broadcast_shape
 
 
@@ -149,3 +149,82 @@ class DiffMapComp(MapComp, DifferentiableMap):
 
     def jacobianT(self, arg: Union[Number, np.ndarray]) -> 'LinearOperator':
         return self.map2.jacobianT(arg) * self.map1.jacobianT(self.map2(arg))
+
+
+class MapStack(Map):
+    def __init__(self, *maps: Iterable[Map, ...], axis: int):
+        self.maps = list(*maps)
+        if (np.abs(axis) > 1):
+            ValueError('Axis must be one of {0, 1,-1}.')
+        self.axis = int(axis)
+        self.is_linear_list = [map_.is_linear for map_ in self.maps]
+        self.is_differentiable_list = [map_.is_differentiable for map_ in self.maps]
+        self.shapes = np.array([map_.shape for map_ in self.maps])
+        self.block_sizes = [map_.shape[axis] for map_ in self.maps]
+        self.sections = np.cumsum(self.block_sizes)
+
+        if not self.is_valid_stack():
+            raise ValueError('Inconsistent map shapes for  stacking.')
+        super(MapStack, self).__init__(shape=self.get_shape(),
+                                       is_linear=bool(np.prod(self.is_linear_list).astype(bool)),
+                                       is_differentiable=bool(np.prod(self.is_differentiable_list).astype(bool)))
+
+    def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        if self.axis == 0:
+            out_list = [map_.__call__(x) for map_ in self.maps]
+            return np.concatenate(out_list, axis=0)
+        else:
+            x_split = np.split(x, self.sections)
+            result = 0
+            for i, map_ in enumerate(self.maps):
+                result += map_.__call__(x_split[i])
+            return result
+
+    def is_valid_stack(self) -> bool:
+        col_sizes = [map_.shape[1 - self.axis] for map_ in self.maps]
+        return np.unique(col_sizes).size == 1
+
+    def get_shape(self) -> Tuple[int, int]:
+        sizes = [map_.shape[self.axis] for map_ in self.maps]
+        if self.axis == 0:
+            return (int(np.sum(sizes).astype(int)), self.maps[0].shape[1 - self.axis])
+        else:
+            return (self.maps[0].shape[1 - self.axis], int(np.sum(sizes).astype(int)))
+
+
+class MapVStack(MapStack):
+    def __init__(self, *maps: Iterable[Map, ...]):
+        super(MapVStack, self).__init__(*maps, axis=0)
+
+
+class MapHStack(MapStack):
+    def __init__(self, *maps: Iterable[Map, ...]):
+        super(MapHStack, self).__init__(*maps, axis=1)
+
+
+class DiffMapStack(MapStack, DifferentiableMap):
+    def __init__(self, *diffmaps: Iterable[DifferentiableMap, ...], axis: int):
+        MapStack.__init__(self, *diffmaps, axis=axis)
+        lipschitz_cst = np.sqrt(np.sum([diffmap.lipschitz_cst ** 2 for diffmap in self.maps]))
+        diff_lipschitz_cst = np.sqrt(np.sum([diffmap.diff_lipschitz_cst ** 2 for diffmap in self.maps]))
+        DifferentiableMap.__init__(self, shape=self.shape, is_linear=self.is_linear, lipschitz_cst=lipschitz_cst,
+                                   diff_lipschitz_cst=diff_lipschitz_cst)
+
+    def jacobianT(self, arg: Union[Number, np.ndarray]) -> Union['LinOpVStack', 'LinOpHStack']:
+        if self.axis == 0:
+            jacobianT_list = [diffmap.jacobianT(arg) for diffmap in self.maps]
+            return LinOpHStack(*jacobianT_list)
+        else:
+            arg_split = np.split(arg, self.sections)
+            jacobianT_list = [diffmap.jacobianT(arg_split[i]) for i, diffmap in enumerate(self.maps)]
+            return LinOpVStack(*jacobianT_list)
+
+
+class DiffMapVStack(DiffMapStack):
+    def __init__(self, *diffmaps: Iterable[DifferentiableMap, ...]):
+        super(DiffMapVStack, self).__init__(*diffmaps, axis=0)
+
+
+class DiffMapHStack(DiffMapStack):
+    def __init__(self, *diffmaps: Iterable[DifferentiableMap, ...]):
+        super(DiffMapHStack, self).__init__(*diffmaps, axis=1)

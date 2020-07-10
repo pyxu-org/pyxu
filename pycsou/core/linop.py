@@ -1,4 +1,4 @@
-from pycsou.core.map import DifferentiableMap, DiffMapSum, DiffMapComp, Map, MapSum, MapComp
+from pycsou.core.map import DifferentiableMap, DiffMapSum, DiffMapComp, Map, MapSum, MapComp, DiffMapStack
 import numpy as np
 from typing import Union, Tuple, Optional, Iterable
 from abc import abstractmethod
@@ -29,7 +29,7 @@ class LinearOperator(DifferentiableMap):
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         pass
 
-    def jacobianT(self, arg: Union[Number, np.ndarray]) -> 'LinearOperator':
+    def jacobianT(self, arg: Union[Number, np.ndarray] = None) -> 'LinearOperator':
         return self.get_adjointOp()
 
     def get_adjointOp(self) -> 'AdjointLinearOperator':
@@ -264,43 +264,39 @@ class ConstantMap(DiagonalOperator):
         super(ConstantMap, self).__init__(diag=cst)
 
 
-class LinearOperatorVStack(LinearOperator):
-    def __init__(self, *linops: Iterable):
-        self.linops = list(*linops)
+class LinOpStack(LinearOperator, DiffMapStack):
+    def __init__(self, *linops: Iterable[LinearOperator, ...], axis: int):
+        DiffMapStack.__init__(self, *linops, axis=axis)
+        self.linops = self.maps
         self.is_explicit_list = [linop.is_explicit for linop in self.linops]
         self.is_dense_list = [linop.is_dense for linop in self.linops]
         self.is_sparse_list = [linop.is_sparse for linop in self.linops]
         self.is_dask_list = [linop.is_dask for linop in self.linops]
         self.is_symmetric_list = [linop.is_symmetric for linop in self.linops]
-        self.shapes = np.array([linop.shape for linop in self.linops])
-        self.block_sizes = [linop.shape[0] for linop in self.linops]
-        self.sections = np.cumsum(self.block_sizes)
-
-        if not self.is_valid_Vstack():
-            raise ValueError('Inconsistent operator shapes for vertical stacking.')
-        super(LinearOperatorVStack, self).__init__(shape=self.get_shape(),
-                                                   is_explicit=bool(np.prod(self.is_explicit_list).astype(bool)),
-                                                   is_dense=bool(np.prod(self.is_dense_list).astype(bool)),
-                                                   is_sparse=bool(np.prod(self.is_sparse_list).astype(bool)),
-                                                   is_dask=bool(np.prod(self.is_dask_list).astype(bool)),
-                                                   is_symmetric=bool(np.prod(self.is_symmetric_list).astype(bool)))
-
-    def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        out_list = []
-        for i, linop in enumerate(self.linops):
-            out_list.append(linop.matvec(x))
-        return np.concatenate(out_list, axis=0)
+        LinearOperator.__init__(self, shape=self.shape,
+                                is_explicit=bool(np.prod(self.is_explicit_list).astype(bool)),
+                                is_dense=bool(np.prod(self.is_dense_list).astype(bool)),
+                                is_sparse=bool(np.prod(self.is_sparse_list).astype(bool)),
+                                is_dask=bool(np.prod(self.is_dask_list).astype(bool)),
+                                is_symmetric=bool(np.prod(self.is_symmetric_list).astype(bool)))
 
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        y_split = np.split(y, self.sections)
-        result = 0
-        for i, linop in enumerate(self.linops):
-            result += linop.adjoint(y_split[i])
+        if self.axis == 0:
+            y_split = np.split(y, self.sections)
+            result = 0
+            for i, linop in enumerate(self.linops):
+                result += linop.adjoint(y_split[i])
+            return result
+        else:
+            out_list = [linop.adjoint(y) for linop in self.linops]
+            return np.concatenate(out_list, axis=0)
 
-    def is_valid_Vstack(self) -> bool:
-        col_sizes = [linop.shape[1] for linop in self.linops]
-        return np.unique(col_sizes).size == 1
 
-    def get_shape(self) -> Tuple[int, int]:
-        row_sizes = [linop.shape[0] for linop in self.linops]
-        return (int(np.sum(row_sizes).astype(int)), self.linops[0].shape[1])
+class LinearOperatorVStack(LinOpStack):
+    def __init__(self, *linops: Iterable[LinearOperator, ...]):
+        super(LinearOperatorVStack, self).__init__(*linops, axis=0)
+
+
+class LinearOperatorHStack(LinOpStack):
+    def __init__(self, *linops: Iterable[LinearOperator, ...]):
+        super(LinearOperatorHStack, self).__init__(*linops, axis=1)
