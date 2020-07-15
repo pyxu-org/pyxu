@@ -8,28 +8,117 @@ import scipy.optimize as sciop
 
 
 class L2Norm(DifferentiableFunctional):
+    r"""
+    Class for the :math:`\ell_2`-norm, defined as :math:`\Vert\mathbf{x}\Vert_2:=\sqrt{\sum_{i=1}^N x^2_i}`.
+
+    This class inherits from the base class :py:class:`~pycsou.core.functional.DifferentiableFunctional`.
+
+    Examples
+    --------
+    .. testsetup::
+       import numpy as np
+       from pycsou.func.penalty import L2Norm
+
+    .. doctest::
+       >>> x=np.arange(10)
+       >>> l2_norm=L2Norm(dim=x.size)
+       >>> l2_norm(x)
+       16.881943016134134
+       >>> np.allclose(l2_norm.gradient(x)(x),2*x)
+       True
+
+    See Also
+    --------
+    :py:func:`~pycsou.func.penalty.L2Ball`, :py:func:`~pycsou.func.loss.L2Loss`, :py:func:`~pycsou.func.loss.L2BallLoss`.
+    """
+
     def __init__(self, dim: int):
+        r"""
+
+        Parameters
+        ----------
+        dim : int
+            Dimension of the domain.
+        """
         super(L2Norm, self).__init__(dim=dim, data=None, is_linear=False, lipschitz_cst=np.infty, diff_lipschitz_cst=2)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Number:
-        return np.sum(np.abs(x) ** 2).reshape(-1)
+        return np.linalg.norm(x)
 
     def jacobianT(self, arg: Union[Number, np.ndarray]) -> LinearOperator:
         return 2 * IdentityOperator(size=self.dim)
 
 
 def L2Ball(dim: int, radius: Number) -> IndicatorFunctional:
+    r"""
+    Constructs the indicator function of an :math:`\ell_2`-ball with prescribed radius.
+
+    Parameters
+    ----------
+    dim : int
+        Dimension of the domain.
+    radius: Number
+        Radius of the :math:`\ell_2`-ball.
+
+    Returns
+    -------
+    py:class:`pycsou.core.functional.IndicatorFunctional`
+        Indicator function of the :math:`\ell_2`-ball.
+
+    Examples
+    --------
+    .. testsetup::
+       import numpy as np
+       from pycsou.func.penalty import L2Ball
+
+    .. doctest::
+       >>> x=np.arange(10)
+       >>> l2_ball=L2Ball(dim=x.size,radius=10)
+       >>> l2_ball(x)
+       inf
+       >>> np.linalg.norm(l2_ball.prox(x,tau=1))
+       10.0
+
+    See Also
+    --------
+    :py:func:`~pycsou.func.penalty.L2Norm`, :py:func:`~pycsou.func.loss.L2Loss`, :py:func:`~pycsou.func.loss.L2BallLoss`.
+    """
     condition_func = lambda x: np.linalg.norm(x) <= radius
     projection_func = lambda x: proj_l2_ball(x, radius=radius)
     return IndicatorFunctional(dim=dim, condition_func=condition_func, projection_func=projection_func)
 
 
 class L1Norm(LpNorm):
+    r"""
+    Class for the :math:`\ell_1`-norm, defined as :math:`\Vert\mathbf{x}\Vert_1:=\sum_{i=1}^N |x_i|}`.
+
+    This class inherits from the base class :py:class:`~pycsou.core.functional.LpNorm`.
+
+    Examples
+    --------
+    .. testsetup::
+       import numpy as np
+       from pycsou.func.penalty import L1Norm
+       from pycsou.util.math import soft
+
+    .. doctest::
+       >>> x=np.arange(10)
+       >>> l1_norm=L1Norm(dim=x.size)
+       >>> l1_norm(x)
+       45
+       >>> np.allclose(l1_norm.prox(x,tau=1),soft(x,tau=1))
+       True
+
+    See Also
+    --------
+    :py:func:`~pycsou.func.penalty.L1Ball`, :py:func:`~pycsou.func.loss.L1Loss`, :py:func:`~pycsou.func.loss.L1BallLoss`.
+    """
+
     def __init__(self, dim: int):
         super(L1Norm, self).__init__(dim=dim, proj_lq_ball=proj_linfty_ball)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Number:
-        return np.sum(np.abs(x)).reshape(-1)
+        return np.sum(np.abs(x))
 
     def soft(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
         return soft(x=x, tau=tau)
@@ -74,7 +163,7 @@ class LInftyNorm(LpNorm):
         super(LInftyNorm, self).__init__(dim=dim, proj_lq_ball=proj_l1_ball)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Number:
-        return np.max(np.abs(x)).reshape(-1)
+        return np.max(np.abs(x))
 
 
 def LInftyBall(dim: int, radius: Number) -> IndicatorFunctional:
@@ -112,7 +201,13 @@ class LogBarrier(ProximableFunctional):
         super(LogBarrier, self).__init__(dim=dim, data=None, is_differentiable=False, is_linear=False)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Number:
-        return -np.sum(np.log(x)).reshape(-1)
+        return -np.sum(np.log(x))
 
     def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
         return (x + np.sqrt(x ** 2 + 4 * tau)) / 2
+
+
+if __name__ == "__main__":
+    import doctest
+
+    doctest.testmod()

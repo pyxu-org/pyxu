@@ -10,7 +10,7 @@ import warnings
 class Functional(Map):
     def __init__(self, dim: int, data: Union[None, Number, np.ndarray] = None, is_differentiable: bool = False,
                  is_linear: bool = False):
-        super(Functional, self).__init__(shape=(1, dim), is_differentiable=is_differentiable, is_linear=is_linear)
+        Map.__init__(self,shape=(1, dim), is_differentiable=is_differentiable, is_linear=is_linear)
         self.data = data
         self.dim = dim
 

@@ -111,12 +111,12 @@ class MapBias(Map):
 
 class MapComp(Map):
     def __init__(self, map1: Map, map2: Map):
-        if map1.shape[0] != map2.shape[1] and map2.shape[1] != 1:
+        if map1.shape[1] != map2.shape[0] and map2.shape[0] != 1 and map1.shape[1] != 1:
             raise ValueError('Cannot compose two maps with inconsistent range or domain sizes.')
         else:
-            super(MapComp, self).__init__(shape=(map1.shape[1], map2.shape[0]),
-                                          is_linear=map1.is_linear & map2.is_linear,
-                                          is_differentiable=map1.is_differentiable & map2.is_differentiable)
+            Map.__init__(self, shape=(map1.shape[0], map2.shape[1]),
+                         is_linear=map1.is_linear & map2.is_linear,
+                         is_differentiable=map1.is_differentiable & map2.is_differentiable)
             self.map1 = map1
             self.map2 = map2
 

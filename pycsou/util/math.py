@@ -7,7 +7,7 @@ import scipy.optimize as sciop
 def sign(x: Union[np.ndarray, Number]) -> Union[np.ndarray, Number]:
     y = 0 * x
     y[np.abs(x) != 0] = np.conj(x[np.abs(x) != 0]) / np.abs(x[np.abs(x) != 0])
-    return x
+    return y
 
 
 def soft(x: Union[np.ndarray, Number], tau: Number) -> Union[np.ndarray, Number]:

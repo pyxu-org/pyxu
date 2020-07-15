@@ -14,7 +14,7 @@ class LinearOperator(DifferentiableMap):
     def __init__(self, shape=Tuple[int, int], dtype: Optional[type] = None,
                  is_explicit: bool = False, is_dense: bool = False, is_sparse: bool = False, is_dask: bool = False,
                  is_symmetric: bool = False):
-        super(LinearOperator, self).__init__(shape=shape, is_linear=True)
+        DifferentiableMap.__init__(self, shape=shape, is_linear=True)
         self.dtype = dtype
         self.is_explicit = is_explicit
         self.is_dense = is_dense
