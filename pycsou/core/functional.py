@@ -1,7 +1,7 @@
 from pycsou.core.map import Map, DifferentiableMap, MapSum, MapComp, MapHStack
 from abc import abstractmethod
 from pycsou.core.linop import LinearOperator, UnitaryOperator
-from typing import Union, Tuple, Optional, Any, Iterable
+from typing import Union, Tuple, Optional, Any, Iterable, Callable
 from numbers import Number
 import numpy as np
 import warnings
@@ -17,8 +17,7 @@ class Functional(Map):
 
 class DifferentiableFunctional(Functional, DifferentiableMap):
     def __init__(self, dim: int, data: Union[None, Number, np.ndarray] = None, is_linear: bool = False,
-                 lipschitz_cst: float = np.infty,
-                 diff_lipschitz_cst: float = np.infty):
+                 lipschitz_cst: float = np.infty, diff_lipschitz_cst: float = np.infty):
         Functional.__init__(self, dim=dim, data=data, is_differentiable=True, is_linear=is_linear)
         DifferentiableMap.__init__(self, shape=self.shape, is_linear=self.is_linear, lipschitz_cst=lipschitz_cst,
                                    diff_lipschitz_cst=diff_lipschitz_cst)
@@ -57,9 +56,9 @@ class ProximableFunctional(Functional):
         else:
             raise NotImplementedError
 
-    def __mul__(self, other: Union[Number, Map, UnitaryOperator]) -> Union[
-        MapComp, 'ProxFuncPreComp', 'ProxFuncPreCompUnitOp']:
-        if isinstance(other, Number):
+    def __mul__(self, other: Union[Number, Map, UnitaryOperator, np.ndarray]) \
+            -> Union[MapComp, 'ProxFuncPreComp', 'ProxFuncPreCompUnitOp']:
+        if isinstance(other, Number) or isinstance(other, np.ndarray):
             return ProxFuncPreComp(self, scale=other, shift=0)
         elif isinstance(other, UnitaryOperator):
             return ProxFuncPreCompUnitOp(self, other)
@@ -85,7 +84,7 @@ class ProxFuncPostComp(ProximableFunctional):
         self.scale = scale
         self.shift = shift
 
-    def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+    def __call__(self, x: Union[Number, np.ndarray]) -> Number:
         return self.scale * self.prox_func.__call__(x) + self.shift
 
     def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
@@ -102,7 +101,7 @@ class ProxFuncAffineSum(ProximableFunctional):
         self.linear_part = linear_part
         self.intercept = intercept
 
-    def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+    def __call__(self, x: Union[Number, np.ndarray]) -> Number:
         return self.prox_func.__call__(x) + self.linear_part.__call__(x) + self.intercept
 
     def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
@@ -111,14 +110,15 @@ class ProxFuncAffineSum(ProximableFunctional):
 
 
 class ProxFuncPreComp(ProximableFunctional):
-    def __init__(self, prox_func: ProximableFunctional, scale: Number, shift: Number):
+    def __init__(self, prox_func: ProximableFunctional, scale: Union[Number, np.ndarray],
+                 shift: Union[Number, np.ndarray]):
         super(ProxFuncPreComp, self).__init__(dim=prox_func.dim, data=prox_func.data,
                                               is_differentiable=prox_func.is_differentiable)
         self.prox_func = prox_func
         self.scale = scale
         self.shift = shift
 
-    def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+    def __call__(self, x: Union[Number, np.ndarray]) -> Number:
         return self.prox_func.__call__(self.scale * x + self.shift)
 
     def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
@@ -132,7 +132,7 @@ class ProxFuncPreCompUnitOp(ProximableFunctional):
         self.prox_func = prox_func
         self.unitary_op = unitary_op
 
-    def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+    def __call__(self, x: Union[Number, np.ndarray]) -> Number:
         return self.prox_func.__call__(self.unitary_op.matvec(x))
 
     def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
@@ -150,3 +150,25 @@ class ProxFuncHStack(ProximableFunctional, MapHStack):
         x_split = np.split(x, self.sections)
         result = [func.prox(x_split[i]) for i, func in enumerate(self.proxfuncs)]
         return np.concatenate(result, axis=0)
+
+
+class LpNorm(ProximableFunctional):
+    def __init__(self, dim: int, proj_lq_ball: Callable):
+        super(LpNorm, self).__init__(dim=dim, data=None, is_differentiable=False, is_linear=False)
+        self.proj_lq_ball = proj_lq_ball
+
+    def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
+        return x - tau * self.proj_lq_ball(x / tau, radius=1)
+
+
+class IndicatorFunctional(ProximableFunctional):
+    def __init__(self, dim: int, condition_func: Callable, projection_func: Callable):
+        super(IndicatorFunctional, self).__init__(dim=dim, data=None, is_differentiable=False, is_linear=False)
+        self.condition_func = condition_func
+        self.projection_func = projection_func
+
+    def __call__(self, x: Union[Number, np.ndarray], **kwargs) -> Number:
+        return 0 if self.condition_func(x, **kwargs) else np.infty
+
+    def prox(self, x: Union[Number, np.ndarray], tau: Number, **kwargs) -> Union[Number, np.ndarray]:
+        return self.projection_func(x, **kwargs)

@@ -109,7 +109,7 @@ class LinearOperator(DifferentiableMap):
     def ColProjector(self):
         return SymmetricLinearOperator(self.dagger * self)
 
-    def __add__(self, other: Union['Map', 'DifferentiableMap', 'LinearOperator']) -> Union[
+    def __add__(self, other: Union['Map', 'DifferentiableMap', 'LinearOperator', np.ndarray]) -> Union[
         'MapSum', 'DiffMapSum', 'LinOpSum']:
         if isinstance(other, LinearOperator):
             return LinOpSum(self, other)
@@ -120,14 +120,31 @@ class LinearOperator(DifferentiableMap):
         else:
             raise NotImplementedError
 
-    def __mul__(self, other: Union['Map', 'DifferentiableMap', 'LinearOperator']) -> Union[
+    def __mul__(self, other: Union['Map', 'DifferentiableMap', 'LinearOperator', Number]) -> Union[
         'MapSum', 'DiffMapSum', 'LinOpSum']:
+        if isinstance(other, Number):
+            other = HomothetyMap(constant=other)
+
         if isinstance(other, LinearOperator):
             return LinOpComp(self, other)
         elif isinstance(other, DifferentiableMap):
             return DiffMapComp(self, other)
         elif isinstance(other, Map):
             return MapComp(self, other)
+        else:
+            raise NotImplementedError
+
+    def __rmul__(self, other: Union['Map', 'DifferentiableMap', 'LinearOperator', Number]) -> Union[
+        'MapSum', 'DiffMapSum', 'LinOpSum']:
+        if isinstance(other, Number):
+            other = HomothetyMap(constant=other)
+
+        if isinstance(other, LinearOperator):
+            return LinOpComp(other, self)
+        elif isinstance(other, DifferentiableMap):
+            return DiffMapComp(other, self)
+        elif isinstance(other, Map):
+            return MapComp(other, self)
         else:
             raise NotImplementedError
 
@@ -334,7 +351,7 @@ class HomothetyMap(DiagonalOperator):
 
 
 class LinOpStack(LinearOperator, DiffMapStack):
-    def __init__(self, *linops: Iterable[LinearOperator, ...], axis: int):
+    def __init__(self, *linops: Iterable[LinearOperator], axis: int):
         DiffMapStack.__init__(self, *linops, axis=axis)
         self.linops = self.maps
         self.is_explicit_list = [linop.is_explicit for linop in self.linops]
@@ -362,10 +379,10 @@ class LinOpStack(LinearOperator, DiffMapStack):
 
 
 class LinOpVStack(LinOpStack):
-    def __init__(self, *linops: Iterable[LinearOperator, ...]):
+    def __init__(self, *linops: Iterable[LinearOperator]):
         super(LinOpVStack, self).__init__(*linops, axis=0)
 
 
 class LinOpHStack(LinOpStack):
-    def __init__(self, *linops: Iterable[LinearOperator, ...]):
+    def __init__(self, *linops: Iterable[LinearOperator]):
         super(LinOpHStack, self).__init__(*linops, axis=1)
