@@ -1,6 +1,6 @@
 from pycsou.core.functional import DifferentiableFunctional, ProximableFunctional, ProxFuncPreComp, IndicatorFunctional
 from pycsou.core.linop import LinearOperator, IdentityOperator
-from pycsou.func.penalty import L2Norm, L1Norm, LInftyNorm, L2Ball, L1Ball, LInftyBall, LogBarrier
+from pycsou.func.penalty import L2Norm, L1Norm, LInftyNorm, L2Ball, L1Ball, LInftyBall, SquaredL1Norm, SquaredL2Norm
 from typing import Union, Optional, Iterable, Any
 from numbers import Number
 import numpy as np
@@ -14,9 +14,14 @@ def DifferentiableLoss(Loss: DifferentiableFunctional, data: Union[Number, np.nd
     return Loss * (IdentityOperator(size=Loss.dim, dtype=data.dtype) - data)
 
 
-def L2Loss(dim: int, data: Union[Number, np.ndarray]) -> DifferentiableFunctional:
+def L2Loss(dim: int, data: Union[Number, np.ndarray]) -> ProximableFunctional:
     L2_norm = L2Norm(dim=dim)
-    return DifferentiableLoss(L2_norm, data=data)
+    return ProximableLoss(L2_norm, data=data)
+
+
+def SquaredL2Loss(dim: int, data: Union[Number, np.ndarray]) -> DifferentiableFunctional:
+    squared_L2_norm = SquaredL2Norm(dim=dim)
+    return DifferentiableLoss(squared_L2_norm, data=data)
 
 
 def L2BallLoss(dim: int, data: Union[Number, np.ndarray], radius: Number = 1) -> ProximableFunctional:
@@ -27,6 +32,11 @@ def L2BallLoss(dim: int, data: Union[Number, np.ndarray], radius: Number = 1) ->
 def L1Loss(dim: int, data: Union[Number, np.ndarray]) -> ProximableFunctional:
     L1_norm = L1Norm(dim=dim)
     return ProximableLoss(L1_norm, data=data)
+
+
+def SquaredL1Loss(dim: int, data: Union[Number, np.ndarray], prox_computation='sort') -> ProximableFunctional:
+    squared_L1_norm = SquaredL1Norm(dim=dim, prox_computation=prox_computation)
+    return ProximableLoss(squared_L1_norm, data=data)
 
 
 def L1BallLoss(dim: int, data: Union[Number, np.ndarray], radius: Number = 1) -> ProximableFunctional:

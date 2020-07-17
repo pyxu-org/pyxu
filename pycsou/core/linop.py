@@ -30,7 +30,7 @@ class LinearOperator(DifferentiableMap):
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         pass
 
-    def jacobianT(self, arg: Union[Number, np.ndarray] = None) -> 'LinearOperator':
+    def jacobianT(self, arg: Union[Number, np.ndarray, None] = None) -> 'LinearOperator':
         return self.get_adjointOp()
 
     def get_adjointOp(self) -> 'AdjointLinearOperator':
@@ -120,12 +120,14 @@ class LinearOperator(DifferentiableMap):
         else:
             raise NotImplementedError
 
-    def __mul__(self, other: Union['Map', 'DifferentiableMap', 'LinearOperator', Number]) -> Union[
-        'MapSum', 'DiffMapSum', 'LinOpSum']:
+    def __mul__(self, other: Union['Map', 'DifferentiableMap', 'LinearOperator', Number, np.ndarray]) -> Union[
+        'MapSum', 'DiffMapSum', 'LinOpSum', np.ndarray]:
         if isinstance(other, Number):
             other = HomothetyMap(constant=other)
 
-        if isinstance(other, LinearOperator):
+        if isinstance(other, np.ndarray):
+            return self(other)
+        elif isinstance(other, LinearOperator):
             return LinOpComp(self, other)
         elif isinstance(other, DifferentiableMap):
             return DiffMapComp(self, other)
@@ -282,11 +284,11 @@ class PyLopLinearOperator(LinearOperator):
 class ExplicitLinearOperator(LinearOperator):
     def __init__(self, array: Union[np.ndarray, sparse.spmatrix, da.array], is_symmetric: bool = False):
         if isinstance(array, np.ndarray):
-            is_dense = True
+            is_dense, is_sparse, is_dask = True, False, False
         elif isinstance(array, sparse.spmatrix):
-            is_sparse = True
+            is_dense, is_sparse, is_dask = False, True, False
         elif isinstance(array, da.array):
-            is_dask = True
+            is_dense, is_sparse, is_dask = False, False, True
         else:
             raise TypeError('Invalid input type.')
         super(ExplicitLinearOperator, self).__init__(shape=array.shape, dtype=array.dtype, is_explicit=True,
@@ -325,17 +327,23 @@ class DaskLinearOperator(ExplicitLinearOperator):
 
 
 class DiagonalOperator(LinearOperator):
-    def __init__(self, diag: np.ndarray):
+    def __init__(self, diag: Union[Number, np.ndarray]):
         self.diag = np.asarray(diag).reshape(-1)
-        super(DiagonalOperator, self).__init__(shape=(diag.size, diag.size), dtype=diag.dtype, is_explicit=False,
-                                               is_dense=False, is_sparse=False, is_dask=False,
-                                               is_symmetric=np.alltrue(np.isreal(diag)))
+        super(DiagonalOperator, self).__init__(shape=(self.diag.size, self.diag.size), dtype=self.diag.dtype,
+                                               is_explicit=False, is_dense=False, is_sparse=False, is_dask=False,
+                                               is_symmetric=np.alltrue(np.isreal(self.diag)))
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        return self.diag * x
+        if self.diag.size == 1:
+            return np.asscalar(self.diag * x)
+        else:
+            return self.diag * x
 
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        return self.diag.conj() * y
+        if self.diag.size == 1:
+            return np.asscalar(self.diag.conj() * y)
+        else:
+            return self.diag.conj() * y
 
 
 class IdentityOperator(DiagonalOperator):
@@ -346,8 +354,11 @@ class IdentityOperator(DiagonalOperator):
 
 class HomothetyMap(DiagonalOperator):
     def __init__(self, constant: Number):
-        self.cst = np.asarray(constant)
+        self.cst = constant
         super(HomothetyMap, self).__init__(diag=self.cst)
+
+    def jacobianT(self, arg: Optional[Number] = None) -> Number:
+        return self.cst
 
 
 class LinOpStack(LinearOperator, DiffMapStack):

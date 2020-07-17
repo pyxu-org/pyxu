@@ -32,10 +32,10 @@ def proj_l2_ball(x: Union[np.ndarray, Number], radius: Number) -> Union[np.ndarr
 
 
 def proj_linfty_ball(x: Union[np.ndarray, Number], radius: Number) -> Union[np.ndarray, Number]:
-    if np.max(np.abs(x)) <= radius:
-        return x
-    else:
-        return radius * sign(x)
+    y = x
+    y[y > radius] = radius
+    y[y < -radius] = -radius
+    return y
 
 
 def proj_nonnegative_orthant(x: Union[np.ndarray, Number]) -> Union[np.ndarray, Number]:

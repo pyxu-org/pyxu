@@ -10,7 +10,7 @@ import warnings
 class Functional(Map):
     def __init__(self, dim: int, data: Union[None, Number, np.ndarray] = None, is_differentiable: bool = False,
                  is_linear: bool = False):
-        Map.__init__(self,shape=(1, dim), is_differentiable=is_differentiable, is_linear=is_linear)
+        Map.__init__(self, shape=(1, dim), is_differentiable=is_differentiable, is_linear=is_linear)
         self.data = data
         self.dim = dim
 
@@ -21,6 +21,10 @@ class DifferentiableFunctional(Functional, DifferentiableMap):
         Functional.__init__(self, dim=dim, data=data, is_differentiable=True, is_linear=is_linear)
         DifferentiableMap.__init__(self, shape=self.shape, is_linear=self.is_linear, lipschitz_cst=lipschitz_cst,
                                    diff_lipschitz_cst=diff_lipschitz_cst)
+
+    @abstractmethod
+    def jacobianT(self, arg: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        pass
 
 
 class LinearFunctional(Functional, LinearOperator):

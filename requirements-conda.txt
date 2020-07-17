@@ -1,0 +1,5 @@
+python == 3.7.*
+dask >= 2.16.*
+numpy >= 1.10
+scipy >= 1.0
+pylops >= 1.9.1

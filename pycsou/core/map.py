@@ -37,12 +37,14 @@ class Map(ABC):
         else:
             raise NotImplementedError
 
-    def __mul__(self, other: Union[Number, 'Map']) -> 'MapComp':
+    def __mul__(self, other: Union[Number, 'Map', np.ndarray]) -> Union['MapComp', np.ndarray]:
         if isinstance(other, Number):
             from pycsou.core.linop import HomothetyMap
             other = HomothetyMap(constant=other)
 
-        if isinstance(other, Map):
+        if isinstance(other, np.ndarray):
+            return self(other)
+        elif isinstance(other, Map):
             return MapComp(self, other)
         else:
             raise NotImplementedError
@@ -164,12 +166,15 @@ class DifferentiableMap(Map):
         else:
             raise NotImplementedError
 
-    def __mul__(self, other: Union[Number, 'Map', 'DifferentiableMap']) -> Union['MapComp', 'DiffMapComp']:
+    def __mul__(self, other: Union[Number, 'Map', 'DifferentiableMap', np.ndarray]) \
+            -> Union['MapComp', 'DiffMapComp', np.ndarray]:
         if isinstance(other, Number):
             from pycsou.core.linop import HomothetyMap
             other = HomothetyMap(constant=other)
 
-        if isinstance(other, DifferentiableMap):
+        if isinstance(other, np.ndarray):
+            return self(other)
+        elif isinstance(other, DifferentiableMap):
             return DiffMapComp(self, other)
         elif isinstance(other, Map):
             return MapComp(self, other)
@@ -281,7 +286,7 @@ class DiffMapStack(MapStack, DifferentiableMap):
         DifferentiableMap.__init__(self, shape=self.shape, is_linear=self.is_linear, lipschitz_cst=lipschitz_cst,
                                    diff_lipschitz_cst=diff_lipschitz_cst)
 
-    def jacobianT(self, arg: Union[Number, np.ndarray]) -> Union['LinOpHStack', 'LinOpHStack']:
+    def jacobianT(self, arg: Union[Number, np.ndarray]) -> Union['LinOpHStack', 'LinOpVStack']:
         if self.axis == 0:
             from pycsou.core.linop import LinOpHStack
             jacobianT_list = [diffmap.jacobianT(arg) for diffmap in self.maps]

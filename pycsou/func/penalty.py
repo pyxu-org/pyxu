@@ -1,5 +1,5 @@
 from pycsou.core.functional import DifferentiableFunctional, ProximableFunctional, LpNorm, IndicatorFunctional
-from pycsou.core.linop import LinearOperator, IdentityOperator
+from pycsou.core.linop import LinearOperator, DenseLinearOperator
 from pycsou.util.math import soft, proj_l1_ball, proj_l2_ball, proj_linfty_ball, proj_nonnegative_orthant, proj_segment
 from typing import Union, Optional, Iterable, Any
 from numbers import Number
@@ -7,29 +7,33 @@ import numpy as np
 import scipy.optimize as sciop
 
 
-class L2Norm(DifferentiableFunctional):
+class L2Norm(LpNorm):
     r"""
-    Class for the :math:`\ell_2`-norm, defined as :math:`\Vert\mathbf{x}\Vert_2:=\sqrt{\sum_{i=1}^N x^2_i}`.
-
-    This class inherits from the base class :py:class:`~pycsou.core.functional.DifferentiableFunctional`.
+    :math:`\ell_2`-norm, :math:`\Vert\mathbf{x}\Vert_2:=\sqrt{\sum_{i=1}^N |x_i|^2}`.
 
     Examples
     --------
     .. testsetup::
+
        import numpy as np
        from pycsou.func.penalty import L2Norm
 
     .. doctest::
-       >>> x=np.arange(10)
-       >>> l2_norm=L2Norm(dim=x.size)
-       >>> l2_norm(x)
+
+       >>> x = np.arange(10)
+       >>> norm = L2Norm(dim=x.size)
+       >>> norm(x)
        16.881943016134134
-       >>> np.allclose(l2_norm.gradient(x)(x),2*x)
+       >>> tau=1.2; np.allclose(norm.prox(x, tau=tau),np.clip(1 - tau / norm(x), a_min=0, a_max=None) * x)
+       True
+       >>> lambda_=3; scaled_norm = lambda_ * norm; scaled_norm(x)
+       50.645829048402405
+       >>> np.allclose(scaled_norm.prox(x, tau=tau),np.clip(1 - tau * lambda_ / norm(x), a_min=0, a_max=None) * x)
        True
 
     See Also
     --------
-    :py:func:`~pycsou.func.penalty.L2Ball`, :py:func:`~pycsou.func.loss.L2Loss`, :py:func:`~pycsou.func.loss.L2BallLoss`.
+    :py:func:`~pycsou.func.loss.L2Loss`, `~pycsou.core.functional.LpNorm`.
     """
 
     def __init__(self, dim: int):
@@ -40,18 +44,71 @@ class L2Norm(DifferentiableFunctional):
         dim : int
             Dimension of the domain.
         """
-        super(L2Norm, self).__init__(dim=dim, data=None, is_linear=False, lipschitz_cst=np.infty, diff_lipschitz_cst=2)
+        super(L2Norm, self).__init__(dim=dim, proj_lq_ball=proj_l2_ball)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Number:
         return np.linalg.norm(x)
 
-    def jacobianT(self, arg: Union[Number, np.ndarray]) -> LinearOperator:
-        return 2 * IdentityOperator(size=self.dim)
+
+class SquaredL2Norm(DifferentiableFunctional):
+    r"""
+    Squared :math:`\ell_2`-norm, :math:`\Vert\mathbf{x}\Vert^2_2:=\sum_{i=1}^N |x_i|^2`.
+
+    Examples
+    --------
+    .. testsetup::
+
+       import numpy as np
+       from pycsou.func.penalty import SquaredL2Norm
+       from pycsou.core.linop import DenseLinearOperator
+
+    .. doctest::
+
+       >>> x = np.arange(10)
+       >>> norm = SquaredL2Norm(dim=x.size)
+       >>> norm(x)
+       285.00000000000006
+       >>> np.allclose(norm.gradient(x), 2 * x)
+       True
+       >>> lambda_=3; scaled_norm = lambda_ * norm
+       >>> scaled_norm(x)
+       855.0000000000002
+       >>> np.allclose(scaled_norm.gradient(x), 2 * lambda_ *  x)
+       True
+       >>> Gmat = np.arange(100).reshape(10, 10)
+       >>> G = DenseLinearOperator(Gmat, is_symmetric=False)
+       >>> weighted_norm = norm * G
+       >>> np.allclose(weighted_norm.gradient(x), 2 * Gmat.transpose() @ (Gmat @ x))
+       True
+
+    See Also
+    --------
+    :py:func:`~pycsou.func.loss.SquaredL2Loss`, :py:class:`~pycsou.core.functional.DifferentiableFunctional`.
+    """
+
+    def __init__(self, dim: int):
+        r"""
+
+        Parameters
+        ----------
+        dim : int
+            Dimension of the domain.
+        """
+        super(SquaredL2Norm, self).__init__(dim=dim, data=None, is_linear=False, lipschitz_cst=np.infty,
+                                            diff_lipschitz_cst=2)
+
+    def __call__(self, x: Union[Number, np.ndarray]) -> Number:
+        return np.linalg.norm(x) ** 2
+
+    def jacobianT(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        r"""Gradient of the squared L2 norm at x."""
+        return 2 * x
 
 
 def L2Ball(dim: int, radius: Number) -> IndicatorFunctional:
     r"""
-    Constructs the indicator function of an :math:`\ell_2`-ball with prescribed radius.
+    Constructs the indicator function of an :math:`\ell_2`-ball :math:`\{\mathbf{x}\in\mathbb{R}^N: \,\Vert\mathbf{x}\Vert_2\leq \text{radius}\}`
+    with prescribed radius.
 
     Parameters
     ----------
@@ -68,20 +125,25 @@ def L2Ball(dim: int, radius: Number) -> IndicatorFunctional:
     Examples
     --------
     .. testsetup::
+
        import numpy as np
        from pycsou.func.penalty import L2Ball
+       from pycsou.util.math import proj_l2_ball
 
     .. doctest::
-       >>> x=np.arange(10)
-       >>> l2_ball=L2Ball(dim=x.size,radius=10)
-       >>> l2_ball(x)
-       inf
-       >>> np.linalg.norm(l2_ball.prox(x,tau=1))
-       10.0
+
+       >>> x1 = np.arange(10); x2 = x1 / np.linalg.norm(x1)
+       >>> radius=10; ball = L2Ball(dim=x1.size, radius=radius)
+       >>> ball(x1), ball(x2)
+       (inf, 0)
+       >>> np.allclose(ball.prox(x1,tau=1), proj_l2_ball(x1, radius=radius)), np.linalg.norm(ball.prox(x1,tau=1))
+       (True, 10.0)
+       >>> np.allclose(ball.prox(x2,tau=1), x2)
+       True
 
     See Also
     --------
-    :py:func:`~pycsou.func.penalty.L2Norm`, :py:func:`~pycsou.func.loss.L2Loss`, :py:func:`~pycsou.func.loss.L2BallLoss`.
+    :py:func:`~pycsou.func.loss.L2BallLoss`, py:class:`pycsou.core.functional.IndicatorFunctional`.
     """
     condition_func = lambda x: np.linalg.norm(x) <= radius
     projection_func = lambda x: proj_l2_ball(x, radius=radius)
@@ -90,23 +152,29 @@ def L2Ball(dim: int, radius: Number) -> IndicatorFunctional:
 
 class L1Norm(LpNorm):
     r"""
-    Class for the :math:`\ell_1`-norm, defined as :math:`\Vert\mathbf{x}\Vert_1:=\sum_{i=1}^N |x_i|}`.
+    Class for the :math:`\ell_1`-norm, defined as :math:`\Vert\mathbf{x}\Vert_1:=\sum_{i=1}^N |x_i|`.
 
     This class inherits from the base class :py:class:`~pycsou.core.functional.LpNorm`.
 
     Examples
     --------
     .. testsetup::
+
        import numpy as np
        from pycsou.func.penalty import L1Norm
        from pycsou.util.math import soft
-
+       
     .. doctest::
-       >>> x=np.arange(10)
-       >>> l1_norm=L1Norm(dim=x.size)
-       >>> l1_norm(x)
+
+       >>> x = np.arange(10)
+       >>> norm = L1Norm(dim=x.size)
+       >>> norm(x)
        45
-       >>> np.allclose(l1_norm.prox(x,tau=1),soft(x,tau=1))
+       >>> tau=1.2; np.allclose(norm.prox(x, tau=tau),soft(x,tau=tau))
+       True
+       >>> lambda_=3; scaled_norm = lambda_ * norm; scaled_norm(x)
+       135
+       >>> np.allclose(scaled_norm.prox(x, tau=tau),soft(x,tau=tau * lambda_))
        True
 
     See Also
@@ -115,17 +183,25 @@ class L1Norm(LpNorm):
     """
 
     def __init__(self, dim: int):
+        r"""
+
+        Parameters
+        ----------
+        dim : int
+            Dimension of the domain.
+        """
         super(L1Norm, self).__init__(dim=dim, proj_lq_ball=proj_linfty_ball)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Number:
         return np.sum(np.abs(x))
 
     def soft(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
+        """Soft thresholding operator (see :py:func:`~pycsou.util.math.soft`)."""
         return soft(x=x, tau=tau)
 
 
 class SquaredL1Norm(ProximableFunctional):
-    def __init__(self, dim: int, prox_computation='root'):
+    def __init__(self, dim: int, prox_computation='sort'):
         self.prox_computation = prox_computation
         super(SquaredL1Norm, self).__init__(dim=dim, data=None, is_differentiable=False, is_linear=False)
 
