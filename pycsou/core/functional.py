@@ -72,7 +72,7 @@ class ProximableFunctional(Functional):
             raise NotImplementedError
 
     def __rmul__(self, other: Union[Number, Map]) -> Union[MapComp, 'ProxFuncPostComp']:
-        if isinstance(other, Number):
+        if isinstance(other, Number) and other > 0:
             return ProxFuncPostComp(self, scale=other, shift=0)
         elif isinstance(other, Map):
             return MapComp(other, self)

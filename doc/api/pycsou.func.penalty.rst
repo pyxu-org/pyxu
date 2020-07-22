@@ -2,7 +2,7 @@ pycsou.func.penalty
 ===================
 
 .. automodule:: pycsou.func.penalty
-
+   :special-members: __init__, __call__
    
    
    
@@ -35,6 +35,7 @@ pycsou.func.penalty
       LogBarrier
       SquaredL1Norm
       SquaredL2Norm
+      ShannonEntropy
    
    
 

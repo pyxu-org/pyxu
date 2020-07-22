@@ -18,11 +18,17 @@ Documentation
                     sphinx_rtd_theme=='0.4.*'
     $ python3 setup.py build_sphinx  # Generate documentation (optional)
 
+Tests
+-----
+::
+
+    $ python3 test.py  # Executes doctests (optional)
+
 
 Remarks
 -------
 
-* pyoneer is developed and tested on x86_64 systems running MacOS and Linux.
+* pycsou is developed and tested on x86_64 systems running MacOS and Linux.
 
 * It is recommended to install dependencies using `Miniconda <https://conda.io/miniconda.html>`_ or
   `Anaconda <https://www.anaconda.com/download/#linux>`_::

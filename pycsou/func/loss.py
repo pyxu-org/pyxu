@@ -70,3 +70,9 @@ class KLDivergence(ProximableFunctional):
 
     def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
         return (x - tau + np.sqrt((x - tau) ** 2 + 4 * tau * self.data)) / 2
+
+
+if __name__ == "__main__":
+    import doctest
+
+    doctest.testmod()

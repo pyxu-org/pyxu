@@ -3,7 +3,7 @@
 # #############################################################################
 # test.py
 # =======
-# Author : Sepand KASHANI [kashani.sepand@gmail.com]
+# Author : Matthieu Simeoni [matthieu.simeoni@gmail.com]
 # #############################################################################
 
 """
