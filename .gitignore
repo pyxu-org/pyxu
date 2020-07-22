@@ -1,5 +1,8 @@
 .DS_Store
 .idea/
+build
+ChangeLog
+AUTHORS
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
