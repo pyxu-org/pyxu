@@ -1,3 +1,13 @@
+# #############################################################################
+# map.py
+# ======
+# Author : Matthieu Simeoni [matthieu.simeoni@gmail.com]
+# #############################################################################
+
+r"""
+Abstract classes for multidimensional nonlinear maps.
+"""
+
 import numpy as np
 from abc import ABC, abstractmethod
 from typing import Union, Tuple, Optional, Any, Iterable
@@ -6,8 +16,21 @@ from pycsou.util.misc import is_range_broadcastable, range_broadcast_shape
 
 
 class Map(ABC):
-
+    r"""
+    Base class for multidimensional maps.
+    Any instance of this class must at least implement the abstract method ``__call__``.
+    """
     def __init__(self, shape: Tuple[int, int], is_linear: bool = False, is_differentiable: bool = False):
+        r"""
+        Parameters
+        ----------
+        shape: Tuple[int, int]
+            Shape of the map.
+        is_linear: bool
+            Whether the map is linear or not.
+        is_differentiable: bool
+            Whether the map is differentiable or not.
+        """
         if len(shape) > 2:
             raise NotImplementedError(
                 'Shapes of map objects must be tuples of length 2 (tensorial maps not supported).')
@@ -19,9 +42,53 @@ class Map(ABC):
 
     @abstractmethod
     def __call__(self, arg: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        r"""
+        Call self as a function.
+        Parameters
+        ----------
+        arg: Union[Number, np.ndarray]
+            Argument of the map.
+        Returns
+        -------
+            Value of ``arg`` through the map.
+        """
         pass
 
-    def __add__(self, other: Union['Map', np.ndarray]) -> 'MapSum':
+    def shifter(self, shift: Union[Number, np.ndarray]) -> 'MapShifted':
+        r"""
+        Returns a shifted version of the map.
+
+        Parameters
+        ----------
+        shift: Union[Number, np.ndarray]
+            Shift vector.
+
+        Returns
+        -------
+        py:class:`~pycsou.core.map.MapShifted`
+            Shifted map.
+        """
+        return MapShifted(map=self, shift=shift)
+
+    def __add__(self, other: Union['Map', np.ndarray]) -> Union['MapSum', 'MapBias']:
+        r"""
+        Add a map with another map instance or array.
+
+        Parameters
+        ----------
+        other: Union['Map', np.ndarray]
+            The other map or array to be added.
+
+        Returns
+        -------
+        py:class:`~pycsou.core.map.MapSum` if ``isinstance(other, Map)``
+        py:class:`~pycsou.core.map.MapBias` otherwise.
+            Sum of the map with another map or array.
+
+        Raises
+        ------
+        NotImplementedError if ``other`` is not a map or an array.
+        """
         if isinstance(other, np.ndarray):
             return MapBias(self, bias=other)
         elif isinstance(other, Map):
@@ -30,6 +97,25 @@ class Map(ABC):
             raise NotImplementedError
 
     def __radd__(self, other: Union['Map', np.ndarray]) -> 'MapSum':
+        r"""
+        Add a map with another map instance or array when the latter are on the right hand side of the summation.
+
+        Parameters
+        ----------
+        other: Union['Map', np.ndarray]
+            The other map or array to be added.
+
+        Returns
+        -------
+        py:class:`~pycsou.core.map.MapSum` if ``isinstance(other, Map)``
+        py:class:`~pycsou.core.map.MapBias` otherwise.
+            Sum of the map with another map or array.
+
+        Raises
+        ------
+        NotImplementedError if ``other`` is not a map or an array.
+
+        """
         if isinstance(other, np.ndarray):
             return MapBias(self, bias=other)
         elif isinstance(other, Map):
@@ -38,6 +124,33 @@ class Map(ABC):
             raise NotImplementedError
 
     def __mul__(self, other: Union[Number, 'Map', np.ndarray]) -> Union['MapComp', np.ndarray]:
+        r"""
+        Multiply a map with another map, a scalar, or an array.
+
+        The behaviour of this method depends on the type of ``other``:
+        * If ``other`` is another map, then it returns the composition of the map with ``other``.
+        * If ``other`` is an array with compatible shape, then it calls the map on ``other``.
+        * If ``other`` is a scalar, then it multiplies the map with this scalar.
+
+        Parameters
+        ----------
+        other: Union[Number, 'Map', np.ndarray]
+            Scalar, map or array with which to multiply.
+
+        Returns
+        -------
+        Union[py:class:`~pycsou.core.map.MapComp`,np.ndarray]
+            Composition of the map with another map, or product with a scalar or array.
+
+        Raises
+        ------
+        NotImplementedError if ``other`` is not a scalar, a map or an array.
+
+        See Also
+        --------
+        :py:func:`~pycsou.core.map.Map.__matmul__`, :py:func:`~pycsou.core.map.Map.__rmul__`
+
+        """
         if isinstance(other, Number):
             from pycsou.core.linop import HomothetyMap
             other = HomothetyMap(constant=other)
@@ -83,6 +196,18 @@ class Map(ABC):
             return self.__mul__(1 / other)
         else:
             raise NotImplementedError
+
+
+class MapShifted(Map):
+    def __init__(self, map: Map, shift: Union[Number, np.ndarray]):
+        self.map = map
+        self.shift = shift
+        if shift.size != map.shape[1]:
+            raise TypeError('Invalid shift size.')
+        Map.__init__(self, shape=map.shape, is_linear=map.is_linear, is_differentiable=map.is_differentiable)
+
+    def __call__(self, arg: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        return self.map(arg + self.shift)
 
 
 class MapSum(Map):
@@ -146,6 +271,9 @@ class DifferentiableMap(Map):
     def compute_diff_lipschitz_cst(self):
         pass
 
+    def shifter(self, shift: Union[Number, np.ndarray]):
+        return DiffMapShifted(map=self, shift=shift)
+
     def __add__(self, other: Union['Map', 'DifferentiableMap', np.ndarray]) -> Union['MapSum', 'DiffMapSum']:
         if isinstance(other, np.ndarray):
             return DiffMapBias(self, other)
@@ -194,6 +322,17 @@ class DifferentiableMap(Map):
             raise NotImplementedError
 
 
+class DiffMapShifted(MapShifted, DifferentiableMap):
+    def __init__(self, map: DifferentiableMap, shift: Union[Number, np.ndarray]):
+        MapShifted.__init__(self, map=map, shift=shift)
+        DifferentiableMap.__init__(self, shape=self.shape, is_linear=self.is_linear,
+                                   lipschitz_cst=self.map.lipschitz_cst,
+                                   diff_lipschitz_cst=self.map.diff_lipschitz_cst)
+
+    def jacobianT(self, arg: Union[Number, np.ndarray]) -> 'LinearOperator':
+        return self.map.jacobianT(arg + self.shift)
+
+
 class DiffMapSum(MapSum, DifferentiableMap):
     def __init__(self, map1: DifferentiableMap, map2: DifferentiableMap):
         MapSum.__init__(self, map1=map1, map2=map2)
@@ -212,7 +351,7 @@ class DiffMapBias(MapBias, DifferentiableMap):
                                    diff_lipschitz_cst=self.map.diff_lipschitz_cst)
 
     def jacobianT(self, arg: Union[Number, np.ndarray]) -> 'LinearOperator':
-        return self.map.jacobianT(arg)
+        return self.map.jacobianT(arg) * self.map2.jacobianT(arg) * self.map1.jacobianT(self.map2(arg))
 
 
 class DiffMapComp(MapComp, DifferentiableMap):

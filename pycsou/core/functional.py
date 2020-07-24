@@ -52,6 +52,9 @@ class ProximableFunctional(Functional):
     def fenchel_prox(self, z: Union[Number, np.ndarray], sigma: Number) -> Union[Number, np.ndarray]:
         return z - sigma * self.prox(x=z / sigma, tau=1 / sigma)
 
+    def shifter(self, shift: Union[Number, np.ndarray]):
+        return ProxFuncPreComp(prox_func=self, scale=1, shift=shift)
+
     def __add__(self, other: Union[Map, LinearFunctional]) -> Union[MapSum, 'ProxFuncAffineSum']:
         if isinstance(other, LinearFunctional):
             return ProxFuncAffineSum(self, linear_part=other, intercept=0)

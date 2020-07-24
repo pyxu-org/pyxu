@@ -67,7 +67,7 @@ class LinearOperator(DifferentiableMap):
             self.lipschitz_cst = self.eigenvals(k=1)
         else:
             self.lipschitz_cst = self.singularvals(k=1)
-        self.diff_lipschitz_cst = self.lipschitz_cst
+        self.diff_lipschitz_cst = np.conj(self.lipschitz_cst)
 
     def todense(self) -> 'DenseLinearOperator':
         return DenseLinearOperator(self.PyLop.todense())

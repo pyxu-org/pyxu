@@ -7,3 +7,5 @@ API Reference
    pycsou
    pycsou.func
    pycsou.func.penalty
+   pycsou.func.loss
+   pycsou.util.math
