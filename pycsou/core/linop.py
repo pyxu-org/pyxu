@@ -43,9 +43,11 @@ class LinearOperator(DifferentiableMap):
     def H(self):
         return self.get_adjointOp()
 
+    @property
     def RangeGram(self):
         return SymmetricLinearOperator(self * self.H)
 
+    @property
     def DomainGram(self):
         return SymmetricLinearOperator(self.H * self)
 
@@ -64,9 +66,9 @@ class LinearOperator(DifferentiableMap):
 
     def compute_lipschitz_cst(self, **kwargs: dict):
         if self.is_square is True:
-            self.lipschitz_cst = self.eigenvals(k=1)
+            self.lipschitz_cst = self.eigenvals(k=1, **kwargs)
         else:
-            self.lipschitz_cst = self.singularvals(k=1)
+            self.lipschitz_cst = self.singularvals(k=1, **kwargs)
         self.diff_lipschitz_cst = np.conj(self.lipschitz_cst)
 
     def todense(self) -> 'DenseLinearOperator':
@@ -210,6 +212,10 @@ class SymmetricLinearOperator(LinearOperator):
                                                       is_explicit=LinOp.is_explicit,
                                                       is_dask=LinOp.is_dask, is_dense=LinOp.is_dense,
                                                       is_sparse=LinOp.is_sparse, is_symmetric=True)
+        self.LinOp = LinOp
+
+    def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        return self.LinOp.__call__(x)
 
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         return self.__call__(y)
@@ -224,9 +230,11 @@ class UnitaryOperator(LinearOperator):
                                               is_sparse=is_sparse, is_dask=is_dask, is_symmetric=is_symmetric)
         self.size = size
 
+    @property
     def RangeGram(self):
         return IdentityOperator(size=self.size, dtype=self.dtype)
 
+    @property
     def DomainGram(self):
         return IdentityOperator(size=self.size, dtype=self.dtype)
 

@@ -56,6 +56,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
+    "matplotlib.sphinxext.plot_directive",
 ]
 
 templates_path = ["_templates"]
