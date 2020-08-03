@@ -369,7 +369,7 @@ class DiffMapComp(MapComp, DifferentiableMap):
 
 class MapStack(Map):
     def __init__(self, *maps: Iterable[Map], axis: int):
-        self.maps = list(*maps)
+        self.maps = list(maps)
         if (np.abs(axis) > 1):
             ValueError('Axis must be one of {0, 1,-1}.')
         self.axis = int(axis)
@@ -381,9 +381,9 @@ class MapStack(Map):
 
         if not self.is_valid_stack():
             raise ValueError('Inconsistent map shapes for  stacking.')
-        super(MapStack, self).__init__(shape=self.get_shape(),
-                                       is_linear=bool(np.prod(self.is_linear_list).astype(bool)),
-                                       is_differentiable=bool(np.prod(self.is_differentiable_list).astype(bool)))
+        Map.__init__(self, shape=self.get_shape(),
+                     is_linear=bool(np.prod(self.is_linear_list).astype(bool)),
+                     is_differentiable=bool(np.prod(self.is_differentiable_list).astype(bool)))
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         if self.axis == 0:

@@ -9,15 +9,15 @@ Discrete differential and integral operators.
 
 This module provides differential operators for discrete signals defined over regular grids or arbitrary meshes (graphs).
 
-Many of the linear operator provided in this module are derived from linear operators from `PyLops <https://pylops.readthedocs.io/en/latest/api/index.html#smoothing-and-derivatives>`_.
+Many of the linear operators provided in this module are derived from linear operators from `PyLops <https://pylops.readthedocs.io/en/latest/api/index.html#smoothing-and-derivatives>`_.
 """
 
 import numpy as np
-import pylops.signalprocessing as pyconv
 import pylops
 import pygsp
-from typing import Optional, Union, Tuple
-from pycsou.core.linop import PyLopLinearOperator, LinearOperator, IdentityOperator, DiagonalOperator
+from typing import Optional, Union, Tuple, Iterable, List
+from pycsou.core.linop import PyLopLinearOperator, LinearOperator, IdentityOperator, DiagonalOperator, LinOpVStack
+from numbers import Number
 
 
 def FirstDerivative(size: int, shape: Optional[tuple] = None, axis=0, step: float = 1.0, edge: bool = True,
@@ -322,7 +322,8 @@ def GeneralisedDerivative(size: int, shape: Optional[tuple] = None, axis=0, step
 
     See Also
     --------
-    :py:func:`~pycsou.linop.diff.FirstDerivative`, :py:func:`~pycsou.linop.diff.SecondDerivative`
+    :py:func:`~pycsou.linop.diff.FirstDerivative`, :py:func:`~pycsou.linop.diff.SecondDerivative`,
+    :py:func:`~pycsou.linop.diff.GeneralisedLaplacian`
 
     """
     D = FirstDerivative(size=size, shape=shape, axis=axis, step=step, edge=edge, dtype=dtype, kind=kind_diff)
@@ -354,17 +355,25 @@ def GeneralisedDerivative(size: int, shape: Optional[tuple] = None, axis=0, step
         raise NotImplementedError(
             'Supported generalised derivative types are: iterated, sobolev, exponential, polynomial.')
 
-    kill_edges = np.ones(shape=(Dgen.shape[0],))
+    if shape is None:
+        kill_edges = np.ones(shape=Dgen.shape[0])
+    else:
+        kill_edges = np.ones(shape=shape)
+
+    if axis > 0:
+        kill_edges = np.swapaxes(kill_edges, axis, 0)
     if kind_diff == 'forward':
         kill_edges[-order:] = 0
     elif kind_diff == 'backward':
         kill_edges[:order] = 0
-    elif (kind_diff == 'centered'):
+    elif kind_diff == 'centered':
         kill_edges[-order:] = 0
         kill_edges[:order] = 0
     else:
         pass
-    KillEdgeOp = DiagonalOperator(kill_edges)
+    if axis > 0:
+        kill_edges = np.swapaxes(kill_edges, 0, axis)
+    KillEdgeOp = DiagonalOperator(kill_edges.reshape(-1))
     Dgen = KillEdgeOp * Dgen
     return Dgen
 
@@ -373,107 +382,107 @@ def FirstDirectionalDerivative(shape: tuple, directions: np.ndarray, step: Union
                                edge: bool = True, dtype: str = 'float64',
                                kind: str = 'centered') -> PyLopLinearOperator:
     r"""
-        First directional derivative.
+    First directional derivative.
 
-        Computes the directional derivative of a multi-dimensional array (at least two dimensions are required)
-        along either a single common direction or different ``directions`` for each entry of the array.
-
-
-        Parameters
-        ----------
-        shape: tuple
-            Shape of the input array.
-        directions: np.ndarray
-            Single direction (array of size :math:`n_{dims}`) or different directions for each entry (array of size :math:`[n_{dims} \times (n_{d_0} \times ... \times n_{d_{n_{dims}}})]`).
-            Each column should be normalised.
-        step: Union[float, Tuple[float, ...]]
-            Step size in each direction.
-        edge: bool
-            For ``kind = 'centered'``, use reduced order derivative at edges (``True``) or ignore them (``False``).
-        dtype: str
-            Type of elements in input vector.
-        kind: str
-            Derivative kind (``forward``, ``centered``, or ``backward``).
-
-        Returns
-        -------
-        py:class:`pycsou.core.linop.PyLopLinearOperator`
-            Directional derivative operator.
-
-        Examples
-        --------
-
-        .. testsetup::
-
-           import numpy as np
-           from pycsou.linop.diff import FirstDirectionalDerivative, FirstDerivative
-           from pycsou.util.misc import peaks
-
-        .. doctest::
-
-           >>> x = np.linspace(-2.5, 2.5, 100)
-           >>> X,Y = np.meshgrid(x,x)
-           >>> Z = peaks(X, Y)
-           >>> direction = np.array([1,0])
-           >>> Dop = FirstDirectionalDerivative(shape=Z.shape, directions=direction, kind='forward')
-           >>> D = FirstDerivative(size=Z.size, shape=Z.shape, kind='forward')
-           >>> np.allclose(Dop * Z.flatten(), D * Z.flatten())
-           True
-
-        .. plot::
-
-           import numpy as np
-           import matplotlib.pyplot as plt
-           from pycsou.linop.diff import FirstDirectionalDerivative, FirstDerivative
-           from pycsou.util.misc import peaks
-
-           x  = np.linspace(-2.5, 2.5, 25)
-           X,Y = np.meshgrid(x,x)
-           Z = peaks(X, Y)
-           directions = np.zeros(shape=(2,Z.size))
-           directions[0, :Z.size//2] = 1
-           directions[1, Z.size//2:] = 1
-           Dop = FirstDirectionalDerivative(shape=Z.shape, directions=directions)
-           y = Dop * Z.flatten()
-
-           plt.figure()
-           plt.pcolormesh(X,Y,Z, shading='auto')
-           h = plt.quiver(x, x, directions[1].reshape(X.shape), directions[0].reshape(X.shape))
-           plt.colorbar(h)
-           plt.title('Signal and directions of derivatives')
-           plt.figure()
-           h = plt.pcolormesh(X,Y,y.reshape(X.shape), shading='auto')
-           plt.colorbar(h)
-           plt.title('Directional derivatives')
-           plt.show()
+    Computes the directional derivative of a multi-dimensional array (at least two dimensions are required)
+    along either a single common direction or different ``directions`` for each entry of the array.
 
 
-        Notes
-        -----
-        The ``FirstDirectionalDerivative`` applies a first-order derivative
-        to a multi-dimensional array along the direction defined by the unitary
-        vector :math:`\mathbf{v}`:
+    Parameters
+    ----------
+    shape: tuple
+        Shape of the input array.
+    directions: np.ndarray
+        Single direction (array of size :math:`n_{dims}`) or different directions for each entry (array of size :math:`[n_{dims} \times (n_{d_0} \times ... \times n_{d_{n_{dims}}})]`).
+        Each column should be normalised.
+    step: Union[float, Tuple[float, ...]]
+        Step size in each direction.
+    edge: bool
+        For ``kind = 'centered'``, use reduced order derivative at edges (``True``) or ignore them (``False``).
+    dtype: str
+        Type of elements in input vector.
+    kind: str
+        Derivative kind (``forward``, ``centered``, or ``backward``).
 
-        .. math::
-            df_\mathbf{v} =
-                \nabla f \mathbf{v},
+    Returns
+    -------
+    py:class:`pycsou.core.linop.PyLopLinearOperator`
+        Directional derivative operator.
 
-        or along the directions defined by the unitary vectors
-        :math:`\mathbf{v}(x, y)`:
+    Examples
+    --------
 
-        .. math::
-            df_\mathbf{v}(x,y) =
-                \nabla f(x,y) \mathbf{v}(x,y)
+    .. testsetup::
 
-        where we have here considered the 2-dimensional case.
-        Note that the 2D case, choosing :math:`\mathbf{v}=[1,0]` or :math:`\mathbf{v}=[0,1]`
-        is equivalent to the ``FirstDerivative`` operator applied to axis 0 or 1 respectively.
+       import numpy as np
+       from pycsou.linop.diff import FirstDirectionalDerivative, FirstDerivative
+       from pycsou.util.misc import peaks
 
-        See Also
-        --------
-        :py:func:`~pycsou.linop.diff.SecondDirectionalDerivative`, :py:func:`~pycsou.linop.diff.FirstDerivative`
+    .. doctest::
 
-        """
+       >>> x = np.linspace(-2.5, 2.5, 100)
+       >>> X,Y = np.meshgrid(x,x)
+       >>> Z = peaks(X, Y)
+       >>> direction = np.array([1,0])
+       >>> Dop = FirstDirectionalDerivative(shape=Z.shape, directions=direction, kind='forward')
+       >>> D = FirstDerivative(size=Z.size, shape=Z.shape, kind='forward')
+       >>> np.allclose(Dop * Z.flatten(), D * Z.flatten())
+       True
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.linop.diff import FirstDirectionalDerivative, FirstDerivative
+       from pycsou.util.misc import peaks
+
+       x  = np.linspace(-2.5, 2.5, 25)
+       X,Y = np.meshgrid(x,x)
+       Z = peaks(X, Y)
+       directions = np.zeros(shape=(2,Z.size))
+       directions[0, :Z.size//2] = 1
+       directions[1, Z.size//2:] = 1
+       Dop = FirstDirectionalDerivative(shape=Z.shape, directions=directions)
+       y = Dop * Z.flatten()
+
+       plt.figure()
+       h = plt.pcolormesh(X,Y,Z, shading='auto')
+       plt.quiver(x, x, directions[1].reshape(X.shape), directions[0].reshape(X.shape))
+       plt.colorbar(h)
+       plt.title('Signal and directions of derivatives')
+       plt.figure()
+       h = plt.pcolormesh(X,Y,y.reshape(X.shape), shading='auto')
+       plt.colorbar(h)
+       plt.title('Directional derivatives')
+       plt.show()
+
+
+    Notes
+    -----
+    The ``FirstDirectionalDerivative`` applies a first-order derivative
+    to a multi-dimensional array along the direction defined by the unitary
+    vector :math:`\mathbf{v}`:
+
+    .. math::
+        d_\mathbf{v}f =
+            \langle\nabla f, \mathbf{v}\rangle,
+
+    or along the directions defined by the unitary vectors
+    :math:`\mathbf{v}(x, y)`:
+
+    .. math::
+        d_\mathbf{v}(x,y) f =
+            \langle\nabla f(x,y), \mathbf{v}(x,y)\rangle
+
+    where we have here considered the 2-dimensional case.
+    Note that the 2D case, choosing :math:`\mathbf{v}=[1,0]` or :math:`\mathbf{v}=[0,1]`
+    is equivalent to the ``FirstDerivative`` operator applied to axis 0 or 1 respectively.
+
+    See Also
+    --------
+    :py:func:`~pycsou.linop.diff.SecondDirectionalDerivative`, :py:func:`~pycsou.linop.diff.FirstDerivative`
+
+    """
     return PyLopLinearOperator(
         pylops.FirstDirectionalDerivative(dims=shape, v=directions, sampling=step, edge=edge, dtype=dtype, kind=kind))
 
@@ -543,13 +552,13 @@ def SecondDirectionalDerivative(shape: tuple, directions: np.ndarray, step: Unio
        y2 = Dop2 * Z.flatten()
 
        plt.figure()
-       plt.pcolormesh(X,Y,Z, shading='auto')
-       h = plt.quiver(x, x, directions[1].reshape(X.shape), directions[0].reshape(X.shape))
+       h = plt.pcolormesh(X,Y,Z, shading='auto')
+       plt.quiver(x, x, directions[1].reshape(X.shape), directions[0].reshape(X.shape))
        plt.colorbar(h)
        plt.title('Signal and directions of derivatives')
        plt.figure()
        h = plt.pcolormesh(X,Y,y.reshape(X.shape), shading='auto')
-       h = plt.quiver(x, x, directions[1].reshape(X.shape), directions[0].reshape(X.shape))
+       plt.quiver(x, x, directions[1].reshape(X.shape), directions[0].reshape(X.shape))
        plt.colorbar(h)
        plt.title('First Directional derivatives')
        plt.figure()
@@ -567,10 +576,10 @@ def SecondDirectionalDerivative(shape: tuple, directions: np.ndarray, step: Unio
     vector :math:`\mathbf{v}`:
 
     .. math::
-        d^2f_\mathbf{v} =
-            - D_\mathbf{v}^\ast [D_\mathbf{v} f]
+        d^2_\mathbf{v} f =
+            - d_\mathbf{v}^\ast (d_\mathbf{v} f)
 
-    where :math:`D_\mathbf{v}` is the first-order directional derivative
+    where :math:`d_\mathbf{v}` is the first-order directional derivative
     implemented by :py:func:`~pycsou.linop.diff.FirstDirectionalDerivative`. The above formula generalises the well-known relationship:
 
     .. math::
@@ -588,15 +597,657 @@ def SecondDirectionalDerivative(shape: tuple, directions: np.ndarray, step: Unio
     Pylop = PyLopLinearOperator(
         pylops.SecondDirectionalDerivative(dims=shape, v=directions, sampling=step, edge=edge, dtype=dtype))
     kill_edges = np.ones(shape=shape)
-    kill_edges[-2:] = 0
-    kill_edges[:2] = 0
-    kill_edges[:, -2:] = 0
-    kill_edges[:, :2] = 0
+    for axis in range(len(shape)):
+        kill_edges = np.swapaxes(kill_edges, axis, 0)
+        kill_edges[-2:] = 0
+        kill_edges[:2] = 0
+        kill_edges = np.swapaxes(kill_edges, 0, axis)
     KillEdgeOp = DiagonalOperator(kill_edges.reshape(-1))
     DirD2 = KillEdgeOp * Pylop
     return DirD2
 
 
+def DirectionalGradient(first_directional_derivatives: List[FirstDirectionalDerivative]) -> LinOpVStack:
+    r"""
+    Directional gradient.
+
+    Computes the directional derivative of a multi-dimensional array (at least two dimensions are required)
+    along multiple ``directions`` for each entry of the array.
+
+
+    Parameters
+    ----------
+    first_directional_derivatives: List[FirstDirectionalDerivative]
+        List of the directional derivatives to be stacked.
+
+    Returns
+    -------
+    py:class:`pycsou.core.linop.LinearOperator`
+        Stack of first directional derivatives.
+
+    Examples
+    --------
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.linop.diff import FirstDirectionalDerivative, DirectionalGradient
+       from pycsou.util.misc import peaks
+
+       x  = np.linspace(-2.5, 2.5, 25)
+       X,Y = np.meshgrid(x,x)
+       Z = peaks(X, Y)
+       directions1 = np.zeros(shape=(2,Z.size))
+       directions1[0, :Z.size//2] = 1
+       directions1[1, Z.size//2:] = 1
+       directions2 = np.zeros(shape=(2,Z.size))
+       directions2[1, :Z.size//2] = -1
+       directions2[0, Z.size//2:] = -1
+       Dop1 = FirstDirectionalDerivative(shape=Z.shape, directions=directions1)
+       Dop2 = FirstDirectionalDerivative(shape=Z.shape, directions=directions2)
+       Dop = DirectionalGradient([Dop1, Dop2])
+       y = Dop * Z.flatten()
+
+       plt.figure()
+       h = plt.pcolormesh(X,Y,Z, shading='auto')
+       plt.quiver(x, x, directions1[1].reshape(X.shape), directions1[0].reshape(X.shape))
+       plt.quiver(x, x, directions2[1].reshape(X.shape), directions2[0].reshape(X.shape), color='red')
+       plt.colorbar(h)
+       plt.title('Signal and directions of derivatives')
+       plt.figure()
+       h = plt.pcolormesh(X,Y,y[:Z.size].reshape(X.shape), shading='auto')
+       plt.colorbar(h)
+       plt.title('Directional derivatives in 1st direction')
+       plt.figure()
+       h = plt.pcolormesh(X,Y,y[Z.size:].reshape(X.shape), shading='auto')
+       plt.colorbar(h)
+       plt.title('Directional derivatives in 2nd direction')
+       plt.show()
+
+
+    Notes
+    -----
+    The ``DirectionalGradient`` of a multivariate function :math:`f(\mathbf{x})` is defined as:
+
+    .. math::
+        d_{\mathbf{v}_1(\mathbf{x}),\ldots,\mathbf{v}_N(\mathbf{x})} f =
+            \left[\begin{array}{c}
+            \langle\nabla f, \mathbf{v}_1(\mathbf{x})\rangle\\
+            \vdots\\
+            \langle\nabla f, \mathbf{v}_N(\mathbf{x})\rangle
+            \end{array}\right],
+
+    where :math:`d_\mathbf{v}` is the first-order directional derivative
+    implemented by :py:func:`~pycsou.linop.diff.FirstDirectionalDerivative`.
+
+    See Also
+    --------
+    :py:func:`~pycsou.linop.diff.Gradient`, :py:func:`~pycsou.linop.diff.FirstDirectionalDerivative`
+
+    """
+    return LinOpVStack(*first_directional_derivatives)
+
+
+def DirectionalLaplacian(second_directional_derivatives: List[SecondDirectionalDerivative],
+                         weights: Optional[Iterable[float]] = None) -> LinearOperator:
+    r"""
+    Directional Laplacian.
+
+    Sum of the second directional derivatives of a multi-dimensional array (at least two dimensions are required)
+    along multiple ``directions`` for each entry of the array.
+
+
+    Parameters
+    ----------
+    second_directional_derivatives: List[SecondDirectionalDerivative]
+        List of the second directional derivatives to be summed.
+    weights: Optional[Iterable[float]]
+        List of optional positive weights with which each second directional derivative operator is multiplied.
+
+    Returns
+    -------
+    py:class:`pycsou.core.linop.LinearOperator`
+         Directional Laplacian.
+
+    Examples
+    --------
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.linop.diff import SecondDirectionalDerivative, DirectionalLaplacian
+       from pycsou.util.misc import peaks
+
+       x  = np.linspace(-2.5, 2.5, 25)
+       X,Y = np.meshgrid(x,x)
+       Z = peaks(X, Y)
+       directions1 = np.zeros(shape=(2,Z.size))
+       directions1[0, :Z.size//2] = 1
+       directions1[1, Z.size//2:] = 1
+       directions2 = np.zeros(shape=(2,Z.size))
+       directions2[1, :Z.size//2] = -1
+       directions2[0, Z.size//2:] = -1
+       Dop1 = SecondDirectionalDerivative(shape=Z.shape, directions=directions1)
+       Dop2 = SecondDirectionalDerivative(shape=Z.shape, directions=directions2)
+       Dop = DirectionalLaplacian([Dop1, Dop2])
+       y = Dop * Z.flatten()
+
+       plt.figure()
+       h = plt.pcolormesh(X,Y,Z, shading='auto')
+       plt.quiver(x, x, directions1[1].reshape(X.shape), directions1[0].reshape(X.shape))
+       plt.quiver(x, x, directions2[1].reshape(X.shape), directions2[0].reshape(X.shape), color='red')
+       plt.colorbar(h)
+       plt.title('Signal and directions of derivatives')
+       plt.figure()
+       h = plt.pcolormesh(X,Y,y.reshape(X.shape), shading='auto')
+       plt.colorbar(h)
+       plt.title('Directional Laplacian')
+       plt.show()
+
+
+    Notes
+    -----
+    The ``DirectionalLaplacian`` of a multivariate function :math:`f(\mathbf{x})` is defined as:
+
+    .. math::
+        d^2_{\mathbf{v}_1(\mathbf{x}),\ldots,\mathbf{v}_N(\mathbf{x})} f =
+            -\sum_{n=1}^N
+            d^\ast_{\mathbf{v}_n(\mathbf{x})}(d_{\mathbf{v}_n(\mathbf{x})} f).
+
+    where :math:`d_\mathbf{v}` is the first-order directional derivative
+    implemented by :py:func:`~pycsou.linop.diff.FirstDirectionalDerivative`.
+
+    See Also
+    --------
+    :py:func:`~pycsou.linop.diff.SecondDirectionalDerivative`, :py:func:`~pycsou.linop.diff.Laplacian`
+
+    """
+    directional_laplacian = second_directional_derivatives[0]
+    if weights is None:
+        weights = [1.] * len(second_directional_derivatives)
+    else:
+        if len(weights) != len(second_directional_derivatives):
+            raise ValueError('The number of weights and operators provided differ.')
+    for i in range(1, len(second_directional_derivatives)):
+        directional_laplacian += weights[i] * second_directional_derivatives[i]
+    return directional_laplacian
+
+
+def Gradient(shape: tuple, step: Union[tuple, float] = 1., edge: bool = True, dtype: str = 'float64',
+             kind: str = 'centered') -> PyLopLinearOperator:
+    r"""
+    Gradient.
+
+    Computes the gradient of a multi-dimensional array (at least two dimensions are required).
+
+
+    Parameters
+    ----------
+    shape: tuple
+        Shape of the input array.
+    step: Union[float, Tuple[float, ...]]
+        Step size in each direction.
+    edge: bool
+        For ``kind = 'centered'``, use reduced order derivative at edges (``True``) or ignore them (``False``).
+    dtype: str
+        Type of elements in input vector.
+    kind: str
+        Derivative kind (``forward``, ``centered``, or ``backward``).
+
+    Returns
+    -------
+    py:class:`pycsou.core.linop.LinearOperator`
+        Gradient operator.
+
+    Examples
+    --------
+
+    .. testsetup::
+
+       import numpy as np
+       from pycsou.linop.diff import Gradient, FirstDerivative
+       from pycsou.util.misc import peaks
+
+    .. doctest::
+
+       >>> x = np.linspace(-2.5, 2.5, 100)
+       >>> X,Y = np.meshgrid(x,x)
+       >>> Z = peaks(X, Y)
+       >>> Nabla = Gradient(shape=Z.shape, kind='forward')
+       >>> D = FirstDerivative(size=Z.size, shape=Z.shape, kind='forward')
+       >>> np.allclose((Nabla * Z.flatten())[:Z.size], D * Z.flatten())
+       True
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.linop.diff import Gradient
+       from pycsou.util.misc import peaks
+
+       x  = np.linspace(-2.5, 2.5, 25)
+       X,Y = np.meshgrid(x,x)
+       Z = peaks(X, Y)
+       Dop = Gradient(shape=Z.shape)
+       y = Dop * Z.flatten()
+
+       plt.figure()
+       h = plt.pcolormesh(X,Y,Z, shading='auto')
+       plt.colorbar(h)
+       plt.title('Signal')
+       plt.figure()
+       h = plt.pcolormesh(X,Y,y[:Z.size].reshape(X.shape), shading='auto')
+       plt.colorbar(h)
+       plt.title('Gradient (1st component)')
+       plt.figure()
+       h = plt.pcolormesh(X,Y,y[Z.size:].reshape(X.shape), shading='auto')
+       plt.colorbar(h)
+       plt.title('Gradient (2nd component)')
+       plt.show()
+
+
+    Notes
+    -----
+    The ``Gradient`` operator applies a first-order derivative to each dimension of
+    a multi-dimensional array in forward mode.
+
+    For simplicity, given a three dimensional array, the ``Gradient`` in forward
+    mode using a centered stencil can be expressed as:
+
+    .. math::
+        \mathbf{g}_{i, j, k} =
+            (f_{i+1, j, k} - f_{i-1, j, k}) / d_1 \mathbf{i_1} +
+            (f_{i, j+1, k} - f_{i, j-1, k}) / d_2 \mathbf{i_2} +
+            (f_{i, j, k+1} - f_{i, j, k-1}) / d_3 \mathbf{i_3}
+
+    which is discretized as follows:
+
+    .. math::
+        \mathbf{g}  =
+        \begin{bmatrix}
+           \mathbf{df_1} \\
+           \mathbf{df_2} \\
+           \mathbf{df_3}
+        \end{bmatrix}.
+
+    In adjoint mode, the adjoints of the first derivatives along different
+    axes are instead summed together.
+
+    See Also
+    --------
+    :py:func:`~pycsou.linop.diff.DirectionalGradient`, :py:func:`~pycsou.linop.diff.FirstDerivative`
+
+    """
+    return PyLopLinearOperator(pylops.Gradient(dims=shape, sampling=step, edge=edge, dtype=dtype, kind=kind))
+
+
+def Laplacian(shape: tuple, weights: Tuple[float] = (1, 1), step: Union[tuple, float] = 1., edge: bool = True,
+              dtype: str = 'float64') -> PyLopLinearOperator:
+    r"""
+    Laplacian.
+
+    Computes the Laplacian of a 2D array.
+
+
+    Parameters
+    ----------
+    shape: tuple
+        Shape of the input array.
+    weights: Tuple[float]
+        Weight to apply to each direction (real laplacian operator if ``weights=[1,1]``)
+    step: Union[float, Tuple[float, ...]]
+        Step size in each direction.
+    edge: bool
+       Use reduced order derivative at edges (``True``) or ignore them (``False``).
+    dtype: str
+        Type of elements in input vector.
+    kind: str
+        Derivative kind (``forward``, ``centered``, or ``backward``).
+
+    Returns
+    -------
+    py:class:`pycsou.core.linop.LinearOperator`
+        Laplacian operator.
+
+    Examples
+    --------
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.linop.diff import Laplacian
+       from pycsou.util.misc import peaks
+
+       x  = np.linspace(-2.5, 2.5, 25)
+       X,Y = np.meshgrid(x,x)
+       Z = peaks(X, Y)
+       Dop = Laplacian(shape=Z.shape)
+       y = Dop * Z.flatten()
+
+       plt.figure()
+       h = plt.pcolormesh(X,Y,Z, shading='auto')
+       plt.colorbar(h)
+       plt.title('Signal')
+       plt.figure()
+       h = plt.pcolormesh(X,Y,y.reshape(X.shape), shading='auto')
+       plt.colorbar(h)
+       plt.title('Laplacian')
+       plt.show()
+
+
+    Notes
+    -----
+    The Laplacian operator sums the second directional derivatives of a 2D array along the two canonical directions.
+
+    It is defined as:
+
+    .. math::
+        y[i, j] =\frac{x[i+1, j] + x[i-1, j] + x[i, j-1] +x[i, j+1] - 4x[i, j]}
+                  {dx\times dy}.
+
+    See Also
+    --------
+    :py:func:`~pycsou.linop.diff.DirectionalLaplacian`, :py:func:`~pycsou.linop.diff.SecondDerivative`
+
+    """
+    if isinstance(step, Number):
+        step = [step] * len(shape)
+    return PyLopLinearOperator(pylops.Laplacian(dims=shape, weights=weights, sampling=step, edge=edge, dtype=dtype))
+
+
+def GeneralisedLaplacian(shape: Optional[tuple] = None, step: Union[tuple, float] = 1., edge: bool = True,
+                         dtype: str = 'float64', kind='iterated', **kwargs) -> LinearOperator:
+    r"""
+    Generalised Laplacian operator.
+
+    Generalised Laplacian operator for a 2D array.
+
+    Parameters
+    ----------
+    shape: tuple
+        Shape of the input array.
+    step: Union[tuple, float] = 1.
+        Step size for each dimension.
+    edge: bool
+        Use reduced order derivative at edges (``True``) or ignore them (``False``).
+    dtype: str
+        Type of elements in input array.
+    kind: str
+        Type of generalised differential operator (``'iterated'``, ``'sobolev'``, ``'polynomial'``).
+        Depending on the cases, the ``GeneralisedLaplacian`` operator is defined as follows:
+
+        * ``'iterated'``: :math:`\mathscr{D}=\Delta^N`,
+        * ``'sobolev'``: :math:`\mathscr{D}=(\alpha^2 \mathrm{Id}-\Delta)^N`, with :math:`\alpha\in\mathbb{R}`,
+        * ``'polynomial'``: :math:`\mathscr{D}=\sum_{n=0}^N \alpha_n \Delta^n`,  with :math:`\{\alpha_0,\ldots,\alpha_N\} \subset\mathbb{R}`,
+
+        where :math:`\Delta` is the :py:func:`~pycsou.linop.diff.Laplacian` operator.
+
+    kwargs: Any
+        Additional arguments depending on the value of ``kind``:
+
+        * ``'iterated'``: ``kwargs={order: int}`` where ``order`` defines the exponent :math:`N`.
+        * ``'sobolev'``: ``kwargs={order: int, constant: float}`` where ``order`` defines the exponent :math:`N` and ``constant`` the scalar :math:`\alpha\in\mathbb{R}`.
+        * ``'polynomial'``: ``kwargs={coeffs: Union[np.ndarray, list, tuple]}`` where ``coeffs`` is an array containing the coefficients :math:`\{\alpha_0,\ldots,\alpha_N\} \subset\mathbb{R}`.
+
+    Returns
+    -------
+    py:class:`pycsou.core.linop.LinearOperator`
+        Generalised Laplacian operator.
+
+    Raises
+    ------
+    NotImplementedError
+        If ``kind`` is not one of: ``'iterated'``, ``'sobolev'``, ``'polynomial'``.
+
+    Examples
+    --------
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.linop.diff import GeneralisedLaplacian
+       from pycsou.util.misc import peaks
+
+       x  = np.linspace(-2.5, 2.5, 50)
+       X,Y = np.meshgrid(x,x)
+       Z = peaks(X, Y)
+       Dop = GeneralisedLaplacian(shape=Z.shape, kind='sobolev', order=2, constant=0)
+       y = Dop * Z.flatten()
+
+       plt.figure()
+       h = plt.pcolormesh(X,Y,Z, shading='auto')
+       plt.colorbar(h)
+       plt.title('Signal')
+       plt.figure()
+       h = plt.pcolormesh(X,Y,y.reshape(X.shape), shading='auto')
+       plt.colorbar(h)
+       plt.title('Sobolev')
+       plt.show()
+
+    Notes
+    -----
+    Problematic values at edges are set to zero.
+
+    See Also
+    --------
+    :py:func:`~pycsou.linop.diff.GeneralisedDerivative`, :py:func:`~pycsou.linop.diff.Laplacian`
+
+    """
+    Delta = Laplacian(shape=shape, step=step, edge=edge, dtype=dtype)
+    if kind == 'iterated':
+        N = kwargs['order']
+        Dgen = Delta ** N
+        order = 2 * N
+    elif kind == 'sobolev':
+        I = IdentityOperator(size=shape[0] * shape[1])
+        alpha = kwargs['constant']
+        N = kwargs['order']
+        Dgen = ((alpha ** 2) * I - Delta) ** N
+        order = 2 * N
+    elif kind == 'polynomial':
+        coeffs = kwargs['coeffs']
+        I = IdentityOperator(size=shape[0] * shape[1])
+        Dgen = coeffs[0] * I
+        for i in range(1, len(coeffs)):
+            Dgen += coeffs[i] * (Delta ** i)
+        order = 2 * (len(coeffs) - 1)
+    else:
+        raise NotImplementedError(
+            'Supported generalised derivative types are: iterated, sobolev, polynomial.')
+
+    kill_edges = np.ones(shape=shape)
+    for axis in range(len(shape)):
+        kill_edges = np.swapaxes(kill_edges, axis, 0)
+        kill_edges[-order:] = 0
+        kill_edges[:order] = 0
+        kill_edges = np.swapaxes(kill_edges, 0, axis)
+
+    KillEdgeOp = DiagonalOperator(kill_edges.reshape(-1))
+    Dgen = KillEdgeOp * Dgen
+    return Dgen
+
+
+def Integration1D(size: int, shape: Optional[tuple] = None, axis: int = 0, step: float = 1.,
+                  dtype='float64') -> PyLopLinearOperator:
+    r"""
+    1D integral/cumsum operator.
+
+    Integrates a multi-dimensional array along a specific ``axis``.
+
+    Parameters
+    ----------
+    size: int
+        Size of the input array.
+    shape: Optional[tuple]
+        Shape of the input array if multi-dimensional.
+    axis: int
+        Axis along which integration is performed.
+    step: float
+        Step size.
+    dtype: str
+        Type of elements in input array.
+
+    Returns
+    -------
+    py:class:`pycsou.core.linop.PyLopLinearOperator`
+        Integral operator.
+
+    Examples
+    --------
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.linop.diff import Integration1D
+
+       x = np.array([0,0,0,1,0,0,0,0,0,2,0,0,0,0,-1,0,0,0,0,2,0,0,0,0])
+       Int = Integration1D(size=x.size)
+       y = Int * x
+       plt.figure()
+       plt.plot(np.arange(x.size), x)
+       plt.plot(np.arange(x.size), y)
+       plt.legend(['Signal', 'Integral'])
+       plt.title('Integration')
+       plt.show()
+
+    Notes
+    -----
+    The ``Integration1D`` operator applies a causal integration to any chosen
+    direction of a multi-dimensional array.
+
+    For simplicity, given a one dimensional array, the causal integration is:
+
+    .. math::
+        y(t) = \int x(t) dt
+
+    which can be discretised as :
+
+    .. math::
+        y[i] = \sum_{j=0}^i x[j] dt,
+
+    where :math:`dt` is the ``sampling`` interval.
+
+    See Also
+    --------
+    :py:func:`~pycsou.linop.diff.FirstDerivative`
+    """
+    return PyLopLinearOperator(
+        pylops.CausalIntegration(N=size, dims=shape, dir=axis, sampling=step, halfcurrent=False, dtype=dtype))
+
+
+class GraphDifferentialOperator(LinearOperator):
+    r"""
+    Base class for graph differential operators.
+    """
+
+    def __init__(self, Graph: pygsp.graphs.Graph, dtype: type = np.float):
+        r"""
+        Parameters
+        ----------
+        Graph: `pygsp.graphs.Graph <https://pygsp.readthedocs.io/en/stable/reference/graphs.html#pygsp.graphs.Graph>`_
+            Graph on which the signal is defined, with normalised Laplacian ``Graph.L`` precomputed (see `pygsp.graphs.Graph.compute_laplacian(lap_type='normalized') <https://pygsp.readthedocs.io/en/stable/reference/graphs.html#pygsp.graphs.Graph.compute_laplacian>`_.
+        dtype: type
+            Type of the entries of the graph filer.
+
+        Raises
+        ------
+        AttributeError
+            If ``Graph.L`` does not exist.
+        NotImplementedError
+            If ``Graph.lap_type`` is 'combinatorial'.
+        """
+        self.Graph = Graph
+        if Graph.L is None:
+            raise AttributeError(
+                r'Please compute the normalised Laplacian of the graph with the routine https://pygsp.readthedocs.io/en/stable/reference/graphs.html#pygsp.graphs.Graph.compute_laplacian')
+        elif Graph.lap_type != 'normalized':
+            raise NotImplementedError(r'Combinatorial graph Laplacians are not supported.')
+        else:
+            self.L = self.Graph.L.tocsc()
+        self.D = self.Graph.D
+        super(GraphDifferentialOperator, self).__init__(shape=self.Graph.W.shape, dtype=dtype, is_explicit=False,
+                                                        is_dense=False, is_sparse=False, is_dask=False,
+                                                        is_symmetric=True)
+
+
+class GraphLaplacian(GraphDifferentialOperator):
+    r"""
+    Graph Laplacian.
+
+    Normalised graph Laplacian for signals defined on a graph.
+
+    Examples
+    --------
+
+    .. plot::
+
+       import numpy as np
+       from pygsp.graphs import Ring
+       from pycsou.linop.diff import GraphLaplacian
+       np.random.seed(1)
+       G = Ring(N=32, k=2)
+       G.compute_laplacian(lap_type='normalized')
+       G.compute_differential_operator()
+       G.set_coordinates(kind='spring')
+       x = np.arange(G.N)
+       signal = np.piecewise(x, [x < G.N//3, (x >= G.N//3) * (x< 2 * G.N//3), x>=2 * G.N//3], [lambda x: -x, lambda x: 3 * x - 4 * G.N//3, lambda x: -0.5 * x + G.N])
+       Lap = GraphLaplacian(Graph=G)
+       lap_sig = Lap * signal
+       plt.figure()
+       ax=plt.gca()
+       G.plot_signal(signal, ax=ax, backend='matplotlib')
+       plt.title('Signal')
+       plt.axis('equal')
+       plt.figure()
+       plt.plot(signal)
+       plt.title('Signal')
+       plt.figure()
+       ax=plt.gca()
+       G.plot_signal(lap_sig, ax=ax, backend='matplotlib')
+       plt.title('Laplacian')
+       plt.axis('equal')
+       plt.figure()
+       plt.plot(-lap_sig)
+       plt.title('Laplacian')
+
+    Notes
+    -----
+    See [FuncSphere]_ Section 2.3 of Chapter 6 for a definition of the normalised graph Laplacian.
+    The ``GraphLaplacian`` operator is self-adjoint.
+    """
+
+    def __init__(self, Graph: pygsp.graphs.Graph, dtype: type = np.float):
+        super(GraphLaplacian, self).__init__(Graph=Graph, dtype=dtype)
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        return self.L.dot(x)
+
+    def adjoint(self, y: np.ndarray) -> np.ndarray:
+        return self(y)
+
+
 if __name__ == "__main__":
     import numpy as np
     import matplotlib.pyplot as plt
+    from pycsou.util.misc import peaks
+
+"""
+FirstDerivative
+SecondDerivative
+GeneralisedDerivative
+Gradient
+Laplacian
+GeneralisedLaplacian
+FirstDirectionalDerivative
+SecondDirectionalDerivative
+DirectionalGradient
+DirectionalLaplacian
+GraphGradient
+GraphLaplacian
+GeneralisedGraphDifferential
+"""

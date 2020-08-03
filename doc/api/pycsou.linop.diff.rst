@@ -2,7 +2,7 @@ pycsou.linop.diff
 =================
 
 .. automodule:: pycsou.linop.diff
-   :special-members: __init__, __call__
+   :special-members: __init__
    
    .. rubric:: Functions
 
@@ -11,6 +11,13 @@ pycsou.linop.diff
       FirstDerivative
       SecondDerivative
       GeneralisedDerivative
+      Integration1D
+      Gradient
+      Laplacian
+      GeneralisedLaplacian
       FirstDirectionalDerivative
+      SecondDirectionalDerivative
+      DirectionalGradient
+      DirectionalLaplacian
 
 
