@@ -64,6 +64,7 @@ master_doc = "index"
 exclude_patterns = []
 pygments_style = "sphinx"
 add_module_names = False
+plot_include_source = True
 
 # -- Options for HTML output -------------------------------------------------
 html_theme = "sphinx_rtd_theme"

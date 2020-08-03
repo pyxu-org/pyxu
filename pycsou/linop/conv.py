@@ -14,10 +14,7 @@ import numpy as np
 import pylops.signalprocessing as pyconv
 import pylops
 import pygsp
-import scipy.sparse.linalg as splinalg
-import scipy.sparse as sp
-from typing import Optional, Union, Iterable
-from numbers import Number
+from typing import Optional, Union
 from pycsou.core.linop import PyLopLinearOperator, LinearOperator
 
 
@@ -26,7 +23,7 @@ def Convolve1D(size: int, filter: np.ndarray, reshape_dims: Optional[tuple] = No
     r"""
     1D convolution operator.
 
-    *This docstring was adapted from :obj:`pylops.signalprocessing.Convolve1D`.*
+    *This docstring was adapted from ``pylops.signalprocessing.Convolve1D``.*
 
     Convolve a multi-dimensional array along a specific ``axis`` with a one-dimensional compact ``filter``.
 
@@ -173,7 +170,7 @@ def Convolve2D(size: int, filter: np.ndarray, shape: tuple, dtype: type = 'float
     r"""
     2D convolution operator.
 
-    *This docstring was adapted from :obj:`pylops.signalprocessing.Convolve2D`.*
+    *This docstring was adapted from ``pylops.signalprocessing.Convolve2D``.*
 
     Convolve a two-dimensional array with a two-dimensional compact ``filter``.
 

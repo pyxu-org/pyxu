@@ -10,3 +10,4 @@ API Reference
    pycsou.func.loss
    pycsou.util.math
    pycsou.linop.conv
+   pycsou.linop.diff

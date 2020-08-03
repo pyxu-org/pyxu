@@ -20,6 +20,7 @@ class Map(ABC):
     Base class for multidimensional maps.
     Any instance of this class must at least implement the abstract method ``__call__``.
     """
+
     def __init__(self, shape: Tuple[int, int], is_linear: bool = False, is_differentiable: bool = False):
         r"""
         Parameters
@@ -153,7 +154,7 @@ class Map(ABC):
         """
         if isinstance(other, Number):
             from pycsou.core.linop import HomothetyMap
-            other = HomothetyMap(constant=other)
+            other = HomothetyMap(constant=other, size=self.shape[1])
 
         if isinstance(other, np.ndarray):
             return self(other)
@@ -165,7 +166,7 @@ class Map(ABC):
     def __rmul__(self, other: Union[Number, 'Map']) -> 'MapComp':
         if isinstance(other, Number):
             from pycsou.core.linop import HomothetyMap
-            other = HomothetyMap(constant=other)
+            other = HomothetyMap(constant=other, size=self.shape[0])
 
         if isinstance(other, Map):
             return MapComp(other, self)
@@ -185,7 +186,7 @@ class Map(ABC):
     def __pow__(self, power: int) -> 'MapComp':
         if type(power) is int:
             exp_map = self
-            for i in range(power):
+            for i in range(1, power):
                 exp_map = self.__mul__(exp_map)
             return exp_map
         else:
@@ -215,9 +216,9 @@ class MapSum(Map):
         if not is_range_broadcastable(map1.shape, map2.shape):
             raise ValueError('Cannot sum two maps with inconsistent range or domain sizes.')
         else:
-            super(MapSum, self).__init__(shape=range_broadcast_shape(map1.shape, map2.shape),
-                                         is_linear=map1.is_linear & map2.is_linear,
-                                         is_differentiable=map1.is_differentiable & map2.is_differentiable)
+            Map.__init__(self, shape=range_broadcast_shape(map1.shape, map2.shape),
+                         is_linear=map1.is_linear & map2.is_linear,
+                         is_differentiable=map1.is_differentiable & map2.is_differentiable)
             self.map1, self.map2 = map1, map2
 
     def __call__(self, arg: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
@@ -298,7 +299,7 @@ class DifferentiableMap(Map):
             -> Union['MapComp', 'DiffMapComp', np.ndarray]:
         if isinstance(other, Number):
             from pycsou.core.linop import HomothetyMap
-            other = HomothetyMap(constant=other)
+            other = HomothetyMap(constant=other, size=self.shape[1])
 
         if isinstance(other, np.ndarray):
             return self(other)
@@ -312,7 +313,7 @@ class DifferentiableMap(Map):
     def __rmul__(self, other: Union[Number, 'Map', 'DifferentiableMap']) -> Union['MapComp', 'DiffMapComp']:
         if isinstance(other, Number):
             from pycsou.core.linop import HomothetyMap
-            other = HomothetyMap(constant=other)
+            other = HomothetyMap(constant=other, size=self.shape[0])
 
         if isinstance(other, DifferentiableMap):
             return DiffMapComp(other, self)

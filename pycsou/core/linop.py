@@ -125,7 +125,7 @@ class LinearOperator(DifferentiableMap):
     def __mul__(self, other: Union['Map', 'DifferentiableMap', 'LinearOperator', Number, np.ndarray]) -> Union[
         'MapSum', 'DiffMapSum', 'LinOpSum', np.ndarray]:
         if isinstance(other, Number):
-            other = HomothetyMap(constant=other)
+            other = HomothetyMap(constant=other, size=self.shape[1])
 
         if isinstance(other, np.ndarray):
             return self(other)
@@ -141,7 +141,7 @@ class LinearOperator(DifferentiableMap):
     def __rmul__(self, other: Union['Map', 'DifferentiableMap', 'LinearOperator', Number]) -> Union[
         'MapSum', 'DiffMapSum', 'LinOpSum']:
         if isinstance(other, Number):
-            other = HomothetyMap(constant=other)
+            other = HomothetyMap(constant=other, size=self.shape[0])
 
         if isinstance(other, LinearOperator):
             return LinOpComp(other, self)
@@ -342,7 +342,7 @@ class DiagonalOperator(LinearOperator):
                                                is_symmetric=np.alltrue(np.isreal(self.diag)))
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        if self.diag.size == 1:
+        if self.shape[0] == 1:
             return np.asscalar(self.diag * x)
         else:
             return self.diag * x
@@ -361,9 +361,10 @@ class IdentityOperator(DiagonalOperator):
 
 
 class HomothetyMap(DiagonalOperator):
-    def __init__(self, constant: Number):
+    def __init__(self, size: int, constant: Number):
         self.cst = constant
         super(HomothetyMap, self).__init__(diag=self.cst)
+        self.shape = (size, size)
 
     def jacobianT(self, arg: Optional[Number] = None) -> Number:
         return self.cst
