@@ -9,32 +9,39 @@ pycsou.func.penalty
 
    
    
-   .. rubric:: Functions
+   .. rubric:: Norms
 
    .. autosummary::
    
-      ImagLine
+      L1Norm
+      SquaredL1Norm
+      L2Norm
+      SquaredL2Norm
+      LInftyNorm
+
+   .. rubric:: Balls
+
+   .. autosummary::
+
       L1Ball
       L2Ball
       LInftyBall
+
+   .. rubric:: Convex Sets
+
+   .. autosummary::
+
+      ImagLine
       NonNegativeOrthant
       RealLine
       Segment
    
    
-
-   
-   
-   .. rubric:: Classes
+   .. rubric:: Information Theoretic
 
    .. autosummary::
    
-      L1Norm
-      L2Norm
-      LInftyNorm
       LogBarrier
-      SquaredL1Norm
-      SquaredL2Norm
       ShannonEntropy
    
    

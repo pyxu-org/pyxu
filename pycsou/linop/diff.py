@@ -16,11 +16,12 @@ import numpy as np
 import pylops
 import pygsp
 from typing import Optional, Union, Tuple, Iterable, List
-from pycsou.core.linop import PyLopLinearOperator, LinearOperator, IdentityOperator, DiagonalOperator, LinOpVStack
+from pycsou.core.linop import PyLopLinearOperator, LinearOperator, IdentityOperator, DiagonalOperator, LinOpVStack, \
+    SparseLinearOperator, PolynomialLinearOperator
 from numbers import Number
 
 
-def FirstDerivative(size: int, shape: Optional[tuple] = None, axis=0, step: float = 1.0, edge: bool = True,
+def FirstDerivative(size: int, shape: Optional[tuple] = None, axis: int = 0, step: float = 1.0, edge: bool = True,
                     dtype: str = 'float64', kind: str = 'forward') -> PyLopLinearOperator:
     r"""
     First derivative.
@@ -129,7 +130,7 @@ def FirstDerivative(size: int, shape: Optional[tuple] = None, axis=0, step: floa
     return PyLopLinearOperator(first_derivative)
 
 
-def SecondDerivative(size: int, shape: Optional[tuple] = None, axis=0, step: float = 1.0, edge: bool = True,
+def SecondDerivative(size: int, shape: Optional[tuple] = None, axis: int = 0, step: float = 1.0, edge: bool = True,
                      dtype: str = 'float64') -> PyLopLinearOperator:
     r"""
     Second derivative.
@@ -218,7 +219,7 @@ def SecondDerivative(size: int, shape: Optional[tuple] = None, axis=0, step: flo
         pylops.SecondDerivative(N=size, dims=shape, dir=axis, sampling=step, edge=edge, dtype=dtype))
 
 
-def GeneralisedDerivative(size: int, shape: Optional[tuple] = None, axis=0, step: float = 1.0, edge: bool = True,
+def GeneralisedDerivative(size: int, shape: Optional[tuple] = None, axis: int = 0, step: float = 1.0, edge: bool = True,
                           dtype: str = 'float64', kind_op='iterated', kind_diff='centered', **kwargs) -> LinearOperator:
     r"""
     Generalised derivative.
@@ -298,7 +299,7 @@ def GeneralisedDerivative(size: int, shape: Optional[tuple] = None, axis=0, step
        Dop_sob = GeneralisedDerivative(size=x.size, kind_op='sobolev', order=2, constant=1e-2)
        Dop_exp = GeneralisedDerivative(size=x.size, kind_op='exponential', order=4, constant=-1e-2)
        Dop_pol = GeneralisedDerivative(size=x.size, kind_op='polynomial',
-                                    coeffs=1e-5 * (np.array([0, 1 / 4, -1 / 4, 1 / 4, -1 / 4])))
+                                       coeffs= 1/2 * np.array([1e-8, 0, -2 * 1e-4, 0, 1]))
        y_it = Dop_it * z
        y_sob = Dop_sob * z
        y_exp = Dop_exp * z
@@ -327,6 +328,7 @@ def GeneralisedDerivative(size: int, shape: Optional[tuple] = None, axis=0, step
 
     """
     D = FirstDerivative(size=size, shape=shape, axis=axis, step=step, edge=edge, dtype=dtype, kind=kind_diff)
+    D.is_symmetric = False
     D2 = SecondDerivative(size=size, shape=shape, axis=axis, step=step, edge=edge, dtype=dtype)
     if kind_op == 'iterated':
         N = kwargs['order']
@@ -346,10 +348,7 @@ def GeneralisedDerivative(size: int, shape: Optional[tuple] = None, axis=0, step
         order = N
     elif kind_op == 'polynomial':
         coeffs = kwargs['coeffs']
-        I = IdentityOperator(size=size)
-        Dgen = coeffs[0] * I
-        for i in range(1, len(coeffs)):
-            Dgen += coeffs[i] * (D ** i)
+        Dgen = PolynomialLinearOperator(LinOp=D, coeffs=coeffs)
         order = len(coeffs) - 1
     else:
         raise NotImplementedError(
@@ -1038,6 +1037,7 @@ def GeneralisedLaplacian(shape: Optional[tuple] = None, step: Union[tuple, float
 
     """
     Delta = Laplacian(shape=shape, step=step, edge=edge, dtype=dtype)
+    Delta.is_symmetric = True
     if kind == 'iterated':
         N = kwargs['order']
         Dgen = Delta ** N
@@ -1050,10 +1050,7 @@ def GeneralisedLaplacian(shape: Optional[tuple] = None, step: Union[tuple, float
         order = 2 * N
     elif kind == 'polynomial':
         coeffs = kwargs['coeffs']
-        I = IdentityOperator(size=shape[0] * shape[1])
-        Dgen = coeffs[0] * I
-        for i in range(1, len(coeffs)):
-            Dgen += coeffs[i] * (Delta ** i)
+        Dgen = PolynomialLinearOperator(LinOp=Delta, coeffs=coeffs)
         order = 2 * (len(coeffs) - 1)
     else:
         raise NotImplementedError(
@@ -1140,9 +1137,70 @@ def Integration1D(size: int, shape: Optional[tuple] = None, axis: int = 0, step:
         pylops.CausalIntegration(N=size, dims=shape, dir=axis, sampling=step, halfcurrent=False, dtype=dtype))
 
 
-class GraphDifferentialOperator(LinearOperator):
+class GraphLaplacian(LinearOperator):
     r"""
-    Base class for graph differential operators.
+    Graph Laplacian.
+
+    Normalised graph Laplacian for signals defined on graphs.
+
+    Examples
+    --------
+
+    .. plot::
+
+       import numpy as np
+       from pygsp.graphs import Ring
+       from pycsou.linop.diff import GraphLaplacian
+       np.random.seed(1)
+       G = Ring(N=32, k=4)
+       G.compute_laplacian(lap_type='normalized')
+       G.set_coordinates(kind='spring')
+       x = np.arange(G.N)
+       signal = np.piecewise(x, [x < G.N//3, (x >= G.N//3) * (x< 2 * G.N//3), x>=2 * G.N//3], [lambda x: -x, lambda x: 3 * x - 4 * G.N//3, lambda x: -0.5 * x + G.N])
+       Lap = GraphLaplacian(Graph=G)
+       lap_sig = Lap * signal
+       plt.figure()
+       ax=plt.gca()
+       G.plot_signal(signal, ax=ax, backend='matplotlib')
+       plt.title('Signal')
+       plt.axis('equal')
+       plt.figure()
+       plt.plot(signal)
+       plt.title('Signal')
+       plt.figure()
+       ax=plt.gca()
+       G.plot_signal(lap_sig, ax=ax, backend='matplotlib')
+       plt.title('Laplacian of signal')
+       plt.axis('equal')
+       plt.figure()
+       plt.plot(-lap_sig)
+       plt.title('Laplacian of signal')
+
+    Notes
+    -----
+    For undirected graphs, the normalized graph Laplacian is defined as
+
+    .. math:: \mathbf{L} = \mathbf{I} - \mathbf{D}^{-1/2} \mathbf{W} \mathbf{D}^{-1/2},
+
+    where :math:`\mathbf{I}` is the identity matrix, :math:`\mathbf{W}` is the weighted adjacency matrix and :math:`\mathbf{D}` the
+    weighted degree matrix.
+
+    For directed graphs, the Laplacians are built from a symmetrized
+    version of the weighted adjacency matrix that is the average of the
+    weighted adjacency matrix and its transpose. As the Laplacian is
+    defined as the divergence of the gradient, it is not affected by the
+    orientation of the edges.
+
+    For both Laplacians, the diagonal entries corresponding to disconnected
+    nodes (i.e., nodes with degree zero) are set to zero.
+
+    The ``GraphLaplacian`` operator is self-adjoint.
+
+    See Also
+    --------
+    :py:class:`~pycsou.linop.diff.GraphGradient`, :py:func:`~pycsou.linop.diff.GeneralisedGraphLaplacian`
+    :py:class:`~pycsou.linop.conv.GraphConvolution`
+
     """
 
     def __init__(self, Graph: pygsp.graphs.Graph, dtype: type = np.float):
@@ -1160,6 +1218,7 @@ class GraphDifferentialOperator(LinearOperator):
             If ``Graph.L`` does not exist.
         NotImplementedError
             If ``Graph.lap_type`` is 'combinatorial'.
+
         """
         self.Graph = Graph
         if Graph.L is None:
@@ -1169,60 +1228,9 @@ class GraphDifferentialOperator(LinearOperator):
             raise NotImplementedError(r'Combinatorial graph Laplacians are not supported.')
         else:
             self.L = self.Graph.L.tocsc()
-        self.D = self.Graph.D
-        super(GraphDifferentialOperator, self).__init__(shape=self.Graph.W.shape, dtype=dtype, is_explicit=False,
-                                                        is_dense=False, is_sparse=False, is_dask=False,
-                                                        is_symmetric=True)
-
-
-class GraphLaplacian(GraphDifferentialOperator):
-    r"""
-    Graph Laplacian.
-
-    Normalised graph Laplacian for signals defined on a graph.
-
-    Examples
-    --------
-
-    .. plot::
-
-       import numpy as np
-       from pygsp.graphs import Ring
-       from pycsou.linop.diff import GraphLaplacian
-       np.random.seed(1)
-       G = Ring(N=32, k=2)
-       G.compute_laplacian(lap_type='normalized')
-       G.compute_differential_operator()
-       G.set_coordinates(kind='spring')
-       x = np.arange(G.N)
-       signal = np.piecewise(x, [x < G.N//3, (x >= G.N//3) * (x< 2 * G.N//3), x>=2 * G.N//3], [lambda x: -x, lambda x: 3 * x - 4 * G.N//3, lambda x: -0.5 * x + G.N])
-       Lap = GraphLaplacian(Graph=G)
-       lap_sig = Lap * signal
-       plt.figure()
-       ax=plt.gca()
-       G.plot_signal(signal, ax=ax, backend='matplotlib')
-       plt.title('Signal')
-       plt.axis('equal')
-       plt.figure()
-       plt.plot(signal)
-       plt.title('Signal')
-       plt.figure()
-       ax=plt.gca()
-       G.plot_signal(lap_sig, ax=ax, backend='matplotlib')
-       plt.title('Laplacian')
-       plt.axis('equal')
-       plt.figure()
-       plt.plot(-lap_sig)
-       plt.title('Laplacian')
-
-    Notes
-    -----
-    See [FuncSphere]_ Section 2.3 of Chapter 6 for a definition of the normalised graph Laplacian.
-    The ``GraphLaplacian`` operator is self-adjoint.
-    """
-
-    def __init__(self, Graph: pygsp.graphs.Graph, dtype: type = np.float):
-        super(GraphLaplacian, self).__init__(Graph=Graph, dtype=dtype)
+        super(GraphLaplacian, self).__init__(shape=self.Graph.W.shape, dtype=dtype, is_explicit=False,
+                                             is_dense=False, is_sparse=False, is_dask=False,
+                                             is_symmetric=True)
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         return self.L.dot(x)
@@ -1231,23 +1239,185 @@ class GraphLaplacian(GraphDifferentialOperator):
         return self(y)
 
 
+class GraphGradient(LinearOperator):
+    r"""
+    Graph gradient.
+
+    Gradient operator for signals defined on graphs.
+
+    Examples
+    --------
+
+    .. testsetup::
+
+       import numpy as np
+       from pygsp.graphs import Ring
+       from pycsou.linop.diff import GraphLaplacian, GraphGradient
+       np.random.seed(1)
+
+    .. doctest::
+
+       >>> G = Ring(N=32, k=4)
+       >>> G.compute_laplacian(lap_type='normalized')
+       >>> G.compute_differential_operator()
+       >>> G.set_coordinates(kind='spring')
+       >>> x = np.arange(G.N)
+       >>> signal = np.piecewise(x, [x < G.N//3, (x >= G.N//3) * (x< 2 * G.N//3), x>=2 * G.N//3], [lambda x: -x, lambda x: 3 * x - 4 * G.N//3, lambda x: -0.5 * x + G.N])
+       >>> Lap = GraphLaplacian(Graph=G)
+       >>> Grad = GraphGradient(Graph=G)
+       >>> lap_sig = Lap * signal
+       >>> lap_sig2 = Grad.adjoint(Grad(signal))
+       >>> np.allclose(lap_sig, lap_sig2)
+       True
+
+    Notes
+    -----
+    The adjoint of the ``GraphGradient`` operator is called the graph divergence operator.
+
+    Warnings
+    --------
+    In the newest version of PyGSP (> 0.5.1) the convention is changed: ``Graph.D`` is the divergence operator and
+    ``Graph.D.transpose()`` the gradient (see routine `Graph.compute_differential_operator <https://pygsp.readthedocs.io/en/latest/reference/graphs.html#pygsp.graphs.Graph.compute_differential_operator>`_). The code should be adapted when this new version is released.
+
+    See Also
+    --------
+    :py:class:`~pycsou.linop.diff.GraphLaplacian`, :py:func:`~pycsou.linop.diff.GeneralisedGraphLaplacian`
+
+    """
+
+    def __init__(self, Graph: pygsp.graphs.Graph, dtype: type = np.float):
+        r"""
+        Parameters
+        ----------
+        Graph: `pygsp.graphs.Graph <https://pygsp.readthedocs.io/en/stable/reference/graphs.html#pygsp.graphs.Graph>`_
+            Graph on which the signal is defined, with differential operator ``Graph.D`` precomputed (see `pygsp.graphs.Graph.compute_differential_operator() <https://pygsp.readthedocs.io/en/stable/reference/graphs.html#pygsp.graphs.Graph.compute_differential_operator>`_.
+        dtype: type
+            Type of the entries of the graph filer.
+
+        Raises
+        ------
+        AttributeError
+            If ``Graph.D`` does not exist.
+        """
+        self.Graph = Graph
+        if Graph.D is None:
+            raise AttributeError(
+                r'Please compute the differential operator of the graph with the routine https://pygsp.readthedocs.io/en/stable/reference/graphs.html#pygsp.graphs.Graph.compute_differential_operator')
+        else:
+            self.D = self.Graph.D.tocsc()
+        super(GraphGradient, self).__init__(shape=self.Graph.W.shape, dtype=dtype, is_explicit=False,
+                                            is_dense=False, is_sparse=False, is_dask=False,
+                                            is_symmetric=True)
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        return self.D.dot(x)
+
+    def adjoint(self, y: np.ndarray) -> np.ndarray:
+        return self.D.conj().transpose().dot(y)
+
+
+def GeneralisedGraphLaplacian(Graph: pygsp.graphs.Graph, kind: str = 'iterated', **kwargs):
+    r"""
+    Generalised graph Laplacian operator.
+
+    Generalised Laplacian operator signals defined on graphs.
+
+    Parameters
+    ----------
+    Graph: `pygsp.graphs.Graph <https://pygsp.readthedocs.io/en/stable/reference/graphs.html#pygsp.graphs.Graph>`_
+        Graph on which the signal is defined, with normalised Laplacian ``Graph.L`` precomputed (see `pygsp.graphs.Graph.compute_laplacian(lap_type='normalized') <https://pygsp.readthedocs.io/en/stable/reference/graphs.html#pygsp.graphs.Graph.compute_laplacian>`_.
+    dtype: type
+        Type of the entries of the graph filer.
+    kind: str
+        Type of generalised differential operator (``'iterated'``, ``'sobolev'``, ``'polynomial'``).
+        Depending on the cases, the ``GeneralisedLaplacian`` operator is defined as follows:
+
+        * ``'iterated'``: :math:`\mathscr{D}=\mathbf{L}^N`,
+        * ``'sobolev'``: :math:`\mathscr{D}=(\alpha^2 \mathrm{Id}-\mathbf{L})^N`, with :math:`\alpha\in\mathbb{R}`,
+        * ``'polynomial'``: :math:`\mathscr{D}=\sum_{n=0}^N \alpha_n \mathbf{L}^n`,  with :math:`\{\alpha_0,\ldots,\alpha_N\} \subset\mathbb{R}`,
+
+        where :math:`\mathbf{L}` is the :py:func:`~pycsou.linop.diff.GraphLaplacian` operator.
+    kwargs: Any
+        Additional arguments depending on the value of ``kind``:
+
+        * ``'iterated'``: ``kwargs={order: int}`` where ``order`` defines the exponent :math:`N`.
+        * ``'sobolev'``: ``kwargs={order: int, constant: float}`` where ``order`` defines the exponent :math:`N` and ``constant`` the scalar :math:`\alpha\in\mathbb{R}`.
+        * ``'polynomial'``: ``kwargs={coeffs: Union[np.ndarray, list, tuple]}`` where ``coeffs`` is an array containing the coefficients :math:`\{\alpha_0,\ldots,\alpha_N\} \subset\mathbb{R}`.
+
+    Raises
+    ------
+    AttributeError
+        If ``Graph.L`` does not exist.
+    NotImplementedError
+        If ``Graph.lap_type`` is 'combinatorial'.
+    NotImplementedError
+        If ``kind`` is not 'iterated', 'sobolev' or 'polynomial'.
+
+    Examples
+    --------
+
+    .. plot::
+
+       import numpy as np
+       from pygsp.graphs import Ring
+       from pycsou.linop.diff import GeneralisedGraphLaplacian
+       np.random.seed(1)
+       G = Ring(N=32, k=4)
+       G.compute_laplacian(lap_type='normalized')
+       G.set_coordinates(kind='spring')
+       x = np.arange(G.N)
+       signal = np.piecewise(x, [x < G.N//3, (x >= G.N//3) * (x< 2 * G.N//3), x>=2 * G.N//3], [lambda x: -x, lambda x: 3 * x - 4 * G.N//3, lambda x: -0.5 * x + G.N])
+       Dop = GeneralisedGraphLaplacian(Graph=G, kind='polynomial', coeffs=[1,-1,2])
+       gen_lap = Dop * signal
+       plt.figure()
+       ax=plt.gca()
+       G.plot_signal(signal, ax=ax, backend='matplotlib')
+       plt.title('Signal')
+       plt.axis('equal')
+       plt.figure()
+       ax=plt.gca()
+       G.plot_signal(gen_lap, ax=ax, backend='matplotlib')
+       plt.title('Generalized Laplacian of signal')
+       plt.axis('equal')
+
+
+    Notes
+    -----
+    The ``GeneralisedGraphLaplacian`` operator is self-adjoint.
+
+    See Also
+    --------
+    :py:func:`~pycsou.linop.diff.GeneralisedDerivative`, :py:class:`~pycsou.linop.diff.GeneralisedLaplacian`
+
+
+    """
+    if Graph.L is None:
+        raise AttributeError(
+            r'Please compute the normalised Laplacian of the graph with the routine https://pygsp.readthedocs.io/en/stable/reference/graphs.html#pygsp.graphs.Graph.compute_laplacian')
+    elif Graph.lap_type != 'normalized':
+        raise NotImplementedError(r'Combinatorial graph Laplacians are not supported.')
+    else:
+        L = Graph.L.tocsc()
+        LapOp = SparseLinearOperator(L, is_symmetric=True)
+
+    if kind == 'iterated':
+        N = kwargs['order']
+        Dgen = LapOp ** N
+    elif kind == 'sobolev':
+        I = IdentityOperator(size=LapOp.shape[0] * LapOp.shape[1])
+        alpha = kwargs['constant']
+        N = kwargs['order']
+        Dgen = ((alpha ** 2) * I - LapOp) ** N
+    elif kind == 'polynomial':
+        coeffs = kwargs['coeffs']
+        Dgen = PolynomialLinearOperator(LinOp=LapOp, coeffs=coeffs)
+    else:
+        raise NotImplementedError(
+            'Supported generalised Laplacian types are: iterated, sobolev, polynomial.')
+    return Dgen
+
+
 if __name__ == "__main__":
     import numpy as np
     import matplotlib.pyplot as plt
     from pycsou.util.misc import peaks
-
-"""
-FirstDerivative
-SecondDerivative
-GeneralisedDerivative
-Gradient
-Laplacian
-GeneralisedLaplacian
-FirstDirectionalDerivative
-SecondDirectionalDerivative
-DirectionalGradient
-DirectionalLaplacian
-GraphGradient
-GraphLaplacian
-GeneralisedGraphDifferential
-"""

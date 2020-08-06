@@ -11,6 +11,12 @@ pycsou.util.math
 
       sign
       soft
+
+
+   .. rubric:: Projections
+
+   .. autosummary::
+
       proj_l1_ball
       proj_l2_ball
       proj_linfty_ball

@@ -9,26 +9,34 @@ pycsou.func.loss
 
    
    
-   .. rubric:: Functions
+   .. rubric:: Distances
 
    .. autosummary::
-      ProximableLoss
-      DifferentiableLoss
       L2Loss
       SquaredL2Loss
-      L2BallLoss
       L1Loss
       SquaredL1Loss
-      L1BallLoss
       LInftyLoss
+      
+      
+   .. rubric:: Indicators
+
+   .. autosummary::
+
+      L2BallLoss
+      L1BallLoss
       LInftyBallLoss
       ConsistencyLoss
-      
-
    
-   .. rubric:: Classes
+   .. rubric:: Divergences
 
    .. autosummary::
       KLDivergence
-   
+
+   .. rubric:: Classes
+
+   .. autosummary::
+
+      ProximableLoss
+      DifferentiableLoss
 

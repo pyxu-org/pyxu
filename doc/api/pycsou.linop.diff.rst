@@ -4,7 +4,7 @@ pycsou.linop.diff
 .. automodule:: pycsou.linop.diff
    :special-members: __init__
    
-   .. rubric:: Functions
+   .. rubric:: 1D Operators
 
    .. autosummary::
 
@@ -12,6 +12,11 @@ pycsou.linop.diff
       SecondDerivative
       GeneralisedDerivative
       Integration1D
+
+   .. rubric:: 2D Operators
+
+   .. autosummary::
+   
       Gradient
       Laplacian
       GeneralisedLaplacian
@@ -19,5 +24,13 @@ pycsou.linop.diff
       SecondDirectionalDerivative
       DirectionalGradient
       DirectionalLaplacian
+      
+
+   .. rubric:: Graph Operators
+
+   .. autosummary::   
+      GraphLaplacian
+      GraphGradient
+      GeneralisedGraphLaplacian
 
 

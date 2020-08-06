@@ -15,7 +15,7 @@ import pylops.signalprocessing as pyconv
 import pylops
 import pygsp
 from typing import Optional, Union
-from pycsou.core.linop import PyLopLinearOperator, LinearOperator
+from pycsou.core.linop import PyLopLinearOperator, PolynomialLinearOperator, SparseLinearOperator
 
 
 def Convolve1D(size: int, filter: np.ndarray, reshape_dims: Optional[tuple] = None, axis: int = 0,
@@ -419,7 +419,7 @@ def MovingAverage2D(window_shape: Union[tuple, list], shape: tuple, dtype='float
     return PyLopLinearOperator(PyLop)
 
 
-class GraphConvolution(LinearOperator):
+class GraphConvolution(PolynomialLinearOperator):
     r"""
     Graph convolution.
 
@@ -486,9 +486,14 @@ class GraphConvolution(LinearOperator):
     Notes
     -----
     The ``GraphConvolution`` operator is self-adjoint and operates in a matrix-free fashion, as described in Section 4.3, Chapter 7 of  [FuncSphere]_.
+
+    See Also
+    --------
+    :py:class:`~pycsou.linop.diff.GraphLaplacian`
+
     """
 
-    def __init__(self, Graph: pygsp.graphs.Graph, coefficients: Union[np.ndarray, list, tuple], dtype: type = np.float):
+    def __init__(self, Graph: pygsp.graphs.Graph, coefficients: Union[np.ndarray, list, tuple]):
         r"""
         Parameters
         ----------
@@ -513,21 +518,10 @@ class GraphConvolution(LinearOperator):
         elif Graph.lap_type != 'normalized':
             raise NotImplementedError(r'Combinatorial graph Laplacians are not supported.')
         else:
-            self.L = self.Graph.L.tocsc()
+            L = self.Graph.L.tocsc()
+            Lop = SparseLinearOperator(L, is_symmetric=True)
         self.coefficients = coefficients
-        super(GraphConvolution, self).__init__(shape=self.Graph.W.shape, dtype=dtype, is_explicit=False, is_dense=False,
-                                               is_sparse=False, is_dask=False, is_symmetric=True)
-
-    def __call__(self, x: np.ndarray) -> np.ndarray:
-        z = x
-        y = self.coefficients[0] * x
-        for i in range(1, len(self.coefficients)):
-            z = self.Graph.L.dot(z)
-            y = y + self.coefficients[i] * z
-        return y
-
-    def adjoint(self, y: np.ndarray) -> np.ndarray:
-        return self(y)
+        super(GraphConvolution, self).__init__(LinOp=Lop, coeffs=self.coefficients)
 
 
 if __name__ == '__main__':
