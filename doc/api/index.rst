@@ -11,3 +11,4 @@ API Reference
    pycsou.util.math
    pycsou.linop.conv
    pycsou.linop.diff
+   pycsou.linop.sampling
