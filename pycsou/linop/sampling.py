@@ -193,7 +193,7 @@ class Masking(LinearOperator):
         return x
 
 
-class DownSampling(LinearOperator):
+class DownSampling(Masking):
     r"""
     Downsampling operator.
 
@@ -256,7 +256,7 @@ class DownSampling(LinearOperator):
        import matplotlib.pyplot as plt
        import scipy.misc
        img = scipy.misc.face(gray=True).astype(float)
-       DownSampOp = DownSampling(size=img.size, shape=img.shape, downsampling_factor=(3,5))
+       DownSampOp = DownSampling(size=img.size, shape=img.shape, downsampling_factor=(3,6))
        down_sampled_img = (DownSampOp * img.flatten()).reshape(DownSampOp.output_shape)
        up_sampled_img = DownSampOp.adjoint(down_sampled_img.flatten()).reshape(img.shape)
        plt.figure()
@@ -265,6 +265,24 @@ class DownSampling(LinearOperator):
        plt.imshow(down_sampled_img)
        plt.figure()
        plt.imshow(up_sampled_img)
+
+    Notes
+    -----
+    Downsampling by :math:`M` an input vector :math:`\mathbf{x}` of size
+    :math:`N` can be performed as:
+
+    .. math::
+
+        y_i = x_{n}  \quad  n=iM, \,i=1,\ldots, \lfloor N/M \rfloor.
+
+    Conversely, in adjoint mode the available values in the data vector
+    :math:`\mathbf{y}` are placed at locations
+    :math:`n=iM` in the model vector:
+
+    .. math::
+
+        x_{iM} = y_i,\;\;x_{iM+1}=x_{iM+2}=\cdots=x_{(i+1)M-1}=0, \qquad i=1,\ldots, \lfloor N/M \rfloor.
+
 
     See Also
     --------
@@ -282,11 +300,16 @@ class DownSampling(LinearOperator):
         downsampling_factor : Union[int, tuple, list]
             Downsampling factor (possibly different for each dimension).
         shape: Optional[tuple]
-            Shape of input array (default ``None``: the input array in 1D).
+            Shape of input array (default ``None``: the input array is 1D).
         axis: Optional[int]
             Axis along which to downsample for ND input arrays (default ``None``: downsampling is performed along each axis).
         dtype: type
             Type of input array.
+
+        Raises
+        ------
+        ValueError
+            If the set of parameters {`shape`, `size`, `sampling_factor`, `axis`} is invalid.
         """
         if type(downsampling_factor) is int:
             if (shape is not None) and (axis is None):
@@ -307,10 +330,8 @@ class DownSampling(LinearOperator):
         self.size = size
         self.input_shape = shape
         self.axis = axis
+        self.downsampling_mask = self.compute_downsampling_mask()
         if self.input_shape is None:
-            indices = np.arange(self.size)
-            downsampled_indices = indices % self.downsampling_factor
-            downsampled_size = downsampled_indices[downsampled_indices == 0].size
             self.output_shape = None
         else:
             if len(self.downsampling_factor) > 1:
@@ -326,40 +347,22 @@ class DownSampling(LinearOperator):
                 downsampled_axis_indices = downsampled_axis_indices % self.downsampling_factor
                 output_shape[self.axis] = downsampled_axis_indices[downsampled_axis_indices == 0].size
                 self.output_shape = tuple(output_shape)
-            downsampled_size = np.prod(self.output_shape)
 
-        super(DownSampling, self).__init__(shape=(downsampled_size, size), dtype=dtype)
+        super(DownSampling, self).__init__(size=self.size, sampling_bool=self.downsampling_mask, dtype=dtype)
 
-    def __call__(self, x: np.ndarray) -> np.ndarray:
+    def compute_downsampling_mask(self) -> np.ndarray:
+        """
+        Compute the downsampling mask.
+
+        Returns
+        -------
+        :py:class:`np.ndarray`
+            The mask to apply to get the downsampled values.
+        """
         if self.input_shape is None:
             indices = np.arange(self.size)
-            downsampled_indices = indices % self.downsampling_factor
-            downsampled_x = x[downsampled_indices == 0]
+            downsampled_mask = (indices % self.downsampling_factor) == 0
         else:
-            downsampled_x = x.reshape(self.input_shape)
-            if len(self.downsampling_factor) > 1:
-                for ax in range(len(self.input_shape)):
-                    axis_indices = np.arange(self.input_shape[ax])
-                    downsampled_axis_indices = axis_indices % self.downsampling_factor[ax]
-                    downsampled_x_swapped_axes = np.swapaxes(downsampled_x, 0, ax)
-                    downsampled_x_swapped_axes = downsampled_x_swapped_axes[downsampled_axis_indices == 0, ...]
-                    downsampled_x = np.swapaxes(downsampled_x_swapped_axes, 0, ax)
-            else:
-                downsampled_axis_indices = np.arange(self.input_shape[self.axis])
-                downsampled_axis_indices = downsampled_axis_indices % self.downsampling_factor
-                downsampled_x_swapped_axes = np.swapaxes(downsampled_x, 0, self.axis)
-                downsampled_x_swapped_axes = downsampled_x_swapped_axes[downsampled_axis_indices == 0, ...]
-                downsampled_x = np.swapaxes(downsampled_x_swapped_axes, 0, self.axis)
-        return downsampled_x.reshape(-1)
-
-    def adjoint(self, y: np.ndarray) -> np.ndarray:
-        if self.input_shape is None:
-            upsampled_y = np.zeros(self.size, dtype=self.dtype)
-            indices = np.arange(self.size)
-            downsampled_indices = indices % self.downsampling_factor
-            upsampled_y[downsampled_indices == 0] = y
-        else:
-            upsampled_y = np.zeros(shape=self.input_shape, dtype=self.dtype)
             if len(self.downsampling_factor) > 1:
                 downsampled_mask = True
                 for ax in range(len(self.input_shape)):
@@ -369,16 +372,14 @@ class DownSampling(LinearOperator):
                         downsampled_axis_indices.shape + (len(self.input_shape) - 1) * (1,))
                     downsampled_axis_indices = np.swapaxes(downsampled_axis_indices, 0, ax)
                     downsampled_mask = downsampled_mask * (downsampled_axis_indices == 0)
-                upsampled_y[downsampled_mask] = y
             else:
-                reshaped_y = y.reshape(self.output_shape)
+                downsampled_mask = np.zeros(shape=self.input_shape, dtype=bool)
+                downsampled_mask = np.swapaxes(downsampled_mask, 0, self.axis)
                 downsampled_axis_indices = np.arange(self.input_shape[self.axis])
                 downsampled_axis_indices = downsampled_axis_indices % self.downsampling_factor
-                upsampled_y_swapped_axes = np.swapaxes(upsampled_y, 0, self.axis)
-                reshaped_y_swapped_axes = np.swapaxes(reshaped_y, 0, self.axis)
-                upsampled_y_swapped_axes[downsampled_axis_indices == 0, ...] = reshaped_y_swapped_axes
-                upsampled_y = np.swapaxes(upsampled_y_swapped_axes, 0, self.axis)
-        return upsampled_y.reshape(-1)
+                downsampled_mask[downsampled_axis_indices == 0, ...] = True
+                downsampled_mask = np.swapaxes(downsampled_mask, 0, self.axis)
+        return downsampled_mask.reshape(-1)
 
 
 class Pooling(LinearOperator):
