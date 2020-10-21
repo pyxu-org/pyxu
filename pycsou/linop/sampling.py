@@ -12,11 +12,8 @@ This module provides sampling operators for discrete or continuous signals.
 import numpy as np
 import pandas as pd
 import pylops
-import pygsp
-from typing import Optional, Union, Tuple, Iterable, List, Callable
-from pycsou.core.linop import PyLopLinearOperator, LinearOperator, IdentityOperator, DiagonalOperator, LinOpVStack, \
-    SparseLinearOperator, PolynomialLinearOperator
-from numbers import Number
+from typing import Optional, Union, List, Callable
+from pycsou.core.linop import PyLopLinearOperator, LinearOperator, DenseLinearOperator
 from skimage.measure import block_reduce
 from scipy.spatial import cKDTree
 
@@ -635,7 +632,7 @@ class NNSampling(LinearOperator):
 
     See Also
     --------
-    :py:class:`~pycsou.linop.sampling.ContinuousSampling`
+    :py:class:`~pycsou.linop.sampling.GeneralisedVandermonde`
     """
 
     def __init__(self, samples: np.ndarray, grid: np.ndarray, dtype: type = np.float64):
@@ -678,15 +675,94 @@ class NNSampling(LinearOperator):
 
     def adjoint(self, y: np.ndarray) -> np.ndarray:
         y_series = pd.Series(data=y, index=self.nn_indices)
-        y_series = y_series.groupby(by=y_series.index).mean() # Average the samples associated to a common nearest neighbour.
+        y_series = y_series.groupby(
+            by=y_series.index).mean()  # Average the samples associated to a common nearest neighbour.
         y = y_series.loc[self.nn_indices].values
         x = np.zeros(shape=self.input_size, dtype=self.dtype)
         x[self.nn_indices] = y
         return x
 
 
-class ContinuousSampling(LinearOperator):
-    pass
+class GeneralisedVandermonde(DenseLinearOperator):
+    r"""
+    Generalised Vandermonde matrix.
+
+    Given sampling locations :math:`\{\mathbf{z}_1,\ldots,\mathbf{z}_L\}\subset\mathbb{R}^N`, and a family of `continuous` functions :math:`\{\varphi_1, \ldots, \varphi_K\}\subset \mathcal{C}(\mathbb{R}^N, \mathbb{C})`,
+    this function forms the generalised Vandermonde matrix:
+
+    .. math::
+
+       \left[\begin{array}{ccc} \varphi_1(\mathbf{z}_1) & \cdots & \varphi_K(\mathbf{z}_1)\\\vdots & \ddots & \vdots\\\varphi_1(\mathbf{z}_L) & \cdots & \varphi_K(\mathbf{z}_L)\end{array}\right]\in\mathbb{C}^{L\times K}.
+
+    This matrix is useful for sampling functions in the span of :math:`\{\varphi_1, \ldots, \varphi_K\}`. Indeed, if :math:`f=\sum_{k=1}^K\alpha_k\varphi_k`, then we have
+
+    .. math::
+
+       \left[\begin{array}{c}f(\mathbf{z}_1)\\\vdots\\ f(\mathbf{z}_L) \end{array}\right]=\left[\begin{array}{ccc} \varphi_1(\mathbf{z}_1) & \cdots & \varphi_K(\mathbf{z}_1)\\\vdots & \ddots & \vdots\\\varphi_1(\mathbf{z}_L) & \cdots & \varphi_K(\mathbf{z}_L)\end{array}\right]\left[\begin{array}{c}\alpha_1\\\vdots\\ \alpha_K \end{array}\right].
+
+    Examples
+    --------
+
+    .. testsetup::
+
+       import numpy as np
+       from pycsou.linop.sampling import GeneralisedVandermonde
+
+    .. doctest::
+
+       >>> samples = np.arange(10)
+       >>> func1 = lambda t: t**2;  func2 = lambda t: t**3; funcs = [func1, func2]
+       >>> VOp = GeneralisedVandermonde(funcs=funcs, samples=samples)
+       >>> alpha=np.ones((2,))
+       >>> VOp.mat
+       array([[  0.,   0.],
+              [  1.,   1.],
+              [  4.,   8.],
+              [  9.,  27.],
+              [ 16.,  64.],
+              [ 25., 125.],
+              [ 36., 216.],
+              [ 49., 343.],
+              [ 64., 512.],
+              [ 81., 729.]])
+       >>> np.allclose(VOp * alpha, samples ** 2 + samples ** 3)
+       True
+
+    See Also
+    --------
+    :py:class:`~pycsou.linop.sampling.NNSampling`
+    """
+
+    def __init__(self, samples: np.ndarray, funcs: List[Callable], dtype: type = np.float64):
+        """
+
+        Parameters
+        ----------
+        samples : np.ndarray
+            Sampling locations with shape (L,N).
+        funcs : list
+            List of functions.
+        dtype : type
+            Type of input array.
+        """
+        self.samples = samples.reshape(-1)
+        self.funcs = list(funcs)
+        gen_vandermonde_mat = self.get_generalised_vandermonde_matrix().astype(dtype)
+        super(GeneralisedVandermonde, self).__init__(ndarray=gen_vandermonde_mat, is_symmetric=False)
+
+    def _map_func(self, f):
+        return f(self.samples)
+
+    def get_generalised_vandermonde_matrix(self):
+        """
+        Construct the generalised Vandermonde matrix.
+
+        Returns
+        -------
+        np.ndarray
+            The generalised Vandermonde matrix.
+        """
+        return np.stack(list(map(self._map_func, self.funcs)), axis=-1)
 
 
 if __name__ == '__main__':

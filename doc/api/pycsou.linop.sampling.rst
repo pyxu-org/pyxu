@@ -13,4 +13,5 @@ pycsou.linop.sampling
       DownSampling
       Pooling
       NNSampling
+      GeneralisedVandermonde
       
