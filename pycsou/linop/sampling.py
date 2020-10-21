@@ -1,4 +1,3 @@
-# masking, binning, sampling, downsampling
 # #############################################################################
 # sampling.py
 # ===========
@@ -11,12 +10,15 @@ Sampling operators.
 This module provides sampling operators for discrete or continuous signals.
 """
 import numpy as np
+import pandas as pd
 import pylops
 import pygsp
-from typing import Optional, Union, Tuple, Iterable, List
+from typing import Optional, Union, Tuple, Iterable, List, Callable
 from pycsou.core.linop import PyLopLinearOperator, LinearOperator, IdentityOperator, DiagonalOperator, LinOpVStack, \
     SparseLinearOperator, PolynomialLinearOperator
 from numbers import Number
+from skimage.measure import block_reduce
+from scipy.spatial import cKDTree
 
 
 def SubSampling(size: int, sampling_indices: Union[np.ndarray, list], shape: Optional[tuple] = None, axis: int = 0,
@@ -178,17 +180,17 @@ class Masking(LinearOperator):
             If the size of ``sampling_bool`` differs from ``size``.
         """
         self.sampling_bool = np.asarray(sampling_bool).reshape(-1).astype(bool)
-        self.size = size
+        self.input_size = size
         self.nb_of_samples = self.sampling_bool[self.sampling_bool == True].size
         if self.sampling_bool.size != size:
             raise ValueError('Invalid size of boolean sampling array.')
-        super(Masking, self).__init__(shape=(self.nb_of_samples, self.size), dtype=dtype)
+        super(Masking, self).__init__(shape=(self.nb_of_samples, self.input_size), dtype=dtype)
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         return x[self.sampling_bool]
 
     def adjoint(self, y: np.ndarray) -> np.ndarray:
-        x = np.zeros(shape=self.size, dtype=self.dtype)
+        x = np.zeros(shape=self.input_size, dtype=self.dtype)
         x[self.sampling_bool] = y
         return x
 
@@ -261,10 +263,16 @@ class DownSampling(Masking):
        up_sampled_img = DownSampOp.adjoint(down_sampled_img.flatten()).reshape(img.shape)
        plt.figure()
        plt.imshow(img)
+       plt.colorbar()
+       plt.title('Original')
        plt.figure()
        plt.imshow(down_sampled_img)
+       plt.colorbar()
+       plt.title('Downsampling')
        plt.figure()
        plt.imshow(up_sampled_img)
+       plt.colorbar()
+       plt.title('Downsampling followed by Upsampling')
 
     Notes
     -----
@@ -273,7 +281,7 @@ class DownSampling(Masking):
 
     .. math::
 
-        y_i = x_{n}  \quad  n=iM, \,i=1,\ldots, \lfloor N/M \rfloor.
+        y_i = x_{iM}  \quad  i=1,\ldots, \lfloor N/M \rfloor.
 
     Conversely, in adjoint mode the available values in the data vector
     :math:`\mathbf{y}` are placed at locations
@@ -309,7 +317,7 @@ class DownSampling(Masking):
         Raises
         ------
         ValueError
-            If the set of parameters {`shape`, `size`, `sampling_factor`, `axis`} is invalid.
+            If the set of parameters {``shape``, ``size``, ``sampling_factor``, ``axis``} is invalid.
         """
         if type(downsampling_factor) is int:
             if (shape is not None) and (axis is None):
@@ -327,7 +335,7 @@ class DownSampling(Masking):
             raise ValueError('Please specify an array shape for multidimensional downsampling.')
         elif (shape is not None) and (axis is None) and (len(shape) != len(self.downsampling_factor)):
             raise ValueError(f'Inconsistent downsampling factors {downsampling_factor} for array of shape {shape}.')
-        self.size = size
+        self.input_size = size
         self.input_shape = shape
         self.axis = axis
         self.downsampling_mask = self.compute_downsampling_mask()
@@ -348,7 +356,7 @@ class DownSampling(Masking):
                 output_shape[self.axis] = downsampled_axis_indices[downsampled_axis_indices == 0].size
                 self.output_shape = tuple(output_shape)
 
-        super(DownSampling, self).__init__(size=self.size, sampling_bool=self.downsampling_mask, dtype=dtype)
+        super(DownSampling, self).__init__(size=self.input_size, sampling_bool=self.downsampling_mask, dtype=dtype)
 
     def compute_downsampling_mask(self) -> np.ndarray:
         """
@@ -360,7 +368,7 @@ class DownSampling(Masking):
             The mask to apply to get the downsampled values.
         """
         if self.input_shape is None:
-            indices = np.arange(self.size)
+            indices = np.arange(self.input_size)
             downsampled_mask = (indices % self.downsampling_factor) == 0
         else:
             if len(self.downsampling_factor) > 1:
@@ -383,11 +391,298 @@ class DownSampling(Masking):
 
 
 class Pooling(LinearOperator):
-    pass
+    r"""
+    Pooling operator.
+
+    Pool an array by summing/averaging across constant size blocks tiling the array.
+
+    Examples
+    --------
+
+    .. testsetup::
+
+       import numpy as np
+       from pycsou.linop.sampling import Pooling
+
+    .. doctest::
+
+       >>> x = np.arange(24).reshape(4,6)
+       >>> PoolingOp = Pooling(shape=x.shape, block_size=(2,3), pooling_func='mean')
+       >>> (PoolingOp * x.flatten()).reshape(PoolingOp.output_shape)
+       array([[ 4.,  7.],
+              [16., 19.]])
+       >>> PoolingOp.adjoint(PoolingOp * x.flatten()).reshape(x.shape)
+       array([[ 4.,  4.,  4.,  7.,  7.,  7.],
+              [ 4.,  4.,  4.,  7.,  7.,  7.],
+              [16., 16., 16., 19., 19., 19.],
+              [16., 16., 16., 19., 19., 19.]])
+       >>> PoolingOp = Pooling(shape=x.shape, block_size=(2,3), pooling_func='sum')
+       >>> (PoolingOp * x.flatten()).reshape(PoolingOp.output_shape)
+       array([[ 24,  42],
+              [ 96, 114]])
+       >>> PoolingOp.adjoint(PoolingOp * x.flatten()).reshape(x.shape)
+       array([[ 24,  24,  24,  42,  42,  42],
+              [ 24,  24,  24,  42,  42,  42],
+              [ 96,  96,  96, 114, 114, 114],
+              [ 96,  96,  96, 114, 114, 114]])
+
+    .. plot::
+
+       import numpy as np
+       from pycsou.linop.sampling import Pooling
+       import matplotlib.pyplot as plt
+       import scipy.misc
+       img = scipy.misc.face(gray=True).astype(float)
+       PoolingOp = Pooling(shape=img.shape, block_size=(10,20))
+       pooled_img = (PoolingOp * img.flatten()).reshape(PoolingOp.output_shape)
+       adjoint_img = PoolingOp.adjoint(pooled_img.flatten()).reshape(img.shape)
+       plt.figure()
+       plt.imshow(img)
+       plt.colorbar()
+       plt.title('Original')
+       plt.figure()
+       plt.imshow(pooled_img)
+       plt.colorbar()
+       plt.title('Mean Pooling')
+       plt.figure()
+       plt.imshow(adjoint_img)
+       plt.colorbar()
+       plt.title('Mean Pooling followed by Unpooling')
+
+    Notes
+    -----
+    Pooling is performed via the function `skimage.measure.block_reduce <https://scikit-image.org/docs/dev/api/skimage.measure.html#skimage.measure.block_reduce>`_
+    from ``scikit-image``. If one dimension of the image is not perfectly divisible by the block size then it is zero padded.
+
+    The adjoint (*unpooling*) is performed by assigning the value of the blocks through the pooling function (e.g. mean, sum) to each element
+    of the blocks.
+
+    Warnings
+    --------
+    Max, median or min pooling are not supported since the resulting `PoolingOperator` would then be non linear!
+
+    See Also
+    --------
+    :py:class:`~pycsou.linop.sampling.SubSampling`, :py:class:`~pycsou.linop.sampling.Downsampling`
+    """
+
+    def __init__(self, shape: tuple, block_size: Union[tuple, list], pooling_func: str = 'mean',
+                 dtype: type = np.float64):
+        """
+
+        Parameters
+        ----------
+        shape : tuple
+            Shape of the input array.
+        block_size : Union[tuple, list]
+            Shape of the sub-blocks on which pooling is performed.
+        pooling_func : str
+            Specifies if the local blocks should be summed (`pooling_func='sum'`) or averaged (`pooling_func='mean'`).
+        dtype :
+            Type of input array.
+
+        Raises
+        ------
+        ValueError
+            If the block size is inconsistent with the input array shape or if the pooling function is not supported.
+
+        """
+        if len(shape) != len(block_size):
+            raise ValueError(f'Inconsistent block size {block_size} for array of shape {shape}.')
+        if pooling_func not in ['mean', 'sum', 'average']:
+            raise ValueError(f'pooling_func must be one of: "mean" or "sum".')
+        self.input_shape = shape
+        self.block_size = block_size
+        if pooling_func == 'mean':
+            self.pooling_func = np.mean
+            self.pooling_func_kwargs = None
+        elif pooling_func == 'sum':
+            self.pooling_func = np.sum
+            self.pooling_func_kwargs = None
+        else:
+            self.pooling_func = None
+            self.pooling_func_kwargs = None
+        self.output_shape = self.get_output_shape()
+        self.output_size = int(np.prod(self.output_shape).astype(int))
+        self.input_size = int(np.prod(self.input_shape).astype(int))
+        super(Pooling, self).__init__(shape=(self.output_size, self.input_size), dtype=dtype)
+
+    def get_output_shape(self) -> tuple:
+        """
+        Get shape of the pooled array.
+
+        Returns
+        -------
+        tuple
+            Output array shape.
+        """
+        x = np.zeros(shape=self.input_shape, dtype=np.float)
+        y = block_reduce(image=x, block_size=self.block_size, func=self.pooling_func, cval=0,
+                         func_kwargs=self.pooling_func_kwargs)
+        return y.shape
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        return block_reduce(image=x.reshape(self.input_shape), block_size=self.block_size, func=self.pooling_func,
+                            func_kwargs=self.pooling_func_kwargs).reshape(-1)
+
+    def adjoint(self, y: np.ndarray) -> np.ndarray:
+        x = np.copy(y.reshape(self.output_shape))
+        for ax in range(len(self.input_shape)):
+            x = np.repeat(x, self.block_size[ax], axis=ax)
+            x = np.swapaxes(x, 0, ax)
+            x = x[:self.input_shape[ax], ...]
+            x = np.swapaxes(x, 0, ax)
+        return x.reshape(-1)
 
 
 class NNSampling(LinearOperator):
-    pass
+    r"""
+    Nearest neighbours sampling operator.
+
+    Sample a gridded ND signal at on-grid nearest neighbours of off-grid sampling locations. This can be useful when piecewise
+    constant priors are used to recover continuously-defined signals sampled non-uniformly (see [FuncSphere]_ Remark 6.9).
+
+    Examples
+    --------
+
+    .. testsetup::
+
+       import numpy as np
+       from pycsou.linop.sampling import NNSampling
+       rng = np.random.default_rng(seed=0)
+
+    .. doctest::
+
+       >>> x = np.arange(24).reshape(4,6)
+       >>> grid = np.stack(np.meshgrid(np.arange(6),np.arange(4)), axis=-1)
+       >>> samples = np.stack((5 * rng.random(size=6),3 * rng.random(size=6)), axis=-1)
+       >>> print(samples)
+       [[3.18480844 1.81990733]
+        [1.34893357 2.18848968]
+        [0.20486762 1.63087497]
+        [0.08263818 2.80521727]
+        [4.0663512  2.44756066]
+        [4.56377789 0.0082155 ]]
+       >>> NNSamplingOp = NNSampling(samples=samples, grid=grid)
+       >>> (NNSamplingOp * x.flatten())
+       array([15, 13, 12, 18, 16,  5])
+       >>> NNSamplingOp.adjoint(NNSamplingOp * x.flatten()).reshape(x.shape)
+       array([[ 0.,  0.,  0.,  0.,  0.,  5.],
+              [ 0.,  0.,  0.,  0.,  0.,  0.],
+              [12., 13.,  0., 15., 16.,  0.],
+              [18.,  0.,  0.,  0.,  0.,  0.]])
+
+    .. plot::
+
+       import numpy as np
+       from pycsou.linop.sampling import NNSampling
+       import matplotlib.pyplot as plt
+       rng = np.random.default_rng(seed=0)
+
+       rng = np.random.default_rng(seed=0)
+       x = np.arange(24).reshape(4, 6)
+       grid = np.stack(np.meshgrid(np.arange(6), np.arange(4)), axis=-1)
+       samples = np.stack((5 * rng.random(size=12), 3 * rng.random(size=12)), axis=-1)
+       NNSamplingOp = NNSampling(samples=samples, grid=grid)
+       grid = grid.reshape(-1, 2)
+       x = x.reshape(-1)
+       y = (NNSamplingOp * x.flatten())
+       x_samp = NNSamplingOp.adjoint(y).reshape(x.shape)
+       plt.scatter(grid[..., 0].reshape(-1), grid[..., 1].reshape(-1), s=64, c=x.reshape(-1), marker='s', vmin=np.min(x),
+            vmax=np.max(x))
+       plt.scatter(samples[:, 0], samples[:, 1], c='r', s=64)
+       plt.plot(np.stack((grid[NNSamplingOp.nn_indices, 0], samples[:, 0]), axis=0),
+         np.stack((grid[NNSamplingOp.nn_indices, 1], samples[:, 1]), axis=0), '--r')
+       plt.colorbar()
+       plt.title('Nearest-neighbours Sampling')
+       plt.figure()
+       plt.scatter(grid[..., 0].reshape(-1), grid[..., 1].reshape(-1), s=64, c=x_samp.reshape(-1), marker='s',
+            vmin=np.min(x),
+            vmax=np.max(x))
+       plt.scatter(samples[:, 0], samples[:, 1], c='r', s=64)
+       plt.plot(np.stack((grid[NNSamplingOp.nn_indices, 0], samples[:, 0]), axis=0),
+         np.stack((grid[NNSamplingOp.nn_indices, 1], samples[:, 1]), axis=0), '--r')
+       plt.colorbar()
+       plt.title('Sampling followed by adjoint')
+
+    Notes
+    -----
+    Consider a signal defined over a mesh :math:`f:\{\mathbf{n}_1,\ldots, \mathbf{n}_M\}\to \mathbb{C}`, with
+    :math:`\{\mathbf{n}_1,\ldots, \mathbf{n}_M\}\subset \mathbb{R}^N`. Consider moreover sampling locations
+    :math:`\{\mathbf{z}_1,\ldots, \mathbf{z}_L\}\subset \mathbb{R}^N` which do not necessarily lie on the mesh.
+    Then, nearest-neighbours sampling is defined as:
+
+    .. math::
+
+       y_i=f\left[\arg\min_{k=1,\ldots, M}\|\mathbf{z}_i-\mathbf{n}_k\|_2\right], \qquad i=1,\ldots, L.
+
+    Note that in practice every sample locations has exactly *one* nearest neighbour (ties have probability zero) and hence
+    this equation is well-defined.
+
+    Given a vector :math:`\mathbf{y}=[y_1,\ldots, y_L]\in\mathbb{C}^N`, the adjoint of the ``NNSampling`` operator is defined as
+
+    .. math::
+
+       f[\mathbf{n}_k]=\mbox{mean}\left\{y_i :\; \mathbf{n}_k=\arg\min_{j=1,\ldots,M}\|\mathbf{z}_i-\mathbf{n}_j\|_2,\, i=1,\ldots, L\right\},\quad k=1,\ldots, M,
+
+    where :math:`\mbox{mean}\{B\}=|B|^{-1}\sum_{z\in B} z,\; \forall B\subset\mathbb{C}` and with the convention that :math:`\mbox{mean}\{\emptyset\}=0.`
+    The mean is used to handle cases where many sampling locations are mapped to a common nearest neighbour on the mesh.
+
+    Warnings
+    --------
+    The grid needs not be uniform! Think of it as a mesh. It can happen that more than one sampling location is mapped to
+    the same nearest neighbour.
+
+    See Also
+    --------
+    :py:class:`~pycsou.linop.sampling.ContinuousSampling`
+    """
+
+    def __init__(self, samples: np.ndarray, grid: np.ndarray, dtype: type = np.float64):
+        """
+
+        Parameters
+        ----------
+        samples : np.ndarray
+            Off-grid sampling locations with shape (M,N).
+        grid :
+            Grid points with shape (L,N).
+        dtype : type
+            Type of the input array.
+
+        Raises
+        ------
+        ValueError
+            If the dimension of the sample locations and the grid points do not match.
+        """
+        if samples.shape[-1] != grid.shape[-1]:
+            raise ValueError(
+                f'The samples have dimension {samples.shape[-1]} but the grid has dimension {grid.shape[-1]}.')
+        self.samples = samples
+        self.grid = grid.reshape(-1, grid.shape[-1])
+        self.input_shape = self.grid.shape[:-1]
+        self.input_size = int(np.prod(self.input_shape).astype(int))
+        self.compute_nn()
+        super(NNSampling, self).__init__(shape=(self.samples.size, self.input_size), dtype=dtype)
+
+    def compute_nn(self):
+        """
+        Compute the on-grid nearest neighbours to the sampling locations.
+        """
+        self.grid_tree = cKDTree(data=self.grid, compact_nodes=False, balanced_tree=False)
+        self.nn_distances, self.nn_indices = self.grid_tree.query(self.samples, k=1, p=2, n_jobs=-1)
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        y = x[self.nn_indices]
+        return y
+
+    def adjoint(self, y: np.ndarray) -> np.ndarray:
+        y_series = pd.Series(data=y, index=self.nn_indices)
+        y_series = y_series.groupby(by=y_series.index).mean() # Average the samples associated to a common nearest neighbour.
+        y = y_series.loc[self.nn_indices].values
+        x = np.zeros(shape=self.input_size, dtype=self.dtype)
+        x[self.nn_indices] = y
+        return x
 
 
 class ContinuousSampling(LinearOperator):
@@ -395,18 +690,4 @@ class ContinuousSampling(LinearOperator):
 
 
 if __name__ == '__main__':
-    import numpy as np
-    from pycsou.linop.sampling import DownSampling
-    import matplotlib.pyplot as plt
-    import scipy.misc
-
-    img = scipy.misc.face(gray=True).astype(float)
-    DownSampOp = DownSampling(size=img.size, shape=img.shape, downsampling_factor=(5, 9))
-    down_sampled_img = (DownSampOp * img.flatten()).reshape(DownSampOp.output_shape)
-    up_sampled_img = DownSampOp.adjoint(down_sampled_img.flatten()).reshape(img.shape)
-    plt.figure()
-    plt.imshow(img)
-    plt.figure()
-    plt.imshow(down_sampled_img)
-    plt.figure()
-    plt.imshow(up_sampled_img)
+    pass

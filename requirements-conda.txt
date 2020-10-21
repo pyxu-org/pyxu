@@ -1,7 +1,9 @@
 python == 3.7.*
 dask >= 2.16.*
 numpy >= 1.10
-scipy >= 1.0
+scipy >= 1.5.*
 pylops >= 1.9.2
 matplotlib >= 3.3.*
 pygsp >= 0.5.1
+scikit-image >= 0.17.*
+pandas >= 1.0.5

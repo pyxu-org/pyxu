@@ -11,4 +11,6 @@ pycsou.linop.sampling
       SubSampling
       Masking
       DownSampling
+      Pooling
+      NNSampling
       
