@@ -968,7 +968,7 @@ class MappedDistanceMatrix(ExplicitLinearOperator):
     def get_sparse_mdm(self) -> sparse.csr_matrix:
         r"""
         Form the Mapped Distance Matrix as a sparse matrix.
-        
+
         Returns
         -------
         sparse.csr_matrix
