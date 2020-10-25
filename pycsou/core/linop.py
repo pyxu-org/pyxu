@@ -290,12 +290,12 @@ class PyLopLinearOperator(LinearOperator):
 
 
 class ExplicitLinearOperator(LinearOperator):
-    def __init__(self, array: Union[np.ndarray, sparse.spmatrix, da.array], is_symmetric: bool = False):
+    def __init__(self, array: Union[np.ndarray, sparse.spmatrix, da.core.Array], is_symmetric: bool = False):
         if isinstance(array, np.ndarray):
             is_dense, is_sparse, is_dask = True, False, False
         elif isinstance(array, sparse.spmatrix):
             is_dense, is_sparse, is_dask = False, True, False
-        elif isinstance(array, da.array):
+        elif isinstance(array, da.core.Array):
             is_dense, is_sparse, is_dask = False, False, True
         else:
             raise TypeError('Invalid input type.')
@@ -304,16 +304,16 @@ class ExplicitLinearOperator(LinearOperator):
                                                      is_symmetric=is_symmetric)
         self.mat = array
 
-    def __call__(self, x: Union[Number, np.ndarray, da.array]) -> Union[Number, np.ndarray]:
+    def __call__(self, x: Union[Number, np.ndarray, da.core.Array]) -> Union[Number, np.ndarray]:
         if self.is_dask:
-            x = da.from_array(x) if not isinstance(x, da.array) else x
+            x = da.from_array(x) if not isinstance(x, da.core.Array) else x
             return (self.mat.dot(x)).compute()
         else:
             return self.mat.dot(x)
 
-    def adjoint(self, y: Union[Number, np.ndarray, da.array]) -> Union[Number, np.ndarray]:
+    def adjoint(self, y: Union[Number, np.ndarray, da.core.Array]) -> Union[Number, np.ndarray]:
         if self.is_dask:
-            y = da.from_array(y) if not isinstance(y, da.array) else y
+            y = da.from_array(y) if not isinstance(y, da.core.Array) else y
             return (self.mat.conj().transpose().dot(y)).compute()
         else:
             return self.mat.conj().transpose().dot(y)
@@ -330,7 +330,7 @@ class SparseLinearOperator(ExplicitLinearOperator):
 
 
 class DaskLinearOperator(ExplicitLinearOperator):
-    def __init__(self, dask_array: da.array, is_symmetric: bool = False):
+    def __init__(self, dask_array: da.core.Array, is_symmetric: bool = False):
         super(DaskLinearOperator, self).__init__(array=dask_array, is_symmetric=is_symmetric)
 
 

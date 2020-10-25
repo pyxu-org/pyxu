@@ -11,11 +11,14 @@ This module provides sampling operators for discrete or continuous signals.
 """
 import numpy as np
 import pandas as pd
+import dask.array as da
+import scipy.sparse as sparse
 import pylops
-from typing import Optional, Union, List, Callable
-from pycsou.core.linop import PyLopLinearOperator, LinearOperator, DenseLinearOperator
+from typing import Optional, Union, List, Callable, Tuple
+from pycsou.core.linop import PyLopLinearOperator, LinearOperator, DenseLinearOperator, ExplicitLinearOperator
 from skimage.measure import block_reduce
 from scipy.spatial import cKDTree
+import joblib as job
 
 
 def SubSampling(size: int, sampling_indices: Union[np.ndarray, list], shape: Optional[tuple] = None, axis: int = 0,
@@ -546,10 +549,10 @@ class NNSampling(LinearOperator):
 
        import numpy as np
        from pycsou.linop.sampling import NNSampling
-       rng = np.random.default_rng(seed=0)
 
     .. doctest::
 
+       >>> rng = np.random.default_rng(seed=0)
        >>> x = np.arange(24).reshape(4,6)
        >>> grid = np.stack(np.meshgrid(np.arange(6),np.arange(4)), axis=-1)
        >>> samples = np.stack((5 * rng.random(size=6),3 * rng.random(size=6)), axis=-1)
@@ -730,7 +733,7 @@ class GeneralisedVandermonde(DenseLinearOperator):
 
     See Also
     --------
-    :py:class:`~pycsou.linop.sampling.NNSampling`
+    :py:class:`~pycsou.linop.sampling.MappedDistanceMatrix`
     """
 
     def __init__(self, samples: np.ndarray, funcs: List[Callable], dtype: type = np.float64):
@@ -750,10 +753,10 @@ class GeneralisedVandermonde(DenseLinearOperator):
         gen_vandermonde_mat = self.get_generalised_vandermonde_matrix().astype(dtype)
         super(GeneralisedVandermonde, self).__init__(ndarray=gen_vandermonde_mat, is_symmetric=False)
 
-    def _map_func(self, f):
+    def _map_func(self, f: Callable) -> np.ndarray:
         return f(self.samples)
 
-    def get_generalised_vandermonde_matrix(self):
+    def get_generalised_vandermonde_matrix(self) -> np.ndarray:
         """
         Construct the generalised Vandermonde matrix.
 
@@ -763,6 +766,289 @@ class GeneralisedVandermonde(DenseLinearOperator):
             The generalised Vandermonde matrix.
         """
         return np.stack(list(map(self._map_func, self.funcs)), axis=-1)
+
+
+class MappedDistanceMatrix(ExplicitLinearOperator):
+    r"""
+    Transformed Distance Matrix.
+
+    Given two point sets :math:`\{\mathbf{z}_1,\ldots,\mathbf{z}_L\}\subset\mathbb{R}^N`, :math:`\{\mathbf{x}_1,\ldots,\mathbf{x}_K\}\subset\mathbb{R}^N`
+    and a `continuous` function :math:`\varphi:\mathbb{R}_+\to\mathbb{C}`, this function forms the following matrix:
+
+    .. math::
+
+       \left[\begin{array}{ccc} \varphi(d(\mathbf{z}_1,\mathbf{x}_1)) & \cdots & \varphi(d(\mathbf{z}_1,\mathbf{x}_K))\\\vdots & \ddots & \vdots\\\varphi(d(\mathbf{z}_L,\mathbf{x}_1)) & \cdots & \varphi(d(\mathbf{z}_1,\mathbf{x}_K))\end{array}\right]\in\mathbb{C}^{L\times K},
+
+    where :math:`d:\mathbb{R}^N\times \mathbb{R}^N\to \mathbb{R}_+` is a distance defined in one of the following two ways:
+
+    * `Radial:` :math:`d(\mathbf{z},\mathbf{x}))=\|\mathbf{z}-\mathbf{x}\|_2, \; \forall \mathbf{z},\mathbf{x}\in\mathbb{R}^N,`
+    * `Zonal:` :math:`d(\mathbf{z},\mathbf{x}))=\sqrt{2-2\langle\mathbf{z},\mathbf{x}\rangle}, \; \forall \mathbf{z},\mathbf{x}\in\mathbb{S}^{N-1}.`
+      Note that in this case the two point sets must be on the hypersphere :math:`\mathbb{S}^{N-1}.`
+
+    This matrix is useful for sampling sums of radial/zonal functions. Indeed, if :math:`f(\mathbf{z})=\sum_{k=1}^K\alpha_k\varphi(d(\mathbf{z},\mathbf{x}_k))`, then we have
+
+    .. math::
+
+       \left[\begin{array}{c}f(\mathbf{z}_1)\\\vdots\\ f(\mathbf{z}_L) \end{array}\right]=\left[\begin{array}{ccc} \varphi(d(\mathbf{z}_1,\mathbf{x}_1)) & \cdots & \varphi(d(\mathbf{z}_1,\mathbf{x}_K))\\\vdots & \ddots & \vdots\\\varphi(d(\mathbf{z}_L,\mathbf{x}_1)) & \cdots & \varphi(d(\mathbf{z}_1,\mathbf{x}_K))\end{array}\right]\left[\begin{array}{c}\alpha_1\\\vdots\\ \alpha_K \end{array}\right].
+
+    Examples
+    --------
+
+    .. testsetup::
+
+       import numpy as np
+       from pycsou.linop.sampling import MappedDistanceMatrix
+
+    .. doctest::
+
+       >>> rng = np.random.default_rng(seed=1)
+       >>> sigma = 1 / 12
+       >>> func = lambda x: np.exp(-x ** 2 / (2 * sigma ** 2))
+       >>> max_distance = 3 * sigma
+       >>> samples1 = np.linspace(0, 2, 10); samples2 = rng.random(size=3)
+       >>> MDMOp1 = MappedDistanceMatrix(samples1=samples1, samples2=samples2, function=func,max_distance=max_distance, operator_type='sparse', n_jobs=-1)
+       >>> MDMOp2 = MappedDistanceMatrix(samples1=samples1, samples2=None, function=func,max_distance=max_distance, operator_type='sparse', n_jobs=-1)
+       >>> MDMOp3 = MappedDistanceMatrix(samples1=samples1, samples2=samples2, function=func, operator_type='dense')
+       >>> MDMOp4 = MappedDistanceMatrix(samples1=samples1, samples2=samples2, function=func, operator_type='dask')
+       >>> type(MDMOp1.mat), type(MDMOp3.mat), type(MDMOp4.mat)
+       (<class 'scipy.sparse.csr.csr_matrix'>, <class 'numpy.ndarray'>, <class 'dask.array.core.Array'>)
+       >>> MDMOp1.mat.shape, MDMOp2.mat.shape
+       ((10, 3), (10, 10))
+       >>> MDMOp3.mat
+       array([[6.43689834e-009, 5.64922608e-029, 2.23956473e-001],
+              [2.38517543e-003, 2.61112241e-017, 6.44840995e-001],
+              [7.21186665e-001, 9.84802612e-009, 1.51504434e-003],
+              [1.77933914e-001, 3.03078296e-003, 2.90456923e-009],
+              [3.58222996e-005, 7.61104282e-001, 4.54382719e-018],
+              [5.88480228e-012, 1.55961419e-001, 5.80023464e-030],
+              [7.88849171e-022, 2.60779757e-005, 6.04161441e-045],
+              [8.62858845e-035, 3.55806811e-012, 5.13504354e-063],
+              [7.70139186e-051, 3.96130538e-022, 3.56138512e-084],
+              [5.60896038e-070, 3.59870356e-035, 2.01547509e-108]])
+       >>> alpha = rng.lognormal(size=samples2.size, sigma=0.5)
+       >>> beta = rng.lognormal(size=samples1.size, sigma=0.5)
+       >>> MDMOp1 * alpha
+       array([0.27995783, 0.8060865 , 0.37589858, 0.09274313, 1.19684992,
+              0.24525208, 0.        , 0.        , 0.        , 0.        ])
+       >>> MDMOp2 * beta
+       array([0.80274037, 1.39329178, 1.27124579, 1.22168244, 1.08494933,
+              1.36310926, 0.7558366 , 0.96398702, 0.85066284, 1.37152693])
+       >>> MDMOp3 * alpha
+       array([2.79957838e-01, 8.07329704e-01, 3.77792488e-01, 9.75090904e-02,
+              1.19686859e+00, 2.45252084e-01, 4.10080770e-05, 5.59512490e-12,
+              6.22922262e-22, 5.65902486e-35])
+       >>> MDMOp4 * alpha
+       array([2.79957838e-01, 8.07329704e-01, 3.77792488e-01, 9.75090904e-02,
+              1.19686859e+00, 2.45252084e-01, 4.10080770e-05, 5.59512490e-12,
+              6.22922262e-22, 5.65902486e-35])
+       >>> np.allclose(MDMOp3 * alpha, MDMOp4 * alpha)
+       True
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.linop.sampling import MappedDistanceMatrix
+
+       t = np.linspace(0, 2, 256)
+       rng = np.random.default_rng(seed=2)
+       x,y = np.meshgrid(t,t)
+       samples1 = np.stack((x.flatten(), y.flatten()), axis=-1)
+       samples2 = np.stack((2 * rng.random(size=4), 2 * rng.random(size=4)), axis=-1)
+       alpha = np.ones(samples2.shape[0])
+       sigma = 1 / 12
+       func = lambda x: np.exp(-x ** 2 / (2 * sigma ** 2))
+       MDMOp = MappedDistanceMatrix(samples1=samples1, samples2=samples2, function=func, operator_type='dask')
+       plt.contourf(x,y,(MDMOp * alpha).reshape(t.size, t.size), 50)
+       plt.title('Sum of 4 (radial) Gaussians')
+       plt.colorbar()
+       plt.xlabel('$x$')
+       plt.ylabel('$y$')
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.linop.sampling import MappedDistanceMatrix
+
+       rng = np.random.default_rng(seed=2)
+       phi = np.linspace(0,2*np.pi, 256)
+       theta = np.linspace(-np.pi/2,np.pi/2, 256)
+       phi, theta = np.meshgrid(phi, theta)
+       x,y,z = np.cos(phi)*np.cos(theta), np.sin(phi)*np.cos(theta), np.sin(theta)
+       samples1 = np.stack((x.flatten(), y.flatten(), z.flatten()), axis=-1)
+       phi2 = 2 * np.pi * rng.random(size=4)
+       theta2 = np.pi * rng.random(size=4) - np.pi/2
+       x2,y2,z2 = np.cos(phi2)*np.cos(theta2), np.sin(phi2)*np.cos(theta2), np.sin(theta2)
+       samples2 = np.stack((x2,y2,z2), axis=-1)
+       alpha = np.ones(samples2.shape[0])
+       sigma = 1 / 9
+       func = lambda x: np.exp(-np.abs(1-x) / (sigma ** 2))
+       MDMOp = MappedDistanceMatrix(samples1=samples1, samples2=samples2, function=func,mode='zonal', operator_type='sparse', max_distance=3*sigma)
+       plt.contourf(phi, theta, (MDMOp * alpha).reshape(phi.shape), 50)
+       plt.title('Sum of 4 (zonal) wrapped Gaussians')
+       plt.colorbar()
+       plt.xlabel('$\\phi$ (radians)')
+       plt.ylabel('$\\theta$ (radians)')
+
+    See Also
+    --------
+    :py:class:`~pycsou.linop.sampling.GeneralisedVandermonde`
+    """
+
+    def __init__(self, samples1: np.ndarray, function: Callable, samples2: Optional[np.ndarray] = None,
+                 mode: str = 'radial', max_distance: Optional[np.float] = None, dtype: type = np.float64,
+                 chunks: Union[str, int, tuple, None] = 'auto', operator_type: str = 'dask', verbose: bool = True,
+                 n_jobs: int = -1, joblib_backend: str = 'loky'):
+        r"""
+
+        Parameters
+        ----------
+        samples1 : np.ndarray
+            First point set with shape (L,N).
+        function : Callable
+            Function :math:`\varphi: \mathbb{R}_+\to \mathbb{C}` to apply to each entry of the distance matrix.
+        samples2 : Optional[np.ndarray]
+            Optional second point set with shape (K,N). If ``None``, ``samples2`` is equal to ``samples1`` and the operator symmetric.
+        mode : str
+            How to compute the distances. If ``'radial'``, the Euclidean distance is used. If ``'zonal'`` the spherical geodesic distance is used.
+        max_distance : Optional[np.float]
+            Support of the function :math:`\varphi`. Must be specified for sparse representation.
+        dtype : type
+            Type of input array.
+        chunks : Union[str, int, tuple, None]
+            Chunk sizes for Dask representation.
+        operator_type : str
+            Internal representation of the operator: ``'dense'`` represents the operator as a Numpy array, ``'dask'`` as a `Dask array <https://docs.dask.org/en/latest/array.html>`_,
+            ``'sparse'`` as a `sparse matrix <https://docs.scipy.org/doc/scipy/reference/sparse.html>`_. Dask arrays or sparse matrices can be more memory efficient for very large point sets.
+        verbose : bool
+            Verbosity for parallel computations (only for sparse representations).
+        n_jobs : int
+            Number of cores for parallel computations (only for sparse representations). ``n_jobs=-1`` uses all available cores.
+        joblib_backend : str
+            Joblib backend (`more details here <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_).
+
+        Raises
+        ------
+        ValueError
+            If ``mode`` is invalid or if ``operator_type`` is ``'sparse'`` but ``max_distance=None``.
+
+        """
+
+        if mode not in ['radial', 'zonal']:
+            raise ValueError('Supported modes are "radial" or "zonal".')
+        if (operator_type is 'sparse') and (max_distance is None):
+            raise ValueError('Specify a maximal distance for sparse format.')
+        self.max_distance = max_distance
+        self.mode = mode
+        self.function = function
+        self.samples1 = samples1 if samples1.ndim > 1 else samples1[:, None]
+        if samples2 is None:
+            self.is_symmetric = True
+            self.samples2 = samples1 if samples1.ndim > 1 else samples1[:, None]
+        else:
+            self.is_symmetric = False
+            self.samples2 = samples2 if samples2.ndim > 1 else samples2[:, None]
+        self.dtype = dtype
+        self.chunks = chunks
+        self.operator_type = operator_type
+        self.verbose = verbose
+        self.n_jobs = n_jobs
+        self.joblib_backend = joblib_backend
+        if self.operator_type is 'sparse':
+            mapped_distance_matrix = self.get_sparse_mdm()
+        elif self.operator_type is 'dask':
+            mapped_distance_matrix = self.get_dask_mdm()
+        elif self.operator_type is 'dense':
+            mapped_distance_matrix = self.get_dense_mdm()
+        else:
+            raise ValueError(f'Unsupported operator type {self.operator_type}.')
+        super(MappedDistanceMatrix, self).__init__(array=mapped_distance_matrix, is_symmetric=self.is_symmetric)
+
+    def get_sparse_mdm(self) -> sparse.csr_matrix:
+        r"""
+        Form the Mapped Distance Matrix as a sparse matrix.
+        
+        Returns
+        -------
+        sparse.csr_matrix
+            Sparse Mapped Distance Matrix.
+        """
+        samples_tree1 = cKDTree(data=self.samples1, compact_nodes=False, balanced_tree=False)
+        if self.is_symmetric is False:
+            samples_tree2 = cKDTree(data=self.samples2, compact_nodes=False, balanced_tree=False)
+        else:
+            samples_tree2 = samples_tree1
+        if self.samples2.shape[0] < self.samples1.shape[0]:
+            mapped_distance_matrix = self._sparse_mdm(big_tree=samples_tree1, small_tree=samples_tree2, iter_over='col')
+        else:
+            mapped_distance_matrix = self._sparse_mdm(big_tree=samples_tree2, small_tree=samples_tree1, iter_over='row')
+        return mapped_distance_matrix
+
+    def _sparse_mdm(self, big_tree: cKDTree, small_tree: cKDTree, iter_over: str) -> sparse.csr_matrix:
+        neighbours = small_tree.query_ball_tree(big_tree, self.max_distance, p=2.0, eps=0)
+        with job.Parallel(backend=self.joblib_backend, n_jobs=self.n_jobs, verbose=self.verbose) as parallel:
+            results = parallel(job.delayed(self._apply_function)
+                               (small_tree.data[i], big_tree.data[neighbours[i]], i, neighbours[i], iter_over)
+                               for i in range(small_tree.data.shape[0]))
+        coo_data = np.concatenate([results[i][0] for i in range(len(results))])
+        coo_i = np.concatenate([results[i][1] for i in range(len(results))])
+        coo_j = np.concatenate([results[i][2] for i in range(len(results))])
+        sparse_mdm = sparse.coo_matrix((coo_data, (coo_i, coo_j)),
+                                       shape=(self.samples1.shape[0], self.samples2.shape[0]),
+                                       dtype=self.dtype).tocsr()
+        return sparse_mdm
+
+    def _apply_function(self, coord_center: np.ndarray, coord_neighbours: np.ndarray, index_center: int,
+                        index_neighbours: list, iter_over: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if self.mode == 'radial':
+            distances = np.linalg.norm(coord_center[None, :] - coord_neighbours, axis=-1)
+        else:
+            distances = np.clip(np.sum(coord_center[None, :] * coord_neighbours, axis=-1), a_min=-1, a_max=1)
+        values = self.function(distances)
+        if iter_over == 'row':
+            return values, np.repeat(index_center, len(index_neighbours)), np.array(index_neighbours)
+        elif iter_over == 'col':
+            return values, np.array(index_neighbours), np.repeat(index_center, len(index_neighbours))
+
+    def get_dask_mdm(self) -> da.core.Array:
+        r"""
+        Form the Mapped Distance Matrix as a dask array.
+
+        Returns
+        -------
+        da.core.Array
+            Mapped Distance Matrix as a Dask array.
+        """
+        samples_da = da.from_array(self.samples1[:, None, :], chunks=self.chunks)
+        knots_da = da.from_array(self.samples2[None, ...], chunks=self.chunks)
+        if self.mode == 'radial':
+            distances_da = da.linalg.norm(samples_da - knots_da, axis=-1)
+        elif self.mode == 'zonal':
+            distances_da = da.clip(da.sum(samples_da * knots_da, axis=-1), a_min=-1, a_max=1)
+        else:
+            raise ValueError(f'Unsupported mode {self.mode}.')
+        mapped_distance_matrix = da.map_blocks(self.function, distances_da, dtype=self.dtype)
+        return mapped_distance_matrix
+
+    def get_dense_mdm(self) -> np.ndarray:
+        r"""
+        Form the Mapped Distance Matrix as a dense Numpy array.
+
+        Returns
+        -------
+        np.ndarray
+            Mapped Distance Matrix as a Numpy array.
+        """
+        if self.mode == 'radial':
+            distances = da.linalg.norm(self.samples1[:, None, :] - self.samples2[None, ...], axis=-1)
+        elif self.mode == 'zonal':
+            distances = da.clip(da.sum(self.samples1[:, None, :] * self.samples2[None, ...], axis=-1), a_min=-1,
+                                a_max=1)
+        else:
+            raise ValueError(f'Unsupported mode {self.mode}.')
+        mapped_distance_matrix = self.function(distances)
+        return mapped_distance_matrix.astype(self.dtype)
 
 
 if __name__ == '__main__':

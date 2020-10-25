@@ -12,6 +12,11 @@ pycsou.linop.sampling
       Masking
       DownSampling
       Pooling
+
+   .. rubric:: Continuous-Domain Sampling Operators
+
+   .. autosummary::   
       NNSampling
       GeneralisedVandermonde
+      MappedDistanceMatrix
       
