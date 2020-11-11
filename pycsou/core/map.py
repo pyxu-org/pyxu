@@ -357,9 +357,13 @@ class DiffMapBias(MapBias, DifferentiableMap):
 
 class DiffMapComp(MapComp, DifferentiableMap):
     def __init__(self, map1: DifferentiableMap, map2: DifferentiableMap):
+        from pycsou.core.linop import HomothetyMap
         MapComp.__init__(self, map1=map1, map2=map2)
         lipschitz_cst = self.map2.lipschitz_cst * self.map1.lipschitz_cst
-        diff_lipschitz_cst = self.map1.diff_lipschitz_cst * self.map2.diff_lipschitz_cst * self.map2.lipschitz_cst
+        if isinstance(map1, HomothetyMap):
+            diff_lipschitz_cst = self.map1.diff_lipschitz_cst * self.map2.diff_lipschitz_cst
+        else:
+            diff_lipschitz_cst = self.map1.diff_lipschitz_cst * self.map2.diff_lipschitz_cst * self.map2.lipschitz_cst
         DifferentiableMap.__init__(self, shape=self.shape, is_linear=self.is_linear,
                                    lipschitz_cst=lipschitz_cst, diff_lipschitz_cst=diff_lipschitz_cst)
 

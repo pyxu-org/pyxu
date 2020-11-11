@@ -64,12 +64,12 @@ class LinearOperator(DifferentiableMap):
     def singularvals(self, k: int, which='LM', **kwargs: dict) -> np.ndarray:
         return spls.svds(A=self.SciOp, k=k, which=which, return_singular_vectors=False, **kwargs)
 
-    def compute_lipschitz_cst(self, **kwargs: dict):
+    def compute_lipschitz_cst(self, **kwargs):
         if self.is_square is True:
-            self.lipschitz_cst = self.eigenvals(k=1, **kwargs)
+            self.lipschitz_cst = np.abs(self.eigenvals(k=1, **kwargs))
         else:
             self.lipschitz_cst = self.singularvals(k=1, **kwargs)
-        self.diff_lipschitz_cst = np.conj(self.lipschitz_cst)
+        self.diff_lipschitz_cst = self.lipschitz_cst
 
     def todense(self) -> 'DenseLinearOperator':
         return DenseLinearOperator(self.PyLop.todense())
@@ -201,7 +201,7 @@ class LinOpComp(LinearOperator, DiffMapComp):
         self.LinOp1, self.LinOp2 = LinOp1, LinOp2
 
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        return self.LinOp1.adjoint(self.LinOp2.adjoint(y))
+        return self.LinOp2.adjoint(self.LinOp1.adjoint(y))
 
 
 class SymmetricLinearOperator(LinearOperator):
@@ -391,6 +391,7 @@ class IdentityOperator(DiagonalOperator):
     def __init__(self, size: int, dtype: Optional[type] = None):
         diag = np.ones(shape=(size,), dtype=dtype)
         super(IdentityOperator, self).__init__(diag)
+        self.lipschitz_cst = self.diff_lipschitz_cst = 1
 
 
 class HomothetyMap(DiagonalOperator):
@@ -398,13 +399,33 @@ class HomothetyMap(DiagonalOperator):
         self.cst = constant
         super(HomothetyMap, self).__init__(diag=self.cst)
         self.shape = (size, size)
+        self.lipschitz_cst = self.diff_lipschitz_cst = constant
 
     def jacobianT(self, arg: Optional[Number] = None) -> Number:
         return self.cst
 
 
+class NullOperator(LinearOperator):
+    def __init__(self, shape: Tuple[int, int]):
+        super(NullOperator, self).__init__(shape=shape, dtype=np.float,
+                                           is_explicit=False, is_dense=False, is_sparse=False, is_dask=False,
+                                           is_symmetric=True if (shape[0] == shape[1]) else False)
+
+    def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        return np.zeros(shape=self.shape[1], dtype=self.dtype)
+
+    def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        return np.zeros(shape=self.shape[0], dtype=self.dtype)
+
+    def eigenvals(self, k: int, which='LM', **kwargs) -> np.ndarray:
+        return np.zeros(shape=(k,), dtype=self.dtype)
+
+    def singularvals(self, k: int, which='LM', **kwargs) -> np.ndarray:
+        return np.zeros(shape=(k,), dtype=self.dtype)
+
+
 class LinOpStack(LinearOperator, DiffMapStack):
-    def __init__(self, *linops: Iterable[LinearOperator], axis: int):
+    def __init__(self, *linops, axis: int):
         DiffMapStack.__init__(self, *linops, axis=axis)
         self.linops = self.maps
         self.is_explicit_list = [linop.is_explicit for linop in self.linops]
@@ -432,10 +453,10 @@ class LinOpStack(LinearOperator, DiffMapStack):
 
 
 class LinOpVStack(LinOpStack):
-    def __init__(self, *linops: Iterable[LinearOperator]):
+    def __init__(self, *linops):
         super(LinOpVStack, self).__init__(*linops, axis=0)
 
 
 class LinOpHStack(LinOpStack):
-    def __init__(self, *linops: Iterable[LinearOperator]):
+    def __init__(self, *linops):
         super(LinOpHStack, self).__init__(*linops, axis=1)

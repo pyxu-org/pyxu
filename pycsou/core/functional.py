@@ -155,7 +155,7 @@ class ProxFuncHStack(ProximableFunctional, MapHStack):
 
     def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
         x_split = np.split(x, self.sections)
-        result = [func.prox(x_split[i]) for i, func in enumerate(self.proxfuncs)]
+        result = [func.prox(x_split[i], tau) for i, func in enumerate(self.proxfuncs)]
         return np.concatenate(result, axis=0)
 
 
@@ -179,3 +179,28 @@ class IndicatorFunctional(ProximableFunctional):
 
     def prox(self, x: Union[Number, np.ndarray], tau: Number, **kwargs) -> Union[Number, np.ndarray]:
         return self.projection_func(x, **kwargs)
+
+
+class NullDifferentiableFunctional(DifferentiableFunctional):
+
+    def __init__(self, dim: int):
+        super(NullDifferentiableFunctional, self).__init__(dim=dim, is_linear=True, lipschitz_cst=0,
+                                                           diff_lipschitz_cst=0)
+
+    def __call__(self, x: Union[Number, np.ndarray]) -> Number:
+        return 0
+
+    def jacobianT(self, arg: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        return np.zeros(shape=self.dim)
+
+
+class NullProximableFunctional(ProximableFunctional):
+
+    def __init__(self, dim: int):
+        super(NullProximableFunctional, self).__init__(dim=dim, is_linear=True)
+
+    def __call__(self, x: Union[Number, np.ndarray]) -> Number:
+        return 0
+
+    def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
+        return x
