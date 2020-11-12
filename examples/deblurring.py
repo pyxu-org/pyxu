@@ -20,7 +20,7 @@ plt.axis('off')
 plt.savefig(f'examples/exports/deblurring_gt.png', dpi=300, bbox_inches='tight', transparent=True)
 
 # Define Forward Operator
-filter_size = 40
+filter_size = 30
 filter_support = np.linspace(-3, 3, filter_size)
 gaussian_filter = np.exp(-(filter_support[:, None] ** 2 + filter_support[None, :] ** 2) / 2 * (0.5))
 FilterOp = Convolve2D(size=input_image.size, filter=gaussian_filter, shape=input_image.shape)
@@ -56,7 +56,7 @@ lmbda = 0.5 * np.max(2 * FwdOp.adjoint(data_image))
 Fs = {'l22_l22': l22_cost + 10 * lmbda * (l22_norm * RegOp),
       'l22_l1': l22_cost,
       'l22_entropy': l22_cost,
-      'l1_l22': 1000 * lmbda * (l22_norm * RegOp),
+      'l1_l22': 100 * lmbda * (l22_norm * RegOp),
       # 'l1_l1': None,
       # 'l1_entropy': None,
       'kl_l22': 10 * lmbda * (l22_norm * RegOp),
@@ -77,7 +77,7 @@ Gs = {'l22_l22': None,
 
 Hs = {'l22_l22': None,
       'l22_l1': 0.1 * lmbda * l1_norm,
-      'l22_entropy': 100 * lmbda * entropy,
+      'l22_entropy': 0.1 * lmbda * entropy,
       'l1_l22': l1_loss,
       # 'l1_l1': ProxFuncHStack(l1_loss, 1e25 * lmbda * l1_norm),
       # 'l1_entropy': ProxFuncHStack(l1_loss, 1e25 * lmbda * entropy),
