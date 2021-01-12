@@ -13,8 +13,9 @@ import dask.array as da
 class LinearOperator(DifferentiableMap):
     def __init__(self, shape=Tuple[int, int], dtype: Optional[type] = None,
                  is_explicit: bool = False, is_dense: bool = False, is_sparse: bool = False, is_dask: bool = False,
-                 is_symmetric: bool = False):
-        DifferentiableMap.__init__(self, shape=shape, is_linear=True)
+                 is_symmetric: bool = False, lipschitz_cst: float = np.infty, diff_lipschitz_cst: float = np.infty):
+        DifferentiableMap.__init__(self, shape=shape, is_linear=True, lipschitz_cst=lipschitz_cst,
+                                   diff_lipschitz_cst=diff_lipschitz_cst)
         self.dtype = dtype
         self.is_explicit = is_explicit
         self.is_dense = is_dense
@@ -33,7 +34,7 @@ class LinearOperator(DifferentiableMap):
     def jacobianT(self, arg: Union[Number, np.ndarray, None] = None) -> 'LinearOperator':
         return self.get_adjointOp()
 
-    def get_adjointOp(self) -> 'AdjointLinearOperator':
+    def get_adjointOp(self) -> Union['LinearOperator', 'AdjointLinearOperator']:
         if self.is_symmetric is True:
             return self
         else:
@@ -66,9 +67,9 @@ class LinearOperator(DifferentiableMap):
 
     def compute_lipschitz_cst(self, **kwargs):
         if self.is_square is True:
-            self.lipschitz_cst = np.abs(self.eigenvals(k=1, **kwargs))
+            self.lipschitz_cst = float(np.abs(self.eigenvals(k=1, **kwargs)))
         else:
-            self.lipschitz_cst = self.singularvals(k=1, **kwargs)
+            self.lipschitz_cst = float(self.singularvals(k=1, **kwargs))
         self.diff_lipschitz_cst = self.lipschitz_cst
 
     def todense(self) -> 'DenseLinearOperator':
@@ -182,7 +183,8 @@ class LinOpSum(LinearOperator, DiffMapSum):
                                 is_explicit=LinOp1.is_explicit & LinOp2.is_explicit,
                                 is_dask=LinOp1.is_dask & LinOp2.is_dask, is_dense=LinOp1.is_dense & LinOp2.is_dense,
                                 is_sparse=LinOp1.is_sparse & LinOp2.is_sparse,
-                                is_symmetric=LinOp1.is_symmetric & LinOp2.is_symmetric)
+                                is_symmetric=LinOp1.is_symmetric & LinOp2.is_symmetric,
+                                lipschitz_cst=self.lipschitz_cst, diff_lipschitz_cst=self.diff_lipschitz_cst)
         self.LinOp1, self.LinOp2 = LinOp1, LinOp2
 
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
@@ -197,7 +199,8 @@ class LinOpComp(LinearOperator, DiffMapComp):
                                 is_explicit=LinOp1.is_explicit & LinOp2.is_explicit,
                                 is_dask=LinOp1.is_dask & LinOp2.is_dask, is_dense=LinOp1.is_dense & LinOp2.is_dense,
                                 is_sparse=LinOp1.is_sparse & LinOp2.is_sparse,
-                                is_symmetric=LinOp1.is_symmetric & LinOp2.is_symmetric)
+                                is_symmetric=LinOp1.is_symmetric & LinOp2.is_symmetric,
+                                lipschitz_cst=self.lipschitz_cst, diff_lipschitz_cst=self.diff_lipschitz_cst)
         self.LinOp1, self.LinOp2 = LinOp1, LinOp2
 
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
@@ -211,7 +214,9 @@ class SymmetricLinearOperator(LinearOperator):
         super(SymmetricLinearOperator, self).__init__(shape=LinOp.shape, dtype=LinOp.dtype,
                                                       is_explicit=LinOp.is_explicit,
                                                       is_dask=LinOp.is_dask, is_dense=LinOp.is_dense,
-                                                      is_sparse=LinOp.is_sparse, is_symmetric=True)
+                                                      is_sparse=LinOp.is_sparse, is_symmetric=True,
+                                                      lipschitz_cst=LinOp.lipschitz_cst,
+                                                      diff_lipschitz_cst=LinOp.diff_lipschitz_cst)
         self.LinOp = LinOp
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
@@ -229,6 +234,7 @@ class UnitaryOperator(LinearOperator):
                                               is_dense=is_dense,
                                               is_sparse=is_sparse, is_dask=is_dask, is_symmetric=is_symmetric)
         self.size = size
+        self.lipschitz_cst = self.diff_lipschitz_cst = 1
 
     @property
     def RangeGram(self):
@@ -373,6 +379,7 @@ class DiagonalOperator(LinearOperator):
         super(DiagonalOperator, self).__init__(shape=(self.diag.size, self.diag.size), dtype=self.diag.dtype,
                                                is_explicit=False, is_dense=False, is_sparse=False, is_dask=False,
                                                is_symmetric=np.alltrue(np.isreal(self.diag)))
+        self.lipschitz_cst = self.diff_lipschitz_cst = np.max(diag)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         if self.shape[0] == 1:
@@ -410,6 +417,7 @@ class NullOperator(LinearOperator):
         super(NullOperator, self).__init__(shape=shape, dtype=np.float,
                                            is_explicit=False, is_dense=False, is_sparse=False, is_dask=False,
                                            is_symmetric=True if (shape[0] == shape[1]) else False)
+        self.lipschitz_cst = self.diff_lipschitz_cst = 0
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         return np.zeros(shape=self.shape[1], dtype=self.dtype)
@@ -438,7 +446,8 @@ class LinOpStack(LinearOperator, DiffMapStack):
                                 is_dense=bool(np.prod(self.is_dense_list).astype(bool)),
                                 is_sparse=bool(np.prod(self.is_sparse_list).astype(bool)),
                                 is_dask=bool(np.prod(self.is_dask_list).astype(bool)),
-                                is_symmetric=bool(np.prod(self.is_symmetric_list).astype(bool)))
+                                is_symmetric=bool(np.prod(self.is_symmetric_list).astype(bool)),
+                                lipschitz_cst=self.lipschitz_cst, diff_lipschitz_cst=self.diff_lipschitz_cst)
 
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         if self.axis == 0:

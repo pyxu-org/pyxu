@@ -833,7 +833,7 @@ class ShannonEntropy(ProximableFunctional):
             Proximal point of x.
         """
         from scipy.special import lambertw
-        return np.real(tau * lambertw(np.exp(-1 + x / tau) / tau))
+        return np.real(tau * lambertw(np.exp(-1 + (x / tau)) / tau, k=0))
 
 
 if __name__ == "__main__":

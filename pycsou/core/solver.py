@@ -69,7 +69,7 @@ class GenericIterativeAlgorithm(ABC):
 
 class PrimalDualSplitting(GenericIterativeAlgorithm):
 
-    def __init__(self, dim: int, F: Optional[DifferentiableFunctional] = None, G: Optional[ProximableFunctional] = None,
+    def __init__(self, dim: int, F: Optional[DifferentiableMap] = None, G: Optional[ProximableFunctional] = None,
                  H: Optional[ProximableFunctional] = None, K: Optional[LinearOperator] = None,
                  tau: Optional[float] = None, sigma: Optional[float] = None, rho: Optional[float] = None,
                  beta: Optional[float] = None, x0: Optional[np.ndarray] = None, z0: Optional[np.ndarray] = None,
@@ -204,7 +204,7 @@ class PrimalDualSplitting(GenericIterativeAlgorithm):
         x_temp = self.G.prox(x - self.tau * self.F.gradient(x) - self.tau * self.K.adjoint(z), tau=self.tau)
         if self._H is True:
             u = 2 * x_temp - x
-            z_temp = self.H.fenchel_prox(z + self.sigma * self.K(u), self.sigma)
+            z_temp = self.H.fenchel_prox(z + self.sigma * self.K(u), sigma=self.sigma)
             z = self.rho * z_temp + (1 - self.rho) * z
         x = self.rho * x_temp + (1 - self.rho) * x
         iterand = {'primal_variable': x, 'dual_variable': z}

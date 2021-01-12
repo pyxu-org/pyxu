@@ -18,7 +18,75 @@ from pycsou.util.misc import is_range_broadcastable, range_broadcast_shape
 class Map(ABC):
     r"""
     Base class for multidimensional maps.
-    Any instance of this class must at least implement the abstract method ``__call__``.
+
+    Any instance/subclass of this class must at least implement the abstract method ``__call__``.
+    This class supports the following arithmetic operators ``+``, ``-``, ``*``, ``@``, ``**`` and ``/``, implemented with the
+    class methods ``__add__``/``__radd__``, ``__sub__``/``__neg__``, ``__mul__``/``__rmul__``, ``__matmul__``, ``__pow__``, ``__truediv__``.
+    Such arithmetic operators can be used to *add*, *substract*, *scale*, *compose*, *exponentiate* or *evaluate* ``Map`` instances.
+
+    Examples
+    --------
+    .. testsetup::
+
+       import numpy as np
+       from pycsou.func.penalty import L1Norm, SquaredL2Norm
+       from pycsou.linop.conv import Convolve1D
+       from scipy import signal
+
+       x = np.arange(10)
+       filter = signal.hann(5)
+       filter[filter.size//2:] = 0
+       f1 = L1Norm(dim=x.size)
+       f2 = SquaredL2Norm(dim=x.size)
+       L1 = Convolve1D(size=x.size, filter=filter)
+       L2 = Convolve1D(size=x.size, filter=filter/2)
+
+    Consider four maps: two nonlinear functionals :math:`f_1:\mathbb{R}^{10}\to \mathbb{R}`, :math:`f_2:\mathbb{R}^{10}\to \mathbb{R}`
+    and two linear operators :math:`L_1:\mathbb{R}^{10}\to \mathbb{R}^{10}`, :math:`L_2:\mathbb{R}^{10}\to \mathbb{R}^{10}`.
+
+    .. doctest::
+
+       >>> print(f1.shape, f2.shape, L1.shape, L2.shape)
+       (1, 10) (1, 10) (10, 10) (10, 10)
+
+    We can combine linearly/compose the maps with consistent domains/ranges:
+
+    .. doctest::
+
+       >>> f3 = f1 / 3 + np.pi * f2
+       >>> np.allclose(f3(x), f1(x) / 3 + np.pi * f2(x))
+       True
+       >>> L3 = L1 * 3 - (L2 ** 2) / 6
+       >>> np.allclose(L3(x), L1(x) * 3 - (L2(L2(x))) / 6)
+       True
+       >>> f4 = f3 * L3
+       >>> np.allclose(f4(x), f3(L3(x)))
+       True
+
+    Note that multiplying a map with an array is the same as evaluating the map at the array.
+
+    .. doctest::
+
+       >>> np.allclose(f3 * x, f3(x))
+       True
+
+    The multiplication operator ``@`` can also be used in place of ``*``, in compliance with Numpy's interface:
+
+    .. doctest::
+
+       >>> np.allclose(f3 * x, f3 @ x)
+       True
+       >>> np.allclose((f1 * L1)(x), (f1 @ L1)(x))
+       True
+
+    Finally, maps can be shifted via the method ``shifter``:
+
+    .. doctest::
+
+       >>> f5=f4.shifter(shift=2 * x)
+       >>> np.allclose(f5(x), f4(x + 2 * x))
+       True
+
     """
 
     def __init__(self, shape: Tuple[int, int], is_linear: bool = False, is_differentiable: bool = False):
@@ -45,12 +113,15 @@ class Map(ABC):
     def __call__(self, arg: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         r"""
         Call self as a function.
+
         Parameters
         ----------
         arg: Union[Number, np.ndarray]
             Argument of the map.
+
         Returns
         -------
+        Union[Number, np.ndarray]
             Value of ``arg`` through the map.
         """
         pass
@@ -66,14 +137,19 @@ class Map(ABC):
 
         Returns
         -------
-        py:class:`~pycsou.core.map.MapShifted`
+        :py:class:`~pycsou.core.map.MapShifted`
             Shifted map.
+
+        Notes
+        -----
+        Let ``A`` be a ``Map`` instance  and ``B=A.shifter(y)`` with ``y`` some vector in the domain of ``A``. Then we have:
+        ``B(x)=A(x+y)``.
         """
         return MapShifted(map=self, shift=shift)
 
-    def __add__(self, other: Union['Map', np.ndarray]) -> Union['MapSum', 'MapBias']:
+    def __add__(self, other: 'Map') -> 'MapSum':
         r"""
-        Add a map with another map instance or array.
+        Add a map with another map instance.
 
         Parameters
         ----------
@@ -82,24 +158,25 @@ class Map(ABC):
 
         Returns
         -------
-        py:class:`~pycsou.core.map.MapSum` if ``isinstance(other, Map)``
-        py:class:`~pycsou.core.map.MapBias` otherwise.
-            Sum of the map with another map or array.
+        :py:class:`~pycsou.core.map.MapSum`
+            Sum of the map with another map.
 
         Raises
         ------
-        NotImplementedError if ``other`` is not a map or an array.
+        NotImplementedError
+            If ``other`` is not a map.
         """
-        if isinstance(other, np.ndarray):
-            return MapBias(self, bias=other)
-        elif isinstance(other, Map):
+
+        # if isinstance(other, np.ndarray):
+        #     return MapBias(self, bias=other)
+        if isinstance(other, Map):
             return MapSum(self, other)
         else:
             raise NotImplementedError
 
-    def __radd__(self, other: Union['Map', np.ndarray]) -> 'MapSum':
+    def __radd__(self, other: 'Map') -> 'MapSum':
         r"""
-        Add a map with another map instance or array when the latter are on the right hand side of the summation.
+        Add a map with another map instance when the latter is on the right hand side of the summation.
 
         Parameters
         ----------
@@ -108,18 +185,19 @@ class Map(ABC):
 
         Returns
         -------
-        py:class:`~pycsou.core.map.MapSum` if ``isinstance(other, Map)``
-        py:class:`~pycsou.core.map.MapBias` otherwise.
-            Sum of the map with another map or array.
+        :py:class:`~pycsou.core.map.MapSum`
+            Sum of the map with another map.
 
         Raises
         ------
-        NotImplementedError if ``other`` is not a map or an array.
+        NotImplementedError
+            If ``other`` is not a map.
 
         """
-        if isinstance(other, np.ndarray):
-            return MapBias(self, bias=other)
-        elif isinstance(other, Map):
+
+        # if isinstance(other, np.ndarray):
+        #     return MapBias(self, bias=other)
+        if isinstance(other, Map):
             return MapSum(other, self)
         else:
             raise NotImplementedError
@@ -129,6 +207,7 @@ class Map(ABC):
         Multiply a map with another map, a scalar, or an array.
 
         The behaviour of this method depends on the type of ``other``:
+
         * If ``other`` is another map, then it returns the composition of the map with ``other``.
         * If ``other`` is an array with compatible shape, then it calls the map on ``other``.
         * If ``other`` is a scalar, then it multiplies the map with this scalar.
@@ -140,12 +219,13 @@ class Map(ABC):
 
         Returns
         -------
-        Union[py:class:`~pycsou.core.map.MapComp`,np.ndarray]
+        :py:class:`~pycsou.core.map.MapComp`, np.ndarray
             Composition of the map with another map, or product with a scalar or array.
 
         Raises
         ------
-        NotImplementedError if ``other`` is not a scalar, a map or an array.
+        NotImplementedError
+            If ``other`` is not a scalar, a map or an array.
 
         See Also
         --------
@@ -174,16 +254,20 @@ class Map(ABC):
             raise NotImplementedError
 
     def __matmul__(self, other: 'Map') -> 'MapComp':
+        r"""Alias for :py:func:`~pycsou.core.map.Map.__mul__` offered to comply with Numpy's interface."""
         return self.__mul__(other)
 
     def __neg__(self) -> 'MapComp':
+        r"""Negates a map. Alias for ``self.__mul__(-1)``."""
         return self.__mul__(-1)
 
-    def __sub__(self, other: 'Map') -> 'MapSum':
+    def __sub__(self, other: Union['Map', np.ndarray]) -> Union['MapSum', 'MapBias']:
+        r"""Substracts a map, scalar, or array to another map. Alias for ``self.__add__(other.__neg__())``."""
         other = other.__neg__()
         return self.__add__(other)
 
     def __pow__(self, power: int) -> 'MapComp':
+        r"""Raise a map to a certain ``power``. Alias for ``A*A*...*A`` with ``power`` multiplications."""
         if type(power) is int:
             exp_map = self
             for i in range(1, power):
@@ -192,9 +276,10 @@ class Map(ABC):
         else:
             raise NotImplementedError
 
-    def __truediv__(self, other: Number) -> 'MapComp':
-        if isinstance(other, Number):
-            return self.__mul__(1 / other)
+    def __truediv__(self, scalar: Number) -> 'MapComp':
+        r"""Divides a map by a ``scalar``. Alias for ``self.__mul__(1 / scalar)``."""
+        if isinstance(scalar, Number):
+            return self.__mul__(1 / scalar)
         else:
             raise NotImplementedError
 
@@ -225,16 +310,16 @@ class MapSum(Map):
         return self.map1(arg) + self.map2(arg)
 
 
-class MapBias(Map):
-    def __init__(self, map_: Map, bias: Union[Number, np.ndarray]):
-        if not is_range_broadcastable(map_.shape, bias.shape):
-            raise ValueError('Inconsistent range sizes between map and bias.')
-        else:
-            super(MapBias, self).__init__(shape=map_.shape, is_linear=False, is_differentiable=map_.is_differentiable)
-            self.map, self.bias = map_, bias
-
-    def __call__(self, arg: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        return self.map(arg) + self.bias
+# class MapBias(Map):
+#     def __init__(self, map_: Map, bias: np.ndarray):
+#         if not is_range_broadcastable(map_.shape, bias.shape):
+#             raise ValueError('Inconsistent range sizes between map and bias.')
+#         else:
+#             super(MapBias, self).__init__(shape=map_.shape, is_linear=False, is_differentiable=map_.is_differentiable)
+#             self.map, self.bias = map_, bias
+#
+#     def __call__(self, arg: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+#         return self.map(arg) + self.bias
 
 
 class MapComp(Map):
@@ -253,42 +338,137 @@ class MapComp(Map):
 
 
 class DifferentiableMap(Map):
-    def __init__(self, shape=Tuple[int, int], is_linear: bool = False, lipschitz_cst: float = np.infty,
+    r"""
+    Base class for multidimensional differentiable maps.
+
+    Any instance/subclass of this class must at least implement the abstract methods ``__call__`` and ``jacobianT``.
+    The attributes ``lipschitz_cst``, ``diff_lipschitz_cst`` and the method ``jacobianT`` are automatically updated
+    using standard differentiation rules when scaling, composing , summing or shifting differentiable maps.
+
+    Examples
+    --------
+    .. testsetup::
+
+       import numpy as np
+       from pycsou.func.penalty import SquaredL2Norm
+       from pycsou.linop.diff import FirstDerivative
+
+       x = np.arange(10)
+       f = SquaredL2Norm(dim=x.size)
+       L1 = FirstDerivative(size=x.size)
+       L1.compute_lipschitz_cst()
+       L2 = FirstDerivative(size=x.size, kind='centered')
+       L2.compute_lipschitz_cst()
+
+    Consider three differentiable maps: a nonlinear differentiable functional :math:`f:\mathbb{R}^{10}\to \mathbb{R}`,
+    and two linear operators :math:`L_1:\mathbb{R}^{10}\to \mathbb{R}^{10}`, :math:`L_2:\mathbb{R}^{10}\to \mathbb{R}^{10}`.
+
+    .. doctest::
+
+       >>> print(f.lipschitz_cst, f.diff_lipschitz_cst)
+       inf 2
+       >>> print(np.round(L1.lipschitz_cst,2), np.round(L1.diff_lipschitz_cst,2))
+       1.01 1.01
+       >>> print(np.round(L2.lipschitz_cst,2), np.round(L2.diff_lipschitz_cst,2))
+       0.94 0.94
+       >>> L3 = 2 * L1 + (L2 ** 2) / 3
+       >>> np.allclose(L3.lipschitz_cst, 2 * L1.lipschitz_cst + (L2.lipschitz_cst ** 2)/3)
+       True
+       >>> map_ = f * L1
+       >>> np.allclose(map_.lipschitz_cst, f.lipschitz_cst * L1.lipschitz_cst)
+       True
+       >>> np.allclose(map_.jacobianT(x), L1.jacobianT(x) * f.jacobianT(L1(x)))
+       True
+
+    """
+
+    def __init__(self, shape: Tuple[int, int], is_linear: bool = False, lipschitz_cst: float = np.infty,
                  diff_lipschitz_cst: float = np.infty):
+        r"""
+        Parameters
+        ----------
+        shape: Tuple[int, int]
+            Shape of the differentiable map.
+        is_linear: bool
+            Whether the differentiable map is linear or not.
+        lipschitz_cst: float
+            Lispchitz constant of the differentiable map if it exists/is known. Default to :math:`+\infty`.
+        diff_lipschitz_cst: float
+            Lispchitz constant of the derivative of the differentiable map if it exists/is known. Default to :math:`+\infty`.
+        """
         super(DifferentiableMap, self).__init__(shape=shape, is_linear=is_linear, is_differentiable=True)
         self.lipschitz_cst = lipschitz_cst
         self.diff_lipschitz_cst = diff_lipschitz_cst
 
     @abstractmethod
     def jacobianT(self, arg: Union[Number, np.ndarray]) -> 'LinearOperator':
+        r"""
+        Transpose of the Jacobian matrix of the differentiable map evaluated at ``arg``.
+        
+        Parameters
+        ----------
+        arg: Union[Number, np.ndarray]
+            Point at which the transposed Jacobian matrix is evaluated.
+
+        Returns
+        -------
+        ::py:class:`~pycsou.core.linop.LinearOperator`
+            Linear operator associated to the transposed Jacobian matrix.
+        """
         pass
 
     def gradient(self, arg: Union[Number, np.ndarray]) -> 'LinearOperator':
+        r"""
+        Alias for ``self.jacobianT``.
+        """
         return self.jacobianT(arg)
 
     def compute_lipschitz_cst(self):
+        r"""
+        User-implemented method to compute the Lipschitz constant of the map.
+        """
         pass
 
     def compute_diff_lipschitz_cst(self):
+        r"""
+        User-implemented method to compute the Lipschitz constant of the derivative of the map.
+        """
         pass
 
-    def shifter(self, shift: Union[Number, np.ndarray]):
+    def shifter(self, shift: Union[Number, np.ndarray]) -> 'DiffMapShifted':
+        r"""
+        Returns a shifted version of the map.
+
+        Parameters
+        ----------
+        shift: Union[Number, np.ndarray]
+            Shift vector.
+
+        Returns
+        -------
+        :py:class:`~pycsou.core.map.DiffMapShifted`
+            Shifted map.
+
+        See Also
+        --------
+        :py:meth:`~pycsou.core.map.Map.shifter`
+        """
         return DiffMapShifted(map=self, shift=shift)
 
-    def __add__(self, other: Union['Map', 'DifferentiableMap', np.ndarray]) -> Union['MapSum', 'DiffMapSum']:
-        if isinstance(other, np.ndarray):
-            return DiffMapBias(self, other)
-        elif isinstance(other, DifferentiableMap):
+    def __add__(self, other: Union['Map', 'DifferentiableMap']) -> Union['MapSum', 'DiffMapSum']:
+        # if isinstance(other, np.ndarray):
+        #     return DiffMapBias(self, other)
+        if isinstance(other, DifferentiableMap):
             return DiffMapSum(self, other)
         elif isinstance(other, Map):
             return MapSum(self, other)
         else:
             raise NotImplementedError
 
-    def __radd__(self, other: Union['Map', 'DifferentiableMap', np.ndarray]) -> Union['MapSum', 'DiffMapSum']:
-        if isinstance(other, np.ndarray):
-            return DiffMapBias(self, other)
-        elif isinstance(other, DifferentiableMap):
+    def __radd__(self, other: Union['Map', 'DifferentiableMap']) -> Union['MapSum', 'DiffMapSum']:
+        # if isinstance(other, np.ndarray):
+        #     return DiffMapBias(self, other)
+        if isinstance(other, DifferentiableMap):
             return DiffMapSum(self, other)
         elif isinstance(other, Map):
             return MapSum(self, other)
@@ -345,14 +525,14 @@ class DiffMapSum(MapSum, DifferentiableMap):
         return self.map1.jacobianT(arg) + self.map2.jacobianT(arg)
 
 
-class DiffMapBias(MapBias, DifferentiableMap):
-    def __init__(self, map_: DifferentiableMap, bias: np.ndarray):
-        MapBias.__init__(self, map_=map_, bias=bias)
-        DifferentiableMap.__init__(self, shape=self.shape, is_linear=False, lipschitz_cst=self.map.lipschitz_cst,
-                                   diff_lipschitz_cst=self.map.diff_lipschitz_cst)
-
-    def jacobianT(self, arg: Union[Number, np.ndarray]) -> 'LinearOperator':
-        return self.map.jacobianT(arg) * self.map2.jacobianT(arg) * self.map1.jacobianT(self.map2(arg))
+# class DiffMapBias(MapBias, DifferentiableMap):
+#     def __init__(self, map_: DifferentiableMap, bias: np.ndarray):
+#         MapBias.__init__(self, map_=map_, bias=bias)
+#         DifferentiableMap.__init__(self, shape=self.shape, is_linear=False, lipschitz_cst=self.map.lipschitz_cst,
+#                                    diff_lipschitz_cst=self.map.diff_lipschitz_cst)
+#
+#     def jacobianT(self, arg: Union[Number, np.ndarray]) -> 'LinearOperator':
+#         return self.map.jacobianT(arg) * self.map2.jacobianT(arg) * self.map1.jacobianT(self.map2(arg))
 
 
 class DiffMapComp(MapComp, DifferentiableMap):
@@ -372,7 +552,77 @@ class DiffMapComp(MapComp, DifferentiableMap):
 
 
 class MapStack(Map):
+    r"""
+    Stack maps together.
+
+    This class constructs a map by stacking multiple maps together, either **vertically** (``axis=0``) or **horizontally** (``axis=1``):
+
+    - **Vertical stacking**: Consider a collection :math:`\{L_i:\mathbb{R}^{N}\to \mathbb{R}^{M_i}, i=1,\ldots, k\}`
+      of maps. Their vertical stacking is defined as the operator
+
+      .. math::
+
+         V:\begin{cases}\mathbb{R}^{N}\to \mathbb{R}^{M_1}\times \cdots \times\mathbb{R}^{M_k}\\
+         \mathbf{x}\mapsto (L_1\mathbf{x},\ldots, L_k\mathbf{x}).
+         \end{cases}
+
+    - **Horizontal stacking**: Consider a collection :math:`\{L_i:\mathbb{R}^{N_i}\to \mathbb{R}^{M}, i=1,\ldots, k\}`
+      of maps. Their horizontal stacking is defined as the operator
+
+      .. math::
+
+         H:\begin{cases}\mathbb{R}^{N_1}\times \cdots \times\mathbb{R}^{N_k}\to \mathbb{R}^{M}\\
+         (\mathbf{x}_1,\ldots, \mathbf{x}_k)\mapsto \sum_{i=1}^k L_i \mathbf{x}_i.
+         \end{cases}
+
+    Examples
+    --------
+
+    .. testsetup::
+
+       import numpy as np
+       from pycsou.func.penalty import SquaredL2Norm
+       from pycsou.linop.diff import FirstDerivative
+       from pycsou.core.map import MapStack
+
+       x = np.arange(10)
+       y = np.arange(20)
+       f = SquaredL2Norm(dim=x.size)
+       g = SquaredL2Norm(dim=y.size)
+       A1 = FirstDerivative(size=x.size)
+       A2 = FirstDerivative(size=y.size, kind='centered')
+       A3 = A1 / 2
+       K1 = f * A1
+       K2 = g * A2
+       K3 = A3
+
+    Consider three maps :math:`K_1:\mathbb{R}^{10}\to \mathbb{R}`, :math:`K_2:\mathbb{R}^{20}\to \mathbb{R}` and
+    :math:`K_3:\mathbb{R}^{10}\to \mathbb{R}^{10}`
+
+    .. doctest::
+
+       >>> V = MapStack(K1, K3, axis=0)
+       >>> V.shape
+       (11, 10)
+       >>> np.allclose(V(x), np.concatenate((K1(x).flatten(), K3(x).flatten())))
+       True
+       >>> H = MapStack(K1,K2, axis=1)
+       >>> H.shape
+       (1, 30)
+       >>> np.allclose(H(np.concatenate((x,y))), K1(x) + K2(y))
+       True
+
+    """
+
     def __init__(self, *maps: Iterable[Map], axis: int):
+        r"""
+        Parameters
+        ----------
+        maps: Iterable[Map]
+            List of maps to stack.
+        axis:
+            Stacking direction: 0 for vertical and 1 for horizontal stacking.
+        """
         self.maps = list(maps)
         if (np.abs(axis) > 1):
             ValueError('Axis must be one of {0, 1,-1}.')
@@ -391,7 +641,7 @@ class MapStack(Map):
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         if self.axis == 0:
-            out_list = [map_.__call__(x) for map_ in self.maps]
+            out_list = [map_.__call__(x).flatten() for map_ in self.maps]
             return np.concatenate(out_list, axis=0)
         else:
             x_split = np.split(x, self.sections)
@@ -450,3 +700,21 @@ class DiffMapVStack(DiffMapStack):
 class DiffMapHStack(DiffMapStack):
     def __init__(self, *diffmaps: Iterable[DifferentiableMap]):
         super(DiffMapHStack, self).__init__(*diffmaps, axis=1)
+
+
+if __name__ == '__main__':
+    import numpy as np
+    from pycsou.func.penalty import L1Norm, SquaredL2Norm
+    from pycsou.linop.conv import Convolve1D
+    from scipy import signal
+
+    x = np.arange(10)
+    filter = signal.hann(5)
+    filter[filter.size // 2:] = 0
+    f1 = L1Norm(dim=x.size)
+    f2 = SquaredL2Norm(dim=x.size)
+    L1 = Convolve1D(size=x.size, filter=filter)
+    L2 = Convolve1D(size=x.size, filter=filter / 2)
+    L1.compute_lipschitz_cst()
+    L2.compute_lipschitz_cst()
+    L3 = L1 * 3  # - (L2 ** 2) / 6
