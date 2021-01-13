@@ -612,6 +612,10 @@ class MapStack(Map):
        >>> np.allclose(H(np.concatenate((x,y))), K1(x) + K2(y))
        True
 
+    See Also
+    --------
+    :py:class:`~pycsou.core.map.MapVStack`, :py:class:`~pycsou.core.map.MapHStack`, :py:class:`~pycsou.core.map.DiffMapStack`
+
     """
 
     def __init__(self, *maps: Iterable[Map], axis: int):
@@ -663,17 +667,150 @@ class MapStack(Map):
 
 
 class MapVStack(MapStack):
+    r"""
+    Alias for vertical stacking, equivalent to ``MapStack(*maps, axis=0)``.
+
+    Examples
+    --------
+
+    .. testsetup::
+
+       from pycsou.core.map import MapVStack
+
+    .. doctest::
+
+       >>> V1 = MapStack(K1, K3, axis=0)
+       >>> V2 = MapVStack(K1, K3)
+       >>> np.allclose(V1(x), V2(x))
+       True
+
+    """
     def __init__(self, *maps: Iterable[Map]):
+        r"""
+        Parameters
+        ----------
+        maps: Iterable[Map]
+            List of maps to stack.
+        """
         super(MapVStack, self).__init__(*maps, axis=0)
 
 
 class MapHStack(MapStack):
+    r"""
+    Alias for horizontal stacking, equivalent to ``MapStack(*maps, axis=1)``.
+
+    Examples
+    --------
+
+    .. testsetup::
+
+      from pycsou.core.map import MapHStack
+
+    .. doctest::
+
+      >>> V1 = MapStack(K1, K2, axis=1)
+      >>> V2 = MapHStack(K1, K2)
+      >>> np.allclose(V1(x), V2(x))
+      True
+
+    """
     def __init__(self, *maps: Iterable[Map]):
+        r"""
+        Parameters
+        ----------
+        maps: Iterable[Map]
+            List of maps to stack.
+        """
         super(MapHStack, self).__init__(*maps, axis=1)
 
 
 class DiffMapStack(MapStack, DifferentiableMap):
+    r"""
+    Stack differentiable maps together.
+
+    This class constructs a differentiable map by stacking multiple maps together, either **vertically** (``axis=0``) or **horizontally** (``axis=1``).
+    The attributes ``lipschitz_cst``, ``diff_lipschitz_cst`` and the method ``jacobianT`` are inferred from those of
+    the stacked maps.
+
+    - **Vertical stacking**: Consider a collection :math:`\{L_i:\mathbb{R}^{N}\to \mathbb{R}^{M_i}, i=1,\ldots, k\}`
+      of maps, with Lipschitz constants :math:`\{\beta_i\in\mathbb{R}_+\cup\{+\infty\}, i=1,\ldots, k\}`, Jacobian matrices
+      :math:`\{\mathbf{J}_i(\mathbf{x})\in\mathbb{R}^{M_i\times N},  i=1,\ldots, k\}` for some :math:`\mathbf{x}\in\mathbb{R}^N`.
+      Then the vertically stacked operator
+
+      .. math::
+
+         V:\begin{cases}\mathbb{R}^{N}\to \mathbb{R}^{M_1}\times \cdots \times\mathbb{R}^{M_k}\\
+         \mathbf{x}\mapsto (L_1\mathbf{x},\ldots, L_k\mathbf{x}).
+         \end{cases}
+
+      has a Lipschitz constant bounded by :math:`\sqrt{\sum_{i=1}^k \beta_i^2}`. Moreover the Jacobian matrix of :math:`V` is obtained by stacking the individual Jacobian matrices vertically:
+
+      .. math::
+
+         \mathbf{J}(\mathbf{x})=\left[\begin{array}{c}\mathbf{J}_1(\mathbf{x})\\\vdots\\ \mathbf{J}_k(\mathbf{x}) \end{array}\right]\in\mathbb{R}^{(\sum_{i=1}^k M_i)\times N}.
+
+    - **Horizontal stacking**: Consider a collection :math:`\{L_i:\mathbb{R}^{N_i}\to \mathbb{R}^{M}, i=1,\ldots, k\}`
+      of maps, with Lipschitz constants :math:`\{\beta_i\in\mathbb{R}_+\cup\{+\infty\}, i=1,\ldots, k\}`, Jacobian matrices
+      :math:`\{\mathbf{J}_i(\mathbf{x}_i)\in\mathbb{R}^{M\times N_i},  i=1,\ldots, k\}` for some :math:`\mathbf{x}_i\in\mathbb{R}^{N_i}`.
+      Then the horizontally stacked operator
+
+      .. math::
+
+         H:\begin{cases}\mathbb{R}^{N_1}\times \cdots \times\mathbb{R}^{N_k}\to \mathbb{R}^{M}\\
+         (\mathbf{x}_1,\ldots, \mathbf{x}_k)\mapsto \sum_{i=1}^k L_i \mathbf{x}_i.
+         \end{cases}
+
+      has a Lipschitz constant bounded by :math:`\sqrt{\sum_{i=1}^k \beta_i^2}`. Moreover the Jacobian matrix of :math:`H` is obtained by stacking the individual Jacobian matrices horizontally:
+
+      .. math::
+
+         \mathbf{J}(\mathbf{x}_1,\ldots,\mathbf{x}_k)=\left[\begin{array}{c}\mathbf{J}_1(\mathbf{x}_1)&\cdots& \mathbf{J}_k(\mathbf{x}_k) \end{array}\right]\in\mathbb{R}^{M\times (\sum_{i=1}^k N_i)}.
+
+
+
+    Examples
+    --------
+
+    .. testsetup::
+
+       import numpy as np
+       from pycsou.func.penalty import SquaredL2Norm
+       from pycsou.linop.diff import FirstDerivative
+       from pycsou.core.map import MapStack, DiffMapStack
+
+       x = np.arange(10)
+       y = np.arange(20)
+       f = SquaredL2Norm(dim=x.size)
+       g = SquaredL2Norm(dim=y.size)
+       A1 = FirstDerivative(size=x.size)
+       A1.compute_lipschitz_cst()
+       A2 = FirstDerivative(size=y.size, kind='centered')
+       A2.compute_lipschitz_cst()
+       A3 = A1 / 2
+       K1 = f * A1
+       K2 = g * A2
+       K3 = A3
+
+    .. doctest::
+
+       >>> V = DiffMapStack(K1, K3, axis=0)
+       >>> np.allclose(V.lipschitz_cst, np.sqrt(K1.lipschitz_cst ** 2 + K3.lipschitz_cst ** 2))
+       True
+
+    See Also
+    --------
+    :py:class:`~pycsou.core.map.DiffMapVStack`, :py:class:`~pycsou.core.map.DiffMapHStack`, :py:class:`~pycsou.core.map.MapStack`
+
+    """
     def __init__(self, *diffmaps: Iterable[DifferentiableMap], axis: int):
+        r"""
+        Parameters
+        ----------
+        diffmaps: Iterable[DifferentiableMap]
+            List of differentiable maps to be stacked
+        axis: int
+            Stacking direction: 0 for vertical and 1 for horizontal stacking.
+        """
         MapStack.__init__(self, *diffmaps, axis=axis)
         lipschitz_cst = np.sqrt(np.sum([diffmap.lipschitz_cst ** 2 for diffmap in self.maps]))
         diff_lipschitz_cst = np.sqrt(np.sum([diffmap.diff_lipschitz_cst ** 2 for diffmap in self.maps]))
@@ -691,14 +828,31 @@ class DiffMapStack(MapStack, DifferentiableMap):
             jacobianT_list = [diffmap.jacobianT(arg_split[i]) for i, diffmap in enumerate(self.maps)]
             return LinOpVStack(*jacobianT_list)
 
-
 class DiffMapVStack(DiffMapStack):
+    r"""
+    Alias for vertical stacking of differentiable maps, equivalent to ``DiffMapStack(*maps, axis=0)``.
+    """
     def __init__(self, *diffmaps: Iterable[DifferentiableMap]):
+        r"""
+        Parameters
+        ----------
+        diffmaps: Iterable[DifferentiableMap]
+            List of differentiable maps to be stacked
+        """
         super(DiffMapVStack, self).__init__(*diffmaps, axis=0)
 
 
 class DiffMapHStack(DiffMapStack):
+    r"""
+    Alias for horizontal stacking of differentiable maps, equivalent to ``DiffMapStack(*maps, axis=1)``.
+    """
     def __init__(self, *diffmaps: Iterable[DifferentiableMap]):
+        r"""
+        Parameters
+        ----------
+        diffmaps: Iterable[DifferentiableMap]
+            List of differentiable maps to be stacked.
+        """
         super(DiffMapHStack, self).__init__(*diffmaps, axis=1)
 
 
