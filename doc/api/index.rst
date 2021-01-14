@@ -7,6 +7,7 @@ API Reference
    pycsou.core.map
    pycsou.core.linop
    pycsou.core.functional
+   pycsou.core.solver
    pycsou.func.penalty
    pycsou.func.loss
    pycsou.linop.conv

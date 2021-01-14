@@ -1,3 +1,15 @@
+# #############################################################################
+# solver.py
+# =========
+# Author : Matthieu Simeoni [matthieu.simeoni@gmail.com]
+# #############################################################################
+
+r"""
+Optimisation algorithms.
+
+This module provides various proximal algorithms for convex optimisation.
+"""
+
 import numpy as np
 from pandas import DataFrame
 from pycsou.core.map import DifferentiableMap
@@ -11,9 +23,30 @@ from abc import ABC, abstractmethod
 
 
 class GenericIterativeAlgorithm(ABC):
+    r"""
+    Base class for iterative algorithms.
 
+    Any instance/subclass of this class must at least implement the abstract methods ``update_iterand``, ``print_diagnostics``
+    ``update_diagnostics`` and ``stopping_metric``.
+    """
     def __init__(self, objective_functional: Map, init_iterand: Any, max_iter: int = 500, min_iter: int = 10,
                  accuracy_threshold: float = 1e-3, verbose: int = 1):
+        r"""
+        Parameters
+        ----------
+        objective_functional: Map
+            Objective functional to minimise.
+        init_iterand: Any
+            Initial guess for warm start.
+        max_iter: int
+            Maximum number of iterations.
+        min_iter: int
+            Minimum number of iterations.
+        accuracy_threshold: float
+            Accuracy threshold for stopping criterion.
+        verbose: int
+            Print diagnostics every ``verbose`` iterations.
+        """
         self.objective_functional = objective_functional
         self.max_iter = max_iter
         self.min_iter = min_iter
@@ -27,6 +60,14 @@ class GenericIterativeAlgorithm(ABC):
         super(GenericIterativeAlgorithm, self).__init__()
 
     def iterate(self) -> Any:
+        r"""
+        Run the algorithm.
+
+        Returns
+        -------
+        Any
+            Algorithm outcome.
+        """
         self.old_iterand = self.init_iterand
         while ((self.iter <= self.max_iter) and (self.stopping_metric() > self.accuracy_threshold)) or (
                 self.iter <= self.min_iter):
@@ -40,10 +81,23 @@ class GenericIterativeAlgorithm(ABC):
         return self.iterand, self.converged, self.diagnostics
 
     def reset(self):
+        r"""
+        Reset the algorithm.
+        """
         self.iter = 0
         self.iterand = None
 
     def iterates(self, n: int) -> Tuple:
+        r"""
+        Generator allowing to loop through the n first iterates.
+
+        Useful for debugging/plotting purposes.
+
+        Parameters
+        ----------
+        n: int
+            Max number of iterates to loop through.
+        """
         self.reset()
         for i in range(n):
             self.iterand = self.update_iterand()
@@ -52,29 +106,102 @@ class GenericIterativeAlgorithm(ABC):
 
     @abstractmethod
     def update_iterand(self) -> Any:
+        r"""
+        Update the iterand.
+
+        Returns
+        -------
+        Any
+            Result of the update.
+        """
         pass
 
     @abstractmethod
     def print_diagnostics(self):
+        r"""
+        Print diagnostics.
+        """
         pass
 
     @abstractmethod
     def stopping_metric(self):
+        r"""
+        Stopping metric.
+        """
         pass
 
     @abstractmethod
     def update_diagnostics(self):
+        """Update the diagnostics."""
         pass
 
 
 class PrimalDualSplitting(GenericIterativeAlgorithm):
+    r"""
+    Primal dual splitting algorithm.
 
+    Notes
+    -----
+    The *Primal Dual Splitting (PDS)* method is described in [PDS]_ (this particular implementation is based on the pseudo-code Algorithm 7.1 provided in [FuncSphere]_ Chapter 7, Section1).
+    It can be used to solve problems of the form:
+
+    .. math::
+       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
+
+    where:
+
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
+      for some :math:`\beta\in[0,+\infty[`.
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}`$` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+    * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M`$` is a *linear operator*, with **operator norm**:
+    
+      .. math::
+         \Vert{\mathbf{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathbf{K}\mathbf{x}\Vert_2.
+
+    * The problem is *feasible* --i.e. there exists at least one solution.
+
+    **Remark 1:** the algorithm is still valid if one or more of the terms :math:`\mathcal{F}`, :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
+    **Remark 2:** see [FuncSphere]_ Chapter 7, Section 1, Theorems 7.1/7.2 for convergence results on PDS. **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
+    """
     def __init__(self, dim: int, F: Optional[DifferentiableMap] = None, G: Optional[ProximableFunctional] = None,
                  H: Optional[ProximableFunctional] = None, K: Optional[LinearOperator] = None,
                  tau: Optional[float] = None, sigma: Optional[float] = None, rho: Optional[float] = None,
                  beta: Optional[float] = None, x0: Optional[np.ndarray] = None, z0: Optional[np.ndarray] = None,
-                 max_iter: int = 500, min_iter: int = 10, accuracy_threshold: float = 1e-3, verbose: int = 1,
-                 store_diagnostics: bool = True):
+                 max_iter: int = 500, min_iter: int = 10, accuracy_threshold: float = 1e-3, verbose: int = 1):
+        r"""
+        Parameters
+        ----------
+        dim: int
+            Dimension of the objective functional's domain.
+        F: Optional[DifferentiableMap]
+            Differentiable map :math:`\mathcal{F}`.
+        G: Optional[ProximableFunctional]
+            Proximable functional :math:`\mathcal{G}`.
+        H: Optional[ProximableFunctional]
+            Proximable functional :math:`\mathcal{H}`.
+        K: Optional[LinearOperator]
+            Linear operator :math:`\mathbf{K}`.
+        tau: Optional[float]
+            Primal step size.
+        sigma: Optional[float]
+            Dual step size.
+        rho: Optional[float]
+            Momentum parameter.
+        beta: Optional[float]
+            Lipschitz constant :math:`\beta` of the derivative of :math:`\mathcal{F}`.
+        x0: Optional[np.ndarray]
+            Initial guess for the primal variable.
+        z0: Optional[np.ndarray]
+            Initial guess for the dual variable.
+        max_iter: int
+            Maximal number of iterations.
+        min_iter: int
+            Minimal number of iterations.
+        accuracy_threshold: float
+            Accuracy threshold for stopping criterion.
+        verbose: int
+            Print diagnostics every ``verbose`` iterations.
+        """
         self.dim = dim
         self._H = True
         if isinstance(F, DifferentiableMap):
@@ -157,6 +284,16 @@ class PrimalDualSplitting(GenericIterativeAlgorithm):
                                                   accuracy_threshold=accuracy_threshold, verbose=verbose)
 
     def set_step_sizes(self) -> Tuple[float, float]:
+        r"""
+        Set the primal/dual step sizes.
+
+        The primal/dual step sizes are set automatically to sensible values using the rule of thumbs of [FuncSphere]_ Chapter 7, Section 1.
+
+        Returns
+        -------
+        Tuple[float, float]
+            Sensible primal/dual step sizes.
+        """
         if self.beta > 0:
             if self._H is False:
                 tau = 2 / self.beta
@@ -181,16 +318,40 @@ class PrimalDualSplitting(GenericIterativeAlgorithm):
         return tau, sigma
 
     def set_momentum_term(self) -> float:
+        r"""
+        Sets the momentum term.
+
+        Returns
+        -------
+        float
+            Momentum term.
+        """
         if self.beta > 0:
-            rho = 0.4
+            rho = 0.9
         else:
             rho = 1
         return rho
 
     def initialize_primal_variable(self) -> np.ndarray:
+        """
+        Initialize the primal variable to zero.
+
+        Returns
+        -------
+        np.ndarray
+            Zero-initialized primal variable.
+        """
         return np.zeros(shape=(self.dim,), dtype=np.float)
 
     def initialize_dual_variable(self) -> Optional[np.ndarray]:
+        """
+        Initialize the dual variable to zero.
+
+        Returns
+        -------
+        np.ndarray
+            Zero-initialized dual variable.
+        """
         if self._H is False:
             return None
         else:
