@@ -13,4 +13,5 @@ API Reference
    pycsou.linop.diff
    pycsou.linop.sampling
    pycsou.util.math
+   pycsou.util.misc
 
