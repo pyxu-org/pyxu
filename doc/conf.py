@@ -90,7 +90,9 @@ autodoc_inherit_docstrings = True
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "NumPy [latest]": ("https://docs.scipy.org/doc/numpy/", None),
-    "SciPy [latest]": ("https://docs.scipy.org/doc/scipy/reference", None)
+    "SciPy [latest]": ("https://docs.scipy.org/doc/scipy/reference", None),
+    "pylops [latest]": ("https://pylops.readthedocs.io/en/latest", None),
+    "dask [latest]": ("https://docs.dask.org/en/latest/", None)
 }
 
 # -- Options for napoleon extension ------------------------------------------

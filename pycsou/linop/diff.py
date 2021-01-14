@@ -262,7 +262,7 @@ def GeneralisedDerivative(size: int, shape: Optional[tuple] = None, axis: int = 
 
     Returns
     -------
-    py:class:`pycsou.core.linop.LinearOperator`
+    :py:class:`pycsou.core.linop.LinearOperator`
         A generalised derivative operator.
 
     Raises
@@ -405,7 +405,7 @@ def FirstDirectionalDerivative(shape: tuple, directions: np.ndarray, step: Union
 
     Returns
     -------
-    py:class:`pycsou.core.linop.PyLopLinearOperator`
+    :py:class:`pycsou.core.linop.PyLopLinearOperator`
         Directional derivative operator.
 
     Examples
@@ -511,7 +511,7 @@ def SecondDirectionalDerivative(shape: tuple, directions: np.ndarray, step: Unio
 
     Returns
     -------
-    py:class:`pycsou.core.linop.PyLopLinearOperator`
+    :py:class:`pycsou.core.linop.PyLopLinearOperator`
         Second directional derivative operator.
 
     Examples
@@ -621,7 +621,7 @@ def DirectionalGradient(first_directional_derivatives: List[FirstDirectionalDeri
 
     Returns
     -------
-    py:class:`pycsou.core.linop.LinearOperator`
+    :py:class:`pycsou.core.linop.LinearOperator`
         Stack of first directional derivatives.
 
     Examples
@@ -706,7 +706,7 @@ def DirectionalLaplacian(second_directional_derivatives: List[SecondDirectionalD
 
     Returns
     -------
-    py:class:`pycsou.core.linop.LinearOperator`
+    :py:class:`pycsou.core.linop.LinearOperator`
          Directional Laplacian.
 
     Examples
@@ -797,7 +797,7 @@ def Gradient(shape: tuple, step: Union[tuple, float] = 1., edge: bool = True, dt
 
     Returns
     -------
-    py:class:`pycsou.core.linop.LinearOperator`
+    :py:class:`pycsou.core.linop.LinearOperator`
         Gradient operator.
 
     Examples
@@ -907,7 +907,7 @@ def Laplacian(shape: tuple, weights: Tuple[float] = (1, 1), step: Union[tuple, f
 
     Returns
     -------
-    py:class:`pycsou.core.linop.LinearOperator`
+    :py:class:`pycsou.core.linop.LinearOperator`
         Laplacian operator.
 
     Examples
@@ -993,7 +993,7 @@ def GeneralisedLaplacian(shape: Optional[tuple] = None, step: Union[tuple, float
 
     Returns
     -------
-    py:class:`pycsou.core.linop.LinearOperator`
+    :py:class:`pycsou.core.linop.LinearOperator`
         Generalised Laplacian operator.
 
     Raises
@@ -1090,7 +1090,7 @@ def Integration1D(size: int, shape: Optional[tuple] = None, axis: int = 0, step:
 
     Returns
     -------
-    py:class:`pycsou.core.linop.PyLopLinearOperator`
+    :py:class:`pycsou.core.linop.PyLopLinearOperator`
         Integral operator.
 
     Examples

@@ -367,10 +367,10 @@ class DifferentiableMap(Map):
 
        >>> print(f.lipschitz_cst, f.diff_lipschitz_cst)
        inf 2
-       >>> print(np.round(L1.lipschitz_cst,2), np.round(L1.diff_lipschitz_cst,2))
-       1.01 1.01
-       >>> print(np.round(L2.lipschitz_cst,2), np.round(L2.diff_lipschitz_cst,2))
-       0.94 0.94
+       >>> print(np.round(L1.lipschitz_cst,1), np.round(L1.diff_lipschitz_cst,1))
+       1.0 1.0
+       >>> print(np.round(L2.lipschitz_cst,1), np.round(L2.diff_lipschitz_cst,1))
+       0.9 0.9
        >>> L3 = 2 * L1 + (L2 ** 2) / 3
        >>> np.allclose(L3.lipschitz_cst, 2 * L1.lipschitz_cst + (L2.lipschitz_cst ** 2)/3)
        True
@@ -379,6 +379,12 @@ class DifferentiableMap(Map):
        True
        >>> np.allclose(map_.jacobianT(x), L1.jacobianT(x) * f.jacobianT(L1(x)))
        True
+
+    Notes
+    -----
+    This class supports the following arithmetic operators ``+``, ``-``, ``*``, ``@``, ``**`` and ``/``, implemented with the
+    class methods ``__add__``/``__radd__``, ``__sub__``/``__neg__``, ``__mul__``/``__rmul__``, ``__matmul__``, ``__pow__``, ``__truediv__``.
+    Such arithmetic operators can be used to *add*, *substract*, *scale*, *compose*, *exponentiate* or *evaluate* ``DifferentiableMap`` instances.
 
     """
 
@@ -710,7 +716,7 @@ class MapHStack(MapStack):
 
       >>> V1 = MapStack(K1, K2, axis=1)
       >>> V2 = MapHStack(K1, K2)
-      >>> np.allclose(V1(x), V2(x))
+      >>> np.allclose(V1(np.arange(V1.shape[1])), V2(np.arange(V1.shape[1])))
       True
 
     """

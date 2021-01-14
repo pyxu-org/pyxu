@@ -5,6 +5,7 @@ API Reference
    :toctree:
 
    pycsou.core.map
+   pycsou.core.linop
    pycsou.func.penalty
    pycsou.func.loss
    pycsou.linop.conv
