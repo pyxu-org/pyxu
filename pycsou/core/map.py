@@ -624,11 +624,11 @@ class MapStack(Map):
 
     """
 
-    def __init__(self, *maps: Iterable[Map], axis: int):
+    def __init__(self, *maps: Map, axis: int):
         r"""
         Parameters
         ----------
-        maps: Iterable[Map]
+        maps: Map
             List of maps to stack.
         axis:
             Stacking direction: 0 for vertical and 1 for horizontal stacking.
@@ -691,11 +691,11 @@ class MapVStack(MapStack):
        True
 
     """
-    def __init__(self, *maps: Iterable[Map]):
+    def __init__(self, *maps: Map):
         r"""
         Parameters
         ----------
-        maps: Iterable[Map]
+        maps: Map
             List of maps to stack.
         """
         super(MapVStack, self).__init__(*maps, axis=0)
@@ -720,11 +720,11 @@ class MapHStack(MapStack):
       True
 
     """
-    def __init__(self, *maps: Iterable[Map]):
+    def __init__(self, *maps: Map):
         r"""
         Parameters
         ----------
-        maps: Iterable[Map]
+        maps: Map
             List of maps to stack.
         """
         super(MapHStack, self).__init__(*maps, axis=1)
@@ -808,11 +808,11 @@ class DiffMapStack(MapStack, DifferentiableMap):
     :py:class:`~pycsou.core.map.DiffMapVStack`, :py:class:`~pycsou.core.map.DiffMapHStack`, :py:class:`~pycsou.core.map.MapStack`
 
     """
-    def __init__(self, *diffmaps: Iterable[DifferentiableMap], axis: int):
+    def __init__(self, *diffmaps: DifferentiableMap, axis: int):
         r"""
         Parameters
         ----------
-        diffmaps: Iterable[DifferentiableMap]
+        diffmaps: DifferentiableMap
             List of differentiable maps to be stacked
         axis: int
             Stacking direction: 0 for vertical and 1 for horizontal stacking.
@@ -838,11 +838,11 @@ class DiffMapVStack(DiffMapStack):
     r"""
     Alias for vertical stacking of differentiable maps, equivalent to ``DiffMapStack(*maps, axis=0)``.
     """
-    def __init__(self, *diffmaps: Iterable[DifferentiableMap]):
+    def __init__(self, *diffmaps: DifferentiableMap):
         r"""
         Parameters
         ----------
-        diffmaps: Iterable[DifferentiableMap]
+        diffmaps: DifferentiableMap
             List of differentiable maps to be stacked
         """
         super(DiffMapVStack, self).__init__(*diffmaps, axis=0)
@@ -852,11 +852,11 @@ class DiffMapHStack(DiffMapStack):
     r"""
     Alias for horizontal stacking of differentiable maps, equivalent to ``DiffMapStack(*maps, axis=1)``.
     """
-    def __init__(self, *diffmaps: Iterable[DifferentiableMap]):
+    def __init__(self, *diffmaps: DifferentiableMap):
         r"""
         Parameters
         ----------
-        diffmaps: Iterable[DifferentiableMap]
+        diffmaps: DifferentiableMap
             List of differentiable maps to be stacked.
         """
         super(DiffMapHStack, self).__init__(*diffmaps, axis=1)
@@ -864,17 +864,16 @@ class DiffMapHStack(DiffMapStack):
 
 if __name__ == '__main__':
     import numpy as np
-    from pycsou.func.penalty import L1Norm, SquaredL2Norm
+    from pycsou.core.linop import DenseLinearOperator, LinOpStack
     from pycsou.linop.conv import Convolve1D
     from scipy import signal
 
-    x = np.arange(10)
+    x1 = np.arange(10)
+    x2 = np.arange(20)
     filter = signal.hann(5)
     filter[filter.size // 2:] = 0
-    f1 = L1Norm(dim=x.size)
-    f2 = SquaredL2Norm(dim=x.size)
-    L1 = Convolve1D(size=x.size, filter=filter)
-    L2 = Convolve1D(size=x.size, filter=filter / 2)
-    L1.compute_lipschitz_cst()
-    L2.compute_lipschitz_cst()
-    L3 = L1 * 3  # - (L2 ** 2) / 6
+    L1 = Convolve1D(size=x1.size, filter=filter)
+    L2 = DenseLinearOperator(np.arange(x2.size * L1.shape[0]).reshape(L1.shape[0], x2.size))
+    L3 = LinOpStack(L1, L2, axis=1)
+    L3(np.concatenate((x1,x2)))
+

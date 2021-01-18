@@ -30,6 +30,10 @@ def is_range_broadcastable(shape1: Tuple[int, int], shape2: Tuple[int, int]) -> 
     Examples
     --------
 
+    .. testsetup::
+
+       from pycsou.util.misc import is_range_broadcastable
+
     .. doctest::
 
        >>> is_range_broadcastable((3,2), (1,2))
@@ -69,10 +73,15 @@ def range_broadcast_shape(shape1: Tuple[int, int], shape2: Tuple[int, int]) -> T
     Examples
     --------
 
+    .. testsetup::
+
+       from pycsou.util.misc import range_broadcast_shape
+
     .. doctest::
 
        >>> range_broadcast_shape((3,2), (1,2))
-       (3,2)
+       (3, 2)
+
     """
     if not is_range_broadcastable(shape1, shape2):
         raise ValueError('Shapes are not (range) broadcastable.')

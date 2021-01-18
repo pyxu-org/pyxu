@@ -14,6 +14,8 @@ Abstract classes for multidimensional linear operators.
    SparseLinearOperator
    DaskLinearOperator
    DiagonalOperator
+   IdentityOperator
+   NullOperator
    LinOpStack
    LinOpVStack
    LinOpHStack
@@ -40,6 +42,11 @@ Abstract classes for multidimensional linear operators.
 .. autoclass:: pycsou.core.linop.DiagonalOperator
    :special-members: __init__
 
+.. autoclass:: pycsou.core.linop.IdentityOperator
+   :special-members: __init__
+
+.. autoclass:: pycsou.core.linop.NullOperator
+   :special-members: __init__
 
 .. autoclass:: pycsou.core.linop.LinOpStack
    :special-members: __init__

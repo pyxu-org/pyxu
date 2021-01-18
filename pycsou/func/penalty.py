@@ -138,7 +138,7 @@ def L2Ball(dim: int, radius: Number) -> IndicatorFunctional:
 
        \iota(\mathbf{x}):=\begin{cases}
         0 \,\text{if} \,\|\mathbf{x}\|_2\leq \text{radius},\\
-         \, 0\,\text{ortherwise}.
+         \, +\infty\,\text{ortherwise}.
          \end{cases}
 
     Parameters
@@ -323,7 +323,7 @@ def L1Ball(dim: int, radius: Number) -> IndicatorFunctional:
 
        \iota(\mathbf{x}):=\begin{cases}
         0 \,\text{if} \,\|\mathbf{x}\|_1\leq \text{radius},\\
-         \, 0\,\text{ortherwise}.
+         \, +\infty\,\text{ortherwise}.
          \end{cases}
 
     Parameters
@@ -424,7 +424,7 @@ def LInftyBall(dim: int, radius: Number) -> IndicatorFunctional:
 
        \iota(\mathbf{x}):=\begin{cases}
         0 \,\text{if} \,\|\mathbf{x}\|_\infty\leq \text{radius},\\
-         \, 0\,\text{ortherwise}.
+         \, +\infty\,\text{ortherwise}.
          \end{cases}
 
     Parameters
@@ -484,7 +484,7 @@ def NonNegativeOrthant(dim: int) -> IndicatorFunctional:
 
        \iota(\mathbf{x}):=\begin{cases}
         0 \,\text{if} \,\mathbf{x}\in \mathbb{R}^N_+,\\
-         \, 0\,\text{ortherwise}.
+         \, +\infty\,\text{ortherwise}.
          \end{cases}
 
     Parameters
@@ -536,7 +536,7 @@ def Segment(dim: int, a: Number = 0, b: Number = 1):
 
        \iota(\mathbf{x}):=\begin{cases}
         0 \,\text{if} \,\mathbf{x}\in [a,b]^N,\\
-         \, 0\,\text{ortherwise}.
+         \, +\infty\,\text{ortherwise}.
          \end{cases}
 
     Parameters
@@ -592,7 +592,7 @@ def RealLine(dim: int):
 
        \iota(\mathbf{x}):=\begin{cases}
         0 \,\text{if} \,\mathbf{x}\in \mathbb{R}^N,\\
-         \, 0\,\text{ortherwise}.
+         \, +\infty\,\text{ortherwise}.
          \end{cases}
 
     Parameters
@@ -641,7 +641,7 @@ def ImagLine(dim: int):
 
        \iota(\mathbf{x}):=\begin{cases}
         0 \,\text{if} \,\mathbf{x}\in (j\mathbb{R})^N,\\
-         \, 0\,\text{ortherwise}.
+         \, +\infty\,\text{ortherwise}.
          \end{cases}
 
     Parameters

@@ -757,7 +757,19 @@ class DiagonalOperator(LinearOperator):
 
 
 class IdentityOperator(DiagonalOperator):
+    r"""
+    Square identity operator.
+    """
+
     def __init__(self, size: int, dtype: Optional[type] = None):
+        r"""
+        Parameters
+        ----------
+        size: int
+            Dimension of the domain.
+        dtype: Optional[type]
+            Data type of the operator.
+        """
         diag = np.ones(shape=(size,), dtype=dtype)
         super(IdentityOperator, self).__init__(diag)
         self.lipschitz_cst = self.diff_lipschitz_cst = 1
@@ -775,17 +787,21 @@ class HomothetyMap(DiagonalOperator):
 
 
 class NullOperator(LinearOperator):
-    def __init__(self, shape: Tuple[int, int]):
-        super(NullOperator, self).__init__(shape=shape, dtype=np.float,
+    r"""
+    Null operator.
+    """
+
+    def __init__(self, shape: Tuple[int, int], dtype: Optional[type] = np.float):
+        super(NullOperator, self).__init__(shape=shape, dtype=dtype,
                                            is_explicit=False, is_dense=False, is_sparse=False, is_dask=False,
                                            is_symmetric=True if (shape[0] == shape[1]) else False)
         self.lipschitz_cst = self.diff_lipschitz_cst = 0
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        return np.zeros(shape=self.shape[1], dtype=self.dtype)
+        return np.zeros(shape=self.shape[0], dtype=self.dtype)
 
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        return np.zeros(shape=self.shape[0], dtype=self.dtype)
+        return np.zeros(shape=self.shape[1], dtype=self.dtype)
 
     def eigenvals(self, k: int, which='LM', **kwargs) -> np.ndarray:
         return np.zeros(shape=(k,), dtype=self.dtype)
@@ -858,6 +874,9 @@ class LinOpStack(LinearOperator, DiffMapStack):
        True
        >>> np.allclose(G1.adjoint(G1*Z.flatten()), G2.adjoint(G2 * Z.flatten()))
        True
+       >>> G3 = LinOpStack(D1.H, D2.H, axis=1)
+       >>> np.allclose(G1.adjoint(G1*Z.flatten()), (G3 * G1) * Z.flatten())
+       True
 
     See Also
     --------
@@ -888,7 +907,7 @@ class LinOpStack(LinearOperator, DiffMapStack):
                 result += linop.adjoint(y_split[i])
             return result
         else:
-            out_list = [linop.adjoint(y) for linop in self.linops]
+            out_list = [linop.adjoint(y).flatten() for linop in self.linops]
             return np.concatenate(out_list, axis=0)
 
 
@@ -908,3 +927,9 @@ class LinOpHStack(LinOpStack):
 
     def __init__(self, *linops):
         super(LinOpHStack, self).__init__(*linops, axis=1)
+
+class DiagonalBlock(LinearOperator):
+    pass
+
+class LinOpBlock(LinearOperator):
+    pass
