@@ -1,4 +1,4 @@
-python == 3.6.*
+python >= 3.6.*
 dask >= 2.16.*
 numpy >= 1.10
 scipy >= 1.5.*
