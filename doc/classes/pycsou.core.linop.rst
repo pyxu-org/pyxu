@@ -1,5 +1,5 @@
-pycsou.core.linop
-=================
+Linear Operators
+================
 
 Abstract classes for multidimensional linear operators.
 

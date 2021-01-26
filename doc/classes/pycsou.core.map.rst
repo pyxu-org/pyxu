@@ -1,5 +1,5 @@
-pycsou.core.map
-===============
+Multidimensional Maps
+=====================
 
 Abstract classes for multidimensional (potentially nonlinear) maps.
 

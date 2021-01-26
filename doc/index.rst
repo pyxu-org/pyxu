@@ -10,9 +10,13 @@ Pycsou documentation
    :caption: Contents
    :hidden:
 
-   general/index
+   introduction/index
+   classes/index
+   operators/index
+   functionals/index
+   algorithms/index
+   utils/index
    notes/index
-   api/index
 
 
 Indices and tables

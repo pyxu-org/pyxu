@@ -1,4 +1,4 @@
-pycsou.func.penalty
+Penalty Functionals
 ===================
 
 .. automodule:: pycsou.func.penalty

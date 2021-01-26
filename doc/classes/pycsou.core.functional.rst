@@ -1,5 +1,5 @@
-pycsou.core.functional
-======================
+Functionals
+===========
 
 Abstract classes for functionals.
 

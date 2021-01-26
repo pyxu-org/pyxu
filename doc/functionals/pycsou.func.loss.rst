@@ -1,5 +1,5 @@
-pycsou.func.loss
-===================
+Loss Functionals
+================
 
 .. automodule:: pycsou.func.loss
    :special-members: __init__, __call__

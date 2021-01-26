@@ -1,5 +1,5 @@
-pycsou.util.math
-================
+Maths
+=====
 
 .. automodule:: pycsou.util.math
 

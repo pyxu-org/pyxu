@@ -1,5 +1,5 @@
-pycsou.util.misc
-================
+Miscellaneous
+=============
 
 .. automodule:: pycsou.util.misc
    

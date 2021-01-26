@@ -1,5 +1,5 @@
-pycsou.linop.diff
-=================
+Differential Operators
+======================
 
 .. automodule:: pycsou.linop.diff
    :special-members: __init__

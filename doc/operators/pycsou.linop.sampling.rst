@@ -1,5 +1,5 @@
-pycsou.linop.sampling
-=====================
+Sampling Operators
+==================
 
 .. automodule:: pycsou.linop.sampling
    :special-members: __init__
