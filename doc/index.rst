@@ -7,15 +7,31 @@ Pycsou documentation
 
 
 .. toctree::
-   :caption: Contents
+   :maxdepth: 1
+   :caption: Gettin Started:
    :hidden:
 
-   introduction/index
+   general/index
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Reference documentation:
+
+   api/index
    classes/index
    operators/index
    functionals/index
    algorithms/index
+   math/index
    utils/index
+
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+   :caption: More:
+
    notes/index
 
 

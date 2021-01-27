@@ -15,7 +15,8 @@ import dask.array as da
 import scipy.sparse as sparse
 import pylops
 from typing import Optional, Union, List, Callable, Tuple
-from pycsou.core.linop import PyLopLinearOperator, LinearOperator, DenseLinearOperator, ExplicitLinearOperator
+from pycsou.core.linop import LinearOperator
+from pycsou.linop.base import PyLopLinearOperator, ExplicitLinearOperator, DenseLinearOperator
 from skimage.measure import block_reduce
 from scipy.spatial import cKDTree
 import joblib as job
@@ -50,7 +51,7 @@ def SubSampling(size: int, sampling_indices: Union[np.ndarray, list], shape: Opt
 
     Returns
     -------
-    :py:class:`~pycsou.core.linop.PyLopLinearOperator`
+    :py:class:`~pycsou.linop.base.PyLopLinearOperator`
         The subsampling operator.
 
     Raises

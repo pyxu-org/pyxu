@@ -1,7 +1,7 @@
-Maths
-=====
+Proximal Operators
+==================
 
-.. automodule:: pycsou.util.math
+.. automodule:: pycsou.math.prox
 
    
    
@@ -22,9 +22,6 @@ Maths
       proj_linfty_ball
       proj_nonnegative_orthant
       proj_segment
-      
-   
-   
 
 
 

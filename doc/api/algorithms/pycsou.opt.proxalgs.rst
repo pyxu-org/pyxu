@@ -1,12 +1,13 @@
 Proximal Algorithms
 ===================
 
-.. automodule:: pycsou.core.solver
+Proximal algorithms for convex optimisation. 
+
+.. automodule:: pycsou.opt.proxalgs
    :special-members: __init__
    
    .. autosummary::
 
-      GenericIterativeAlgorithm
       PrimalDualSplitting
       PDS
       AcceleratedProximalGradientDescent

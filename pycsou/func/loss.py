@@ -8,10 +8,11 @@ r"""
 Repository of common loss functionals.
 """
 
-from pycsou.core.functional import DifferentiableFunctional, ProximableFunctional, ProxFuncPreComp, IndicatorFunctional
-from pycsou.core.linop import LinearOperator, IdentityOperator, DenseLinearOperator
+from pycsou.core.functional import DifferentiableFunctional, ProximableFunctional, ProxFuncPreComp
+from pycsou.func.base import IndicatorFunctional
+from pycsou.linop.base import DenseLinearOperator
 from pycsou.func.penalty import L2Norm, L1Norm, LInftyNorm, L2Ball, L1Ball, LInftyBall, SquaredL1Norm, SquaredL2Norm
-from typing import Union, Optional, Iterable, Any
+from typing import Union
 from numbers import Number
 import numpy as np
 
@@ -185,7 +186,7 @@ def SquaredL2Loss(dim: int, data: Union[Number, np.ndarray]) -> DifferentiableFu
        import numpy as np
        from pycsou.func.loss import SquaredL2Loss
        from pycsou.func.penalty import SquaredL2Norm
-       from pycsou.core.linop import DenseLinearOperator
+       from pycsou.linop.base import DenseLinearOperator
 
     .. doctest::
 

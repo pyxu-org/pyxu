@@ -1,6 +1,8 @@
 Miscellaneous
 =============
 
+Miscellaneous functions.
+
 .. automodule:: pycsou.util.misc
    
    .. autosummary::
@@ -8,4 +10,5 @@ Miscellaneous
       is_range_broadcastable
       range_broadcast_shape
       peaks
+
 

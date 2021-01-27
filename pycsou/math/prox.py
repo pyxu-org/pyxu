@@ -1,11 +1,11 @@
 # #############################################################################
-# math.py
+# prox.py
 # =======
 # Author : Matthieu Simeoni [matthieu.simeoni@gmail.com]
 # #############################################################################
 
 r"""
-Useful mathematical functions.
+Common proximal/projection operators.
 """
 
 import numpy as np
@@ -44,7 +44,7 @@ def sign(x: Union[np.ndarray, Number]) -> Union[np.ndarray, Number]:
     .. testsetup::
 
        import numpy as np
-       from pycsou.util.math import sign
+       from pycsou.math.prox import sign
 
     .. doctest::
 
@@ -75,7 +75,7 @@ def soft(x: Union[np.ndarray, Number], tau: Number) -> Union[np.ndarray, Number]
        \text{soft}_\tau(x)(x)=\max\{|x|-\tau, 0\} \text{sign}(x), \quad x\in\mathbb{C},
 
     where :math:`\tau\geq 0` and :math:`sign:\mathbb{C}\rightarrow \{-1,1,0\}` is the *sign* function (see
-    :py:func:`~pycsou.util.math.sign`).
+    :py:func:`~pycsou.math.prox.sign`).
 
     Parameters
     ----------
@@ -95,7 +95,7 @@ def soft(x: Union[np.ndarray, Number], tau: Number) -> Union[np.ndarray, Number]
     .. testsetup::
 
        import numpy as np
-       from pycsou.util.math import soft
+       from pycsou.math.prox import soft
 
     .. doctest::
 
@@ -136,7 +136,7 @@ def proj_l1_ball(x: np.ndarray, radius: Number) -> np.ndarray:
     .. testsetup::
 
        import numpy as np
-       from pycsou.util.math import proj_l1_ball
+       from pycsou.math.prox import proj_l1_ball
 
     .. doctest::
 
@@ -153,7 +153,7 @@ def proj_l1_ball(x: np.ndarray, radius: Number) -> np.ndarray:
 
     See Also
     --------
-    :py:func:`~pycsou.func.penalty.L1Ball`, :py:func:`~pycsou.util.math.proj_l2_ball`, :py:func:`~pycsou.util.math.proj_linfty_ball`.
+    :py:func:`~pycsou.func.penalty.L1Ball`, :py:func:`~pycsou.math.prox.proj_l2_ball`, :py:func:`~pycsou.math.prox.proj_linfty_ball`.
     """
     if np.sum(np.abs(x)) <= radius:
         return x
@@ -186,7 +186,7 @@ def proj_l2_ball(x: np.ndarray, radius: Number) -> np.ndarray:
     .. testsetup::
 
        import numpy as np
-       from pycsou.util.math import proj_l2_ball
+       from pycsou.math.prox import proj_l2_ball
 
     .. doctest::
 
@@ -202,7 +202,7 @@ def proj_l2_ball(x: np.ndarray, radius: Number) -> np.ndarray:
 
     See Also
     --------
-    :py:func:`~pycsou.func.penalty.L2Ball`, :py:func:`~pycsou.util.math.proj_l1_ball`, :py:func:`~pycsou.util.math.proj_linfty_ball`.
+    :py:func:`~pycsou.func.penalty.L2Ball`, :py:func:`~pycsou.math.prox.proj_l1_ball`, :py:func:`~pycsou.math.prox.proj_linfty_ball`.
     """
     if np.linalg.norm(x) <= radius:
         return x
@@ -232,7 +232,7 @@ def proj_linfty_ball(x: np.ndarray, radius: Number) -> np.ndarray:
     .. testsetup::
 
        import numpy as np
-       from pycsou.util.math import proj_linfty_ball
+       from pycsou.math.prox import proj_linfty_ball
 
     .. doctest::
 
@@ -248,7 +248,7 @@ def proj_linfty_ball(x: np.ndarray, radius: Number) -> np.ndarray:
 
     See Also
     --------
-    :py:func:`~pycsou.func.penalty.LInftyBall`, :py:func:`~pycsou.util.math.proj_l1_ball`, :py:func:`~pycsou.util.math.proj_l2_ball`.
+    :py:func:`~pycsou.func.penalty.LInftyBall`, :py:func:`~pycsou.math.prox.proj_l1_ball`, :py:func:`~pycsou.math.prox.proj_l2_ball`.
     """
     y = x
     y[y > radius] = radius
@@ -270,7 +270,7 @@ def proj_nonnegative_orthant(x: np.ndarray) -> np.ndarray:
     .. testsetup::
 
        import numpy as np
-       from pycsou.util.math import proj_nonnegative_orthant
+       from pycsou.math.prox import proj_nonnegative_orthant
 
     .. doctest::
 
@@ -289,7 +289,7 @@ def proj_nonnegative_orthant(x: np.ndarray) -> np.ndarray:
 
     See Also
     --------
-    :py:func:`~pycsou.func.penalty.NonNegativeOrthant`, :py:func:`~pycsou.util.math.proj_segment`.
+    :py:func:`~pycsou.func.penalty.NonNegativeOrthant`, :py:func:`~pycsou.math.prox.proj_segment`.
 
     """
     y = np.real(x)
@@ -315,7 +315,7 @@ def proj_segment(x: np.ndarray, a: Number = 0, b: Number = 1) -> np.ndarray:
     .. testsetup::
 
        import numpy as np
-       from pycsou.util.math import proj_segment
+       from pycsou.math.prox import proj_segment
 
     .. doctest::
 
@@ -334,7 +334,7 @@ def proj_segment(x: np.ndarray, a: Number = 0, b: Number = 1) -> np.ndarray:
 
     See Also
     --------
-    :py:func:`~pycsou.func.penalty.Segment`, :py:func:`~pycsou.util.math.proj_nonnegative_orthant`.
+    :py:func:`~pycsou.func.penalty.Segment`, :py:func:`~pycsou.math.prox.proj_nonnegative_orthant`.
 
     """
     y = np.real(x)

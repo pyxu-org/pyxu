@@ -15,7 +15,7 @@ import pylops.signalprocessing as pyconv
 import pylops
 import pygsp
 from typing import Optional, Union
-from pycsou.core.linop import PyLopLinearOperator, PolynomialLinearOperator, SparseLinearOperator
+from pycsou.linop.base import PyLopLinearOperator, SparseLinearOperator, PolynomialLinearOperator
 
 
 def Convolve1D(size: int, filter: np.ndarray, reshape_dims: Optional[tuple] = None, axis: int = 0,
@@ -47,7 +47,7 @@ def Convolve1D(size: int, filter: np.ndarray, reshape_dims: Optional[tuple] = No
 
     Returns
     -------
-    :py:class:`pycsou.core.linop.PyLopLinearOperator`
+    :py:class:`pycsou.linop.base.PyLopLinearOperator`
         Convolution operator.
 
     Raises
@@ -189,7 +189,7 @@ def Convolve2D(size: int, filter: np.ndarray, shape: tuple, dtype: type = 'float
 
     Returns
     -------
-    :py:class:`pycsou.core.linop.PyLopLinearOperator`
+    :py:class:`pycsou.linop.base.PyLopLinearOperator`
         Convolution operator.
 
     Raises
@@ -315,7 +315,7 @@ def MovingAverage1D(window_size: int, shape: tuple, axis: int = 0, dtype='float6
 
     Returns
     -------
-    :py:class:`pycsou.core.linop.PyLopLinearOperator`
+    :py:class:`pycsou.linop.base.PyLopLinearOperator`
         1D moving average operator.
 
     Examples
@@ -377,7 +377,7 @@ def MovingAverage2D(window_shape: Union[tuple, list], shape: tuple, dtype='float
 
     Returns
     -------
-    :py:class:`pycsou.core.linop.PyLopLinearOperator`
+    :py:class:`pycsou.linop.base.PyLopLinearOperator`
         2D moving average operator.
 
     Examples

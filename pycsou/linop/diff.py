@@ -16,8 +16,9 @@ import numpy as np
 import pylops
 import pygsp
 from typing import Optional, Union, Tuple, Iterable, List
-from pycsou.core.linop import PyLopLinearOperator, LinearOperator, IdentityOperator, DiagonalOperator, LinOpVStack, \
-    SparseLinearOperator, PolynomialLinearOperator
+from pycsou.core.linop import LinearOperator
+from pycsou.linop.base import PyLopLinearOperator, SparseLinearOperator, PolynomialLinearOperator, LinOpVStack, \
+    DiagonalOperator, IdentityOperator
 from numbers import Number
 
 
@@ -49,7 +50,7 @@ def FirstDerivative(size: int, shape: Optional[tuple] = None, axis: int = 0, ste
 
     Returns
     -------
-    :py:class:`~pycsou.core.linop.PyLopLinearOperator`
+    :py:class:`~pycsou.linop.base.PyLopLinearOperator`
         First derivative operator.
 
     Raises
@@ -156,7 +157,7 @@ def SecondDerivative(size: int, shape: Optional[tuple] = None, axis: int = 0, st
 
     Returns
     -------
-    :py:class:`~pycsou.core.linop.PyLopLinearOperator`
+    :py:class:`~pycsou.linop.base.PyLopLinearOperator`
         Second derivative operator.
 
     Raises
@@ -405,7 +406,7 @@ def FirstDirectionalDerivative(shape: tuple, directions: np.ndarray, step: Union
 
     Returns
     -------
-    :py:class:`pycsou.core.linop.PyLopLinearOperator`
+    :py:class:`pycsou.linop.base.PyLopLinearOperator`
         Directional derivative operator.
 
     Examples
@@ -511,7 +512,7 @@ def SecondDirectionalDerivative(shape: tuple, directions: np.ndarray, step: Unio
 
     Returns
     -------
-    :py:class:`pycsou.core.linop.PyLopLinearOperator`
+    :py:class:`pycsou.linop.base.PyLopLinearOperator`
         Second directional derivative operator.
 
     Examples
@@ -1090,7 +1091,7 @@ def Integration1D(size: int, shape: Optional[tuple] = None, axis: int = 0, step:
 
     Returns
     -------
-    :py:class:`pycsou.core.linop.PyLopLinearOperator`
+    :py:class:`pycsou.linop.base.PyLopLinearOperator`
         Integral operator.
 
     Examples
@@ -1418,6 +1419,4 @@ def GeneralisedGraphLaplacian(Graph: pygsp.graphs.Graph, kind: str = 'iterated',
 
 
 if __name__ == "__main__":
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from pycsou.util.misc import peaks
+    pass

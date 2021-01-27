@@ -8,9 +8,10 @@ r"""
 Repository of common penalty functionals.
 """
 
-from pycsou.core.functional import DifferentiableFunctional, ProximableFunctional, LpNorm, IndicatorFunctional
-from pycsou.core.linop import DenseLinearOperator
-from pycsou.util.math import soft, proj_l1_ball, proj_l2_ball, proj_linfty_ball, proj_nonnegative_orthant, proj_segment
+from pycsou.core.functional import DifferentiableFunctional, ProximableFunctional
+from pycsou.func.base import IndicatorFunctional, LpNorm
+from pycsou.linop.base import DenseLinearOperator
+from pycsou.math.prox import soft, proj_l1_ball, proj_l2_ball, proj_linfty_ball, proj_nonnegative_orthant, proj_segment
 from typing import Union
 from numbers import Number
 import numpy as np
@@ -78,7 +79,7 @@ class SquaredL2Norm(DifferentiableFunctional):
 
        import numpy as np
        from pycsou.func.penalty import SquaredL2Norm
-       from pycsou.core.linop import DenseLinearOperator
+       from pycsou.linop.base import DenseLinearOperator
 
     .. doctest::
 
@@ -160,7 +161,7 @@ def L2Ball(dim: int, radius: Number) -> IndicatorFunctional:
 
        import numpy as np
        from pycsou.func.penalty import L2Ball
-       from pycsou.util.math import proj_l2_ball
+       from pycsou.math.prox import proj_l2_ball
 
     .. doctest::
 
@@ -199,7 +200,7 @@ class L1Norm(LpNorm):
 
        import numpy as np
        from pycsou.func.penalty import L1Norm
-       from pycsou.util.math import soft
+       from pycsou.math.prox import soft
 
     .. doctest::
 
@@ -238,7 +239,7 @@ class L1Norm(LpNorm):
         return np.sum(np.abs(x))
 
     def soft(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
-        r"""Soft thresholding operator (see :py:func:`~pycsou.util.math.soft` for a definition)."""
+        r"""Soft thresholding operator (see :py:func:`~pycsou.math.prox.soft` for a definition)."""
         return soft(x=x, tau=tau)
 
 
@@ -345,7 +346,7 @@ def L1Ball(dim: int, radius: Number) -> IndicatorFunctional:
 
        import numpy as np
        from pycsou.func.penalty import L1Ball
-       from pycsou.util.math import proj_l1_ball
+       from pycsou.math.prox import proj_l1_ball
 
     .. doctest::
 
@@ -446,7 +447,7 @@ def LInftyBall(dim: int, radius: Number) -> IndicatorFunctional:
 
        import numpy as np
        from pycsou.func.penalty import LInftyBall
-       from pycsou.util.math import proj_linfty_ball
+       from pycsou.math.prox import proj_linfty_ball
 
     .. doctest::
 
@@ -504,7 +505,7 @@ def NonNegativeOrthant(dim: int) -> IndicatorFunctional:
 
        import numpy as np
        from pycsou.func.penalty import NonNegativeOrthant
-       from pycsou.util.math import proj_nonnegative_orthant
+       from pycsou.math.prox import proj_nonnegative_orthant
 
     .. doctest::
 
@@ -560,7 +561,7 @@ def Segment(dim: int, a: Number = 0, b: Number = 1):
 
        import numpy as np
        from pycsou.func.penalty import Segment
-       from pycsou.util.math import proj_segment
+       from pycsou.math.prox import proj_segment
 
     .. doctest::
 

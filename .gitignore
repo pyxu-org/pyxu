@@ -1,5 +1,6 @@
 *.tex
 part2.rst
+part1.rst
 examples/
 .DS_Store
 .idea/

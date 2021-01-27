@@ -10,7 +10,7 @@ Abstract classes for multidimensional nonlinear maps.
 
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Union, Tuple, Optional, Any, Iterable
+from typing import Union, Tuple
 from numbers import Number
 from pycsou.util.misc import is_range_broadcastable, range_broadcast_shape
 
@@ -233,7 +233,8 @@ class Map(ABC):
 
         """
         if isinstance(other, Number):
-            from pycsou.core.linop import HomothetyMap
+            from pycsou.linop.base import HomothetyMap
+
             other = HomothetyMap(constant=other, size=self.shape[1])
 
         if isinstance(other, np.ndarray):
@@ -245,7 +246,8 @@ class Map(ABC):
 
     def __rmul__(self, other: Union[Number, 'Map']) -> 'MapComp':
         if isinstance(other, Number):
-            from pycsou.core.linop import HomothetyMap
+            from pycsou.linop.base import HomothetyMap
+
             other = HomothetyMap(constant=other, size=self.shape[0])
 
         if isinstance(other, Map):
@@ -484,7 +486,8 @@ class DifferentiableMap(Map):
     def __mul__(self, other: Union[Number, 'Map', 'DifferentiableMap', np.ndarray]) \
             -> Union['MapComp', 'DiffMapComp', np.ndarray]:
         if isinstance(other, Number):
-            from pycsou.core.linop import HomothetyMap
+            from pycsou.linop.base import HomothetyMap
+
             other = HomothetyMap(constant=other, size=self.shape[1])
 
         if isinstance(other, np.ndarray):
@@ -498,7 +501,8 @@ class DifferentiableMap(Map):
 
     def __rmul__(self, other: Union[Number, 'Map', 'DifferentiableMap']) -> Union['MapComp', 'DiffMapComp']:
         if isinstance(other, Number):
-            from pycsou.core.linop import HomothetyMap
+            from pycsou.linop.base import HomothetyMap
+
             other = HomothetyMap(constant=other, size=self.shape[0])
 
         if isinstance(other, DifferentiableMap):
@@ -543,7 +547,8 @@ class DiffMapSum(MapSum, DifferentiableMap):
 
 class DiffMapComp(MapComp, DifferentiableMap):
     def __init__(self, map1: DifferentiableMap, map2: DifferentiableMap):
-        from pycsou.core.linop import HomothetyMap
+        from pycsou.linop.base import HomothetyMap
+
         MapComp.__init__(self, map1=map1, map2=map2)
         lipschitz_cst = self.map2.lipschitz_cst * self.map1.lipschitz_cst
         if isinstance(map1, HomothetyMap):
@@ -691,6 +696,7 @@ class MapVStack(MapStack):
        True
 
     """
+
     def __init__(self, *maps: Map):
         r"""
         Parameters
@@ -720,6 +726,7 @@ class MapHStack(MapStack):
       True
 
     """
+
     def __init__(self, *maps: Map):
         r"""
         Parameters
@@ -808,6 +815,7 @@ class DiffMapStack(MapStack, DifferentiableMap):
     :py:class:`~pycsou.core.map.DiffMapVStack`, :py:class:`~pycsou.core.map.DiffMapHStack`, :py:class:`~pycsou.core.map.MapStack`
 
     """
+
     def __init__(self, *diffmaps: DifferentiableMap, axis: int):
         r"""
         Parameters
@@ -825,19 +833,19 @@ class DiffMapStack(MapStack, DifferentiableMap):
 
     def jacobianT(self, arg: Union[Number, np.ndarray]) -> Union['LinOpHStack', 'LinOpVStack']:
         if self.axis == 0:
-            from pycsou.core.linop import LinOpHStack
             jacobianT_list = [diffmap.jacobianT(arg) for diffmap in self.maps]
             return LinOpHStack(*jacobianT_list)
         else:
-            from pycsou.core.linop import LinOpVStack
             arg_split = np.split(arg, self.sections)
             jacobianT_list = [diffmap.jacobianT(arg_split[i]) for i, diffmap in enumerate(self.maps)]
             return LinOpVStack(*jacobianT_list)
+
 
 class DiffMapVStack(DiffMapStack):
     r"""
     Alias for vertical stacking of differentiable maps, equivalent to ``DiffMapStack(*maps, axis=0)``.
     """
+
     def __init__(self, *diffmaps: DifferentiableMap):
         r"""
         Parameters
@@ -852,6 +860,7 @@ class DiffMapHStack(DiffMapStack):
     r"""
     Alias for horizontal stacking of differentiable maps, equivalent to ``DiffMapStack(*maps, axis=1)``.
     """
+
     def __init__(self, *diffmaps: DifferentiableMap):
         r"""
         Parameters
@@ -864,7 +873,7 @@ class DiffMapHStack(DiffMapStack):
 
 if __name__ == '__main__':
     import numpy as np
-    from pycsou.core.linop import DenseLinearOperator, LinOpStack
+    from pycsou.linop.base import DenseLinearOperator, LinOpStack, LinOpVStack, LinOpHStack, HomothetyMap
     from pycsou.linop.conv import Convolve1D
     from scipy import signal
 
@@ -875,5 +884,4 @@ if __name__ == '__main__':
     L1 = Convolve1D(size=x1.size, filter=filter)
     L2 = DenseLinearOperator(np.arange(x2.size * L1.shape[0]).reshape(L1.shape[0], x2.size))
     L3 = LinOpStack(L1, L2, axis=1)
-    L3(np.concatenate((x1,x2)))
-
+    L3(np.concatenate((x1, x2)))
