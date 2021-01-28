@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pycsou
-Version: 0.0.1.dev37
+Version: 1.0.0
 Summary: Library for solving linear inverse problems with state-of-the-art proximal algorithms.
 Home-page: https://github.com/matthieumeo/pycsou
 Author: Matthieu SIMEONI
