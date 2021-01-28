@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: pycsou
+Version: 0.0.1.dev37
+Summary: Library for solving linear inverse problems with state-of-the-art proximal algorithms.
+Home-page: https://github.com/matthieumeo/pycsou
+Author: Matthieu SIMEONI
+Author-email: matthieu.simeoni@gmail.com
+License: MIT
+Download-URL: https://github.com/matthieumeo/pycsou
+Description: # pycsou
+        Pycsou is a Python 3 package for solving linear inverse problems with state-of-the-art proximal algorithms. The software implements in a highly modular way the main building blocks -cost functionals, penalty terms and linear operators- of generic penalised convex optimisation problems.
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.6
+Description-Content-Type: text/x-rst; charset=UTF-8

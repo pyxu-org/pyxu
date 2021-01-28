@@ -68,10 +68,21 @@ plot_include_source = True
 
 # -- Options for HTML output -------------------------------------------------
 html_theme = "sphinx_rtd_theme"
-html_theme_options = {"navigation_depth": -1, "titles_only": True}
+html_theme_options = {"navigation_depth": -1, "titles_only": False}
 
 # -- Options for HTMLHelp output ---------------------------------------------
-htmlhelp_basename = "pycsoudoc"
+htmlhelp_basename = "Pycsou"
+html_context = {
+    'menu_links_name': 'Repository',
+    'menu_links': [
+        ('<i class="fa fa-github fa-fw"></i> Source Code', 'https://github.com/matthieumeo/pycsou'),
+        #('<i class="fa fa-users fa-fw"></i> Contributing', 'https://github.com/PyLops/pylops/blob/master/CONTRIBUTING.md'),
+    ],
+    'doc_path': 'docs/source',
+    'github_project': 'matthieumeo',
+    'github_repo': 'pycsou',
+    'github_version': 'master',
+}
 
 # -- Extension configuration -------------------------------------------------
 # -- Options for autosummary extension ---------------------------------------
@@ -92,7 +103,9 @@ intersphinx_mapping = {
     "NumPy [latest]": ("https://docs.scipy.org/doc/numpy/", None),
     "SciPy [latest]": ("https://docs.scipy.org/doc/scipy/reference", None),
     "pylops [latest]": ("https://pylops.readthedocs.io/en/latest", None),
-    "dask [latest]": ("https://docs.dask.org/en/latest/", None)
+    "dask [latest]": ("https://docs.dask.org/en/latest/", None),
+    "pandas": ("http://pandas.pydata.org/pandas-docs/stable/", None),
+    "matplotlib": ("https://matplotlib.org/", None)
 }
 
 # -- Options for napoleon extension ------------------------------------------

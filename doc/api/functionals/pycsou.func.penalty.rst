@@ -1,3 +1,5 @@
+.. _penalties:
+
 Penalty Functionals
 ===================
 
