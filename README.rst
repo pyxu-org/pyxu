@@ -3,6 +3,7 @@
   :align: center
   :target: https://matthieumeo.github.io/pycsou/html/index
 
+
 .. image:: https://zenodo.org/badge/277582581.svg
    :target: https://zenodo.org/badge/latestdoi/277582581
 
