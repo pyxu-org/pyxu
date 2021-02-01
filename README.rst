@@ -1,4 +1,4 @@
-.. image:: pycsou.png
+.. image:: https://matthieumeo.github.io/pycsou/html/_images/pycsou.png
   :width: 50 %
   :align: center
   :target: https://matthieumeo.github.io/pycsou/html/index
