@@ -92,5 +92,7 @@ You can verify that the installation was successful by running the package docte
    >> conda activate pycsou
    >> python3 test.py
 
-
+Cite
+----
+For citing this package, please see: http://doi.org/10.5281/zenodo.4486431
 
