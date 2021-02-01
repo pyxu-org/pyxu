@@ -1,6 +1,10 @@
 .. image:: pycsou.png
   :width: 50 %
   :align: center
+  :target: https://matthieumeo.github.io/pycsou/html/index
+
+.. image:: https://zenodo.org/badge/277582581.svg
+   :target: https://zenodo.org/badge/latestdoi/277582581
 
 *Pycsou* is a Python 3 package for solving linear inverse problems with state-of-the-art proximal algorithms. The software implements in a highly modular way the main building blocks -cost functionals, penalty terms and linear operators- of generic penalised convex optimisation problems.
 
