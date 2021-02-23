@@ -1,3 +1,5 @@
+.. _functionals:
+
 Cost Functionals
 ================
 

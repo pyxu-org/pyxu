@@ -171,7 +171,7 @@ For citing this package, please see:
 
    general/install
    general/theory
-   general/features
+   general/pycsou_classes
    general/examples
 
 .. toctree::

@@ -43,7 +43,7 @@ class PrimalDualSplitting(GenericIterativeAlgorithm):
     * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
       for some :math:`\beta\in[0,+\infty[`.
     * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
-    * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M``` is a *linear operator*, with **operator norm**:
+    * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *linear operator*, with **operator norm**:
 
       .. math::
          \Vert{\mathbf{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathbf{K}\mathbf{x}\Vert_2.
@@ -340,7 +340,7 @@ class PrimalDualSplitting(GenericIterativeAlgorithm):
         else:
             return np.zeros(shape=(self.H.dim,), dtype=np.float)
 
-    def update_iterand(self) -> Any:
+    def update_iterand(self) -> dict:
         if self.iter == 0:
             x, z = self.init_iterand.values()
         else:

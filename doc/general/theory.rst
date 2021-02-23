@@ -99,7 +99,7 @@ To solve the inverse problem one can approximate the mean :math:`\mathbb{E}[Y]` 
 Unfortunately, such problems are in general ill-posed:
 
 
-* **There may exist no solutions.** If :math:`L>N` indeed (or more generally if :math:`\mathbf{G}` is not surjective), :math:`\mathcal{R}(\mathbf{G})\subsetneq \mathbb{R}^N`. Therefore the noisy data vector :math:`\mathbf{y}` is not guaranteed to belong to :math:`\mathcal{R}(\mathbf{G})`. 
+* **There may exist no solutions.** If  :math:`\mathbf{G}` is not surjective, :math:`\mathcal{R}(\mathbf{G})\subsetneq \mathbb{R}^L`. Therefore the noisy data vector :math:`\mathbf{y}` is not guaranteed to belong to :math:`\mathcal{R}(\mathbf{G})`. 
 * **There may exist more than one solution.** If :math:`L<N` indeed (or more generally if :math:`\mathbf{G}` is not injective), :math:`\mathcal{N}(\mathbf{G})\neq \{\mathbf{0}\}`. Therefore, if :math:`\mathbf{\alpha}^\star` is a solution to \eqref{inverse_pb_linear_system}, then :math:`\mathbf{\alpha}^\star + \mathbf{\beta}` is also a solution :math:`\forall\mathbf{\beta}\in \mathcal{N}(\mathbf{G})`:  
 
 .. math::
@@ -181,8 +181,49 @@ Common choices of regularisation strategies include: Tikhonov regularisation, TV
 	
 	See :ref:`penalties` for a rich collection of commonly used penalty functionals provided by Pycsou.  
 
+Proximal Algorithms
+-------------------
 
+Most optimisation problems used to solve inverse problems in practice
+take the form:
 
+.. math::
+   :label: generic_form
+
+   {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x})}
+
+where: \* :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is
+*convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous*
+gradient. \*
+:math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}`
+and
+:math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}`
+are two *proper*, *lower semicontinuous* and *convex functions* with
+*simple proximal operators*.
+
+-  :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *linear
+   operator*.
+
+Problems of the form :eq:`generic_form` can be solved by means of iterative **proximal
+algorithms**:
+
+-  **Primal-dual splitting:** solves for problems of the form
+   :math:`{\min_{\mathbf{x}\in\mathbb{R}^N} \mathcal{F}(\mathbf{x})+\mathcal{G}(\mathbf{x})+\mathcal{H}(\mathbf{K} \mathbf{x})}`
+-  **Chambolle Pock splitting:** solves for problems of the form
+   :math:`{\min_{\mathbf{x}\in\mathbb{R}^N} \mathcal{G}(\mathbf{x})+\mathcal{H}(\mathbf{K} \mathbf{x})}`
+-  **Douglas Rachford splitting/ADMM:** solves for problems of the form
+   :math:`{\min_{\mathbf{x}\in\mathbb{R}^N} \mathcal{G}(\mathbf{x})+\mathcal{H}(\mathbf{x})}`
+-  **Forward-Backward splitting/APGD:** solves for problems of the form
+   :math:`\min_{\mathbf{x}\in\mathbb{R}^N} \mathcal{F}(\mathbf{x})+\mathcal{G}(\mathbf{x})`
+
+These are all **first-order algorithms**: they rely only on the gradient
+of :math:`\mathcal{F}`, and/or the proximal operators of
+:math:`\mathcal{G}, \mathcal{H}`, and/or matrix/vector multiplications
+with :math:`\mathbf{K}` and :math:`\mathbf{K}^T`.
+
+.. seealso::   
+	
+	See :ref:`proxalgs` for implementations of the above mentionned algorithms in Pycsou.  
 
 
 .. rubric:: Footnotes
