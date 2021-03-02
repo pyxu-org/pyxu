@@ -782,7 +782,7 @@ class MappedDistanceMatrix(ExplicitLinearOperator):
 
     where :math:`d:\mathbb{R}^N\times \mathbb{R}^N\to \mathbb{R}_+` is a distance defined in one of the following two ways:
 
-    * `Radial:` :math:`d(\mathbf{z},\mathbf{x}))=\|\mathbf{z}-\mathbf{x}\|_2, \; \forall \mathbf{z},\mathbf{x}\in\mathbb{R}^N,`
+    * `Radial:` :math:`d(\mathbf{z},\mathbf{x}))=\|\mathbf{z}-\mathbf{x}\|_p, \; \forall \mathbf{z},\mathbf{x}\in\mathbb{R}^N,` with :math:`p\in [1, +\infty]`.
     * `Zonal:` :math:`d(\mathbf{z},\mathbf{x}))=\sqrt{2-2\langle\mathbf{z},\mathbf{x}\rangle}, \; \forall \mathbf{z},\mathbf{x}\in\mathbb{S}^{N-1}.`
       Note that in this case the two point sets must be on the hypersphere :math:`\mathbb{S}^{N-1}.`
 
@@ -900,7 +900,7 @@ class MappedDistanceMatrix(ExplicitLinearOperator):
     def __init__(self, samples1: np.ndarray, function: Callable, samples2: Optional[np.ndarray] = None,
                  mode: str = 'radial', max_distance: Optional[np.float] = None, dtype: type = np.float64,
                  chunks: Union[str, int, tuple, None] = 'auto', operator_type: str = 'dask', verbose: bool = True,
-                 n_jobs: int = -1, joblib_backend: str = 'loky'):
+                 n_jobs: int = -1, joblib_backend: str = 'loky', ord: float = 2.):
         r"""
 
         Parameters
@@ -912,7 +912,7 @@ class MappedDistanceMatrix(ExplicitLinearOperator):
         samples2 : Optional[np.ndarray]
             Optional second point set with shape (K,N). If ``None``, ``samples2`` is equal to ``samples1`` and the operator symmetric.
         mode : str
-            How to compute the distances. If ``'radial'``, the Euclidean distance is used. If ``'zonal'`` the spherical geodesic distance is used.
+            How to compute the distances. If ``'radial'``, the Euclidean distance with respect to the Minkowski norm :math:`\|\cdot\|_p` is used. :math:`p` is specified via the parameter ``ord``  and has to meet the condition `1 <= p <= infinity`. If ``'zonal'`` the spherical geodesic distance is used.
         max_distance : Optional[np.float]
             Support of the function :math:`\varphi`. Must be specified for sparse representation.
         dtype : type
@@ -928,6 +928,9 @@ class MappedDistanceMatrix(ExplicitLinearOperator):
             Number of cores for parallel computations (only for sparse representations). ``n_jobs=-1`` uses all available cores.
         joblib_backend : str
             Joblib backend (`more details here <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_).
+
+        ord: float
+            Order of the norm for ``mode='radial'``. ``ord`` must satisfy `1<= ord <=infty`.
 
         Raises
         ------
@@ -956,6 +959,7 @@ class MappedDistanceMatrix(ExplicitLinearOperator):
         self.verbose = verbose
         self.n_jobs = n_jobs
         self.joblib_backend = joblib_backend
+        self.ord = ord
         if self.operator_type is 'sparse':
             mapped_distance_matrix = self.get_sparse_mdm()
         elif self.operator_type is 'dask':
@@ -987,7 +991,7 @@ class MappedDistanceMatrix(ExplicitLinearOperator):
         return mapped_distance_matrix
 
     def _sparse_mdm(self, big_tree: cKDTree, small_tree: cKDTree, iter_over: str) -> sparse.csr_matrix:
-        neighbours = small_tree.query_ball_tree(big_tree, self.max_distance, p=2.0, eps=0)
+        neighbours = small_tree.query_ball_tree(big_tree, self.max_distance, p=self.ord, eps=0)
         with job.Parallel(backend=self.joblib_backend, n_jobs=self.n_jobs, verbose=self.verbose) as parallel:
             results = parallel(job.delayed(self._apply_function)
                                (small_tree.data[i], big_tree.data[neighbours[i]], i, neighbours[i], iter_over)
@@ -1003,7 +1007,7 @@ class MappedDistanceMatrix(ExplicitLinearOperator):
     def _apply_function(self, coord_center: np.ndarray, coord_neighbours: np.ndarray, index_center: int,
                         index_neighbours: list, iter_over: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         if self.mode == 'radial':
-            distances = np.linalg.norm(coord_center[None, :] - coord_neighbours, axis=-1)
+            distances = np.linalg.norm(coord_center[None, :] - coord_neighbours, axis=-1, ord=self.ord)
         else:
             distances = np.clip(np.sum(coord_center[None, :] * coord_neighbours, axis=-1), a_min=-1, a_max=1)
         values = self.function(distances)
@@ -1024,7 +1028,7 @@ class MappedDistanceMatrix(ExplicitLinearOperator):
         samples_da = da.from_array(self.samples1[:, None, :], chunks=self.chunks)
         knots_da = da.from_array(self.samples2[None, ...], chunks=self.chunks)
         if self.mode == 'radial':
-            distances_da = da.linalg.norm(samples_da - knots_da, axis=-1)
+            distances_da = da.linalg.norm(samples_da - knots_da, axis=-1, ord=self.ord)
         elif self.mode == 'zonal':
             distances_da = da.clip(da.sum(samples_da * knots_da, axis=-1), a_min=-1, a_max=1)
         else:
@@ -1042,9 +1046,9 @@ class MappedDistanceMatrix(ExplicitLinearOperator):
             Mapped Distance Matrix as a Numpy array.
         """
         if self.mode == 'radial':
-            distances = da.linalg.norm(self.samples1[:, None, :] - self.samples2[None, ...], axis=-1)
+            distances = np.linalg.norm(self.samples1[:, None, :] - self.samples2[None, ...], axis=-1, ord=self.ord)
         elif self.mode == 'zonal':
-            distances = da.clip(da.sum(self.samples1[:, None, :] * self.samples2[None, ...], axis=-1), a_min=-1,
+            distances = np.clip(np.sum(self.samples1[:, None, :] * self.samples2[None, ...], axis=-1), a_min=-1,
                                 a_max=1)
         else:
             raise ValueError(f'Unsupported mode {self.mode}.')

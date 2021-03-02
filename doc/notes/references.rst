@@ -10,3 +10,4 @@ References
 .. [APGD] Liang, Jingwei, Tao Luo, and Carola-Bibiane Schönlieb. "Improving" Fast Iterative Shrinkage-Thresholding Algorithm": Faster, Smarter and Greedier." arXiv preprint arXiv:1811.01430 (2018).
 .. [P2] Jain, Raj, and Imrich Chlamtac. "The P2 algorithm for dynamic calculation of quantiles and histograms without storing observations." Communications of the ACM 28.10 (1985): 1076-1085.
 .. [GaussProcesses] Rasmussen, Carl Edward, and C. K. Williams. "Gaussian processes for machine learning, vol. 1." (2006).
+.. [SubGauss] Aziznejad, Shayan, and Michael Unser. "An L1 representer theorem for multiple-kernel regression." arXiv preprint arXiv:1811.00836 (2018).
