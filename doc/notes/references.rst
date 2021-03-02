@@ -8,4 +8,5 @@ References
 .. [FuncSphere] Simeoni, Matthieu Martin Jean-Andre. Functional Inverse Problems on Spheres: Theory, Algorithms and Applications. No. THESIS. EPFL, 2020.
 .. [PDS] Condat, Laurent. "A primal–dual splitting method for convex optimization involving Lipschitzian, proximable and linear composite terms." Journal of Optimization Theory and Applications 158.2 (2013): 460-479.
 .. [APGD] Liang, Jingwei, Tao Luo, and Carola-Bibiane Schönlieb. "Improving" Fast Iterative Shrinkage-Thresholding Algorithm": Faster, Smarter and Greedier." arXiv preprint arXiv:1811.01430 (2018).
+.. [P2] Jain, Raj, and Imrich Chlamtac. "The P2 algorithm for dynamic calculation of quantiles and histograms without storing observations." Communications of the ACM 28.10 (1985): 1076-1085.
 

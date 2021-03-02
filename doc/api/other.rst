@@ -6,3 +6,4 @@ Pycsou Utilities
    :hidden:
    
    utils/pycsou.util.misc
+   utils/pycsou.util.stats

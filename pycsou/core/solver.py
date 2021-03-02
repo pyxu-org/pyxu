@@ -13,6 +13,7 @@ This module provides various proximal algorithms for convex optimisation.
 from pycsou.core.map import Map
 from typing import Optional, Tuple, Any
 from abc import ABC, abstractmethod
+from copy import deepcopy
 
 
 class GenericIterativeAlgorithm(ABC):
@@ -62,7 +63,7 @@ class GenericIterativeAlgorithm(ABC):
         Any
             Algorithm outcome.
         """
-        self.old_iterand = self.init_iterand
+        self.old_iterand = deepcopy(self.init_iterand)
         while ((self.iter <= self.max_iter) and (self.stopping_metric() > self.accuracy_threshold)) or (
                 self.iter <= self.min_iter):
             self.iterand = self.update_iterand()
@@ -70,10 +71,14 @@ class GenericIterativeAlgorithm(ABC):
             if self.verbose is not None:
                 if self.iter % self.verbose == 0:
                     self.print_diagnostics()
-            self.old_iterand = self.iterand
+            self.old_iterand = deepcopy(self.iterand)
             self.iter += 1
         self.converged = True
+        self.iterand = self.postprocess_iterand()
         return self.iterand, self.converged, self.diagnostics
+
+    def postprocess_iterand(self) -> Any:
+        return self.iterand
 
     def reset(self):
         r"""

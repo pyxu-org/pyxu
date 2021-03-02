@@ -369,20 +369,29 @@ class PrimalDualSplitting(GenericIterativeAlgorithm):
                 self.diagnostics = DataFrame(
                     columns=['Iter', 'Relative Improvement (primal variable)', 'Relative Improvement (dual variable)'])
             self.diagnostics.loc[self.iter, 'Iter'] = self.iter
-            self.diagnostics.loc[self.iter, 'Relative Improvement (primal variable)'] = np.linalg.norm(
-                self.old_iterand['primal_variable'] - self.iterand['primal_variable']) / np.linalg.norm(
-                self.old_iterand['primal_variable'])
-            self.diagnostics.loc[self.iter, 'Relative Improvement (dual variable)'] = np.linalg.norm(
-                self.old_iterand['dual_variable'] - self.iterand['dual_variable']) / np.linalg.norm(
-                self.old_iterand['dual_variable'])
+            if np.linalg.norm(self.old_iterand['primal_variable']) == 0:
+                self.diagnostics.loc[self.iter, 'Relative Improvement (primal variable)'] = np.infty
+            else:
+                self.diagnostics.loc[self.iter, 'Relative Improvement (primal variable)'] = np.linalg.norm(
+                    self.old_iterand['primal_variable'] - self.iterand['primal_variable']) / np.linalg.norm(
+                    self.old_iterand['primal_variable'])
+            if np.linalg.norm(self.old_iterand['dual_variable']) == 0:
+                self.diagnostics.loc[self.iter, 'Relative Improvement (dual variable)'] = np.infty
+            else:
+                self.diagnostics.loc[self.iter, 'Relative Improvement (dual variable)'] = np.linalg.norm(
+                    self.old_iterand['dual_variable'] - self.iterand['dual_variable']) / np.linalg.norm(
+                    self.old_iterand['dual_variable'])
         else:
             if self.iter == 0:
                 self.diagnostics = DataFrame(
                     columns=['Iter', 'Relative Improvement (primal variable)'])
             self.diagnostics.loc[self.iter, 'Iter'] = self.iter
-            self.diagnostics.loc[self.iter, 'Relative Improvement (primal variable)'] = np.linalg.norm(
-                self.old_iterand['primal_variable'] - self.iterand['primal_variable']) / np.linalg.norm(
-                self.old_iterand['primal_variable'])
+            if np.linalg.norm(self.old_iterand['primal_variable']) == 0:
+                self.diagnostics.loc[self.iter, 'Relative Improvement (primal variable)'] = np.infty
+            else:
+                self.diagnostics.loc[self.iter, 'Relative Improvement (primal variable)'] = np.linalg.norm(
+                    self.old_iterand['primal_variable'] - self.iterand['primal_variable']) / np.linalg.norm(
+                    self.old_iterand['primal_variable'])
 
 
 PDS = PrimalDualSplitting
@@ -460,7 +469,7 @@ class AcceleratedProximalGradientDescent(GenericIterativeAlgorithm):
        F = l22_loss * G
        lambda_ = 0.9 * np.max(np.abs(F.gradient(0 * x)))
        G = lambda_ * L1Norm(dim=G.shape[1])
-       apgd = APGD(dim=G.shape[1], F=F, G=None, acceleration='CD', verbose=None)
+       apgd = APGD(dim=G.shape[1], F=F, G=G, acceleration='CD', verbose=None)
        estimate, converged, diagnostics = apgd.iterate()
        plt.figure()
        plt.stem(x, linefmt='C0-', markerfmt='C0o')
@@ -605,9 +614,12 @@ class AcceleratedProximalGradientDescent(GenericIterativeAlgorithm):
             self.diagnostics = DataFrame(
                 columns=['Iter', 'Relative Improvement'])
         self.diagnostics.loc[self.iter, 'Iter'] = self.iter
-        self.diagnostics.loc[self.iter, 'Relative Improvement'] = np.linalg.norm(
-            self.old_iterand['iterand'] - self.iterand['iterand']) / np.linalg.norm(
-            self.old_iterand['iterand'])
+        if np.linalg.norm(self.old_iterand['iterand']) == 0:
+            self.diagnostics.loc[self.iter, 'Relative Improvement'] = np.infty
+        else:
+            self.diagnostics.loc[self.iter, 'Relative Improvement'] = np.linalg.norm(
+                self.old_iterand['iterand'] - self.iterand['iterand']) / np.linalg.norm(
+                self.old_iterand['iterand'])
 
 
 APGD = AcceleratedProximalGradientDescent

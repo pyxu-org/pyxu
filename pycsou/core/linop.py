@@ -17,6 +17,7 @@ import pylops
 from pylops.optimization.leastsquares import NormalEquationsInversion
 import scipy.sparse.linalg as spls
 
+
 class LinearOperator(DifferentiableMap):
     r"""
     Base class for linear operators.
@@ -260,8 +261,8 @@ class LinearOperator(DifferentiableMap):
 
         Notes
         -----
-        The Lipschtiz constant of a linear operator is its largest singular value / eigenvalue (in terms of magnitude). This function therefore calls
-        the methods  ``self.singularvals`` or ``self.eigenvals`` with ``k=1`` and ``which='LM'`` to perform this computation.
+        The Lipschtiz constant of a linear operator is its largest singular value. This function therefore calls
+        the methods  ``self.singularvals`` with ``k=1`` and ``which='LM'`` to perform this computation.
 
         Warnings
         --------
@@ -270,7 +271,7 @@ class LinearOperator(DifferentiableMap):
         :py:func:`scipy.sparse.linalg.eigsh`, :py:func:`scipy.sparse.linalg.svds` for more on this parameter.
 
         """
-        if self.is_square is True:
+        if self.is_symmetric is True:
             self.lipschitz_cst = float(np.abs(self.eigenvals(k=1, **kwargs)))
         else:
             self.lipschitz_cst = float(self.singularvals(k=1, **kwargs))
