@@ -475,8 +475,43 @@ def LInftyBall(dim: int, radius: Number) -> IndicatorFunctional:
     projection_func = lambda x: proj_linfty_ball(x, radius=radius)
     return IndicatorFunctional(dim=dim, condition_func=condition_func, projection_func=projection_func)
 
-class L21Norm(ProximableFunction):
-    def __new__(cls, dim: int, groups: Optional[np.ndarray] = None):
+class L21Norm(ProximableFunctional):
+    r"""
+    :math:`\ell_{2,1}`-norm, :math:`\Vert\mathbf{x}\Vert_{2,1}:=\sum_{g=1}^G \sqrt{ \sum_{i\in\mathcal{G}_g} |x_i|^2}`,
+    where :math:`\mathcal{G}_j \cap \mathcal{G}_i = \emptyset\mbox{ for }j,i \in \lbrace 1,2,\dots,G\mbox{ such that}j\neq i.`
+
+    Examples
+    --------
+
+    .. testsetup::
+
+       import numpy as np
+       from pycsou.func.penalty import L21Norm
+
+    .. doctest::
+
+       >>> x = np.arange(10)
+       >>> norm = L2Norm(dim=x.size)
+       >>> norm(x)
+       16.881943016134134
+       >>> tau = 1.2; np.allclose(norm.prox(x, tau=tau),np.clip(1 - tau / norm(x), a_min=0, a_max=None) * x)
+       True
+       >>> lambda_ = 3; scaled_norm = lambda_ * norm; scaled_norm(x)
+       50.645829048402405
+       >>> np.allclose(scaled_norm.prox(x, tau=tau),np.clip(1 - tau * lambda_ / norm(x), a_min=0, a_max=None) * x)
+       True
+
+    Notes
+    -----
+    The :math:`\ell_2`-norm is a strictly-convex but non differentiable penalty functional.
+    Solutions to :math:`\ell_2`-penalised convex optimisation problems are usually non unique and very smooth.
+    The proximal operator of the :math:`\ell_2`-norm can be found in [ProxAlg]_ section 6.5.1.
+
+    See Also
+    --------
+    :py:func:`~pycsou.func.loss.L2Loss`, :py:class:`~pycsou.func.penalty.SquaredL2Norm`, :py:func:`~pycsou.func.penalty.L2Ball`.
+    """
+    def __new__(cls, dim: int, groups: Union[np.ndarray,None] = None):
         if groups == None:
             return L1Norm(dim=dim)
         if np.unique(groups).size == 1:
@@ -504,7 +539,7 @@ class L21Norm(ProximableFunction):
         group_norms = np.ndarray(map(self.__L2_norm_in_group,self.groups_idxs))
         normalizations = np.clip( 1 - tau / group_norms, a_min = 0 )
         for idx in self.groups_idxs:
-            x[self.groups=idx] = normalizations[idx] * x[self.groups=idx]
+            x[self.groups==idx] = normalizations[idx] * x[self.groups==idx]
         return y
 
     def __L2_norm_in_group(self, x: np.ndarray, group_idx: Number) -> Number:
