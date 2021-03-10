@@ -2,7 +2,7 @@
 # penalty.py
 # ==========
 # Author : Matthieu Simeoni [matthieu.simeoni@gmail.com]
-# Contributors: Pol del Aguila Pla [poldap@gmail.com] - L21Norm class
+# Contributors: Pol del Aguila Pla [polsocjo@gmail.com] - L21Norm class
 # #############################################################################
 
 r"""
@@ -512,7 +512,7 @@ class L21Norm(ProximableFunctional):
     The :math:`\ell_{2,1}`-norm penalty is convex and proximable. This penalty tends to produce group sparse solutions,
     where all elements :math:`x_i` for :math:`i\in\mathcal{G}_g` for some :math:`g\in\lbrace 1,2,\dots,G` tend to
     be zero or non-zero jointly. A critical assumtion is that the groups are not overlapping, i.e.,
-    :math:`\mathcal{G}_j \cap \mathcal{G}_i = \emptyset\mbox{ for }j,i \in \lbrace 1,2,\dots,G\mbox{ such that }j\neq i.`
+    :math:`\mathcal{G}_j \cap \mathcal{G}_i = \emptyset` for :math:`j,i \in \lbrace 1,2,\dots,G\rbrace` such that :math:`j\neq i.`
     The proximal operator of the :math:`\ell_{2,1}`-norm is obtained easily from that of the :math:`\ell_2`-norm and the
     separable sum property.
 

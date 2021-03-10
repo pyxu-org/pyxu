@@ -20,6 +20,7 @@ Penalty Functionals
       L2Norm
       SquaredL2Norm
       LInftyNorm
+      L21Norm
 
    .. rubric:: Balls
 
