@@ -477,8 +477,7 @@ def LInftyBall(dim: int, radius: Number) -> IndicatorFunctional:
 
 class L21Norm(ProximableFunctional):
     r"""
-    :math:`\ell_{2,1}`-norm, :math:`\Vert\mathbf{x}\Vert_{2,1}:=\sum_{g=1}^G \sqrt{ \sum_{i\in\mathcal{G}_g} |x_i|^2}`,
-    where :math:`\mathcal{G}_j \cap \mathcal{G}_i = \emptyset\mbox{ for }j,i \in \lbrace 1,2,\dots,G\mbox{ such that}j\neq i.`
+    :math:`\ell_{2,1}`-norm, :math:`\Vert\mathbf{x}\Vert_{2,1}:=\sum_{g=1}^G \sqrt{ \sum_{i\in\mathcal{G}_g} |x_i|^2}\,.`
 
     Examples
     --------
@@ -486,33 +485,43 @@ class L21Norm(ProximableFunctional):
     .. testsetup::
 
        import numpy as np
-       from pycsou.func.penalty import L21Norm
+       from pycsou.func.penalty import L21Norm, L2Norm, L1Norm
 
     .. doctest::
 
        >>> x = np.arange(10)
-       >>> norm = L2Norm(dim=x.size)
-       >>> norm(x)
-       16.881943016134134
-       >>> tau = 1.2; np.allclose(norm.prox(x, tau=tau),np.clip(1 - tau / norm(x), a_min=0, a_max=None) * x)
-       True
-       >>> lambda_ = 3; scaled_norm = lambda_ * norm; scaled_norm(x)
-       50.645829048402405
-       >>> np.allclose(scaled_norm.prox(x, tau=tau),np.clip(1 - tau * lambda_ / norm(x), a_min=0, a_max=None) * x)
+       >>> groups = np.concatenate((np.ones(5),2*np.ones(5)))
+       >>> group_norm = L21Norm(dim=x.size,groups=groups)
+       >>> type(group_norm)
+       <class 'pycsou.func.penalty.L21Norm'>
+       >>> group_norm(x)
+       21.44594499772297
+       >>> l2_norm = L21Norm(dim=x.size,groups=np.ones(x.size))
+       >>> type(l2_norm)
+       <class 'pycsou.func.penalty.L2Norm'>
+       >>> l1_norm = L21Norm(dim=x.size,groups=np.arange(x.size)) # Also if groups = None
+       <class 'pycsou.func.penalty.L1Norm'>
+       >>> single_group_l2 = L2Norm(dim=x.size/2)
+       >>> tau = 0.5; np.allclose(group_norm.prox(x,tau=tau),
+                                  np.concatenate((single_group_l2.prox(x[0:5], tau=tau),
+                                                  single_group_l2.prox(x[5:10],tau=tau))))
        True
 
     Notes
     -----
-    The :math:`\ell_2`-norm is a strictly-convex but non differentiable penalty functional.
-    Solutions to :math:`\ell_2`-penalised convex optimisation problems are usually non unique and very smooth.
-    The proximal operator of the :math:`\ell_2`-norm can be found in [ProxAlg]_ section 6.5.1.
+    The :math:`\ell_{2,1}`-norm penalty is convex and proximable. This penalty tends to produce group sparse solutions,
+    where all elements :math:`x_i` for :math:`i\in\mathcal{G}_g` for some :math:`g\in\lbrace 1,2,\dots,G` tend to
+    be zero or non-zero jointly. A critical assumtion is that the groups are not overlapping, i.e.,
+    :math:`\mathcal{G}_j \cap \mathcal{G}_i = \emptyset\mbox{ for }j,i \in \lbrace 1,2,\dots,G\mbox{ such that }j\neq i.`
+    The proximal operator of the :math:`\ell_{2,1}`-norm is obtained easily from that of the :math:`\ell_2`-norm and the
+    separable sum property.
 
     See Also
     --------
-    :py:func:`~pycsou.func.loss.L2Loss`, :py:class:`~pycsou.func.penalty.SquaredL2Norm`, :py:func:`~pycsou.func.penalty.L2Ball`.
+    :py:func:`~pycsou.func.loss.L2Norm`, :py:class:`~pycsou.func.penalty.SquaredL2Norm`, :py:func:`~pycsou.func.penalty.L1Norm`.
     """
     def __new__(cls, dim: int, groups: Union[np.ndarray,None] = None):
-        if groups == None:
+        if np.all( groups == None ) or np.unique(groups).size == dim:
             return L1Norm(dim=dim)
         if np.unique(groups).size == 1:
             return L2Norm(dim=dim)
@@ -526,24 +535,27 @@ class L21Norm(ProximableFunctional):
             Dimension of the domain.
         groups : np.ndarray, optional, defaults to None
             Numerical variable of the same size as :math:`x`, where different
-            groups are distinguished by different values.
+            groups are distinguished by different values. If each element of `x`
+            belongs to a different group, an L1Norm is returned. If all elements
+            of `x` belong to the same group, an L2Norm is returned.
         """
         self.groups = groups
         self.groups_idxs = np.unique(self.groups)
         super(L21Norm, self).__init__(dim=dim, data=None, is_differentiable=False, is_linear=False)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Number:
-        return np.sum(np.ndarray(map(self.__L2_norm_in_group,self.groups_idxs)))
+        return np.sum(np.array([self.__L2_norm_in_group(x,group_id) for group_id in self.groups_idxs]))
 
     def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
-        group_norms = np.ndarray(map(self.__L2_norm_in_group,self.groups_idxs))
-        normalizations = np.clip( 1 - tau / group_norms, a_min = 0 )
-        for idx in self.groups_idxs:
-            x[self.groups==idx] = normalizations[idx] * x[self.groups==idx]
+        y = np.empty_like(x)
+        group_norms = np.array([self.__L2_norm_in_group(x,group_id) for group_id in self.groups_idxs])
+        normalizations = np.clip( 1 - tau / group_norms, a_min = 0, a_max = None )
+        for idx, group_idx in enumerate(self.groups_idxs):
+            y[self.groups==group_idx] = normalizations[idx] * x[self.groups==group_idx]
         return y
 
     def __L2_norm_in_group(self, x: np.ndarray, group_idx: Number) -> Number:
-        return np.sqrt(np.sum(x[self.groups==group_idx]**2))
+        return np.linalg.norm(x[self.groups==group_idx])
 
 def NonNegativeOrthant(dim: int) -> IndicatorFunctional:
     r"""
