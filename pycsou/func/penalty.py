@@ -489,7 +489,7 @@ class L21Norm(ProximableFunctional):
 
     .. doctest::
 
-       >>> x = np.arange(10)
+       >>> x = np.arange(10,dtype=np.float64)
        >>> groups = np.concatenate((np.ones(5),2*np.ones(5)))
        >>> group_norm = L21Norm(dim=x.size,groups=groups)
        >>> type(group_norm)
@@ -502,9 +502,7 @@ class L21Norm(ProximableFunctional):
        >>> l1_norm = L21Norm(dim=x.size,groups=np.arange(x.size)) # Also if groups = None
        <class 'pycsou.func.penalty.L1Norm'>
        >>> single_group_l2 = L2Norm(dim=x.size/2)
-       >>> tau = 0.5; np.allclose(group_norm.prox(x,tau=tau),
-                                  np.concatenate((single_group_l2.prox(x[0:5], tau=tau),
-                                                  single_group_l2.prox(x[5:10],tau=tau))))
+       >>> tau = 0.5; np.allclose(group_norm.prox(x,tau=tau),np.concatenate((single_group_l2.prox(x[0:5], tau=tau),single_group_l2.prox(x[5:10],tau=tau))))
        True
 
     Notes
