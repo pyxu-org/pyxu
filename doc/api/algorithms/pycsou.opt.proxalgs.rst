@@ -20,4 +20,3 @@ Proximal algorithms for convex optimisation.
       DRS
       ForwardBackwardSplitting
       FBS
-      

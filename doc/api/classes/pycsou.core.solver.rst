@@ -1,4 +1,4 @@
-Algorithms
+﻿Algorithms
 ==========
 
 Base class for iterative algorithms. 

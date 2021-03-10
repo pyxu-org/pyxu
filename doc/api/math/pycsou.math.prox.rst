@@ -1,10 +1,10 @@
-Proximal Operators
+﻿Proximal Operators
 ==================
 
 .. automodule:: pycsou.math.prox
 
    
-   
+
    .. rubric:: Functions
 
    .. autosummary::

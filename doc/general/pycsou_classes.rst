@@ -215,7 +215,7 @@ computed automatically (and soon in parallel) via the formula:
 Example: Implementing New Differentiable Functionals
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code:: ipython3
+.. code:: python3
 
     from pycsou.core import DifferentiableFunctional
     
@@ -325,7 +325,7 @@ The abstract methods ``__call__``, ``jacobianT`` and ``adjoint`` of
 ``LinearOperator`` instances resulting from arithmetic operations are
 automatically updated.
 
-.. code:: ipython3
+.. code:: python3
 
     from pycsou.linop import Convolve2D, DownSampling
     
@@ -362,7 +362,7 @@ automatically updated.
 It is also possible to stack ``LinearOperator`` instances
 horizontally/vertically via the class ``LinOpStack``:
 
-.. code:: ipython3
+.. code:: python3
 
     from pycsou.linop import FirstDerivative, LinOpStack
     from pycsou.util import peaks
@@ -396,7 +396,7 @@ horizontally/vertically via the class ``LinOpStack``:
 Example: Implementing New Linear Operators
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code:: ipython3
+.. code:: python3
 
     from pycsou.core import LinearOperator
     
@@ -539,7 +539,7 @@ by choosing
 :math:`\mathcal{H}(\mathbf{x})=\lambda_1 \|\mathbf{x}\|_1` and
 :math:`\mathbf{K}=\mathbf{D}`.
 
-.. code:: ipython3
+.. code:: python3
 
     from pycsou.linop import FirstDerivative, DownSampling
     from pycsou.func import SquaredL2Loss, L1Norm, NonNegativeOrthant

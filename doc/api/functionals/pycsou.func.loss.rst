@@ -1,4 +1,4 @@
-.. _losses:
+﻿.. _losses:
 
 Loss Functionals
 ================

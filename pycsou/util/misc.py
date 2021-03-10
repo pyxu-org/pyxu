@@ -12,7 +12,6 @@ from typing import Tuple, Optional
 import numpy as np
 import re
 
-
 def is_range_broadcastable(shape1: Tuple[int, int], shape2: Tuple[int, int]) -> bool:
     r"""
     Check if two shapes satisfy Numpy's broadcasting rules.

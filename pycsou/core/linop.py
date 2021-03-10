@@ -257,7 +257,7 @@ class LinearOperator(DifferentiableMap):
            >>> filter = signal.hann(5); filter[filter.size//2:] = 0
            >>> ConvOp = Convolve1D(size=sig.size, filter=filter)
            >>> ConvOp.compute_lipschitz_cst(tol=1e-2); np.round(ConvOp.lipschitz_cst,1)
-           0.4
+           0.5
 
         Notes
         -----

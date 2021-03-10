@@ -1,9 +1,12 @@
-Constructors
+﻿Constructors
 ============
 
 Classes for constructing linear operators.
 
 .. currentmodule:: pycsou.linop.base
+
+   
+.. rubric:: Classes
 
 .. autosummary:: 
 
@@ -13,6 +16,7 @@ Classes for constructing linear operators.
    SparseLinearOperator
    DaskLinearOperator
    DiagonalOperator
+   PolynomialLinearOperator
    IdentityOperator
    NullOperator
    LinOpStack
@@ -36,6 +40,9 @@ Classes for constructing linear operators.
    :special-members: __init__
 
 .. autoclass:: DiagonalOperator
+   :special-members: __init__
+
+.. autoclass:: PolynomialLinearOperator
    :special-members: __init__
 
 .. autoclass:: IdentityOperator

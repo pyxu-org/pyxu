@@ -370,9 +370,9 @@ class DifferentiableMap(Map):
        >>> print(f.lipschitz_cst, f.diff_lipschitz_cst)
        inf 2
        >>> print(np.round(L1.lipschitz_cst,1), np.round(L1.diff_lipschitz_cst,1))
-       1.0 1.0
+       2.0 2.0
        >>> print(np.round(L2.lipschitz_cst,1), np.round(L2.diff_lipschitz_cst,1))
-       0.9 0.9
+       1.5 1.5
        >>> L3 = 2 * L1 + (L2 ** 2) / 3
        >>> np.allclose(L3.lipschitz_cst, 2 * L1.lipschitz_cst + (L2.lipschitz_cst ** 2)/3)
        True

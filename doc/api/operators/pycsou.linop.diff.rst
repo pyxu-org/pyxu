@@ -1,4 +1,4 @@
-Differential Operators
+﻿Differential Operators
 ======================
 
 .. automodule:: pycsou.linop.diff
@@ -24,13 +24,5 @@ Differential Operators
       SecondDirectionalDerivative
       DirectionalGradient
       DirectionalLaplacian
-      
-
-   .. rubric:: Graph Operators
-
-   .. autosummary::   
-      GraphLaplacian
-      GraphGradient
-      GeneralisedGraphLaplacian
 
 

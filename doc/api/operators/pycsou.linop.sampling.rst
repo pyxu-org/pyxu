@@ -1,4 +1,4 @@
-Sampling Operators
+﻿Sampling Operators
 ==================
 
 .. automodule:: pycsou.linop.sampling
@@ -7,7 +7,7 @@ Sampling Operators
    .. rubric:: Discrete Sampling Operators
 
    .. autosummary::
-
+   
       SubSampling
       Masking
       DownSampling
@@ -19,4 +19,11 @@ Sampling Operators
       NNSampling
       GeneralisedVandermonde
       MappedDistanceMatrix
-      
+
+
+
+
+
+
+
+

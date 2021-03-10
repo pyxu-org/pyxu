@@ -1,4 +1,4 @@
-.. _penalties:
+﻿.. _penalties:
 
 Penalty Functionals
 ===================
@@ -42,7 +42,7 @@ Penalty Functionals
    .. rubric:: Information Theoretic
 
    .. autosummary::
-   
+
       LogBarrier
       ShannonEntropy
    

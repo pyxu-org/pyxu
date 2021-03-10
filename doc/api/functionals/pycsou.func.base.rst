@@ -1,4 +1,4 @@
-Constructors
+﻿Constructors
 ============
 
 Classes for constructing functionals.

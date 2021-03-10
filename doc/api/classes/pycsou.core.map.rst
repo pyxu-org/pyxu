@@ -1,4 +1,4 @@
-Multidimensional Maps
+﻿Multidimensional Maps
 =====================
 
 Abstract classes for multidimensional (potentially nonlinear) maps.

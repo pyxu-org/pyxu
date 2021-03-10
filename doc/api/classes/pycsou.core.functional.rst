@@ -1,4 +1,4 @@
-Functionals
+﻿Functionals
 ===========
 
 Abstract classes for functionals.

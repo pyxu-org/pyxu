@@ -1,16 +1,25 @@
-Green Functions
+﻿Green Functions
 ===============
 
 .. automodule:: pycsou.math.green
    :special-members: __init__
 
-   .. autosummary::
 
-      Matern
-      Wendland
-      CausalGreenIteratedDerivative
+   .. rubric:: Classes
+
+   .. autosummary::
+   
       CausalGreenExponential
+      CausalGreenIteratedDerivative
+      Matern
       SubGaussian
+      Wendland
+   
+   
+
+   
+   
+   
 
 
 

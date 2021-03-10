@@ -1,4 +1,4 @@
-Linear Operators
+﻿Linear Operators
 ================
 
 Abstract classes for multidimensional linear operators.

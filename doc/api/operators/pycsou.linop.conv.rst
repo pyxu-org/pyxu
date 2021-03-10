@@ -1,4 +1,4 @@
-Convolution Operators
+﻿Convolution Operators
 =====================
 
 .. automodule:: pycsou.linop.conv
@@ -7,8 +7,9 @@ Convolution Operators
    .. rubric:: 1D Operators
 
    .. autosummary::
-
+   
       Convolve1D
+      Convolve2D
       MovingAverage1D
    
    
@@ -17,14 +18,10 @@ Convolution Operators
    .. autosummary::
       
       Convolve2D
-      MovingAverage2D      
+      MovingAverage2D
 
-   .. rubric:: Graph Operators
-   
-   .. autosummary::
-   
-      GraphConvolution
 
+   
    
    
 
