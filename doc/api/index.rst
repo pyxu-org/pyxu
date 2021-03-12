@@ -13,8 +13,7 @@ Overview of Pycsou's API.
    algorithms/pycsou.opt.proxalgs
    math/index
 
-Abstract classes
-================
+.. rubric:: Abstract classes
 
 .. autosummary::
 
@@ -23,8 +22,9 @@ Abstract classes
    pycsou.core.functional
    pycsou.core.solver
 
-Linear Operators
-================
+
+.. rubric:: Linear Operators
+
 
 .. autosummary::
 
@@ -34,8 +34,7 @@ Linear Operators
    pycsou.linop.sampling
 
 
-Cost Functionals
-================
+.. rubric:: Cost Functionals
 
 .. autosummary::
 
@@ -43,15 +42,13 @@ Cost Functionals
    pycsou.func.penalty
    pycsou.func.loss
 
-Algorithms
-==========
+.. rubric:: Algorithms
 
 .. autosummary::
 
   pycsou.opt.proxalgs
 
-Mathematical Functions
-======================
+.. rubric:: Mathematical Functions
 
 .. autosummary::
 
