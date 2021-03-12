@@ -2,6 +2,7 @@
 # penalty.py
 # ==========
 # Author : Matthieu Simeoni [matthieu.simeoni@gmail.com]
+# Contributors: Pol del Aguila Pla [polsocjo@gmail.com] - L21Norm class
 # #############################################################################
 
 r"""
@@ -24,7 +25,7 @@ class L2Norm(LpNorm):
 
     Examples
     --------
-  
+
     .. testsetup::
 
        import numpy as np
@@ -74,7 +75,7 @@ class SquaredL2Norm(DifferentiableFunctional):
 
     Examples
     --------
-  
+
     .. testsetup::
 
        import numpy as np
@@ -156,7 +157,7 @@ def L2Ball(dim: int, radius: Number) -> IndicatorFunctional:
 
     Examples
     --------
-  
+
     .. testsetup::
 
        import numpy as np
@@ -195,7 +196,7 @@ class L1Norm(LpNorm):
 
     Examples
     --------
-  
+
     .. testsetup::
 
        import numpy as np
@@ -249,7 +250,7 @@ class SquaredL1Norm(ProximableFunctional):
 
     Examples
     --------
-  
+
     .. testsetup::
 
        import numpy as np
@@ -341,7 +342,7 @@ def L1Ball(dim: int, radius: Number) -> IndicatorFunctional:
 
     Examples
     --------
-  
+
     .. testsetup::
 
        import numpy as np
@@ -381,7 +382,7 @@ class LInftyNorm(LpNorm):
 
     Examples
     --------
-  
+
     .. testsetup::
 
        import numpy as np
@@ -442,7 +443,7 @@ def LInftyBall(dim: int, radius: Number) -> IndicatorFunctional:
 
     Examples
     --------
-  
+
     .. testsetup::
 
        import numpy as np
@@ -474,6 +475,85 @@ def LInftyBall(dim: int, radius: Number) -> IndicatorFunctional:
     projection_func = lambda x: proj_linfty_ball(x, radius=radius)
     return IndicatorFunctional(dim=dim, condition_func=condition_func, projection_func=projection_func)
 
+class L21Norm(ProximableFunctional):
+    r"""
+    :math:`\ell_{2,1}`-norm, :math:`\Vert\mathbf{x}\Vert_{2,1}:=\sum_{g=1}^G \sqrt{ \sum_{i\in\mathcal{G}_g} |x_i|^2}\,.`
+
+    Examples
+    --------
+
+    .. testsetup::
+
+       import numpy as np
+       from pycsou.func.penalty import L21Norm, L2Norm, L1Norm
+
+    .. doctest::
+
+       >>> x = np.arange(10,dtype=np.float64)
+       >>> groups = np.concatenate((np.ones(5),2*np.ones(5)))
+       >>> group_norm = L21Norm(dim=x.size,groups=groups)
+       >>> type(group_norm)
+       <class 'pycsou.func.penalty.L21Norm'>
+       >>> group_norm(x)
+       21.44594499772297
+       >>> l2_norm = L21Norm(dim=x.size,groups=np.ones(x.size))
+       >>> type(l2_norm)
+       <class 'pycsou.func.penalty.L2Norm'>
+       >>> l1_norm = L21Norm(dim=x.size,groups=np.arange(x.size)) # Also if groups = None
+       <class 'pycsou.func.penalty.L1Norm'>
+       >>> single_group_l2 = L2Norm(dim=x.size/2)
+       >>> tau = 0.5; np.allclose(group_norm.prox(x,tau=tau),np.concatenate((single_group_l2.prox(x[0:5], tau=tau),single_group_l2.prox(x[5:10],tau=tau))))
+       True
+
+    Notes
+    -----
+    The :math:`\ell_{2,1}`-norm penalty is convex and proximable. This penalty tends to produce group sparse solutions,
+    where all elements :math:`x_i` for :math:`i\in\mathcal{G}_g` for some :math:`g\in\lbrace 1,2,\dots,G` tend to
+    be zero or non-zero jointly. A critical assumtion is that the groups are not overlapping, i.e.,
+    :math:`\mathcal{G}_j \cap \mathcal{G}_i = \emptyset` for :math:`j,i \in \lbrace 1,2,\dots,G\rbrace` such that :math:`j\neq i.`
+    The proximal operator of the :math:`\ell_{2,1}`-norm is obtained easily from that of the :math:`\ell_2`-norm and the
+    separable sum property.
+
+    See Also
+    --------
+    :py:func:`~pycsou.func.loss.L2Norm`, :py:class:`~pycsou.func.penalty.SquaredL2Norm`, :py:func:`~pycsou.func.penalty.L1Norm`.
+    """
+    def __new__(cls, dim: int, groups: Union[np.ndarray,None] = None):
+        if np.all( groups == None ) or np.unique(groups).size == dim:
+            return L1Norm(dim=dim)
+        if np.unique(groups).size == 1:
+            return L2Norm(dim=dim)
+        return super(L21Norm, cls).__new__(cls)
+
+    def __init__(self, dim: int, groups: np.ndarray):
+        r"""
+        Parameters
+        ----------
+        dim : int
+            Dimension of the domain.
+        groups : np.ndarray, optional, defaults to None
+            Numerical variable of the same size as :math:`x`, where different
+            groups are distinguished by different values. If each element of `x`
+            belongs to a different group, an L1Norm is returned. If all elements
+            of `x` belong to the same group, an L2Norm is returned.
+        """
+        self.groups = groups
+        self.groups_idxs = np.unique(self.groups)
+        super(L21Norm, self).__init__(dim=dim, data=None, is_differentiable=False, is_linear=False)
+
+    def __call__(self, x: Union[Number, np.ndarray]) -> Number:
+        return np.sum(np.array([self.__L2_norm_in_group(x,group_id) for group_id in self.groups_idxs]))
+
+    def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
+        y = np.empty_like(x)
+        group_norms = np.array([self.__L2_norm_in_group(x,group_id) for group_id in self.groups_idxs])
+        normalizations = np.clip( 1 - tau / group_norms, a_min = 0, a_max = None )
+        for idx, group_idx in enumerate(self.groups_idxs):
+            y[self.groups==group_idx] = normalizations[idx] * x[self.groups==group_idx]
+        return y
+
+    def __L2_norm_in_group(self, x: np.ndarray, group_idx: Number) -> Number:
+        return np.linalg.norm(x[self.groups==group_idx])
 
 def NonNegativeOrthant(dim: int) -> IndicatorFunctional:
     r"""
@@ -500,7 +580,7 @@ def NonNegativeOrthant(dim: int) -> IndicatorFunctional:
 
     Examples
     --------
-  
+
     .. testsetup::
 
        import numpy as np
@@ -556,7 +636,7 @@ def Segment(dim: int, a: Number = 0, b: Number = 1):
 
     Examples
     --------
-  
+
     .. testsetup::
 
        import numpy as np
@@ -608,7 +688,7 @@ def RealLine(dim: int):
 
     Examples
     --------
-  
+
     .. testsetup::
 
        import numpy as np
@@ -657,8 +737,8 @@ def ImagLine(dim: int):
 
     Examples
     --------
-  
-    
+
+
     .. testsetup::
 
        import numpy as np
@@ -697,7 +777,7 @@ class LogBarrier(ProximableFunctional):
 
     Examples
     --------
-  
+
     .. testsetup::
 
        import numpy as np
@@ -739,7 +819,7 @@ class LogBarrier(ProximableFunctional):
     def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
         r"""
         Proximal operator of the log barrier.
-        
+
         Parameters
         ----------
         x: Union[Number, np.ndarray]
@@ -771,7 +851,7 @@ class ShannonEntropy(ProximableFunctional):
 
     Examples
     --------
-  
+
     .. testsetup::
 
        import numpy as np

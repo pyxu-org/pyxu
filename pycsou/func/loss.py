@@ -1,7 +1,7 @@
 # #############################################################################
 # loss.py
 # ==========
-# Author : Matthieu Simeoni [matthieu.simeoni@gmail.com]
+# Authors : Matthieu Simeoni [matthieu.simeoni@gmail.com]
 # #############################################################################
 
 r"""
