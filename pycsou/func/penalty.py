@@ -500,6 +500,7 @@ class L21Norm(ProximableFunctional):
        >>> type(l2_norm)
        <class 'pycsou.func.penalty.L2Norm'>
        >>> l1_norm = L21Norm(dim=x.size,groups=np.arange(x.size)) # Also if groups = None
+       >>> type(l1_norm)
        <class 'pycsou.func.penalty.L1Norm'>
        >>> single_group_l2 = L2Norm(dim=x.size/2)
        >>> tau = 0.5; np.allclose(group_norm.prox(x,tau=tau),np.concatenate((single_group_l2.prox(x[0:5], tau=tau),single_group_l2.prox(x[5:10],tau=tau))))
@@ -915,9 +916,3 @@ class ShannonEntropy(ProximableFunctional):
         """
         from scipy.special import lambertw
         return np.real(tau * lambertw(np.exp(-1 + (x / tau)) / tau, k=0))
-
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()
