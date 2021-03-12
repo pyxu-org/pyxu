@@ -7,7 +7,8 @@
    :target: https://zenodo.org/badge/latestdoi/277582581
 
 
-*Pycsou* is a Python 3 package for solving linear inverse problems with state-of-the-art proximal algorithms. The software implements in a highly modular way the main building blocks -cost functionals, penalty terms and linear operators- of generic penalised convex optimisation problems.
+*Pycsou* is a Python 3 package for solving linear inverse problems with state-of-the-art proximal algorithms.
+The software implements in a highly modular way the main building blocks -cost functionals, penalty terms and linear operators- of generic penalised convex optimisation problems.
 
 This Python library is inspired by the MATLAB `GlobalBioIm <https://github.com/Biomedical-Imaging-Group/GlobalBioIm>`_ project. The ``LinearOperator`` interface is based on `scipy.sparse <https://docs.scipy.org/doc/scipy/reference/sparse.html>`_  and `Pylops <https://pylops.readthedocs.io/en/latest/index.html>`_.
 
@@ -172,6 +173,7 @@ For citing this package, please see:
    general/install
    general/theory
    general/pycsou_classes
+   general/extensions
    general/examples
 
 .. toctree::
