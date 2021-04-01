@@ -13,6 +13,7 @@ from typing import Union, Optional, Tuple
 
 import numpy as np
 import pylops
+import joblib as job
 from dask import array as da
 from scipy import sparse as sparse
 
@@ -153,7 +154,6 @@ class DaskLinearOperator(ExplicitLinearOperator):
         super(DaskLinearOperator, self).__init__(array=dask_array, is_symmetric=is_symmetric)
 
 
-
 class LinOpStack(LinearOperator, DiffMapStack):
     r"""
     Stack linear operators together.
@@ -221,14 +221,35 @@ class LinOpStack(LinearOperator, DiffMapStack):
        >>> G3 = LinOpStack(D1.H, D2.H, axis=1)
        >>> np.allclose(G1.adjoint(G1*Z.flatten()), (G3 * G1) * Z.flatten())
        True
+       >>> parG1 = LinOpStack(D1, D2, axis=0, n_jobs=-1)
+       >>> parG3 = LinOpStack(D1.H, D2.H, axis=1, n_jobs=-1)
+       >>> np.allclose(G1.adjoint(G1*Z.flatten()), parG1.adjoint(parG1*Z.flatten()))
+       True
+       >>> np.allclose((G3 * G1) * Z.flatten(), (parG3 * parG1) * Z.flatten())
+       True
 
     See Also
     --------
     :py:class:`~pycsou.linop.base.LinOpVStack`, :py:class:`~pycsou.linop.base.LinOpHStack`
     """
 
-    def __init__(self, *linops, axis: int):
-        DiffMapStack.__init__(self, *linops, axis=axis)
+    def __init__(self, *linops, axis: int, n_jobs: int = 1, joblib_backend: str = 'loky'):
+        r"""
+       Parameters
+       ----------
+       linops: LinearOperator
+           List of linear operators to stack.
+       axis:
+           Stacking direction: 0 for vertical and 1 for horizontal stacking.
+       n_jobs: int
+           Number of cores to be used for parallel evaluation of the linear operator stack and its adjoint.
+           If ``n_jobs==1``, the operator stack and its adjoint are evaluated sequentially, otherwise they are
+           evaluated in parallel. Setting ``n_jobs=-1`` uses all available cores.
+       joblib_backend: str
+           Joblib backend (`more details here <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_).
+
+       """
+        DiffMapStack.__init__(self, *linops, axis=axis, n_jobs=n_jobs, joblib_backend=joblib_backend)
         self.linops = self.maps
         self.is_explicit_list = [linop.is_explicit for linop in self.linops]
         self.is_dense_list = [linop.is_dense for linop in self.linops]
@@ -246,12 +267,23 @@ class LinOpStack(LinearOperator, DiffMapStack):
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         if self.axis == 0:
             y_split = np.split(y, self.sections)
-            result = 0
-            for i, linop in enumerate(self.linops):
-                result += linop.adjoint(y_split[i])
+            if self.n_jobs == 1:
+                result = 0
+                for i, linop in enumerate(self.linops):
+                    result += linop.adjoint(y_split[i])
+            else:
+                with job.Parallel(backend=self.joblib_backend, n_jobs=self.n_jobs, verbose=False) as parallel:
+                    out_list = parallel(job.delayed(linop.adjoint)(y_split[i])
+                                        for i, linop in enumerate(self.linops))
+                    result = np.sum(np.stack(out_list, axis=0), axis=0)
             return result
         else:
-            out_list = [linop.adjoint(y).flatten() for linop in self.linops]
+            if self.n_jobs == 1:
+                out_list = [linop.adjoint(y).flatten() for linop in self.linops]
+            else:
+                with job.Parallel(backend=self.joblib_backend, n_jobs=self.n_jobs, verbose=False) as parallel:
+                    out_list = parallel(job.delayed(linop.adjoint)(y) for linop in self.linops)
+                out_list = [y.flatten() for y in out_list]
             return np.concatenate(out_list, axis=0)
 
 
@@ -260,8 +292,21 @@ class LinOpVStack(LinOpStack):
     Alias for vertical stacking, equivalent to ``LinOpStack(*linops, axis=0)``.
     """
 
-    def __init__(self, *linops):
-        super(LinOpVStack, self).__init__(*linops, axis=0)
+    def __init__(self, *linops, n_jobs: int = 1, joblib_backend: str = 'loky'):
+        r"""
+       Parameters
+       ----------
+       linops: LinearOperator
+           List of linear operators to stack.
+       n_jobs: int
+           Number of cores to be used for parallel evaluation of the linear operator stack and its adjoint.
+           If ``n_jobs==1``, the operator stack and its adjoint are evaluated sequentially, otherwise they are
+           evaluated in parallel. Setting ``n_jobs=-1`` uses all available cores.
+       joblib_backend: str
+           Joblib backend (`more details here <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_).
+
+       """
+        super(LinOpVStack, self).__init__(*linops, axis=0, n_jobs=n_jobs, joblib_backend=joblib_backend)
 
 
 class LinOpHStack(LinOpStack):
@@ -269,8 +314,21 @@ class LinOpHStack(LinOpStack):
     Alias for horizontal stacking, equivalent to ``LinOpStack(*linops, axis=1)``.
     """
 
-    def __init__(self, *linops):
-        super(LinOpHStack, self).__init__(*linops, axis=1)
+    def __init__(self, *linops, n_jobs: int = 1, joblib_backend: str = 'loky'):
+        r"""
+       Parameters
+       ----------
+       linops: LinearOperator
+           List of linear operators to stack.
+       n_jobs: int
+           Number of cores to be used for parallel evaluation of the linear operator stack and its adjoint.
+           If ``n_jobs==1``, the operator stack and its adjoint are evaluated sequentially, otherwise they are
+           evaluated in parallel. Setting ``n_jobs=-1`` uses all available cores.
+       joblib_backend: str
+           Joblib backend (`more details here <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_).
+
+       """
+        super(LinOpHStack, self).__init__(*linops, axis=1, n_jobs=n_jobs, joblib_backend=joblib_backend)
 
 
 class DiagonalBlock(LinearOperator):
@@ -300,13 +358,13 @@ class DiagonalOperator(LinearOperator):
         self.lipschitz_cst = self.diff_lipschitz_cst = np.max(diag)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        if self.shape[0] == 1:
+        if self.shape[1] == 1:
             return np.asscalar(self.diag * x)
         else:
             return self.diag * x
 
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        if self.diag.size == 1:
+        if self.shape[0] == 1:
             return np.asscalar(self.diag.conj() * y)
         else:
             return self.diag.conj() * y
@@ -364,6 +422,7 @@ class HomothetyMap(DiagonalOperator):
 
     def jacobianT(self, arg: Optional[Number] = None) -> Number:
         return self.cst
+
 
 class PolynomialLinearOperator(LinearOperator):
     r"""

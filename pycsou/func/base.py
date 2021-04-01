@@ -12,9 +12,10 @@ from numbers import Number
 from typing import Union, Callable
 
 import numpy as np
+import joblib as job
 
-from pycsou.core.functional import ProximableFunctional, DifferentiableFunctional
-from pycsou.core.map import MapHStack
+from pycsou.core.functional import ProximableFunctional, DifferentiableFunctional, LinearFunctional
+from pycsou.core.map import MapHStack, DiffMapHStack
 
 
 class ProxFuncHStack(ProximableFunctional, MapHStack):
@@ -52,25 +53,88 @@ class ProxFuncHStack(ProximableFunctional, MapHStack):
        >>> x = np.arange(10); y= x/2; tau=0.1
        >>> np.allclose(func.prox(np.concatenate((x,y)), tau), np.concatenate((func1.prox(x, tau), func2.prox(y, tau))))
        True
+       >>> parfunc=ProxFuncHStack(func1, func2, n_jobs=-1)
+       >>> np.allclose(func.prox(np.concatenate((x,y)), tau),parfunc.prox(np.concatenate((x,y)), tau))
+       True
 
     """
 
-    def __init__(self, *proxfuncs):
+    def __init__(self, *proxfuncs, n_jobs: int = 1, joblib_backend: str = 'loky'):
         r"""
         Parameters
         ----------
         proxfuncs: ProximableFunctional
             List of proximable functionals to stack.
+        n_jobs: int
+            Number of cores to be used for parallel evaluation of the proximal operator.
+            If ``n_jobs==1``, the proximal operator of the functional stack is evaluated sequentially, otherwise it is
+            evaluated in parallel. Setting ``n_jobs=-1`` uses all available cores.
+        joblib_backend: str
+            Joblib backend (`more details here <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_).
         """
-        MapHStack.__init__(self, *proxfuncs)
+        MapHStack.__init__(self, *proxfuncs, n_jobs=n_jobs, joblib_backend=joblib_backend)
         self.proxfuncs = self.maps
         ProximableFunctional.__init__(self, dim=self.shape[1], data=None, is_differentiable=self.is_differentiable,
                                       is_linear=self.is_linear)
 
     def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
         x_split = np.split(x, self.sections)
-        result = [func.prox(x_split[i], tau) for i, func in enumerate(self.proxfuncs)]
+        if self.n_jobs == 1:
+            result = [func.prox(x_split[i], tau) for i, func in enumerate(self.proxfuncs)]
+        else:
+            with job.Parallel(backend=self.joblib_backend, n_jobs=self.n_jobs, verbose=False) as parallel:
+                result = parallel(job.delayed(func.prox)
+                                  (x_split[i], tau)
+                                  for i, func in enumerate(self.proxfuncs))
         return np.concatenate(result, axis=0)
+
+
+class DiffFuncHStack(DifferentiableFunctional, DiffMapHStack):
+    def __init__(self, *difffuncs, n_jobs: int = 1, joblib_backend: str = 'loky'):
+        r"""
+        Parameters
+        ----------
+        difffuncs: DifferentiableFunctional
+            List of differentiable functionals to stack.
+        n_jobs: int
+            Number of cores to be used for parallel evaluation of the functional stack and its gradient.
+            If ``n_jobs==1``, the proximal operator of the functional stack and its gradient are evaluated sequentially, otherwise they are
+            evaluated in parallel. Setting ``n_jobs=-1`` uses all available cores.
+        joblib_backend: str
+            Joblib backend (`more details here <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_).
+        """
+        DiffMapHStack.__init__(self, *difffuncs, n_jobs=n_jobs, joblib_backend=joblib_backend)
+        self.difffuncs = self.maps
+        DifferentiableFunctional.__init__(self, dim=self.shape[1], data=None, is_linear=self.is_linear,
+                                          lipschitz_cst=self.lipschitz_cst, diff_lipschitz_cst=self.diff_lipschitz_cst)
+
+    def jacobianT(self, arg: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        arg_split = np.split(arg, self.sections)
+        if self.n_jobs == 1:
+            jacobianT_list = [difffunc.jacobianT(arg_split[i])
+                              for i, difffunc in enumerate(self.maps)]
+        else:
+            with job.Parallel(backend=self.joblib_backend, n_jobs=self.n_jobs, verbose=False) as parallel:
+                jacobianT_list = parallel(job.delayed(difffunc.jacobianT)(arg_split[i])
+                                          for i, difffunc in enumerate(self.maps))
+        result = np.concatenate(jacobianT_list, axis=0)
+        return result
+
+
+class ExplicitLinearFunctional(LinearFunctional):
+    r"""
+    Base class for linear functionals.
+    """
+
+    def __init__(self, vec: np.ndarray, dtype: type = np.float64):
+        self.vec = vec.flatten().astype(dtype)
+        super(ExplicitLinearFunctional, self).__init__(dim=vec.size, dtype=dtype, is_explicit=True)
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        return np.dot(self.vec, x.flatten())
+
+    def adjoint(self, y: Number) -> Number:
+        return y * self.vec
 
 
 class IndicatorFunctional(ProximableFunctional):

@@ -9,6 +9,8 @@ Abstract classes for multidimensional nonlinear maps.
 """
 
 import numpy as np
+import joblib as job
+
 from abc import ABC, abstractmethod
 from typing import Union, Tuple
 from numbers import Number
@@ -125,6 +127,52 @@ class Map(ABC):
             Value of ``arg`` through the map.
         """
         pass
+
+    def apply_along_axis(self, arr: np.ndarray, axis: int = 0) -> np.ndarray:
+        r"""
+        Apply the map to 1-D slices along the given axis.
+
+        Parameters
+        ----------
+        arr: np.ndarray
+            Input array.
+        axis: int
+            Axis along which ``arr`` is sliced.
+
+        Returns
+        -------
+        np.ndarray
+           The output array. The shape of the latter is identical to the shape of ``arr``, except along the specified axis dimension.
+           This axis is removed, and replaced with new dimensions equal to ``self.shape[0]``.
+           If ``self.shape[0]==1`` the output array will have one fewer dimensions than ``arr``.
+
+        Raises
+        ------
+        ValueError
+            If ``arr.shape[axis] != self.shape[1]``.
+
+        Examples
+        --------
+
+        .. doctest::
+
+            >>> from pycsou.linop import DownSampling
+            >>> from pycsou.func import SquaredL2Norm
+            >>> D=DownSampling(size=20, downsampling_factor=2)
+            >>> arr=np.arange(200).reshape(20,2,5)
+            >>> out = D.apply_along_axis(arr, axis=0)
+            >>> out.shape
+            (10, 2, 5)
+            >>> ff = SquaredL2Norm(dim=2)
+            >>> out = ff.apply_along_axis(arr, axis=1)
+            >>> out.shape
+            (20, 5)
+
+        """
+        if arr.shape[axis] != self.shape[1]:
+            raise ValueError(
+                f"Array size along specified axis and the map domain's dimension differ: {arr.shape[axis]} != {self.shape[1]}.")
+        return np.apply_along_axis(func1d=self.__call__, axis=axis, arr=arr)
 
     def shifter(self, shift: Union[Number, np.ndarray]) -> 'MapShifted':
         r"""
@@ -617,10 +665,16 @@ class MapStack(Map):
        (11, 10)
        >>> np.allclose(V(x), np.concatenate((K1(x).flatten(), K3(x).flatten())))
        True
+       >>> parV = MapStack(K1, K3, axis=0, n_jobs=-1)
+       >>> np.allclose(V(x), parV(x))
+       True
        >>> H = MapStack(K1,K2, axis=1)
        >>> H.shape
        (1, 30)
        >>> np.allclose(H(np.concatenate((x,y))), K1(x) + K2(y))
+       True
+       >>> parH = MapStack(K1,K2, axis=1, n_jobs=-1)
+       >>> np.allclose(H(np.concatenate((x,y))), parH(np.concatenate((x,y))))
        True
 
     See Also
@@ -629,7 +683,7 @@ class MapStack(Map):
 
     """
 
-    def __init__(self, *maps: Map, axis: int):
+    def __init__(self, *maps: Map, axis: int, n_jobs: int = 1, joblib_backend: str = 'loky'):
         r"""
         Parameters
         ----------
@@ -637,6 +691,13 @@ class MapStack(Map):
             List of maps to stack.
         axis:
             Stacking direction: 0 for vertical and 1 for horizontal stacking.
+        n_jobs: int
+            Number of cores to be used for parallel evaluation of the map stack.
+            If ``n_jobs==1``, the map stack is evaluated sequentially, otherwise it is
+            evaluated in parallel. Setting ``n_jobs=-1`` uses all available cores.
+        joblib_backend: str
+            Joblib backend (`more details here <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_).
+
         """
         self.maps = list(maps)
         if (np.abs(axis) > 1):
@@ -647,6 +708,8 @@ class MapStack(Map):
         self.shapes = np.array([map_.shape for map_ in self.maps])
         self.block_sizes = [map_.shape[axis] for map_ in self.maps]
         self.sections = np.cumsum(self.block_sizes)
+        self.n_jobs = n_jobs
+        self.joblib_backend = joblib_backend
 
         if not self.is_valid_stack():
             raise ValueError('Inconsistent map shapes for  stacking.')
@@ -656,13 +719,24 @@ class MapStack(Map):
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         if self.axis == 0:
-            out_list = [map_.__call__(x).flatten() for map_ in self.maps]
+            if self.n_jobs == 1:
+                out_list = [map_.__call__(x).flatten() for map_ in self.maps]
+            else:
+                with job.Parallel(backend=self.joblib_backend, n_jobs=self.n_jobs, verbose=False) as parallel:
+                    out_list = parallel(job.delayed(map_.__call__)(x) for map_ in self.maps)
+                out_list = [y.flatten() for y in out_list]
             return np.concatenate(out_list, axis=0)
         else:
             x_split = np.split(x, self.sections)
-            result = 0
-            for i, map_ in enumerate(self.maps):
-                result += map_.__call__(x_split[i])
+            if self.n_jobs == 1:
+                result = 0
+                for i, map_ in enumerate(self.maps):
+                    result += map_.__call__(x_split[i])
+            else:
+                with job.Parallel(backend=self.joblib_backend, n_jobs=self.n_jobs, verbose=False) as parallel:
+                    out_list = parallel(job.delayed(map_.__call__)(x_split[i])
+                                        for i, map_ in enumerate(self.maps))
+                    result = np.sum(np.stack(out_list, axis=0), axis=0)
             return result
 
     def is_valid_stack(self) -> bool:
@@ -697,14 +771,21 @@ class MapVStack(MapStack):
 
     """
 
-    def __init__(self, *maps: Map):
+    def __init__(self, *maps: Map, n_jobs: int = 1, joblib_backend: str = 'loky'):
         r"""
         Parameters
         ----------
         maps: Map
             List of maps to stack.
+        n_jobs: int
+            Number of cores to be used for parallel evaluation of the map stack.
+            If ``n_jobs==1``, the map stack is evaluated sequentially, otherwise it is
+            evaluated in parallel. Setting ``n_jobs=-1`` uses all available cores.
+        joblib_backend: str
+            Joblib backend (`more details here <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_).
+
         """
-        super(MapVStack, self).__init__(*maps, axis=0)
+        super(MapVStack, self).__init__(*maps, axis=0, n_jobs=n_jobs, joblib_backend=joblib_backend)
 
 
 class MapHStack(MapStack):
@@ -727,14 +808,21 @@ class MapHStack(MapStack):
 
     """
 
-    def __init__(self, *maps: Map):
+    def __init__(self, *maps: Map, n_jobs: int = 1, joblib_backend: str = 'loky'):
         r"""
         Parameters
         ----------
         maps: Map
             List of maps to stack.
+        n_jobs: int
+            Number of cores to be used for parallel evaluation of the map stack.
+            If ``n_jobs==1``, the map stack is evaluated sequentially, otherwise it is
+            evaluated in parallel. Setting ``n_jobs=-1`` uses all available cores.
+        joblib_backend: str
+            Joblib backend (`more details here <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_).
+
         """
-        super(MapHStack, self).__init__(*maps, axis=1)
+        super(MapHStack, self).__init__(*maps, axis=1, n_jobs=n_jobs, joblib_backend=joblib_backend)
 
 
 class DiffMapStack(MapStack, DifferentiableMap):
@@ -809,6 +897,9 @@ class DiffMapStack(MapStack, DifferentiableMap):
        >>> V = DiffMapStack(K1, K3, axis=0)
        >>> np.allclose(V.lipschitz_cst, np.sqrt(K1.lipschitz_cst ** 2 + K3.lipschitz_cst ** 2))
        True
+       >>> parV = DiffMapStack(K1, K3, axis=0, n_jobs=-1)
+       >>> np.allclose(V.jacobianT(x) * np.ones(shape=(V.jacobianT(x).shape[1])), parV.jacobianT(x) * np.ones(shape=(V.jacobianT(x).shape[1])))
+       True
 
     See Also
     --------
@@ -816,7 +907,7 @@ class DiffMapStack(MapStack, DifferentiableMap):
 
     """
 
-    def __init__(self, *diffmaps: DifferentiableMap, axis: int):
+    def __init__(self, *diffmaps: DifferentiableMap, axis: int, n_jobs: int = 1, joblib_backend: str = 'loky'):
         r"""
         Parameters
         ----------
@@ -824,21 +915,40 @@ class DiffMapStack(MapStack, DifferentiableMap):
             List of differentiable maps to be stacked
         axis: int
             Stacking direction: 0 for vertical and 1 for horizontal stacking.
+        n_jobs: int
+            Number of cores to be used for parallel evaluation of the map stack and its Jacobian matrix.
+            If ``n_jobs==1``, the map stack and its Jacobian matrix are evaluated sequentially, otherwise they are
+            evaluated in parallel. Setting ``n_jobs=-1`` uses all available cores.
+        joblib_backend: str
+            Joblib backend (`more details here <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_).
+
         """
-        MapStack.__init__(self, *diffmaps, axis=axis)
+        MapStack.__init__(self, *diffmaps, axis=axis, n_jobs=n_jobs, joblib_backend=joblib_backend)
         lipschitz_cst = np.sqrt(np.sum([diffmap.lipschitz_cst ** 2 for diffmap in self.maps]))
         diff_lipschitz_cst = np.sqrt(np.sum([diffmap.diff_lipschitz_cst ** 2 for diffmap in self.maps]))
         DifferentiableMap.__init__(self, shape=self.shape, is_linear=self.is_linear, lipschitz_cst=lipschitz_cst,
                                    diff_lipschitz_cst=diff_lipschitz_cst)
 
     def jacobianT(self, arg: Union[Number, np.ndarray]) -> Union['LinOpHStack', 'LinOpVStack']:
+        from pycsou.func.base import ExplicitLinearFunctional
+        jacobianT_list = []
         if self.axis == 0:
-            jacobianT_list = [diffmap.jacobianT(arg) for diffmap in self.maps]
-            return LinOpHStack(*jacobianT_list)
+            from pycsou.linop.base import LinOpVStack
+            for diffmap in self.maps:
+                jacobian = diffmap.jacobianT(arg)
+                if isinstance(jacobian, np.ndarray):
+                    jacobian = ExplicitLinearFunctional(jacobian, dtype=jacobian.dtype)
+                jacobianT_list.append(jacobian)
+            return LinOpVStack(*jacobianT_list, n_jobs=self.n_jobs, joblib_backend=self.joblib_backend)
         else:
+            from pycsou.linop.base import LinOpHStack
             arg_split = np.split(arg, self.sections)
-            jacobianT_list = [diffmap.jacobianT(arg_split[i]) for i, diffmap in enumerate(self.maps)]
-            return LinOpVStack(*jacobianT_list)
+            for i, diffmap in enumerate(self.maps):
+                jacobian = diffmap.jacobianT(arg_split[i])
+                if isinstance(jacobian, np.ndarray):
+                    jacobian = ExplicitLinearFunctional(jacobian, dtype=jacobian.dtype)
+                jacobianT_list.append(jacobian)
+            return LinOpHStack(*jacobianT_list, n_jobs=self.n_jobs, joblib_backend=self.joblib_backend)
 
 
 class DiffMapVStack(DiffMapStack):
@@ -846,14 +956,21 @@ class DiffMapVStack(DiffMapStack):
     Alias for vertical stacking of differentiable maps, equivalent to ``DiffMapStack(*maps, axis=0)``.
     """
 
-    def __init__(self, *diffmaps: DifferentiableMap):
+    def __init__(self, *diffmaps: DifferentiableMap, n_jobs: int = 1, joblib_backend: str = 'loky'):
         r"""
         Parameters
         ----------
         diffmaps: DifferentiableMap
             List of differentiable maps to be stacked
+        n_jobs: int
+            Number of cores to be used for parallel evaluation of the map stack and its Jacobian matrix.
+            If ``n_jobs==1``, the map stack and its Jacobian matrix are evaluated sequentially, otherwise they are
+            evaluated in parallel. Setting ``n_jobs=-1`` uses all available cores.
+        joblib_backend: str
+            Joblib backend (`more details here <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_).
+
         """
-        super(DiffMapVStack, self).__init__(*diffmaps, axis=0)
+        super(DiffMapVStack, self).__init__(*diffmaps, axis=0, n_jobs=n_jobs, joblib_backend=joblib_backend)
 
 
 class DiffMapHStack(DiffMapStack):
@@ -861,27 +978,35 @@ class DiffMapHStack(DiffMapStack):
     Alias for horizontal stacking of differentiable maps, equivalent to ``DiffMapStack(*maps, axis=1)``.
     """
 
-    def __init__(self, *diffmaps: DifferentiableMap):
+    def __init__(self, *diffmaps: DifferentiableMap, n_jobs: int = 1, joblib_backend: str = 'loky'):
         r"""
         Parameters
         ----------
         diffmaps: DifferentiableMap
             List of differentiable maps to be stacked.
+        n_jobs: int
+            Number of cores to be used for parallel evaluation of the map stack and its Jacobian matrix.
+            If ``n_jobs==1``, the map stack and its Jacobian matrix are evaluated sequentially, otherwise they are
+            evaluated in parallel. Setting ``n_jobs=-1`` uses all available cores.
+        joblib_backend: str
+            Joblib backend (`more details here <https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html>`_).
+
         """
-        super(DiffMapHStack, self).__init__(*diffmaps, axis=1)
+        super(DiffMapHStack, self).__init__(*diffmaps, axis=1, n_jobs=n_jobs, joblib_backend=joblib_backend)
 
 
 if __name__ == '__main__':
-    import numpy as np
-    from pycsou.linop.base import DenseLinearOperator, LinOpStack, LinOpVStack, LinOpHStack, HomothetyMap
-    from pycsou.linop.conv import Convolve1D
-    from scipy import signal
-
-    x1 = np.arange(10)
-    x2 = np.arange(20)
-    filter = signal.hann(5)
-    filter[filter.size // 2:] = 0
-    L1 = Convolve1D(size=x1.size, filter=filter)
-    L2 = DenseLinearOperator(np.arange(x2.size * L1.shape[0]).reshape(L1.shape[0], x2.size))
-    L3 = LinOpStack(L1, L2, axis=1)
-    L3(np.concatenate((x1, x2)))
+    pass
+    # import numpy as np
+    # from pycsou.linop.base import DenseLinearOperator, LinOpStack, LinOpVStack, LinOpHStack, HomothetyMap
+    # from pycsou.linop.conv import Convolve1D
+    # from scipy import signal
+    #
+    # x1 = np.arange(10)
+    # x2 = np.arange(20)
+    # filter = signal.hann(5)
+    # filter[filter.size // 2:] = 0
+    # L1 = Convolve1D(size=x1.size, filter=filter)
+    # L2 = DenseLinearOperator(np.arange(x2.size * L1.shape[0]).reshape(L1.shape[0], x2.size))
+    # L3 = LinOpStack(L1, L2, axis=1)
+    # L3(np.concatenate((x1, x2)))
