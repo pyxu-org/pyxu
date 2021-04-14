@@ -169,8 +169,18 @@ class IndicatorFunctional(ProximableFunctional):
 
 
 class NullDifferentiableFunctional(DifferentiableFunctional):
+    r"""
+    Null differentiable functional.
+    """
 
     def __init__(self, dim: int):
+        r"""
+
+        Parameters
+        ----------
+        dim: int
+            Dimension of the functional's domain.
+        """
         super(NullDifferentiableFunctional, self).__init__(dim=dim, is_linear=True, lipschitz_cst=0,
                                                            diff_lipschitz_cst=0)
 
@@ -182,8 +192,17 @@ class NullDifferentiableFunctional(DifferentiableFunctional):
 
 
 class NullProximableFunctional(ProximableFunctional):
-
+    r"""
+    Null proximable functional.
+    """
     def __init__(self, dim: int):
+        r"""
+
+        Parameters
+        ----------
+        dim: int
+            Dimension of the functional's domain.
+        """
         super(NullProximableFunctional, self).__init__(dim=dim, is_linear=True)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Number:

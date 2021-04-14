@@ -86,6 +86,28 @@ class LinearOperator(DifferentiableMap):
         """
         pass
 
+    def transpose(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        r"""
+        Evaluates the tranpose of the operator at a point.
+
+        Parameters
+        ----------
+        y: Union[Number, np.ndarray]
+            Point at which the transpose should be evaluated.
+
+        Returns
+        -------
+        Union[Number, np.ndarray]
+            Evaluation of the transpose at ``y``.
+
+        Notes
+        -----
+        For real-valued operators, the adjoint and the transpose coincide. For complex-valued operators, we can define the
+        transpose as :math:`\mathbf{A}^T \mathbf{y}=\overline{\mathbf{A}^\ast \overline{\mathbf{y}}}`.
+
+        """
+        return self.adjoint(y.conj()).conj()
+
     def jacobianT(self, arg: Union[Number, np.ndarray, None] = None) -> 'LinearOperator':
         return self.get_adjointOp()
 
@@ -107,6 +129,27 @@ class LinearOperator(DifferentiableMap):
     def H(self):
         r"""Alias for ``self.get_adjointOp``."""
         return self.get_adjointOp()
+
+    def get_transposeOp(self) -> 'TransposeLinearOperator':
+        r"""
+        Return the transpose operator as a ``LinearOperator`` instance.
+
+        Returns
+        -------
+        TransposeLinearOperator
+            The transpose operator.
+
+        Notes
+        -----
+        For real-valued operators, the adjoint and the transpose coincide. For complex-valued operators, we can define the
+        transpose as :math:`\mathbf{A}^T \mathbf{y}=\overline{\mathbf{A}^\ast \overline{\mathbf{y}}}`.
+        """
+        return TransposeLinearOperator(self)
+
+    @property
+    def T(self):
+        r"""Alias for ``self.get_adjointOp``."""
+        return self.get_transposeOp()
 
     @property
     def RangeGram(self):
@@ -386,10 +429,12 @@ class LinearOperator(DifferentiableMap):
         r"""Alias for ``self.PinvOp``."""
         return self.PinvOp
 
+    @property
     def RowProjector(self):
         r"""Orthogonal projection operator onto the rows of ``self``. It is given by ``self * self.dagger``."""
         return SymmetricLinearOperator(self * self.dagger)
 
+    @property
     def ColProjector(self):
         r"""Orthogonal projection operator onto the columns of ``self``. It is given by ``self.dagger * self``."""
         return SymmetricLinearOperator(self.dagger * self)
@@ -459,6 +504,21 @@ class AdjointLinearOperator(LinearOperator):
             self.lipschitz_cst = self.Linop.lipschitz_cst
         else:
             LinearOperator.compute_lipschitz_cst(self, **kwargs)
+
+
+class TransposeLinearOperator(LinearOperator):
+    def __init__(self, LinOp: LinearOperator):
+        super(TransposeLinearOperator, self).__init__(shape=(LinOp.shape[1], LinOp.shape[0]), dtype=LinOp.dtype,
+                                                      is_explicit=LinOp.is_explicit, is_dask=LinOp.is_dask,
+                                                      is_dense=LinOp.is_dense, is_sparse=LinOp.is_sparse,
+                                                      is_symmetric=LinOp.is_symmetric)
+        self.Linop = LinOp
+
+    def __call__(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        return self.Linop.adjoint(y.conj()).conj()
+
+    def adjoint(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        return self.Linop.matvec(x)
 
 
 class LinOpSum(LinearOperator, DiffMapSum):
@@ -563,7 +623,7 @@ class LinOpPinv(LinearOperator):
                                         is_dask=False, is_symmetric=LinOp.is_symmetric)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        return NormalEquationsInversion(Op=self.PyLop, Regs=None, data=x, epsI=self.eps, returninfo=False)
+        return NormalEquationsInversion(Op=self.LinOp.PyLop, Regs=None, data=x, epsI=self.eps, returninfo=False)
 
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         return LinOpPinv(LinOp=self.LinOp.H, eps=self.eps).__call__(y)

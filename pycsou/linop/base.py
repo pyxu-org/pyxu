@@ -9,7 +9,7 @@ Interface classes for constructing linear operators.
 """
 
 from numbers import Number
-from typing import Union, Optional, Tuple
+from typing import Union, Optional, Tuple, List
 
 import numpy as np
 import pylops
@@ -331,12 +331,210 @@ class LinOpHStack(LinOpStack):
         super(LinOpHStack, self).__init__(*linops, axis=1, n_jobs=n_jobs, joblib_backend=joblib_backend)
 
 
-class DiagonalBlock(LinearOperator):
-    pass
+def BlockOperator(linops: List[List[LinearOperator]], n_jobs: int = 1) -> PyLopLinearOperator:
+    r"""
+    Construct a block operator from N lists of M linear operators each.
+
+    Parameters
+    ----------
+    linops: List[List[LinearOperator]]
+        List of lists of linear operators to be combined in block fashion.
+        Alternatively, numpy.ndarray or scipy.sparse.spmatrix can be passed in place of one or more operators.
+    n_jobs: int
+        Number of processes used to evaluate the N operators in parallel using multiprocessing.
+        If ``n_jobs=1`` (default), work in serial mode.
 
 
-class LinOpBlock(LinearOperator):
-    pass
+    Returns
+    -------
+    PyLopLinearOperator
+        Block linear operator.
+
+    Examples
+    --------
+
+    .. doctest::
+
+        >>> from pycsou.linop.base import BlockOperator
+        >>> from pycsou.linop.diff import SecondDerivative
+        >>> Nv, Nh = 11, 21
+        >>> D2hop = SecondDerivative(size=Nv * Nh, shape=(Nv,Nh), axis=1)
+        >>> D2vop = SecondDerivative(size=Nv * Nh, shape=(Nv,Nh), axis=0)
+        >>> Dblock = BlockOperator([[D2vop, 0.5 * D2vop, - D2hop], [D2hop, 2 * D2hop, D2vop]])
+        >>> x = np.zeros((Nv, Nh)); x[int(Nv//2), int(Nh//2)] = 1; z = np.tile(x, (3,1)).flatten()
+        >>> np.allclose(Dblock(z), np.concatenate(((D2vop + 0.5 * D2vop - D2hop)(x.flatten()), (D2hop + 2 * D2hop + D2vop)(x.flatten()))))
+        True
+
+    Notes
+    -----
+    In mathematics, a block or a partitioned matrix is a matrix that is
+    interpreted as being broken into sections called blocks or submatrices.
+    Similarly a block operator is composed of N sets of M linear operators
+    each such that its application in forward mode leads to
+
+    .. math::
+        \begin{bmatrix}
+            \mathbf{L_{1,1}}  & \mathbf{L_{1,2}} &  \cdots & \mathbf{L_{1,M}}  \\
+            \mathbf{L_{2,1}}  & \mathbf{L_{2,2}} &  \cdots & \mathbf{L_{2,M}}  \\
+            \vdots               & \vdots              &  \cdots & \vdots               \\
+            \mathbf{L_{N,1}}  & \mathbf{L_{N,2}} &  \cdots & \mathbf{L_{N,M}}  \\
+        \end{bmatrix}
+        \begin{bmatrix}
+            \mathbf{x}_{1}  \\
+            \mathbf{x}_{2}  \\
+            \vdots     \\
+            \mathbf{x}_{M}
+        \end{bmatrix} =
+        \begin{bmatrix}
+            \mathbf{L_{1,1}} \mathbf{x}_{1} + \mathbf{L_{1,2}} \mathbf{x}_{2} +
+            \mathbf{L_{1,M}} \mathbf{x}_{M} \\
+            \mathbf{L_{2,1}} \mathbf{x}_{1} + \mathbf{L_{2,2}} \mathbf{x}_{2} +
+            \mathbf{L_{2,M}} \mathbf{x}_{M} \\
+            \vdots     \\
+            \mathbf{L_{N,1}} \mathbf{x}_{1} + \mathbf{L_{N,2}} \mathbf{x}_{2} +
+            \mathbf{L_{N,M}} \mathbf{x}_{M} \\
+        \end{bmatrix}
+
+    while its application in adjoint mode leads to
+
+    .. math::
+        \begin{bmatrix}
+            \mathbf{L_{1,1}}^\ast  & \mathbf{L_{2,1}}^\ast &  \cdots &
+            \mathbf{L_{N,1}}^\ast  \\
+            \mathbf{L_{1,2}}^\ast  & \mathbf{L_{2,2}}^\ast &  \cdots &
+            \mathbf{L_{N,2}}^\ast  \\
+            \vdots                 & \vdots                &  \cdots & \vdots \\
+            \mathbf{L_{1,M}}^\ast  & \mathbf{L_{2,M}}^\ast &  \cdots &
+            \mathbf{L_{N,M}}^\ast  \\
+        \end{bmatrix}
+        \begin{bmatrix}
+            \mathbf{y}_{1}  \\
+            \mathbf{y}_{2}  \\
+            \vdots     \\
+            \mathbf{y}_{N}
+        \end{bmatrix} =
+        \begin{bmatrix}
+            \mathbf{L_{1,1}}^\ast \mathbf{y}_{1} +
+            \mathbf{L_{2,1}}^\ast \mathbf{y}_{2} +
+            \mathbf{L_{N,1}}^\ast \mathbf{y}_{N} \\
+            \mathbf{L_{1,2}}^\ast \mathbf{y}_{1} +
+            \mathbf{L_{2,2}}^\ast \mathbf{y}_{2} +
+            \mathbf{L_{N,2}}^\ast \mathbf{y}_{N} \\
+            \vdots     \\
+            \mathbf{L_{1,M}}^\ast \mathbf{y}_{1} +
+            \mathbf{L_{2,M}}^\ast \mathbf{y}_{2} +
+            \mathbf{L_{N,M}}^\ast \mathbf{y}_{N} \\
+        \end{bmatrix}
+
+
+    Warnings
+    --------
+    The parameter ``n_jobs`` is currently unused and is there for compatibility with the future API of PyLops.
+    The code should be updated when the next version on PyLops is released.
+
+    See Also
+    --------
+    :py:class:`~pycsou.linop.base.BlockDiagonalOperator`, :py:class:`~pycsou.linop.base.LinOpStack`
+    """
+    linops = [[linop.PyLop for linop in linops_line] for linops_line in linops]
+    block = pylops.Block(ops=linops)
+    return PyLopLinearOperator(block)
+
+
+def BlockDiagonalOperator(*linops: LinearOperator, n_jobs: int = 1) -> PyLopLinearOperator:
+    r"""
+    Construct a block diagonal operator from N linear operators.
+
+    Parameters
+    ----------
+    linops: LinearOperator
+        Linear operators forming the diagonal blocks.
+        Alternatively, numpy.ndarray or scipy.sparse.spmatrix can be passed in place of one or more operators.
+    n_jobs: int
+        Number of processes used to evaluate the N operators in parallel using multiprocessing.
+        If ``n_jobs=1`` (default), work in serial mode.
+
+
+    Returns
+    -------
+    PyLopLinearOperator
+        Block diagonal linear operator.
+
+    Examples
+    --------
+
+    .. doctest::
+
+        >>> from pycsou.linop.base import BlockDiagonalOperator
+        >>> from pycsou.linop.diff import SecondDerivative
+        >>> Nv, Nh = 11, 21
+        >>> D2hop = SecondDerivative(size=Nv * Nh, shape=(Nv,Nh), axis=1)
+        >>> D2vop = SecondDerivative(size=Nv * Nh, shape=(Nv,Nh), axis=0)
+        >>> Dblockdiag = BlockDiagonalOperator(D2vop, 0.5 * D2vop, -1 * D2hop)
+        >>> x = np.zeros((Nv, Nh)); x[int(Nv//2), int(Nh//2)] = 1; z = np.tile(x, (3,1)).flatten()
+        >>> np.allclose(Dblockdiag(z), np.concatenate((D2vop(x.flatten()), 0.5 * D2vop(x.flatten()), - D2hop(x.flatten()))))
+        True
+
+    Notes
+    -----
+    A block-diagonal operator composed of N linear operators is created such
+    as its application in forward mode leads to
+
+    .. math::
+        \begin{bmatrix}
+            \mathbf{L_1}  & \mathbf{0}   &  \cdots &  \mathbf{0}  \\
+            \mathbf{0}    & \mathbf{L_2} &  \cdots &  \mathbf{0}  \\
+           \vdots           & \vdots          &  \ddots &  \vdots         \\
+            \mathbf{0}    & \mathbf{0}   &  \cdots &  \mathbf{L_N}
+        \end{bmatrix}
+        \begin{bmatrix}
+            \mathbf{x}_{1}  \\
+            \mathbf{x}_{2}  \\
+            \vdots     \\
+            \mathbf{x}_{N}
+        \end{bmatrix} =
+        \begin{bmatrix}
+            \mathbf{L_1} \mathbf{x}_{1}  \\
+            \mathbf{L_2} \mathbf{x}_{2}  \\
+            \vdots     \\
+            \mathbf{L_N} \mathbf{x}_{N}
+        \end{bmatrix}
+
+    while its application in adjoint mode leads to
+
+    .. math::
+        \begin{bmatrix}
+            \mathbf{L_1}^\ast  & \mathbf{0}    &  \cdots &   \mathbf{0}  \\
+            \mathbf{0}    &  \mathbf{L_2}^\ast  &  \cdots &   \mathbf{0}  \\
+            \vdots           &  \vdots              &  \ddots &   \vdots        \\
+            \mathbf{0}    &  \mathbf{0}      &  \cdots &   \mathbf{L_N}^\ast
+        \end{bmatrix}
+        \begin{bmatrix}
+            \mathbf{y}_{1}  \\
+            \mathbf{y}_{2}  \\
+            \vdots     \\
+            \mathbf{y}_{N}
+        \end{bmatrix} =
+        \begin{bmatrix}
+            \mathbf{L_1}^\ast \mathbf{y}_{1}  \\
+            \mathbf{L_2}^\ast \mathbf{y}_{2}  \\
+            \vdots     \\
+            \mathbf{L_N}^\ast \mathbf{y}_{N}
+        \end{bmatrix}
+
+
+    Warnings
+    --------
+    The parameter ``n_jobs`` is currently unused and is there for compatibility with the future API of PyLops.
+    The code should be updated when the next version on PyLops is released.
+
+    See Also
+    --------
+    :py:class:`~pycsou.linop.base.BlockOperator`, :py:class:`~pycsou.linop.base.LinOpStack`
+    """
+    linops = [linop.PyLop for linop in linops]
+    block_diag = pylops.BlockDiag(ops=linops)
+    return PyLopLinearOperator(block_diag)
 
 
 class DiagonalOperator(LinearOperator):
@@ -394,7 +592,7 @@ class NullOperator(LinearOperator):
     Null operator.
     """
 
-    def __init__(self, shape: Tuple[int, int], dtype: Optional[type] = np.float):
+    def __init__(self, shape: Tuple[int, int], dtype: Optional[type] = np.float64):
         super(NullOperator, self).__init__(shape=shape, dtype=dtype,
                                            is_explicit=False, is_dense=False, is_sparse=False, is_dask=False,
                                            is_symmetric=True if (shape[0] == shape[1]) else False)
@@ -501,3 +699,274 @@ class PolynomialLinearOperator(LinearOperator):
                 z = self.Linop.adjoint(z)
                 y += np.conj(self.coeffs[i]) * z
             return y
+
+
+class KroneckerProduct(LinearOperator):
+    r"""
+    Kronecker product :math:`\otimes` of two operators.
+
+    Examples
+    --------
+
+    .. doctest::
+
+        >>> from pycsou.linop.base import KroneckerProduct
+        >>> from pycsou.linop.diff import SecondDerivative
+        >>> Nv, Nh = 11, 21
+        >>> D2hop = SecondDerivative(size=Nh)
+        >>> D2vop = SecondDerivative(size=Nv)
+        >>> Dkron = KroneckerProduct(D2hop, D2vop)
+        >>> x = np.zeros((Nv, Nh)); x[int(Nv//2), int(Nh//2)] = 1
+        >>> np.allclose(Dkron(x.flatten()), D2vop.apply_along_axis(D2hop.apply_along_axis(x.transpose(), axis=0).transpose(), axis=0).flatten())
+        True
+
+    Notes
+    -----
+    The *Kronecker product* between two operators :math:`\mathbf{A}\in \mathbb{R}^{k\times l}` and :math:`\mathbf{B}\in \mathbb{R}^{n\times m}`
+    is defined as:
+
+    .. math::
+
+        \mathbf{A} \otimes \mathbf{B}=\left[
+        \begin{array}{ccc}
+        A_{11}\mathbf{B} & \cdots & A_{1l}\mathbf{B} \\
+        \vdots & \ddots & \vdots \\
+        A_{k1}\mathbf{B} & \cdots & A_{kl}\mathbf{B} \\
+        \end{array}
+        \right] \in \mathbb{R}^{kn\times lm}
+
+    Let :math:`\mathbf{X}\in \mathbb{R}^{m\times l}` and :math:`\mathbf{Y}\in \mathbb{R}^{n\times k}`. Then we have:
+
+    .. math::
+
+         (\mathbf{A} \otimes \mathbf{B})\mbox{vec}(\mathbf{X})= \mbox{vec}\left(\mathbf{B}\mathbf{X}\mathbf{A}^T\right)
+
+    and
+
+    .. math::
+
+         (\mathbf{A} \otimes \mathbf{B})^\ast\mbox{vec}(\mathbf{Y})= \mbox{vec}\left(\mathbf{B}^\ast\mathbf{Y}\overline{\mathbf{A}}\right)
+
+    where :math:`\mbox{vec}` denotes the vectorisation operator.
+    Such operations are leveraged to implement the linear operator in matrix-free form (i.e. the matrix :math:`\mathbf{A} \otimes \mathbf{B}` is not explicitely constructed)
+    both in forward and adjoint mode.
+
+    We have also :math:`\|\mathbf{A} \otimes \mathbf{B}\|_2=\|\mathbf{A}\|_2\|\mathbf{B}\|_2` and
+    :math:`(\mathbf{A} \otimes \mathbf{B})^\dagger= \mathbf{A}^\dagger \otimes \mathbf{B}^\dagger` which we use to compute efficiently
+    ``self.lipschitz_cst`` and ``self.PinvOp``.
+
+    See Also
+    --------
+    :py:class:`~pycsou.linop.base.KroneckerSum`, :py:class:`~pycsou.linop.base.KhatriRaoProduct`
+    """
+
+    def __init__(self, linop1: LinearOperator, linop2: LinearOperator):
+        r"""
+
+        Parameters
+        ----------
+        linop1: LinearOperator
+            Linear operator on the left hand-side of the Kronecker product (multiplicand).
+        linop2: LinearOperator
+            Linear operator on the right hand-side of the Kronecker product (multiplier).
+        """
+        self.linop1 = linop1
+        self.linop2 = linop2
+        super(KroneckerProduct, self).__init__(
+            shape=(self.linop2.shape[0] * self.linop1.shape[0], self.linop2.shape[1] * self.linop1.shape[1]),
+            dtype=self.linop1.dtype,
+            lipschitz_cst=self.linop1.lipschitz_cst * self.linop2.lipschitz_cst)
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        X = x.reshape((self.linop2.shape[1], self.linop1.shape[1]))
+        return self.linop2.apply_along_axis(self.linop1.apply_along_axis(X.transpose(), axis=0).transpose(),
+                                            axis=0).flatten()
+
+    def adjoint(self, y: np.ndarray) -> np.ndarray:
+        Y = y.reshape((self.linop2.shape[0], self.linop1.shape[0]))
+        return self.linop2.H.apply_along_axis(self.linop1.H.apply_along_axis(Y.transpose(), axis=0).transpose(),
+                                              axis=0).flatten()
+
+    @property
+    def PinvOp(self) -> 'KroneckerProduct':
+        return KroneckerProduct(self.linop1.PinvOp, self.linop2.PinvOp)
+
+
+class KroneckerSum(LinearOperator):
+    r"""
+    Kronecker sum :math:`\oplus` of two operators.
+
+    Examples
+    --------
+
+    .. testsetup::
+
+        import numpy as np
+
+    .. doctest::
+
+        >>> from pycsou.linop.base import KroneckerProduct, KroneckerSum, DiagonalOperator
+        >>> m1=np.linspace(0,3,5); m2=np.linspace(-3,2,7)
+        >>> D1=DiagonalOperator(diag=m1); ExpD1=DiagonalOperator(diag=np.exp(m1))
+        >>> D2=DiagonalOperator(diag=m2); ExpD2=DiagonalOperator(diag=np.exp(m2))
+        >>> Expkronprod=KroneckerProduct(ExpD1,ExpD2)
+        >>> Kronsum=KroneckerSum(D1,D2)
+        >>> np.allclose(np.diag(Expkronprod.todense().mat), np.exp(np.diag(Kronsum.todense().mat)))
+        True
+
+    Notes
+    -----
+    The *Kronecker sum* between two operators :math:`\mathbf{A}\in \mathbb{R}^{k\times l}` and :math:`\mathbf{B}\in \mathbb{R}^{n\times m}`
+    is defined as:
+
+    .. math::
+
+        \mathbf{A} \oplus \mathbf{B}=\mathbf{A} \otimes \mathbf{I}_{n\times m} + \mathbf{I}_{k\times l} \otimes \mathbf{B} \in \mathbb{R}^{kn\times lm}.
+
+    Let :math:`\mathbf{X}\in \mathbb{R}^{m\times l}` and :math:`\mathbf{Y}\in \mathbb{R}^{n\times k}`. Then we have:
+
+    .. math::
+
+         (\mathbf{A} \oplus \mathbf{B})\mbox{vec}(\mathbf{X})= \mbox{vec}\left(\mathbf{X}\mathbf{A}^T + \mathbf{B}\mathbf{X}\right)
+
+    and
+
+    .. math::
+
+         (\mathbf{A} \oplus \mathbf{B})^\ast\mbox{vec}(\mathbf{Y})= \mbox{vec}\left(\mathbf{Y}\overline{\mathbf{A}} + \mathbf{B}^\ast\mathbf{Y}\right)
+
+    where :math:`\mbox{vec}` denotes the vectorisation operator.
+    Such operations are leveraged to implement the linear operator in matrix-free form (i.e. the matrix :math:`\mathbf{A} \oplus \mathbf{B}` is not explicitely constructed)
+    both in forward and adjoint mode.
+
+    See Also
+    --------
+    :py:class:`~pycsou.linop.base.KroneckerSum`, :py:class:`~pycsou.linop.base.KhatriRaoProduct`
+    """
+
+    def __init__(self, linop1: LinearOperator, linop2: LinearOperator):
+        r"""
+
+        Parameters
+        ----------
+        linop1: LinearOperator
+            Linear operator on the left hand-side of the Kronecker sum.
+        linop2: LinearOperator
+            Linear operator on the right hand-side of the Kronecker sum.
+        """
+        self.linop1 = linop1
+        self.linop2 = linop2
+        super(KroneckerSum, self).__init__(
+            shape=(self.linop2.shape[0] * self.linop1.shape[0], self.linop2.shape[1] * self.linop1.shape[1]),
+            dtype=self.linop1.dtype,
+            lipschitz_cst=self.linop1.lipschitz_cst + self.linop2.lipschitz_cst)
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        X = x.reshape((self.linop2.shape[1], self.linop1.shape[1]))
+        return self.linop1.apply_along_axis(X.transpose(), axis=0).transpose().flatten() + \
+               self.linop2.apply_along_axis(X, axis=0).flatten()
+
+    def adjoint(self, y: np.ndarray) -> np.ndarray:
+        Y = y.reshape((self.linop2.shape[0], self.linop1.shape[0]))
+        return self.linop1.H.apply_along_axis(Y.transpose(), axis=0).transpose().flatten() + \
+               self.linop2.H.apply_along_axis(Y, axis=0).flatten()
+
+
+class KhatriRaoProduct(LinearOperator):
+    r"""
+    Khatri-Rao product :math:`\circ` of two operators.
+
+    Examples
+    --------
+
+    .. doctest::
+
+        >>> from pycsou.linop.base import KhatriRaoProduct
+        >>> from pycsou.linop.diff import SecondDerivative
+        >>> D1 = SecondDerivative(size=11)
+        >>> D2 = SecondDerivative(size=11)
+        >>> Dkrao = KhatriRaoProduct(D1, D2)
+        >>> x = np.arange(11)
+        >>> Dkrao(x).shape
+        (121,)
+        >>> np.allclose(Dkrao(x), ((D1.todense().mat * x[None, :]) @ D2.todense().mat.transpose()).flatten())
+        True
+
+    Notes
+    -----
+    The *Khatri-Rao product* between two operators :math:`\mathbf{A}\in \mathbb{R}^{k\times l}` and :math:`\mathbf{B}\in \mathbb{R}^{n\times l}`
+    is defined as the column-wise Kronecker product:
+
+    .. math::
+
+        \mathbf{A} \circ \mathbf{B}=\left[
+        \begin{array}{ccc}
+        \mathbf{A}_1\otimes \mathbf{B}_1 & \cdots & \mathbf{A}_l\otimes \mathbf{B}_l
+        \end{array}
+        \right] \in \mathbb{R}^{kn\times l}
+
+    Let :math:`\mathbf{x}\in \mathbb{R}^{l}` and :math:`\mathbf{Y}\in \mathbb{R}^{n\times k}`. Then we have:
+
+    .. math::
+
+         (\mathbf{A} \circ \mathbf{B})\mathbf{x}= \mbox{vec}\left(\mathbf{B}\mbox{diag}(\mathbf{x})\mathbf{A}^T\right)
+
+    and
+
+    .. math::
+
+         (\mathbf{A} \circ \mathbf{B})^\ast\mbox{vec}(\mathbf{Y})= \mbox{diag}\left(\mathbf{B}^\ast\mathbf{Y}\overline{\mathbf{A}}\right)
+
+    where :math:`\mbox{diag}`,  :math:`\mbox{vec}` denote the diagonal and vectorisation operators respectively.
+    Such operations are leveraged to implement the linear operator in matrix-free form (i.e. the matrix :math:`\mathbf{A} \circ \mathbf{B}` is not explicitely constructed)
+    both in forward and adjoint mode.
+
+    See Also
+    --------
+    :py:class:`~pycsou.linop.base.KroneckerProduct`, :py:class:`~pycsou.linop.base.KroneckerSum`
+    """
+
+    def __init__(self, linop1: LinearOperator, linop2: LinearOperator):
+        r"""
+
+        Parameters
+        ----------
+        linop1: LinearOperator
+            Linear operator on the left hand-side of the Khatri-Rao product (multiplicand).
+        linop2: LinearOperator
+            Linear operator on the right hand-side of the Khatri-Rao product (multiplier).
+
+        Raises
+        ------
+        ValueError
+            If ``linop1.shape[1] != self.linop2.shape[1]``.
+        """
+        if linop1.shape[1] != linop2.shape[1]:
+            raise ValueError('Invalid shapes.')
+        self.linop1 = linop1
+        self.linop2 = linop2
+        super(KhatriRaoProduct, self).__init__(
+            shape=(self.linop2.shape[0] * self.linop1.shape[0], self.linop2.shape[1]),
+            dtype=self.linop1.dtype)
+
+    def __call__(self, x: np.ndarray) -> np.ndarray:
+        return self.linop2.apply_along_axis(self.linop1.apply_along_axis(np.diag(x), axis=0).transpose(), axis=0).flatten()
+
+    def adjoint(self, y: np.ndarray) -> np.ndarray:
+        Y = y.reshape((self.linop2.shape[0], self.linop1.shape[0]))
+        return np.diag(
+            self.linop2.H.apply_along_axis(self.linop1.H.apply_along_axis(Y.transpose(), axis=0).transpose(), axis=0)).flatten()
+
+
+if __name__ == '__main__':
+    from pycsou.linop.base import KroneckerProduct, KroneckerSum, DiagonalOperator
+
+    m1 = np.linspace(0, 3, 5)
+    m2 = np.linspace(-3, 2, 7)
+    D1 = DiagonalOperator(diag=m1)
+    ExpD1 = DiagonalOperator(diag=np.exp(m1))
+    D2 = DiagonalOperator(diag=m2)
+    ExpD2 = DiagonalOperator(diag=np.exp(m2))
+    Expkronprod = KroneckerProduct(ExpD1, ExpD2)
+    Kronsum = KroneckerSum(D1, D2)
+    np.allclose(np.diag(Expkronprod.todense().mat), np.exp(np.diag(Kronsum.todense().mat)))
