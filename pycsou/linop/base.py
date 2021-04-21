@@ -950,12 +950,18 @@ class KhatriRaoProduct(LinearOperator):
             dtype=self.linop1.dtype)
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
-        return self.linop2.apply_along_axis(self.linop1.apply_along_axis(np.diag(x), axis=0).transpose(), axis=0).flatten()
+        if self.is_explicit:
+            return self.linop2.multiply(x[None, :]).dot(self.linop1.mat.transpose())
+        else:
+            return self.linop2.apply_along_axis(self.linop1.apply_along_axis(np.diag(x), axis=0).transpose(), axis=0).flatten()
 
     def adjoint(self, y: np.ndarray) -> np.ndarray:
         Y = y.reshape((self.linop2.shape[0], self.linop1.shape[0]))
-        return np.diag(
-            self.linop2.H.apply_along_axis(self.linop1.H.apply_along_axis(Y.transpose(), axis=0).transpose(), axis=0)).flatten()
+        if self.is_explicit:
+            return self.linop1.mat.transpose().conj().dot(Y.transpose()).transpose().multiply(self.linop2.mat.conj()).sum(axis=0)
+        else:
+            return np.diag(
+                self.linop2.H.apply_along_axis(self.linop1.H.apply_along_axis(Y.transpose(), axis=0).transpose(), axis=0)).flatten()
 
 
 if __name__ == '__main__':
