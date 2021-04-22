@@ -12,6 +12,7 @@ Repository of common penalty functionals.
 from pycsou.core.functional import DifferentiableFunctional, ProximableFunctional
 from pycsou.func.base import IndicatorFunctional, LpNorm
 from pycsou.linop.base import DenseLinearOperator
+from pycsou.core import LinearOperator
 from pycsou.math.prox import soft, proj_l1_ball, proj_l2_ball, proj_linfty_ball, proj_nonnegative_orthant, proj_segment
 from typing import Union
 from numbers import Number
@@ -475,6 +476,7 @@ def LInftyBall(dim: int, radius: Number) -> IndicatorFunctional:
     projection_func = lambda x: proj_linfty_ball(x, radius=radius)
     return IndicatorFunctional(dim=dim, condition_func=condition_func, projection_func=projection_func)
 
+
 class L21Norm(ProximableFunctional):
     r"""
     :math:`\ell_{2,1}`-norm, :math:`\Vert\mathbf{x}\Vert_{2,1}:=\sum_{g=1}^G \sqrt{ \sum_{i\in\mathcal{G}_g} |x_i|^2}\,.`
@@ -519,8 +521,9 @@ class L21Norm(ProximableFunctional):
     --------
     :py:func:`~pycsou.func.loss.L2Norm`, :py:class:`~pycsou.func.penalty.SquaredL2Norm`, :py:func:`~pycsou.func.penalty.L1Norm`.
     """
-    def __new__(cls, dim: int, groups: Union[np.ndarray,None] = None):
-        if np.all( groups == None ) or np.unique(groups).size == dim:
+
+    def __new__(cls, dim: int, groups: Union[np.ndarray, None] = None):
+        if np.all(groups == None) or np.unique(groups).size == dim:
             return L1Norm(dim=dim)
         if np.unique(groups).size == 1:
             return L2Norm(dim=dim)
@@ -543,18 +546,19 @@ class L21Norm(ProximableFunctional):
         super(L21Norm, self).__init__(dim=dim, data=None, is_differentiable=False, is_linear=False)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Number:
-        return np.sum(np.array([self.__L2_norm_in_group(x,group_id) for group_id in self.groups_idxs]))
+        return np.sum(np.array([self.__L2_norm_in_group(x, group_id) for group_id in self.groups_idxs]))
 
     def prox(self, x: Union[Number, np.ndarray], tau: Number) -> Union[Number, np.ndarray]:
         y = np.empty_like(x)
-        group_norms = np.array([self.__L2_norm_in_group(x,group_id) for group_id in self.groups_idxs])
-        normalizations = np.clip( 1 - tau / group_norms, a_min = 0, a_max = None )
+        group_norms = np.array([self.__L2_norm_in_group(x, group_id) for group_id in self.groups_idxs])
+        normalizations = np.clip(1 - tau / group_norms, a_min=0, a_max=None)
         for idx, group_idx in enumerate(self.groups_idxs):
-            y[self.groups==group_idx] = normalizations[idx] * x[self.groups==group_idx]
+            y[self.groups == group_idx] = normalizations[idx] * x[self.groups == group_idx]
         return y
 
     def __L2_norm_in_group(self, x: np.ndarray, group_idx: Number) -> Number:
-        return np.linalg.norm(x[self.groups==group_idx])
+        return np.linalg.norm(x[self.groups == group_idx])
+
 
 def NonNegativeOrthant(dim: int) -> IndicatorFunctional:
     r"""
@@ -916,3 +920,17 @@ class ShannonEntropy(ProximableFunctional):
         """
         from scipy.special import lambertw
         return np.real(tau * lambertw(np.exp(-1 + (x / tau)) / tau, k=0))
+
+
+class QuadraticForm(DifferentiableFunctional):
+
+    def __init__(self, dim: int, linop: LinearOperator):
+        self.linop=linop
+        super(QuadraticForm, self).__init__(dim=dim, data=None, is_linear=False,
+                                            diff_lipschitz_cst=2 * linop.diff_lipschitz_cst)
+
+    def __call__(self, x: Union[Number, np.ndarray]) -> Number:
+        return np.dot(x.conj(), self.linop * x)
+
+    def jacobianT(self, x:  Union[Number, np.ndarray]) -> np.ndarray:
+        return 2 * self.linop * x
