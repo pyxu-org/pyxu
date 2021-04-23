@@ -861,7 +861,7 @@ class DiffMapStack(MapStack, DifferentiableMap):
          (\mathbf{x}_1,\ldots, \mathbf{x}_k)\mapsto \sum_{i=1}^k L_i \mathbf{x}_i.
          \end{cases}
 
-      has a Lipschitz constant bounded by :math:`\sqrt{\sum_{i=1}^k \beta_i^2}`. Moreover the Jacobian matrix of :math:`H` is obtained by stacking the individual Jacobian matrices horizontally:
+      has a Lipschitz constant bounded by :math:`\max_{i=1}^k \beta_i`. Moreover the Jacobian matrix of :math:`H` is obtained by stacking the individual Jacobian matrices horizontally:
 
       .. math::
 
@@ -924,8 +924,14 @@ class DiffMapStack(MapStack, DifferentiableMap):
 
         """
         MapStack.__init__(self, *diffmaps, axis=axis, n_jobs=n_jobs, joblib_backend=joblib_backend)
-        lipschitz_cst = np.sqrt(np.sum([diffmap.lipschitz_cst ** 2 for diffmap in self.maps]))
-        diff_lipschitz_cst = np.sqrt(np.sum([diffmap.diff_lipschitz_cst ** 2 for diffmap in self.maps]))
+
+        if axis == 0:
+            lipschitz_cst = np.sqrt(np.sum([diffmap.lipschitz_cst ** 2 for diffmap in self.maps]))
+            diff_lipschitz_cst = np.sqrt(np.sum([diffmap.diff_lipschitz_cst ** 2 for diffmap in self.maps]))
+        else:
+            lipschitz_cst = np.max([diffmap.lipschitz_cst for diffmap in self.maps])
+            diff_lipschitz_cst = np.max([diffmap.diff_lipschitz_cst for diffmap in self.maps])
+
         DifferentiableMap.__init__(self, shape=self.shape, is_linear=self.is_linear, lipschitz_cst=lipschitz_cst,
                                    diff_lipschitz_cst=diff_lipschitz_cst)
 

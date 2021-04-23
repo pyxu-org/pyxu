@@ -5,7 +5,7 @@
 # #############################################################################
 
 r"""
-Interface classes for constructing linear operators.
+Classes for constructing linear operators.
 """
 
 from numbers import Number
@@ -27,7 +27,7 @@ class PyLopLinearOperator(LinearOperator):
     """
 
     def __init__(self, PyLop: pylops.LinearOperator, is_symmetric: bool = False, is_dense: bool = False,
-                 is_sparse: bool = False):
+                 is_sparse: bool = False, lipschitz_cst: float = np.infty):
         r"""
         Parameters
         ----------
@@ -39,10 +39,12 @@ class PyLopLinearOperator(LinearOperator):
             If  ``True``, the linear operator is specified explicitly in terms of a Numpy array.
         is_sparse: bool
             If  ``True``, the linear operator is specified explicitly in terms of a Scipy sparse matrix.
+        lipschitz_cst: float
+            Lipschitz constant of the operator.
         """
         super(PyLopLinearOperator, self).__init__(shape=PyLop.shape, dtype=PyLop.dtype, is_explicit=PyLop.explicit,
                                                   is_dense=is_dense, is_sparse=is_sparse, is_dask=False,
-                                                  is_symmetric=is_symmetric)
+                                                  is_symmetric=is_symmetric, lipschitz_cst=lipschitz_cst)
         self.Op = PyLop
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
@@ -175,6 +177,7 @@ class LinOpStack(LinearOperator, DiffMapStack):
 
          V^\ast(\mathbf{y}_1, \ldots, \mathbf{y}_k)=\sum_{i=1}^k L_i^\ast \mathbf{y}_i, \quad \forall (\mathbf{y}_1, \ldots, \mathbf{y}_k)\in \mathbb{R}^{M_1}\times \cdots \times\mathbb{R}^{M_k}.
 
+      The Lipschitz constant of the vertically stacked operator can be bounded by :math:`\sqrt{\sum_{i=1}^k \|L_i\|_2^2}`.
 
 
     - **Horizontal stacking**: Consider a collection :math:`\{L_i:\mathbb{R}^{N_i}\to \mathbb{R}^{M}, i=1,\ldots, k\}`
@@ -191,6 +194,8 @@ class LinOpStack(LinearOperator, DiffMapStack):
       .. math::
 
          H^\ast(\mathbf{y})=(L_1^\ast \mathbf{y},\ldots, L_k^\ast \mathbf{y}) \quad \forall \mathbf{y}\in \mathbb{R}^{M}.
+
+      The Lipschitz constant of the horizontally stacked operator can be bounded by :math:`{\max_{i=1}^k \|L_i\|_2}`.
 
     Examples
     --------
@@ -426,6 +431,8 @@ def BlockOperator(linops: List[List[LinearOperator]], n_jobs: int = 1) -> PyLopL
             \mathbf{L_{N,M}}^\ast \mathbf{y}_{N} \\
         \end{bmatrix}
 
+    The Lipschitz constant of the block operator can be bounded by :math:`\max_{j=1}^M\sqrt{\sum_{i=1}^N \|\mathbf{L}_{i,j}\|_2^2}`.
+
 
     Warnings
     --------
@@ -436,9 +443,11 @@ def BlockOperator(linops: List[List[LinearOperator]], n_jobs: int = 1) -> PyLopL
     --------
     :py:class:`~pycsou.linop.base.BlockDiagonalOperator`, :py:class:`~pycsou.linop.base.LinOpStack`
     """
-    linops = [[linop.PyLop for linop in linops_line] for linops_line in linops]
-    block = pylops.Block(ops=linops)
-    return PyLopLinearOperator(block)
+    pylinops = [[linop.PyLop for linop in linops_line] for linops_line in linops]
+    lipschitz_csts = [[linop.lipschitz_cst for linop in linops_line] for linops_line in linops]
+    lipschitz_cst = np.max(np.linalg.norm(lipschitz_csts, axis=0))
+    block = pylops.Block(ops=pylinops)
+    return PyLopLinearOperator(block, lipschitz_cst=lipschitz_cst)
 
 
 def BlockDiagonalOperator(*linops: LinearOperator, n_jobs: int = 1) -> PyLopLinearOperator:
@@ -522,6 +531,7 @@ def BlockDiagonalOperator(*linops: LinearOperator, n_jobs: int = 1) -> PyLopLine
             \mathbf{L_N}^\ast \mathbf{y}_{N}
         \end{bmatrix}
 
+    The Lipschitz constant of the block-diagonal operator can be bounded by :math:`{\max_{i=1}^N \|\mathbf{L}_{i}\|_2}`.
 
     Warnings
     --------
@@ -532,9 +542,10 @@ def BlockDiagonalOperator(*linops: LinearOperator, n_jobs: int = 1) -> PyLopLine
     --------
     :py:class:`~pycsou.linop.base.BlockOperator`, :py:class:`~pycsou.linop.base.LinOpStack`
     """
-    linops = [linop.PyLop for linop in linops]
-    block_diag = pylops.BlockDiag(ops=linops)
-    return PyLopLinearOperator(block_diag)
+    pylinops = [linop.PyLop for linop in linops]
+    lipschitz_cst = np.array([linop.lipschitz_cst for linop in linops]).max()
+    block_diag = pylops.BlockDiag(ops=pylinops)
+    return PyLopLinearOperator(block_diag, lipschitz_cst=lipschitz_cst)
 
 
 class DiagonalOperator(LinearOperator):
@@ -839,6 +850,9 @@ class KroneckerSum(LinearOperator):
     Such operations are leveraged to implement the linear operator in matrix-free form (i.e. the matrix :math:`\mathbf{A} \oplus \mathbf{B}` is not explicitely constructed)
     both in forward and adjoint mode.
 
+    The Lipschitz constant of the Kronecker sum can be bounded by :math:`\|\mathbf{A}\|_2+ \|\mathbf{B}\|_2`.
+
+
     See Also
     --------
     :py:class:`~pycsou.linop.base.KroneckerSum`, :py:class:`~pycsou.linop.base.KhatriRaoProduct`
@@ -921,6 +935,8 @@ class KhatriRaoProduct(LinearOperator):
     Such operations are leveraged to implement the linear operator in matrix-free form (i.e. the matrix :math:`\mathbf{A} \circ \mathbf{B}` is not explicitely constructed)
     both in forward and adjoint mode.
 
+    The Lipschitz constant of the Khatri-Rao product can be bounded by :math:`\|\mathbf{A}\|_2\|\mathbf{B}\|_2`.
+
     See Also
     --------
     :py:class:`~pycsou.linop.base.KroneckerProduct`, :py:class:`~pycsou.linop.base.KroneckerSum`
@@ -947,7 +963,7 @@ class KhatriRaoProduct(LinearOperator):
         self.linop2 = linop2
         super(KhatriRaoProduct, self).__init__(
             shape=(self.linop2.shape[0] * self.linop1.shape[0], self.linop2.shape[1]),
-            dtype=self.linop1.dtype)
+            dtype=self.linop1.dtype, lipschitz_cst=self.linop1.lipschitz_cst * self.linop2.lipschitz_cst)
 
     def __call__(self, x: np.ndarray) -> np.ndarray:
         if self.linop1.is_dense and self.linop2.is_dense:
@@ -974,14 +990,10 @@ class KhatriRaoProduct(LinearOperator):
 
 
 if __name__ == '__main__':
-    from pycsou.linop.base import KroneckerProduct, KroneckerSum, DiagonalOperator
+    from pycsou.linop.base import BlockDiagonalOperator
+    from pycsou.linop.diff import SecondDerivative
 
-    m1 = np.linspace(0, 3, 5)
-    m2 = np.linspace(-3, 2, 7)
-    D1 = DiagonalOperator(diag=m1)
-    ExpD1 = DiagonalOperator(diag=np.exp(m1))
-    D2 = DiagonalOperator(diag=m2)
-    ExpD2 = DiagonalOperator(diag=np.exp(m2))
-    Expkronprod = KroneckerProduct(ExpD1, ExpD2)
-    Kronsum = KroneckerSum(D1, D2)
-    np.allclose(np.diag(Expkronprod.todense().mat), np.exp(np.diag(Kronsum.todense().mat)))
+    Nv, Nh = 11, 21
+    D2hop = SecondDerivative(size=Nv * Nh, shape=(Nv, Nh), axis=1)
+    D2vop = SecondDerivative(size=Nv * Nh, shape=(Nv, Nh), axis=0)
+    Dblockdiag = BlockDiagonalOperator(D2vop, 0.5 * D2vop, -1 * D2hop)

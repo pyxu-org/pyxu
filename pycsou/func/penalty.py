@@ -944,7 +944,7 @@ class QuadraticForm(DifferentiableFunctional):
         >>> x = np.arange(10)
         >>> np.allclose(F(x), np.dot(x, Lop @ x))
         True
-        >>> np.allclose(F.gradient(x), 2 * Lop @ x))
+        >>> np.allclose(F.gradient(x), 2 * Lop @ x)
         True
 
     Notes
