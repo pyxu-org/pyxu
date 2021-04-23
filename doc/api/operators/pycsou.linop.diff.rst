@@ -1,6 +1,8 @@
 ﻿Differential Operators
 ======================
 
+Module: ``pycsou.linop.diff``
+
 .. automodule:: pycsou.linop.diff
    :special-members: __init__
    

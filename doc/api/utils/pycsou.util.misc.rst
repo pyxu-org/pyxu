@@ -1,6 +1,8 @@
 Miscellaneous
 =============
 
+Module: ``pycsou.util.misc``
+
 Miscellaneous functions.
 
 .. automodule:: pycsou.util.misc

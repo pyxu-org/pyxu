@@ -5,9 +5,7 @@
 # #############################################################################
 
 r"""
-Optimisation algorithms.
-
-This module provides various proximal algorithms for convex optimisation.
+This module provides the base class for iterative algorithms.
 """
 
 from pycsou.core.map import Map

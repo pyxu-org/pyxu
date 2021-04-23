@@ -1,6 +1,8 @@
 Abstract Classes
 ================
 
+Module: ``pycsou.core``
+
 Abstract classes for maps, linear operators, functionals and iterative algorithms.
 
 .. autosummary::

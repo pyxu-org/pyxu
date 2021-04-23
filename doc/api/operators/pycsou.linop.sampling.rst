@@ -1,6 +1,9 @@
 ﻿Sampling Operators
 ==================
 
+Module: ``pycsou.linop.sampling``
+
+
 .. automodule:: pycsou.linop.sampling
    :special-members: __init__
    

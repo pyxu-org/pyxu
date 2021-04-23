@@ -1,31 +1,16 @@
 ﻿Constructors
 ============
 
-Classes for constructing functionals.
-
-.. currentmodule:: pycsou.func.base
-
-.. autosummary:: 
-
-   ProxFuncHStack
-   LpNorm
-   IndicatorFunctional
-   NullDifferentiableFunctional
-   NullProximableFunctional
+Module: ``pycsou.func.base``
 
 
-.. autoclass:: ProxFuncHStack
+.. automodule:: pycsou.func.base
    :special-members: __init__
 
-.. autoclass:: LpNorm
-   :special-members: __init__
+   .. autosummary::
 
-.. autoclass:: IndicatorFunctional
-   :special-members: __init__
-
-.. autoclass:: NullDifferentiableFunctional
-   :special-members: __init__
-
-.. autoclass:: NullProximableFunctional
-   :special-members: __init__
-
+       ProxFuncHStack
+       LpNorm
+       IndicatorFunctional
+       NullDifferentiableFunctional
+       NullProximableFunctional

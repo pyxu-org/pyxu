@@ -3,6 +3,8 @@
 Linear Operators
 ================
 
+Module: ``pycsou.linop``
+
 .. autosummary::
    :toctree:
 

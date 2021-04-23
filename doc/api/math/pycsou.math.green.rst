@@ -1,6 +1,8 @@
 ﻿Green Functions
 ===============
 
+Module: ``pycsou.math.green``
+
 .. automodule:: pycsou.math.green
    :special-members: __init__
 

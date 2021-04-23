@@ -3,7 +3,7 @@
 Proximal Algorithms
 ===================
 
-Proximal algorithms for convex optimisation. 
+Module: ``pycsou.opt.proxalgs``
 
 .. automodule:: pycsou.opt.proxalgs
    :special-members: __init__

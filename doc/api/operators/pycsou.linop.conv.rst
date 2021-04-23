@@ -1,6 +1,8 @@
 ﻿Convolution Operators
 =====================
 
+Module: ``pycsou.linop.conv``
+
 .. automodule:: pycsou.linop.conv
    :special-members: __init__, __call__
 

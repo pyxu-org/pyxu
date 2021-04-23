@@ -3,6 +3,8 @@
 Cost Functionals
 ================
 
+Module: ``pycsou.func``
+
 .. autosummary::
    :toctree:
 

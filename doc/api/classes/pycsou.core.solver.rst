@@ -1,7 +1,7 @@
 ﻿Algorithms
 ==========
 
-Base class for iterative algorithms. 
+Module: ``pycsou.core.solver``
 
 .. automodule:: pycsou.core.solver
    :special-members: __init__

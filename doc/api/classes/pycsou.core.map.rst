@@ -1,6 +1,8 @@
 ﻿Multidimensional Maps
 =====================
 
+Module: ``pycsou.core.map``
+
 Abstract classes for multidimensional (potentially nonlinear) maps.
 
 .. currentmodule:: pycsou.core.map

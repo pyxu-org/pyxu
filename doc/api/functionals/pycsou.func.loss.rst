@@ -3,14 +3,16 @@
 Loss Functionals
 ================
 
+Module: ``pycsou.func.loss``
+
 .. automodule:: pycsou.func.loss
    :special-members: __init__, __call__
-   
-   
-   
 
-   
-   
+
+
+
+
+
    .. rubric:: Distances
 
    .. autosummary::

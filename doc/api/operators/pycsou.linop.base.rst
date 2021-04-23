@@ -1,7 +1,7 @@
 ﻿Constructors
 ============
 
-Classes for constructing linear operators.
+Module: ``pycsou.linop.base``
 
 .. automodule:: pycsou.linop.base
    :special-members: __init__

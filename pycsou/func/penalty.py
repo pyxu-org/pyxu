@@ -14,7 +14,7 @@ from pycsou.func.base import IndicatorFunctional, LpNorm
 from pycsou.linop.base import DenseLinearOperator
 from pycsou.core import LinearOperator
 from pycsou.math.prox import soft, proj_l1_ball, proj_l2_ball, proj_linfty_ball, proj_nonnegative_orthant, proj_segment
-from typing import Union
+from typing import Union, Optional
 from numbers import Number
 import numpy as np
 import scipy.optimize as sciop
@@ -923,14 +923,68 @@ class ShannonEntropy(ProximableFunctional):
 
 
 class QuadraticForm(DifferentiableFunctional):
+    r"""
+    Quadratic form :math:`\mathbf{x}^\ast \mathbf{L} \mathbf{x}`.
 
-    def __init__(self, dim: int, linop: LinearOperator):
-        self.linop=linop
+    Examples
+    --------
+    .. testsetup::
+
+        import numpy as np
+        from pycsou.linop import DenseLinearOperator
+        from pycsou.func.penalty import QuadraticForm
+
+    .. doctest::
+
+        >>> rng = np.random.default_rng(0)
+        >>> L =  rng.standard_normal(100).reshape(10,10)
+        >>> L = L.transpose() @ L #make definite positive
+        >>> Lop = DenseLinearOperator(L)
+        >>> F = QuadraticForm(dim=10,linop=Lop)
+        >>> x = np.arange(10)
+        >>> np.allclose(F(x), np.dot(x, Lop @ x))
+        True
+        >>> np.allclose(F.gradient(x), 2 * Lop @ x))
+        True
+
+    Notes
+    -----
+    The quadratic form is defined as the functional :math:`F:\mathbb{R}^n\to \mathbb{R}, \; \mathbf{x}\mapsto \mathbf{x}^\ast \mathbf{L}\mathbf{x}`
+    for some *positive semi-definite* linear operator :math:`\mathbf{L}:\mathbb{R}^n\to \mathbb{R}^n`.
+    Its gradient is given by :math:`\nabla F(\mathbf{x})=2 \mathbf{L}\mathbf{x}.` The latter is :math:`\beta`-Lipschitz continuous with
+    :math:`\beta=2\|\mathbf{L}\|_2.`
+
+    See Also
+    --------
+    :py:func:`~pycsou.func.penalty.SquaredL2Norm`
+    """
+
+    def __init__(self, dim: int, linop: Optional[LinearOperator] = None):
+        r"""
+
+        Parameters
+        ----------
+        dim: int
+            Dimension of the domain.
+        linop: LinearOperator
+            Positive semi-definite operator defining the quadratic form. If ``None`` the identity operator is assumed.
+        """
+        self.linop = linop
+        if self.linop is None:
+            diff_lipschitz_cst = 2
+        else:
+            diff_lipschitz_cst = 2 * linop.diff_lipschitz_cst
         super(QuadraticForm, self).__init__(dim=dim, data=None, is_linear=False,
-                                            diff_lipschitz_cst=2 * linop.diff_lipschitz_cst)
+                                            diff_lipschitz_cst=diff_lipschitz_cst)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Number:
-        return np.dot(x.conj(), self.linop * x)
+        if self.linop is None:
+            return np.dot(x.conj(), x)
+        else:
+            return np.dot(x.conj(), self.linop * x)
 
-    def jacobianT(self, x:  Union[Number, np.ndarray]) -> np.ndarray:
-        return 2 * self.linop * x
+    def jacobianT(self, x: Union[Number, np.ndarray]) -> np.ndarray:
+        if self.linop is None:
+            return 2 * x
+        else:
+            return 2 * self.linop * x

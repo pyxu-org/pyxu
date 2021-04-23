@@ -1,6 +1,8 @@
 ﻿Proximal Operators
 ==================
 
+Module: ``pycsou.math.prox``
+
 .. automodule:: pycsou.math.prox
 
    

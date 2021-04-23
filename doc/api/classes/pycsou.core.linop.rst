@@ -1,14 +1,11 @@
 ﻿Linear Operators
 ================
 
-Abstract classes for multidimensional linear operators.
+Module: ``pycsou.core.linop``
 
-.. currentmodule:: pycsou.core.linop
-
-.. autosummary:: 
-
-   LinearOperator
-   
-
-.. autoclass:: pycsou.core.linop.LinearOperator
+.. automodule:: pycsou.core.linop
    :special-members: __init__
+
+   .. autosummary::
+
+        LinearOperator

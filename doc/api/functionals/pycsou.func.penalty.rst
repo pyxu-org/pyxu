@@ -3,6 +3,8 @@
 Penalty Functionals
 ===================
 
+Module: ``pycsou.func.penalty``
+
 .. automodule:: pycsou.func.penalty
    :special-members: __init__, __call__
    
@@ -21,6 +23,7 @@ Penalty Functionals
       SquaredL2Norm
       LInftyNorm
       L21Norm
+      QuadraticForm
 
    .. rubric:: Balls
 

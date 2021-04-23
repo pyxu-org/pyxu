@@ -1,23 +1,13 @@
 ﻿Functionals
 ===========
 
-Abstract classes for functionals.
+Module: ``pycsou.core.functional``
 
-.. currentmodule:: pycsou.core.functional
-
-.. autosummary:: 
-
-   Functional
-   DifferentiableFunctional
-   ProximableFunctional
-
-
-.. autoclass:: pycsou.core.functional.Functional
+.. automodule:: pycsou.core.functional
    :special-members: __init__
 
+   .. autosummary::
 
-.. autoclass:: pycsou.core.functional.DifferentiableFunctional
-   :special-members: __init__
-
-.. autoclass:: pycsou.core.functional.ProximableFunctional
-   :special-members: __init__
+        Functional
+        DifferentiableFunctional
+        ProximableFunctional
