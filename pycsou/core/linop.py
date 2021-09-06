@@ -431,13 +431,13 @@ class LinearOperator(DifferentiableMap):
 
     @property
     def RowProjector(self):
-        r"""Orthogonal projection operator onto the rows of ``self``. It is given by ``self * self.dagger``."""
-        return SymmetricLinearOperator(self * self.dagger)
+        r"""Orthogonal projection operator onto the rows of ``self``. It is given by ``self.dagger * self``."""
+        return SymmetricLinearOperator(self.dagger * self)
 
     @property
     def ColProjector(self):
-        r"""Orthogonal projection operator onto the columns of ``self``. It is given by ``self.dagger * self``."""
-        return SymmetricLinearOperator(self.dagger * self)
+        r"""Orthogonal projection operator onto the columns of ``self``. It is given by ``self * self.dagger``."""
+        return SymmetricLinearOperator(self * self.dagger)
 
     def __add__(self, other: Union['Map', 'DifferentiableMap', 'LinearOperator', np.ndarray]) -> Union[
         'MapSum', 'DiffMapSum', 'LinOpSum']:
