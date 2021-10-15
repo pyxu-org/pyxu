@@ -1,9 +1,9 @@
 import numpy as np
-import typing as ty
+import typing as typ
 
 
-def broadcasted_sum(shape1: ty.Tuple[int, ...], shape2: ty.Tuple[int, ...]) -> ty.Tuple[
-    bool, ty.Optional[ty.Tuple[int, ...]]]:
+def broadcasted_sum(shape1: typ.Tuple[int, ...], shape2: typ.Tuple[int, ...]) -> typ.Tuple[
+    bool, typ.Union[typ.Tuple[int, ...], None]]:
     valid_shapes = True
     try:
         arr1 = np.zeros(shape1)
@@ -16,8 +16,8 @@ def broadcasted_sum(shape1: ty.Tuple[int, ...], shape2: ty.Tuple[int, ...]) -> t
     return valid_shapes, output_shape
 
 
-def broadcasted_matmul(shape1: ty.Tuple[int, ...], shape2: ty.Tuple[int, ...]) -> ty.Tuple[
-    bool, ty.Optional[ty.Tuple[int, ...]]]:
+def broadcasted_matmul(shape1: typ.Tuple[int, ...], shape2: typ.Tuple[int, ...]) -> typ.Tuple[
+    bool, typ.Union[typ.Tuple[int, ...], None]]:
     valid_shapes = True
     try:
         arr1 = np.zeros(shape1)
