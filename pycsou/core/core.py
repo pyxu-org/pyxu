@@ -9,7 +9,8 @@ NDArray = npt.ArrayLike
 
 class Property:
     _property_list = frozenset(
-        ('apply', '_lipschitz', 'jacobianT', '_diff_lipschitz', 'single_valued', 'prox', 'adjoint')) # add ndapply change as static method
+        ("apply", "_lipschitz", "jacobianT", "_diff_lipschitz", "single_valued", "prox", "adjoint")
+    )  # add ndapply change as static method
 
     @classmethod
     def properties(cls) -> typ.Set[str]:
@@ -20,89 +21,88 @@ class Property:
     def has(cls, prop: typ.Tuple[str, ...]) -> bool:
         return set(prop) <= cls.properties()
 
-    def __add__(self: typ.Union['Map', 'DiffMap', 'DiffFunc', 'ProxFunc', 'LinOp'],
-                other: typ.Union['Map', 'DiffMap', 'DiffFunc', 'ProxFunc', 'LinOp']) \
-            -> typ.Union['Map', 'DiffMap', 'DiffFunc', 'LinOp']:
+    def __add__(
+        self: typ.Union["Map", "DiffMap", "DiffFunc", "ProxFunc", "LinOp"],
+        other: typ.Union["Map", "DiffMap", "DiffFunc", "ProxFunc", "LinOp"],
+    ) -> typ.Union["Map", "DiffMap", "DiffFunc", "LinOp"]:
         if not isinstance(other, Map):
-            raise NotImplementedError('Cannot add together the two objects.')
+            raise NotImplementedError("Cannot add together the two objects.")
         valid_shapes, out_shape = pycutil.broadcasted_sum(self.shape, other.shape)  # np.broadcast_shapes
         if not valid_shapes:
-            raise ValueError('Cannot sum two maps with inconsistent shapes.')
+            raise ValueError("Cannot sum two maps with inconsistent shapes.")
         shared_props = self.properties() & other.properties()
-        shared_props.discard('prox')
+        shared_props.discard("prox")
         for Op in _base_operators:
             if Op.properties() == shared_props:
                 break
         if Op == LinOp:
-            shared_props.discard('jacobianT')
-        shared_props.discard('single_valued')
+            shared_props.discard("jacobianT")
+        shared_props.discard("single_valued")
         out_op = Op(out_shape)
         for prop in shared_props:
-            if prop in ['_lispchitz', '_diff_lipschitz']:
+            if prop in ["_lispchitz", "_diff_lipschitz"]:
                 setattr(out_op, prop, getattr(self, prop) + getattr(other, prop))
             else:
 
-                def composite_method(obj, arr: NDArray) -> typ.Union[NDArray, 'LinOp']:
+                def composite_method(obj, arr: NDArray) -> typ.Union[NDArray, "LinOp"]:
                     return getattr(self, prop)(arr) + getattr(other, prop)(arr)
 
                 setattr(out_op, prop, types.MethodType(composite_method, out_op))
         return out_op.squeeze()
 
-    def __mul__(self, other: 'Map') -> 'Map':
+    def __mul__(self, other: "Map") -> "Map":
         if not isinstance(other, Map):
             try:
                 out_op = self.__class__(self.shape)
                 properties = out_op.properties()
-                properties.discard('single_valued')
+                properties.discard("single_valued")
                 if isinstance(out_op, LinOp):
-                    properties.discard('jacobianT')
+                    properties.discard("jacobianT")
                 sself = self
                 for prop in properties:
-                    if prop == 'prox':
+                    if prop == "prox":
 
                         def postcomp_prox(self, arr, tau):
                             return sself.prox(arr, tau * other)
 
                         out_op.prox = types.MethodType(postcomp_prox, out_op)
-                    elif prop in ['_lispchitz', '_diff_lipschitz']:
+                    elif prop in ["_lispchitz", "_diff_lipschitz"]:
                         setattr(out_op, prop, other * getattr(self, prop))
                     else:
 
-                        def composite_method(self, arr: NDArray) -> typ.Union[NDArray, 'LinOp']:
+                        def composite_method(self, arr: NDArray) -> typ.Union[NDArray, "LinOp"]:
                             return other * getattr(sself, prop)(arr)
 
                         setattr(out_op, prop, types.MethodType(composite_method, out_op))
 
             except ValueError:
-                raise ValueError('Cannot add together the two objects.')
+                raise ValueError("Cannot add together the two objects.")
         else:
             pass
         return out_op.squeeze()
 
-    def __rmul__(self, other: 'Map') -> 'Map':
+    def __rmul__(self, other: "Map") -> "Map":
         pass
 
-    def __pow__(self, power: float) -> 'Map':
+    def __pow__(self, power: float) -> "Map":
         pass
 
-    def __neg__(self) -> 'Map':
+    def __neg__(self) -> "Map":
         pass
 
-    def argscale(self, scalar: typ.Union[float, 'UnitOp']) -> 'Map':
+    def argscale(self, scalar: typ.Union[float, "UnitOp"]) -> "Map":
         pass
 
-    def argshift(self, arr: NDArray) -> 'Map':
+    def argshift(self, arr: NDArray) -> "Map":
         pass
 
 
 class SingledValued(Property):
-
     def single_valued(self):
         return True
 
 
 class Apply(Property):
-
     def __call__(self, arr: NDArray) -> NDArray:
         return self.apply(arr)
 
@@ -117,16 +117,14 @@ class Apply(Property):
 
 
 class Differential(Property):
-
     def diff_lipschitz(self) -> float:
         raise NotImplementedError
 
-    def jacobianT(self, arr: NDArray) -> 'LinOp':
+    def jacobianT(self, arr: NDArray) -> "LinOp":
         raise NotImplementedError
 
 
 class Gradient(Differential):
-
     def jacobianT(self, arr: NDArray) -> NDArray:
         raise NotImplementedError
 
@@ -138,7 +136,6 @@ class Gradient(Differential):
 
 
 class Adjoint(Property):
-
     def adjoint(self, arr: NDArray) -> NDArray:
         raise NotImplementedError
 
@@ -147,7 +144,6 @@ class Adjoint(Property):
 
 
 class Proximal(Property):
-
     def prox(self, arr: NDArray, tau: float) -> NDArray:
         raise NotImplementedError
 
@@ -162,11 +158,11 @@ class Proximal(Property):
 
 
 class Map(Apply):
-
     def __init__(self, shape: typ.Tuple[int, int]):
         if len(shape) > 2:
             raise NotImplementedError(
-                'Shapes of map objects must be tuples of length 2 (tensorial maps not supported).')
+                "Shapes of map objects must be tuples of length 2 (tensorial maps not supported)."
+            )
         self._shape = shape
         self._lipschitz = np.infty
 
@@ -182,10 +178,10 @@ class Map(Apply):
     def codim(self):
         return self.shape[0]
 
-    def squeeze(self) -> typ.Union['Map', 'Func']:
+    def squeeze(self) -> typ.Union["Map", "Func"]:
         return self._squeeze(out=Func)
 
-    def _squeeze(self, out: type) -> typ.Union['Map', 'Func']:
+    def _squeeze(self, out: type) -> typ.Union["Map", "Func"]:
         if self.shape[0] == 1:
             obj = out(self.shape)
             for prop in self.properties():
@@ -197,17 +193,16 @@ class Map(Apply):
     def lipschitz(self) -> float:
         return self._lipschitz
 
-    def specialize(self, cast_to: typ.Optional['Map'] = None) -> 'Map':
+    def specialize(self, cast_to: typ.Optional["Map"] = None) -> "Map":
         pass
 
 
 class DiffMap(Map, Differential):
-
     def __init__(self, shape: typ.Tuple[int, int]):
         self._diff_lipschitz = np.infty
         super(DiffMap, self).__init__(shape)
 
-    def squeeze(self) -> typ.Union['DiffMap', 'DiffFunc']:
+    def squeeze(self) -> typ.Union["DiffMap", "DiffFunc"]:
         return self._squeeze(out=DiffFunc)
 
     def diff_lipschitz(self) -> float:
@@ -215,19 +210,17 @@ class DiffMap(Map, Differential):
 
 
 class Func(Map, SingledValued):
-
     def __init__(self, shape: typ.Union[int, typ.Tuple[int, ...]]):
         shape = tuple(shape)
         if len(shape) == 1:
             shape = (1,) + shape
         else:
             if shape[0] > 1:
-                raise ValueError('Functionals'' must be of the form (1,n).')
+                raise ValueError("Functionals" " must be of the form (1,n).")
         super(Func, self).__init__(shape)
 
 
 class ProxFunc(Func, Proximal):
-
     def __init__(self, shape: typ.Union[int, typ.Tuple[int, ...]]):
         super(ProxFunc, self).__init__(shape)
 
@@ -235,7 +228,7 @@ class ProxFunc(Func, Proximal):
         if isinstance(other, LinFunc):
             valid_shapes, out_shape = pycutil.broadcasted_sum(self.shape, other.shape)
             if not valid_shapes:
-                raise ValueError('Cannot sum two maps with inconsistent shapes.')
+                raise ValueError("Cannot sum two maps with inconsistent shapes.")
             f = ProxFunc(out_shape)
             f._lipschitz = self._lipschitz + other._lipschitz
             sself = self
@@ -250,31 +243,29 @@ class ProxFunc(Func, Proximal):
 
 
 class DiffFunc(Func, Gradient):
-
     def __init__(self, shape: typ.Union[int, typ.Tuple[int, ...]]):
         super(DiffFunc, self).__init__(shape)
 
 
 class LinOp(DiffMap, Adjoint):
-
     def __init__(self, shape: typ.Tuple[int, int]):
         super(LinOp, self).__init__(shape)
 
-    def squeeze(self) -> typ.Union['DiffMap', 'DiffFunc']:
+    def squeeze(self) -> typ.Union["DiffMap", "DiffFunc"]:
         return self._squeeze(out=LinFunc)
 
-    def jacobianT(self, arr: NDArray) -> 'LinOp':
+    def jacobianT(self, arr: NDArray) -> "LinOp":
         return self.H
 
     def transpose(self, arr: NDArray) -> NDArray:
         pass
 
     @property
-    def H(self) -> 'LinOp':
+    def H(self) -> "LinOp":
         pass
 
     @property
-    def T(self) -> 'LinOp':
+    def T(self) -> "LinOp":
         pass
 
     def svdvals(self, *args, **kwargs):
@@ -286,21 +277,20 @@ class LinOp(DiffMap, Adjoint):
     def __array__(self, dtype: type = np.float64) -> np.ndarray:
         return self.asarray(xp=np, dtype=dtype)
 
-    def gram(self) -> 'LinOp':
+    def gram(self) -> "LinOp":
         pass
 
-    def cogram(self) -> 'LinOp':
+    def cogram(self) -> "LinOp":
         pass
 
     def pinv(self, arr: NDArray, **kwargs) -> NDArray:
         pass
 
-    def dagger(self, **kwargs) -> 'LinOp':
+    def dagger(self, **kwargs) -> "LinOp":
         pass
 
 
 class LinFunc(DiffFunc, LinOp):
-
     def __init__(self, shape: typ.Union[int, typ.Tuple[int, ...]]):
         super(LinFunc, self).__init__(shape)
 
@@ -309,7 +299,6 @@ class LinFunc(DiffFunc, LinOp):
 
 
 class NormalOp(LinOp):
-
     def eigvals(self, *args, **kwargs):
         pass
 
