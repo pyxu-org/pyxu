@@ -9,7 +9,7 @@ NDArray = npt.ArrayLike
 
 class Property:
     _property_list = frozenset(
-        ('apply', '_lipschitz', 'jacobianT', '_diff_lipschitz', 'single_valued', 'prox', 'adjoint'))
+        ('apply', '_lipschitz', 'jacobianT', '_diff_lipschitz', 'single_valued', 'prox', 'adjoint')) # add ndapply change as static method
 
     @classmethod
     def properties(cls) -> typ.Set[str]:

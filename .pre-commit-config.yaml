@@ -4,6 +4,6 @@ repos:
   rev: 21.9b0
   hooks:
   - id: black
-    args: ['--line-length', '100']
+    args: ['--line-length', '120']
     files: '.+\.py$'
     always_run: false
