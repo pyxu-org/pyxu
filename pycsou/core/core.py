@@ -1,10 +1,10 @@
-import numpy.typing as npt
 import numpy as np
 import typing as typ
 import types
 import pycsou.util as pycutil
+import pycsou.core
 
-NDArray = npt.ArrayLike
+NDArray = pycsou.core.NDArray
 
 
 class Property:
