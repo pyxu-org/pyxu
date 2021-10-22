@@ -2,9 +2,9 @@ import numpy as np
 import typing as typ
 import types
 import pycsou.util as pycutil
-import pycsou.core
+import pycsou.abc
 
-NDArray = pycsou.core.NDArray
+NDArray = pycsou.abc.NDArray
 
 
 class Property:
