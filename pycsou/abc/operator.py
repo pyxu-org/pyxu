@@ -1,9 +1,11 @@
-import numpy as np
-import typing as typ
 import types
-import pycsou.util as pycutil
+import typing as typ
+
+import numpy as np
+
 import pycsou.abc
 import numbers as nb
+import pycsou.util as pycutil
 
 NDArray = pycsou.abc.NDArray
 

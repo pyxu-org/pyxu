@@ -1,7 +1,8 @@
-import pycsou.abc.operator as pycop
-import pycsou.abc
 import numpy as np
 import typing as typ
+
+import pycsou.abc
+import pycsou.abc.operator as pycop
 
 NDArray = pycsou.abc.NDArray
 

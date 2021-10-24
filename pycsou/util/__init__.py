@@ -1,5 +1,6 @@
-import numpy as np
 import typing as typ
+
+import numpy as np
 
 
 def broadcast_sum_shapes(
