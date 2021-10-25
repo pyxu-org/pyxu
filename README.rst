@@ -38,11 +38,12 @@ Developper Install
 
 .. code-block:: bash
 
-   >> conda create -n pycsou --file=requirements-conda.txt
-   >> conda activate pycsou
-   >> git clone https://github.com/matthieumeo/pycsou && cd pyscou
-   >> pip install -e ".[dev]"
-   >> pre-commit install
+   $ conda create -n pycsou --file=conda/requirements.txt
+   $ conda activate pycsou
+   $ git clone https://github.com/matthieumeo/pycsou && cd pycsou
+   $ pip install -e ".[dev]"
+   $ pre-commit install
+   $ tox  # to run tests
 
 
 Cite
