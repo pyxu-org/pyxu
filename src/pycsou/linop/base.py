@@ -1,5 +1,6 @@
-import numpy as np
 import typing as typ
+
+import numpy as np
 
 import pycsou.abc
 import pycsou.abc.operator as pycop
