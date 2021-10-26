@@ -41,7 +41,7 @@ Developper Install
    >> conda create -n pycsou --file=requirements-conda.txt
    >> conda activate pycsou
    >> git clone https://github.com/matthieumeo/pycsou && cd pyscou
-   >> pip install -e .[dev]
+   >> pip install -e ".[dev]"
    >> pre-commit install
 
 
