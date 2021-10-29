@@ -149,12 +149,11 @@ class Property:
         if Op in [LinOp, DiffFunc, LinFunc]:
             props.discard("jacobian")
         props.discard("single_valued")
-        props.discard("prox")
-        for (
-            prop
-        ) in out_op.properties():  # ("apply", "_lipschitz", "jacobian", "_diff_lipschitz", "gradient", "adjoint")
+        for prop in out_op.properties():
             if prop in ["_lispchitz", "_diff_lipschitz"]:
                 setattr(out_op, prop, getattr(self, prop))
+            elif prop == "prox":
+                out_op.prox = types.MethodType(lambda obj, x, tau: self.prox(x + arr, tau) - arr, f)
             else:
 
                 def argshifted_method(obj, x: NDArray) -> typ.Union[NDArray, "LinOp"]:
@@ -307,12 +306,6 @@ class ProxFunc(Func, Proximal):
                 lambda obj, arr, tau: (1 / other._cst) * self.prox(other._cst * arr, tau * (other._cst) ** 2), f
             )
         return f.squeeze()
-
-    def argshift(self, arr: NDArray) -> "Map":
-        f = Property.argshift(self, arr)
-        f = f.specialize(cast_to=ProxFunc)
-        f.prox = types.MethodType(lambda obj, x, tau: self.prox(x + arr, tau) - arr, f)
-        return f
 
 
 class DiffFunc(Func, Gradient):
