@@ -1,5 +1,7 @@
+import collections.abc as cabc
 import typing as typ
 
+import dask.array as da
 import numpy as np
 
 
@@ -37,3 +39,47 @@ def broadcast_matmul_shapes(
     else:
         sh = sh + (shape1[-2], shape2[-1])
     return sh
+
+
+def get_array_module(x: cabc.Sequence[typ.Any], fallback: module = None) -> module:
+    """
+    Get the array namespace corresponding to a given object.
+
+    Parameters
+    ----------
+    x: cabc.Sequence[typ.Any]
+        Any object which is a NumPy/CuPy/Dask array, or that can be converted to one.
+    fallback: module
+        Fallback module if `x` is not a NumPy/CuPy/Dask array.
+        Default behaviour: raise error if fallback is required.
+
+    Returns
+    -------
+    namespace: module
+        The namespace to use to manipulate `x`, or `fallback`.
+    """
+
+    def infer_api(y):
+        if (t := type(y)) is np.ndarray:
+            return np
+        elif t is da.core.Array:
+            return da
+        else:
+            # At this point infer_api() should return `cupy` or `None`, with fallback on `None` if
+            # the former is unavailable.
+            try:
+                import cupy as cp
+
+                if t is cp.ndarray:
+                    return cp
+            except ImportError:
+                pass
+            finally:
+                return None
+
+    if xp := infer_api(x):
+        return xp
+    elif fallback is not None:
+        return fallback
+    else:
+        raise ValueError(f"Could not infer array API for {type(x)}.")
