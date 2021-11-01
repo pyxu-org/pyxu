@@ -145,9 +145,14 @@ class Property:
             raise ValueError("Argument [arr] must be of type NDArray.")
         if arr.shape[-1] != self.shape[-1]:
             raise ValueError(f"Invalid lag shape: {arr.shape[-1]} != {self.shape[-1]}")
-        out_op = self.__class__(shape=self.shape)
+        if isinstance(self, LinFunc):  # Shifting a linear map makes it an affine map.
+            out_op = DiffFunc(shape=self.shape)
+        elif isinstance(self, LinOp):  # Shifting a linear map makes it an affine map.
+            out_op = DiffMap(shape=self.shape)
+        else:
+            out_op = self.__class__(shape=self.shape)
         props = out_op.properties()
-        if Op in [LinOp, DiffFunc, LinFunc]:
+        if out_op == DiffFunc:
             props.discard("jacobian")
         props.discard("single_valued")
         for prop in out_op.properties():
