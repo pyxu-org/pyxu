@@ -2,6 +2,7 @@ Matthieu
 --------
 
 * nd arithmetic
+* add from_source() method for creating class objects by passing their abstract methods as arguments?
 
 
 

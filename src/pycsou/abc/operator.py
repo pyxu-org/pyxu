@@ -3,6 +3,7 @@ import types
 import typing as typ
 
 import numpy as np
+import scipy.sparse.linalg as splin
 
 import pycsou.abc
 import pycsou.util as pycutil
@@ -326,28 +327,97 @@ class LinOp(DiffMap, Adjoint):
 
     @property
     def T(self) -> "LinOp":
-        pass
+        adj = LinOp(shape=self.shape[::-1])
+        adj.apply = self.adjoint
+        adj.adjoint = self.apply
+        adj._lipschitz = self._lipschitz
+        return adj
 
-    def svdvals(self, *args, **kwargs):
-        pass
+    def to_scipy_operator(self, dtype: type = np.float64) -> splin.LinearOperator:  # Port to GPU too (cupyx.scipy)
+        def matmat(arr: NDArray) -> NDArray:
+            return self.apply(arr.transpose())
+
+        def rmatmat(arr: NDArray) -> NDArray:
+            return self.adjoint(arr.transpose())
+
+        return splin.LinearOperator(
+            shape=self.shape, matvec=self.apply, rmatvec=self.adjoint, matmat=matmat, rmatmat=rmatmat, dtype=dtype
+        )
+
+    def lipschitz(self, recompute: bool = False, dtype: type = np.float64, **kwargs):  # Add trace estimate
+        if (self._lipschitz == np.infty) or (recompute is True):
+            kwargs = kwargs.update(dict(k=1, which="LM", dtype=dtype))
+            self._lipschitz = self.svdvals(**kwargs)
+        else:
+            pass
+
+    def svdvals(
+        self, k: int, which="LM", dtype: type = np.float64, **kwargs
+    ) -> NDArray:  # Port to GPU too (cupyx.scipy)
+        kwargs = kwargs.update(dict(k=k, which=which, return_singular_vectors=False))
+        return splin.svds(self.to_scipy_operator(dtype), **kwargs)
 
     def asarray(self, xp: types.ModuleType = np, dtype: type = np.float64, **kwargs) -> NDArray:
-        pass
+        return self.apply(xp.eye(self.shape[1], dtype=dtype))
 
     def __array__(self, dtype: type = np.float64) -> np.ndarray:
         return self.asarray(xp=np, dtype=dtype)
 
     def gram(self) -> "LinOp":
-        pass
+        return self.T * self
 
     def cogram(self) -> "LinOp":
-        pass
+        return self * self.T
 
-    def pinv(self, arr: NDArray, **kwargs) -> NDArray:
-        pass
+    def pinv(
+        self, arr: NDArray, damp: typ.Optional[float] = None, verbose: Optional[int] = None, **kwargs
+    ) -> NDArray:  # Should we have a decorator that performs trivial vectorization like that for us?
+        if arr.ndim == 1:
+            return self._pinv(arr=arr, damp=damp, verbose=verbose, **kwargs)
+        else:
+            pinv1d = lambda x: self._pinv(arr=x, damp=damp, verbose=verbose, **kwargs)
+            return np.apply_along_axis(func1d=pinv1d, arr=arr, axis=-1)
 
-    def dagger(self, **kwargs) -> "LinOp":
-        pass
+    def _pinv(
+        self, arr: NDArray, damp: typ.Optional[float] = None, verbose: Optional[int] = None, **kwargs
+    ) -> NDArray:  # TODO: adapt to GPU too
+        """
+        The routines scipy.sparse.linalg.lsqr or scipy.sparse.linalg.lsmr offer the same functionality as this routine
+        but may converge faster when the operator is ill-conditioned and/or when there is no fast algorithm for self.gram()
+        (i.e. when self.gram() is trivially evaluated as the composition self.T * self). The latter are however not available
+        in matrix-free form on GPUs.
+        """
+        from pycsou.linop.base import IdentityOperator
+
+        b = self.adjoint(arr)
+        if damp is not None:
+            A = self.gram() + damp * IdentityOperator(shape=(self.shape[1], self.shape[1]))
+        else:
+            A = self.gram()
+        if "x0" not in kwargs:
+            kwargs["x0"] = 0 * arr
+        if "atol" not in kwargs:
+            kwargs["atol"] = 1e-16
+        if verbose is not None:
+
+            class CallBack:
+                def __init__(self, verbose: int, A: LinOp, b: NDArray):
+                    self.verbose = verbose
+                    self.n = 0
+                    self.A, self.b = A, b
+
+                def __call__(self, x: NDArray):
+                    if self.n % self.verbose == 0:
+                        print(f"Relative residual norm:{np.linalg.norm(self.b - self.A(x)) / np.linalg.norm(self.b)}")
+
+            kwargs = kwargs.update(dict(callback=CallBack(verbose, A, b)))
+        return splin.cg(A, b, **kwargs)[0]
+
+    def dagger(self, damp: typ.Optional[float] = None, **kwargs) -> "LinOp":
+        dagger = LinOp(self.shape[::-1])
+        dagger.apply = types.MethodType(lambda obj, x: self.pinv(x, damp, **kwargs), dagger)
+        dagger.adjoint = types.MethodType(lambda obj, x: self.T.pinv(x, damp, **kwargs), dagger)
+        return dagger
 
 
 class LinFunc(DiffFunc, LinOp):
@@ -368,8 +438,11 @@ class SquareOp(LinOp):
 
 
 class NormalOp(SquareOp):
-    def eigvals(self, *args, **kwargs):
-        pass
+    def eigvals(
+        self, k: int, which="LM", dtype: type = np.float64, **kwargs
+    ) -> NDArray:  # Port to GPU too (cupyx.scipy)
+        kwargs = kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
+        return splin.eigs(self.to_scipy_operator(dtype), **kwargs)
 
     def cogram(self) -> "NormalOp":
         return self.gram().specialize(cast_to=SelfAdjointOp)
@@ -382,6 +455,12 @@ class SelfAdjointOp(NormalOp):
     @property
     def T(self) -> "SelfAdjointOp":
         return self
+
+    def eigvals(
+        self, k: int, which="LM", dtype: type = np.float64, **kwargs
+    ) -> NDArray:  # Port to GPU too (cupyx.scipy)
+        kwargs = kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
+        return splin.eigsh(self.to_scipy_operator(dtype), **kwargs)
 
 
 class UnitOp(NormalOp):
@@ -396,7 +475,7 @@ class UnitOp(NormalOp):
         return self.adjoint(arr)
 
     def dagger(self, **kwargs) -> "UnitOp":
-        return self.H
+        return self.T
 
 
 class ProjOp(SquareOp):
