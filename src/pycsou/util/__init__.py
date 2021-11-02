@@ -78,9 +78,9 @@ def get_array_module(x: cabc.Sequence[typ.Any], fallback: types.ModuleType = Non
             finally:
                 return None
 
-    if xp := infer_api(x):
+    if (xp := infer_api(x)) is not None:
         return xp
     elif fallback is not None:
         return fallback
     else:
-        raise ValueError(f"Could not infer array API for {type(x)}.")
+        raise ValueError(f"Could not infer array module for {type(x)}.")
