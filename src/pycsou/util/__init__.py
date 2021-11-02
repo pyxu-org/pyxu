@@ -1,4 +1,5 @@
 import collections.abc as cabc
+import types
 import typing as typ
 
 import dask.array as da
@@ -41,7 +42,7 @@ def broadcast_matmul_shapes(
     return sh
 
 
-def get_array_module(x: cabc.Sequence[typ.Any], fallback: module = None) -> module:
+def get_array_module(x: cabc.Sequence[typ.Any], fallback: types.ModuleType = None) -> types.ModuleType:
     """
     Get the array namespace corresponding to a given object.
 
@@ -49,13 +50,13 @@ def get_array_module(x: cabc.Sequence[typ.Any], fallback: module = None) -> modu
     ----------
     x: cabc.Sequence[typ.Any]
         Any object which is a NumPy/CuPy/Dask array, or that can be converted to one.
-    fallback: module
+    fallback: types.ModuleType
         Fallback module if `x` is not a NumPy/CuPy/Dask array.
         Default behaviour: raise error if fallback is required.
 
     Returns
     -------
-    namespace: module
+    namespace: types.ModuleType
         The namespace to use to manipulate `x`, or `fallback`.
     """
 
