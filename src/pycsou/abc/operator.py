@@ -350,11 +350,10 @@ class LinOp(DiffMap, Adjoint):
         )
 
     def lipschitz(self, recompute: bool = False, dtype: type = np.float64, **kwargs):  # Add trace estimate
-        if (self._lipschitz == np.infty) or (recompute is True):
+        if recompute or (self._lipschitz == np.infty):
             kwargs = kwargs.update(dict(k=1, which="LM", dtype=dtype))
             self._lipschitz = self.svdvals(**kwargs)
-        else:
-            pass
+        return self._lipschitz
 
     def svdvals(
         self, k: int, which="LM", dtype: type = np.float64, **kwargs
