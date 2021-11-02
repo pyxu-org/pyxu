@@ -5,9 +5,9 @@ import typing as typ
 import dask.array as da
 import numpy as np
 
-import pycsou.util.deps as pyd
+import pycsou.util.deps as pycd
 
-if pyd.CUPY_ENABLED:
+if pycd.CUPY_ENABLED:
     import cupy as cp
 
 
@@ -70,7 +70,7 @@ def get_array_module(x: cabc.Sequence[typ.Any], fallback: types.ModuleType = Non
             return np
         elif isinstance(y, da.core.Array):
             return da
-        elif pyd.CUPY_ENABLED and isinstance(y, cp.ndarray):
+        elif pycd.CUPY_ENABLED and isinstance(y, cp.ndarray):
             return cp
         else:
             return None

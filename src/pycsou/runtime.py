@@ -27,11 +27,11 @@ class Precision(contextlib.AbstractContextManager):
 
     Example
     -------
-    >>> import pycsou.runtime as pyrt
-    >>> pyrt.getPrecision()                      # Width.DOUBLE
-    ... with pyrt.Precision(pyrt.Width.HALF):
-    ...     pyrt.getPrecision()                  # Width.HALF
-    ... pyrt.getPrecision()                      # Width.DOUBLE
+    >>> import pycsou.runtime as pycrt
+    >>> pycrt.getPrecision()                      # Width.DOUBLE
+    ... with pycrt.Precision(pycrt.Width.HALF):
+    ...     pycrt.getPrecision()                  # Width.HALF
+    ... pycrt.getPrecision()                      # Width.DOUBLE
     """
 
     def __init__(self, width: Width):
@@ -66,8 +66,8 @@ def enforce_precision(i: cabc.Collection[str] = frozenset(), o: bool = True) -> 
 
     Example
     -------
-    >>> import pycsou.runtime as pyrt
-    >>> @pyrt.enforce_precision(i='y', o=False)  # `i` can process multiple args: `i=('x','y')`.
+    >>> import pycsou.runtime as pycrt
+    >>> @pycrt.enforce_precision(i='y', o=False)  # `i` can process multiple args: `i=('x','y')`.
     ... def f(x, y, z=1):
     ...     print(x.dtype, y.dtype)
     ...     return x + y + z
@@ -75,7 +75,7 @@ def enforce_precision(i: cabc.Collection[str] = frozenset(), o: bool = True) -> 
     ... x = np.arange(5)
     ... y = np.r_[0.5]
     ... print(x.dtype, y.dtype)                  # int64, float64
-    ... with pyrt.Precision(pyrt.Width.SINGLE):
+    ... with pycrt.Precision(pycrt.Width.SINGLE):
     ...     out = f(x,y)                         # int64, float32 (printed inside f-call.)
     ... print(out.dtype)                         # float64 (would have been float32 if `o=True`)
     """
