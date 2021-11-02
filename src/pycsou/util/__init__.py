@@ -5,6 +5,11 @@ import typing as typ
 import dask.array as da
 import numpy as np
 
+import pycsou.util.deps as pycd
+
+if pycd.CUPY_ENABLED:
+    import cupy as cp
+
 
 def broadcast_sum_shapes(
     shape1: typ.Tuple[int, ...],
@@ -36,22 +41,14 @@ def get_array_module(x: cabc.Sequence[typ.Any], fallback: types.ModuleType = Non
             return np
         elif isinstance(y, da.core.Array):
             return da
+        elif pycd.CUPY_ENABLED and isinstance(y, cp.ndarray):
+            return cp
         else:
-            # At this point infer_api() should return `cupy` or `None`, with fallback on `None` if
-            # the former is unavailable.
-            try:
-                import cupy as cp
+            return None
 
-                if isinstance(y, cp.ndarray):
-                    return cp
-            except ImportError:
-                pass
-            finally:
-                return None
-
-    if xp := infer_api(x):
+    if (xp := infer_api(x)) is not None:
         return xp
     elif fallback is not None:
         return fallback
     else:
-        raise ValueError(f"Could not infer array API for {type(x)}.")
+        raise ValueError(f"Could not infer array module for {type(x)}.")
