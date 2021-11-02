@@ -61,9 +61,9 @@ def get_array_module(x: cabc.Sequence[typ.Any], fallback: types.ModuleType = Non
     """
 
     def infer_api(y):
-        if (t := type(y)) is np.ndarray:
+        if isinstance(y, np.ndarray):
             return np
-        elif t is da.core.Array:
+        elif isinstance(y, da.core.Array):
             return da
         else:
             # At this point infer_api() should return `cupy` or `None`, with fallback on `None` if
@@ -71,7 +71,7 @@ def get_array_module(x: cabc.Sequence[typ.Any], fallback: types.ModuleType = Non
             try:
                 import cupy as cp
 
-                if t is cp.ndarray:
+                if isinstance(y, cp.ndarray):
                     return cp
             except ImportError:
                 pass
