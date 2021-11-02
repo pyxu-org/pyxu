@@ -112,8 +112,8 @@ def getPrecision() -> Width:
 
 
 def _setPrecision(width: Width):
-    # For internal use only. It is recommended to modify compute precision locally using
-    # `Precision`.
+    # For internal use only. It is recommended to modify FP-precision locally using the `Precision`
+    # context manager.
     state = globals()
     state["__width"] = width
 
