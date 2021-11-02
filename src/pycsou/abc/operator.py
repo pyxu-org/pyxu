@@ -24,14 +24,18 @@ class Property:
         return set(props.intersection(cls._property_list()))
 
     @classmethod
-    def has(cls, prop: typ.Tuple[str, ...]) -> bool:
+    def has(cls, prop: typ.Union[str, typ.Tuple[str, ...]]) -> bool:
         return set(prop) <= cls.properties()
 
-    def __add__(self: "Map", other: "Map") -> "Map":
+    def __add__(
+        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
+        other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "LinOp", "LinFunc"]:
         if not isinstance(other, Map):
             raise NotImplementedError(f"Cannot add object of type {type(self)} with object of type {type(other)}.")
-        valid_shapes, out_shape = pycutil.broadcast_sum_shapes(self.shape, other.shape)
-        if not valid_shapes:
+        try:
+            out_shape = pycutil.infer_sum_shapes(self.shape, other.shape)
+        except ValueError:
             raise ValueError(f"Cannot sum two maps with inconsistent shapes {self.shape} and {other.shape}.")
         shared_props = self.properties() & other.properties()
         shared_props.discard("prox")
@@ -53,15 +57,18 @@ class Property:
                 setattr(out_op, prop, types.MethodType(composite_method, out_op))
         return out_op.squeeze()
 
-    def __mul__(self: "Map", other: typ.Union["Map", nb.Real]) -> "Map":
+    def __mul__(
+        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
+        other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc", nb.Real],
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
         if isinstance(other, nb.Real):
             hmap = _HomothetyOp(other, dim=self.shape[0])
             return hmap.__mul__(self)
         elif not isinstance(other, Map):
             raise NotImplementedError(f"Cannot multiply object of type {type(self)} with object of type {type(other)}.")
-        if self.shape[1] == other.shape[0]:
-            out_shape = (self.shape[0], other.shape[1])
-        else:
+        try:
+            out_shape = pycutil.infer_composition_shapes(self.shape, other.shape)
+        except ValueError:
             raise ValueError(f"Cannot compose two maps with inconsistent shapes {self.shape} and {other.shape}.")
         shared_props = self.properties() & other.properties()
         shared_props.discard("prox")
@@ -102,10 +109,14 @@ class Property:
                 out_op.adjoint = types.MethodType(lambda obj, arr: other.adjoint(self.adjoint(arr)), out_op)
         return out_op.squeeze()
 
-    def __rmul__(self: "Map", other: nb.Real) -> "Map":
+    def __rmul__(
+        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"], other: nb.Real
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
         return self.__mul__(other)
 
-    def __pow__(self: "Map", power: float) -> "Map":
+    def __pow__(
+        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"], power: int
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "LinOp", "LinFunc"]:
         if type(power) is int:
             if power == 0:
                 from pycsou.linop.base import IdentityOperator
@@ -119,38 +130,52 @@ class Property:
         else:
             raise NotImplementedError
 
-    def __neg__(self: "Map") -> "Map":
+    def __neg__(
+        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
         return self.__mul__(-1)
 
-    def __sub__(self: "Map", other: "Map") -> "Map":
+    def __sub__(
+        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
+        other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "LinOp", "LinFunc"]:
         return self.__add__(other.__neg__())
 
-    def __truediv__(self: "Map", scalar: nb.Real) -> "Map":
+    def __truediv__(
+        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"], scalar: nb.Real
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
         if isinstance(scalar, nb.Real):
             return self.__mul__(1 / scalar)
         else:
             raise NotImplementedError
 
-    def argscale(self, scalar: typ.Union[float, "UnitOp"]) -> "Map":
-        if isinstance(other, nb.Real):
-            hmap = _HomothetyOp(other, dim=self.shape[1])
+    def argscale(
+        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
+        scalar: typ.Union[float, "UnitOp"],
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+        if isinstance(scalar, nb.Real):
+            hmap = _HomothetyOp(scalar, dim=self.shape[1])
             return self.__mul__(hmap)
         else:
             raise NotImplementedError
 
-    def argshift(self, arr: NDArray) -> "Map":
+    def argshift(
+        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"], arr: NDArray
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
         try:
             arr = arr.copy().squeeze()
         except:
             raise ValueError("Argument [arr] must be of type NDArray.")
-        if arr.shape[-1] != self.shape[-1]:
+        if (self.shape[-1] is None) or (self.shape[-1] == arr.shape[-1]):
+            out_shape = (self.shape[0], arr.shape[-1])
+        else:
             raise ValueError(f"Invalid lag shape: {arr.shape[-1]} != {self.shape[-1]}")
         if isinstance(self, LinFunc):  # Shifting a linear map makes it an affine map.
-            out_op = DiffFunc(shape=self.shape)
+            out_op = DiffFunc(shape=out_shape)
         elif isinstance(self, LinOp):  # Shifting a linear map makes it an affine map.
-            out_op = DiffMap(shape=self.shape)
+            out_op = DiffMap(shape=out_shape)
         else:
-            out_op = self.__class__(shape=self.shape)
+            out_op = self.__class__(shape=out_shape)
         props = out_op.properties()
         if out_op == DiffFunc:
             props.discard("jacobian")
@@ -159,7 +184,7 @@ class Property:
             if prop in ["_lispchitz", "_diff_lipschitz"]:
                 setattr(out_op, prop, getattr(self, prop))
             elif prop == "prox":
-                out_op.prox = types.MethodType(lambda obj, x, tau: self.prox(x + arr, tau) - arr, f)
+                out_op.prox = types.MethodType(lambda obj, x, tau: self.prox(x + arr, tau) - arr, out_op)
             else:
 
                 def argshifted_method(obj, x: NDArray) -> typ.Union[NDArray, "LinOp"]:
@@ -217,11 +242,13 @@ class Proximal(Property):
 
 
 class Map(Apply):
-    def __init__(self, shape: typ.Tuple[int, int]):
+    def __init__(self, shape: typ.Tuple[int, typ.Union[int, None]]):
         if len(shape) > 2:
             raise NotImplementedError(
                 "Shapes of map objects must be tuples of length 2 (tensorial maps not supported)."
             )
+        elif shape[0] is None:
+            raise ValueError("Codomain agnostic maps are not supported.")
         self._shape = shape
         self._lipschitz = np.infty
 
@@ -240,7 +267,10 @@ class Map(Apply):
     def squeeze(self) -> typ.Union["Map", "Func"]:
         return self._squeeze(out=Func)
 
-    def _squeeze(self, out: type) -> typ.Union["Map", "Func"]:
+    def _squeeze(
+        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
+        out: typ.Type[typ.Union["Func", "DiffFunc", "LinFunc"]],
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
         if self.shape[0] == 1:
             obj = self.specialize(cast_to=out)
         else:
@@ -250,7 +280,10 @@ class Map(Apply):
     def lipschitz(self) -> float:
         return self._lipschitz
 
-    def specialize(self, cast_to: type) -> "Map":
+    def specialize(
+        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
+        cast_to: typ.Union[type, typ.Type["Property"]],
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
         if cast_to == self.__class__:
             obj = self
         else:
@@ -268,7 +301,7 @@ class Map(Apply):
 
 
 class DiffMap(Map, Differential):
-    def __init__(self, shape: typ.Tuple[int, int]):
+    def __init__(self, shape: typ.Tuple[int, typ.Union[int, None]]):
         super(DiffMap, self).__init__(shape)
         self._diff_lipschitz = np.infty
 
@@ -280,7 +313,7 @@ class DiffMap(Map, Differential):
 
 
 class Func(Map, SingledValued):
-    def __init__(self, shape: typ.Union[int, typ.Tuple[int, ...]]):
+    def __init__(self, shape: typ.Union[typ.Union[int, None], typ.Tuple[int, typ.Union[int, None]]]):
         shape = tuple(shape)
         if len(shape) == 1:
             shape = (1,) + shape
@@ -291,17 +324,22 @@ class Func(Map, SingledValued):
 
 
 class ProxFunc(Func, Proximal):
-    def __init__(self, shape: typ.Union[int, typ.Tuple[int, ...]]):
+    def __init__(self, shape: typ.Union[typ.Union[int, None], typ.Tuple[int, typ.Union[int, None]]]):
         super(ProxFunc, self).__init__(shape)
 
-    def __add__(self: "ProxFunc", other: "Map") -> "Map":
+    def __add__(
+        self: "ProxFunc", other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
         f = Property.__add__(self, other)
         if isinstance(other, LinFunc):
             f = f.specialize(cast_to=ProxFunc)
             f.prox = types.MethodType(lambda _, x, tau: self.prox(x - tau * other.asarray(), tau), f)
         return f.squeeze()
 
-    def __mul__(self: ProxFunc, other: Map) -> typ.Union[ProxFunc, Map]:
+    def __mul__(
+        self: "ProxFunc",
+        other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc", "_HomothetyOp"],
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
         f = Property.__mul__(self, other)
         if isinstance(other, UnitOp):
             f.specialize(cast_to=ProxFunc)
@@ -315,12 +353,12 @@ class ProxFunc(Func, Proximal):
 
 
 class DiffFunc(Func, Gradient):
-    def __init__(self, shape: typ.Union[int, typ.Tuple[int, ...]]):
+    def __init__(self, shape: typ.Union[typ.Union[int, None], typ.Tuple[int, typ.Union[int, None]]]):
         super(DiffFunc, self).__init__(shape)
 
 
 class LinOp(DiffMap, Adjoint):
-    def __init__(self, shape: typ.Tuple[int, int]):
+    def __init__(self, shape: typ.Tuple[int, typ.Union[int, None]]):
         super(LinOp, self).__init__(shape)
         self._diff_lipschitz = 0
 
@@ -351,17 +389,17 @@ class LinOp(DiffMap, Adjoint):
 
     def lipschitz(self, recompute: bool = False, dtype: type = np.float64, **kwargs):  # Add trace estimate
         if recompute or (self._lipschitz == np.infty):
-            kwargs = kwargs.update(dict(k=1, which="LM", dtype=dtype))
+            kwargs.update(dict(k=1, which="LM", dtype=dtype))
             self._lipschitz = self.svdvals(**kwargs)
         return self._lipschitz
 
     def svdvals(
         self, k: int, which="LM", dtype: type = np.float64, **kwargs
     ) -> NDArray:  # Port to GPU too (cupyx.scipy)
-        kwargs = kwargs.update(dict(k=k, which=which, return_singular_vectors=False))
+        kwargs.update(dict(k=k, which=which, return_singular_vectors=False))
         return splin.svds(self.to_scipy_operator(dtype), **kwargs)
 
-    def asarray(self, xp: types.ModuleType = np, dtype: type = np.float64, **kwargs) -> NDArray:
+    def asarray(self, xp: typ.Any = np, dtype: type = np.float64) -> NDArray:
         return self.apply(xp.eye(self.shape[1], dtype=dtype))
 
     def __array__(self, dtype: type = np.float64) -> np.ndarray:
@@ -374,7 +412,7 @@ class LinOp(DiffMap, Adjoint):
         return self * self.T
 
     def pinv(
-        self, arr: NDArray, damp: typ.Optional[float] = None, verbose: Optional[int] = None, **kwargs
+        self, arr: NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[int] = None, **kwargs
     ) -> NDArray:  # Should we have a decorator that performs trivial vectorization like that for us?
         if arr.ndim == 1:
             return self._pinv(arr=arr, damp=damp, verbose=verbose, **kwargs)
@@ -383,7 +421,7 @@ class LinOp(DiffMap, Adjoint):
             return np.apply_along_axis(func1d=pinv1d, arr=arr, axis=-1)
 
     def _pinv(
-        self, arr: NDArray, damp: typ.Optional[float] = None, verbose: Optional[int] = None, **kwargs
+        self, arr: NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[int] = None, **kwargs
     ) -> NDArray:  # TODO: adapt to GPU too
         """
         The routines scipy.sparse.linalg.lsqr or scipy.sparse.linalg.lsmr offer the same functionality as this routine
@@ -414,7 +452,7 @@ class LinOp(DiffMap, Adjoint):
                     if self.n % self.verbose == 0:
                         print(f"Relative residual norm:{np.linalg.norm(self.b - self.A(x)) / np.linalg.norm(self.b)}")
 
-            kwargs = kwargs.update(dict(callback=CallBack(verbose, A, b)))
+            kwargs.update(dict(callback=CallBack(verbose, A, b)))
         return splin.cg(A, b, **kwargs)[0]
 
     def dagger(self, damp: typ.Optional[float] = None, **kwargs) -> "LinOp":
@@ -425,11 +463,13 @@ class LinOp(DiffMap, Adjoint):
 
 
 class LinFunc(DiffFunc, LinOp):
-    def __init__(self, shape: typ.Union[int, typ.Tuple[int, ...]]):
+    def __init__(self, shape: typ.Union[typ.Union[int, None], typ.Tuple[int, typ.Union[int, None]]]):
         DiffFunc.__init__(self, shape)
         LinOp.__init__(self, shape)
 
-    def __add__(self, other):
+    def __add__(
+        self: "LinFunc", other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
         return ProxFunc.__add__(other, self)
 
 
@@ -445,7 +485,7 @@ class NormalOp(SquareOp):
     def eigvals(
         self, k: int, which="LM", dtype: type = np.float64, **kwargs
     ) -> NDArray:  # Port to GPU too (cupyx.scipy)
-        kwargs = kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
+        kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
         return splin.eigs(self.to_scipy_operator(dtype), **kwargs)
 
     def cogram(self) -> "NormalOp":
@@ -463,7 +503,7 @@ class SelfAdjointOp(NormalOp):
     def eigvals(
         self, k: int, which="LM", dtype: type = np.float64, **kwargs
     ) -> NDArray:  # Port to GPU too (cupyx.scipy)
-        kwargs = kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
+        kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
         return splin.eigsh(self.to_scipy_operator(dtype), **kwargs)
 
 
@@ -472,7 +512,7 @@ class UnitOp(NormalOp):
         super(UnitOp, self).__init__(shape)
         self._lipschitz = 1
 
-    def lipschitz(self) -> float:
+    def lipschitz(self, **kwargs) -> float:
         return self._lipschitz
 
     def pinv(self, arr: NDArray, **kwargs) -> NDArray:
@@ -497,7 +537,7 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
         super(OrthProjOp, self).__init__(shape)
         self._lipschitz = 1
 
-    def lipschitz(self) -> float:
+    def lipschitz(self, **kwargs) -> float:
         return self._lipschitz
 
     def pinv(self, arr: NDArray, **kwargs) -> NDArray:
@@ -531,7 +571,7 @@ class _HomothetyOp(SelfAdjointOp):
         if isinstance(other, ProxFunc):
             out_op.specialize(cast_to=ProxFunc)
             out_op.prox = types.MethodType(lambda obj, arr, tau: other.prox(arr, self._cst * tau), out_op)
-        return outop
+        return out_op
 
 
 _base_operators = frozenset([Map, DiffMap, Func, DiffFunc, ProxFunc, LinOp, LinFunc])
