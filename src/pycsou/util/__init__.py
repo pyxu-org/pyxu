@@ -1,6 +1,4 @@
 import collections.abc as cabc
-import functools
-import inspect
 import types
 import typing as typ
 
@@ -78,43 +76,3 @@ def get_array_module(x: cabc.Sequence[typ.Any], fallback: types.ModuleType = Non
         return fallback
     else:
         raise ValueError(f"Could not infer array module for {type(x)}.")
-
-
-def infer_array_module(i: str) -> cabc.Callable:
-    """
-    Decorator to auto-fill the `_xp` parameter of the called function.
-
-    Parameters
-    ----------
-    i: str
-        Parameter from which array module must be inferred. Must have a NumPy API.
-
-    Example
-    -------
-    >>> import pycsou.util as pycu
-    >>> @pycu.infer_array_module('x')
-    ... def f(x, y, _xp=None):
-    ...     print(_xp.__name__)
-    ...     return _xp.ones(len(x)) + x, y
-    ... x, y = np.arange(5), 2
-    ... out = f(x, y)  # -> numpy
-    """
-
-    def decorator(func: cabc.Callable) -> cabc.Callable:
-        @functools.wraps(func)
-        def wrapper(*ARGS, **KWARGS):
-            sig = inspect.Signature.from_callable(func)
-            func_args = sig.bind(*ARGS, **KWARGS)
-            func_args.apply_defaults()
-            func_args = func_args.arguments
-            for k in (i, "_xp"):
-                if k not in func_args:
-                    error_msg = f"Parameter[{k}] not part of {func.__qualname__}() parameter list."
-                    raise ValueError(error_msg)
-
-            func_args["_xp"] = get_array_module(func_args[i])
-            return func(**func_args)
-
-        return wrapper
-
-    return decorator
