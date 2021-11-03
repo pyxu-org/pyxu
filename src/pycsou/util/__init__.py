@@ -11,10 +11,10 @@ if pycd.CUPY_ENABLED:
     import cupy as cp
 
 
-def infer_sum_shape(
-    shape1: typ.Tuple[int, typ.Union[int, None]],
-    shape2: typ.Tuple[int, typ.Union[int, None]],
-) -> typ.Tuple[int, typ.Union[int, None]]:
+Shape = typ.Tuple[int, typ.Union[int, None]]
+
+
+def infer_sum_shape(shape1: Shape, shape2: Shape) -> Shape:
     if None in (shape1[0], shape2[0]):
         raise ValueError(f"Shapes with agnostic codomain dimensions are not supported.")
     elif None in (shape1[1], shape2[1]):
@@ -32,10 +32,7 @@ def infer_sum_shape(
     return tuple(out_shape)
 
 
-def infer_composition_shape(
-    shape1: typ.Tuple[int, typ.Union[int, None]],
-    shape2: typ.Tuple[int, typ.Union[int, None]],
-) -> typ.Tuple[int, typ.Union[int, None]]:
+def infer_composition_shape(shape1: Shape, shape2: Shape) -> Shape:
     if None in (shape1[0], shape2[0]):
         raise ValueError(f"Shapes with agnostic codomain dimensions are not supported.")
     else:
