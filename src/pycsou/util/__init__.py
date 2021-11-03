@@ -11,7 +11,7 @@ if pycd.CUPY_ENABLED:
     import cupy as cp
 
 
-def infer_sum_shapes(
+def infer_sum_shape(
     shape1: typ.Tuple[int, typ.Union[int, None]],
     shape2: typ.Tuple[int, typ.Union[int, None]],
 ) -> typ.Tuple[int, typ.Union[int, None]]:
