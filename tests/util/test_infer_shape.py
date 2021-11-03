@@ -27,3 +27,24 @@ def test_infer_sum_shape():
     for A, B in invalid:
         with pytest.raises(ValueError):
             pycu.infer_sum_shape(A, B)
+
+
+def test_infer_composition_shape():
+    valid = (
+        ((5, 3), (3, 4), (5, 4)),
+        ((5, None), (3, 4), (5, 4)),
+        ((5, 3), (3, None), (5, None)),
+        ((5, None), (3, None), (5, None)),
+    )
+    for A, B, C in valid:
+        assert pycu.infer_composition_shape(A, B) == C
+
+    invalid = (
+        ((None, 3), (3, 4)),
+        ((5, 3), (None, 4)),
+        ((5, 3), (1, 4)),
+        ((5, 3), (1, None)),
+    )
+    for A, B in invalid:
+        with pytest.raises(ValueError):
+            pycu.infer_composition_shape(A, B)
