@@ -67,7 +67,7 @@ class Property:
         elif not isinstance(other, Map):
             raise NotImplementedError(f"Cannot multiply object of type {type(self)} with object of type {type(other)}.")
         try:
-            out_shape = pycutil.infer_composition_shapes(self.shape, other.shape)
+            out_shape = pycutil.infer_composition_shape(self.shape, other.shape)
         except ValueError:
             raise ValueError(f"Cannot compose two maps with inconsistent shapes {self.shape} and {other.shape}.")
         shared_props = self.properties() & other.properties()

@@ -32,7 +32,7 @@ def infer_sum_shape(
     return tuple(out_shape)
 
 
-def infer_composition_shapes(
+def infer_composition_shape(
     shape1: typ.Tuple[int, typ.Union[int, None]],
     shape2: typ.Tuple[int, typ.Union[int, None]],
 ) -> typ.Tuple[int, typ.Union[int, None]]:
