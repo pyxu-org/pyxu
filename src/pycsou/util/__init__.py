@@ -15,21 +15,22 @@ Shape = typ.Tuple[int, typ.Union[int, None]]
 
 
 def infer_sum_shape(shape1: Shape, shape2: Shape) -> Shape:
-    if None in (shape1[0], shape2[0]):
-        raise ValueError(f"Shapes with agnostic codomain dimensions are not supported.")
-    elif None in (shape1[1], shape2[1]):
-        out_shape = []
-        for dim1, dim2 in zip(shape1, shape2):
-            if None in (dim1, dim2):
-                out_shape.append(dim1 if dim2 is None else dim2)
-            else:
-                if dim1 == dim2 or (1 in (t := (dim1, dim2))):
-                    out_shape.append(np.amax(t))
-                else:
-                    raise ValueError(f"Cannot infer output shape for input shapes: {shape1} and {shape2}.")
-    else:
-        out_shape = np.broadcast_shapes(shape1, shape2)
-    return tuple(out_shape)
+    A, B, C, D = *shape1, *shape2
+    if None in (A, C):
+        raise ValueError("Addition of codomain-dimension-agnostic operators is not supported.")
+    try:
+        domain_None = (B is None, D is None)
+        if all(domain_None):
+            return np.broadcast_shapes((A,), (C,)) + (None,)
+        elif any(domain_None):
+            fill = lambda _: [1 if (k is None) else k for k in _]
+            return np.broadcast_shapes(fill(shape1), fill(shape2))
+        elif domain_match := (B == D):
+            return np.broadcast_shapes((A,), (C,)) + (B,)
+        else:
+            raise
+    except:
+        raise ValueError(f"Addition of {shape1} and {shape2} operators forbidden.")
 
 
 def infer_composition_shape(shape1: Shape, shape2: Shape) -> Shape:
