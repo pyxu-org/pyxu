@@ -34,10 +34,13 @@ def infer_sum_shape(shape1: Shape, shape2: Shape) -> Shape:
 
 
 def infer_composition_shape(shape1: Shape, shape2: Shape) -> Shape:
-    if None in (shape1[0], shape2[0]):
-        raise ValueError(f"Shapes with agnostic codomain dimensions are not supported.")
+    A, B, C, D = *shape1, *shape2
+    if None in (A, C):
+        raise ValueError("Composition of codomain-dimension-agnostic operators is not supported.")
+    elif (B == C) or (B is None):
+        return (A, D)
     else:
-        return (shape1[0], shape2[1])
+        raise ValueError(f"Composition of {shape1} and {shape2} operators forbidden.")
 
 
 def get_array_module(x: cabc.Sequence[typ.Any], fallback: types.ModuleType = None) -> types.ModuleType:
