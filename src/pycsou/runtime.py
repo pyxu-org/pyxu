@@ -101,7 +101,7 @@ def enforce_precision(i: cabc.Collection[str] = frozenset(), o: bool = True) -> 
                 enforce(i)
             else:
                 for k in i:
-                    enforce(i)
+                    enforce(k)
 
             out = func(**func_args)
             if o and (out is not None):
