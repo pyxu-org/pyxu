@@ -52,6 +52,7 @@ class Property:
                 setattr(out_op, prop, getattr(self, prop) + getattr(other, prop))
             else:
 
+                @pycrt.enforce_precision(i="arr", o=False)  # Decorate composite method to avoid recasting [arr] twice.
                 def composite_method(obj, arr: NDArray) -> typ.Union[NDArray, "LinOp"]:
                     return getattr(self, prop)(arr) + getattr(other, prop)(arr)
 
@@ -96,12 +97,14 @@ class Property:
                     out_op._diff_lipschitz = np.infty
             elif prop == "gradient":
 
+                @pycrt.enforce_precision(i="arr")
                 def composite_gradient(obj, arr: NDArray) -> NDArray:
                     return other.jacobian(arr).adjoint(self.gradient(other.apply(arr)))
 
                 out_op.gradient = types.MethodType(composite_gradient, out_op)
             elif prop == "jacobian":
 
+                @pycrt.enforce_precision(i="arr", o=False)
                 def composite_jacobian(obj, arr: NDArray) -> "LinOp":
                     return self.jacobian(other.apply(arr)) * other.jacobian(arr)
 
@@ -160,6 +163,7 @@ class Property:
         else:
             raise NotImplementedError
 
+    @pycrt.enforce_precision(i="arr", o=False)
     def argshift(
         self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"], arr: NDArray
     ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
@@ -201,6 +205,7 @@ class SingledValued(Property):
 
 
 class Apply(Property):
+    @pycrt.enforce_precision(i="arr")
     def __call__(self, arr: NDArray) -> NDArray:
         return self.apply(arr)
 
@@ -220,6 +225,7 @@ class Differential(Property):
 
 
 class Gradient(Differential):
+    @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: NDArray) -> "LinOp":
         from pycsou.linop.base import ExplicitLinFunc
 
@@ -238,6 +244,7 @@ class Proximal(Property):
     def prox(self, arr: NDArray, tau: float) -> NDArray:
         raise NotImplementedError
 
+    @pycrt.enforce_precision(i=("arr", "sigma"), o=True)
     def fenchel_prox(self, arr: NDArray, sigma: float) -> NDArray:
         return arr - sigma * self.prox(arr=arr / sigma, tau=1 / sigma)
 
@@ -399,6 +406,7 @@ class LinOp(DiffMap, Adjoint):
             self._lipschitz = self.svdvals(**kwargs)
         return self._lipschitz
 
+    @pycrt.enforce_precision(o=True)
     def svdvals(self, k: int, which="LM", **kwargs) -> NDArray:  # Port to GPU too (cupyx.scipy)
         kwargs.update(dict(k=k, which=which, return_singular_vectors=False))
         return splin.svds(self.to_scipy_operator(pycrt.getPrecision().value), **kwargs)
@@ -419,6 +427,7 @@ class LinOp(DiffMap, Adjoint):
     def cogram(self) -> "LinOp":
         return self * self.T
 
+    @pycrt.enforce_precision(i="arr")
     def pinv(
         self, arr: NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[int] = None, **kwargs
     ) -> NDArray:  # Should we have a decorator that performs trivial vectorization like that for us?
@@ -441,6 +450,7 @@ class LinOp(DiffMap, Adjoint):
 
         b = self.adjoint(arr)
         if damp is not None:
+            damp = np.array(damp, dtype=arr.dtype).item()  # cast to correct type
             A = self.gram() + damp * IdentityOperator(shape=(self.shape[1], self.shape[1]))
         else:
             A = self.gram()
@@ -490,6 +500,7 @@ class SquareOp(LinOp):
 
 
 class NormalOp(SquareOp):
+    @pycrt.enforce_precision(o=True)
     def eigvals(self, k: int, which="LM", **kwargs) -> NDArray:  # Port to GPU too (cupyx.scipy)
         kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
         return splin.eigs(self.to_scipy_operator(pycrt.getPrecision().value), **kwargs)
@@ -506,6 +517,7 @@ class SelfAdjointOp(NormalOp):
     def T(self) -> "SelfAdjointOp":
         return self
 
+    @pycrt.enforce_precision(o=True)
     def eigvals(self, k: int, which="LM", **kwargs) -> NDArray:  # Port to GPU too (cupyx.scipy)
         kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
         return splin.eigsh(self.to_scipy_operator(pycrt.getPrecision().value), **kwargs)
@@ -564,18 +576,22 @@ class _HomothetyOp(SelfAdjointOp):
         self._lipschitz = np.abs(cst)
         self._diff_lipschitz = 0
 
+    @pycrt.enforce_precision(i="arr")
     def apply(self, arr: NDArray) -> NDArray:
-        return self._cst * arr
+        cst = np.array(self._cst, dtype=arr.dtype)
+        return cst * arr
 
+    @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: NDArray) -> NDArray:
-        return self._cst * arr
+        cst = np.array(self._cst, dtype=arr.dtype)
+        return cst * arr
 
     def __mul__(self, other):
         out_op = Property.__mul__(self, other)
         if isinstance(other, ProxFunc):
             out_op.specialize(cast_to=ProxFunc)
-            out_op.prox = types.MethodType(lambda obj, arr, tau: other.prox(arr, self._cst * tau), out_op)
-        return out_op
+            post_composition_prox = lambda obj, arr, tau: other.prox(arr, self._cst * tau)
+            out_op.prox = types.MethodType(post_composition_prox, out_op)
+            return out_op
 
-
-_base_operators = frozenset([Map, DiffMap, Func, DiffFunc, ProxFunc, LinOp, LinFunc])
+    _base_operators = frozenset([Map, DiffMap, Func, DiffFunc, ProxFunc, LinOp, LinFunc])
