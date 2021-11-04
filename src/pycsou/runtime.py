@@ -3,6 +3,7 @@ import contextlib
 import enum
 import functools
 import inspect
+import numbers as nb
 
 import numpy as np
 
@@ -59,10 +60,10 @@ def enforce_precision(i: cabc.Collection[str] = frozenset(), o: bool = True) -> 
     ----------
     i: typ.Collection[str]
         Function parameters for which precision must be enforced to runtime's FP-precision.
-        Function parameter values must have a NumPy API.
+        Function parameter values must have a NumPy API or be scalars.
     o: bool
-        If True (default), ensure function's output has runtime's FP-precision.
-        If function's output does not have a NumPy API, set `o` explicitly to False.
+        If True (default), ensure function's output (if any) has runtime's FP-precision.
+        If function's output does not have a NumPy API or is not a scalar, set `o` explicitly to False.
 
     Example
     -------
@@ -71,13 +72,15 @@ def enforce_precision(i: cabc.Collection[str] = frozenset(), o: bool = True) -> 
     ... def f(x, y, z=1):
     ...     print(x.dtype, y.dtype)
     ...     return x + y + z
-    ...
-    ... x = np.arange(5)
-    ... y = np.r_[0.5]
-    ... print(x.dtype, y.dtype)                  # int64, float64
-    ... with pycrt.Precision(pycrt.Width.SINGLE):
+    >>> x = np.arange(5)
+    >>> y = np.r_[0.5]
+    >>> print(x.dtype, np.r_[y].dtype)
+    int64 float64
+    >>> with pycrt.Precision(pycrt.Width.SINGLE):
     ...     out = f(x,y)                         # int64, float32 (printed inside f-call.)
-    ... print(out.dtype)                         # float64 (would have been float32 if `o=True`)
+    int64 float32
+    >>> print(out.dtype)                         # float64 (would have been float32 if `o=True`)
+    float64
     """
 
     def decorator(func: cabc.Callable) -> cabc.Callable:
@@ -95,7 +98,13 @@ def enforce_precision(i: cabc.Collection[str] = frozenset(), o: bool = True) -> 
                     error_msg = f"Parameter[{name}] not part of {func.__qualname__}() parameter list."
                     raise ValueError(error_msg)
                 else:  # change input precision
-                    func_args[name] = func_args[name].astype(dtype, copy=False)
+                    if isinstance(func_args[name], nb.Real):
+                        func_args[name] = np.array(func_args[name], dtype=dtype).item()
+                    else:
+                        try:
+                            func_args[name] = func_args[name].astype(dtype, copy=False)
+                        except:
+                            raise TypeError(f"Argument [{name}] does not comply with the NumPy API.")
 
             if isinstance(i, str):
                 enforce(i)
@@ -105,7 +114,13 @@ def enforce_precision(i: cabc.Collection[str] = frozenset(), o: bool = True) -> 
 
             out = func(**func_args)
             if o and (out is not None):
-                out = out.astype(dtype, copy=False)
+                if isinstance(out, nb.Real):
+                    out = np.array(out, dtype=dtype).item()
+                else:
+                    try:
+                        out = out.astype(dtype, copy=False)
+                    except:
+                        raise TypeError(f"Output [{out}] does not comply with the NumPy API.")
             return out
 
         return wrapper
