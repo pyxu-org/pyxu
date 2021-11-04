@@ -1,6 +1,4 @@
 import collections.abc as cabc
-import functools
-import inspect
 import types
 import typing as typ
 
@@ -13,35 +11,36 @@ if pycd.CUPY_ENABLED:
     import cupy as cp
 
 
-def infer_sum_shapes(
-    shape1: typ.Tuple[int, typ.Union[int, None]],
-    shape2: typ.Tuple[int, typ.Union[int, None]],
-) -> typ.Tuple[int, typ.Union[int, None]]:
-    if None in (shape1[0], shape2[0]):
-        raise ValueError(f"Shapes with agnostic codomain dimensions are not supported.")
-    elif None in (shape1[1], shape2[1]):
-        out_shape = []
-        for dim1, dim2 in zip(shape1, shape2):
-            if None in (dim1, dim2):
-                out_shape.append(dim1 if dim2 is None else dim2)
-            else:
-                if dim1 == dim2 or (1 in (t := (dim1, dim2))):
-                    out_shape.append(np.amax(t))
-                else:
-                    raise ValueError(f"Cannot infer output shape for input shapes: {shape1} and {shape2}.")
-    else:
-        out_shape = np.broadcast_shapes(shape1, shape2)
-    return tuple(out_shape)
+Shape = typ.Tuple[int, typ.Union[int, None]]
 
 
-def infer_composition_shapes(
-    shape1: typ.Tuple[int, typ.Union[int, None]],
-    shape2: typ.Tuple[int, typ.Union[int, None]],
-) -> typ.Tuple[int, typ.Union[int, None]]:
-    if None in (shape1[0], shape2[0]):
-        raise ValueError(f"Shapes with agnostic codomain dimensions are not supported.")
+def infer_sum_shape(shape1: Shape, shape2: Shape) -> Shape:
+    A, B, C, D = *shape1, *shape2
+    if None in (A, C):
+        raise ValueError("Addition of codomain-dimension-agnostic operators is not supported.")
+    try:
+        domain_None = (B is None, D is None)
+        if all(domain_None):
+            return np.broadcast_shapes((A,), (C,)) + (None,)
+        elif any(domain_None):
+            fill = lambda _: [1 if (k is None) else k for k in _]
+            return np.broadcast_shapes(fill(shape1), fill(shape2))
+        elif domain_match := (B == D):
+            return np.broadcast_shapes((A,), (C,)) + (B,)
+        else:
+            raise
+    except:
+        raise ValueError(f"Addition of {shape1} and {shape2} operators forbidden.")
+
+
+def infer_composition_shape(shape1: Shape, shape2: Shape) -> Shape:
+    A, B, C, D = *shape1, *shape2
+    if None in (A, C):
+        raise ValueError("Composition of codomain-dimension-agnostic operators is not supported.")
+    elif (B == C) or (B is None):
+        return (A, D)
     else:
-        return (shape1[0], shape2[1])
+        raise ValueError(f"Composition of {shape1} and {shape2} operators forbidden.")
 
 
 def get_array_module(x: cabc.Sequence[typ.Any], fallback: types.ModuleType = None) -> types.ModuleType:
@@ -78,43 +77,3 @@ def get_array_module(x: cabc.Sequence[typ.Any], fallback: types.ModuleType = Non
         return fallback
     else:
         raise ValueError(f"Could not infer array module for {type(x)}.")
-
-
-def infer_array_module(i: str) -> cabc.Callable:
-    """
-    Decorator to auto-fill the `_xp` parameter of the called function.
-
-    Parameters
-    ----------
-    i: str
-        Parameter from which array module must be inferred. Must have a NumPy API.
-
-    Example
-    -------
-    >>> import pycsou.util as pycu
-    >>> @pycu.infer_array_module('x')
-    ... def f(x, y, _xp=None):
-    ...     print(_xp.__name__)
-    ...     return _xp.ones(len(x)) + x, y
-    ... x, y = np.arange(5), 2
-    ... out = f(x, y)  # -> numpy
-    """
-
-    def decorator(func: cabc.Callable) -> cabc.Callable:
-        @functools.wraps(func)
-        def wrapper(*ARGS, **KWARGS):
-            sig = inspect.Signature.from_callable(func)
-            func_args = sig.bind(*ARGS, **KWARGS)
-            func_args.apply_defaults()
-            func_args = func_args.arguments
-            for k in (i, "_xp"):
-                if k not in func_args:
-                    error_msg = f"Parameter[{k}] not part of {func.__qualname__}() parameter list."
-                    raise ValueError(error_msg)
-
-            func_args["_xp"] = get_array_module(func_args[i])
-            return func(**func_args)
-
-        return wrapper
-
-    return decorator
