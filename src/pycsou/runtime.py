@@ -89,12 +89,19 @@ def enforce_precision(i: cabc.Collection[str] = frozenset(), o: bool = True) -> 
             func_args = sig.bind(*ARGS, **KWARGS)
             func_args.apply_defaults()
             func_args = func_args.arguments
-            for k in i:
-                if k not in func_args:
-                    error_msg = f"Parameter[{k}] not part of {func.__qualname__}() parameter list."
+
+            def enforce(name: str):
+                if name not in func_args:
+                    error_msg = f"Parameter[{name}] not part of {func.__qualname__}() parameter list."
                     raise ValueError(error_msg)
                 else:  # change input precision
-                    func_args[k] = func_args[k].astype(dtype, copy=False)
+                    func_args[name] = func_args[name].astype(dtype, copy=False)
+
+            if isinstance(i, str):
+                enforce(i)
+            else:
+                for k in i:
+                    enforce(i)
 
             out = func(**func_args)
             if o and (out is not None):
