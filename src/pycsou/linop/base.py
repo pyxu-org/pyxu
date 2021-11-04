@@ -16,12 +16,13 @@ class ExplicitLinFunc(pycop.LinFunc):
         self._diff_lipschitz = 0
 
     def apply(self, arr: NDArray) -> NDArray:
-        return (self._vec[None, :] * arr).sum(axis=-1)
+        return (self._vec * arr).sum(axis=-1)
 
     def adjoint(self, arr: NDArray) -> NDArray:
-        return arr * self._vec[None, :]
+        return arr * self._vec
 
     def gradient(self, arr: NDArray) -> NDArray:
+        arr = np.asarray(arr)
         return np.broadcast_to(self._vec, arr.shape)
 
 

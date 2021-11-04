@@ -6,6 +6,7 @@ import numpy as np
 import scipy.sparse.linalg as splin
 
 import pycsou.abc
+import pycsou.runtime as pycrt
 import pycsou.util as pycutil
 
 NDArray = pycsou.abc.NDArray
@@ -376,33 +377,40 @@ class LinOp(DiffMap, Adjoint):
         adj._lipschitz = self._lipschitz
         return adj
 
-    def to_scipy_operator(self, dtype: type = np.float64) -> splin.LinearOperator:  # Port to GPU too (cupyx.scipy)
+    def to_scipy_operator(
+        self, dtype: typ.Optional[type] = None
+    ) -> splin.LinearOperator:  # Port to GPU too (cupyx.scipy)
         def matmat(arr: NDArray) -> NDArray:
             return self.apply(arr.transpose())
 
         def rmatmat(arr: NDArray) -> NDArray:
             return self.adjoint(arr.transpose())
 
+        if dtype is None:
+            dtype = pycrt.getPrecision().value
+
         return splin.LinearOperator(
             shape=self.shape, matvec=self.apply, rmatvec=self.adjoint, matmat=matmat, rmatmat=rmatmat, dtype=dtype
         )
 
-    def lipschitz(self, recompute: bool = False, dtype: type = np.float64, **kwargs):  # Add trace estimate
+    def lipschitz(self, recompute: bool = False, **kwargs):  # Add trace estimate
         if recompute or (self._lipschitz == np.infty):
-            kwargs.update(dict(k=1, which="LM", dtype=dtype))
+            kwargs.update(dict(k=1, which="LM"))
             self._lipschitz = self.svdvals(**kwargs)
         return self._lipschitz
 
-    def svdvals(
-        self, k: int, which="LM", dtype: type = np.float64, **kwargs
-    ) -> NDArray:  # Port to GPU too (cupyx.scipy)
+    def svdvals(self, k: int, which="LM", **kwargs) -> NDArray:  # Port to GPU too (cupyx.scipy)
         kwargs.update(dict(k=k, which=which, return_singular_vectors=False))
-        return splin.svds(self.to_scipy_operator(dtype), **kwargs)
+        return splin.svds(self.to_scipy_operator(pycrt.getPrecision().value), **kwargs)
 
-    def asarray(self, xp: typ.Any = np, dtype: type = np.float64) -> NDArray:
+    def asarray(self, xp: typ.Any = np, dtype: typ.Optional[type] = None) -> NDArray:
+        if dtype is None:
+            dtype = pycrt.getPrecision().value
         return self.apply(xp.eye(self.shape[1], dtype=dtype))
 
-    def __array__(self, dtype: type = np.float64) -> np.ndarray:
+    def __array__(self, dtype: typ.Optional[type] = None) -> np.ndarray:
+        if dtype is None:
+            dtype = pycrt.getPrecision().value
         return self.asarray(xp=np, dtype=dtype)
 
     def gram(self) -> "LinOp":
@@ -482,11 +490,9 @@ class SquareOp(LinOp):
 
 
 class NormalOp(SquareOp):
-    def eigvals(
-        self, k: int, which="LM", dtype: type = np.float64, **kwargs
-    ) -> NDArray:  # Port to GPU too (cupyx.scipy)
+    def eigvals(self, k: int, which="LM", **kwargs) -> NDArray:  # Port to GPU too (cupyx.scipy)
         kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
-        return splin.eigs(self.to_scipy_operator(dtype), **kwargs)
+        return splin.eigs(self.to_scipy_operator(pycrt.getPrecision().value), **kwargs)
 
     def cogram(self) -> "NormalOp":
         return self.gram().specialize(cast_to=SelfAdjointOp)
@@ -500,11 +506,9 @@ class SelfAdjointOp(NormalOp):
     def T(self) -> "SelfAdjointOp":
         return self
 
-    def eigvals(
-        self, k: int, which="LM", dtype: type = np.float64, **kwargs
-    ) -> NDArray:  # Port to GPU too (cupyx.scipy)
+    def eigvals(self, k: int, which="LM", **kwargs) -> NDArray:  # Port to GPU too (cupyx.scipy)
         kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
-        return splin.eigsh(self.to_scipy_operator(dtype), **kwargs)
+        return splin.eigsh(self.to_scipy_operator(pycrt.getPrecision().value), **kwargs)
 
 
 class UnitOp(NormalOp):
@@ -561,10 +565,10 @@ class _HomothetyOp(SelfAdjointOp):
         self._diff_lipschitz = 0
 
     def apply(self, arr: NDArray) -> NDArray:
-        return (self._cst * arr).astype(arr.dtype)
+        return self._cst * arr
 
     def adjoint(self, arr: NDArray) -> NDArray:
-        return (self._cst * arr).astype(arr.dtype)
+        return self._cst * arr
 
     def __mul__(self, other):
         out_op = Property.__mul__(self, other)

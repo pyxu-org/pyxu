@@ -57,7 +57,7 @@ def enforce_precision(i: cabc.Collection[str] = frozenset(), o: bool = True) -> 
 
     Parameters
     ----------
-    i: cabc.Collection[str]
+    i: typ.Collection[str]
         Function parameters for which precision must be enforced to runtime's FP-precision.
         Function parameter values must have a NumPy API.
     o: bool
