@@ -594,4 +594,5 @@ class _HomothetyOp(SelfAdjointOp):
             out_op.prox = types.MethodType(post_composition_prox, out_op)
             return out_op
 
-    _base_operators = frozenset([Map, DiffMap, Func, DiffFunc, ProxFunc, LinOp, LinFunc])
+
+_base_operators = frozenset([Map, DiffMap, Func, DiffFunc, ProxFunc, LinOp, LinFunc])
