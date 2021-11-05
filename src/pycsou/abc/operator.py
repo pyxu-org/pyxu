@@ -2,8 +2,8 @@ import numbers as nb
 import types
 import typing as typ
 
-import numpy as np
 import dask.array as da
+import numpy as np
 import scipy.sparse.linalg as splin
 
 import pycsou.abc
@@ -17,25 +17,145 @@ NDArray = pycsou.abc.NDArray
 
 
 class Property:
+    r"""
+    Abstract base class for operators.
+    """
+
     @classmethod
     def _property_list(cls) -> frozenset:
+        r"""
+        List all possible properties of Pycsou's base operators.
+
+        Returns
+        -------
+        frozenset
+            Set of properties.
+        """
         return frozenset(
             ("apply", "_lipschitz", "jacobian", "_diff_lipschitz", "single_valued", "gradient", "prox", "adjoint")
         )
 
     @classmethod
     def properties(cls) -> typ.Set[str]:
+        r"""
+        List the properties of the class.
+
+        Returns
+        -------
+        typ.Set[str]
+            Set of available properties.
+
+        Examples
+        --------
+
+        >>> import pycsou.abc.operator as pycop
+        >>> for op in pycop._base_operators:
+        ...     print(op, props)
+        <class 'pycsou.abc.operator.Map'> {'apply'}
+        <class 'pycsou.abc.operator.DiffMap'> {'apply', 'jacobian'}
+        <class 'pycsou.abc.operator.DiffFunc'> {'gradient', 'apply', 'single_valued', 'jacobian'}
+        <class 'pycsou.abc.operator.LinOp'> {'apply', 'adjoint', 'jacobian'}
+        <class 'pycsou.abc.operator.Func'> {'apply', 'single_valued'}
+        <class 'pycsou.abc.operator.ProxFunc'> {'apply', 'single_valued', 'prox'}
+        <class 'pycsou.abc.operator.LinFunc'> {'apply', 'single_valued', 'jacobian', 'gradient', 'adjoint'}
+
+        """
         props = set(dir(cls))
         return set(props.intersection(cls._property_list()))
 
     @classmethod
     def has(cls, prop: typ.Union[str, typ.Tuple[str, ...]]) -> bool:
+        r"""
+        Queries the class for certain properties.
+
+        Parameters
+        ----------
+        prop: typ.Union[str, typ.Tuple[str, ...]]
+            Queried properties.
+
+        Returns
+        -------
+        bool
+            ``True`` if the class has the queried properties, ``False`` otherwise.
+
+        Examples
+        --------
+
+        >>> import pycsou.abc.operator as pycop
+        >>> op = pycop.LinOp
+        >>> op.has(('adjoint', 'jacobian'))
+        True
+        >>> op.has(('adjoint', 'prox'))
+        False
+        """
         return set(prop) <= cls.properties()
 
     def __add__(
         self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
         other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "LinOp", "LinFunc"]:
+    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+        r"""
+        Add two instances of :py:class:`~pycsou.abc.operator.Map` subclasses together.
+
+        Parameters
+        ----------
+        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
+            Left addend with shape (N,K).
+        other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
+            Right addend with shape (M,L).
+
+        Returns
+        -------
+        typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
+            Sum of ``self`` and ``other``.
+
+        Raises
+        ------
+        NotImplementedError
+            If other is not an instance of :py:class:`~pycsou.abc.operator.Map`.
+
+        ValueError
+            If the addends' shapes are inconsistenst (see below).
+
+        Notes
+        -----
+        The addends' shapes must be `consistent` with one another, that is, they must:
+            * be `range-broadcastable`, i.e. ``N=M or 1 in (N,M)``.
+            * have `identical domain sizes` except if at least one of the two addends is `domain-agnostic`, i.e. ``(N=M or 1 in (N,M)) and (K=L or None in (K,L))``.
+
+        The addends `needs not be` instances of the same :py:class:`~pycsou.abc.operator.Map` subclass. The sum output is an
+        instance of one of the following :py:class:`~pycsou.abc.operator.Map` (sub)classes: :py:class:`~pycsou.abc.operator.Map`,
+        :py:class:`~pycsou.abc.operator.DiffMap`, :py:class:`~pycsou.abc.operator.Func`, :py:class:`~pycsou.abc.operator.DiffFunc`,
+        :py:class:`~pycsou.abc.operator.ProxFunc`, :py:class:`~pycsou.abc.operator.LinOp`, or :py:class:`~pycsou.abc.operator.LinFunc`.
+        The output type is determined automatically by inspecting the shapes and common properties of the two addends as per the following table
+        (the other half of the table can be filled by symmetry due to the commutativity of the addition):
+
+        +----------+-----+---------+------+----------+----------+---------+----------+
+        |          | Map | DiffMap | Func | DiffFunc | ProxFunc | LinOp   | LinFunc  |
+        +==========+=====+=========+======+==========+==========+=========+==========+
+        | Map      | Map | Map     | Map  | Map      | Map      | Map     | Map      |
+        +----------+-----+---------+------+----------+----------+---------+----------+
+        | DiffMap  |     | DiffMap | Map  | DiffMap  | Map      | DiffMap | DiffMap  |
+        +----------+-----+---------+------+----------+----------+---------+----------+
+        | Func     |     |         | Func | Func     | Func     | Map     | Func     |
+        +----------+-----+---------+------+----------+----------+---------+----------+
+        | DiffFunc |     |         |      | DiffFunc | Func     | DiffMap | DiffFunc |
+        +----------+-----+---------+------+----------+----------+---------+----------+
+        | ProxFunc |     |         |      |          | Func     | Map     | ProxFunc |
+        +----------+-----+---------+------+----------+----------+---------+----------+
+        | LinOp    |     |         |      |          |          | LinOp   | LinOp    |
+        +----------+-----+---------+------+----------+----------+---------+----------+
+        | LinFunc  |     |         |      |          |          |         | LinFunc  |
+        +----------+-----+---------+------+----------+----------+---------+----------+
+
+        Note that the case ``ProxFunc + LinFunc`` is handled in the methods ``__add__`` of the subclasses :py:class:`~pycsou.abc.operator.ProxFunc`
+        and :py:class:`~pycsou.abc.operator.LinFunc`.
+
+        If the sum has one or more of the following properties ``[apply, jacobian, gradient, adjoint, _lipschitz, _diff_lipschitz]``,
+        the latter are defined as the sum of the corresponding properties of the addends. In the case ``ProxFunc + LinFunc``,
+        the ``prox`` property is updated as described in the method ``__add__`` of the subclass :py:class:`~pycsou.abc.operator.ProxFunc`.
+
+        """
         if not isinstance(other, Map):
             raise NotImplementedError(f"Cannot add object of type {type(self)} with object of type {type(other)}.")
         try:
