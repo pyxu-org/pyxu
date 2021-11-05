@@ -3,11 +3,15 @@ import types
 import typing as typ
 
 import numpy as np
+import dask.array as da
 import scipy.sparse.linalg as splin
 
 import pycsou.abc
 import pycsou.runtime as pycrt
 import pycsou.util as pycutil
+
+if pycutil.deps.CUPY_ENABLED:
+    import cupy as cp
 
 NDArray = pycsou.abc.NDArray
 
@@ -384,9 +388,7 @@ class LinOp(DiffMap, Adjoint):
         adj._lipschitz = self._lipschitz
         return adj
 
-    def to_scipy_operator(
-        self, dtype: typ.Optional[type] = None
-    ) -> splin.LinearOperator:  # Port to GPU too (cupyx.scipy)
+    def to_scipy_operator(self, dtype: typ.Optional[type] = None, gpu: bool = False) -> splin.LinearOperator:
         def matmat(arr: NDArray) -> NDArray:
             return self.apply(arr.transpose())
 
@@ -396,20 +398,31 @@ class LinOp(DiffMap, Adjoint):
         if dtype is None:
             dtype = pycrt.getPrecision().value
 
-        return splin.LinearOperator(
+        if (
+            pycutil.deps.CUPY_ENABLED and gpu
+        ):  # Scipy casts any input to the LinOp as a Numpy array so the cupyx version is needed.
+            import cupyx.scipy.sparse.linalg as spx
+        else:
+            spx = splin
+        return spx.LinearOperator(
             shape=self.shape, matvec=self.apply, rmatvec=self.adjoint, matmat=matmat, rmatmat=rmatmat, dtype=dtype
         )
 
-    def lipschitz(self, recompute: bool = False, **kwargs):  # Add trace estimate
+    def lipschitz(self, recompute: bool = False, gpu: bool = False, **kwargs):  # Add trace estimate
         if recompute or (self._lipschitz == np.infty):
-            kwargs.update(dict(k=1, which="LM"))
+            kwargs.update(dict(k=1, which="LM", gpu=gpu))
             self._lipschitz = self.svdvals(**kwargs)
         return self._lipschitz
 
     @pycrt.enforce_precision(o=True)
-    def svdvals(self, k: int, which="LM", **kwargs) -> NDArray:  # Port to GPU too (cupyx.scipy)
+    def svdvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> NDArray:
         kwargs.update(dict(k=k, which=which, return_singular_vectors=False))
-        return splin.svds(self.to_scipy_operator(pycrt.getPrecision().value), **kwargs)
+        SciOp = self.to_scipy_operator(pycrt.getPrecision().value, gpu=gpu)
+        if pycutil.deps.CUPY_ENABLED and gpu:
+            import cupyx.scipy.sparse.linalg as spx
+        else:
+            spx = splin
+        return spx.svds(SciOp, **kwargs)
 
     def asarray(self, xp: typ.Any = np, dtype: typ.Optional[type] = None) -> NDArray:
         if dtype is None:
@@ -434,12 +447,13 @@ class LinOp(DiffMap, Adjoint):
         if arr.ndim == 1:
             return self._pinv(arr=arr, damp=damp, verbose=verbose, **kwargs)
         else:
+            xp = pycutil.get_array_module(arr)
             pinv1d = lambda x: self._pinv(arr=x, damp=damp, verbose=verbose, **kwargs)
-            return np.apply_along_axis(func1d=pinv1d, arr=arr, axis=-1)
+            return xp.apply_along_axis(func1d=pinv1d, arr=arr, axis=-1)
 
     def _pinv(
         self, arr: NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[int] = None, **kwargs
-    ) -> NDArray:  # TODO: adapt to GPU too
+    ) -> NDArray:
         """
         The routines scipy.sparse.linalg.lsqr or scipy.sparse.linalg.lsmr offer the same functionality as this routine
         but may converge faster when the operator is ill-conditioned and/or when there is no fast algorithm for self.gram()
@@ -468,10 +482,19 @@ class LinOp(DiffMap, Adjoint):
 
                 def __call__(self, x: NDArray):
                     if self.n % self.verbose == 0:
-                        print(f"Relative residual norm:{np.linalg.norm(self.b - self.A(x)) / np.linalg.norm(self.b)}")
+                        xp = pycutil.get_array_module(x)
+                        print(f"Relative residual norm:{xp.linalg.norm(self.b - self.A(x)) / xp.linalg.norm(self.b)}")
 
             kwargs.update(dict(callback=CallBack(verbose, A, b)))
-        return splin.cg(A, b, **kwargs)[0]
+
+        xp = pycutil.get_array_module(arr)
+        if xp is np:
+            spx = splin
+        elif pycutil.deps.CUPY_ENABLED and (xp is cp):
+            import cupyx.scipy.sparse.linalg as spx
+        else:
+            raise NotImplementedError
+        return spx.cg(A, b, **kwargs)[0]
 
     def dagger(self, damp: typ.Optional[float] = None, **kwargs) -> "LinOp":
         dagger = LinOp(self.shape[::-1])
@@ -501,9 +524,13 @@ class SquareOp(LinOp):
 
 class NormalOp(SquareOp):
     @pycrt.enforce_precision(o=True)
-    def eigvals(self, k: int, which="LM", **kwargs) -> NDArray:  # Port to GPU too (cupyx.scipy)
+    def eigvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> NDArray:
         kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
-        return splin.eigs(self.to_scipy_operator(pycrt.getPrecision().value), **kwargs)
+        if pycutil.deps.CUPY_ENABLED and gpu:
+            import cupyx.scipy.sparse.linalg as spx
+        else:
+            spx = splin
+        return spx.eigs(self.to_scipy_operator(pycrt.getPrecision().value, gpu=gpu), **kwargs)
 
     def cogram(self) -> "NormalOp":
         return self.gram().specialize(cast_to=SelfAdjointOp)
@@ -518,9 +545,13 @@ class SelfAdjointOp(NormalOp):
         return self
 
     @pycrt.enforce_precision(o=True)
-    def eigvals(self, k: int, which="LM", **kwargs) -> NDArray:  # Port to GPU too (cupyx.scipy)
+    def eigvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> NDArray:
         kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
-        return splin.eigsh(self.to_scipy_operator(pycrt.getPrecision().value), **kwargs)
+        if pycutil.deps.CUPY_ENABLED and gpu:
+            import cupyx.scipy.sparse.linalg as spx
+        else:
+            spx = splin
+        return spx.eigsh(self.to_scipy_operator(pycrt.getPrecision().value, gpu=gpu), **kwargs)
 
 
 class UnitOp(NormalOp):
@@ -578,12 +609,14 @@ class _HomothetyOp(SelfAdjointOp):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: NDArray) -> NDArray:
-        cst = np.array(self._cst, dtype=arr.dtype)
+        xp = pycutil.get_array_module(arr)
+        cst = xp.array(self._cst, dtype=arr.dtype)
         return cst * arr
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: NDArray) -> NDArray:
-        cst = np.array(self._cst, dtype=arr.dtype)
+        xp = pycutil.get_array_module(arr)
+        cst = xp.array(self._cst, dtype=arr.dtype)
         return cst * arr
 
     def __mul__(self, other):

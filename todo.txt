@@ -2,7 +2,9 @@ Matthieu
 --------
 
 * nd arithmetic
+* implement svds in a module agnostic fashion.
 * add from_source() method for creating class objects by passing their abstract methods as arguments?
+* add LinOp class method from_array() to create explicit linear operators from arrays.
 
 
 
@@ -15,3 +17,4 @@ Sepand
 ------
 
 * Solver
+* implement conjugate gradient in a module agnostic fashion.
