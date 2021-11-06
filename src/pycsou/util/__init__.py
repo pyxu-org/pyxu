@@ -50,10 +50,10 @@ def get_array_module(x: cabc.Sequence, fallback=None):
     Parameters
     ----------
     x: cabc.Sequence
-        Any object which is a NumPy/CuPy/Dask array, or that can be converted to one.
+        Any object compatible with the interface of NumPy arrays.
     fallback: types.ModuleType
-        Fallback module if `x` is not a NumPy/CuPy/Dask array.
-        Default behaviour: raise error if fallback is required.
+        Fallback module if `x` is not a NumPy-like array.
+        Default behaviour: raise error if fallback used.
 
     Returns
     -------
