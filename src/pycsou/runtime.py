@@ -88,41 +88,37 @@ def enforce_precision(i: typ.Union[str, cabc.Collection[str]] = frozenset(), o: 
     def decorator(func: cabc.Callable) -> cabc.Callable:
         @functools.wraps(func)
         def wrapper(*ARGS, **KWARGS):
-            dtype = getPrecision().value
-
             sig = inspect.Signature.from_callable(func)
             func_args = sig.bind(*ARGS, **KWARGS)
             func_args.apply_defaults()
             func_args = func_args.arguments
 
+            dtype = getPrecision().value
+
+            def coerce(x):
+                try:
+                    if isinstance(x, nb.Real):
+                        return np.array(x, dtype=dtype)[()]
+                    elif isinstance(x, nb.Number):
+                        raise  # other number categories cannot be converted.
+                    else:
+                        return x.astype(dtype, copy=False)
+                except:
+                    raise TypeError(f"Cannot coerce {type(x)} to scalar/array of precision {dtype}.")
+
             def enforce(name: str):
                 if name not in func_args:
                     error_msg = f"Parameter[{name}] not part of {func.__qualname__}() parameter list."
                     raise ValueError(error_msg)
-                else:  # change input precision
-                    if isinstance(func_args[name], nb.Real):
-                        func_args[name] = np.array(func_args[name], dtype=dtype).item()
-                    else:
-                        try:
-                            func_args[name] = func_args[name].astype(dtype, copy=False)
-                        except:
-                            raise TypeError(f"Argument [{name}] does not comply with the NumPy API.")
+                else:
+                    func_args[name] = coerce(func_args[name])
 
-            if isinstance(i, str):
-                enforce(i)
-            else:
-                for k in i:
-                    enforce(k)
+            for k in [i] if isinstance(i, str) else i:
+                enforce(k)
 
             out = func(**func_args)
             if o and (out is not None):
-                if isinstance(out, nb.Real):
-                    out = np.array(out, dtype=dtype).item()
-                else:
-                    try:
-                        out = out.astype(dtype, copy=False)
-                    except:
-                        raise TypeError(f"Output [{out}] does not comply with the NumPy API.")
+                out = coerce(out)
             return out
 
         return wrapper
