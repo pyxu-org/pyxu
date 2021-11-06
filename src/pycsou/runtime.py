@@ -4,6 +4,7 @@ import enum
 import functools
 import inspect
 import numbers as nb
+import typing as typ
 
 import numpy as np
 
@@ -52,18 +53,19 @@ class Precision(contextlib.AbstractContextManager):
         return False if exc_raised else True
 
 
-def enforce_precision(i: cabc.Collection[str] = frozenset(), o: bool = True) -> cabc.Callable:
+def enforce_precision(i: typ.Union[str, cabc.Collection[str]] = frozenset(), o: bool = True) -> cabc.Callable:
     """
     Decorator to pre/post-process function parameters to enforce runtime FP-precision.
 
     Parameters
     ----------
-    i: typ.Collection[str]
+    i: str | cabc.Collection[str]
         Function parameters for which precision must be enforced to runtime's FP-precision.
-        Function parameter values must have a NumPy API or be scalars.
+        Function parameter values must have a NumPy API, or be scalars.
     o: bool
         If True (default), ensure function's output (if any) has runtime's FP-precision.
-        If function's output does not have a NumPy API or is not a scalar, set `o` explicitly to False.
+        If function's output does not have a NumPy API or is not scalar-valued, set `o` explicitly
+        to False.
 
     Example
     -------
