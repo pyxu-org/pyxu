@@ -43,13 +43,13 @@ def infer_composition_shape(shape1: Shape, shape2: Shape) -> Shape:
         raise ValueError(f"Composition of {shape1} and {shape2} operators forbidden.")
 
 
-def get_array_module(x: cabc.Sequence[types.ModuleType], fallback=None):
+def get_array_module(x: cabc.Sequence, fallback=None):
     """
     Get the array namespace corresponding to a given object.
 
     Parameters
     ----------
-    x: cabc.Sequence[types.ModuleType]
+    x: cabc.Sequence
         Any object which is a NumPy/CuPy/Dask array, or that can be converted to one.
     fallback: types.ModuleType
         Fallback module if `x` is not a NumPy/CuPy/Dask array.
