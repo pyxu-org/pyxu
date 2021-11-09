@@ -32,8 +32,8 @@ class Solver:
     ):
         self._mstate = dict()  # mathematical state
         self._astate = dict(  # book-keeping (non-math) state
-            active=threading.Event(),
-            worker=_Worker(self),
+            active=None,  # threading.Event
+            worker=None,  # _Worker
             stop_crit=stop_crit,
         )
 
@@ -88,10 +88,15 @@ class Solver:
                 # active/worker are meaningless in this context, so stop() not required.
                 pass
         else:
+            self._astate["active"] = threading.Event()
             self._astate["active"].set()
+
+            self._astate["worker"] = _Worker(self)
             self._astate["worker"].start()
             if block:
                 self._astate["worker"].join()
+                self._astate["worker"] = None
+                self._astate["active"] = None
             else:
                 # User wants to query solver status himself.
                 # If busy() == False -> solver finished without manual intervention. No need to call stop().
