@@ -62,14 +62,10 @@ def get_array_module(x: cabc.Sequence, fallback=None):
     """
 
     def infer_api(y):
-        if isinstance(y, np.ndarray):
-            return np
-        elif isinstance(y, da.core.Array):
-            return da
-        elif pycd.CUPY_ENABLED and isinstance(y, cp.ndarray):
-            return cp
-        else:
-            return None
+        for array_t, api in pycd.array_backend_info().items():
+            if isinstance(y, array_t):
+                return api
+        return None
 
     if (xp := infer_api(x)) is not None:
         return xp
