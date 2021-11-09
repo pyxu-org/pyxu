@@ -10,18 +10,8 @@ Subpackages
    pycsou.abc
    pycsou.compound
    pycsou.linop
+   pycsou.runtime
    pycsou.util
-
-Submodules
-----------
-
-pycsou.runtime module
----------------------
-
-.. automodule:: pycsou.runtime
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 Module contents
 ---------------
