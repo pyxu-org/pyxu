@@ -1,8 +1,13 @@
+import numbers as nb
+import types
 import typing as typ
 
+import numpy as np
+
 import pycsou.abc.operator as pyco
-import pycsou.runtime as pycrt
-import pycsou.util as pycu
+from pycsou import runtime as pycrt
+from pycsou import util as pycu
+from pycsou.abc import Property, ProxFunc, SelfAdjointOp
 
 NDArray = pycu.NDArray
 
@@ -40,3 +45,33 @@ class IdentityOperator(pyco.PosDefOp, pyco.SelfAdjointOp, pyco.UnitOp):
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: NDArray) -> NDArray:
         return arr
+
+
+class HomothetyOp(SelfAdjointOp):
+    def __init__(self, cst: nb.Real, dim: int):
+        if not isinstance(cst, nb.Real):
+            raise ValueError("Argument [cst] must be a real number.")
+        super(HomothetyOp, self).__init__(shape=(dim, dim))
+        self._cst = cst
+        self._lipschitz = np.abs(cst)
+        self._diff_lipschitz = 0
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: NDArray) -> NDArray:
+        xp = pycu.get_array_module(arr)
+        cst = xp.array(self._cst, dtype=arr.dtype)
+        return cst * arr
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: NDArray) -> NDArray:
+        xp = pycu.get_array_module(arr)
+        cst = xp.array(self._cst, dtype=arr.dtype)
+        return cst * arr
+
+    def __mul__(self, other):
+        out_op = Property.__mul__(self, other)
+        if isinstance(other, ProxFunc):
+            out_op.specialize(cast_to=ProxFunc)
+            post_composition_prox = lambda obj, arr, tau: other.prox(arr, self._cst * tau)
+            out_op.prox = types.MethodType(post_composition_prox, out_op)
+            return out_op

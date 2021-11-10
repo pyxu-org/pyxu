@@ -2,23 +2,46 @@ import numbers as nb
 import types
 import typing as typ
 
-import dask.array as da
 import numpy as np
 import scipy.sparse.linalg as splin
 
-import pycsou.abc
 import pycsou.runtime as pycrt
-import pycsou.util as pycutil
+import pycsou.util as pycu
 
-if pycutil.deps.CUPY_ENABLED:
+if pycu.deps.CUPY_ENABLED:
     import cupy as cp
 
-NDArray = pycsou.abc.NDArray
+NDArray = pycu.NDArray
+ArrayModule = pycu.ArrayModule
+
+__all__ = [
+    "Property",
+    "Apply",
+    "Differential",
+    "Gradient",
+    "Adjoint",
+    "Proximal",
+    "SingledValued",
+    "Map",
+    "DiffMap",
+    "Func",
+    "DiffFunc",
+    "ProxFunc",
+    "LinFunc",
+    "LinOp",
+    "NormalOp",
+    "SelfAdjointOp",
+    "SquareOp",
+    "UnitOp",
+    "ProjOp",
+    "OrthProjOp",
+    "PosDefOp",
+]
 
 
 class Property:
     r"""
-    Abstract base class for operators.
+    Abstract base class for Pycsou's operators.
     """
 
     @classmethod
@@ -70,7 +93,7 @@ class Property:
 
         Parameters
         ----------
-        prop: typ.Union[str, typ.Tuple[str, ...]]
+        prop: str | tuple(str)
             Queried properties.
 
         Returns
@@ -82,10 +105,10 @@ class Property:
         --------
 
         >>> import pycsou.abc.operator as pycop
-        >>> op = pycop.LinOp
-        >>> op.has(('adjoint', 'jacobian'))
+        >>> LinOp = pycop.LinOp
+        >>> LinOp.has(('adjoint', 'jacobian'))
         True
-        >>> op.has(('adjoint', 'prox'))
+        >>> LinOp.has(('adjoint', 'prox'))
         False
         """
         return set(prop) <= cls.properties()
@@ -95,18 +118,18 @@ class Property:
         other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
     ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
         r"""
-        Add two instances of :py:class:`~pycsou.abc.operator.Map` subclasses together.
+        Add two instances of :py:class:`~pycsou.abc.operator.Map` subclasses together (overloads the ``+`` operator).
 
         Parameters
         ----------
-        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
+        self:  :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
             Left addend with shape (N,K).
-        other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
+        other: :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
             Right addend with shape (M,L).
 
         Returns
         -------
-        typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
+        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
             Sum of ``self`` and ``other``.
 
         Raises
@@ -115,13 +138,15 @@ class Property:
             If other is not an instance of :py:class:`~pycsou.abc.operator.Map`.
 
         ValueError
-            If the addends' shapes are inconsistenst (see below).
+            If the addends' shapes are inconsistent (see below).
 
         Notes
         -----
+
         The addends' shapes must be `consistent` with one another, that is, they must:
+
             * be `range-broadcastable`, i.e. ``N=M or 1 in (N,M)``.
-            * have `identical domain sizes` except if at least one of the two addends is `domain-agnostic`, i.e. ``(N=M or 1 in (N,M)) and (K=L or None in (K,L))``.
+            * have `identical domain sizes` except if at least one of the two addends is `domain-agnostic`, i.e. ``K=L or None in (K,L)``.
 
         The addends `needs not be` instances of the same :py:class:`~pycsou.abc.operator.Map` subclass. The sum output is an
         instance of one of the following :py:class:`~pycsou.abc.operator.Map` (sub)classes: :py:class:`~pycsou.abc.operator.Map`,
@@ -148,18 +173,20 @@ class Property:
         | LinFunc  |     |         |      |          |          |         | LinFunc  |
         +----------+-----+---------+------+----------+----------+---------+----------+
 
-        Note that the case ``ProxFunc + LinFunc`` is handled in the methods ``__add__`` of the subclasses :py:class:`~pycsou.abc.operator.ProxFunc`
-        and :py:class:`~pycsou.abc.operator.LinFunc`.
-
         If the sum has one or more of the following properties ``[apply, jacobian, gradient, adjoint, _lipschitz, _diff_lipschitz]``,
         the latter are defined as the sum of the corresponding properties of the addends. In the case ``ProxFunc + LinFunc``,
         the ``prox`` property is updated as described in the method ``__add__`` of the subclass :py:class:`~pycsou.abc.operator.ProxFunc`.
+
+        .. Hint::
+
+            Note that the case ``ProxFunc + LinFunc`` is handled in the methods ``__add__`` of the subclasses :py:class:`~pycsou.abc.operator.ProxFunc`
+            and :py:class:`~pycsou.abc.operator.LinFunc`.
 
         """
         if not isinstance(other, Map):
             raise NotImplementedError(f"Cannot add object of type {type(self)} with object of type {type(other)}.")
         try:
-            out_shape = pycutil.infer_sum_shape(self.shape, other.shape)
+            out_shape = pycu.infer_sum_shape(self.shape, other.shape)
         except ValueError:
             raise ValueError(f"Cannot sum two maps with inconsistent shapes {self.shape} and {other.shape}.")
         shared_props = self.properties() & other.properties()
@@ -187,13 +214,106 @@ class Property:
         self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
         other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc", nb.Real],
     ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+        r"""
+        Scale/compose one/two instance(s) of :py:class:`~pycsou.abc.operator.Map` subclasses respectively (overloads the ``*`` operator).
+
+        Parameters
+        ----------
+        self: :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+            Left factor with shape (N,K).
+        other: :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+            Right factor. Should be a real scalar or an instance of :py:class:`~pycsou.abc.operator.Map` subclasses with shape (M,L).
+
+        Returns
+        -------
+        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+            Product (scaling or composition) of ``self`` with ``other``, with shape (N,K) (for scaling) or (N,L) (for composition).
+
+        Raises
+        ------
+        NotImplementedError
+            If other is not an instance of :py:class:`~pycsou.abc.operator.Map` or :py:class:`numbers.Real`.
+
+        ValueError
+            If the factors' shapes are inconsistent (see below).
+
+        Notes
+        -----
+
+        The factors' shapes must be `consistent` with one another, that is ``K=M``. If the left factor is domain-agnostic
+        (i.e. ``K=None``) then ``K!=M`` is allowed. The right factor can also be domain-agnostic, in which case the output
+        is also domain-agnostic and has shape (N, None).
+
+
+        The factors `needs not be` instances of the same :py:class:`~pycsou.abc.operator.Map` subclass. The product output is an
+        instance of one of the following :py:class:`~pycsou.abc.operator.Map` (sub)classes: :py:class:`~pycsou.abc.operator.Map`,
+        :py:class:`~pycsou.abc.operator.DiffMap`, :py:class:`~pycsou.abc.operator.Func`, :py:class:`~pycsou.abc.operator.DiffFunc`,
+        :py:class:`~pycsou.abc.operator.ProxFunc`, :py:class:`~pycsou.abc.operator.LinOp`, or :py:class:`~pycsou.abc.operator.LinFunc`.
+        The output type is determined automatically by inspecting the shapes and common properties of the two factors as per the following table:
+
+        +----------+---------+----------+------+----------+----------+-------------+----------+
+        |          | Map     | DiffMap  | Func | DiffFunc | ProxFunc | LinOp       | LinFunc  |
+        +==========+=========+==========+======+==========+==========+=============+==========+
+        | Map      | Map     | Map      | Map  | Map      | Map      | Map         | Map      |
+        +----------+---------+----------+------+----------+----------+-------------+----------+
+        | DiffMap  | Map     | DiffMap  | Map  | DiffMap  | Map      | DiffMap     | DiffMap  |
+        +----------+---------+----------+------+----------+----------+-------------+----------+
+        | Func     | Func    | Func     | Func | Func     | Func     | Func        | Func     |
+        +----------+---------+----------+------+----------+----------+-------------+----------+
+        | DiffFunc | Func    | DiffFunc | Func | DiffFunc | Func     | DiffFunc    | DiffFunc |
+        +----------+---------+----------+------+----------+----------+-------------+----------+
+        | ProxFunc | Func    | Func     | Func | Func     | Func     | Func        | Func     |
+        +----------+---------+----------+------+----------+----------+-------------+----------+
+        | LinOp    | Map     | DiffMap  | Map  | DiffMap  | Map      | LinOp       | LinOp    |
+        +----------+---------+----------+------+----------+----------+-------------+----------+
+        | LinFunc  | LinFunc | DiffFunc | Func | DiffFunc | Func     | LinFunc     | LinFunc  |
+        +----------+---------+----------+------+----------+----------+-------------+----------+
+
+
+        If the product output has one or more of the following properties ``[apply, jacobian, gradient, adjoint, _lipschitz, _diff_lipschitz]``,
+        the latter are defined from the corresponding properties of the factors as follows (the pseudocode below is mathematically equivalent to but does
+        not necessarily reflect the actual implementation):
+
+        .. code-block:: python3
+
+            prod._lipschitz = self._lipschitz * other._lipschitz
+            prod.apply = lambda x: self.apply(other.apply(x))
+            prod.jacobian = lambda x: self.jacobian(other.apply(x)) * other.jacobian(x)
+            prod.gradient = lambda x: other.jacobian(x).adjoint(self.gradient(other.apply(x)))
+            prod.adjoint = lambda x: other.adjoint(self.adjoint(x))
+
+        where ``prod = self * other`` denotes the product of ``self`` with ``other``.
+        Moreover, the (potential) attribute :py:attr:`~pycsou.abc.operator.DiffMap._diff_lipschitz` is updated as follows:
+
+        .. code-block:: python3
+
+            if isinstance(self, LinOp):
+                prod._diff_lipschitz = self._lipschitz * other._diff_lipschitz
+            elif isinstance(other, LinOp):
+                prod._diff_lipschitz = self._diff_lipschitz * (other._lipschitz) ** 2
+            else:
+                prod._diff_lipschitz = np.infty
+
+        Unlike the other properties listed above, automatic update of the :py:attr:`~pycsou.abc.operator.DiffMap._diff_lipschitz` attribute is
+        hence only possible when either ``self`` or ``other`` is a :py:class:`~pycsou.abc.operator.LinOp` (otherwise it is set to its default value ``np.infty``).
+
+        .. Hint::
+
+            The case ``ProxFunc * LinOp`` yields in general a :py:class:`~pycsou.abc.operator.Func` object except when
+            the :py:class:`~pycsou.abc.operator.LinOp` factor is of type :py:class:`~pycsou.abc.operator.UnitOp` where it returns
+            a :py:class:`~pycsou.abc.operator.ProxFunc` (see :py:meth:`~pycsou.abc.operator.__mul__` of :py:class:`~pycsou.abc.operator.ProxFunc` for more).
+            This case, together with the case ``ProxFunc * scalar`` are handled separately in the method :py:meth:`~pycsou.abc.operator.__mul__` of the subclass :py:class:`~pycsou.abc.operator.ProxFunc`,
+            where the product's ``prox`` property update is described.
+        """
         if isinstance(other, nb.Real):
-            hmap = _HomothetyOp(other, dim=self.shape[0])
+            from pycsou.linop.base import HomothetyOp
+
+            hmap = HomothetyOp(other, dim=self.shape[0])
             return hmap.__mul__(self)
         elif not isinstance(other, Map):
             raise NotImplementedError(f"Cannot multiply object of type {type(self)} with object of type {type(other)}.")
         try:
-            out_shape = pycutil.infer_composition_shape(self.shape, other.shape)
+            out_shape = pycu.infer_composition_shape(self.shape, other.shape)
         except ValueError:
             raise ValueError(f"Cannot compose two maps with inconsistent shapes {self.shape} and {other.shape}.")
         shared_props = self.properties() & other.properties()
@@ -240,11 +360,37 @@ class Property:
     def __rmul__(
         self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"], other: nb.Real
     ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+        r"""
+        Scale an instance of :py:class:`~pycsou.abc.operator.Map` subclasses by multiplying it from the left with a real number, i.e. ``prod = scalar * self``.
+
+        Parameters
+        ----------
+        other: numbers.Real
+            Left scaling factor.
+
+        Returns
+        -------
+        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+            Scaled operator.
+        """
         return self.__mul__(other)
 
     def __pow__(
         self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"], power: int
     ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "LinOp", "LinFunc"]:
+        r"""
+        Exponentiate (i.e. compose with itself) an instance of :py:class:`~pycsou.abc.operator.Map` subclasses ``power`` times (overloads the ``**`` operator).
+
+        Parameters
+        ----------
+        power: int
+            Exponentiation power (number of times the operator is composed with itself).
+
+        Returns
+        -------
+        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+            Exponentiated operator.
+        """
         if type(power) is int:
             if power == 0:
                 from pycsou.linop.base import IdentityOperator
@@ -261,17 +407,38 @@ class Property:
     def __neg__(
         self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
     ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+        r"""
+        Negate a map (overloads the ``-`` operator). Alias for ``self.__mul__(-1)``.
+        """
         return self.__mul__(-1)
 
     def __sub__(
         self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
         other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
     ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "LinOp", "LinFunc"]:
+        r"""
+        Take the difference between two instances of :py:class:`~pycsou.abc.operator.Map` subclasses. Alias for ``self.__add__(other.__neg__())``.
+
+        Parameters
+        ----------
+        self: :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+            Left term of the subtraction with shape (N,K).
+        other: :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+            Right term of the subtraction with shape (M,L).
+
+        Returns
+        -------
+        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+            Difference between ``self`` and ``other``.
+        """
         return self.__add__(other.__neg__())
 
     def __truediv__(
         self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"], scalar: nb.Real
     ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+        r"""
+        Divides a map by a real ``scalar`` (overloads the ``/`` operator). Alias for ``self.__mul__(1 / scalar)``.
+        """
         if isinstance(scalar, nb.Real):
             return self.__mul__(1 / scalar)
         else:
@@ -279,10 +446,41 @@ class Property:
 
     def argscale(
         self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
-        scalar: typ.Union[float, "UnitOp"],
+        scalar: nb.Real,
     ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+        r"""
+        Dilate/shrink the domain of an instance of :py:class:`~pycsou.abc.operator.Map` subclasses.
+
+        Parameters
+        ----------
+        scalar: numbers.Real
+            Dilation/shrinking factor.
+
+        Returns
+        -------
+        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+            Domain-rescaled operator.
+
+        Raises
+        ------
+        NotImplementedError
+            If scalar is not a real number.
+
+        Notes
+        -----
+        Calling ``self.argscale(scalar)`` is equivalent to precomposing ``self`` with the (unitary) linear operator :py:class:`~pycsou.linop.base.HomotethyOp`:
+
+        .. code-block:: python3
+
+            # The two statements below are functionally equivalent
+            out1 = self.argscale(scalar)
+            out2 = self * HomotethyOp(scalar, dim=self.shape[1])
+
+        """
         if isinstance(scalar, nb.Real):
-            hmap = _HomothetyOp(scalar, dim=self.shape[1])
+            from pycsou.linop.base import HomothetyOp
+
+            hmap = HomothetyOp(scalar, dim=self.shape[1])
             return self.__mul__(hmap)
         else:
             raise NotImplementedError
@@ -291,6 +489,46 @@ class Property:
     def argshift(
         self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"], arr: NDArray
     ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+        r"""
+        Domain-shift an instance of :py:class:`~pycsou.abc.operator.Map` subclasses by ``arr``.
+
+        Parameters
+        ----------
+        arr: NDArray
+            Shift vector with size (N,).
+
+        Returns
+        -------
+        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+            Domain-shifted operator.
+
+        Raises
+        ------
+        ValueError
+            If ``arr`` is not of type NDArray of has incorrect size, i.e. ``N != self.shape[1]``.
+
+        Notes
+        -----
+        The output domain-shifted operator has either the same type of ``self`` or is of type
+        :py:class:`~pycsou.abc.operator.DiffMap`/:py:class:`~pycsou.abc.operator.DiffFunc` when ``self`` is a
+        :py:class:`~pycsou.abc.operator.LinOp`/:py:class:`~pycsou.abc.operator.LinFunc` object respectively (shifting does not preserve linearity).
+        Moreover, if the output has one or more of the following properties ``[apply, jacobian, gradient, prox, _lipschitz, _diff_lipschitz]``,
+        the latter are defined from the corresponding properties of ``self`` as follows (the pseudocode below is mathematically equivalent to but does
+        not necessarily reflect the actual implementation):
+
+        .. code-block:: python3
+
+            out._lipschitz = self._lipschitz
+            out._diff_lipschitz = self._diff_lipschitz
+            out.apply = lambda x: self.apply(x + arr)
+            out.jacobian = lambda x: self.jacobian(x + arr)
+            out.gradient = lambda x: self.gradient(x + arr)
+            out.prox = lambda x, tau: self.prox(x + arr, tau) - arr
+
+        where ``out = self.argshift(arr)`` denotes the domain-shifted output.
+
+
+        """
         try:
             arr = arr.copy().squeeze()
         except:
@@ -470,13 +708,13 @@ class ProxFunc(Func, Proximal):
 
     def __mul__(
         self: "ProxFunc",
-        other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc", "_HomothetyOp"],
+        other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc", "HomothetyOp"],
     ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
         f = Property.__mul__(self, other)
         if isinstance(other, UnitOp):
             f.specialize(cast_to=ProxFunc)
             f.prox = types.MethodType(lambda obj, arr, tau: other.adjoint(self.prox(other.apply(arr), tau)), f)
-        elif isinstance(other, _HomothetyOp):
+        elif isinstance(other, HomothetyOp):
             f.specialize(cast_to=ProxFunc)
             f.prox = types.MethodType(
                 lambda obj, arr, tau: (1 / other._cst) * self.prox(other._cst * arr, tau * (other._cst) ** 2), f
@@ -519,7 +757,7 @@ class LinOp(DiffMap, Adjoint):
             dtype = pycrt.getPrecision().value
 
         if (
-            pycutil.deps.CUPY_ENABLED and gpu
+            pycu.deps.CUPY_ENABLED and gpu
         ):  # Scipy casts any input to the LinOp as a Numpy array so the cupyx version is needed.
             import cupyx.scipy.sparse.linalg as spx
         else:
@@ -538,13 +776,13 @@ class LinOp(DiffMap, Adjoint):
     def svdvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> NDArray:
         kwargs.update(dict(k=k, which=which, return_singular_vectors=False))
         SciOp = self.to_scipy_operator(pycrt.getPrecision().value, gpu=gpu)
-        if pycutil.deps.CUPY_ENABLED and gpu:
+        if pycu.deps.CUPY_ENABLED and gpu:
             import cupyx.scipy.sparse.linalg as spx
         else:
             spx = splin
         return spx.svds(SciOp, **kwargs)
 
-    def asarray(self, xp: typ.Any = np, dtype: typ.Optional[type] = None) -> NDArray:
+    def asarray(self, xp: ArrayModule = np, dtype: typ.Optional[type] = None) -> NDArray:
         if dtype is None:
             dtype = pycrt.getPrecision().value
         return self.apply(xp.eye(self.shape[1], dtype=dtype))
@@ -567,7 +805,7 @@ class LinOp(DiffMap, Adjoint):
         if arr.ndim == 1:
             return self._pinv(arr=arr, damp=damp, verbose=verbose, **kwargs)
         else:
-            xp = pycutil.get_array_module(arr)
+            xp = pycu.get_array_module(arr)
             pinv1d = lambda x: self._pinv(arr=x, damp=damp, verbose=verbose, **kwargs)
             return xp.apply_along_axis(func1d=pinv1d, arr=arr, axis=-1)
 
@@ -602,15 +840,15 @@ class LinOp(DiffMap, Adjoint):
 
                 def __call__(self, x: NDArray):
                     if self.n % self.verbose == 0:
-                        xp = pycutil.get_array_module(x)
+                        xp = pycu.get_array_module(x)
                         print(f"Relative residual norm:{xp.linalg.norm(self.b - self.A(x)) / xp.linalg.norm(self.b)}")
 
             kwargs.update(dict(callback=CallBack(verbose, A, b)))
 
-        xp = pycutil.get_array_module(arr)
+        xp = pycu.get_array_module(arr)
         if xp is np:
             spx = splin
-        elif pycutil.deps.CUPY_ENABLED and (xp is cp):
+        elif pycu.deps.CUPY_ENABLED and (xp is cp):
             import cupyx.scipy.sparse.linalg as spx
         else:
             raise NotImplementedError
@@ -646,7 +884,7 @@ class NormalOp(SquareOp):
     @pycrt.enforce_precision(o=True)
     def eigvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> NDArray:
         kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
-        if pycutil.deps.CUPY_ENABLED and gpu:
+        if pycu.deps.CUPY_ENABLED and gpu:
             import cupyx.scipy.sparse.linalg as spx
         else:
             spx = splin
@@ -667,7 +905,7 @@ class SelfAdjointOp(NormalOp):
     @pycrt.enforce_precision(o=True)
     def eigvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> NDArray:
         kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
-        if pycutil.deps.CUPY_ENABLED and gpu:
+        if pycu.deps.CUPY_ENABLED and gpu:
             import cupyx.scipy.sparse.linalg as spx
         else:
             spx = splin
@@ -716,36 +954,6 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
 
 class PosDefOp(SelfAdjointOp):
     pass
-
-
-class _HomothetyOp(SelfAdjointOp):
-    def __init__(self, cst: nb.Real, dim: int):
-        if not isinstance(cst, nb.Real):
-            raise ValueError("Argument [cst] must be a real number.")
-        super(_HomothetyOp, self).__init__(shape=(dim, dim))
-        self._cst = cst
-        self._lipschitz = np.abs(cst)
-        self._diff_lipschitz = 0
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: NDArray) -> NDArray:
-        xp = pycutil.get_array_module(arr)
-        cst = xp.array(self._cst, dtype=arr.dtype)
-        return cst * arr
-
-    @pycrt.enforce_precision(i="arr")
-    def adjoint(self, arr: NDArray) -> NDArray:
-        xp = pycutil.get_array_module(arr)
-        cst = xp.array(self._cst, dtype=arr.dtype)
-        return cst * arr
-
-    def __mul__(self, other):
-        out_op = Property.__mul__(self, other)
-        if isinstance(other, ProxFunc):
-            out_op.specialize(cast_to=ProxFunc)
-            post_composition_prox = lambda obj, arr, tau: other.prox(arr, self._cst * tau)
-            out_op.prox = types.MethodType(post_composition_prox, out_op)
-            return out_op
 
 
 _base_operators = frozenset([Map, DiffMap, Func, DiffFunc, ProxFunc, LinOp, LinFunc])
