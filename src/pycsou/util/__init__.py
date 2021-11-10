@@ -10,6 +10,7 @@ import pycsou.util.deps as pycd
 if pycd.CUPY_ENABLED:
     import cupy as cp
 
+from pycsou.util.deps import ArrayModule, NDArray
 
 Shape = typ.Tuple[int, typ.Union[int, None]]
 
@@ -43,7 +44,7 @@ def infer_composition_shape(shape1: Shape, shape2: Shape) -> Shape:
         raise ValueError(f"Composition of {shape1} and {shape2} operators forbidden.")
 
 
-def get_array_module(x: cabc.Sequence, fallback=None):
+def get_array_module(x: cabc.Sequence, fallback: ArrayModule = None) -> ArrayModule:
     """
     Get the array namespace corresponding to a given object.
 
@@ -51,13 +52,13 @@ def get_array_module(x: cabc.Sequence, fallback=None):
     ----------
     x: cabc.Sequence
         Any object compatible with the interface of NumPy arrays.
-    fallback: types.ModuleType
+    fallback: pycsou.util.deps.ArrayModule
         Fallback module if `x` is not a NumPy-like array.
         Default behaviour: raise error if fallback used.
 
     Returns
     -------
-    namespace: types.ModuleType
+    namespace: pycsou.util.deps.ArrayModule
         The namespace to use to manipulate `x`, or `fallback`.
     """
 

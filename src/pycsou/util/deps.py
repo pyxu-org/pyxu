@@ -1,4 +1,3 @@
-import functools
 import importlib.util
 import typing as typ
 
@@ -33,8 +32,6 @@ def supported_array_modules():
     return tuple(array_backend_info().values())
 
 
-NDArray = functools.reduce(
-    lambda a, b: typ.Union[a, b],
-    supported_array_types()[1:],
-    supported_array_types()[0],
-)
+NDArray = typ.TypeVar("NDArray", *supported_array_types())
+supported_array_modules_literals = [typ.Literal[mod] for mod in supported_array_modules()]
+ArrayModule = typ.TypeVar("ArrayModule", *supported_array_modules_literals)
