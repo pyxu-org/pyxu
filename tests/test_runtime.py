@@ -70,7 +70,7 @@ class TestEnforcePrecision:
         with pytest.raises(ValueError):
             f(1)
 
-    def test_array_io(self, xp):
+    def test_valid_array_io(self, xp):
         @pycrt.enforce_precision("x")
         def f(x):
             assert self.right_dtype(x)
@@ -79,3 +79,14 @@ class TestEnforcePrecision:
         with pycrt.Precision(pycrt.Width.HALF):
             x = xp.arange(5)
             assert self.right_dtype(f(x))
+
+    def test_invalid_array_io(self, xp):
+        @pycrt.enforce_precision("x")
+        def f(x):
+            assert self.right_dtype(x)
+            return x
+
+        with pycrt.Precision(pycrt.Width.HALF):
+            x = xp.arange(5) + 1j * xp.arange(5)
+            with pytest.raises(TypeError):
+                f(x)
