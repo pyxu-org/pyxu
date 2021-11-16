@@ -91,6 +91,14 @@ class TestEnforcePrecision:
             with pytest.raises(TypeError):
                 f(x)
 
+    def test_None_input(self):
+        @pycrt.enforce_precision("x", allow_None=False)
+        def f(x):
+            return x
+
+        with pytest.raises(ValueError):
+            f(None)
+
 
 class TestCoerce:
     def right_dtype(self, x):

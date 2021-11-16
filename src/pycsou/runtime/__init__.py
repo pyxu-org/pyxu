@@ -53,7 +53,11 @@ class Precision(contextlib.AbstractContextManager):
         return False if exc_raised else True
 
 
-def enforce_precision(i: typ.Union[str, cabc.Collection[str]] = frozenset(), o: bool = True) -> cabc.Callable:
+def enforce_precision(
+    i: typ.Union[str, cabc.Collection[str]] = frozenset(),
+    o: bool = True,
+    allow_None: bool = True,
+) -> cabc.Callable:
     """
     Decorator to pre/post-process function parameters to enforce runtime FP-precision.
 
@@ -62,10 +66,12 @@ def enforce_precision(i: typ.Union[str, cabc.Collection[str]] = frozenset(), o: 
     i: str | cabc.Collection[str]
         Function parameters for which precision must be enforced to runtime's FP-precision.
         Function parameter values must have a NumPy API, or be scalars.
+        None-valued parameters are allowed if `allow_None` is True (default).
     o: bool
         If True (default), ensure function's output (if any) has runtime's FP-precision.
         If function's output does not have a NumPy API or is not scalar-valued, set `o` explicitly
         to False.
+    allow_None: bool
 
     Example
     -------
@@ -97,6 +103,8 @@ def enforce_precision(i: typ.Union[str, cabc.Collection[str]] = frozenset(), o: 
                 if k not in func_args:
                     error_msg = f"Parameter[{k}] not part of {func.__qualname__}() parameter list."
                     raise ValueError(error_msg)
+                elif (func_args[k] is None) and (not allow_None):
+                    raise ValueError(f"Parameter[{k}] cannot be None-valued.")
                 else:
                     func_args[k] = coerce(func_args[k])
 
