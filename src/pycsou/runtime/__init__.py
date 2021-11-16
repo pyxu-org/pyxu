@@ -93,28 +93,12 @@ def enforce_precision(i: typ.Union[str, cabc.Collection[str]] = frozenset(), o: 
             func_args.apply_defaults()
             func_args = func_args.arguments
 
-            dtype = getPrecision().value
-
-            def coerce(x):
-                try:
-                    if isinstance(x, nb.Real):
-                        return np.array(x, dtype=dtype)[()]
-                    elif isinstance(x, nb.Number):
-                        raise  # other number categories cannot be converted.
-                    else:
-                        return x.astype(dtype, copy=False)
-                except:
-                    raise TypeError(f"Cannot coerce {type(x)} to scalar/array of precision {dtype}.")
-
-            def enforce(name: str):
-                if name not in func_args:
-                    error_msg = f"Parameter[{name}] not part of {func.__qualname__}() parameter list."
+            for k in [i] if isinstance(i, str) else i:
+                if k not in func_args:
+                    error_msg = f"Parameter[{k}] not part of {func.__qualname__}() parameter list."
                     raise ValueError(error_msg)
                 else:
-                    func_args[name] = coerce(func_args[name])
-
-            for k in [i] if isinstance(i, str) else i:
-                enforce(k)
+                    func_args[k] = coerce(func_args[k])
 
             out = func(**func_args)
             if o and (out is not None):
@@ -129,6 +113,32 @@ def enforce_precision(i: typ.Union[str, cabc.Collection[str]] = frozenset(), o: 
 def getPrecision() -> Width:
     state = globals()
     return state["__width"]
+
+
+def coerce(x):
+    """
+    Transform input to match runtime FP-precision.
+
+    Parameters
+    ----------
+    x: scalar | NDArray
+
+    Returns
+    -------
+    y: scalar | NDArray
+        Input cast to the runtime FP-precision.
+        Fails if operation is impossible or unsafe. (I.e. casting complex-valued data.)
+    """
+    dtype = getPrecision().value
+    try:
+        if isinstance(x, nb.Real):
+            return np.array(x, dtype=dtype)[()]
+        elif isinstance(x, nb.Number):
+            raise  # other number categories cannot be converted.
+        else:
+            return x.astype(dtype, copy=False, casting="same_kind")
+    except:
+        raise TypeError(f"Cannot coerce {type(x)} to scalar/array of precision {dtype}.")
 
 
 def _setPrecision(width: Width):
