@@ -208,7 +208,7 @@ def SquaredL2Loss(dim: int, data: Union[Number, np.ndarray]) -> DifferentiableFu
 
     Notes
     -----
-    The :math:`\ell_2^2` functional is the likelihood of the data :math:`\mathbf{y}` under the assumtpion of
+    The :math:`\ell_2^2` functional is the likelihood of the data :math:`\mathbf{y}` under the assumption of
     Gaussian white noise.
 
     See Also
