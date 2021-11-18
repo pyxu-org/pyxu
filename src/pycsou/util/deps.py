@@ -4,6 +4,7 @@ import typing as typ
 import dask.array as da
 import numpy as np
 
+#: Boolean constant set to ``True`` if CuPy is available, ``False`` otherwise.
 CUPY_ENABLED = importlib.util.find_spec("cupy") is not None
 
 
@@ -32,6 +33,8 @@ def supported_array_modules():
     return tuple(array_backend_info().values())
 
 
+#: Type variable describing the supported array types. For annotation purposes.
 NDArray = typ.TypeVar("NDArray", *supported_array_types())
 supported_array_modules_literals = [typ.Literal[mod] for mod in supported_array_modules()]
+#: Type variable describing the supported array modules. For annotation purposes.
 ArrayModule = typ.TypeVar("ArrayModule", *supported_array_modules_literals)

@@ -57,7 +57,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
-    # "matplotlib.sphinxext.plot_directive",
+    "matplotlib.sphinxext.plot_directive",
 ]
 
 templates_path = ["_templates"]
@@ -101,12 +101,12 @@ autodoc_inherit_docstrings = True
 # -- Options for intersphinx extension ---------------------------------------
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
-    "NumPy [latest]": ("https://docs.scipy.org/doc/numpy/", None),
+    "NumPy [latest]": ("https://docs.scipy.org/doc/numpy", None),
     "SciPy [latest]": ("https://docs.scipy.org/doc/scipy/reference", None),
     "pylops [latest]": ("https://pylops.readthedocs.io/en/latest", None),
-    "dask [latest]": ("https://docs.dask.org/en/latest/", None),
-    "pandas": ("http://pandas.pydata.org/pandas-docs/stable/", None),
-    "matplotlib": ("https://matplotlib.org/", None),
+    "dask [latest]": ("https://docs.dask.org/en/latest", None),
+    "pandas": ("http://pandas.pydata.org/pandas-docs/stable", None),
+    "matplotlib": ("https://matplotlib.org/stable", None),
 }
 
 # -- Options for napoleon extension ------------------------------------------
@@ -121,7 +121,7 @@ autodoc_type_aliases = {"ArrayLike": "NDArray"}
 
 
 def skip(app, what, name, obj, would_skip, options):
-    if name in ["__init__", "__add__", "__mul__"]:
+    if name in ["__init__", "__add__", "__mul__", "__rmul__", "__pow__", "__truediv__", "__sub__", "__neg__"]:
         return False
     return would_skip
 

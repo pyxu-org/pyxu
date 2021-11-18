@@ -11,6 +11,7 @@ Welcome to Pycsou's documentation!
    :caption: Contents:
 
    modules
+   dev_notes
 
 
 

@@ -5,6 +5,6 @@ Module contents
 ---------------
 
 .. automodule:: pycsou.runtime
-   :members:
-   :undoc-members:
-   :show-inheritance:
+    :members:
+    :undoc-members:
+    :show-inheritance:
