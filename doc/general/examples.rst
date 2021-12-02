@@ -29,15 +29,15 @@ This problem can be solved via the :py:class:`~pycsou.opt.proxalgs.PrimalDualSpl
         D = FirstDerivative(size=x.size, kind='forward')
         D.compute_lipschitz_cst(tol=1e-3)
         rng = np.random.default_rng(0)
-        G = DownSampling(size=x.size, downsampling_factor=3)
-        G.compute_lipschitz_cst()
-        y = G(x)
-        l22_loss = (1 / 2) * SquaredL2Loss(dim=G.shape[0], data=y)
-        F = l22_loss * G
+        Gop = DownSampling(size=x.size, downsampling_factor=3)
+        Gop.compute_lipschitz_cst()
+        y = Gop(x)
+        l22_loss = (1 / 2) * SquaredL2Loss(dim=Gop.shape[0], data=y)
+        F = l22_loss * Gop
         lambda_ = 0.1
         H = lambda_ * L1Norm(dim=D.shape[0])
-        G = 0.01 * L1Norm(dim=G.shape[1])
-        pds = PrimalDualSplitting(dim=G.shape[1], F=F, G=G, H=H, K=D, verbose=None)
+        G = 0.01 * L1Norm(dim=Gop.shape[1])
+        pds = PrimalDualSplitting(dim=Gop.shape[1], F=F, G=G, H=H, K=D, verbose=None)
         estimate, converged, diagnostics = pds.iterate()
         plt.figure()
         plt.stem(x, linefmt='C0-', markerfmt='C0o')
@@ -72,17 +72,17 @@ This yields the so-called *Fast Iterative Soft Thresholding Algorithm (FISTA)*, 
        from pycsou.opt.proxalgs import APGD
 
        rng = np.random.default_rng(0)
-       G = DenseLinearOperator(rng.standard_normal(15).reshape(3,5))
-       G.compute_lipschitz_cst()
-       x = np.zeros(G.shape[1])
+       Gop = DenseLinearOperator(rng.standard_normal(15).reshape(3,5))
+       Gop.compute_lipschitz_cst()
+       x = np.zeros(Gop.shape[1])
        x[1] = 1
        x[-2] = -1
-       y = G(x)
-       l22_loss = (1/2) * SquaredL2Loss(dim=G.shape[0], data=y)
-       F = l22_loss * G
+       y = Gop(x)
+       l22_loss = (1/2) * SquaredL2Loss(dim=Gop.shape[0], data=y)
+       F = l22_loss * Gop
        lambda_ = 0.9 * np.max(np.abs(F.gradient(0 * x)))
-       G = lambda_ * L1Norm(dim=G.shape[1])
-       apgd = APGD(dim=G.shape[1], F=F, G=None, acceleration='CD', verbose=None)
+       G = lambda_ * L1Norm(dim=Gop.shape[1])
+       apgd = APGD(dim=Gop.shape[1], F=F, G=G, acceleration='CD', verbose=None)
        estimate, converged, diagnostics = apgd.iterate()
        plt.figure()
        plt.stem(x, linefmt='C0-', markerfmt='C0o')

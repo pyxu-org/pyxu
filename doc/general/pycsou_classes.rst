@@ -221,7 +221,7 @@ Example: Implementing New Differentiable Functionals
     
     class OneSidedSquaredL2Norm(DifferentiableFunctional):
         def __init__(self, dim: int):
-            super(OneSidedSquaredL2Norm, self).__init__(dim=dim)
+            super(OneSidedSquaredL2Norm, self).__init__(dim=dim, diff_lipschitz_cst=2)
     
         def __call__(self, x: np.ndarray) -> np.ndarray: #Implement abstract method __call__
             return np.sum(x**2 * (x >= 0))
