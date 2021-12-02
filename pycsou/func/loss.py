@@ -208,7 +208,7 @@ def SquaredL2Loss(dim: int, data: Union[Number, np.ndarray]) -> DifferentiableFu
 
     Notes
     -----
-    The :math:`\ell_2^2` functional is the likelihood of the data :math:`\mathbf{y}` under the assumtpion of
+    The :math:`\ell_2^2` functional is the likelihood of the data :math:`\mathbf{y}` under the assumption of
     Gaussian white noise.
 
     See Also
@@ -589,13 +589,13 @@ def ConsistencyLoss(dim: int, data: Union[Number, np.ndarray]):
 
 class KLDivergence(ProximableFunctional):
     r"""
-    Generalised Kullback-Leibler divergence :math:`D_{KL}(\mathbf{y}||\mathbf{x}):=\sum_{i=1}^N y_i\log(y_i/x_i) -y_i +z_i`.
+    Generalised Kullback-Leibler divergence :math:`D_{KL}(\mathbf{y}||\mathbf{x}):=\sum_{i=1}^N y_i\log(y_i/x_i) -y_i +x_i`.
 
     The generalised Kullback-Leibler divergence is defined as:
 
     .. math::
 
-       D_{KL}(\mathbf{y}||\mathbf{x}):=\sum_{i=1}^N H(y_i,x_i) -y_i +z_i, \quad \forall \mathbf{y}, \mathbf{x} \in \mathbb{R}^N,
+       D_{KL}(\mathbf{y}||\mathbf{x}):=\sum_{i=1}^N H(y_i,x_i) -y_i +x_i, \quad \forall \mathbf{y}, \mathbf{x} \in \mathbb{R}^N,
 
     where
 

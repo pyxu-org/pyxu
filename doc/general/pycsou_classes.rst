@@ -144,7 +144,7 @@ Proximable Functionals
 ~~~~~~~~~~~~~~~~~~~~~~
 
 We say that a functional :math:`f:\mathbb{R}^N\to \mathbb{R}` is
-*proximable* is its **proximity operator**
+*proximable* if its **proximity operator**
 
 .. math:: \mathbf{\text{prox}}_{\tau f}(\mathbf{z}):=\arg\min_{\mathbf{x}\in\mathbb{R}^N} f(x)+\frac{1}{2\tau} \|\mathbf{x}-\mathbf{z}\|_2^2, \quad \forall \mathbf{z}\in\mathbb{R}^N,
 
