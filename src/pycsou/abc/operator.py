@@ -1,4 +1,3 @@
-import numbers as nb
 import types
 import typing as typ
 
@@ -7,12 +6,8 @@ import scipy.sparse.linalg as splin
 
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-
-if pycu.deps.CUPY_ENABLED:
-    import cupy as cp
-
-NDArray = pycu.NDArray
-ArrayModule = pycu.ArrayModule
+import pycsou.util.deps as pycd
+import pycsou.util.ptype as pyct
 
 __all__ = [
     "Property",
@@ -38,6 +33,9 @@ __all__ = [
     "PosDefOp",
 ]
 
+MapLike = typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
+NonProxLike = typ.Union["Map", "DiffMap", "Func", "DiffFunc", "LinOp", "LinFunc"]
+
 
 class Property:
     r"""
@@ -55,7 +53,16 @@ class Property:
             Set of properties.
         """
         return frozenset(
-            ("apply", "_lipschitz", "jacobian", "_diff_lipschitz", "single_valued", "gradient", "prox", "adjoint")
+            (
+                "apply",
+                "_lipschitz",
+                "jacobian",
+                "_diff_lipschitz",
+                "single_valued",
+                "gradient",
+                "prox",
+                "adjoint",
+            )
         )
 
     @classmethod
@@ -87,7 +94,7 @@ class Property:
         return set(props.intersection(cls._property_list()))
 
     @classmethod
-    def has(cls, prop: typ.Union[str, typ.Tuple[str, ...]]) -> bool:
+    def has(cls, prop: pyct.VarName) -> bool:
         r"""
         Queries the class for certain properties.
 
@@ -111,12 +118,11 @@ class Property:
         >>> LinOp.has(('adjoint', 'prox'))
         False
         """
-        return set(prop) <= cls.properties()
+        if isinstance(prop, str):
+            prop = (prop,)
+        return frozenset(prop) <= cls.properties()
 
-    def __add__(
-        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
-        other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+    def __add__(self: MapLike, other: MapLike) -> MapLike:
         r"""
         Add two instances of :py:class:`~pycsou.abc.operator.Map` subclasses together (overloads the ``+`` operator).
 
@@ -204,16 +210,13 @@ class Property:
             else:
 
                 @pycrt.enforce_precision(i="arr", o=False)  # Decorate composite method to avoid recasting [arr] twice.
-                def composite_method(obj, arr: NDArray) -> typ.Union[NDArray, "LinOp"]:
+                def composite_method(obj, arr: pyct.NDArray) -> typ.Union[pyct.NDArray, "LinOp"]:
                     return getattr(self, prop)(arr) + getattr(other, prop)(arr)
 
                 setattr(out_op, prop, types.MethodType(composite_method, out_op))
         return out_op.squeeze()
 
-    def __mul__(
-        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
-        other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc", nb.Real],
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+    def __mul__(self: MapLike, other: typ.Union[MapLike, pyct.Real]) -> MapLike:
         r"""
         Scale/compose one/two instance(s) of :py:class:`~pycsou.abc.operator.Map` subclasses respectively (overloads the ``*`` operator).
 
@@ -305,7 +308,7 @@ class Property:
             This case, together with the case ``ProxFunc * scalar`` are handled separately in the method :py:meth:`~pycsou.abc.operator.__mul__` of the subclass :py:class:`~pycsou.abc.operator.ProxFunc`,
             where the product's ``prox`` property update is described.
         """
-        if isinstance(other, nb.Real):
+        if isinstance(other, pyct.Real):
             from pycsou.linop.base import HomothetyOp
 
             hmap = HomothetyOp(other, dim=self.shape[0])
@@ -342,14 +345,14 @@ class Property:
             elif prop == "gradient":
 
                 @pycrt.enforce_precision(i="arr")
-                def composite_gradient(obj, arr: NDArray) -> NDArray:
+                def composite_gradient(obj, arr: pyct.NDArray) -> pyct.NDArray:
                     return other.jacobian(arr).adjoint(self.gradient(other.apply(arr)))
 
                 out_op.gradient = types.MethodType(composite_gradient, out_op)
             elif prop == "jacobian":
 
                 @pycrt.enforce_precision(i="arr", o=False)
-                def composite_jacobian(obj, arr: NDArray) -> "LinOp":
+                def composite_jacobian(obj, arr: pyct.NDArray) -> "LinOp":
                     return self.jacobian(other.apply(arr)) * other.jacobian(arr)
 
                 out_op.jacobian = types.MethodType(composite_jacobian, out_op)
@@ -357,9 +360,7 @@ class Property:
                 out_op.adjoint = types.MethodType(lambda obj, arr: other.adjoint(self.adjoint(arr)), out_op)
         return out_op.squeeze()
 
-    def __rmul__(
-        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"], other: nb.Real
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+    def __rmul__(self: MapLike, other: pyct.Real) -> MapLike:
         r"""
         Scale an instance of :py:class:`~pycsou.abc.operator.Map` subclasses by multiplying it from the left with a real number, i.e. ``prod = scalar * self``.
 
@@ -375,9 +376,7 @@ class Property:
         """
         return self.__mul__(other)
 
-    def __pow__(
-        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"], power: int
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "LinOp", "LinFunc"]:
+    def __pow__(self: MapLike, power: int) -> NonProxLike:
         r"""
         Exponentiate (i.e. compose with itself) an instance of :py:class:`~pycsou.abc.operator.Map` subclasses ``power`` times (overloads the ``**`` operator).
 
@@ -404,18 +403,13 @@ class Property:
         else:
             raise NotImplementedError
 
-    def __neg__(
-        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+    def __neg__(self: MapLike) -> MapLike:
         r"""
         Negate a map (overloads the ``-`` operator). Alias for ``self.__mul__(-1)``.
         """
         return self.__mul__(-1)
 
-    def __sub__(
-        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
-        other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "LinOp", "LinFunc"]:
+    def __sub__(self: MapLike, other: MapLike) -> NonProxLike:
         r"""
         Take the difference between two instances of :py:class:`~pycsou.abc.operator.Map` subclasses. Alias for ``self.__add__(other.__neg__())``.
 
@@ -433,21 +427,16 @@ class Property:
         """
         return self.__add__(other.__neg__())
 
-    def __truediv__(
-        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"], scalar: nb.Real
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+    def __truediv__(self: MapLike, scalar: pyct.Real) -> MapLike:
         r"""
         Divides a map by a real ``scalar`` (overloads the ``/`` operator). Alias for ``self.__mul__(1 / scalar)``.
         """
-        if isinstance(scalar, nb.Real):
+        if isinstance(scalar, pyct.Real):
             return self.__mul__(1 / scalar)
         else:
             raise NotImplementedError
 
-    def argscale(
-        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
-        scalar: nb.Real,
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+    def argscale(self: MapLike, scalar: pyct.Real) -> MapLike:
         r"""
         Dilate/shrink the domain of an instance of :py:class:`~pycsou.abc.operator.Map` subclasses.
 
@@ -477,7 +466,7 @@ class Property:
             out2 = self * HomotethyOp(scalar, dim=self.shape[1])
 
         """
-        if isinstance(scalar, nb.Real):
+        if isinstance(scalar, pyct.Real):
             from pycsou.linop.base import HomothetyOp
 
             hmap = HomothetyOp(scalar, dim=self.shape[1])
@@ -486,9 +475,7 @@ class Property:
             raise NotImplementedError
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def argshift(
-        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"], arr: NDArray
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+    def argshift(self: MapLike, arr: pyct.NDArray) -> MapLike:
         r"""
         Domain-shift an instance of :py:class:`~pycsou.abc.operator.Map` subclasses by ``arr``.
 
@@ -554,7 +541,7 @@ class Property:
                 out_op.prox = types.MethodType(lambda obj, x, tau: self.prox(x + arr, tau) - arr, out_op)
             else:
 
-                def argshifted_method(obj, x: NDArray) -> typ.Union[NDArray, "LinOp"]:
+                def argshifted_method(obj, x: pyct.NDArray) -> typ.Union[pyct.NDArray, "LinOp"]:
                     return getattr(self, prop)(x + arr)
 
                 setattr(out_op, prop, types.MethodType(argshifted_method, out_op))
@@ -583,13 +570,13 @@ class Apply(Property):
     """
 
     @pycrt.enforce_precision(i="arr")
-    def __call__(self, arr: NDArray) -> NDArray:
+    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
         r"""
         Alias for :py:meth:`~pycsou.abc.operator.Apply.apply`.
         """
         return self.apply(arr)
 
-    def apply(self, arr: NDArray) -> NDArray:
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         r"""
         Evaluate a map at a point ``arr``.
 
@@ -628,7 +615,7 @@ class Differential(Property):
     Mixin class defining the *differentiability* property.
     """
 
-    def jacobian(self, arr: NDArray) -> "LinOp":
+    def jacobian(self, arr: pyct.NDArray) -> "LinOp":
         r"""
         Evaluate the Jacobian of a vector-valued multi-dimensional differentiable map at a point ``arr``.
 
@@ -674,7 +661,7 @@ class Gradient(Differential):
     """
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: NDArray) -> "LinOp":
+    def jacobian(self, arr: pyct.NDArray) -> "LinOp":
         r"""
         Construct the Jacobian linear functional associated with the gradient.
 
@@ -701,7 +688,7 @@ class Gradient(Differential):
 
         return ExplicitLinFunc(self.gradient(arr))
 
-    def gradient(self, arr: NDArray) -> NDArray:
+    def gradient(self, arr: pyct.NDArray) -> pyct.NDArray:
         r"""
         Evaluate the gradient of a functional at a point ``arr``.
 
@@ -737,7 +724,7 @@ class Adjoint(Property):
     Mixin class defining the *adjoint* property.
     """
 
-    def adjoint(self, arr: NDArray) -> NDArray:
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         r"""
         Evaluate the adjoint of a linear operator at a point ``arr``.
 
@@ -771,7 +758,7 @@ class Proximal(Property):
     Mixin class defining the *proximal* property.
     """
 
-    def prox(self, arr: NDArray, tau: nb.Real) -> NDArray:
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         r"""
         Evaluate the proximity operator of a ``tau``-scaled functional at the point ``arr``.
 
@@ -800,7 +787,7 @@ class Proximal(Property):
         raise NotImplementedError
 
     @pycrt.enforce_precision(i=("arr", "sigma"), o=True)
-    def fenchel_prox(self, arr: NDArray, sigma: nb.Real) -> NDArray:
+    def fenchel_prox(self, arr: pyct.NDArray, sigma: pyct.Real) -> pyct.NDArray:
         r"""
         Evaluate the proximity operator of the ``sigma``-scaled Fenchel conjugate of a functional at a point ``arr``.
 
@@ -950,9 +937,9 @@ class Map(Apply):
         return self._squeeze(out=Func)
 
     def _squeeze(
-        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
+        self: MapLike,
         out: typ.Type[typ.Union["Func", "DiffFunc", "LinFunc"]],
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+    ) -> MapLike:
         if self.shape[0] == 1:
             obj = self.specialize(cast_to=out)
         else:
@@ -971,7 +958,7 @@ class Map(Apply):
         return self._lipschitz
 
     def specialize(
-        self: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
+        self: MapLike,
         cast_to: typ.Union[type, typ.Type["Property"]],
     ) -> "Property":
         r"""
@@ -1216,9 +1203,7 @@ class ProxFunc(Func, Proximal):
     def __init__(self, shape: typ.Union[typ.Union[int, None], typ.Tuple[int, typ.Union[int, None]]]):
         super(ProxFunc, self).__init__(shape)
 
-    def __add__(
-        self: "ProxFunc", other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+    def __add__(self: "ProxFunc", other: MapLike) -> MapLike:
         r"""
         Add an instance of :py:class:`~pycsou.abc.operator.ProxFunc` with an instance of a :py:class:`~pycsou.abc.operator.Map` subclass together (overloads the ``+`` operator).
 
@@ -1256,10 +1241,7 @@ class ProxFunc(Func, Proximal):
             f.prox = types.MethodType(lambda _, x, tau: self.prox(x - tau * other.asarray(), tau), f)
         return f.squeeze()
 
-    def __mul__(
-        self: "ProxFunc",
-        other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"],
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+    def __mul__(self: "ProxFunc", other: MapLike) -> MapLike:
         r"""
         Scale a :py:class:`~pycsou.abc.operator.ProxFunc` instance or compose it with a :py:class:`~pycsou.abc.operator.Map` subclass instance (overloads the ``*`` operator).
 
@@ -1298,7 +1280,7 @@ class ProxFunc(Func, Proximal):
         from pycsou.linop.base import HomothetyOp
 
         f = Property.__mul__(self, other)
-        if isinstance(other, nb.Real):
+        if isinstance(other, pyct.Real):
             other = HomothetyOp(other, dim=self.shape[0])
 
         if isinstance(other, UnitOp):
@@ -1312,7 +1294,7 @@ class ProxFunc(Func, Proximal):
         return f.squeeze()
 
     @pycrt.enforce_precision(i="mu", o=False)
-    def moreau_envelope(self, mu: nb.Real) -> "DiffFunc":
+    def moreau_envelope(self, mu: pyct.Real) -> "DiffFunc":
         r"""
         Approximate a non-smooth proximable functional by its smooth *Moreau envelope*.
 
@@ -1453,7 +1435,7 @@ class LinOp(DiffMap, Adjoint):
     def squeeze(self) -> typ.Union["LinOp", "LinFunc"]:
         return self._squeeze(out=LinFunc)
 
-    def jacobian(self, arr: NDArray) -> "LinOp":
+    def jacobian(self, arr: pyct.NDArray) -> "LinOp":
         return self
 
     @property
@@ -1465,10 +1447,10 @@ class LinOp(DiffMap, Adjoint):
         return adj
 
     def to_scipy_operator(self, dtype: typ.Optional[type] = None, gpu: bool = False) -> splin.LinearOperator:
-        def matmat(arr: NDArray) -> NDArray:
+        def matmat(arr: pyct.NDArray) -> pyct.NDArray:
             return self.apply(arr.transpose())
 
-        def rmatmat(arr: NDArray) -> NDArray:
+        def rmatmat(arr: pyct.NDArray) -> pyct.NDArray:
             return self.adjoint(arr.transpose())
 
         if dtype is None:
@@ -1491,7 +1473,7 @@ class LinOp(DiffMap, Adjoint):
         return self._lipschitz
 
     @pycrt.enforce_precision(o=True)
-    def svdvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> NDArray:
+    def svdvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
         kwargs.update(dict(k=k, which=which, return_singular_vectors=False))
         SciOp = self.to_scipy_operator(pycrt.getPrecision().value, gpu=gpu)
         if pycu.deps.CUPY_ENABLED and gpu:
@@ -1500,7 +1482,7 @@ class LinOp(DiffMap, Adjoint):
             spx = splin
         return spx.svds(SciOp, **kwargs)
 
-    def asarray(self, xp: ArrayModule = np, dtype: typ.Optional[type] = None) -> NDArray:
+    def asarray(self, xp: pyct.ArrayModule = np, dtype: typ.Optional[type] = None) -> pyct.NDArray:
         if dtype is None:
             dtype = pycrt.getPrecision().value
         return self.apply(xp.eye(self.shape[1], dtype=dtype))
@@ -1518,8 +1500,8 @@ class LinOp(DiffMap, Adjoint):
 
     @pycrt.enforce_precision(i="arr")
     def pinv(
-        self, arr: NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[int] = None, **kwargs
-    ) -> NDArray:  # Should we have a decorator that performs trivial vectorization like that for us?
+        self, arr: pyct.NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[int] = None, **kwargs
+    ) -> pyct.NDArray:  # Should we have a decorator that performs trivial vectorization like that for us?
         if arr.ndim == 1:
             return self._pinv(arr=arr, damp=damp, verbose=verbose, **kwargs)
         else:
@@ -1528,8 +1510,8 @@ class LinOp(DiffMap, Adjoint):
             return xp.apply_along_axis(func1d=pinv1d, arr=arr, axis=-1)
 
     def _pinv(
-        self, arr: NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[int] = None, **kwargs
-    ) -> NDArray:
+        self, arr: pyct.NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[int] = None, **kwargs
+    ) -> pyct.NDArray:
         """
         The routines scipy.sparse.linalg.lsqr or scipy.sparse.linalg.lsmr offer the same functionality as this routine
         but may converge faster when the operator is ill-conditioned and/or when there is no fast algorithm for self.gram()
@@ -1551,12 +1533,12 @@ class LinOp(DiffMap, Adjoint):
         if verbose is not None:
 
             class CallBack:
-                def __init__(self, verbose: int, A: LinOp, b: NDArray):
+                def __init__(self, verbose: int, A: LinOp, b: pyct.NDArray):
                     self.verbose = verbose
                     self.n = 0
                     self.A, self.b = A, b
 
-                def __call__(self, x: NDArray):
+                def __call__(self, x: pyct.NDArray):
                     if self.n % self.verbose == 0:
                         xp = pycu.get_array_module(x)
                         print(f"Relative residual norm:{xp.linalg.norm(self.b - self.A(x)) / xp.linalg.norm(self.b)}")
@@ -1621,9 +1603,7 @@ class LinFunc(DiffFunc, LinOp):
 
     __init__.__doc__ = DiffFunc.__init__.__doc__
 
-    def __add__(
-        self: "LinFunc", other: typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
-    ) -> typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]:
+    def __add__(self: "LinFunc", other: MapLike) -> MapLike:
         r"""
         Calls ``ProxFunc.__add__(other, self)``.
         """
@@ -1640,7 +1620,7 @@ class SquareOp(LinOp):
 
 class NormalOp(SquareOp):
     @pycrt.enforce_precision(o=True)
-    def eigvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> NDArray:
+    def eigvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
         kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
         if pycu.deps.CUPY_ENABLED and gpu:
             import cupyx.scipy.sparse.linalg as spx
@@ -1653,7 +1633,7 @@ class NormalOp(SquareOp):
 
 
 class SelfAdjointOp(NormalOp):
-    def adjoint(self, arr: NDArray) -> NDArray:
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         return self.apply(arr)
 
     @property
@@ -1661,7 +1641,7 @@ class SelfAdjointOp(NormalOp):
         return self
 
     @pycrt.enforce_precision(o=True)
-    def eigvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> NDArray:
+    def eigvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
         kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
         if pycu.deps.CUPY_ENABLED and gpu:
             import cupyx.scipy.sparse.linalg as spx
@@ -1678,7 +1658,7 @@ class UnitOp(NormalOp):
     def lipschitz(self, **kwargs) -> float:
         return self._lipschitz
 
-    def pinv(self, arr: NDArray, **kwargs) -> NDArray:
+    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         return self.adjoint(arr)
 
     def dagger(self, **kwargs) -> "UnitOp":
@@ -1703,7 +1683,7 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
     def lipschitz(self, **kwargs) -> float:
         return self._lipschitz
 
-    def pinv(self, arr: NDArray, **kwargs) -> NDArray:
+    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         return self.apply(arr)
 
     def dagger(self, **kwargs) -> "OrthProjOp":
