@@ -1,16 +1,15 @@
+import collections.abc as cabc
 import configparser
-import datetime
-import os
-import pathlib
+import datetime as dt
+import pathlib as plib
 import re
-from typing import Mapping
 
 
 def setup_config() -> configparser.ConfigParser:
     """
     Load information contained in `setup.cfg`.
     """
-    sphinx_src_dir = pathlib.Path(__file__).parent
+    sphinx_src_dir = plib.Path(__file__).parent
     setup_path = sphinx_src_dir / ".." / "setup.cfg"
     setup_path = setup_path.resolve(strict=True)
 
@@ -20,11 +19,11 @@ def setup_config() -> configparser.ConfigParser:
     return cfg
 
 
-def pkg_info() -> Mapping:
+def pkg_info() -> cabc.Mapping:
     """
     Load information contained in `PKG-INFO`.
     """
-    sphinx_src_dir = pathlib.Path(__file__).parent
+    sphinx_src_dir = plib.Path(__file__).parent
     info_path = sphinx_src_dir / ".." / "src" / "pycsou.egg-info" / "PKG-INFO"
     info_path = info_path.resolve(strict=True)
 
@@ -43,7 +42,7 @@ def pkg_info() -> Mapping:
 cfg, info = setup_config(), pkg_info()
 project = cfg.get("metadata", "name")
 author = cfg.get("metadata", "author")
-copyright = f"{datetime.date.today().year}, {author}"
+copyright = f"{dt.date.today().year}, {author}"
 version = release = info["version"]
 
 # -- General configuration ---------------------------------------------------
@@ -76,7 +75,6 @@ html_context = {
     "menu_links_name": "Repository",
     "menu_links": [
         ('<i class="fa fa-github fa-fw"></i> Source Code', "https://github.com/matthieumeo/pycsou"),
-        # ('<i class="fa fa-users fa-fw"></i> Contributing', 'https://github.com/PyLops/pylops/blob/master/CONTRIBUTING.md'),
     ],
     "doc_path": "docs/source",
     "github_project": "matthieumeo",
@@ -102,10 +100,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "NumPy [latest]": ("https://docs.scipy.org/doc/numpy", None),
     "SciPy [latest]": ("https://docs.scipy.org/doc/scipy/reference", None),
-    "pylops [latest]": ("https://pylops.readthedocs.io/en/latest", None),
     "dask [latest]": ("https://docs.dask.org/en/latest", None),
-    "pandas": ("http://pandas.pydata.org/pandas-docs/stable", None),
-    "matplotlib": ("https://matplotlib.org/stable", None),
 }
 
 # -- Options for napoleon extension ------------------------------------------
