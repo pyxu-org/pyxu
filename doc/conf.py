@@ -34,8 +34,7 @@ def pkg_info() -> Mapping:
     with info_path.open(mode="r") as f:
         info = dict(version=None)
         for line in f:
-            m = re.match(pat_version, line)
-            if m is not None:
+            if (m := re.match(pat_version, line)) is not None:
                 info["version"] = m.group(1)
     return info
 
@@ -121,7 +120,16 @@ autodoc_type_aliases = {"ArrayLike": "NDArray"}
 
 
 def skip(app, what, name, obj, would_skip, options):
-    if name in ["__init__", "__add__", "__mul__", "__rmul__", "__pow__", "__truediv__", "__sub__", "__neg__"]:
+    if name in {
+        "__init__",
+        "__add__",
+        "__mul__",
+        "__rmul__",
+        "__pow__",
+        "__truediv__",
+        "__sub__",
+        "__neg__",
+    }:
         return False
     return would_skip
 
