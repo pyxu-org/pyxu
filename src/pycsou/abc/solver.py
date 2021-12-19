@@ -13,8 +13,7 @@ import typing as typ
 import numpy as np
 
 import pycsou.runtime as pycrt
-
-PathLike = typ.TypeVar("PathLike", str, plib.Path)
+import pycsou.util.ptype as pyct
 
 
 @enum.unique
@@ -166,11 +165,11 @@ class Solver:
     def __init__(
         self,
         *,
-        folder: typ.Optional[PathLike] = None,
+        folder: typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
         writeback_rate: typ.Optional[int] = None,
         verbosity: int = 1,
-        log_var: typ.Union[str, cabc.Collection[str]] = frozenset(),
+        log_var: pyct.VarName = frozenset(),
     ):
         """
         Parameters
@@ -187,7 +186,7 @@ class Solver:
         verbosity: int
             Rate at which stopping criteria statistics are logged to disk. If `Solver.fit` is run
             with mode=BLOCK, then statistics are also logged to stdout.
-        log_var: str | collection(str)
+        log_var: VarName
             Variables from the solver's math-state (slvr._mstate) to be logged per iteration.
             These are the variables made available when calling `Solver.stats`.
         """
@@ -340,7 +339,7 @@ class Solver:
         -------
         history: np.ndarray | None
             (N_iter,) records of stopping-criteria values per iteration.
-        data: dict[str, scalar | NDArray | None]
+        data: dict[str, Real | NDArray | None]
             Value(s) of `log_var`(s) after last iteration.
 
         Notes
