@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 
 import pycsou.util as pycu
-import pycsou.util.deps as pycd
 
 
 class TestGetArrayModule:
