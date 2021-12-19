@@ -1,4 +1,3 @@
-import collections.abc as cabc
 import itertools
 import math
 import numbers as nb
@@ -9,6 +8,7 @@ import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
 import pycsou.linop.base as pyclo
 import pycsou.runtime as pycrt
+import pycsou.util.ptype as pyct
 
 
 class APGD(pycs.Solver):
@@ -54,11 +54,11 @@ class APGD(pycs.Solver):
         f: typ.Optional[pyco.DiffFunc] = None,
         g: typ.Optional[pyco.ProxFunc] = None,
         *,
-        folder: typ.Optional[pycs.PathLike] = None,
+        folder: typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
         writeback_rate: typ.Optional[int] = None,
         verbosity: int = 1,
-        log_var: typ.Union[str, cabc.Collection[str]] = ("primal",),
+        log_var: pyct.VarName = ("primal",),
     ):
         super().__init__(
             folder=folder,
@@ -81,11 +81,11 @@ class APGD(pycs.Solver):
 
     def fit(
         self,
-        primal_init: pyca.NDArray,
+        primal_init: pyct.NDArray,
         stop_crit: pycs.StoppingCriterion,
         mode: pycs.Mode = pycs.Mode.BLOCK,
-        tau: typ.Optional[nb.Real] = None,
-        d: typ.Optional[nb.Real] = 75,
+        tau: typ.Optional[pyct.Number] = None,
+        d: typ.Optional[pyct.Number] = 75,
     ):
         r"""
         Solve the minimization problem defined in :py:method:`APGD.__init__`, with the provided
@@ -103,16 +103,16 @@ class APGD(pycs.Solver):
             * BLOCK: fit()
             * ASYNC: fit() + busy() + stop()
             * MANUAL: fit() + steps()
-        tau: nb.Real
+        tau: Number
             Gradient step size. Defaults to :math:`1 / \beta` if unspecified.
-        d: nb.Real
+        d: Number
             Chambolle & Dossal acceleration parameter :math:`d`. Should be greater than 2.
         """
         self.m_init(primal_init=primal_init, tau=tau, d=d)
         self._fit_init(mode, stop_crit)
         self._fit_run()
 
-    def m_init(self, primal_init: pyca.NDArray, tau: nb.Real, d: nb.Real):
+    def m_init(self, primal_init: pyct.NDArray, tau: pyct.Number, d: pyct.Number):
         self._mstate["primal"] = self._mstate["primal_prev"] = pycrt.coerce(primal_init)
 
         if tau is None:
@@ -146,7 +146,7 @@ class APGD(pycs.Solver):
 
         mst["primal_prev"], mst["primal"] = mst["primal"], self._g.prox(z)
 
-    def solution(self) -> pyca.NDArray:
+    def solution(self) -> pyct.NDArray:
         """
         Returns
         -------
