@@ -5,6 +5,8 @@ Matthieu
 * implement svds in a module agnostic fashion.
 * add from_source() method for creating class objects by passing their abstract methods as arguments?
 * add LinOp class method from_array() to create explicit linear operators from arrays.
+* add linop.base.ConstantOperator()
+                .NullOperator().
 
 
 
@@ -18,3 +20,5 @@ Sepand
 
 * Solver
 * implement conjugate gradient in a module agnostic fashion.
+* way of encoding partial array_module support:
+  Adding a 'supported_array_module' attribute to Map instances?
