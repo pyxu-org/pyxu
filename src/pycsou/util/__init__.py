@@ -1,22 +1,11 @@
-import collections.abc as cabc
-import types
-import typing as typ
-
-import dask.array as da
 import numpy as np
 
 import pycsou.util.deps as pycd
-
-if pycd.CUPY_ENABLED:
-    import cupy as cp
-
-from pycsou.util.deps import ArrayModule, NDArray
-
-Shape = typ.Tuple[int, typ.Union[int, None]]
+import pycsou.util.ptype as pyct
 
 
-def infer_sum_shape(shape1: Shape, shape2: Shape) -> Shape:
-    A, B, C, D = *shape1, *shape2
+def infer_sum_shape(sh1: pyct.Shape, sh2: pyct.Shape) -> pyct.Shape:
+    A, B, C, D = *sh1, *sh2
     if None in (A, C):
         raise ValueError("Addition of codomain-dimension-agnostic operators is not supported.")
     try:
@@ -25,41 +14,41 @@ def infer_sum_shape(shape1: Shape, shape2: Shape) -> Shape:
             return np.broadcast_shapes((A,), (C,)) + (None,)
         elif any(domain_None):
             fill = lambda _: [1 if (k is None) else k for k in _]
-            return np.broadcast_shapes(fill(shape1), fill(shape2))
+            return np.broadcast_shapes(fill(sh1), fill(sh2))
         elif domain_match := (B == D):
             return np.broadcast_shapes((A,), (C,)) + (B,)
         else:
             raise
     except:
-        raise ValueError(f"Addition of {shape1} and {shape2} operators forbidden.")
+        raise ValueError(f"Addition of {sh1} and {sh2} operators forbidden.")
 
 
-def infer_composition_shape(shape1: Shape, shape2: Shape) -> Shape:
-    A, B, C, D = *shape1, *shape2
+def infer_composition_shape(sh1: pyct.Shape, sh2: pyct.Shape) -> pyct.Shape:
+    A, B, C, D = *sh1, *sh2
     if None in (A, C):
         raise ValueError("Composition of codomain-dimension-agnostic operators is not supported.")
     elif (B == C) or (B is None):
         return (A, D)
     else:
-        raise ValueError(f"Composition of {shape1} and {shape2} operators forbidden.")
+        raise ValueError(f"Composition of {sh1} and {sh2} operators forbidden.")
 
 
-def get_array_module(x: cabc.Sequence, fallback: ArrayModule = None) -> ArrayModule:
+def get_array_module(x, fallback: pyct.ArrayModule = None) -> pyct.ArrayModule:
     """
     Get the array namespace corresponding to a given object.
 
     Parameters
     ----------
-    x: cabc.Sequence
+    x: object
         Any object compatible with the interface of NumPy arrays.
-    fallback: pycsou.util.deps.ArrayModule
+    fallback: pycsou.util.ptype.ArrayModule
         Fallback module if `x` is not a NumPy-like array.
         Default behaviour: raise error if fallback used.
 
     Returns
     -------
-    namespace: pycsou.util.deps.ArrayModule
-        The namespace to use to manipulate `x`, or `fallback`.
+    namespace: pycsou.util.ptype.ArrayModule
+        The namespace to use to manipulate `x`, or `fallback` if provided.
     """
 
     def infer_api(y):
@@ -73,4 +62,5 @@ def get_array_module(x: cabc.Sequence, fallback: ArrayModule = None) -> ArrayMod
     elif fallback is not None:
         return fallback
     else:
+        # import pdb; pdb.set_trace()
         raise ValueError(f"Could not infer array module for {type(x)}.")
