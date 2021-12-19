@@ -4,9 +4,10 @@ import enum
 import functools
 import inspect
 import numbers as nb
-import typing as typ
 
 import numpy as np
+
+import pycsou.util.ptype as pyct
 
 
 @enum.unique
@@ -54,7 +55,7 @@ class Precision(contextlib.AbstractContextManager):
 
 
 def enforce_precision(
-    i: typ.Union[str, cabc.Collection[str]] = frozenset(),
+    i: pyct.VarName = frozenset(),
     o: bool = True,
     allow_None: bool = True,
 ) -> cabc.Callable:
@@ -63,7 +64,7 @@ def enforce_precision(
 
     Parameters
     ----------
-    i: str | cabc.Collection[str]
+    i: VarName
         Function parameters for which precision must be enforced to runtime's FP-precision.
         Function parameter values must have a NumPy API, or be scalars.
         None-valued parameters are allowed if `allow_None` is True (default).
@@ -80,9 +81,8 @@ def enforce_precision(
     ... def f(x, y, z=1):
     ...     print(x.dtype, y.dtype)
     ...     return x + y + z
-    >>> x = np.arange(5)
-    >>> y = np.r_[0.5]
-    >>> print(x.dtype, np.r_[y].dtype)
+    >>> x, y = np.arange(5), np.r_[0.5]
+    >>> print(x.dtype, y.dtype)
     int64 float64
     >>> with pycrt.Precision(pycrt.Width.SINGLE):
     ...     out = f(x,y)                         # int64, float32 (printed inside f-call.)
@@ -129,17 +129,17 @@ def coerce(x):
 
     Parameters
     ----------
-    x: scalar | NDArray
+    x: Real | NDArray
 
     Returns
     -------
-    y: scalar | NDArray
+    y: Real | NDArray
         Input cast to the runtime FP-precision.
         Fails if operation is impossible or unsafe. (I.e. casting complex-valued data.)
     """
     dtype = getPrecision().value
     try:
-        if isinstance(x, nb.Real):
+        if isinstance(x, pyct.Real):
             return np.array(x, dtype=dtype)[()]
         elif isinstance(x, nb.Number):
             raise  # other number categories cannot be converted.
