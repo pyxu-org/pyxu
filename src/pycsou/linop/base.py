@@ -24,7 +24,7 @@ class ExplicitLinFunc(pyco.LinFunc):
         return arr * self._vec
 
     @pycrt.enforce_precision(i="arr")
-    def gradient(self, arr: pyct.NDArray) -> pyct.NDArray:
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         return xp.broadcast_to(self._vec, arr.shape)
 

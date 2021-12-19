@@ -59,7 +59,7 @@ class Property:
                 "jacobian",
                 "_diff_lipschitz",
                 "single_valued",
-                "gradient",
+                "grad",
                 "prox",
                 "adjoint",
             )
@@ -83,11 +83,11 @@ class Property:
         ...     print(op, props)
         <class 'pycsou.abc.operator.Map'> {'apply'}
         <class 'pycsou.abc.operator.DiffMap'> {'apply', 'jacobian'}
-        <class 'pycsou.abc.operator.DiffFunc'> {'gradient', 'apply', 'single_valued', 'jacobian'}
+        <class 'pycsou.abc.operator.DiffFunc'> {'grad', 'apply', 'single_valued', 'jacobian'}
         <class 'pycsou.abc.operator.LinOp'> {'apply', 'adjoint', 'jacobian'}
         <class 'pycsou.abc.operator.Func'> {'apply', 'single_valued'}
         <class 'pycsou.abc.operator.ProxFunc'> {'apply', 'single_valued', 'prox'}
-        <class 'pycsou.abc.operator.LinFunc'> {'apply', 'single_valued', 'jacobian', 'gradient', 'adjoint'}
+        <class 'pycsou.abc.operator.LinFunc'> {'apply', 'single_valued', 'jacobian', 'grad', 'adjoint'}
 
         """
         props = set(dir(cls))
@@ -179,7 +179,7 @@ class Property:
         | LinFunc  |     |         |      |          |          |         | LinFunc  |
         +----------+-----+---------+------+----------+----------+---------+----------+
 
-        If the sum has one or more of the following properties ``[apply, jacobian, gradient, adjoint, _lipschitz, _diff_lipschitz]``,
+        If the sum has one or more of the following properties ``[apply, jacobian, grad, adjoint, _lipschitz, _diff_lipschitz]``,
         the latter are defined as the sum of the corresponding properties of the addends. In the case ``ProxFunc + LinFunc``,
         the ``prox`` property is updated as described in the method ``__add__`` of the subclass :py:class:`~pycsou.abc.operator.ProxFunc`.
 
@@ -273,7 +273,7 @@ class Property:
         +----------+---------+----------+------+----------+----------+-------------+----------+
 
 
-        If the product output has one or more of the following properties ``[apply, jacobian, gradient, adjoint, _lipschitz, _diff_lipschitz]``,
+        If the product output has one or more of the following properties ``[apply, jacobian, grad, adjoint, _lipschitz, _diff_lipschitz]``,
         the latter are defined from the corresponding properties of the factors as follows (the pseudocode below is mathematically equivalent to but does
         not necessarily reflect the actual implementation):
 
@@ -282,7 +282,7 @@ class Property:
             prod._lipschitz = self._lipschitz * other._lipschitz
             prod.apply = lambda x: self.apply(other.apply(x))
             prod.jacobian = lambda x: self.jacobian(other.apply(x)) * other.jacobian(x)
-            prod.gradient = lambda x: other.jacobian(x).adjoint(self.gradient(other.apply(x)))
+            prod.grad = lambda x: other.jacobian(x).adjoint(self.grad(other.apply(x)))
             prod.adjoint = lambda x: other.adjoint(self.adjoint(x))
 
         where ``prod = self * other`` denotes the product of ``self`` with ``other``.
@@ -322,7 +322,7 @@ class Property:
         shared_props = self.properties() & other.properties()
         shared_props.discard("prox")
         if self.shape[0] == 1 and "jacobian" in shared_props:
-            shared_props.update({"gradient", "single_valued"})
+            shared_props.update({"grad", "single_valued"})
         for Op in _base_operators:
             if Op.properties() == shared_props:
                 break
@@ -330,7 +330,7 @@ class Property:
             shared_props.discard("jacobian")
         shared_props.discard("single_valued")
         out_op = Op(out_shape)
-        for prop in shared_props:  # ("apply", "_lipschitz", "jacobian", "_diff_lipschitz", "gradient", "adjoint")
+        for prop in shared_props:  # ("apply", "_lipschitz", "jacobian", "_diff_lipschitz", "grad", "adjoint")
             if prop == "apply":
                 out_op.apply = types.MethodType(lambda obj, arr: self.apply(other.apply(arr)), out_op)
             elif prop == "_lipschitz":
@@ -342,13 +342,13 @@ class Property:
                     out_op._diff_lipschitz = self._diff_lipschitz * (other._lipschitz) ** 2
                 else:
                     out_op._diff_lipschitz = np.infty
-            elif prop == "gradient":
+            elif prop == "grad":
 
                 @pycrt.enforce_precision(i="arr")
-                def composite_gradient(obj, arr: pyct.NDArray) -> pyct.NDArray:
-                    return other.jacobian(arr).adjoint(self.gradient(other.apply(arr)))
+                def composite_grad(obj, arr: pyct.NDArray) -> pyct.NDArray:
+                    return other.jacobian(arr).adjoint(self.grad(other.apply(arr)))
 
-                out_op.gradient = types.MethodType(composite_gradient, out_op)
+                out_op.grad = types.MethodType(composite_grad, out_op)
             elif prop == "jacobian":
 
                 @pycrt.enforce_precision(i="arr", o=False)
@@ -499,7 +499,7 @@ class Property:
         The output domain-shifted operator has either the same type of ``self`` or is of type
         :py:class:`~pycsou.abc.operator.DiffMap`/:py:class:`~pycsou.abc.operator.DiffFunc` when ``self`` is a
         :py:class:`~pycsou.abc.operator.LinOp`/:py:class:`~pycsou.abc.operator.LinFunc` object respectively (since shifting does not preserve linearity).
-        Moreover, if the output has one or more of the following properties ``[apply, jacobian, gradient, prox, _lipschitz, _diff_lipschitz]``,
+        Moreover, if the output has one or more of the following properties ``[apply, jacobian, grad, prox, _lipschitz, _diff_lipschitz]``,
         the latter are defined from the corresponding properties of ``self`` as follows (the pseudocode below is mathematically equivalent to but does
         not necessarily reflect the actual implementation):
 
@@ -509,7 +509,7 @@ class Property:
             out._diff_lipschitz = self._diff_lipschitz
             out.apply = lambda x: self.apply(x + arr)
             out.jacobian = lambda x: self.jacobian(x + arr)
-            out.gradient = lambda x: self.gradient(x + arr)
+            out.grad = lambda x: self.grad(x + arr)
             out.prox = lambda x, tau: self.prox(x + arr, tau) - arr
 
         where ``out = self.argshift(arr)`` denotes the domain-shifted output.
@@ -657,7 +657,7 @@ class Differential(Property):
 
 class Gradient(Differential):
     r"""
-    Mixin class defining the *gradient* property.
+    Mixin class defining the *grad* property.
     """
 
     @pycrt.enforce_precision(i="arr", o=False)
@@ -681,14 +681,14 @@ class Gradient(Differential):
 
         .. math:: \mathbf{J}_f(\mathbf{x})\mathbf{z}= \langle \mathbf{z}, \nabla f (\mathbf{x})\rangle_2 =  \nabla f (\mathbf{x})^T\mathbf{z}, \qquad \forall \mathbf{z}\in\mathbb{R}^M,
 
-        where :math:`\nabla f (\mathbf{x})` denotes the *gradient* of :math:`f` (see :py:meth:`~pycsou.abc.operator.Gradient.gradient`).
+        where :math:`\nabla f (\mathbf{x})` denotes the *gradient* of :math:`f` (see :py:meth:`~pycsou.abc.operator.Gradient.grad`).
         The Jacobian matrix is hence given by the transpose of the gradient: :math:`\mathbf{J}_f(\mathbf{x})=\nabla f (\mathbf{x})^T`.
         """
         from pycsou.linop.base import ExplicitLinFunc
 
-        return ExplicitLinFunc(self.gradient(arr))
+        return ExplicitLinFunc(self.grad(arr))
 
-    def gradient(self, arr: pyct.NDArray) -> pyct.NDArray:
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         r"""
         Evaluate the gradient of a functional at a point ``arr``.
 
@@ -1032,7 +1032,7 @@ class Map(Apply):
             obj = cast_to(self.shape)
             for prop in self.properties():
                 if prop == "jacobian" and cast_to.has("single_valued"):
-                    obj.gradient = types.MethodType(lambda _, x: self.jacobian(x).asarray().reshape(-1), obj)
+                    obj.grad = types.MethodType(lambda _, x: self.jacobian(x).asarray().reshape(-1), obj)
                 else:
                     setattr(obj, prop, getattr(self, prop))
         return obj
@@ -1365,7 +1365,7 @@ class ProxFunc(Func, Proximal):
             labels=[f'mu={mu}' for mu in mus]
             plt.figure()
             for f in smooth_l1_norms:
-                plt.plot(x, f.gradient(x))
+                plt.plot(x, f.grad(x))
             plt.legend(labels)
             plt.title('Derivative of Moreau Envelope')
 
@@ -1381,11 +1381,11 @@ class ProxFunc(Func, Proximal):
             )
 
         @pycrt.enforce_precision(i="arr")
-        def env_gradient(_, arr):
+        def env_grad(_, arr):
             return (arr - self.prox(arr, tau=mu)) / mu
 
         moreau_envelope.apply = types.MethodType(env_apply, moreau_envelope)
-        moreau_envelope.gradient = types.MethodType(env_gradient, moreau_envelope)
+        moreau_envelope.grad = types.MethodType(env_grad, moreau_envelope)
         moreau_envelope._diff_lipschitz = 1 / mu
         return moreau_envelope
 
@@ -1394,7 +1394,7 @@ class DiffFunc(Func, Gradient):
     r"""
     Base class for real-valued differentiable functionals :math:`f:\mathbb{R}^M\to\mathbb{R}`.
 
-    Any instance/subclass of this class must implement the methods :py:meth:`~pycsou.abc.operator.Apply.apply` and :py:meth:`~pycsou.abc.operator.Gradient.gradient`.
+    Any instance/subclass of this class must implement the methods :py:meth:`~pycsou.abc.operator.Apply.apply` and :py:meth:`~pycsou.abc.operator.Gradient.grad`.
     If the functional and/or its derivative are Lipschitz-continuous and the Lipschitz constants are known, the latter can be stored in the private instance attributes
     ``_lipschitz`` and ``_diff_lipschitz`` (initialized to :math:`+\infty` by default).
 
@@ -1411,7 +1411,7 @@ class DiffFunc(Func, Gradient):
     ...        self._diff_lipschitz = 2
     ...    def apply(self, arr):
     ...        return np.linalg.norm(arr, axis=-1, keepdims=True) ** 2
-    ...    def gradient(self, arr):
+    ...    def grad(self, arr):
     ...        return 2 * arr
     >>> l2 = LeastSquares() # creates an instance
 
@@ -1565,7 +1565,7 @@ class LinFunc(DiffFunc, LinOp):
     r"""
     Base class for real-valued linear functionals :math:`f:\mathbb{R}^M\to\mathbb{R}`.
 
-    Any instance/subclass of this class must implement the methods :py:meth:`~pycsou.abc.operator.Apply.apply`, :py:meth:`~pycsou.abc.operator.Gradient.gradient`
+    Any instance/subclass of this class must implement the methods :py:meth:`~pycsou.abc.operator.Apply.apply`, :py:meth:`~pycsou.abc.operator.Gradient.grad`
     and :py:meth:`~pycsou.abc.operator.Adjoint.adjoint`.
     The Lipschitz constant of the linear functional can be stored in the private instance attribute
     ``_lipschitz`` (initialized to :math:`+\infty` by default). The Lipschitz constant of the gradient is 0, since the latter

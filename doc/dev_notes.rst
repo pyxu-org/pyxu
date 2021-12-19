@@ -9,7 +9,7 @@ API Rules
 To implement novel operators or algorithms, the user should subclass one of the abstract classes in
 Pycsou's class hierarchy. Doing so requires defining the fundamental methods attached to the chosen
 subclass (e.g. :py:meth:`~pycsou.abc.operator.Apply.apply`,
-:py:meth:`~pycsou.abc.operator.Gradient.gradient`, :py:meth:`~pycsou.abc.operator.Proximal.prox` or
+:py:meth:`~pycsou.abc.operator.Gradient.grad`, :py:meth:`~pycsou.abc.operator.Proximal.prox` or
 :py:meth:`~pycsou.abc.operator.Adjoint.adjoint`...). When marked as such in the documentation, such
 a user-defined method should abide by the following set of rules:
 
