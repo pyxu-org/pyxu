@@ -7,7 +7,7 @@ Matthieu
 * add LinOp class method from_array() to create explicit linear operators from arrays.
 * add linop.base.ConstantOperator()
                 .NullOperator().
-
+* [doc] Fix missing reference warnings. (See build/html/WARNINGS.log)
 
 
 
