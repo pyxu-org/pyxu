@@ -1,18 +1,17 @@
 import typing as typ
 
-import pycsou.abc
-import pycsou.abc.operator as pycop
+import pycsou.abc.operator as pyco
 import pycsou.runtime as pycrt
-import pycsou.util as pycutil
+import pycsou.util as pycu
 
-NDArray = pycsou.abc.NDArray
+NDArray = pycu.NDArray
 
 
-class ExplicitLinFunc(pycop.LinFunc):
+class ExplicitLinFunc(pyco.LinFunc):
     @pycrt.enforce_precision(i="vec")
     def __init__(self, vec: NDArray):
         super(ExplicitLinFunc, self).__init__(shape=(1, vec.size))
-        xp = pycutil.get_array_module(vec)
+        xp = pycu.get_array_module(vec)
         self._vec = vec.copy().reshape(-1)
         self._lipschitz = xp.linalg.norm(vec)
         self._diff_lipschitz = 0
@@ -27,16 +26,16 @@ class ExplicitLinFunc(pycop.LinFunc):
 
     @pycrt.enforce_precision(i="arr")
     def gradient(self, arr: NDArray) -> NDArray:
-        xp = pycutil.get_array_module(arr)
+        xp = pycu.get_array_module(arr)
         arr = xp.asarray(arr)
         return xp.broadcast_to(self._vec, arr.shape)
 
 
-class IdentityOperator(pycop.PosDefOp, pycop.SelfAdjointOp, pycop.UnitOp):
+class IdentityOperator(pyco.PosDefOp, pyco.SelfAdjointOp, pyco.UnitOp):
     def __init__(self, shape: typ.Union[int, typ.Tuple[int, ...]]):
-        pycop.PosDefOp.__init__(self, shape)
-        pycop.SelfAdjointOp.__init__(self, shape)
-        pycop.UnitOp.__init__(self, shape)
+        pyco.PosDefOp.__init__(self, shape)
+        pyco.SelfAdjointOp.__init__(self, shape)
+        pyco.UnitOp.__init__(self, shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: NDArray) -> NDArray:
