@@ -9,6 +9,9 @@ import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
+if pycd.CUPY_ENABLED:
+    import cupy as cp
+
 __all__ = [
     "Property",
     "Apply",
@@ -22,6 +25,7 @@ __all__ = [
     "Func",
     "DiffFunc",
     "ProxFunc",
+    "ProxDiffFunc",
     "LinFunc",
     "LinOp",
     "NormalOp",
@@ -33,7 +37,7 @@ __all__ = [
     "PosDefOp",
 ]
 
-MapLike = typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "LinOp", "LinFunc"]
+MapLike = typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "ProxDiffFunc", "LinOp", "LinFunc"]
 NonProxLike = typ.Union["Map", "DiffMap", "Func", "DiffFunc", "LinOp", "LinFunc"]
 
 
@@ -80,14 +84,15 @@ class Property:
 
         >>> import pycsou.abc.operator as pycop
         >>> for op in pycop._base_operators:
-        ...     print(op, props)
+        ...     print(op, op.properties())
         <class 'pycsou.abc.operator.Map'> {'apply'}
         <class 'pycsou.abc.operator.DiffMap'> {'apply', 'jacobian'}
         <class 'pycsou.abc.operator.DiffFunc'> {'grad', 'apply', 'single_valued', 'jacobian'}
         <class 'pycsou.abc.operator.LinOp'> {'apply', 'adjoint', 'jacobian'}
         <class 'pycsou.abc.operator.Func'> {'apply', 'single_valued'}
         <class 'pycsou.abc.operator.ProxFunc'> {'apply', 'single_valued', 'prox'}
-        <class 'pycsou.abc.operator.LinFunc'> {'apply', 'single_valued', 'jacobian', 'grad', 'adjoint'}
+        <class 'pycsou.abc.operator.ProxDiffFunc'> {'jacobian', 'single_valued', 'apply', 'grad', 'prox'}
+        <class 'pycsou.abc.operator.LinFunc'> {'jacobian', 'single_valued', 'apply', 'grad', 'prox', 'adjoint'}
 
         """
         props = set(dir(cls))
@@ -128,14 +133,14 @@ class Property:
 
         Parameters
         ----------
-        self:  :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+        self:  :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.ProxDiffFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
             Left addend with shape (N,K).
-        other: :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+        other: :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.ProxDiffFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
             Right addend with shape (M,L).
 
         Returns
         -------
-        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.ProxDiffFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
             Sum of ``self`` and ``other``.
 
         Raises
@@ -157,36 +162,39 @@ class Property:
         The addends `needs not be` instances of the same :py:class:`~pycsou.abc.operator.Map` subclass. The sum output is an
         instance of one of the following :py:class:`~pycsou.abc.operator.Map` (sub)classes: :py:class:`~pycsou.abc.operator.Map`,
         :py:class:`~pycsou.abc.operator.DiffMap`, :py:class:`~pycsou.abc.operator.Func`, :py:class:`~pycsou.abc.operator.DiffFunc`,
-        :py:class:`~pycsou.abc.operator.ProxFunc`, :py:class:`~pycsou.abc.operator.LinOp`, or :py:class:`~pycsou.abc.operator.LinFunc`.
+        :py:class:`~pycsou.abc.operator.ProxFunc`, :py:class:`~pycsou.abc.operator.ProxDiffFunc`, :py:class:`~pycsou.abc.operator.LinOp`,
+        or :py:class:`~pycsou.abc.operator.LinFunc`.
         The output type is determined automatically by inspecting the shapes and common properties of the two addends as per the following table
         (the other half of the table can be filled by symmetry due to the commutativity of the addition):
 
-        +----------+-----+---------+------+----------+----------+---------+----------+
-        |          | Map | DiffMap | Func | DiffFunc | ProxFunc | LinOp   | LinFunc  |
-        +==========+=====+=========+======+==========+==========+=========+==========+
-        | Map      | Map | Map     | Map  | Map      | Map      | Map     | Map      |
-        +----------+-----+---------+------+----------+----------+---------+----------+
-        | DiffMap  |     | DiffMap | Map  | DiffMap  | Map      | DiffMap | DiffMap  |
-        +----------+-----+---------+------+----------+----------+---------+----------+
-        | Func     |     |         | Func | Func     | Func     | Map     | Func     |
-        +----------+-----+---------+------+----------+----------+---------+----------+
-        | DiffFunc |     |         |      | DiffFunc | Func     | DiffMap | DiffFunc |
-        +----------+-----+---------+------+----------+----------+---------+----------+
-        | ProxFunc |     |         |      |          | Func     | Map     | ProxFunc |
-        +----------+-----+---------+------+----------+----------+---------+----------+
-        | LinOp    |     |         |      |          |          | LinOp   | LinOp    |
-        +----------+-----+---------+------+----------+----------+---------+----------+
-        | LinFunc  |     |         |      |          |          |         | LinFunc  |
-        +----------+-----+---------+------+----------+----------+---------+----------+
+        +--------------+-----+---------+------+----------+----------+---------+----------+--------------+
+        |              | Map | DiffMap | Func | DiffFunc | ProxFunc | LinOp   | LinFunc  | ProxDiffFunc |
+        +==============+=====+=========+======+==========+==========+=========+==========+==============+
+        | Map          | Map | Map     | Map  | Map      | Map      | Map     | Map      | Map          |
+        +--------------+-----+---------+------+----------+----------+---------+----------+--------------+
+        | DiffMap      |     | DiffMap | Map  | DiffMap  | Map      | DiffMap | DiffMap  | DiffMap      |
+        +--------------+-----+---------+------+----------+----------+---------+----------+--------------+
+        | Func         |     |         | Func | Func     | Func     | Map     | Func     | Func         |
+        +--------------+-----+---------+------+----------+----------+---------+----------+--------------+
+        | DiffFunc     |     |         |      | DiffFunc | Func     | DiffMap | DiffFunc | DiffFunc     |
+        +--------------+-----+---------+------+----------+----------+---------+----------+--------------+
+        | ProxFunc     |     |         |      |          | Func     | Map     | ProxFunc | Func         |
+        +--------------+-----+---------+------+----------+----------+---------+----------+--------------+
+        | LinOp        |     |         |      |          |          | LinOp   | LinOp    | DiffMap      |
+        +--------------+-----+---------+------+----------+----------+---------+----------+--------------+
+        | LinFunc      |     |         |      |          |          |         | LinFunc  | ProxDiffFunc |
+        +--------------+-----+---------+------+----------+----------+---------+----------+--------------+
+        | ProxDiffFunc |     |         |      |          |          |         |          | DiffFunc     |
+        +--------------+-----+---------+------+----------+----------+---------+----------+--------------+
 
         If the sum has one or more of the following properties ``[apply, jacobian, grad, adjoint, _lipschitz, _diff_lipschitz]``,
-        the latter are defined as the sum of the corresponding properties of the addends. In the case ``ProxFunc + LinFunc``,
+        the latter are defined as the sum of the corresponding properties of the addends. In the case ``ProxFunc/ProxDiffFunc/LinFunc + LinFunc``,
         the ``prox`` property is updated as described in the method ``__add__`` of the subclass :py:class:`~pycsou.abc.operator.ProxFunc`.
 
         .. Hint::
 
-            Note that the case ``ProxFunc + LinFunc`` is handled in the methods ``__add__`` of the subclasses :py:class:`~pycsou.abc.operator.ProxFunc`
-            and :py:class:`~pycsou.abc.operator.LinFunc`.
+            Note that the case ``ProxFunc/ProxDiffFunc/LinFunc + LinFunc`` is handled in the method ``:py:meth:`~pycsou.abc.operator.ProxFunc.__add__``` of the subclass
+            :py:class:`~pycsou.abc.operator.ProxFunc`.
 
         """
         if not isinstance(other, Map):
@@ -222,14 +230,14 @@ class Property:
 
         Parameters
         ----------
-        self: :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+        self: :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.ProxDiffFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
             Left factor with shape (N,K).
-        other: numbers.Real | :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+        other: numbers.Real | :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.ProxDiffFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
             Right factor. Should be a real scalar or an instance of :py:class:`~pycsou.abc.operator.Map` subclasses with shape (M,L).
 
         Returns
         -------
-        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.ProxDiffFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
             Product (scaling or composition) of ``self`` with ``other``, with shape (N,K) (for scaling) or (N,L) (for composition).
 
         Raises
@@ -251,26 +259,29 @@ class Property:
         The factors `needs not be` instances of the same :py:class:`~pycsou.abc.operator.Map` subclass. The product output is an
         instance of one of the following :py:class:`~pycsou.abc.operator.Map` (sub)classes: :py:class:`~pycsou.abc.operator.Map`,
         :py:class:`~pycsou.abc.operator.DiffMap`, :py:class:`~pycsou.abc.operator.Func`, :py:class:`~pycsou.abc.operator.DiffFunc`,
-        :py:class:`~pycsou.abc.operator.ProxFunc`, :py:class:`~pycsou.abc.operator.LinOp`, or :py:class:`~pycsou.abc.operator.LinFunc`.
+        :py:class:`~pycsou.abc.operator.ProxFunc`, :py:class:`~pycsou.abc.operator.ProxDiffFunc`, :py:class:`~pycsou.abc.operator.LinOp`,
+        or :py:class:`~pycsou.abc.operator.LinFunc`.
         The output type is determined automatically by inspecting the shapes and common properties of the two factors as per the following table:
 
-        +----------+---------+----------+------+----------+----------+-------------+----------+
-        |          | Map     | DiffMap  | Func | DiffFunc | ProxFunc | LinOp       | LinFunc  |
-        +==========+=========+==========+======+==========+==========+=============+==========+
-        | Map      | Map     | Map      | Map  | Map      | Map      | Map         | Map      |
-        +----------+---------+----------+------+----------+----------+-------------+----------+
-        | DiffMap  | Map     | DiffMap  | Map  | DiffMap  | Map      | DiffMap     | DiffMap  |
-        +----------+---------+----------+------+----------+----------+-------------+----------+
-        | Func     | Func    | Func     | Func | Func     | Func     | Func        | Func     |
-        +----------+---------+----------+------+----------+----------+-------------+----------+
-        | DiffFunc | Func    | DiffFunc | Func | DiffFunc | Func     | DiffFunc    | DiffFunc |
-        +----------+---------+----------+------+----------+----------+-------------+----------+
-        | ProxFunc | Func    | Func     | Func | Func     | Func     | Func        | Func     |
-        +----------+---------+----------+------+----------+----------+-------------+----------+
-        | LinOp    | Map     | DiffMap  | Map  | DiffMap  | Map      | LinOp       | LinOp    |
-        +----------+---------+----------+------+----------+----------+-------------+----------+
-        | LinFunc  | LinFunc | DiffFunc | Func | DiffFunc | Func     | LinFunc     | LinFunc  |
-        +----------+---------+----------+------+----------+----------+-------------+----------+
+        +--------------+---------+----------+------+----------+----------+-------------+----------+--------------+
+        |              | Map     | DiffMap  | Func | DiffFunc | ProxFunc | LinOp       | LinFunc  | ProxDiffFunc |
+        +==============+=========+==========+======+==========+==========+=============+==========+==============+
+        | Map          | Map     | Map      | Map  | Map      | Map      | Map         | Map      | Map          |
+        +--------------+---------+----------+------+----------+----------+-------------+----------+--------------+
+        | DiffMap      | Map     | DiffMap  | Map  | DiffMap  | Map      | DiffMap     | DiffMap  | DiffMap      |
+        +--------------+---------+----------+------+----------+----------+-------------+----------+--------------+
+        | Func         | Func    | Func     | Func | Func     | Func     | Func        | Func     | Func         |
+        +--------------+---------+----------+------+----------+----------+-------------+----------+--------------+
+        | DiffFunc     | Func    | DiffFunc | Func | DiffFunc | Func     | DiffFunc    | DiffFunc | DiffFunc     |
+        +--------------+---------+----------+------+----------+----------+-------------+----------+--------------+
+        | ProxFunc     | Func    | Func     | Func | Func     | Func     | Func        | Func     | Func         |
+        +--------------+---------+----------+------+----------+----------+-------------+----------+--------------+
+        | LinOp        | Map     | DiffMap  | Map  | DiffMap  | Map      | LinOp       | LinOp    | DiffMap      |
+        +--------------+---------+----------+------+----------+----------+-------------+----------+--------------+
+        | LinFunc      | Func    | DiffFunc | Func | DiffFunc | Func     | LinFunc     | LinFunc  | DiffFunc     |
+        +--------------+---------+----------+------+----------+----------+-------------+----------+--------------+
+        | ProxDiffFunc | Func    | DiffFunc | Func | DiffFunc | Func     | DiffFunc    | DiffFunc | DiffFunc     |
+        +--------------+---------+----------+------+----------+----------+-------------+----------+--------------+
 
 
         If the product output has one or more of the following properties ``[apply, jacobian, grad, adjoint, _lipschitz, _diff_lipschitz]``,
@@ -302,10 +313,13 @@ class Property:
 
         .. Hint::
 
-            The case ``ProxFunc * LinOp`` yields in general a :py:class:`~pycsou.abc.operator.Func` object except when
-            the :py:class:`~pycsou.abc.operator.LinOp` factor is of type :py:class:`~pycsou.abc.operator.UnitOp` where it returns
-            a :py:class:`~pycsou.abc.operator.ProxFunc` (see :py:meth:`~pycsou.abc.operator.__mul__` of :py:class:`~pycsou.abc.operator.ProxFunc` for more).
-            This case, together with the case ``ProxFunc * scalar`` are handled separately in the method :py:meth:`~pycsou.abc.operator.__mul__` of the subclass :py:class:`~pycsou.abc.operator.ProxFunc`,
+            The case ``ProxFunc * LinOp`` yields in general a :py:class:`~pycsou.abc.operator.Func` object except when either:
+
+                * The :py:class:`~pycsou.abc.operator.ProxFunc` factor is of type :py:class:`~pycsou.abc.operator.LinFunc`,
+                * The :py:class:`~pycsou.abc.operator.LinOp` factor is a scaling or of type :py:class:`~pycsou.abc.operator.UnitOp`.
+
+            In which case, the product will be of type :py:class:`~pycsou.abc.operator.ProxFunc` (see :py:meth:`~pycsou.abc.operator.ProxFunc.__mul__` of :py:class:`~pycsou.abc.operator.ProxFunc` for more).
+            This case, together with the case ``ProxFunc * scalar`` are handled separately in the method :py:meth:`~pycsou.abc.operator.ProxFunc.__mul__` of the subclass :py:class:`~pycsou.abc.operator.ProxFunc`,
             where the product's ``prox`` property update is described.
         """
         if isinstance(other, pyct.Real):
@@ -392,9 +406,9 @@ class Property:
         """
         if type(power) is int:
             if power == 0:
-                from pycsou.linop.base import IdentityOperator
+                from pycsou.linop.base import IdentityOp
 
-                exp_map = IdentityOperator(shape=self.shape)
+                exp_map = IdentityOp(shape=self.shape)
             else:
                 exp_map = self
                 for i in range(1, power):
@@ -1211,12 +1225,12 @@ class ProxFunc(Func, Proximal):
         ----------
         self:  :py:class:`~pycsou.abc.operator.ProxFunc`
             Left addend.
-        other: :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+        other: :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | py:class:`~pycsou.abc.operator.ProxDiffFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
             Right addend.
 
         Returns
         -------
-        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | py:class:`~pycsou.abc.operator.ProxDiffFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
             Sum of ``self`` and ``other``.
 
         Notes
@@ -1237,7 +1251,7 @@ class ProxFunc(Func, Proximal):
         """
         f = Property.__add__(self, other)
         if isinstance(other, LinFunc):
-            f = f.specialize(cast_to=ProxFunc)
+            f = f.specialize(cast_to=self.__class__)
             f.prox = types.MethodType(lambda _, x, tau: self.prox(x - tau * other.asarray(), tau), f)
         return f.squeeze()
 
@@ -1249,23 +1263,29 @@ class ProxFunc(Func, Proximal):
         ----------
         self: :py:class:`~pycsou.abc.operator.ProxFunc`
             Left factor.
-        other: numbers.Real | :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+        other: numbers.Real | :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | py:class:`~pycsou.abc.operator.ProxDiffFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
             Right factor. Should be a real scalar or an instance of :py:class:`~pycsou.abc.operator.Map` subclasses.
 
         Returns
         -------
-        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
+        :py:class:`~pycsou.abc.operator.Map` | :py:class:`~pycsou.abc.operator.DiffMap` | :py:class:`~pycsou.abc.operator.Func` | :py:class:`~pycsou.abc.operator.DiffFunc` | :py:class:`~pycsou.abc.operator.ProxFunc` | py:class:`~pycsou.abc.operator.ProxDiffFunc` | :py:class:`~pycsou.abc.operator.LinOp` | :py:class:`~pycsou.abc.operator.LinFunc`
             Product (scaling or composition) of ``self`` with ``other``.
 
         Notes
         -----
-        This method is identical to :py:meth:`pycsou.abc.operator.Property.__mul__` except when ``other`` is a scalar or a :py:class:`~pycsou.abc.operator.UnitOp` instance.
+        This method is identical to :py:meth:`pycsou.abc.operator.Property.__mul__` except when:
+
+            * ``self`` and ``other`` are instances of the classes :py:class:`~pycsou.abc.operator.LinFunc` and :py:class:`~pycsou.abc.operator.LinOp` respectively,
+            * ``other`` is a scalar or a :py:class:`~pycsou.abc.operator.UnitOp` instance.
+
         In which cases, the sum is a :py:class:`~pycsou.abc.operator.ProxFunc` instance, with proximity operator given by (the pseudocode below is equivalent to but
         does not necessarily reflect the actual implementation):
 
         .. code-block:: python3
 
-            if isinstance(other, numbers.Real):
+            if isinstance(self, LinFunc) and isintance(other, LinOp):
+                prod.prox = lambda arr, tau: arr - tau * other.adjoint(self.asarray())
+            elif isinstance(other, numbers.Real):
                 prod.prox = lambda arr, tau: (1 / other) * self.prox(other * arr, tau * (other ** 2))
             elif isinstance(other, UnitOp):
                 prod.prox = lambda arr, tau: other.adjoint(self.prox(other.apply(arr), tau))
@@ -1283,11 +1303,14 @@ class ProxFunc(Func, Proximal):
         if isinstance(other, pyct.Real):
             other = HomothetyOp(other, dim=self.shape[0])
 
-        if isinstance(other, UnitOp):
-            f.specialize(cast_to=ProxFunc)
+        if isinstance(self, LinFunc) and isinstance(other, LinOp):
+            f.specialize(cast_to=self.__class__)
+            f.prox = types.MethodType(lambda obj, arr, tau: arr - tau * other.adjoint(self.asarray()), f)
+        elif isinstance(other, UnitOp):
+            f.specialize(cast_to=self.__class__)
             f.prox = types.MethodType(lambda obj, arr, tau: other.adjoint(self.prox(other.apply(arr), tau)), f)
         elif isinstance(other, HomothetyOp):
-            f.specialize(cast_to=ProxFunc)
+            f.specialize(cast_to=self.__class__)
             f.prox = types.MethodType(
                 lambda obj, arr, tau: (1 / other._cst) * self.prox(other._cst * arr, tau * (other._cst) ** 2), f
             )
@@ -1427,6 +1450,11 @@ class DiffFunc(Func, Gradient):
         super(DiffFunc, self).__init__(shape)
 
 
+class ProxDiffFunc(ProxFunc, Gradient):
+    def __init__(self, shape: typ.Union[typ.Union[int, None], typ.Tuple[int, typ.Union[int, None]]]):
+        super(ProxDiffFunc, self).__init__(shape)
+
+
 class LinOp(DiffMap, Adjoint):
     def __init__(self, shape: typ.Tuple[int, typ.Union[int, None]]):
         super(LinOp, self).__init__(shape)
@@ -1518,12 +1546,12 @@ class LinOp(DiffMap, Adjoint):
         (i.e. when self.gram() is trivially evaluated as the composition self.T * self). The latter are however not available
         in matrix-free form on GPUs.
         """
-        from pycsou.linop.base import IdentityOperator
+        from pycsou.linop.base import IdentityOp
 
         b = self.adjoint(arr)
         if damp is not None:
             damp = np.array(damp, dtype=arr.dtype).item()  # cast to correct type
-            A = self.gram() + damp * IdentityOperator(shape=(self.shape[1], self.shape[1]))
+            A = self.gram() + damp * IdentityOp(shape=(self.shape[1], self.shape[1]))
         else:
             A = self.gram()
         if "x0" not in kwargs:
@@ -1561,12 +1589,12 @@ class LinOp(DiffMap, Adjoint):
         return dagger
 
 
-class LinFunc(DiffFunc, LinOp):
+class LinFunc(ProxDiffFunc, LinOp):
     r"""
     Base class for real-valued linear functionals :math:`f:\mathbb{R}^M\to\mathbb{R}`.
 
-    Any instance/subclass of this class must implement the methods :py:meth:`~pycsou.abc.operator.Apply.apply`, :py:meth:`~pycsou.abc.operator.Gradient.grad`
-    and :py:meth:`~pycsou.abc.operator.Adjoint.adjoint`.
+    Any instance/subclass of this class must implement the methods :py:meth:`~pycsou.abc.operator.Apply.apply`, :py:meth:`~pycsou.abc.operator.Gradient.grad`,
+    :py:meth:`~pycsou.abc.operator.Proximal.prox` and :py:meth:`~pycsou.abc.operator.Adjoint.adjoint`.
     The Lipschitz constant of the linear functional can be stored in the private instance attribute
     ``_lipschitz`` (initialized to :math:`+\infty` by default). The Lipschitz constant of the gradient is 0, since the latter
     is constant for a linear functional.
@@ -1587,6 +1615,11 @@ class LinFunc(DiffFunc, LinOp):
     ...        return np.sum(arr, axis=-1, keepdims=True)
     ...     def adjoint(self, arr):
     ...        return arr * np.ones(self.shape[-1])
+    ...     def grad(self, arr):
+    ...        return np.ones(shape=arr.shape[:-1] + (self.dim,))
+    ...     def prox(self, arr, tau):
+    ...        return arr - tau * np.ones(self.shape[-1])
+
     >>> sum = Sum(10)
 
     It is also possible to use the class :py:class:`~pycsou.linop.base.ExplicitLinFunc`, which constructs a linear functional
@@ -1598,16 +1631,10 @@ class LinFunc(DiffFunc, LinOp):
     """
 
     def __init__(self, shape: typ.Union[typ.Union[int, None], typ.Tuple[int, typ.Union[int, None]]]):
-        DiffFunc.__init__(self, shape)
+        ProxDiffFunc.__init__(self, shape)
         LinOp.__init__(self, shape)
 
     __init__.__doc__ = DiffFunc.__init__.__doc__
-
-    def __add__(self: "LinFunc", other: MapLike) -> MapLike:
-        r"""
-        Calls ``ProxFunc.__add__(other, self)``.
-        """
-        return ProxFunc.__add__(other, self)
 
 
 class SquareOp(LinOp):
@@ -1668,9 +1695,9 @@ class UnitOp(NormalOp):
 class ProjOp(SquareOp):
     def __pow__(self, power: int) -> typ.Union["ProjOp", "UnitOp"]:
         if power == 0:
-            from pycsou.linop.base import IdentityOperator
+            from pycsou.linop.base import IdentityOp
 
-            return IdentityOperator(self.shape)
+            return IdentityOp(self.shape)
         else:
             return self
 
@@ -1694,4 +1721,4 @@ class PosDefOp(SelfAdjointOp):
     pass
 
 
-_base_operators = frozenset([Map, DiffMap, Func, DiffFunc, ProxFunc, LinOp, LinFunc])
+_base_operators = frozenset([Map, DiffMap, Func, DiffFunc, ProxFunc, ProxDiffFunc, LinOp, LinFunc])
