@@ -139,3 +139,84 @@ class AbsMaxError(pycs.StoppingCriterion):
 
     def clear(self):
         self._val = np.r_[0]
+
+
+class RelMaxError(pycs.StoppingCriterion):
+    """
+    Stop iterative solver after relative norm change of a variable reaches threshold.
+    """
+
+    def __init__(
+        self,
+        eps: float,
+        norm: float = 2,
+        var: str = "primal",
+        satisfy_all: bool = True,
+    ):
+        """
+        Parameters
+        ----------
+        eps: float
+            Positive threshold.
+        norm: int | float
+            Ln norm to use >= 0. (Default: L2.)
+        var: str
+            Variable in `Solver._mstate` to query.
+        satisfy_all: bool
+            If True (default) and `Solver._mstate[var]` is multi-dimensional, stop if all evaluation
+            points lie below threshold.
+        """
+        super().__init__()
+        try:
+            assert eps > 0
+            self._eps = eps
+        except:
+            raise ValueError(f"eps: expected positive threshold, got {eps}.")
+
+        try:
+            assert norm >= 0
+            self._norm = norm
+        except:
+            raise ValueError(f"norm: expected non-negative, got {norm}.")
+
+        self._var = var
+        self._satisfy_all = satisfy_all
+        self._val = np.r_[0]  # last computed Ln rel-norm(s) in stop().
+        self._x_prev = None  # buffered var from last query.
+
+    def stop(self, state: cabc.Mapping) -> bool:
+        x = state[self._var]
+        xp = pycu.get_array_module(x)
+
+        n = lambda _: xp.linalg.norm(_, ord=self._norm, axis=-1, keepdims=True)
+        f = xp.all if self._satisfy_all else xp.any
+
+        if self._x_prev is None:
+            self._x_prev = x.copy()
+            return False
+        else:
+            # Computing `_val` may fail in case x/0 (inf) or 0/0 (nan) occurs. For the purpose of
+            # computing relative errors, we can safely assume all divide-by-zero computations lead
+            # to np.inf.
+            num, den = n(x - self._x_prev), n(self._x_prev)
+            self._val = xp.zeros(x.shape)
+            mask = xp.isclose(den, 0)
+            self._val[mask] = np.inf
+            self._val[~mask] = num[~mask] / den[~mask]
+
+            self._x_prev = x.copy()
+            return f(self._val <= self._eps)
+
+    def info(self) -> cabc.Mapping[str, float]:
+        if self._val.size == 1:
+            data = {f"RelMax[{self._var}]": float(self._val[0])}
+        else:
+            data = {
+                f"RelMax[{self._var}]_min": float(self._val.min()),
+                f"RelMax[{self._var}]_max": float(self._val.max()),
+            }
+        return data
+
+    def clear(self):
+        self._val = np.r_[0]
+        self._x_prev = None
