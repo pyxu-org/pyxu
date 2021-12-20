@@ -3,6 +3,7 @@ import datetime as dt
 import typing as typ
 
 import pycsou.abc.solver as pycs
+import pycsou.util as pycu
 
 
 class MaxIter(pycs.StoppingCriterion):
@@ -74,3 +75,67 @@ class MaxDuration(pycs.StoppingCriterion):
     def clear(self):
         self._t_start = dt.datetime.now()
         self._t_now = self._t_start
+
+
+class AbsMaxError(pycs.StoppingCriterion):
+    """
+    Stop iterative solver after absolute norm of a variable reaches threshold.
+    """
+
+    def __init__(
+        self,
+        eps: float,
+        norm: float = 2,
+        var: str = "primal",
+        satisfy_all: bool = True,
+    ):
+        """
+        Parameters
+        ----------
+        eps: float
+            Positive threshold.
+        norm: int | float
+            Ln norm to use >= 0. (Default: L2.)
+        var: str
+            Variable in `Solver._mstate` to query.
+        satisfy_all: bool
+            If True (default) and `Solver._mstate[var]` is multi-dimensional, stop if all evaluation
+            points lie below threshold.
+        """
+        super().__init__()
+        try:
+            assert eps > 0
+            self._eps = eps
+        except:
+            raise ValueError(f"eps: expected positive threshold, got {eps}.")
+
+        try:
+            assert norm >= 0
+            self._norm = norm
+        except:
+            raise ValueError(f"norm: expected non-negative, got {norm}.")
+
+        self._var = var
+        self._satisfy_all = satisfy_all
+        self._val = np.r_[0]  # last computed Ln norm(s) in stop().
+
+    def stop(self, state: cabc.Mapping) -> bool:
+        x = state[self._var]
+        xp = pycu.get_array_module(x)
+
+        self._val = xp.linalg.norm(x, ord=self._norm, axis=-1, keepdims=True)
+        f = xp.all if self._satisfy_all else xp.any
+        return f(self._val <= self._eps)
+
+    def info(self) -> cabc.Mapping[str, float]:
+        if self._val.size == 1:
+            data = {f"AbsMax[{self._var}]": float(self._val[0])}
+        else:
+            data = {
+                f"AbsMax[{self._var}]_min": float(self._val.min()),
+                f"AbsMax[{self._var}]_max": float(self._val.max()),
+            }
+        return data
+
+    def clear(self):
+        self._val = np.r_[0]
