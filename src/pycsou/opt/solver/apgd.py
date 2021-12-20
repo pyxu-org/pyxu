@@ -68,8 +68,8 @@ class APGD(pycs.Solver):
             log_var=log_var,
         )
 
-        self._f = pyclo.NullOperator() if (f is None) else f
-        self._g = pyclo.NullOperator() if (g is None) else g
+        self._f = pyclo.NullFunc() if (f is None) else f
+        self._g = pyclo.NullFunc() if (g is None) else g
         if (f is None) and (g is None):
             msg = " ".join(
                 [
@@ -137,7 +137,7 @@ class APGD(pycs.Solver):
             except:
                 raise ValueError(f"Expected d > 2, got {d}.")
 
-    def m_step():
+    def m_step(self):
         mst = self._mstate  # shorthand
 
         a = next(mst["a"])
