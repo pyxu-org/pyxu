@@ -1,4 +1,5 @@
 import types
+import typing as typ
 
 import pycsou.abc.operator as pyco
 import pycsou.runtime as pycrt
@@ -13,7 +14,6 @@ class ExplicitLinFunc(pyco.LinFunc):
         xp = pycu.get_array_module(vec)
         self._vec = vec.copy().reshape(-1)
         self._lipschitz = xp.linalg.norm(vec)
-        self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -28,8 +28,12 @@ class ExplicitLinFunc(pyco.LinFunc):
         xp = pycu.get_array_module(arr)
         return xp.broadcast_to(self._vec, arr.shape)
 
+    @pycrt.enforce_precision(i=["arr", "tau"])
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        return arr - tau * self._vec
 
-class IdentityOperator(pyco.PosDefOp, pyco.SelfAdjointOp, pyco.UnitOp):
+
+class IdentityOp(pyco.PosDefOp, pyco.SelfAdjointOp, pyco.UnitOp):
     def __init__(self, shape: pyct.Shape):
         pyco.PosDefOp.__init__(self, shape)
         pyco.SelfAdjointOp.__init__(self, shape)
@@ -66,3 +70,32 @@ class HomothetyOp(pyco.SelfAdjointOp):
             post_composition_prox = lambda obj, arr, tau: other.prox(arr, self._cst * tau)
             op.prox = types.MethodType(post_composition_prox, op)
             return op
+
+
+class NullOp(pyco.LinOp):
+    def __init__(self, shape: typ.Tuple[int, int]):
+        super(NullOp, self).__init__(shape)
+        self._lipschitz = 0
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.broadcast_to(xp.r_[0].astype(arr.dtype), shape=arr.shape[:-1] + (self.codim,))
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.broadcast_to(xp.r_[0].astype(arr.dtype), shape=arr.shape[:-1] + (self.dim,))
+
+
+class NullFunc(NullOp, pyco.LinFunc):
+    def __init__(self, dim: typ.Optional[int] = None):
+        pyco.LinFunc.__init__(self, shape=(1, dim))
+        NullOp.__init__(self, shape=self.shape)
+
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return self.apply(arr)
+
+    @pycrt.enforce_precision(i="arr")
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        return arr
