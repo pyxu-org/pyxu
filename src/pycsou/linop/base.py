@@ -80,12 +80,18 @@ class NullOp(pyco.LinOp):
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.broadcast_to(xp.r_[0].astype(arr.dtype), shape=arr.shape[:-1] + (self.codim,))
+        return xp.broadcast_to(
+            xp.array(0, arr.dtype),
+            (*arr.shape[:-1], self.codim),
+        )
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.broadcast_to(xp.r_[0].astype(arr.dtype), shape=arr.shape[:-1] + (self.dim,))
+        return xp.broadcast_to(
+            xp.array(0, arr.dtype),
+            (arr.shape[:-1], self.dim),
+        )
 
 
 class NullFunc(NullOp, pyco.LinFunc):
