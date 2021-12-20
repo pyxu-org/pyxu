@@ -1,4 +1,5 @@
 import collections.abc as cabc
+import datetime as dt
 import typing as typ
 
 import pycsou.abc.solver as pycs
@@ -39,3 +40,37 @@ class MaxIter(pycs.StoppingCriterion):
 
     def clear(self):
         self._i = 0
+
+
+class MaxDuration(pycs.StoppingCriterion):
+    """
+    Stop iterative solver after a specified duration has elapsed.
+    """
+
+    def __init__(self, t: dt.timedelta):
+        """
+        Parameters
+        ----------
+        t: dt.timedelta
+            Max runtime allowed.
+        """
+        super().__init__()
+        try:
+            assert t > dt.timedelta()
+            self._t_max = t
+        except:
+            raise ValueError(f"t: expected positive duration, got {t}.")
+        self._t_start = dt.datetime.now()
+        self._t_now = self._t_start
+
+    def stop(self, state: cabc.Mapping) -> bool:
+        self._t_now = dt.datetime.now()
+        return (self._t_now - self._t_start) > self._t_max
+
+    def info(self) -> cabc.Mapping[str, float]:
+        d = (self._t_now - self._t_start).total_seconds()
+        return dict(duration=d)
+
+    def clear(self):
+        self._t_start = dt.datetime.now()
+        self._t_now = self._t_start
