@@ -38,6 +38,9 @@ class StoppingCriterion:
     Composite stopping criteria can be implemented via the overloaded and[&]/or[|] operators.
     """
 
+    def __init__(self):
+        pass
+
     def stop(self, state: cabc.Mapping) -> bool:
         """
         Compute a stop signal based on the current mathematical state.
