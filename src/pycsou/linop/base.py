@@ -9,7 +9,7 @@ import pycsou.util.ptype as pyct
 class ExplicitLinFunc(pyco.LinFunc):
     @pycrt.enforce_precision(i="vec")
     def __init__(self, vec: pyct.NDArray):
-        super(pyco.ExplicitLinFunc, self).__init__(shape=(1, vec.size))
+        super(ExplicitLinFunc, self).__init__(shape=(1, vec.size))
         xp = pycu.get_array_module(vec)
         self._vec = vec.copy().reshape(-1)
         self._lipschitz = xp.linalg.norm(vec)
@@ -65,5 +65,4 @@ class HomothetyOp(pyco.SelfAdjointOp):
             op.specialize(cast_to=pyco.ProxFunc)
             post_composition_prox = lambda obj, arr, tau: other.prox(arr, self._cst * tau)
             op.prox = types.MethodType(post_composition_prox, op)
-            # [Sepand] TODO: not sure if `post_composition_prox` formula is correct.
             return op
