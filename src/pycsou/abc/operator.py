@@ -1451,6 +1451,41 @@ class DiffFunc(Func, Gradient):
 
 
 class ProxDiffFunc(ProxFunc, Gradient):
+    r"""
+    Base class for real-valued differentiable *and* proximable functionals :math:`f:\mathbb{R}^M\to\mathbb{R}`.
+
+    Any instance/subclass of this class must implement the methods :py:meth:`~pycsou.abc.operator.Apply.apply`, :py:meth:`~pycsou.abc.operator.Gradient.grad`
+    and :py:meth:`~pycsou.abc.operator.Proximal.prox`.
+    If the functional and/or its derivative are Lipschitz-continuous and the Lipschitz constants are known, the latter can be stored in the private instance attributes
+    ``_lipschitz`` and ``_diff_lipschitz`` (initialized to :math:`+\infty` by default).
+
+    Examples
+    --------
+    To construct a concrete proximable and differentiable functional, it is recommended to subclass :py:class:`~pycsou.abc.operator.ProxDiffFunc` as ilustrated
+    in the following example:
+
+    >>> import numpy as np
+    >>> from pycsou.abc import ProxDiffFunc
+    >>> class LeastSquares(ProxDiffFunc):
+    ...    def __init__(self):
+    ...        super(LeastSquares, self).__init__(shape=(1, None)) # The LeastSquares functional is domain-agnostic.
+    ...        self._diff_lipschitz = 2
+    ...    def apply(self, arr):
+    ...        return np.linalg.norm(arr, axis=-1, keepdims=True) ** 2
+    ...    def grad(self, arr):
+    ...        return 2 * arr
+    ...    def prox(self, arr, tau):
+    ...        return arr / (1 + 2 * tau)
+    >>> l2 = LeastSquares() # creates an instance
+
+
+    .. Warning::
+
+        This  is a simplified example for illustration puposes only. It may not abide by all the rules listed in the
+        :ref:`developer-notes`.
+
+    """
+
     def __init__(self, shape: typ.Union[typ.Union[int, None], typ.Tuple[int, typ.Union[int, None]]]):
         super(ProxDiffFunc, self).__init__(shape)
 
@@ -1569,7 +1604,10 @@ class LinOp(DiffMap, Adjoint):
                 def __call__(self, x: pyct.NDArray):
                     if self.n % self.verbose == 0:
                         xp = pycu.get_array_module(x)
-                        print(f"Relative residual norm:{xp.linalg.norm(self.b - self.A(x)) / xp.linalg.norm(self.b)}")
+                        print(
+                            f"Iteration: {self.n}, Relative residual norm:{xp.linalg.norm(self.b - self.A(x)) / xp.linalg.norm(self.b)}"
+                        )
+                        self.n += 1
 
             kwargs.update(dict(callback=CallBack(verbose, A, b)))
 
