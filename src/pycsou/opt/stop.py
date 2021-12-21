@@ -196,7 +196,7 @@ class RelMaxError(pycs.StoppingCriterion):
         n = lambda _: xp.linalg.norm(_, ord=self._norm, axis=-1, keepdims=True)
         f = xp.all if self._satisfy_all else xp.any
 
-        if self._x_prev is None:
+        if self._x_prev is None:  # haven't seen enough past state -> don't stop yet.
             self._x_prev = x.copy()
             return False
         else:
