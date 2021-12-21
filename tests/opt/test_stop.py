@@ -48,6 +48,84 @@ class TestAbsError:
         sc.info()  # just to make sure it doesn't crash
 
 
+class TestRelError:
+    @pytest.mark.parametrize(
+        ["eps", "f", "state", "stop_val"],
+        [
+            [0.5, None, (1, 2), False],
+            [0.5, None, (2, 3), True],
+            [0.5, None, (3, 4), True],
+            [0.3, lambda _: _ ** 2, (1, 2), False],
+            [0.3, lambda _: _ ** 2, (2, 3), True],
+            [0.3, lambda _: _ ** 2, (3, 4), True],
+        ],
+    )
+    def test_scalar_in(self, eps, f, state, stop_val):
+        sc = stop.RelError(eps=eps, f=f)
+        state0 = dict(primal=state[0])
+        assert sc.stop(state0) == False
+        state1 = dict(primal=state[1])
+        assert sc.stop(state1) == stop_val
+        sc.info()  # just to make sure it doesn't crash
+
+    @pytest.mark.parametrize(
+        ["eps", "f", "satisfy_all", "state", "stop_val"],
+        [
+            # 1 input, function
+            [0.6, None, True, (np.r_[1, 1, 1], np.r_[1, 2, 1]), True],
+            [0.23, None, True, (np.r_[2, 2, 2], np.r_[2, 3, 2]), False],
+            [
+                0.4,
+                lambda _: _.sum(axis=-1, keepdims=True),
+                True,
+                (
+                    np.broadcast_to(np.r_[1, 1, 1], (1, 3)),
+                    np.broadcast_to(np.r_[1, 2, 1], (1, 3)),
+                ),
+                True,
+            ],
+            [
+                0.16,
+                lambda _: _.sum(axis=-1, keepdims=True),
+                True,
+                (
+                    np.broadcast_to(np.r_[2, 2, 2], (1, 3)),
+                    np.broadcast_to(np.r_[2, 3, 2], (1, 3)),
+                ),
+                False,
+            ],
+            # N input, satisfy_[any/all]
+            [
+                0.3,
+                None,
+                True,
+                (
+                    np.array([[1, 1, 1], [2, 2, 2]]),
+                    np.array([[1, 2, 1], [2, 3, 2]]),
+                ),
+                False,
+            ],
+            [
+                0.3,
+                None,
+                False,
+                (
+                    np.array([[1, 1, 1], [2, 2, 2]]),
+                    np.array([[1, 2, 1], [2, 3, 2]]),
+                ),
+                True,
+            ],
+        ],
+    )
+    def test_array_in(self, eps, f, satisfy_all, state, stop_val, xp):
+        sc = stop.RelError(eps=eps, f=f, satisfy_all=satisfy_all)
+        state0 = dict(primal=xp.array(state[0]))  # test all possible array backends.
+        assert sc.stop(state0) == False
+        state1 = dict(primal=xp.array(state[1]))  # test all possible array backends.
+        assert sc.stop(state1) == stop_val
+        sc.info()  # just to make sure it doesn't crash
+
+
 @pytest.mark.parametrize(
     ["sc", "state_stream"],
     [
