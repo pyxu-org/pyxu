@@ -22,7 +22,6 @@ class MaxIter(pycs.StoppingCriterion):
             Max number of iterations allowed.
             Defaults to infinity if unspecified, i.e. never halt.
         """
-        super().__init__()
         self._n = n
         if n is not None:
             try:
@@ -58,7 +57,6 @@ class MaxDuration(pycs.StoppingCriterion):
         t: dt.timedelta
             Max runtime allowed.
         """
-        super().__init__()
         try:
             assert t > dt.timedelta()
             self._t_max = t
@@ -105,7 +103,6 @@ class AbsMaxError(pycs.StoppingCriterion):
             If True (default) and `Solver._mstate[var]` is multi-dimensional, stop if all evaluation
             points lie below threshold.
         """
-        super().__init__()
         try:
             assert eps > 0
             self._eps = eps
@@ -171,7 +168,6 @@ class RelMaxError(pycs.StoppingCriterion):
             If True (default) and `Solver._mstate[var]` is multi-dimensional, stop if all evaluation
             points lie below threshold.
         """
-        super().__init__()
         try:
             assert eps > 0
             self._eps = eps
