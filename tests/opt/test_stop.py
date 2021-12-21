@@ -6,6 +6,47 @@ import pytest
 import pycsou.abc.solver as pycs
 import pycsou.opt.stop as stop
 
+# We do not test MaxIter(), ManualStop() and MaxDuration() since they are trivial.
+
+
+class TestAbsError:
+    @pytest.mark.parametrize(
+        ["eps", "f", "state", "stop_val"],
+        [
+            [3, None, 4, False],
+            [3, None, 3, True],
+            [3, None, 2, True],
+            [3, lambda _: _ ** 2, 4, False],
+            [3, lambda _: _ ** 2, 3, False],
+            [3, lambda _: _ ** 2, np.sqrt(3), True],
+            [3, lambda _: _ ** 2, 1, True],
+        ],
+    )
+    def test_scalar_in(self, eps, f, state, stop_val):
+        sc = stop.AbsError(eps=eps, f=f)
+        state = dict(primal=state)
+        assert sc.stop(state) == stop_val
+        sc.info()  # just to make sure it doesn't crash
+
+    @pytest.mark.parametrize(
+        ["eps", "f", "satisfy_all", "state", "stop_val"],
+        [
+            # 1 input, function
+            [np.sqrt(14), None, True, np.arange(1, 4), True],
+            [np.sqrt(14), None, True, np.arange(1, 5), False],
+            [6, lambda _: _.sum(axis=-1, keepdims=True), True, np.broadcast_to(np.arange(1, 4), (1, 3)), True],
+            [6, lambda _: _.sum(axis=-1, keepdims=True), True, np.broadcast_to(np.arange(1, 5), (1, 4)), False],
+            # N input, satisfy_[any/all]
+            [6.5, None, True, np.array([np.linspace(1, 4, 5), np.linspace(1, 5, 5)]), False],
+            [6.5, None, False, np.array([np.linspace(1, 4, 5), np.linspace(1, 5, 5)]), True],
+        ],
+    )
+    def test_array_in(self, eps, f, satisfy_all, state, stop_val, xp):
+        sc = stop.AbsError(eps=eps, f=f, satisfy_all=satisfy_all)
+        state = dict(primal=xp.array(state))  # test all possible array backends.
+        assert sc.stop(state) == stop_val
+        sc.info()  # just to make sure it doesn't crash
+
 
 @pytest.mark.parametrize(
     ["sc", "state_stream"],
