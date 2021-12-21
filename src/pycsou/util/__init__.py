@@ -62,5 +62,4 @@ def get_array_module(x, fallback: pyct.ArrayModule = None) -> pyct.ArrayModule:
     elif fallback is not None:
         return fallback
     else:
-        # import pdb; pdb.set_trace()
         raise ValueError(f"Could not infer array module for {type(x)}.")
