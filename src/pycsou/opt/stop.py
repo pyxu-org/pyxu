@@ -169,7 +169,7 @@ class AbsError(pycs.StoppingCriterion):
         self._val = np.r_[0]
 
 
-class RelMaxError(pycs.StoppingCriterion):
+class RelError(pycs.StoppingCriterion):
     """
     Stop iterative solver after relative norm change of a variable reaches threshold.
     """
@@ -236,11 +236,11 @@ class RelMaxError(pycs.StoppingCriterion):
 
     def info(self) -> cabc.Mapping[str, float]:
         if self._val.size == 1:
-            data = {f"RelMax[{self._var}]": float(self._val[0])}
+            data = {f"RelError[{self._var}]": float(self._val[0])}
         else:
             data = {
-                f"RelMax[{self._var}]_min": float(self._val.min()),
-                f"RelMax[{self._var}]_max": float(self._val.max()),
+                f"RelError[{self._var}]_min": float(self._val.min()),
+                f"RelError[{self._var}]_max": float(self._val.max()),
             }
         return data
 
