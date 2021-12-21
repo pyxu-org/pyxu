@@ -9,7 +9,7 @@ import pycsou.abc.solver as pycs
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
-SVFunction = cabc.Callable[
+SVFunction = cabc.Callable[  # Scalar/Vector Function
     [typ.Union[pyct.Real, pyct.NDArray]],
     typ.Union[pyct.Real, pyct.NDArray],
 ]
