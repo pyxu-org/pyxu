@@ -9,9 +9,9 @@ import pycsou.abc.solver as pycs
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
-SVFunction = cabc.Callable[  # Scalar/Vector Function
-    [typ.Union[pyct.Real, pyct.NDArray]],
-    typ.Union[pyct.Real, pyct.NDArray],
+SVFunction = typ.Union[
+    cabc.Callable[[pyct.Real], pyct.Real],
+    cabc.Callable[[pyct.NDArray], pyct.NDArray],
 ]
 
 
@@ -132,7 +132,8 @@ class AbsError(pycs.StoppingCriterion):
             Variable in `Solver._mstate` to query.
         f: Callable
             Optional function to pre-apply to `Solver._mstate[var]` before applying the norm.
-            Defaults to the identity function.
+            Defaults to the identity function. The callable should have the same semantics as
+            `Property.apply`, or be a scalar->scalar map.
         norm: int | float
             Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool
@@ -158,12 +159,12 @@ class AbsError(pycs.StoppingCriterion):
         self._val = np.r_[0]  # last computed Ln norm(s) in stop().
 
     def stop(self, state: cabc.Mapping) -> bool:
-        x = state[self._var]
-        if isinstance(x, pyct.Real):
-            x = np.r_[x]
-        xp = pycu.get_array_module(x)
+        fx = self._f(state[self._var])
+        if isinstance(fx, pyct.Real):
+            fx = np.r_[fx]
+        xp = pycu.get_array_module(fx)
 
-        self._val = xp.linalg.norm(self._f(x), ord=self._norm, axis=-1, keepdims=True)
+        self._val = xp.linalg.norm(fx, ord=self._norm, axis=-1, keepdims=True)
         rule = xp.all if self._satisfy_all else xp.any
         return rule(self._val <= self._eps)
 
