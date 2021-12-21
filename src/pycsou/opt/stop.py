@@ -51,6 +51,26 @@ class MaxIter(pycs.StoppingCriterion):
         self._i = 0
 
 
+class ManualStop(pycs.StoppingCriterion):
+    """
+    Continue-forever criterion.
+
+    This class is useful when calling `Solver.fit` with mode=MANUAL/ASYNC to defer the stopping
+    decision to an explicit call by the user, i.e.:
+    * mode=MANUAL: user must stop calling `next(solver.steps())`;
+    * mode=ASYNC: user must call `Solver.stop`.
+    """
+
+    def stop(self, state: cabc.Mapping) -> bool:
+        return False
+
+    def info(self) -> cabc.Mapping[str, float]:
+        return dict()
+
+    def clear(self):
+        pass
+
+
 class MaxDuration(pycs.StoppingCriterion):
     """
     Stop iterative solver after a specified duration has elapsed.
