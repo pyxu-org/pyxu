@@ -12,6 +12,18 @@ import pycsou.util.ptype as pyct
 class MaxIter(pycs.StoppingCriterion):
     """
     Stop iterative solver after a fixed number of iterations.
+
+    Tip
+    ---
+    If you want to add a grace period to a solver, i.e. for it to do *at least* N iterations before
+    stopping based on the value of another criteria, you can AND `MaxIter` with the other criteria.
+
+    Example
+    -------
+
+    >>> sc = MaxIter(n=5) & AbsErr(eps=0.1)
+    # If N_iter < 5 -> never stop.
+    # If N_iter >= 5 -> stop if AbsErr() decides to.
     """
 
     def __init__(self, n: int):
