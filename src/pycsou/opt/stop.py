@@ -1,6 +1,7 @@
 import collections.abc as cabc
 import datetime as dt
 import typing as typ
+import warnings
 
 import numpy as np
 
@@ -182,14 +183,16 @@ class AbsError(pycs.StoppingCriterion):
 
 class RelError(pycs.StoppingCriterion):
     """
-    Stop iterative solver after relative norm change of a variable reaches threshold.
+    Stop iterative solver after relative norm change of a variable (or function thereof) reaches
+    threshold.
     """
 
     def __init__(
         self,
         eps: float,
-        norm: float = 2,
         var: str = "primal",
+        f: typ.Optional[SVFunction] = None,
+        norm: float = 2,
         satisfy_all: bool = True,
     ):
         """
@@ -197,10 +200,13 @@ class RelError(pycs.StoppingCriterion):
         ----------
         eps: float
             Positive threshold.
-        norm: int | float
-            Ln norm to use >= 0. (Default: L2.)
         var: str
             Variable in `Solver._mstate` to query.
+        f: Callable
+            Optional function to pre-apply to `Solver._mstate[var]` before applying the norm.
+            Defaults to the identity function.
+        norm: int | float
+            Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool
             If True (default) and `Solver._mstate[var]` is multi-dimensional, stop if all evaluation
             points lie below threshold.
@@ -211,43 +217,49 @@ class RelError(pycs.StoppingCriterion):
         except:
             raise ValueError(f"eps: expected positive threshold, got {eps}.")
 
+        self._var = var
+        self._f = f if (f is not None) else (lambda _: _)
+
         try:
             assert norm >= 0
             self._norm = norm
         except:
             raise ValueError(f"norm: expected non-negative, got {norm}.")
 
-        self._var = var
         self._satisfy_all = satisfy_all
         self._val = np.r_[0]  # last computed Ln rel-norm(s) in stop().
         self._x_prev = None  # buffered var from last query.
 
     def stop(self, state: cabc.Mapping) -> bool:
         x = state[self._var]
+        if isinstance(x, pyct.Real):
+            x = np.r_[x]
         xp = pycu.get_array_module(x)
 
-        n = lambda _: xp.linalg.norm(_, ord=self._norm, axis=-1, keepdims=True)
-        f = xp.all if self._satisfy_all else xp.any
-
-        if self._x_prev is None:  # haven't seen enough past state -> don't stop yet.
+        if self._x_prev is None:
             self._x_prev = x.copy()
-            return False
+            return False  # decision deferred: insufficient history to evaluate rel-err.
         else:
-            # Computing `_val` may fail in case x/0 (inf) or 0/0 (nan) occurs. For the purpose of
-            # computing relative errors, we can safely assume all divide-by-zero computations lead
-            # to np.inf.
-            num, den = n(x - self._x_prev), n(self._x_prev)
-            self._val = xp.zeros(x.shape)
-            mask = xp.isclose(den, 0)
-            self._val[mask] = np.inf
-            self._val[~mask] = num[~mask] / den[~mask]
+            norm = lambda _: xp.linalg.norm(self._f(_), ord=self._norm, axis=-1, keepdims=True)
+            rule = xp.all if self._satisfy_all else xp.any
 
+            numerator = norm(x - self._x_prev)
+            denominator = norm(self._x_prev)
+            decision = rule(numerator <= self._eps * denominator)
+
+            with warnings.catch_warnings():
+                # Store relative improvement values for info(). Special care must be taken for the
+                # problematic case 0/0 -> NaN.
+                warnings.simplefilter("ignore")
+                self._val = numerator / denominator
+                self._val[xp.isnan(self._val)] = 0  # no relative improvement.
             self._x_prev = x.copy()
-            return f(self._val <= self._eps)
+
+            return decision
 
     def info(self) -> cabc.Mapping[str, float]:
         if self._val.size == 1:
-            data = {f"RelError[{self._var}]": float(self._val[0])}
+            data = {f"RelError[{self._var}]": float(self._val.max())}  # takes the only element available.
         else:
             data = {
                 f"RelError[{self._var}]_min": float(self._val.min()),
