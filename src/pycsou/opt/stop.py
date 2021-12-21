@@ -8,6 +8,11 @@ import pycsou.abc.solver as pycs
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
+SVFunction = cabc.Callable[
+    [typ.Union[pyct.Real, pyct.NDArray]],
+    typ.Union[pyct.Real, pyct.NDArray],
+]
+
 
 class MaxIter(pycs.StoppingCriterion):
     """
@@ -106,14 +111,15 @@ class MaxDuration(pycs.StoppingCriterion):
 
 class AbsError(pycs.StoppingCriterion):
     """
-    Stop iterative solver after absolute norm of a variable reaches threshold.
+    Stop iterative solver after absolute norm of a variable (or function thereof) reaches threshold.
     """
 
     def __init__(
         self,
         eps: float,
-        norm: float = 2,
         var: str = "primal",
+        f: typ.Optional[SVFunction] = None,
+        norm: float = 2,
         satisfy_all: bool = True,
     ):
         """
@@ -121,10 +127,13 @@ class AbsError(pycs.StoppingCriterion):
         ----------
         eps: float
             Positive threshold.
-        norm: int | float
-            Ln norm to use >= 0. (Default: L2.)
         var: str
             Variable in `Solver._mstate` to query.
+        f: Callable
+            Optional function to pre-apply to `Solver._mstate[var]` before applying the norm.
+            Defaults to the identity function.
+        norm: int | float
+            Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool
             If True (default) and `Solver._mstate[var]` is multi-dimensional, stop if all evaluation
             points lie below threshold.
@@ -135,13 +144,15 @@ class AbsError(pycs.StoppingCriterion):
         except:
             raise ValueError(f"eps: expected positive threshold, got {eps}.")
 
+        self._var = var
+        self._f = f if (f is not None) else (lambda _: _)
+
         try:
             assert norm >= 0
             self._norm = norm
         except:
             raise ValueError(f"norm: expected non-negative, got {norm}.")
 
-        self._var = var
         self._satisfy_all = satisfy_all
         self._val = np.r_[0]  # last computed Ln norm(s) in stop().
 
@@ -151,13 +162,13 @@ class AbsError(pycs.StoppingCriterion):
             x = np.r_[x]
         xp = pycu.get_array_module(x)
 
-        self._val = xp.linalg.norm(x, ord=self._norm, axis=-1, keepdims=True)
-        f = xp.all if self._satisfy_all else xp.any
-        return f(self._val <= self._eps)
+        self._val = xp.linalg.norm(self._f(x), ord=self._norm, axis=-1, keepdims=True)
+        rule = xp.all if self._satisfy_all else xp.any
+        return rule(self._val <= self._eps)
 
     def info(self) -> cabc.Mapping[str, float]:
         if self._val.size == 1:
-            data = {f"AbsError[{self._var}]": float(self._val[0])}
+            data = {f"AbsError[{self._var}]": float(self._val.max())}  # takes the only element available.
         else:
             data = {
                 f"AbsError[{self._var}]_min": float(self._val.min()),
