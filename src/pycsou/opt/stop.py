@@ -205,7 +205,8 @@ class RelError(pycs.StoppingCriterion):
             Variable in `Solver._mstate` to query.
         f: Callable
             Optional function to pre-apply to `Solver._mstate[var]` before applying the norm.
-            Defaults to the identity function.
+            Defaults to the identity function. The callable should have the same semantics as
+            `Property.apply`, or be a scalar->scalar map.
         norm: int | float
             Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool
