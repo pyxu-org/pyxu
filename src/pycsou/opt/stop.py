@@ -2,8 +2,11 @@ import collections.abc as cabc
 import datetime as dt
 import typing as typ
 
+import numpy as np
+
 import pycsou.abc.solver as pycs
 import pycsou.util as pycu
+import pycsou.util.ptype as pyct
 
 
 class MaxIter(pycs.StoppingCriterion):
@@ -121,6 +124,8 @@ class AbsMaxError(pycs.StoppingCriterion):
 
     def stop(self, state: cabc.Mapping) -> bool:
         x = state[self._var]
+        if isinstance(x, pyct.Real):
+            x = np.r_[x]
         xp = pycu.get_array_module(x)
 
         self._val = xp.linalg.norm(x, ord=self._norm, axis=-1, keepdims=True)
