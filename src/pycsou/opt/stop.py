@@ -104,7 +104,7 @@ class MaxDuration(pycs.StoppingCriterion):
         self._t_now = self._t_start
 
 
-class AbsMaxError(pycs.StoppingCriterion):
+class AbsError(pycs.StoppingCriterion):
     """
     Stop iterative solver after absolute norm of a variable reaches threshold.
     """
@@ -157,11 +157,11 @@ class AbsMaxError(pycs.StoppingCriterion):
 
     def info(self) -> cabc.Mapping[str, float]:
         if self._val.size == 1:
-            data = {f"AbsMax[{self._var}]": float(self._val[0])}
+            data = {f"AbsError[{self._var}]": float(self._val[0])}
         else:
             data = {
-                f"AbsMax[{self._var}]_min": float(self._val.min()),
-                f"AbsMax[{self._var}]_max": float(self._val.max()),
+                f"AbsError[{self._var}]_min": float(self._val.min()),
+                f"AbsError[{self._var}]_max": float(self._val.max()),
             }
         return data
 
