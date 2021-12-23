@@ -167,7 +167,10 @@ class AbsError(pycs.StoppingCriterion):
 
         self._val = xp.linalg.norm(fx, ord=self._norm, axis=-1, keepdims=True)
         rule = xp.all if self._satisfy_all else xp.any
-        return rule(self._val <= self._eps)
+        decision = rule(self._val <= self._eps)
+
+        self._val, decision = pycu.compute(self._val, decision)
+        return decision
 
     def info(self) -> cabc.Mapping[str, float]:
         if self._val.size == 1:
