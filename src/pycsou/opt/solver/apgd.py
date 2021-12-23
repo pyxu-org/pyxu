@@ -108,8 +108,8 @@ class APGD(pycs.Solver):
         d: Number
             Chambolle & Dossal acceleration parameter :math:`d`. Should be greater than 2.
         """
-        self.m_init(primal_init=primal_init, tau=tau, d=d)
         self._fit_init(mode, stop_crit)
+        self.m_init(primal_init=primal_init, tau=tau, d=d)
         self._fit_run()
 
     def m_init(self, primal_init: pyct.NDArray, tau: pyct.Number, d: pyct.Number):

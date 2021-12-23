@@ -271,8 +271,8 @@ class Solver:
         Sub-classes may change the method signature of `Solver.fit` and `Solver.m_init` to improve
         clarity.
         """
-        self.m_init(*args, **kwargs)
         self._fit_init(mode, stop_crit)
+        self.m_init(*args, **kwargs)
         self._fit_run()
 
     def m_init(self, *args, **kwargs):
