@@ -13,6 +13,7 @@ import typing as typ
 import numpy as np
 
 import pycsou.runtime as pycrt
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 
@@ -463,6 +464,8 @@ class Solver:
         )
 
     def _fit_run(self):
+        self._m_persist()
+
         mode = self._astate["mode"]
         if mode is Mode.MANUAL:
             # User controls execution via steps().
@@ -487,7 +490,9 @@ class Solver:
         """
         history, data = self.stats()
         kwargs = {k: v for (k, v) in dict(history=history, **data).items() if (v is not None)}
-        np.savez(self.datafile, **kwargs)
+        np.savez(self.datafile, **pycu.compute(kwargs))  # savez() requires NumPy arrays as input.
+        # [TODO][Feature Request] Allow user to choose writeback format. Useful for large-scale
+        # outputs which cannot be stored on one machine.
 
     def _check_mode(self, *modes: Mode):
         m = self._astate["mode"]
@@ -535,6 +540,7 @@ class Solver:
             else:
                 ast["idx"] += 1
                 self.m_step()
+                self._m_persist()
                 _update_history()
                 if ast["idx"] % ast["log_rate"] == 0:
                     _log()
@@ -552,6 +558,10 @@ class Solver:
                 msg = "\n".join([msg, msg_idx])
             ast["logger"].exception(msg, exc_info=e)
             return False
+
+    def _m_persist(self):
+        # Persist math state to avoid re-eval overhead.
+        self._mstate.update(**pycu.compute(self._mstate, mode="persist"))
 
     class _Worker(threading.Thread):
         def __init__(self, solver: "Solver"):
