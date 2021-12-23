@@ -262,6 +262,7 @@ class RelError(pycs.StoppingCriterion):
                 self._val[xp.isnan(self._val)] = 0  # no relative improvement.
             self._x_prev = x.copy()
 
+            self._x_prev, self._val, decision = pycu.compute(self._x_prev, self._val, decision)
             return decision
 
     def info(self) -> cabc.Mapping[str, float]:
