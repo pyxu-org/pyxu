@@ -1,3 +1,4 @@
+import dask
 import numpy as np
 
 import pycsou.util.deps as pycd
@@ -63,3 +64,33 @@ def get_array_module(x, fallback: pyct.ArrayModule = None) -> pyct.ArrayModule:
         return fallback
     else:
         raise ValueError(f"Could not infer array module for {type(x)}.")
+
+
+def compute(*args, mode: str = "compute", **kwargs):
+    """
+    Force computation of Dask collections.
+
+    Parameters
+    ----------
+    *args: object | sequence(object)
+        Any number of objects. If it is a dask object, it is evaluated and the result is returned.
+        Non-dask arguments are passed through unchanged.
+    mode: str
+        Dask evaluation strategy: compute or persist.
+    kwargs: dict
+        Extra keyword parameters forwarded to `dask.[compute, persist]`.
+
+    Returns
+    -------
+    *cargs: object | sequence(object)
+        Evaluated objects. Non-dask arguments are passed through unchanged.
+    """
+    try:
+        func = dict(compute=dask.compute, persist=dask.persist)[mode.lower()]
+    except:
+        raise ValueError(f"mode: expected compute/persist, got {mode}.")
+
+    cargs = func(*args, **kwargs)
+    if len(args) == 1:
+        cargs = cargs[0]
+    return cargs
