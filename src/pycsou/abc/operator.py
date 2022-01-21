@@ -1844,7 +1844,7 @@ class LinOp(DiffMap, Adjoint):
 
         .. todo::
 
-            Add support for LSQR/LSMR.
+            Add support for LSQR/LSMR. **Add support for N-D inputs** (will require re-implementing cg ourselves).
 
         """
         if arr.ndim == 1:
@@ -2022,7 +2022,7 @@ class NormalOp(SquareOp):
 
         Returns
         -------
-        np.ndarray
+        NDArray
             Array containing the ``k`` requested eigenvalues.
 
         Notes
@@ -2069,7 +2069,7 @@ class SelfAdjointOp(NormalOp):
     @pycrt.enforce_precision(o=True)
     def eigvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
         r"""
-        Same signature and function as :py:meth:`~pycsou.abc.operator.NormalOp.eigs` but calls :py:func:`scipy.sparse.linalg.eigsh`
+        Same as :py:meth:`~pycsou.abc.operator.NormalOp.eigvals`, but calls :py:func:`scipy.sparse.linalg.eigsh`
         in the background to leverage the self-adjointness and speed up the computation.
         """
         kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
