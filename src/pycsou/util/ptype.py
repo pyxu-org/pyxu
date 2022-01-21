@@ -24,6 +24,9 @@ Real = nb.Real
 
 # map shapes
 Shape = typ.Tuple[int, typ.Union[int, None]]
+ShapeOrDim = typ.Union[typ.Union[int, None], Shape]
+NonAgnosticShape = typ.Tuple[int, int]
+SquareShape = typ.Union[int, typ.Tuple[int, int]]
 
 # one or more variable names
 VarName = typ.Union[str, cabc.Collection[str]]
