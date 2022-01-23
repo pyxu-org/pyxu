@@ -35,6 +35,29 @@ def func_name() -> str:
     return up_fname
 
 
+def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
+    """
+    Equivalent of `np.isclose`, but where atol is automatically chosen based on `as_dtype`.
+    """
+    atol = {
+        pycrt.Width.HALF.value: 3e-2,
+        pycrt.Width.SINGLE.value: 2e-4,
+        pycrt.Width.DOUBLE.value: 1e-8,
+        pycrt.Width.QUAD.value: 1e-16,
+    }
+    # Numbers obtained by:
+    # * \sum_{k >= (p+1)//2} 2^{-k}, where p=<number of mantissa bits>; then
+    # * round up value to 3 significant decimal digits.
+    # N_mantissa = [10, 23, 52, 112] for [half, single, double, quad] respectively.
+
+    if (prec := atol.get(as_dtype)) is None:
+        # should occur for integer types only
+        prec = atol[pycrt.Width.QUAD.value]
+    cast = lambda x: x.astype(as_dtype)
+    eq = np.isclose(cast(a), cast(b), atol=prec)
+    return eq
+
+
 # Naming conventions
 # ------------------
 #
@@ -142,7 +165,7 @@ class MapT:
             out = pycu.compute(op.apply(**in_))
 
             assert out.ndim == in_["arr"].ndim
-            assert np.allclose(out, out_gt)
+            assert np.all(isclose(out, out_gt, as_dtype=in_["arr"].dtype))
 
     def test_ioND_apply(self, op, _data_apply):
         # works on ND inputs -> output has right shape + values
@@ -160,7 +183,7 @@ class MapT:
             out = pycu.compute(op.apply(**in_))
 
             assert out.ndim == in_["arr"].ndim
-            assert np.allclose(out, out_gt)
+            assert np.all(isclose(out, out_gt, as_dtype=in_["arr"].dtype))
 
     def test_ioBackend_apply(self, op, _data_apply):
         # op.apply() preserves array backend
