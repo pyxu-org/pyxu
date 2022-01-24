@@ -1,21 +1,26 @@
 Matthieu
 --------
 
-* nd arithmetic 
+* nd arithmetic
 * implement svds in a module agnostic fashion.
 * [doc] Fix missing reference warnings. (See build/html/WARNINGS.log)
+
+
+Assigned by Sepand:
+
+* moreau_envelope(mu) -> must fail for mu = 0 [Not a DiffFunc]
 
 
 
 Sepand
 ------
 
-* Solver
-* implement conjugate gradient in a module agnostic fashion.
-* way of encoding partial array_module support:
-  Adding a 'supported_array_module' attribute to Map instances?
+* Operator tests
+* Arithmetic tests
+* Solver tests [APGD for now]
+* Implement Solver.CG
 
-
+   
 
 Joan
 ----
