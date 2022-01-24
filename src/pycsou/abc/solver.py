@@ -34,7 +34,7 @@ class StoppingCriterion:
     mathematical state.
 
     SM decisions are always accompanied by at least one numerical statistic. These stats may be
-    queried by solvers via `StoppingCriterion.info` to provide diagnostic information to users.
+    queried by solvers via ``StoppingCriterion.info`` to provide diagnostic information to users.
 
     Composite stopping criteria can be implemented via the overloaded and[&]/or[|] operators.
     """
@@ -46,8 +46,8 @@ class StoppingCriterion:
         Parameters
         ----------
         state: Mapping[str]
-            Full mathematical state of solver at some iteration, i.e. `Solver._mstate`.
-            Values from `state` may be cached inside the instance to form complex stopping
+            Full mathematical state of solver at some iteration, i.e. ``Solver._mstate``.
+            Values from ``state`` may be cached inside the instance to form complex stopping
             conditions.
 
         Returns
@@ -59,7 +59,7 @@ class StoppingCriterion:
 
     def info(self) -> cabc.Mapping[str, float]:
         """
-        Get statistics associated with the last call to `StoppingCriterion.stop`.
+        Get statistics associated with the last call to ``StoppingCriterion.stop``.
 
         Returns
         -------
@@ -71,8 +71,8 @@ class StoppingCriterion:
         """
         Clear SM state (if any).
 
-        This method is useful when a `StoppingCriterion` instance must be reused in another call to
-        `Solver.fit`.
+        This method is useful when a ``StoppingCriterion`` instance must be reused in another call to
+        ``Solver.fit``.
         """
         pass
 
@@ -121,7 +121,7 @@ class Solver:
       `Solver.fit`. (See below.)
     * automatic checkpointing of solver progress, providing a safe restore point in case of faulty
       numerical code. Each solver instance backs its state and final output to a folder on disk for
-      post-analysis. In particular `Solver.fit` will never crash: detailed exception information
+      post-analysis. In particular ``Solver.fit`` will never crash: detailed exception information
       will always be available in a logfile for post-analysis.
     * arbitrary specification of complex stopping criteria via the `StoppingCriterion` class.
     * solve for multiple initial points in parallel.
@@ -137,8 +137,9 @@ class Solver:
     Advanced functionalities of `Solver` are automatically inherited by sub-classes.
 
 
-    How to solve minimization problems
-    ----------------------------------
+    Examples
+    --------
+    Here are examples on how to solve minimization problems with this class:
 
     .. code-block:: python3
 
@@ -179,17 +180,17 @@ class Solver:
             Directory on disk where instance data should be stored. A location will be automatically
             chosen if unspecified. (Default: OS-dependent tempdir.)
         exist_ok: bool
-            If `folder` is specified and `exist_ok` is false (the default), FileExistsError is
+            If ``folder`` is specified and ``exist_ok`` is false (the default), FileExistsError is
             raised if the target directory already exists.
         writeback_rate: int
             Rate at which solver checkpoints are written to disk. No checkpointing is done if
             unspecified: only the final solver output will be written back to disk.
         verbosity: int
-            Rate at which stopping criteria statistics are logged to disk. If `Solver.fit` is run
+            Rate at which stopping criteria statistics are logged to disk. If ``Solver.fit`` is run
             with mode=BLOCK, then statistics are also logged to stdout.
         log_var: VarName
             Variables from the solver's math-state (slvr._mstate) to be logged per iteration.
-            These are the variables made available when calling `Solver.stats`.
+            These are the variables made available when calling ``Solver.stats``.
         """
         self._mstate = dict()  # mathematical state
         self._astate = dict(  # book-keeping (non-math) state
@@ -247,21 +248,21 @@ class Solver:
         mode: Mode = Mode.BLOCK,
         **kwargs,
     ):
-        """
-        Solve minimization problem(s) defined in `Solver.__init__`, with the provided run-specifc
+        r"""
+        Solve minimization problem(s) defined in ``Solver.__init__``, with the provided run-specifc
         parameters.
 
-        Parameters
+        Parameterss
         ----------
         args[0]: NDArray
             (..., N) primal variable initial point(s).
         args[1]: NDArray
             (..., M) dual variable initial point(s). Only required for Primal-Dual solvers.
-            *args must suitably broadcast along their leading dimensions.
+            ``*args`` must suitably broadcast along their leading dimensions.
         stop_crit: StoppingCriterion
             Stopping criterion to end solver iterations.
         mode: Mode
-            Execution mode. See `Solver` for usage examples.
+            Execution mode. See ``Solver`` for usage examples.
             Useful method pairs depending on the execution mode:
             * BLOCK: fit()
             * ASYNC: fit() + busy() + stop()
@@ -269,7 +270,7 @@ class Solver:
         **kwargs
             Extra solver-specific parameters, if applicable.
 
-        Sub-classes may change the method signature of `Solver.fit` and `Solver.m_init` to improve
+        Sub-classes may change the method signature of ``Solver.fit`` and ``Solver.m_init`` to improve
         clarity.
         """
         self._fit_init(mode, stop_crit)
@@ -278,14 +279,14 @@ class Solver:
 
     def m_init(self, *args, **kwargs):
         """
-        Set solver's initial mathematical state based on (args, kwargs) provided to `Solver.fit`.
+        Set solver's initial mathematical state based on (args, kwargs) provided to ``Solver.fit``.
 
-        This method must only manipulate `Solver._mstate`.
+        This method must only manipulate ``Solver._mstate``.
 
         After calling this method, the solver must be able to complete its 1st iteration via a call
-        to `Solver.m_step`.
+        to ``Solver.m_step``.
 
-        Sub-classes may change the method signature of `Solver.fit` and `Solver.m_init` to improve
+        Sub-classes may change the method signature of ``Solver.fit`` and ``Solver.m_init`` to improve
         clarity.
         """
         raise NotImplementedError
@@ -294,7 +295,7 @@ class Solver:
         """
         Perform one (mathematical) step.
 
-        This method must only manipulate `Solver._mstate`.
+        This method must only manipulate ``Solver._mstate``.
         """
         raise NotImplementedError
 
@@ -305,12 +306,12 @@ class Solver:
         The i-th call to next() on this object returns the logged variables after the i-th solver
         iteration.
 
-        This method is only usable after calling `Solver.fit` with mode=MANUAL. See `Solver` for
+        This method is only usable after calling ``Solver.fit`` with mode=MANUAL. See ``Solver`` for
         usage examples.
 
         There is no guarantee that a checkpoint on disk exists when the generator is exhausted.
         (Reason: potential exceptions raised during solver's progress.) Users should invoke
-        `Solver.writeback` afterwards if needed.
+        ``Solver.writeback`` afterwards if needed.
 
         Parameters
         ----------
@@ -341,11 +342,11 @@ class Solver:
         history: np.ndarray | None
             (N_iter,) records of stopping-criteria values per iteration.
         data: dict[str, Real | NDArray | None]
-            Value(s) of `log_var`(s) after last iteration.
+            Value(s) of ``log_var``(s) after last iteration.
 
         Notes
         -----
-        If any of the `log_var`(s) and/or `history` are not (yet) known at query time, None is
+        If any of the ``log_var``(s) and/or ``history`` are not (yet) known at query time, ``None`` is
         returned.
         """
         history = self._astate["history"]
@@ -380,7 +381,7 @@ class Solver:
         Returns
         -------
         df: plib.Path
-            Absolute path to the file on disk where `log_var`(s) are stored during checkpointing or
+            Absolute path to the file on disk where ``log_var``(s) are stored during checkpointing or
             after solver has stopped.
         """
         return self.workdir / "data.npz"
@@ -389,7 +390,7 @@ class Solver:
         """
         Test if an async-running solver has stopped.
 
-        This method is only usable after calling `Solver.fit` with mode=ASYNC. See `Solver` for
+        This method is only usable after calling ``Solver.fit`` with mode=ASYNC. See ``Solver`` for
         usage examples.
 
         Returns
@@ -405,7 +406,7 @@ class Solver:
         Output the "solution" of the optimization problem.
 
         This is a helper method intended for novice users. The return type is sub-class dependent,
-        so don't write an API using this: use `Solver.stats` instead.
+        so don't write an API using this: use ``Solver.stats`` instead.
         """
         raise NotImplementedError
 
@@ -413,16 +414,16 @@ class Solver:
         """
         Stop an async-running solver.
 
-        This method is only usable after calling `Solver.fit` with mode=ASYNC. See `Solver` for
+        This method is only usable after calling ``Solver.fit`` with mode=ASYNC. See ``Solver`` for
         usage examples.
 
         This method will block until the solver has stopped.
 
         There is no guarantee that a checkpoint on disk exists once halted. (Reason: potential
-        exceptions raised during solver's progress.) Users should invoke `Solver.writeback`
+        exceptions raised during solver's progress.) Users should invoke ``Solver.writeback``
         afterwards if needed.
 
-        Users must call this method to terminate an async-solver, even if `Solver.busy` is False.
+        Users must call this method to terminate an async-solver, even if ``Solver.busy`` is False.
         """
         self._check_mode(Mode.ASYNC, Mode.BLOCK)
         self._astate["active"].clear()
@@ -473,7 +474,7 @@ class Solver:
         else:  # BLOCK / ASYNC
             self._astate.update(
                 active=threading.Event(),
-                worker=_Worker(self),
+                worker=Solver._Worker(self),
             )
             self._astate["active"].set()
             self._astate["worker"].start()

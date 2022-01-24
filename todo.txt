@@ -1,18 +1,9 @@
 Matthieu
 --------
 
-* nd arithmetic
+* nd arithmetic 
 * implement svds in a module agnostic fashion.
-* add from_source() method for creating class objects by passing their abstract methods as arguments?
-* add LinOp class method from_array() to create explicit linear operators from arrays.
 * [doc] Fix missing reference warnings. (See build/html/WARNINGS.log)
-
-
-Assigned by Sepand KASHANI
-
-* operator.py: State definition of Lipschitz constant somewhere.
-
-
 
 
 
@@ -29,6 +20,9 @@ Sepand
 Joan
 ----
 
+* add from_source() method for creating class objects by passing their abstract methods as arguments?
+* add LinOp class method from_array() to create explicit linear operators from arrays.
+* [operator] See various TODOs in file abc/operator.py
 * [tox] Verify tests run correctly in py38 environment.
 
   Assigned by Sepand KASHANI

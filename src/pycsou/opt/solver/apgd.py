@@ -84,11 +84,11 @@ class APGD(pycs.Solver):
         primal_init: pyct.NDArray,
         stop_crit: pycs.StoppingCriterion,
         mode: pycs.Mode = pycs.Mode.BLOCK,
-        tau: typ.Optional[pyct.Number] = None,
-        d: typ.Optional[pyct.Number] = 75,
+        tau: typ.Optional[pyct.Real] = None,
+        d: typ.Optional[pyct.Real] = 75,
     ):
         r"""
-        Solve the minimization problem defined in :py:method:`APGD.__init__`, with the provided
+        Solve the minimization problem defined in :py:meth:`APGD.__init__`, with the provided
         run-specifc parameters.
 
         Parameters
@@ -103,16 +103,16 @@ class APGD(pycs.Solver):
             * BLOCK: fit()
             * ASYNC: fit() + busy() + stop()
             * MANUAL: fit() + steps()
-        tau: Number
+        tau: Real
             Gradient step size. Defaults to :math:`1 / \beta` if unspecified.
-        d: Number
+        d: Real
             Chambolle & Dossal acceleration parameter :math:`d`. Should be greater than 2.
         """
         self._fit_init(mode, stop_crit)
         self.m_init(primal_init=primal_init, tau=tau, d=d)
         self._fit_run()
 
-    def m_init(self, primal_init: pyct.NDArray, tau: pyct.Number, d: pyct.Number):
+    def m_init(self, primal_init: pyct.NDArray, tau: pyct.Real, d: pyct.Real):
         self._mstate["primal"] = self._mstate["primal_prev"] = pycrt.coerce(primal_init)
 
         if tau is None:

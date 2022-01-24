@@ -132,6 +132,12 @@ class IdentityOp(pyco.PosDefOp, pyco.SelfAdjointOp, pyco.UnitOp):
 
 
 class HomothetyOp(pyco.SelfAdjointOp):
+    r"""
+    Scaling operator.
+
+    This operators acts  the input by a constant ``cst``.
+    """
+
     def __init__(self, cst: pyct.Real, dim: int):
         if not isinstance(cst, pyct.Real):
             raise ValueError(f"cst: expected real number, got {cst}.")

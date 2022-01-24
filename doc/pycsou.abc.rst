@@ -8,15 +8,22 @@ pycsou.abc.operator module
 --------------------------
 
 .. automodule:: pycsou.abc.operator
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
+pycsou.abc.solver module
+------------------------
+
+.. automodule:: pycsou.abc.solver
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------
 
 .. automodule:: pycsou.abc
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

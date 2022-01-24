@@ -93,7 +93,7 @@ autodoc_default_flags = [
     # 'inherited-members',
     "show-inheritance",
 ]
-autodoc_inherit_docstrings = True
+autodoc_inherit_docstrings = False
 
 # -- Options for intersphinx extension ---------------------------------------
 intersphinx_mapping = {
