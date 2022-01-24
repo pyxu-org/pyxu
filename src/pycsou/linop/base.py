@@ -62,7 +62,16 @@ class ExplicitLinFunc(pyco.LinFunc):
         Notes
         -----
         The input ``vec`` is automatically casted by the decorator :py:func:`~pycsou.runtime.enforce_precision` to the user-requested precision at initialization time.
-        Explicit control over the precision of ``vec`` is hence only possible via the context manager :py:class:`~pycsou.runtime.Precision`.
+        Explicit control over the precision of ``vec`` is hence only possible via the context manager :py:class:`~pycsou.runtime.Precision`:
+
+        >>> from pycsou.linop.base import ExplicitLinFunc
+        >>> import pycsou.runtime as pycrt
+        >>> import numpy as np
+        >>> vec = np.ones(10) # This array will be recasted to requested precision.
+        >>> with pycrt.Precision(pycrt.Width.HALF):
+        ...     sum_func = ExplicitLinFunc(vec) # The init function of ExplicitLinFunc stores ``vec`` at the requested precision.
+        ...     # Further calculations with sum_func. Within this context mismatching precisions are avoided.
+
         """
         super(ExplicitLinFunc, self).__init__(shape=(1, vec.size))
         xp = pycu.get_array_module(vec)
@@ -97,7 +106,22 @@ class ExplicitLinFunc(pyco.LinFunc):
 
 
 class IdentityOp(pyco.PosDefOp, pyco.SelfAdjointOp, pyco.UnitOp):
-    def __init__(self, shape: pyct.Shape):
+    r"""
+    Identity operator :math:`\mathrm{Id}`.
+
+    Examples
+    --------
+    >>> from pycsou.linop.base import IdentityOp
+    >>> import pycsou.runtime as pycrt
+    >>> import numpy as np
+    >>> id = IdentityOp(10)
+    >>> id.shape
+    (10, 10)
+    >>> np.allclose(id(np.arange(10)), np.arange(10).astype(np.float64))
+    True
+    """
+
+    def __init__(self, shape: pyct.SquareShape):
         pyco.PosDefOp.__init__(self, shape)
         pyco.SelfAdjointOp.__init__(self, shape)
         pyco.UnitOp.__init__(self, shape)

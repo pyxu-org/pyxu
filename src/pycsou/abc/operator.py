@@ -1191,12 +1191,10 @@ class Func(Map, SingleValued):
         ValueError
             If ``shape`` is specified as a tuple and the first entry of the latter is not 1.
         """
-        shape = tuple(shape)
-        if len(shape) == 1:
-            shape = (1,) + shape
-        else:
-            if shape[0] > 1:
-                raise ValueError("Functionals" " must be of the form (1,n).")
+        if not isinstance(shape, tuple):
+            shape = (1, int(shape))
+        elif shape[0] > 1:
+            raise ValueError("Functionals" " must be of the form (1,n).")
         super(Func, self).__init__(shape)
 
 
@@ -2001,8 +1999,9 @@ class SquareOp(LinOp):
         shape: int | tuple(int, int)
             Shape of the operator.
         """
-        shape = tuple(shape)
-        if len(shape) > 1 and (shape[0] != shape[1]):
+        if not isinstance(shape, tuple):
+            shape = (int(shape), int(shape))
+        elif shape[0] != shape[1]:
             raise ValueError(f"Inconsistent shape {shape} for operator of type {SquareOp}")
         super(SquareOp, self).__init__(shape=(shape[0], shape[0]))
 
