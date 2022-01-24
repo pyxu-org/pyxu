@@ -620,6 +620,17 @@ class Apply(Property):
         -------
         float
             Lipschitz constant.
+
+        Notes
+        -----
+        A constant :math:`L_\mathbf{h}>0` is said to be a *Lipschitz constant* for a map :math:`\mathbf{h}:\mathbb{R}^N\to \mathbb{R}^M` if:
+
+        .. math::
+
+            \|\mathbf{h}(\mathbf{x})-\mathbf{h}(\mathbf{y})\|_{\mathbb{R}^M} \leq L_\mathbf{h} \|\mathbf{x}-\mathbf{y}\|_{\mathbb{R}^N}, \qquad \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^N,
+
+        where :math:`\|\cdot\|_{\mathbb{R}^M}`$` and :math:`\|\cdot\|_{\mathbb{R}^N}`$` are the canonical norms on their respective spaces. The smallest of all Lipschitz constants for a given map
+        is called the *optimal Lipschitz constant*.
         """
         raise NotImplementedError
 
@@ -665,6 +676,17 @@ class Differential(Property):
         -------
         float
             Lipschitz constant.
+
+        Notes
+        -----
+        A Lipschitz constant :math:`L_{\mathbf{J}_{\mathbf{h}}}>0` of the Jacobian map :math:`\mathbf{J}_{\mathbf{h}}:\mathbf{R}^N\to \mathbf{R}^{M\times N}` is such that:
+
+        .. math::
+
+            \|\mathbf{J}_{\mathbf{h}}(\mathbf{x})-\mathbf{J}_{\mathbf{h}}(\mathbf{y})\|_{\mathbb{R}^{M\times N}} \leq L_{\mathbf{J}_{\mathbf{h}}} \|\mathbf{x}-\mathbf{y}\|_{\mathbb{R}^N}, \qquad \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^N,
+
+        where :math:`\|\cdot\|_{\mathbb{R}^{M\times N}}` and :math:`\|\cdot\|_{\mathbb{R}^N}` are the canonical norms on their respective spaces.
+        The smallest of all Lipschitz constants for the Jacobian map is called its *optimal Lipschitz constant*.
         """
         raise NotImplementedError
 
@@ -2043,7 +2065,7 @@ class NormalOp(SquareOp):
 
     def cogram(self) -> "NormalOp":
         r"""
-        Calls the method ``self.gram()`` since the two are equivalent for normal operators.
+        Call the method ``self.gram()`` since the two are equivalent for normal operators.
         """
         return self.gram().specialize(cast_to=SelfAdjointOp)
 
@@ -2057,7 +2079,7 @@ class SelfAdjointOp(NormalOp):
 
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         r"""
-        Calls the method ``self.apply(arr)`` since the two are equivalent for self-adjoint operators.
+        Call the method ``self.apply(arr)`` since the two are equivalent for self-adjoint operators.
         """
         return self.apply(arr)
 
