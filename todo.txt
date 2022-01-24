@@ -41,3 +41,14 @@ Joan
   Goal: investigate how to get pytest to run the tests in each virtual environment using the right
   interpreter. I expect some tests to fail in Python3.8 since we may be using language constructs
   which were introduced in Python3.9+.
+
+* create benchmark suite for all operators.
+
+  We must track the runtime of operator methods across commits to identify performance regressions and fix them. A comprehensive benchmark suite is therefore required.
+
+  Desired output: DataFrame with
+  * row: class.method
+  * column: commit name
+  * value: execution time [s] (on sample data, identical throughout the commit history.)
+
+  This data can then be plotted to visualize performance changes.
