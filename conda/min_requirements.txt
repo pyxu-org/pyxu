@@ -2,3 +2,4 @@ python == 3.8.*
 numpy == 1.19.*
 scipy == 1.4.*
 dask == 2.12.*
+sparse == 0.13.*

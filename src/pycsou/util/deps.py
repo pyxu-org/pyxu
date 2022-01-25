@@ -2,6 +2,8 @@ import importlib.util
 
 import dask.array as da
 import numpy as np
+import scipy.sparse as scisp
+import sparse as sp
 
 CUPY_ENABLED: bool = importlib.util.find_spec("cupy") is not None
 
@@ -29,3 +31,26 @@ def supported_array_types():
 
 def supported_array_modules():
     return tuple(array_backend_info().values())
+
+
+def sparse_backend_info():
+    r"""
+    List of all (known) installed sparse array modules.
+    """
+    info = {
+        sp.SparseArray: sp,
+        scisp.spmatrix: scisp,
+    }
+    if CUPY_ENABLED:
+        import cupyx.scipy.sparse as cpxsp
+
+        info[cpxsp.spmatrix] = cpxsp
+    return info
+
+
+def supported_sparse_types():
+    return tuple(sparse_backend_info().keys())
+
+
+def supported_sparse_modules():
+    return tuple(sparse_backend_info().values())

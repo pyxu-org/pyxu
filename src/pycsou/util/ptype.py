@@ -19,6 +19,15 @@ ArrayModule = typ.TypeVar(
     *[typ.Literal[_] for _ in pycd.supported_array_modules()],
 )
 
+# supported sparse arrays
+SparseArray = typ.TypeVar("SparseArray", *pycd.supported_sparse_types())
+
+# supported sparse modules
+SparseModule = typ.TypeVar(
+    "SparseModule",
+    *[typ.Literal[_] for _ in pycd.supported_sparse_modules()],
+)
+
 # non-complex numbers
 Real = nb.Real
 
