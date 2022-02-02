@@ -2,15 +2,7 @@ Matthieu
 --------
 
 * nd arithmetic
-* implement svds in a module agnostic fashion.
 * [doc] Fix missing reference warnings. (See build/html/WARNINGS.log)
-
-
-Assigned by Sepand:
-
-* moreau_envelope(mu) -> must fail for mu = 0 [Not a DiffFunc]
-
-
 
 Sepand
 ------
@@ -18,16 +10,18 @@ Sepand
 * Operator tests
 * Arithmetic tests
 * Solver tests [APGD for now]
-* Implement Solver.CG
 
    
 
 Joan
 ----
 
-* add from_source() method for creating class objects by passing their abstract methods as arguments?
-* add LinOp class method from_array() to create explicit linear operators from arrays.
-* [operator] See various TODOs in file abc/operator.py
+* add from_source() method for creating class objects by passing their abstract methods as arguments (for Map and all of its subclasses).
+* add LinOp class method from_[array/sciop/pylop]() to create explicit linear operators from arrays/scipy/pylop operators.
+* [operator.ProxFunc] moreau_envelope(mu) -> must fail for mu = 0 [Not a DiffFunc]
+* [operator] See various TODOs in file abc/operator.py: Hutch++ algorithm high priority
+* [linop/base] Implement diagonal operator
+* [opt] Implement Solver.CG, LSQR LSMR
 * [tox] Verify tests run correctly in py38 environment.
 
   Assigned by Sepand KASHANI

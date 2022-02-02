@@ -90,49 +90,34 @@ class ExplicitLinFunc(pyco.LinFunc):
         """
         super(ExplicitLinFunc, self).__init__(shape=(1, vec.size))
         xp = pycu.get_array_module(vec)
-        self._vec = vec.copy().reshape(-1)
+        self.vec = vec.copy().reshape(-1)
         self._lipschitz = xp.linalg.norm(vec)
         self._enable_warnings = bool(enable_warnings)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        assert xp is pycu.get_array_module(
-            self._vec
-        )  # Raise an error if self._vec and arr belong to different array modules.
-        if self._vec.dtype != pycrt.getPrecision() and self._enable_warnings:
+        if self.vec.dtype != pycrt.getPrecision().value and self._enable_warnings:
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        return (self._vec * arr).sum(axis=-1)
+        return (self.vec * arr).sum(axis=-1)
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        assert xp is pycu.get_array_module(
-            self._vec
-        )  # Raise an error if self._vec and arr belong to different array modules.
-        if self._vec.dtype != pycrt.getPrecision() and self._enable_warnings:
+        if self.vec.dtype != pycrt.getPrecision().value and self._enable_warnings:
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        return arr * self._vec
+        return arr * self.vec
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        assert xp is pycu.get_array_module(
-            self._vec
-        )  # Raise an error if self._vec and arr belong to different array modules.
-        if self._vec.dtype != pycrt.getPrecision() and self._enable_warnings:
+        if self.vec.dtype != pycrt.getPrecision().value and self._enable_warnings:
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        return xp.broadcast_to(self._vec, arr.shape)
+        return xp.broadcast_to(self.vec, arr.shape)
 
     @pycrt.enforce_precision(i=["arr", "tau"])
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        assert xp is pycu.get_array_module(
-            self._vec
-        )  # Raise an error if self._vec and arr belong to different array modules.
-        if self._vec.dtype != pycrt.getPrecision() and self._enable_warnings:
+        if self.vec.dtype != pycrt.getPrecision().value and self._enable_warnings:
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        return arr - tau * self._vec
+        return arr - tau * self.vec
 
 
 class IdentityOp(pyco.PosDefOp, pyco.SelfAdjointOp, pyco.UnitOp):
@@ -350,7 +335,7 @@ class ExplicitLinOp(pyco.LinOp):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self.mat.dtype != pycrt.getPrecision() and self._enable_warnings:
+        if self.mat.dtype != pycrt.getPrecision().value and self._enable_warnings:
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
         if self._module_name == "cupyx":
             stack_shape = arr.shape[:-1]
@@ -362,7 +347,7 @@ class ExplicitLinOp(pyco.LinOp):
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self.mat.dtype != pycrt.getPrecision() and self._enable_warnings:
+        if self.mat.dtype != pycrt.getPrecision().value and self._enable_warnings:
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
         if self._module_name == "cupyx":
             stack_shape = arr.shape[:-1]
@@ -376,14 +361,11 @@ class ExplicitLinOp(pyco.LinOp):
         r"""
         Same functionality as :py:meth:`~pycsou.abc.operator.LinOp.lipschitz` but the case ``algo='fro'`` is handled
         differently: the Frobenius norm of the operator is directly computed from its matrix representation rather than with the Hutch++ algorithm.
-        This method also allows for a third algorithm ``algo='inf'`` which overestimates the Lipschitz constant as the infinity
-        norm of the linear operator (again, directly computed from its matrix representation).
         """
         kwargs.pop("gpu", None)
         gpu = True if self._module_name in ["cupy", "cupyx"] else False
         if recompute or (self._lipschitz == np.infty):
-            if algo in ["fro", "inf"]:
-                algo = np.infty if "inf" else algo
+            if algo == "fro":
                 if self._module_name in ["sparse", "cupyx"]:
                     data = self.mat.asformat("coo").data.squeeze()
                     xp = pycu.get_array_module(data)

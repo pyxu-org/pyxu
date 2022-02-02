@@ -208,7 +208,7 @@ class Property:
         for Op in _base_operators:
             if Op.properties() == shared_props:
                 break
-        if Op in [LinOp, DiffFunc, LinFunc]:
+        if Op in [LinOp, DiffFunc, ProxDiffFunc, LinFunc]:
             shared_props.discard("jacobian")
         shared_props.discard("single_valued")
         out_op = Op(out_shape)
@@ -340,7 +340,7 @@ class Property:
         for Op in _base_operators:
             if Op.properties() == shared_props:
                 break
-        if Op in [LinOp, DiffFunc, LinFunc]:
+        if Op in [LinOp, DiffFunc, ProxDiffFunc, LinFunc]:
             shared_props.discard("jacobian")
         shared_props.discard("single_valued")
         out_op = Op(out_shape)
@@ -1089,7 +1089,7 @@ class DiffMap(Map, Differential):
 
     >>> import numpy as np
     >>> from pycsou.abc import DiffMap
-    >>> from pycsou.linop import ExplicitLinOp
+    >>> from pycsou.linop.base import ExplicitLinOp
     >>> class  Sin(DiffMap):
     ...    def __init__(self, shape):
     ...        super(Sin, self).__init__(shape)
@@ -1749,7 +1749,7 @@ class LinOp(DiffMap, Adjoint):
         """
         if dtype is None:
             dtype = pycrt.getPrecision().value
-        return self.apply(xp.eye(self.shape[1], dtype=dtype))
+        return self.apply(xp.eye(self.shape[1], dtype=dtype)).transpose()
 
     def __array__(self, dtype: typ.Optional[type] = None) -> np.ndarray:
         r"""

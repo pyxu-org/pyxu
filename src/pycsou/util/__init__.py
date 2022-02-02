@@ -34,6 +34,31 @@ def infer_composition_shape(sh1: pyct.Shape, sh2: pyct.Shape) -> pyct.Shape:
         raise ValueError(f"Composition of {sh1} and {sh2} operators forbidden.")
 
 
+def infer_stack_shape(*shapes, axis):
+    dims = [shape[1] for shape in shapes]
+    codims = [shape[0] for shape in shapes]
+    if axis == 0:
+        unique_dims = np.unique(np.array(dims).astype(float))
+        try:
+            assert unique_dims.size <= 2
+        except:
+            raise ValueError("Inconsistent map shapes for vertical stacking.")
+        dim = np.nansum(unique_dims)
+        dim = None if np.isnan(dim) else int(dim)
+        return (int(np.sum(codims).astype(int)), dim)
+    else:
+        try:
+            assert np.all(~np.isnan(np.array(dims).astype(float)))
+        except:
+            raise ValueError("Horizontal stackings of maps including domain-agnostic maps is ambiguous.")
+        unique_codim = np.unique(np.array(codims).astype(float))
+        try:
+            assert unique_codim.size == 1
+        except:
+            raise ValueError("Inconsistent map shapes for horizontal stacking.")
+        return (int(unique_codim), int(np.sum(dims).astype(int)))
+
+
 def get_array_module(x, fallback: pyct.ArrayModule = None) -> pyct.ArrayModule:
     """
     Get the array namespace corresponding to a given object.
