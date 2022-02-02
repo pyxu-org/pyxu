@@ -506,7 +506,7 @@ class Property:
         Raises
         ------
         ValueError
-            If ``arr`` is not of type NDArray of has incorrect size, i.e. ``N != self.shape[1]``.
+            If ``arr`` is not of type NDArray or has incorrect size, i.e. ``N != self.shape[1]``.
 
         Notes
         -----
