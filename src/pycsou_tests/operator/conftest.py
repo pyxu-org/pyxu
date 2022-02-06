@@ -66,6 +66,21 @@ def allclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> bool:
     return np.all(isclose(a, b, as_dtype))
 
 
+def has_interface(op: pyco.Map, face: type) -> bool:
+    """
+    Parameters
+    ----------
+    op: pyco.Map
+    face: MapT or subclasses
+
+    Returns
+    -------
+    has: bool
+        True if `op` has the public interface of `face`.
+    """
+    return face.interface <= frozenset(dir(op))
+
+
 # Naming conventions
 # ------------------
 #
@@ -194,7 +209,7 @@ class MapT:
     # Tests -------------------------------------------------------------------
     def test_interface(self, op):
         if func_name() not in self.disable_test:
-            assert self.interface <= frozenset(dir(op))
+            assert has_interface(op, self.__class__)
 
     def test_shape(self, op, data_shape):
         if func_name() not in self.disable_test:
