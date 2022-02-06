@@ -316,6 +316,10 @@ class MapT:
 
 
 class FuncT(MapT):
+    # Class Properties --------------------------------------------------------
+    disable_test = frozenset(MapT.disable_test | {"test_squeeze"})
+
+    # Tests -------------------------------------------------------------------
     def test_codim(self, op, data_shape):
         if func_name() not in self.disable_test:
             assert op.codim == 1
