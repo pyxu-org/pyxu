@@ -313,3 +313,13 @@ class MapT:
             #         for every class upper in the hierarchy:
             #             verify op.specialize() fails
             pass
+
+
+class FuncT(MapT):
+    def test_codim(self, op, data_shape):
+        if func_name() not in self.disable_test:
+            assert op.codim == 1
+
+    def test_squeeze(self, op):
+        if func_name() not in self.disable_test:
+            assert op.squeeze() is op
