@@ -327,3 +327,57 @@ class FuncT(MapT):
     def test_squeeze(self, op):
         if func_name() not in self.disable_test:
             assert op.squeeze() is op
+
+
+class DiffMapT(MapT):
+    # Class Properties --------------------------------------------------------
+    interface = frozenset(MapT.interface | {"jacobian", "diff_lipschitz"})
+
+    # Fixtures ----------------------------------------------------------------
+    @pytest.fixture
+    def data_diff_lipschitz(self) -> DataLike:
+        # override in subclass with the Lipschitz constant of op.jacobian().
+        # Don't return `op.diff_lipschitz()`: hard-code what you are expecting.
+        raise NotImplementedError
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self) -> cabc.Collection[np.ndarray]:
+        # override in subclass with at least 2 evaluation points for op.apply().
+        # Used to verify if op.jacobian() satisfies the diff_Lipschitz condition.
+        # Arrays should be NumPy-only.
+        raise NotImplementedError
+
+    # Tests -------------------------------------------------------------------
+    def test_diff_lipschitz(self, op, data_diff_lipschitz):
+        if func_name() not in self.disable_test:
+            in_ = op.diff_lipschitz(**data_diff_lipschitz["in_"])
+            out = data_diff_lipschitz["out"]
+            assert np.isclose(in_, out)
+
+    def test_squeeze(self, op):
+        # op.squeeze() sub-classes to DiffFunc for scalar outputs, and is transparent otherwise.
+        if func_name() not in self.disable_test:
+            if op.codim == 1:
+                assert isinstance(op.squeeze(), pyco.DiffFunc)
+            else:
+                assert op.squeeze() is op
+
+    def test_interface_jacobian(self, op, _data_apply):
+        if func_name() not in self.disable_test:
+            arr = _data_apply["in_"]["arr"]
+            J = op.jacobian(arr)
+            assert has_interface(J, LinOpT)
+
+    def test_math_diff_lipschitz(self, op, data_diff_lipschitz, data_math_diff_lipschitz):
+        # \norm{J(x) - J(y)}{F} \le diff_L * \norm{x - y}{2}
+        if func_name() not in self.disable_test:
+            dL = op.diff_lipschitz(**data_diff_lipschitz["in_"])
+            J = lambda _: op.jacobian(_).asarray()
+
+            stats = []
+            for x, y in itertools.combinations(data_math_diff_lipschitz, 2):
+                lhs = np.linalg.norm(J(x) - J(y), ord="fro")
+                rhs = dL * np.linalg.norm(x - y)
+                stats.append(lhs <= rhs)
+
+            assert all(stats)
