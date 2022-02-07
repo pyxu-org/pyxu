@@ -662,3 +662,8 @@ class ProxFuncT(FuncT):
             rhs = arr - op.prox(arr, mu)
 
             assert allclose(lhs, rhs, as_dtype=arr.dtype)
+
+
+class ProxDiffFuncT(ProxFuncT, DiffFuncT):
+    # Class Properties --------------------------------------------------------
+    interface = frozenset(ProxFuncT.interface | DiffFuncT.interface)
