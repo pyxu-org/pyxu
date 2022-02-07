@@ -6,6 +6,7 @@ import types
 import typing as typ
 
 import numpy as np
+import numpy.random as npr
 import pytest
 
 import pycsou.abc.operator as pyco
@@ -382,3 +383,99 @@ class DiffMapT(MapT):
                 stats.append(lhs <= rhs)
 
             assert all(stats)
+
+
+class DiffFuncT(FuncT, DiffMapT):
+    # Class Properties --------------------------------------------------------
+    interface = frozenset(FuncT.interface | DiffMapT.interface | {"grad"})
+    disable_test = frozenset(FuncT.disable_test | DiffMapT.disable_test)
+
+    # Fixtures ----------------------------------------------------------------
+    @pytest.fixture
+    def data_grad(self) -> DataLike:
+        # override in subclass with 1D input/outputs of op.grad().
+        # Arrays should be NumPy-only. (Internal machinery will transform to different
+        # backend/precisions as needed.)
+        raise NotImplementedError
+
+    @pytest.fixture
+    def _data_grad(self, data_grad, xp, width) -> DataLike:
+        # Generate Cartesian product of inputs.
+        # Do not override in subclass: for internal use only to test `op.grad()`.
+        # Outputs are left unchanged: different tests should transform them as required.
+        in_ = copy.deepcopy(data_grad["in_"])
+        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
+        data = dict(
+            in_=in_,
+            out=data_grad["out"],
+        )
+        return data
+
+    # Tests -------------------------------------------------------------------
+    def test_value1D_grad(self, op, _data_grad):
+        if func_name() not in self.disable_test:
+            out_gt = _data_grad["out"]
+
+            in_ = _data_grad["in_"]
+            out = pycu.compute(op.grad(**in_))
+
+            assert out.ndim == in_["arr"].ndim
+            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+
+    def test_valueND_grad(self, op, _data_grad):
+        if func_name() not in self.disable_test:
+            sh_extra = (2, 1)  # prepend input/output shape by this amount.
+
+            out_gt = _data_grad["out"]
+            out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
+
+            in_ = _data_grad["in_"]
+            arr = in_["arr"]
+            xp = pycu.get_array_module(arr)
+            arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
+            in_.update(arr=arr)
+            out = pycu.compute(op.grad(**in_))
+
+            assert out.ndim == in_["arr"].ndim
+            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+
+    def test_backend_grad(self, op, _data_grad):
+        if func_name() not in self.disable_test:
+            in_ = _data_grad["in_"]
+            out = op.grad(**in_)
+
+            assert type(out) == type(in_["arr"])
+
+    def test_precision_grad(self, op, _data_grad):
+        if func_name() not in self.disable_test:
+            in_ = _data_grad["in_"]
+            stats = []
+            for width in pycrt.Width:
+                with pycrt.Precision(width):
+                    out = op.grad(**in_)
+                stats.append(out.dtype == width.value)
+
+            assert all(stats)
+
+    def test_math1_grad(self, op, data_grad):
+        # .jacobian/.grad outputs are consistent.
+        arr = data_grad["in_"]["arr"]
+        J = op.jacobian(arr).asarray()
+        g = op.grad(arr)
+
+        assert J.size == g.size
+        assert allclose(J.squeeze(), g, as_dtype=arr.dtype)
+
+    def test_math2_grad(self, op, data_lipschitz):
+        # f(x - \frac{1}{L} \grad_{f}(x)) <= f(x)
+        L = op.lipschitz(**data_lipschitz["in_"])
+
+        rng, N_test = npr.default_rng(), 5
+        if (N_dim := op.dim) is None:
+            # special treatment for reduction functions
+            N_dim = 3
+
+        rhs = rng.normal(size=(N_test, N_dim))
+        lhs = rhs - op.grad(rhs) / L
+
+        assert np.all(op.apply(lhs) <= op.apply(rhs))
