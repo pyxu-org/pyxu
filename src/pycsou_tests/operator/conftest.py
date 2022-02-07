@@ -1,4 +1,5 @@
 import collections.abc as cabc
+import copy
 import inspect
 import itertools
 import types
@@ -58,38 +59,60 @@ def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
     return eq
 
 
+def allclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> bool:
+    """
+    Equivalent of `all.isclose`, but where atol is automatically chosen based on `as_dtype`.
+    """
+    return np.all(isclose(a, b, as_dtype))
+
+
 # Naming conventions
 # ------------------
 #
 # * data_<property>()
 #       Return expected object of `op.<property>`.
 #
-# * test_<property>(op, data_<property>):
+# * test_<property>(op, ...):
 #       Verify property values.
 #
-# * data_<method>()
+# * data_<method>(op, ...)
 #       Return mappings of the form dict(in_=dict(), out=Any), where:
 #         * in_ are kwargs to `op.<method>()`;
 #         * out denotes the output of `op.method(**data[in_])`.
 #
-# * test_ioXX_<method>(op, data_<method>)
-#       Verify that <method>, when fed with `**data['in_']`, satisfies certain input/output
-#       relationships.
-#
-# * test_prec_<method>(op, data_<method>)
-#       Verify that input/output precision can be controlled by `pycsou.runtime.Precision()`.
+# * test_[value,backend,precision]_<method>(op, ...)
+#       Verify that <method>, returns
+#       * value: right output values
+#       * backend: right output type
+#       * precision: right output precision
 #
 # * data_math_<method>()
 #       Special test data for mathematical identities.
 #
-# * test_mathXX_YY(op, ...)
-#       Verify some mathematical property.
+# * test_math_<method>()
+#       Verify mathematical identities involving <method>.
+#
+# * test_interface_[<method>]()
+#       Verify objects have the right interface.
 DataLike = cabc.Mapping[str, typ.Any]
 
 
 class MapT:
-    disable_test: cabc.Collection[str] = frozenset()
+    # Class Properties --------------------------------------------------------
+    disable_test: cabc.Set[str] = frozenset()
+    interface: cabc.Set[str] = frozenset(
+        {
+            "shape",
+            "dim",
+            "codim",
+            "apply",
+            "lipschitz",
+            "squeeze",
+            "specialize",
+        }
+    )
 
+    # Fixtures ----------------------------------------------------------------
     @pytest.fixture
     def op(self) -> pyco.Map:
         # override in subclass to instantiate the object to test.
@@ -105,39 +128,42 @@ class MapT:
         # override in subclass if numeric methods are to be tested on a subset of precisions.
         return request.param
 
-    # -------------------------------------------------------------------------
+    @pytest.fixture(
+        params=[
+            pyco.Map,
+            pyco.DiffMap,
+            pyco.Func,
+            pyco.DiffFunc,
+            pyco.ProxFunc,
+            pyco.ProxDiffFunc,
+            pyco.LinOp,
+            pyco.LinFunc,
+            pyco.SquareOp,
+            pyco.NormalOp,
+            pyco.SelfAdjointOp,
+            pyco.PosDefOp,
+            pyco.UnitOp,
+            pyco.ProjOp,
+            pyco.OrthProjOp,
+        ]
+    )
+    def _klass(self, request) -> pyco.Map:
+        # Returns some operator in the pyco.Map hierarchy.
+        # Do not override in subclass: for internal use only to test `op.specialize()`.
+        return request.param
+
     @pytest.fixture
     def data_shape(self) -> pyct.Shape:
         # override in subclass with the shape of op.
         # Don't return `op.shape`: hard-code what you are expecting.
         raise NotImplementedError
 
-    def test_io_shape(self, op, data_shape):
-        if func_name() not in self.disable_test:
-            assert op.shape == data_shape
-
-    def test_io_dim(self, op, data_shape):
-        if func_name() not in self.disable_test:
-            assert op.dim == data_shape[1]
-
-    def test_io_codim(self, op, data_shape):
-        if func_name() not in self.disable_test:
-            assert op.codim == data_shape[0]
-
-    # -------------------------------------------------------------------------
     @pytest.fixture
     def data_lipschitz(self) -> DataLike:
         # override in subclass with the Lipschitz constant of op.
         # Don't return `op.lipschitz()`: hard-code what you are expecting.
         raise NotImplementedError
 
-    def test_io_lipschitz(self, op, data_lipschitz):
-        if func_name() not in self.disable_test:
-            in_ = op.lipschitz(**data_lipschitz["in_"])
-            out = data_lipschitz["out"]
-            assert np.isclose(in_, out)
-
-    # -------------------------------------------------------------------------
     @pytest.fixture
     def data_apply(self) -> DataLike:
         # override in subclass with 1D input/outputs of op.apply().
@@ -146,18 +172,49 @@ class MapT:
         raise NotImplementedError
 
     @pytest.fixture
+    def data_math_lipschitz(self) -> cabc.Collection[np.ndarray]:
+        # override in subclass with at least 2 evaluation points for op.apply().
+        # Used to verify if op.apply() satisfies the Lipschitz condition.
+        # Arrays should be NumPy-only.
+        raise NotImplementedError
+
+    @pytest.fixture
     def _data_apply(self, data_apply, xp, width) -> DataLike:
-        # generate all combinations of inputs. (For internal use only.)
-        # outputs are left unchanged: different tests should transform them as required.
-        arr = xp.array(data_apply["in_"]["arr"], dtype=width.value)
+        # Generate Cartesian product of inputs.
+        # Do not override in subclass: for internal use only to test `op.apply()`.
+        # Outputs are left unchanged: different tests should transform them as required.
+        in_ = copy.deepcopy(data_apply["in_"])
+        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
         data = dict(
-            in_=dict(arr=arr),
+            in_=in_,
             out=data_apply["out"],
         )
         return data
 
-    def test_io1D_apply(self, op, _data_apply):
-        # works on 1D inputs -> output has right shape + values
+    # Tests -------------------------------------------------------------------
+    def test_interface(self, op):
+        if func_name() not in self.disable_test:
+            assert self.interface <= frozenset(dir(op))
+
+    def test_shape(self, op, data_shape):
+        if func_name() not in self.disable_test:
+            assert op.shape == data_shape
+
+    def test_dim(self, op, data_shape):
+        if func_name() not in self.disable_test:
+            assert op.dim == data_shape[1]
+
+    def test_codim(self, op, data_shape):
+        if func_name() not in self.disable_test:
+            assert op.codim == data_shape[0]
+
+    def test_lipschitz(self, op, data_lipschitz):
+        if func_name() not in self.disable_test:
+            in_ = op.lipschitz(**data_lipschitz["in_"])
+            out = data_lipschitz["out"]
+            assert np.isclose(in_, out)
+
+    def test_value1D_apply(self, op, _data_apply):
         if func_name() not in self.disable_test:
             out_gt = _data_apply["out"]
 
@@ -165,10 +222,9 @@ class MapT:
             out = pycu.compute(op.apply(**in_))
 
             assert out.ndim == in_["arr"].ndim
-            assert np.all(isclose(out, out_gt, as_dtype=in_["arr"].dtype))
+            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
 
-    def test_ioND_apply(self, op, _data_apply):
-        # works on ND inputs -> output has right shape + values
+    def test_valueND_apply(self, op, _data_apply):
         if func_name() not in self.disable_test:
             sh_extra = (2, 1)  # prepend input/output shape by this amount.
 
@@ -183,18 +239,16 @@ class MapT:
             out = pycu.compute(op.apply(**in_))
 
             assert out.ndim == in_["arr"].ndim
-            assert np.all(isclose(out, out_gt, as_dtype=in_["arr"].dtype))
+            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
 
-    def test_ioBackend_apply(self, op, _data_apply):
-        # op.apply() preserves array backend
+    def test_backend_apply(self, op, _data_apply):
         if func_name() not in self.disable_test:
             in_ = _data_apply["in_"]
             out = op.apply(**in_)
 
             assert type(out) == type(in_["arr"])
 
-    def test_prec_apply(self, op, _data_apply):
-        # op.apply() respects environment precision
+    def test_precision_apply(self, op, _data_apply):
         if func_name() not in self.disable_test:
             in_ = _data_apply["in_"]
             stats = []
@@ -205,19 +259,9 @@ class MapT:
 
             assert all(stats)
 
-    # -------------------------------------------------------------------------
-    # Mathematical identities to verify
-    @pytest.fixture
-    def data_math_lipschitz(self) -> cabc.Collection[np.ndarray]:
-        # override in subclass with at least 2 evaluation points for .apply()
-        # Used to verify if .apply() satisfies the Lipschitz condition.
-        # Arrays should be NumPy-only.
-        raise NotImplementedError
-
     def test_math_lipschitz(self, op, data_lipschitz, data_math_lipschitz):
-        # op.apply() satisfies Lipschitz condition:
-        #   \norm{f(x) - f(y)}{2} \le L * \norm{x - y}{2}
-        if func_name not in self.disable_test:
+        # \norm{f(x) - f(y)}{2} \le L * \norm{x - y}{2}
+        if func_name() not in self.disable_test:
             L = op.lipschitz(**data_lipschitz["in_"])
 
             stats = []
@@ -228,6 +272,29 @@ class MapT:
 
             assert all(stats)
 
-    # -------------------------------------------------------------------------
-    # TODO: test squeeze()
-    # TODO: test specialize()
+    def test_squeeze(self, op):
+        # op.squeeze() sub-classes to Func for scalar outputs, and is transparent otherwise.
+        if func_name() not in self.disable_test:
+            if op.codim == 1:
+                assert isinstance(op.squeeze(), pyco.Func)
+            else:
+                assert op.squeeze() is op
+
+    @pytest.mark.skip(reason="Requires some scaffolding first.")
+    def test_specialize(self, op, _klass):
+        if func_name() not in self.disable_test:
+            # def map_cmp(a, b):
+            #     if a above b:
+            #         return -1
+            #     elif a == b:
+            #         return 0
+            #     else:
+            #         return 1
+
+            #     test_specialize: needed fixture: op, klass
+            #         for every class lower in the hierarchy:
+            #             verify op.specialize(klass) has correct class interface
+            #         assert op.specialize(op.__class__) is op
+            #         for every class upper in the hierarchy:
+            #             verify op.specialize() fails
+            pass
