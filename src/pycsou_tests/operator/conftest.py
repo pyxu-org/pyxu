@@ -374,11 +374,13 @@ class DiffMapT(MapT):
         # \norm{J(x) - J(y)}{F} \le diff_L * \norm{x - y}{2}
         if func_name() not in self.disable_test:
             dL = op.diff_lipschitz(**data_diff_lipschitz["in_"])
-            J = lambda _: op.jacobian(_).asarray()
+            J = lambda _: op.jacobian(_).asarray().flatten()
+            # .flatten() used to consistently compare jacobians via the L2 norm.
+            # (Allows one to re-use this test for scalar-valued DiffMaps.)
 
             stats = []
             for x, y in itertools.combinations(data_math_diff_lipschitz, 2):
-                lhs = np.linalg.norm(J(x) - J(y), ord="fro")
+                lhs = np.linalg.norm(J(x) - J(y))
                 rhs = dL * np.linalg.norm(x - y)
                 stats.append(lhs <= rhs)
 
