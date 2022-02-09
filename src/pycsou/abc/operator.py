@@ -1174,7 +1174,7 @@ class DiffMap(Map, Differential):
     ...    def apply(self, arr):
     ...        return np.sin(arr)
     ...    def jacobian(self, arr):
-    ...        return ExplicitLinOp(np.cos(arr))
+    ...        return ExplicitLinOp(np.diag(np.cos(arr)))
     >>> sin = Sin((10,10)) # creates an instance
 
 
