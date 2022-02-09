@@ -461,26 +461,28 @@ class DiffFuncT(FuncT, DiffMapT):
 
     def test_math1_grad(self, op, data_grad):
         # .jacobian/.grad outputs are consistent.
-        arr = data_grad["in_"]["arr"]
-        J = op.jacobian(arr).asarray()
-        g = op.grad(arr)
+        if func_name() not in self.disable_test:
+            arr = data_grad["in_"]["arr"]
+            J = op.jacobian(arr).asarray()
+            g = op.grad(arr)
 
-        assert J.size == g.size
-        assert allclose(J.squeeze(), g, as_dtype=arr.dtype)
+            assert J.size == g.size
+            assert allclose(J.squeeze(), g, as_dtype=arr.dtype)
 
     def test_math2_grad(self, op, data_lipschitz):
         # f(x - \frac{1}{L} \grad_{f}(x)) <= f(x)
-        L = op.lipschitz(**data_lipschitz["in_"])
+        if func_name() not in self.disable_test:
+            L = op.lipschitz(**data_lipschitz["in_"])
 
-        rng, N_test = npr.default_rng(seed=1), 5
-        if (N_dim := op.dim) is None:
-            # special treatment for reduction functions
-            N_dim = 3
+            rng, N_test = npr.default_rng(seed=1), 5
+            if (N_dim := op.dim) is None:
+                # special treatment for reduction functions
+                N_dim = 3
 
-        rhs = rng.normal(size=(N_test, N_dim))
-        lhs = rhs - op.grad(rhs) / L
+            rhs = rng.normal(size=(N_test, N_dim))
+            lhs = rhs - op.grad(rhs) / L
 
-        assert np.all(op.apply(lhs) <= op.apply(rhs))
+            assert np.all(op.apply(lhs) <= op.apply(rhs))
 
 
 class ProxFuncT(FuncT):
