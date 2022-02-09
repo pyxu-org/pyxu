@@ -16,27 +16,6 @@ import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
 
-def func_name() -> str:
-    """
-    Returns
-    -------
-    up_fname: str
-        Name of the function which called `func_name()`.
-
-    Example
-    -------
-    >>> def f() -> str:
-    ...     return func_name()
-    ...
-    ... f()  # -> 'f'
-    """
-    my_frame = inspect.currentframe()
-    up_frame = inspect.getouterframes(my_frame)[1].frame
-    up_finfo = inspect.getframeinfo(up_frame)
-    up_fname = up_finfo.function
-    return up_fname
-
-
 def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
     """
     Equivalent of `np.isclose`, but where atol is automatically chosen based on `as_dtype`.
@@ -128,6 +107,17 @@ class MapT:
         }
     )
 
+    # Internal helpers --------------------------------------------------------
+    def _skip_if_disabled(self):
+        # Get name of function which invoked me.
+        my_frame = inspect.currentframe()
+        up_frame = inspect.getouterframes(my_frame)[1].frame
+        up_finfo = inspect.getframeinfo(up_frame)
+        up_fname = up_finfo.function
+        print(up_fname)
+        if up_fname in self.disable_test:
+            pytest.skip("disabled test")
+
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
     def op(self) -> pyco.Map:
@@ -209,111 +199,111 @@ class MapT:
 
     # Tests -------------------------------------------------------------------
     def test_interface(self, op):
-        if func_name() not in self.disable_test:
-            assert has_interface(op, self.__class__)
+        self._skip_if_disabled()
+        assert has_interface(op, self.__class__)
 
     def test_shape(self, op, data_shape):
-        if func_name() not in self.disable_test:
-            assert op.shape == data_shape
+        self._skip_if_disabled()
+        assert op.shape == data_shape
 
     def test_dim(self, op, data_shape):
-        if func_name() not in self.disable_test:
-            assert op.dim == data_shape[1]
+        self._skip_if_disabled()
+        assert op.dim == data_shape[1]
 
     def test_codim(self, op, data_shape):
-        if func_name() not in self.disable_test:
-            assert op.codim == data_shape[0]
+        self._skip_if_disabled()
+        assert op.codim == data_shape[0]
 
     def test_lipschitz(self, op, data_lipschitz):
-        if func_name() not in self.disable_test:
-            in_ = op.lipschitz(**data_lipschitz["in_"])
-            out = data_lipschitz["out"]
-            assert np.isclose(in_, out)
+        self._skip_if_disabled()
+        in_ = op.lipschitz(**data_lipschitz["in_"])
+        out = data_lipschitz["out"]
+        assert np.isclose(in_, out)
 
     def test_value1D_apply(self, op, _data_apply):
-        if func_name() not in self.disable_test:
-            out_gt = _data_apply["out"]
+        self._skip_if_disabled()
+        out_gt = _data_apply["out"]
 
-            in_ = _data_apply["in_"]
-            out = pycu.compute(op.apply(**in_))
+        in_ = _data_apply["in_"]
+        out = pycu.compute(op.apply(**in_))
 
-            assert out.ndim == in_["arr"].ndim
-            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        assert out.ndim == in_["arr"].ndim
+        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
 
     def test_valueND_apply(self, op, _data_apply):
-        if func_name() not in self.disable_test:
-            sh_extra = (2, 1)  # prepend input/output shape by this amount.
+        self._skip_if_disabled()
+        sh_extra = (2, 1)  # prepend input/output shape by this amount.
 
-            out_gt = _data_apply["out"]
-            out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
+        out_gt = _data_apply["out"]
+        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
 
-            in_ = _data_apply["in_"]
-            arr = in_["arr"]
-            xp = pycu.get_array_module(arr)
-            arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
-            in_.update(arr=arr)
-            out = pycu.compute(op.apply(**in_))
+        in_ = _data_apply["in_"]
+        arr = in_["arr"]
+        xp = pycu.get_array_module(arr)
+        arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
+        in_.update(arr=arr)
+        out = pycu.compute(op.apply(**in_))
 
-            assert out.ndim == in_["arr"].ndim
-            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        assert out.ndim == in_["arr"].ndim
+        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
 
     def test_backend_apply(self, op, _data_apply):
-        if func_name() not in self.disable_test:
-            in_ = _data_apply["in_"]
-            out = op.apply(**in_)
+        self._skip_if_disabled()
+        in_ = _data_apply["in_"]
+        out = op.apply(**in_)
 
-            assert type(out) == type(in_["arr"])
+        assert type(out) == type(in_["arr"])
 
     def test_precision_apply(self, op, _data_apply):
-        if func_name() not in self.disable_test:
-            in_ = _data_apply["in_"]
-            stats = []
-            for width in pycrt.Width:
-                with pycrt.Precision(width):
-                    out = op.apply(**in_)
-                stats.append(out.dtype == width.value)
+        self._skip_if_disabled()
+        in_ = _data_apply["in_"]
+        stats = []
+        for width in pycrt.Width:
+            with pycrt.Precision(width):
+                out = op.apply(**in_)
+            stats.append(out.dtype == width.value)
 
-            assert all(stats)
+        assert all(stats)
 
     def test_math_lipschitz(self, op, data_lipschitz, data_math_lipschitz):
         # \norm{f(x) - f(y)}{2} \le L * \norm{x - y}{2}
-        if func_name() not in self.disable_test:
-            L = op.lipschitz(**data_lipschitz["in_"])
+        self._skip_if_disabled()
+        L = op.lipschitz(**data_lipschitz["in_"])
 
-            stats = []
-            for x, y in itertools.combinations(data_math_lipschitz, 2):
-                lhs = np.linalg.norm(op.apply(x) - op.apply(y))
-                rhs = L * np.linalg.norm(x - y)
-                stats.append(lhs <= rhs)
+        stats = []
+        for x, y in itertools.combinations(data_math_lipschitz, 2):
+            lhs = np.linalg.norm(op.apply(x) - op.apply(y))
+            rhs = L * np.linalg.norm(x - y)
+            stats.append(lhs <= rhs)
 
-            assert all(stats)
+        assert all(stats)
 
     def test_squeeze(self, op):
         # op.squeeze() sub-classes to Func for scalar outputs, and is transparent otherwise.
-        if func_name() not in self.disable_test:
-            if op.codim == 1:
-                assert isinstance(op.squeeze(), pyco.Func)
-            else:
-                assert op.squeeze() is op
+        self._skip_if_disabled()
+        if op.codim == 1:
+            assert isinstance(op.squeeze(), pyco.Func)
+        else:
+            assert op.squeeze() is op
 
     @pytest.mark.skip(reason="Requires some scaffolding first.")
     def test_specialize(self, op, _klass):
-        if func_name() not in self.disable_test:
-            # def map_cmp(a, b):
-            #     if a above b:
-            #         return -1
-            #     elif a == b:
-            #         return 0
-            #     else:
-            #         return 1
+        self._skip_if_disabled()
+        # def map_cmp(a, b):
+        #     if a above b:
+        #         return -1
+        #     elif a == b:
+        #         return 0
+        #     else:
+        #         return 1
 
-            #     test_specialize: needed fixture: op, klass
-            #         for every class lower in the hierarchy:
-            #             verify op.specialize(klass) has correct class interface
-            #         assert op.specialize(op.__class__) is op
-            #         for every class upper in the hierarchy:
-            #             verify op.specialize() fails
-            pass
+        #     test_specialize: needed fixture: op, klass
+        #         for every class lower in the hierarchy:
+        #             verify op.specialize(klass) has correct class interface
+        #         assert op.specialize(op.__class__) is op
+        #         for every class upper in the hierarchy:
+        #             verify op.specialize() fails
+        pass
 
 
 class FuncT(MapT):
@@ -322,12 +312,12 @@ class FuncT(MapT):
 
     # Tests -------------------------------------------------------------------
     def test_codim(self, op, data_shape):
-        if func_name() not in self.disable_test:
-            assert op.codim == 1
+        self._skip_if_disabled()
+        assert op.codim == 1
 
     def test_squeeze(self, op):
-        if func_name() not in self.disable_test:
-            assert op.squeeze() is op
+        self._skip_if_disabled()
+        assert op.squeeze() is op
 
 
 class DiffMapT(MapT):
@@ -351,40 +341,40 @@ class DiffMapT(MapT):
 
     # Tests -------------------------------------------------------------------
     def test_diff_lipschitz(self, op, data_diff_lipschitz):
-        if func_name() not in self.disable_test:
-            in_ = op.diff_lipschitz(**data_diff_lipschitz["in_"])
-            out = data_diff_lipschitz["out"]
-            assert np.isclose(in_, out)
+        self._skip_if_disabled()
+        in_ = op.diff_lipschitz(**data_diff_lipschitz["in_"])
+        out = data_diff_lipschitz["out"]
+        assert np.isclose(in_, out)
 
     def test_squeeze(self, op):
         # op.squeeze() sub-classes to DiffFunc for scalar outputs, and is transparent otherwise.
-        if func_name() not in self.disable_test:
-            if op.codim == 1:
-                assert isinstance(op.squeeze(), pyco.DiffFunc)
-            else:
-                assert op.squeeze() is op
+        self._skip_if_disabled()
+        if op.codim == 1:
+            assert isinstance(op.squeeze(), pyco.DiffFunc)
+        else:
+            assert op.squeeze() is op
 
     def test_interface_jacobian(self, op, _data_apply):
-        if func_name() not in self.disable_test:
-            arr = _data_apply["in_"]["arr"]
-            J = op.jacobian(arr)
-            assert has_interface(J, LinOpT)
+        self._skip_if_disabled()
+        arr = _data_apply["in_"]["arr"]
+        J = op.jacobian(arr)
+        assert has_interface(J, LinOpT)
 
     def test_math_diff_lipschitz(self, op, data_diff_lipschitz, data_math_diff_lipschitz):
         # \norm{J(x) - J(y)}{F} \le diff_L * \norm{x - y}{2}
-        if func_name() not in self.disable_test:
-            dL = op.diff_lipschitz(**data_diff_lipschitz["in_"])
-            J = lambda _: op.jacobian(_).asarray().flatten()
-            # .flatten() used to consistently compare jacobians via the L2 norm.
-            # (Allows one to re-use this test for scalar-valued DiffMaps.)
+        self._skip_if_disabled()
+        dL = op.diff_lipschitz(**data_diff_lipschitz["in_"])
+        J = lambda _: op.jacobian(_).asarray().flatten()
+        # .flatten() used to consistently compare jacobians via the L2 norm.
+        # (Allows one to re-use this test for scalar-valued DiffMaps.)
 
-            stats = []
-            for x, y in itertools.combinations(data_math_diff_lipschitz, 2):
-                lhs = np.linalg.norm(J(x) - J(y))
-                rhs = dL * np.linalg.norm(x - y)
-                stats.append(lhs <= rhs)
+        stats = []
+        for x, y in itertools.combinations(data_math_diff_lipschitz, 2):
+            lhs = np.linalg.norm(J(x) - J(y))
+            rhs = dL * np.linalg.norm(x - y)
+            stats.append(lhs <= rhs)
 
-            assert all(stats)
+        assert all(stats)
 
 
 class DiffFuncT(FuncT, DiffMapT):
@@ -415,74 +405,74 @@ class DiffFuncT(FuncT, DiffMapT):
 
     # Tests -------------------------------------------------------------------
     def test_value1D_grad(self, op, _data_grad):
-        if func_name() not in self.disable_test:
-            out_gt = _data_grad["out"]
+        self._skip_if_disabled()
+        out_gt = _data_grad["out"]
 
-            in_ = _data_grad["in_"]
-            out = pycu.compute(op.grad(**in_))
+        in_ = _data_grad["in_"]
+        out = pycu.compute(op.grad(**in_))
 
-            assert out.ndim == in_["arr"].ndim
-            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        assert out.ndim == in_["arr"].ndim
+        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
 
     def test_valueND_grad(self, op, _data_grad):
-        if func_name() not in self.disable_test:
-            sh_extra = (2, 1)  # prepend input/output shape by this amount.
+        self._skip_if_disabled()
+        sh_extra = (2, 1)  # prepend input/output shape by this amount.
 
-            out_gt = _data_grad["out"]
-            out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
+        out_gt = _data_grad["out"]
+        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
 
-            in_ = _data_grad["in_"]
-            arr = in_["arr"]
-            xp = pycu.get_array_module(arr)
-            arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
-            in_.update(arr=arr)
-            out = pycu.compute(op.grad(**in_))
+        in_ = _data_grad["in_"]
+        arr = in_["arr"]
+        xp = pycu.get_array_module(arr)
+        arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
+        in_.update(arr=arr)
+        out = pycu.compute(op.grad(**in_))
 
-            assert out.ndim == in_["arr"].ndim
-            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        assert out.ndim == in_["arr"].ndim
+        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
 
     def test_backend_grad(self, op, _data_grad):
-        if func_name() not in self.disable_test:
-            in_ = _data_grad["in_"]
-            out = op.grad(**in_)
+        self._skip_if_disabled()
+        in_ = _data_grad["in_"]
+        out = op.grad(**in_)
 
-            assert type(out) == type(in_["arr"])
+        assert type(out) == type(in_["arr"])
 
     def test_precision_grad(self, op, _data_grad):
-        if func_name() not in self.disable_test:
-            in_ = _data_grad["in_"]
-            stats = []
-            for width in pycrt.Width:
-                with pycrt.Precision(width):
-                    out = op.grad(**in_)
-                stats.append(out.dtype == width.value)
+        self._skip_if_disabled()
+        in_ = _data_grad["in_"]
+        stats = []
+        for width in pycrt.Width:
+            with pycrt.Precision(width):
+                out = op.grad(**in_)
+            stats.append(out.dtype == width.value)
 
-            assert all(stats)
+        assert all(stats)
 
     def test_math1_grad(self, op, data_grad):
         # .jacobian/.grad outputs are consistent.
-        if func_name() not in self.disable_test:
-            arr = data_grad["in_"]["arr"]
-            J = op.jacobian(arr).asarray()
-            g = op.grad(arr)
+        self._skip_if_disabled()
+        arr = data_grad["in_"]["arr"]
+        J = op.jacobian(arr).asarray()
+        g = op.grad(arr)
 
-            assert J.size == g.size
-            assert allclose(J.squeeze(), g, as_dtype=arr.dtype)
+        assert J.size == g.size
+        assert allclose(J.squeeze(), g, as_dtype=arr.dtype)
 
     def test_math2_grad(self, op, data_lipschitz):
         # f(x - \frac{1}{L} \grad_{f}(x)) <= f(x)
-        if func_name() not in self.disable_test:
-            L = op.lipschitz(**data_lipschitz["in_"])
+        self._skip_if_disabled()
+        L = op.lipschitz(**data_lipschitz["in_"])
 
-            rng, N_test = npr.default_rng(seed=1), 5
-            if (N_dim := op.dim) is None:
-                # special treatment for reduction functions
-                N_dim = 3
+        rng, N_test = npr.default_rng(seed=1), 5
+        if (N_dim := op.dim) is None:
+            # special treatment for reduction functions
+            N_dim = 3
 
-            rhs = rng.normal(size=(N_test, N_dim))
-            lhs = rhs - op.grad(rhs) / L
+        rhs = rng.normal(size=(N_test, N_dim))
+        lhs = rhs - op.grad(rhs) / L
 
-            assert np.all(op.apply(lhs) <= op.apply(rhs))
+        assert np.all(op.apply(lhs) <= op.apply(rhs))
 
 
 class ProxFuncT(FuncT):
@@ -533,137 +523,137 @@ class ProxFuncT(FuncT):
 
     # Tests -------------------------------------------------------------------
     def test_value1D_prox(self, op, _data_prox):
-        if func_name() not in self.disable_test:
-            out_gt = _data_prox["out"]
+        self._skip_if_disabled()
+        out_gt = _data_prox["out"]
 
-            in_ = _data_prox["in_"]
-            out = pycu.compute(op.prox(**in_))
+        in_ = _data_prox["in_"]
+        out = pycu.compute(op.prox(**in_))
 
-            assert out.ndim == in_["arr"].ndim
-            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        assert out.ndim == in_["arr"].ndim
+        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
 
     def test_valueND_prox(self, op, _data_prox):
-        if func_name() not in self.disable_test:
-            sh_extra = (2, 1)  # prepend input/output shape by this amount.
+        self._skip_if_disabled()
+        sh_extra = (2, 1)  # prepend input/output shape by this amount.
 
-            out_gt = _data_prox["out"]
-            out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
+        out_gt = _data_prox["out"]
+        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
 
-            in_ = _data_prox["in_"]
-            arr = in_["arr"]
-            xp = pycu.get_array_module(arr)
-            arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
-            in_.update(arr=arr)
-            out = pycu.compute(op.prox(**in_))
+        in_ = _data_prox["in_"]
+        arr = in_["arr"]
+        xp = pycu.get_array_module(arr)
+        arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
+        in_.update(arr=arr)
+        out = pycu.compute(op.prox(**in_))
 
-            assert out.ndim == in_["arr"].ndim
-            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        assert out.ndim == in_["arr"].ndim
+        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
 
     def test_backend_prox(self, op, _data_prox):
-        if func_name() not in self.disable_test:
-            in_ = _data_prox["in_"]
-            out = op.prox(**in_)
+        self._skip_if_disabled()
+        in_ = _data_prox["in_"]
+        out = op.prox(**in_)
 
-            assert type(out) == type(in_["arr"])
+        assert type(out) == type(in_["arr"])
 
     def test_precision_prox(self, op, _data_prox):
-        if func_name() not in self.disable_test:
-            in_ = _data_prox["in_"]
-            stats = []
-            for width in pycrt.Width:
-                with pycrt.Precision(width):
-                    out = op.prox(**in_)
-                stats.append(out.dtype == width.value)
+        self._skip_if_disabled()
+        in_ = _data_prox["in_"]
+        stats = []
+        for width in pycrt.Width:
+            with pycrt.Precision(width):
+                out = op.prox(**in_)
+            stats.append(out.dtype == width.value)
 
-            assert all(stats)
+        assert all(stats)
 
     def test_math_prox(self, op, data_prox):
         # Ensure y = prox_{tau f}(x) minimizes:
         # 2\tau f(z) - \norm{z - x}{2}^{2}, for any z \in \bR^{N}
-        if func_name() not in self.disable_test:
-            in_ = data_prox["in_"]
-            y = op.prox(**in_)
-            N_dim = y.shape[-1]
+        self._skip_if_disabled()
+        in_ = data_prox["in_"]
+        y = op.prox(**in_)
+        N_dim = y.shape[-1]
 
-            rng, N_test = npr.default_rng(seed=1), 5
-            x = rng.normal(loc=in_["arr"], size=(N_test, N_dim))
+        rng, N_test = npr.default_rng(seed=1), 5
+        x = rng.normal(loc=in_["arr"], size=(N_test, N_dim))
 
-            def g(x):
-                a = 2 * in_["tau"] * op.apply(x)
-                b = np.linalg.norm(in_["arr"] - x, axis=-1, keepdims=True) ** 2
-                return a + b
+        def g(x):
+            a = 2 * in_["tau"] * op.apply(x)
+            b = np.linalg.norm(in_["arr"] - x, axis=-1, keepdims=True) ** 2
+            return a + b
 
-            assert np.all(g(y) <= g(x))
+        assert np.all(g(y) <= g(x))
 
     def test_value1D_fenchel_prox(self, op, _data_fenchel_prox):
-        if func_name() not in self.disable_test:
-            out_gt = _data_fenchel_prox["out"]
+        self._skip_if_disabled()
+        out_gt = _data_fenchel_prox["out"]
 
-            in_ = _data_fenchel_prox["in_"]
-            out = pycu.compute(op.fenchel_prox(**in_))
+        in_ = _data_fenchel_prox["in_"]
+        out = pycu.compute(op.fenchel_prox(**in_))
 
-            assert out.ndim == in_["arr"].ndim
-            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        assert out.ndim == in_["arr"].ndim
+        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
 
     def test_valueND_fenchel_prox(self, op, _data_fenchel_prox):
-        if func_name() not in self.disable_test:
-            sh_extra = (2, 1)  # prepend input/output shape by this amount.
+        self._skip_if_disabled()
+        sh_extra = (2, 1)  # prepend input/output shape by this amount.
 
-            out_gt = _data_fenchel_prox["out"]
-            out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
+        out_gt = _data_fenchel_prox["out"]
+        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
 
-            in_ = _data_fenchel_prox["in_"]
-            arr = in_["arr"]
-            xp = pycu.get_array_module(arr)
-            arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
-            in_.update(arr=arr)
-            out = pycu.compute(op.fenchel_prox(**in_))
+        in_ = _data_fenchel_prox["in_"]
+        arr = in_["arr"]
+        xp = pycu.get_array_module(arr)
+        arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
+        in_.update(arr=arr)
+        out = pycu.compute(op.fenchel_prox(**in_))
 
-            assert out.ndim == in_["arr"].ndim
-            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        assert out.ndim == in_["arr"].ndim
+        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
 
     def test_backend_fenchel_prox(self, op, _data_fenchel_prox):
-        if func_name() not in self.disable_test:
-            in_ = _data_fenchel_prox["in_"]
-            out = op.fenchel_prox(**in_)
+        self._skip_if_disabled()
+        in_ = _data_fenchel_prox["in_"]
+        out = op.fenchel_prox(**in_)
 
-            assert type(out) == type(in_["arr"])
+        assert type(out) == type(in_["arr"])
 
     def test_precision_fenchel_prox(self, op, _data_fenchel_prox):
-        if func_name() not in self.disable_test:
-            in_ = _data_fenchel_prox["in_"]
-            stats = []
-            for width in pycrt.Width:
-                with pycrt.Precision(width):
-                    out = op.fenchel_prox(**in_)
-                stats.append(out.dtype == width.value)
+        self._skip_if_disabled()
+        in_ = _data_fenchel_prox["in_"]
+        stats = []
+        for width in pycrt.Width:
+            with pycrt.Precision(width):
+                out = op.fenchel_prox(**in_)
+            stats.append(out.dtype == width.value)
 
-            assert all(stats)
+        assert all(stats)
 
     def test_interface_moreau_envelope(self, _op_m):
-        if func_name() not in self.disable_test:
-            _, op_m = _op_m
-            assert has_interface(op_m, DiffFuncT)
+        self._skip_if_disabled()
+        _, op_m = _op_m
+        assert has_interface(op_m, DiffFuncT)
 
     def test_math1_moreau_envelope(self, op, _op_m, data_apply):
         # op_m.apply() lower-bounds op.apply()
-        if func_name() not in self.disable_test:
-            _, op_m = _op_m
-            arr = data_apply["in_"]["arr"]
-            lhs = op_m.apply(arr)
-            rhs = op.apply(arr)
+        self._skip_if_disabled()
+        _, op_m = _op_m
+        arr = data_apply["in_"]["arr"]
+        lhs = op_m.apply(arr)
+        rhs = op.apply(arr)
 
-            assert lhs <= rhs
+        assert lhs <= rhs
 
     def test_math2_moreau_envelope(self, op, _op_m, data_apply):
         # op_m.grad(x) * mu = x - op.prox(x, mu)
-        if func_name() not in self.disable_test:
-            mu, op_m = _op_m
-            arr = data_apply["in_"]["arr"]
-            lhs = op_m.grad(arr) * mu
-            rhs = arr - op.prox(arr, mu)
+        self._skip_if_disabled()
+        mu, op_m = _op_m
+        arr = data_apply["in_"]["arr"]
+        lhs = op_m.grad(arr) * mu
+        rhs = arr - op.prox(arr, mu)
 
-            assert allclose(lhs, rhs, as_dtype=arr.dtype)
+        assert allclose(lhs, rhs, as_dtype=arr.dtype)
 
 
 class ProxDiffFuncT(ProxFuncT, DiffFuncT):
