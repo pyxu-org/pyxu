@@ -46,21 +46,6 @@ def allclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> bool:
     return np.all(isclose(a, b, as_dtype))
 
 
-def has_interface(op: pyco.Map, face: type) -> bool:
-    """
-    Parameters
-    ----------
-    op: pyco.Map
-    face: MapT or subclasses
-
-    Returns
-    -------
-    has: bool
-        True if `op` has the public interface of `face`.
-    """
-    return face.interface <= frozenset(dir(op))
-
-
 # Naming conventions
 # ------------------
 #
@@ -117,6 +102,11 @@ class MapT:
         print(up_fname)
         if up_fname in self.disable_test:
             pytest.skip("disabled test")
+
+    @staticmethod
+    def _check_has_interface(op: pyco.Map, klass: "MapT"):
+        # Verify `op` has the public interface of `klass`.
+        assert klass.interface <= frozenset(dir(op))
 
     @staticmethod
     def _check_value1D(func, data):
@@ -245,7 +235,7 @@ class MapT:
     # Tests -------------------------------------------------------------------
     def test_interface(self, op):
         self._skip_if_disabled()
-        assert has_interface(op, self.__class__)
+        self._check_has_interface(op, self.__class__)
 
     def test_shape(self, op, data_shape):
         self._skip_if_disabled()
@@ -374,7 +364,7 @@ class DiffMapT(MapT):
         self._skip_if_disabled()
         arr = _data_apply["in_"]["arr"]
         J = op.jacobian(arr)
-        assert has_interface(J, LinOpT)
+        self._check_has_interface(J, LinOpT)
 
     def test_math_diff_lipschitz(self, op, data_diff_lipschitz, data_math_diff_lipschitz):
         # \norm{J(x) - J(y)}{F} \le diff_L * \norm{x - y}{2}
@@ -562,7 +552,7 @@ class ProxFuncT(FuncT):
     def test_interface_moreau_envelope(self, _op_m):
         self._skip_if_disabled()
         _, op_m = _op_m
-        assert has_interface(op_m, DiffFuncT)
+        self._check_has_interface(op_m, DiffFuncT)
 
     def test_math1_moreau_envelope(self, op, _op_m, data_apply):
         # op_m.apply() lower-bounds op.apply()
