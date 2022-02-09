@@ -118,6 +118,51 @@ class MapT:
         if up_fname in self.disable_test:
             pytest.skip("disabled test")
 
+    @staticmethod
+    def _check_value1D(func, data):
+        out_gt = data["out"]
+
+        in_ = data["in_"]
+        out = pycu.compute(func(**in_))
+
+        assert out.ndim == in_["arr"].ndim
+        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+
+    @staticmethod
+    def _check_valueND(func, data):
+        sh_extra = (2, 1)  # prepend input/output shape by this amount.
+
+        out_gt = data["out"]
+        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
+
+        in_ = data["in_"]
+        arr = in_["arr"]
+        xp = pycu.get_array_module(arr)
+        arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
+        in_.update(arr=arr)
+        out = pycu.compute(func(**in_))
+
+        assert out.ndim == in_["arr"].ndim
+        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+
+    @staticmethod
+    def _check_backend(func, data):
+        in_ = data["in_"]
+        out = func(**in_)
+
+        assert type(out) == type(in_["arr"])
+
+    @staticmethod
+    def _check_precision(func, data):
+        in_ = data["in_"]
+        stats = []
+        for width in pycrt.Width:
+            with pycrt.Precision(width):
+                out = func(**in_)
+            stats.append(out.dtype == width.value)
+
+        assert all(stats)
+
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
     def op(self) -> pyco.Map:
@@ -222,48 +267,19 @@ class MapT:
 
     def test_value1D_apply(self, op, _data_apply):
         self._skip_if_disabled()
-        out_gt = _data_apply["out"]
-
-        in_ = _data_apply["in_"]
-        out = pycu.compute(op.apply(**in_))
-
-        assert out.ndim == in_["arr"].ndim
-        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        self._check_value1D(op.apply, _data_apply)
 
     def test_valueND_apply(self, op, _data_apply):
         self._skip_if_disabled()
-        sh_extra = (2, 1)  # prepend input/output shape by this amount.
-
-        out_gt = _data_apply["out"]
-        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
-
-        in_ = _data_apply["in_"]
-        arr = in_["arr"]
-        xp = pycu.get_array_module(arr)
-        arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
-        in_.update(arr=arr)
-        out = pycu.compute(op.apply(**in_))
-
-        assert out.ndim == in_["arr"].ndim
-        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        self._check_valueND(op.apply, _data_apply)
 
     def test_backend_apply(self, op, _data_apply):
         self._skip_if_disabled()
-        in_ = _data_apply["in_"]
-        out = op.apply(**in_)
-
-        assert type(out) == type(in_["arr"])
+        self._check_backend(op.apply, _data_apply)
 
     def test_precision_apply(self, op, _data_apply):
         self._skip_if_disabled()
-        in_ = _data_apply["in_"]
-        stats = []
-        for width in pycrt.Width:
-            with pycrt.Precision(width):
-                out = op.apply(**in_)
-            stats.append(out.dtype == width.value)
-
-        assert all(stats)
+        self._check_precision(op.apply, _data_apply)
 
     def test_math_lipschitz(self, op, data_lipschitz, data_math_lipschitz):
         # \norm{f(x) - f(y)}{2} \le L * \norm{x - y}{2}
@@ -406,48 +422,19 @@ class DiffFuncT(FuncT, DiffMapT):
     # Tests -------------------------------------------------------------------
     def test_value1D_grad(self, op, _data_grad):
         self._skip_if_disabled()
-        out_gt = _data_grad["out"]
-
-        in_ = _data_grad["in_"]
-        out = pycu.compute(op.grad(**in_))
-
-        assert out.ndim == in_["arr"].ndim
-        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        self._check_value1D(op.grad, _data_grad)
 
     def test_valueND_grad(self, op, _data_grad):
         self._skip_if_disabled()
-        sh_extra = (2, 1)  # prepend input/output shape by this amount.
-
-        out_gt = _data_grad["out"]
-        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
-
-        in_ = _data_grad["in_"]
-        arr = in_["arr"]
-        xp = pycu.get_array_module(arr)
-        arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
-        in_.update(arr=arr)
-        out = pycu.compute(op.grad(**in_))
-
-        assert out.ndim == in_["arr"].ndim
-        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        self._check_valueND(op.grad, _data_grad)
 
     def test_backend_grad(self, op, _data_grad):
         self._skip_if_disabled()
-        in_ = _data_grad["in_"]
-        out = op.grad(**in_)
-
-        assert type(out) == type(in_["arr"])
+        self._check_backend(op.grad, _data_grad)
 
     def test_precision_grad(self, op, _data_grad):
         self._skip_if_disabled()
-        in_ = _data_grad["in_"]
-        stats = []
-        for width in pycrt.Width:
-            with pycrt.Precision(width):
-                out = op.grad(**in_)
-            stats.append(out.dtype == width.value)
-
-        assert all(stats)
+        self._check_precision(op.grad, _data_grad)
 
     def test_math1_grad(self, op, data_grad):
         # .jacobian/.grad outputs are consistent.
@@ -524,48 +511,19 @@ class ProxFuncT(FuncT):
     # Tests -------------------------------------------------------------------
     def test_value1D_prox(self, op, _data_prox):
         self._skip_if_disabled()
-        out_gt = _data_prox["out"]
-
-        in_ = _data_prox["in_"]
-        out = pycu.compute(op.prox(**in_))
-
-        assert out.ndim == in_["arr"].ndim
-        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        self._check_value1D(op.prox, _data_prox)
 
     def test_valueND_prox(self, op, _data_prox):
         self._skip_if_disabled()
-        sh_extra = (2, 1)  # prepend input/output shape by this amount.
-
-        out_gt = _data_prox["out"]
-        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
-
-        in_ = _data_prox["in_"]
-        arr = in_["arr"]
-        xp = pycu.get_array_module(arr)
-        arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
-        in_.update(arr=arr)
-        out = pycu.compute(op.prox(**in_))
-
-        assert out.ndim == in_["arr"].ndim
-        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        self._check_valueND(op.prox, _data_prox)
 
     def test_backend_prox(self, op, _data_prox):
         self._skip_if_disabled()
-        in_ = _data_prox["in_"]
-        out = op.prox(**in_)
-
-        assert type(out) == type(in_["arr"])
+        self._check_backend(op.prox, _data_prox)
 
     def test_precision_prox(self, op, _data_prox):
         self._skip_if_disabled()
-        in_ = _data_prox["in_"]
-        stats = []
-        for width in pycrt.Width:
-            with pycrt.Precision(width):
-                out = op.prox(**in_)
-            stats.append(out.dtype == width.value)
-
-        assert all(stats)
+        self._check_precision(op.prox, _data_prox)
 
     def test_math_prox(self, op, data_prox):
         # Ensure y = prox_{tau f}(x) minimizes:
@@ -587,48 +545,19 @@ class ProxFuncT(FuncT):
 
     def test_value1D_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
-        out_gt = _data_fenchel_prox["out"]
-
-        in_ = _data_fenchel_prox["in_"]
-        out = pycu.compute(op.fenchel_prox(**in_))
-
-        assert out.ndim == in_["arr"].ndim
-        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        self._check_value1D(op.fenchel_prox, _data_fenchel_prox)
 
     def test_valueND_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
-        sh_extra = (2, 1)  # prepend input/output shape by this amount.
-
-        out_gt = _data_fenchel_prox["out"]
-        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
-
-        in_ = _data_fenchel_prox["in_"]
-        arr = in_["arr"]
-        xp = pycu.get_array_module(arr)
-        arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
-        in_.update(arr=arr)
-        out = pycu.compute(op.fenchel_prox(**in_))
-
-        assert out.ndim == in_["arr"].ndim
-        assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+        self._check_valueND(op.fenchel_prox, _data_fenchel_prox)
 
     def test_backend_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
-        in_ = _data_fenchel_prox["in_"]
-        out = op.fenchel_prox(**in_)
-
-        assert type(out) == type(in_["arr"])
+        self._check_backend(op.fenchel_prox, _data_fenchel_prox)
 
     def test_precision_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
-        in_ = _data_fenchel_prox["in_"]
-        stats = []
-        for width in pycrt.Width:
-            with pycrt.Precision(width):
-                out = op.fenchel_prox(**in_)
-            stats.append(out.dtype == width.value)
-
-        assert all(stats)
+        self._check_precision(op.fenchel_prox, _data_fenchel_prox)
 
     def test_interface_moreau_envelope(self, _op_m):
         self._skip_if_disabled()
