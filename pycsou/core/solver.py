@@ -85,7 +85,7 @@ class GenericIterativeAlgorithm(ABC):
         self.iter = 0
         self.iterand = None
 
-    def iterates(self, n: int) -> Tuple:
+    def iterates(self, n: int, update_diagnostics=False) -> Tuple:
         r"""
         Generator allowing to loop through the n first iterates.
 
@@ -95,11 +95,19 @@ class GenericIterativeAlgorithm(ABC):
         ----------
         n: int
             Max number of iterates to loop through.
+        update_diagnostics : bool
+            Whether to update diagnostics at each iteration.
         """
+        if update_diagnostics:
+            self.old_iterand = deepcopy(self.init_iterand)
+            self.update_diagnostics()   # to build diagnostics dict
         self.reset()
         for i in range(n):
             self.iterand = self.update_iterand()
             self.iter += 1
+            if update_diagnostics:
+                self.update_diagnostics()
+                self.old_iterand = deepcopy(self.iterand)
             yield self.iterand
 
     @abstractmethod
