@@ -562,17 +562,21 @@ class Property:
         return out_op.squeeze()
 
     @classmethod
-    def from_source(cls, shape: typ.Tuple[int, typ.Union[int, None]], is_single_valued: bool, **kwargs) -> "Property":
+    def from_source(cls, shape: typ.Tuple[int, typ.Union[int, None]], **kwargs) -> "Property":
         r"""
-        Create an instance of a :py:class:`~pycsou.abc.operator.Map` subclass by directly defining its method
-        methods and attributes.
+        Create an instance of a :py:class:`~pycsou.abc.operator.Map` subclass by directly defining the appropriate
+        callables to the constructor of this class.
 
         Parameters
         ----------
         shape: tuple(int, [int|None])
             Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        is_single_valued: bool
             If ``True`` the returned object is of type `~pycsou.abc.operator.SingleValued`.
+
+        kwargs:
+            Keyword arguments corresponding to the callables of this class. For example, to create an instance of
+            :py:class:`~pycsou.abc.operator.DiffMap`, the callables for :py:meth:`~pycsou.abc.operator.Apply.apply` and
+            :py:meth:`~pycsou.abc.operator.Jacobian.jacobian` must be supplied.
 
         Returns
         -------
@@ -581,31 +585,38 @@ class Property:
         Examples
         --------
         >>> from pycsou.abc.operator import LinFunc
+        >>> map_shape = (1, 10)
         >>> map_properties = {
-        ...     "apply": lambda self, x: np.sum(x, axis=-1, keepdims=True),
-        ...     "adjoint": lambda self, x: x * np.ones(self.shape[-1]),
-        ...     "grad": lambda self, x: np.ones(shape=x.shape[:-1] + (self.shape[-1],)),
-        ...     "prox": lambda self, x, tau: x - tau * np.ones(self.shape[-1]),
+        ...     "apply": lambda x: np.sum(x, axis=-1, keepdims=True),
+        ...     "adjoint": lambda x: x * np.ones(map_shape[-1]),
+        ...     "grad": lambda x: np.ones(shape=x.shape[:-1] + (map_shape[-1],)),
+        ...     "prox": lambda x, tau: x - tau * np.ones(map_shape[-1]),
         ... }
-        >>> map_from_source = LinFunc.from_source(shape=(1, 10),
-        ...                           is_single_valued=True,
+        >>> map_from_source = LinFunc.from_source(shape=map_shape,
         ...                           **map_properties)
         >>> type(map_from_source)
-        pycsou.abc.operator.LinFunc
+        <class 'pycsou.abc.operator.LinFunc'>
+        >>> map_from_source.apply(np.ones((1,5)))
+        array([[5.]])
+        >>> map_from_source.adjoint(1)
+        array([1.,1.,1.,1.,1.])
+
 
         .. Warning::
         This  is a simplified example for illustration puposes only. It may not abide by all the rules listed in the
         :ref:`developer-notes`.
+
+        See Also
+        --------
+        :py: meth:`~pycsou.abc.operator.LinOp.from_array`, :py: meth:`~pycsou.abc.operator.LinOp.from_sciop`
+
         """
+
         properties = set(kwargs.keys())
         op_properties = set(cls.properties())
-        if is_single_valued:
-            properties.update({"single_valued"})
-            if ("jacobian" in properties) and ("grad" not in properties):
-                kwargs["grad"] = lambda _, x: kwargs["jacobian"](x).asarray().reshape(-1)
-                properties.update("grad")
-            properties.discard("jacobian")
+        if cls in [LinOp, DiffFunc, ProxDiffFunc, LinFunc]:
             op_properties.discard("jacobian")
+            op_properties.discard("single_valued")
         if op_properties == properties:
             out_op = cls(shape)
         else:
@@ -614,10 +625,8 @@ class Property:
         for prop in properties:
             if prop in ["_lispchitz", "_diff_lipschitz"]:
                 setattr(out_op, prop, kwargs[prop])
-            elif prop == "single_valued":
-                setattr(out_op, prop, types.MethodType(SingleValued.single_valued, out_op))
             else:
-                setattr(out_op, prop, types.MethodType(kwargs[prop], out_op))
+                setattr(out_op, prop, types.MethodType(lambda _, arr: kwargs[prop](arr), out_op))
         return out_op
 
 
