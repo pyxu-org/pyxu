@@ -561,74 +561,6 @@ class Property:
                 setattr(out_op, prop, types.MethodType(argshifted_method, out_op))
         return out_op.squeeze()
 
-    @classmethod
-    def from_source(cls, shape: typ.Tuple[int, typ.Union[int, None]], **kwargs) -> "Property":
-        r"""
-        Create an instance of a :py:class:`~pycsou.abc.operator.Map` subclass by directly defining the appropriate
-        callables to the constructor of this class.
-
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-            If ``True`` the returned object is of type `~pycsou.abc.operator.SingleValued`.
-
-        kwargs:
-            Keyword arguments corresponding to the callables of this class. For example, to create an instance of
-            :py:class:`~pycsou.abc.operator.DiffMap`, the callables for :py:meth:`~pycsou.abc.operator.Apply.apply` and
-            :py:meth:`~pycsou.abc.operator.Jacobian.jacobian` must be supplied.
-
-        Returns
-        -------
-        pycsou.abc.operator.Property
-            Output is a :py:class:`~pycsou.abc.operator.Map` subclass object.
-        Examples
-        --------
-        >>> from pycsou.abc.operator import LinFunc
-        >>> map_shape = (1, 10)
-        >>> map_properties = {
-        ...     "apply": lambda x: np.sum(x, axis=-1, keepdims=True),
-        ...     "adjoint": lambda x: x * np.ones(map_shape[-1]),
-        ...     "grad": lambda x: np.ones(shape=x.shape[:-1] + (map_shape[-1],)),
-        ...     "prox": lambda x, tau: x - tau * np.ones(map_shape[-1]),
-        ... }
-        >>> map_from_source = LinFunc.from_source(shape=map_shape,
-        ...                           **map_properties)
-        >>> type(map_from_source)
-        <class 'pycsou.abc.operator.LinFunc'>
-        >>> map_from_source.apply(np.ones((1,5)))
-        array([[5.]])
-        >>> map_from_source.adjoint(1)
-        array([1.,1.,1.,1.,1.])
-
-
-        .. Warning::
-        This  is a simplified example for illustration puposes only. It may not abide by all the rules listed in the
-        :ref:`developer-notes`.
-
-        See Also
-        --------
-        :py: meth:`~pycsou.abc.operator.LinOp.from_array`, :py: meth:`~pycsou.abc.operator.LinOp.from_sciop`
-
-        """
-
-        properties = set(kwargs.keys())
-        op_properties = set(cls.properties())
-        if cls in [LinOp, DiffFunc, ProxDiffFunc, LinFunc]:
-            op_properties.discard("jacobian")
-            op_properties.discard("single_valued")
-        if op_properties == properties:
-            out_op = cls(shape)
-        else:
-            raise ValueError(f"Cannot create a {cls.__name__} object with the given properties.")
-
-        for prop in properties:
-            if prop in ["_lispchitz", "_diff_lipschitz"]:
-                setattr(out_op, prop, kwargs[prop])
-            else:
-                setattr(out_op, prop, types.MethodType(lambda _, arr: kwargs[prop](arr), out_op))
-        return out_op
-
 
 class SingleValued(Property):
     r"""
@@ -1140,6 +1072,78 @@ class Map(Apply):
                 else:
                     setattr(obj, prop, getattr(self, prop))
         return obj
+
+    @classmethod
+    def from_source(cls, shape: typ.Tuple[int, typ.Union[int, None]], **kwargs) -> MapLike:
+        r"""
+        Create an instance of a :py:class:`~pycsou.abc.operator.Map` subclass by directly defining the appropriate
+        callables to the constructor of this class.
+
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+            If ``True`` the returned object is of type `~pycsou.abc.operator.SingleValued`.
+
+        kwargs:
+            Keyword arguments corresponding to the callables of this class. For example, to create an instance of
+            :py:class:`~pycsou.abc.operator.DiffMap`, the callables for :py:meth:`~pycsou.abc.operator.Apply.apply` and
+            :py:meth:`~pycsou.abc.operator.Jacobian.jacobian` must be supplied.
+
+        Returns
+        -------
+        pycsou.abc.operator.Property
+            Output is a :py:class:`~pycsou.abc.operator.Map` subclass object.
+        Examples
+        --------
+        >>> from pycsou.abc.operator import LinFunc
+        >>> map_shape = (1, 5)
+        >>> map_properties = {
+        ...     "apply": lambda x: np.sum(x, axis=-1, keepdims=True),
+        ...     "adjoint": lambda x: x * np.ones(map_shape[-1]),
+        ...     "grad": lambda x: np.ones(shape=x.shape[:-1] + (map_shape[-1],)),
+        ...     "prox": lambda x, tau: x - tau * np.ones(map_shape[-1]),
+        ... }
+        >>> func = LinFunc.from_source(shape=map_shape,
+        ...                           **map_properties)
+        >>> type(func)
+        <class 'pycsou.abc.operator.LinFunc'>
+        >>> func.apply(np.ones((1,5)))
+        array([[5.]])
+        >>> func.adjoint(1)
+        array([1., 1., 1., 1., 1.])
+
+
+        .. Warning::
+        This  is a simplified example for illustration puposes only. It may not abide by all the rules listed in the
+        :ref:`developer-notes`.
+
+        See Also
+        --------
+        :py: meth:`~pycsou.abc.operator.LinOp.from_array`, :py: meth:`~pycsou.abc.operator.LinOp.from_sciop`
+
+        """
+        from functools import partial
+
+        properties = set(kwargs.keys())
+        op_properties = set(cls.properties())
+        if cls in [LinOp, DiffFunc, ProxDiffFunc, LinFunc]:
+            op_properties.discard("jacobian")
+            op_properties.discard("single_valued")
+        if op_properties == properties:
+            out_op = cls(shape)
+        else:
+            raise ValueError(f"Cannot create a {cls.__name__} object with the given properties.")
+        for prop in properties:
+            if prop in ["_lispchitz", "_diff_lipschitz"]:
+                setattr(out_op, prop, kwargs[prop])
+            elif prop == "prox":
+                f = lambda key, _, arr, tau: kwargs[key](arr, tau)
+                setattr(out_op, prop, types.MethodType(partial(f, prop), out_op))
+            else:
+                f = lambda key, _, arr: kwargs[key](arr)
+                setattr(out_op, prop, types.MethodType(partial(f, prop), out_op))
+        return out_op
 
 
 class DiffMap(Map, Differential):
