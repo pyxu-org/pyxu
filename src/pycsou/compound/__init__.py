@@ -75,7 +75,7 @@ def stack(
 
     @pycrt.enforce_precision(i="arr", o=False)
     def _method_vstack(
-        obj,
+        _,
         arr: pyct.NDArray,
         methods: typ.List[typ.Callable],
         executor: typ.Union[cf.ThreadPoolExecutor, cf.ProcessPoolExecutor],
@@ -93,7 +93,7 @@ def stack(
 
     @pycrt.enforce_precision(i="arr", o=False)
     def _method_separable_sum(
-        obj,
+        _,
         arr: pyct.NDArray,
         methods: typ.List[typ.Callable],
         sections: np.ndarray,
@@ -109,7 +109,7 @@ def stack(
 
     @pycrt.enforce_precision(i="arr", o=False)
     def _jacobian_stack(
-        obj,
+        _,
         arr: pyct.NDArray,
         axis: typ.Literal[0, 1, -1],
         methods: typ.List[typ.Callable],
@@ -167,14 +167,14 @@ def stack(
                 if axis == 0 and stack_of_funcs:
 
                     @pycrt.enforce_precision(i="arr", o=False)
-                    def _jacobian_from_grads(obj, arr: pyct.NDArray) -> pycb.ExplicitLinOp:
+                    def _jacobian_from_grads(methods, _, arr: pyct.NDArray) -> pycb.ExplicitLinOp:
                         fs = [executor.submit(grad, arr) for grad in methods]
                         cf.wait(fs)
                         out_list = [f.result() for f in fs]
                         xp = pycu.get_array_module(arr)
                         return pycb.ExplicitLinOp(map=xp.stack(out_list, axis=0), enable_warnings=True)
 
-                    multi_prop = _jacobian_from_grads
+                    multi_prop = ft.partial(_jacobian_from_grads, methods)
                 else:
                     multi_prop = ft.partial(
                         _jacobian_stack, axis=axis, methods=methods, executor=executor, max_workers=max_workers
@@ -192,7 +192,7 @@ def stack(
                 else:
 
                     @pycrt.enforce_precision(i="arr", o=False)
-                    def _component_wise_prox(obj, arr: pyct.NDArray) -> pyct.NDArray:
+                    def _component_wise_prox(methods, _, arr: pyct.NDArray) -> pyct.NDArray:
                         xp = pycu.get_array_module(arr)
                         arr_split = xp.split(arr, xp.asarray(sections))
                         fs = [executor.submit(method, arr_split[i]) for i, method in enumerate(methods)]
@@ -205,7 +205,7 @@ def stack(
                             out_list.append(res)
                         return xp.concatenate(out_list, axis=-1)
 
-                    multi_prop = _component_wise_prox
+                    multi_prop = ft.partial(_component_wise_prox, methods)
             elif prop == "adjoint":
                 if axis == 0:
                     multi_prop = ft.partial(

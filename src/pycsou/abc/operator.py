@@ -1,3 +1,4 @@
+import functools as ft
 import types
 import typing as typ
 
@@ -218,10 +219,10 @@ class Property:
             else:
 
                 @pycrt.enforce_precision(i="arr", o=False)  # Decorate composite method to avoid recasting [arr] twice.
-                def composite_method(obj, arr: pyct.NDArray) -> typ.Union[pyct.NDArray, "LinOp"]:
+                def composite_method(prop, _, arr: pyct.NDArray) -> typ.Union[pyct.NDArray, "LinOp"]:
                     return getattr(self, prop)(arr) + getattr(other, prop)(arr)
 
-                setattr(out_op, prop, types.MethodType(composite_method, out_op))
+                setattr(out_op, prop, types.MethodType(ft.partial(composite_method, prop), out_op))
         return out_op.squeeze()
 
     def __mul__(self: MapLike, other: typ.Union[MapLike, pyct.Real]) -> MapLike:
@@ -346,7 +347,7 @@ class Property:
         out_op = Op(out_shape)
         for prop in shared_props:  # ("apply", "_lipschitz", "jacobian", "_diff_lipschitz", "grad", "adjoint")
             if prop == "apply":
-                out_op.apply = types.MethodType(lambda obj, arr: self.apply(other.apply(arr)), out_op)
+                out_op.apply = types.MethodType(lambda _, arr: self.apply(other.apply(arr)), out_op)
             elif prop == "_lipschitz":
                 out_op._lipschitz = self._lipschitz * other._lipschitz
             elif prop == "_diff_lipschitz":
@@ -359,19 +360,19 @@ class Property:
             elif prop == "grad":
 
                 @pycrt.enforce_precision(i="arr")
-                def composite_grad(obj, arr: pyct.NDArray) -> pyct.NDArray:
+                def composite_grad(_, arr: pyct.NDArray) -> pyct.NDArray:
                     return other.jacobian(arr).adjoint(self.grad(other.apply(arr)))
 
                 out_op.grad = types.MethodType(composite_grad, out_op)
             elif prop == "jacobian":
 
                 @pycrt.enforce_precision(i="arr", o=False)
-                def composite_jacobian(obj, arr: pyct.NDArray) -> "LinOp":
+                def composite_jacobian(_, arr: pyct.NDArray) -> "LinOp":
                     return self.jacobian(other.apply(arr)) * other.jacobian(arr)
 
                 out_op.jacobian = types.MethodType(composite_jacobian, out_op)
             elif prop == "adjoint":
-                out_op.adjoint = types.MethodType(lambda obj, arr: other.adjoint(self.adjoint(arr)), out_op)
+                out_op.adjoint = types.MethodType(lambda _, arr: other.adjoint(self.adjoint(arr)), out_op)
         return out_op.squeeze()
 
     def __rmul__(self: MapLike, other: pyct.Real) -> MapLike:
@@ -552,13 +553,15 @@ class Property:
             if prop in ["_lispchitz", "_diff_lipschitz"]:
                 setattr(out_op, prop, getattr(self, prop))
             elif prop == "prox":
-                out_op.prox = types.MethodType(lambda obj, x, tau: self.prox(x + arr, tau) - arr, out_op)
+                out_op.prox = types.MethodType(
+                    ft.partial(lambda arr, _, x, tau: self.prox(x + arr, tau) - arr, arr), out_op
+                )
             else:
 
-                def argshifted_method(obj, x: pyct.NDArray) -> typ.Union[pyct.NDArray, "LinOp"]:
+                def argshifted_method(prop, arr, _, x: pyct.NDArray) -> typ.Union[pyct.NDArray, "LinOp"]:
                     return getattr(self, prop)(x + arr)
 
-                setattr(out_op, prop, types.MethodType(argshifted_method, out_op))
+                setattr(out_op, prop, types.MethodType(ft.partial(argshifted_method, prop, arr), out_op))
         return out_op.squeeze()
 
 
@@ -1094,6 +1097,7 @@ class Map(Apply):
         -------
         pycsou.abc.operator.Property
             Output is a :py:class:`~pycsou.abc.operator.Map` subclass object.
+
         Examples
         --------
         >>> from pycsou.abc.operator import LinFunc
@@ -1123,7 +1127,6 @@ class Map(Apply):
         :py: meth:`~pycsou.abc.operator.LinOp.from_array`, :py: meth:`~pycsou.abc.operator.LinOp.from_sciop`
 
         """
-        from functools import partial
 
         properties = set(kwargs.keys())
         op_properties = set(cls.properties())
@@ -1139,10 +1142,10 @@ class Map(Apply):
                 setattr(out_op, prop, kwargs[prop])
             elif prop == "prox":
                 f = lambda key, _, arr, tau: kwargs[key](arr, tau)
-                setattr(out_op, prop, types.MethodType(partial(f, prop), out_op))
+                setattr(out_op, prop, types.MethodType(ft.partial(f, prop), out_op))
             else:
                 f = lambda key, _, arr: kwargs[key](arr)
-                setattr(out_op, prop, types.MethodType(partial(f, prop), out_op))
+                setattr(out_op, prop, types.MethodType(ft.partial(f, prop), out_op))
         return out_op
 
 
@@ -1397,14 +1400,14 @@ class ProxFunc(Func, Proximal):
 
         if isinstance(self, LinFunc) and isinstance(other, LinOp):
             f.specialize(cast_to=self.__class__)
-            f.prox = types.MethodType(lambda obj, arr, tau: arr - tau * other.adjoint(self.asarray()), f)
+            f.prox = types.MethodType(lambda _, arr, tau: arr - tau * other.adjoint(self.asarray()), f)
         elif isinstance(other, UnitOp):
             f.specialize(cast_to=self.__class__)
-            f.prox = types.MethodType(lambda obj, arr, tau: other.adjoint(self.prox(other.apply(arr), tau)), f)
+            f.prox = types.MethodType(lambda _, arr, tau: other.adjoint(self.prox(other.apply(arr), tau)), f)
         elif isinstance(other, HomothetyOp):
             f.specialize(cast_to=self.__class__)
             f.prox = types.MethodType(
-                lambda obj, arr, tau: (1 / other._cst) * self.prox(other._cst * arr, tau * (other._cst) ** 2), f
+                lambda _, arr, tau: (1 / other._cst) * self.prox(other._cst * arr, tau * (other._cst) ** 2), f
             )
         return f.squeeze()
 
@@ -1488,7 +1491,7 @@ class ProxFunc(Func, Proximal):
         moreau_envelope = DiffFunc(self.shape)
 
         @pycrt.enforce_precision(i="arr")
-        def env_apply(_, arr):
+        def env_apply(mu, self, _, arr):
             xp = pycu.get_array_module(arr)
             return (
                 self(self.prox(arr, tau=mu))
@@ -1496,11 +1499,11 @@ class ProxFunc(Func, Proximal):
             )
 
         @pycrt.enforce_precision(i="arr")
-        def env_grad(_, arr):
+        def env_grad(mu, self, _, arr):
             return (arr - self.prox(arr, tau=mu)) / mu
 
-        moreau_envelope.apply = types.MethodType(env_apply, moreau_envelope)
-        moreau_envelope.grad = types.MethodType(env_grad, moreau_envelope)
+        moreau_envelope.apply = types.MethodType(ft.partial(env_apply, mu, self), moreau_envelope)
+        moreau_envelope.grad = types.MethodType(ft.partial(env_grad, mu, self), moreau_envelope)
         moreau_envelope._diff_lipschitz = 1 / mu
         return moreau_envelope
 
@@ -2005,8 +2008,12 @@ class LinOp(DiffMap, Adjoint):
             The Moore-Penrose pseudo-inverse operator.
         """
         dagger = LinOp(self.shape[::-1])
-        dagger.apply = types.MethodType(lambda obj, x: self.pinv(x, damp, **kwargs), dagger)
-        dagger.adjoint = types.MethodType(lambda obj, x: self.T.pinv(x, damp, **kwargs), dagger)
+        dagger.apply = types.MethodType(
+            ft.partial(lambda damp, kwargs, _, x: self.pinv(x, damp, **kwargs), damp, kwargs), dagger
+        )
+        dagger.adjoint = types.MethodType(
+            ft.partial(lambda damp, kwargs, _, x: self.T.pinv(x, damp, **kwargs), damp, kwargs), dagger
+        )
         return dagger
 
 
