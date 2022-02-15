@@ -2016,6 +2016,64 @@ class LinOp(DiffMap, Adjoint):
         )
         return dagger
 
+    @classmethod
+    def from_sciop(cls, scipy_operator) -> "LinOp":
+        r"""
+        Cast a :py:class:`scipy.sparse.linalg.LinearOperator` instance into a :py:class:`~pycsou.abc.operator.LinOp`
+        instance, compatible with the matrix-free linear algebra routines of `scipy.sparse.linalg <https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html>`_.
+
+        Parameters
+        ----------
+        scipy_operator:  scipy.sparse.linalg.LinearOperator | cupyx.scipy.sparse.linalg.LinearOperator
+            Linear operator object compliant with SciPy's interface.
+
+        Returns
+        -------
+        pycsou.abc.operator.LinOp
+           Output is a :py:class:`~pycsou.abc.operator.LinOp` object.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from pycsou.abc.operator import LinOp
+        >>> from scipy.sparse.linalg import aslinearoperator
+        >>> mat = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int32)
+        >>> sciop = aslinearoperator(mat)
+        >>> linop = LinOp.from_sciop(sciop)
+        >>> x = np.arange(15).reshape(5, 3)
+        >>> np.allclose(linop(x), sciop.matmat(x.T).T) # transpose to satisfy numpy n-dim convention
+        True
+
+
+        .. Warning::
+        This  is a simplified example for illustration puposes only. It may not abide by all the rules listed in the
+        :ref:`developer-notes`.
+
+        See Also
+        --------
+        :py: meth:`~pycsou.abc.operator.LinOp.from_array`, :py: meth:`~pycsou.abc.operator.Map.from_source`
+        """
+
+        def multidim_to_2d(func, arr):
+            return func(arr.transpose().reshape(arr.shape[-1], -1)).reshape(-1, arr.shape[-2::-1]).transpose()
+
+        def apply(cls, arr: pyct.NDArray) -> pyct.NDArray:
+            if arr.ndim <= 2:
+                return scipy_operator.matmat(arr.transpose()).transpose()
+            else:
+                return multidim_to_2d(scipy_operator.matmat, arr)
+
+        def adjoint(cls, arr: pyct.NDArray) -> pyct.NDArray:
+            if arr.ndim <= 2:
+                return scipy_operator.rmatmat(arr.transpose()).transpose()
+            else:
+                return multidim_to_2d(scipy_operator.rmatmat, arr)
+
+        out_op = cls(scipy_operator.shape)
+        setattr(out_op, "apply", types.MethodType(apply, out_op))
+        setattr(out_op, "adjoint", types.MethodType(adjoint, out_op))
+        return out_op
+
 
 class LinFunc(ProxDiffFunc, LinOp):
     r"""
