@@ -2074,6 +2074,47 @@ class LinOp(DiffMap, Adjoint):
         setattr(out_op, "adjoint", types.MethodType(adjoint, out_op))
         return out_op
 
+    @classmethod
+    def from_array(cls, mat: typ.Union[pyct.NDArray, pyct.SparseArray], enable_warnings: bool = True) -> "LinOp":
+        r"""
+        Parameters
+        ----------
+        mat: NDArray | SparseArray
+            (M,N) input array. This is the matrix representation of the linear operator. The input array can be *dense* or *sparse*.
+            In the latter case, it must be an instance of one of the following sparse array classes: :py:class:`sparse.SparseArray`,
+            :py:class:`scipy.sparse.spmatrix`, :py:class:`cupyx.scipy.sparse.spmatrix`. Note that
+        enable_warnings: bool
+            If ``True``, the user will be warned in case of mismatching precision issues.
+
+        Returns
+        -------
+        pycsou.abc.operator.LinOp
+           Output is a :py:class:`~pycsou.abc.operator.LinOp` object.
+
+        Notes
+        -----
+        The input ``mat`` is automatically casted by the decorator :py:func:`~pycsou.runtime.enforce_precision` to the user-requested precision at initialization time.
+        Explicit control over the precision of ``mat`` is hence only possible via the context manager :py:class:`~pycsou.runtime.Precision`:
+        >>> from pycsou.abc.operator import LinOp
+        >>> import pycsou.runtime as pycrt
+        >>> import numpy as np
+        >>> mat = np.arange(10).reshape(2,5) # This array will be recasted to requested precision.
+        >>> with pycrt.Precision(pycrt.Width.HALF):
+        ...     f = LinOp.from_array(mat) # The ``mat`` is stored at the requested precision.
+        ...     # Further calculations with f. Within this context mismatching precisions are avoided.
+
+        Note moreover that sparse inputs with type :py:class:`scipy.sparse.spmatrix` are automatically casted as :py:class:`sparse.SparseArray` which should be
+        the preferred class for representing sparse arrays. Finally, the default sparse storage format is ``'csr'`` (for fast matrix-vector multiplications).
+
+        See Also
+        --------
+        :py: meth:`~pycsou.abc.operator.LinOp.from_sciop`, :py: meth:`~pycsou.abc.operator.Map.from_source`
+
+        """
+        from pycsou.linop.base import ExplicitLinOp
+
+        return ExplicitLinOp(mat, enable_warnings)
+
 
 class LinFunc(ProxDiffFunc, LinOp):
     r"""
