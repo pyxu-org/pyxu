@@ -60,11 +60,12 @@ def allclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> bool:
 #         * in_ are kwargs to `op.<method>()`;
 #         * out denotes the output of `op.method(**data[in_])`.
 #
-# * test_[value,backend,precision]_<method>(op, ...)
+# * test_[value,backend,prec,precCM]_<method>(op, ...)
 #       Verify that <method>, returns
 #       * value: right output values
 #       * backend: right output type
-#       * precision: right output precision
+#       * prec: input/output have same precision
+#       * precCM: output respects context-manager choice
 #
 # * data_math_<method>()
 #       Special test data for mathematical identities.
@@ -143,7 +144,14 @@ class MapT:
         assert type(out) == type(in_["arr"])
 
     @staticmethod
-    def _check_precision(func, data):
+    def _check_prec(func, data):
+        in_ = data["in_"]
+        with pycrt.EnforcePrecision(False):
+            out = func(**in_)
+            assert out.dtype == in_["arr"].dtype
+
+    @staticmethod
+    def _check_precCM(func, data):
         in_ = data["in_"]
         stats = []
         for width in pycrt.Width:
@@ -267,9 +275,13 @@ class MapT:
         self._skip_if_disabled()
         self._check_backend(op.apply, _data_apply)
 
-    def test_precision_apply(self, op, _data_apply):
+    def test_prec_apply(self, op, _data_apply):
         self._skip_if_disabled()
-        self._check_precision(op.apply, _data_apply)
+        self._check_prec(op.apply, _data_apply)
+
+    def test_precCM_apply(self, op, _data_apply):
+        self._skip_if_disabled()
+        self._check_precCM(op.apply, _data_apply)
 
     def test_math_lipschitz(self, op, data_lipschitz, data_math_lipschitz):
         # \norm{f(x) - f(y)}{2} \le L * \norm{x - y}{2}
@@ -422,9 +434,13 @@ class DiffFuncT(FuncT, DiffMapT):
         self._skip_if_disabled()
         self._check_backend(op.grad, _data_grad)
 
-    def test_precision_grad(self, op, _data_grad):
+    def test_prec_grad(self, op, _data_grad):
         self._skip_if_disabled()
-        self._check_precision(op.grad, _data_grad)
+        self._check_prec(op.grad, _data_grad)
+
+    def test_precCM_grad(self, op, _data_grad):
+        self._skip_if_disabled()
+        self._check_precCM(op.grad, _data_grad)
 
     def test_math1_grad(self, op, data_grad):
         # .jacobian/.grad outputs are consistent.
@@ -511,9 +527,13 @@ class ProxFuncT(FuncT):
         self._skip_if_disabled()
         self._check_backend(op.prox, _data_prox)
 
-    def test_precision_prox(self, op, _data_prox):
+    def test_prec_prox(self, op, _data_prox):
         self._skip_if_disabled()
-        self._check_precision(op.prox, _data_prox)
+        self._check_prec(op.prox, _data_prox)
+
+    def test_precCM_prox(self, op, _data_prox):
+        self._skip_if_disabled()
+        self._check_precCM(op.prox, _data_prox)
 
     def test_math_prox(self, op, data_prox):
         # Ensure y = prox_{tau f}(x) minimizes:
@@ -545,9 +565,13 @@ class ProxFuncT(FuncT):
         self._skip_if_disabled()
         self._check_backend(op.fenchel_prox, _data_fenchel_prox)
 
-    def test_precision_fenchel_prox(self, op, _data_fenchel_prox):
+    def test_prec_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
-        self._check_precision(op.fenchel_prox, _data_fenchel_prox)
+        self._check_prec(op.fenchel_prox, _data_fenchel_prox)
+
+    def test_precCM_fenchel_prox(self, op, _data_fenchel_prox):
+        self._skip_if_disabled()
+        self._check_precCM(op.fenchel_prox, _data_fenchel_prox)
 
     def test_interface_moreau_envelope(self, _op_m):
         self._skip_if_disabled()
