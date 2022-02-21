@@ -472,7 +472,7 @@ class DiffFuncT(FuncT, DiffMapT):
         # f(x - \frac{1}{L} \grad_{f}(x)) <= f(x)
         L = op.lipschitz(**data_lipschitz["in_"])
 
-        rng, N_test = npr.default_rng(), 5
+        rng, N_test = npr.default_rng(seed=1), 5
         if (N_dim := op.dim) is None:
             # special treatment for reduction functions
             N_dim = 3
@@ -481,3 +481,184 @@ class DiffFuncT(FuncT, DiffMapT):
         lhs = rhs - op.grad(rhs) / L
 
         assert np.all(op.apply(lhs) <= op.apply(rhs))
+
+
+class ProxFuncT(FuncT):
+    # Class Properties --------------------------------------------------------
+    interface = frozenset(FuncT.interface | {"prox", "fenchel_prox", "moreau_envelope"})
+
+    # Fixtures ----------------------------------------------------------------
+    @pytest.fixture
+    def _op_m(self, op) -> tuple[float, pyco.DiffFunc]:
+        mu = 1.1
+        return mu, op.moreau_envelope(mu)
+
+    @pytest.fixture
+    def data_prox(self) -> DataLike:
+        # override in subclass with 1D input/outputs of op.prox().
+        # Arrays should be NumPy-only. (Internal machinery will transform to different
+        # backend/precisions as needed.)
+        raise NotImplementedError
+
+    @pytest.fixture
+    def _data_prox(self, data_prox, xp, width) -> DataLike:
+        # Generate Cartesian product of inputs.
+        # Do not override in subclass: for internal use only to test `op.prox()`.
+        # Outputs are left unchanged: different tests should transform them as required.
+        in_ = copy.deepcopy(data_prox["in_"])
+        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
+        data = dict(
+            in_=in_,
+            out=data_prox["out"],
+        )
+        return data
+
+    @pytest.fixture
+    def _data_fenchel_prox(self, _data_prox) -> DataLike:
+        # Generate fenchel_prox values from prox ground-truth. (All precision/backends.)
+        # Do not override in subclass: for internal use only to test `op.fenchel_prox()`.
+        p_arr = _data_prox["in_"]["arr"]
+        p_tau = _data_prox["in_"]["tau"]
+        p_out = _data_prox["out"]
+        data = dict(
+            in_=dict(
+                arr=p_arr / p_tau,
+                sigma=1 / p_tau,
+            ),
+            out=(p_arr - p_out) / p_tau,
+        )
+        return data
+
+    # Tests -------------------------------------------------------------------
+    def test_value1D_prox(self, op, _data_prox):
+        if func_name() not in self.disable_test:
+            out_gt = _data_prox["out"]
+
+            in_ = _data_prox["in_"]
+            out = pycu.compute(op.prox(**in_))
+
+            assert out.ndim == in_["arr"].ndim
+            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+
+    def test_valueND_prox(self, op, _data_prox):
+        if func_name() not in self.disable_test:
+            sh_extra = (2, 1)  # prepend input/output shape by this amount.
+
+            out_gt = _data_prox["out"]
+            out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
+
+            in_ = _data_prox["in_"]
+            arr = in_["arr"]
+            xp = pycu.get_array_module(arr)
+            arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
+            in_.update(arr=arr)
+            out = pycu.compute(op.prox(**in_))
+
+            assert out.ndim == in_["arr"].ndim
+            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+
+    def test_backend_prox(self, op, _data_prox):
+        if func_name() not in self.disable_test:
+            in_ = _data_prox["in_"]
+            out = op.prox(**in_)
+
+            assert type(out) == type(in_["arr"])
+
+    def test_precision_prox(self, op, _data_prox):
+        if func_name() not in self.disable_test:
+            in_ = _data_prox["in_"]
+            stats = []
+            for width in pycrt.Width:
+                with pycrt.Precision(width):
+                    out = op.prox(**in_)
+                stats.append(out.dtype == width.value)
+
+            assert all(stats)
+
+    def test_math_prox(self, op, data_prox):
+        # Ensure y = prox_{tau f}(x) minimizes:
+        # 2\tau f(z) - \norm{z - x}{2}^{2}, for any z \in \bR^{N}
+        if func_name() not in self.disable_test:
+            in_ = data_prox["in_"]
+            y = op.prox(**in_)
+            N_dim = y.shape[-1]
+
+            rng, N_test = npr.default_rng(seed=1), 5
+            x = rng.normal(loc=in_["arr"], size=(N_test, N_dim))
+
+            def g(x):
+                a = 2 * in_["tau"] * op.apply(x)
+                b = np.linalg.norm(in_["arr"] - x, axis=-1, keepdims=True) ** 2
+                return a + b
+
+            assert np.all(g(y) <= g(x))
+
+    def test_value1D_fenchel_prox(self, op, _data_fenchel_prox):
+        if func_name() not in self.disable_test:
+            out_gt = _data_fenchel_prox["out"]
+
+            in_ = _data_fenchel_prox["in_"]
+            out = pycu.compute(op.fenchel_prox(**in_))
+
+            assert out.ndim == in_["arr"].ndim
+            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+
+    def test_valueND_fenchel_prox(self, op, _data_fenchel_prox):
+        if func_name() not in self.disable_test:
+            sh_extra = (2, 1)  # prepend input/output shape by this amount.
+
+            out_gt = _data_fenchel_prox["out"]
+            out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
+
+            in_ = _data_fenchel_prox["in_"]
+            arr = in_["arr"]
+            xp = pycu.get_array_module(arr)
+            arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
+            in_.update(arr=arr)
+            out = pycu.compute(op.fenchel_prox(**in_))
+
+            assert out.ndim == in_["arr"].ndim
+            assert allclose(out, out_gt, as_dtype=in_["arr"].dtype)
+
+    def test_backend_fenchel_prox(self, op, _data_fenchel_prox):
+        if func_name() not in self.disable_test:
+            in_ = _data_fenchel_prox["in_"]
+            out = op.fenchel_prox(**in_)
+
+            assert type(out) == type(in_["arr"])
+
+    def test_precision_fenchel_prox(self, op, _data_fenchel_prox):
+        if func_name() not in self.disable_test:
+            in_ = _data_fenchel_prox["in_"]
+            stats = []
+            for width in pycrt.Width:
+                with pycrt.Precision(width):
+                    out = op.fenchel_prox(**in_)
+                stats.append(out.dtype == width.value)
+
+            assert all(stats)
+
+    def test_interface_moreau_envelope(self, _op_m):
+        if func_name() not in self.disable_test:
+            _, op_m = _op_m
+            assert has_interface(op_m, DiffFuncT)
+
+    def test_math1_moreau_envelope(self, op, _op_m, data_apply):
+        # op_m.apply() lower-bounds op.apply()
+        if func_name() not in self.disable_test:
+            _, op_m = _op_m
+            arr = data_apply["in_"]["arr"]
+            lhs = op_m.apply(arr)
+            rhs = op.apply(arr)
+
+            assert lhs <= rhs
+
+    def test_math2_moreau_envelope(self, op, _op_m, data_apply):
+        # op_m.grad(x) * mu = x - op.prox(x, mu)
+        if func_name() not in self.disable_test:
+            mu, op_m = _op_m
+            arr = data_apply["in_"]["arr"]
+            lhs = op_m.grad(arr) * mu
+            rhs = arr - op.prox(arr, mu)
+
+            assert allclose(lhs, rhs, as_dtype=arr.dtype)
