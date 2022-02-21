@@ -6,7 +6,6 @@ import warnings
 import numpy as np
 import scipy.sparse.linalg as splin
 
-import pycsou.linop.base as pycb
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
@@ -2094,7 +2093,9 @@ class LinOp(DiffMap, Adjoint):
         :py:class:`pycsou.linop.base.ExplicitLinOp`, :py:meth:`~pycsou.abc.operator.LinFunc.from_array`.
 
         """
-        return pycb.ExplicitLinOp(mat, enable_warnings)
+        from pycsou.linop.base import ExplicitLinOp
+
+        return ExplicitLinOp(mat, enable_warnings)
 
 
 class LinFunc(ProxDiffFunc, LinOp):
@@ -2156,7 +2157,9 @@ class LinFunc(ProxDiffFunc, LinOp):
         :py:class:`pycsou.linop.base.ExplicitLinFunc`.
 
         """
-        return pycb.ExplicitLinFunc(vec, enable_warnings)
+        from pycsou.linop.base import ExplicitLinFunc
+
+        return ExplicitLinFunc(vec, enable_warnings)
 
 
 class SquareOp(LinOp):
