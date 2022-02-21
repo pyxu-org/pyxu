@@ -4,16 +4,33 @@ import pytest
 import pycsou.runtime as pycrt
 
 
-class TestPrecision:
+class TestPrecisionContextManager:
     @pytest.mark.parametrize("w", pycrt.Width)
     def test_contextManager(self, w: pycrt.Width):
         with pycrt.Precision(w):
             assert pycrt.getPrecision() == w
 
 
-class TestEnforcePrecision:
+class TestEnforcePrecisionContextManager:
+    @pytest.mark.parametrize("state", [True, False])
+    def test_contextManager(self, state: bool):
+        assert pycrt.getCoerceState() == True  # default
+        with pycrt.EnforcePrecision(state):
+            assert pycrt.getCoerceState() == state
+
+
+class TestEnforcePrecisionDecorator:
     def right_dtype(self, x):
         return x.dtype == pycrt.getPrecision().value
+
+    def test_CM_noOp(self):
+        @pycrt.enforce_precision("x")
+        def f(x):
+            return x
+
+        with pycrt.EnforcePrecision(False):
+            x = 1
+            assert x is f(x)
 
     @pytest.mark.parametrize(
         "value",
