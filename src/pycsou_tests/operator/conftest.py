@@ -170,6 +170,19 @@ class MapT:
 
         assert all(stats)
 
+    @staticmethod
+    def _random_array(shape: tuple[int], seed: int = 0):
+        rng = npr.default_rng(seed)
+        x = rng.normal(size=shape)
+        return x
+
+    @staticmethod
+    def _sanitize(x, default):
+        if x is not None:
+            return x
+        else:
+            return default
+
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
     def op(self) -> pyco.Map:
@@ -466,12 +479,8 @@ class DiffFuncT(FuncT, DiffMapT):
         self._skip_if_disabled()
         L = op.lipschitz(**data_lipschitz["in_"])
 
-        rng, N_test = npr.default_rng(seed=1), 5
-        if (N_dim := op.dim) is None:
-            # special treatment for reduction functions
-            N_dim = 3
-
-        rhs = rng.normal(size=(N_test, N_dim))
+        N_test, N_dim = 5, self._sanitize(op.dim, default=3)
+        rhs = self._random_array((N_test, N_dim))
         lhs = rhs - op.grad(rhs) / L
 
         assert np.all(less_equal(op.apply(lhs), op.apply(rhs), as_dtype=lhs.dtype))
@@ -550,10 +559,9 @@ class ProxFuncT(FuncT):
         self._skip_if_disabled()
         in_ = data_prox["in_"]
         y = op.prox(**in_)
-        N_dim = y.shape[-1]
 
-        rng, N_test = npr.default_rng(seed=1), 5
-        x = rng.normal(loc=in_["arr"], size=(N_test, N_dim))
+        N_test, N_dim = 5, y.shape[-1]
+        x = self._random_array((N_test, N_dim)) + in_["arr"]
 
         def g(x):
             a = 2 * in_["tau"] * op.apply(x)
