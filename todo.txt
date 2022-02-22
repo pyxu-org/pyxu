@@ -24,11 +24,11 @@ Sepand
 
   * MapT.test_specialize() skipped -> enable once scaffolding in place.
   * Func.squeeze() fails FuncT.test_squeeze() -> deactivated for now.
-  * DiffMap.test_interface_jacobian() fails since LinOpT not defined -> deactivated for now.
   * test_math_() routines should be conducted for each precision to ensure pre-conditions hold.
 
 * Arithmetic tests
 * Solver tests [APGD for now]
+* Go over all code: refactor docstrings, type hints, etc.
 
    
 
