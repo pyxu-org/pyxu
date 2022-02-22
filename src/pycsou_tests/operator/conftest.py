@@ -46,6 +46,15 @@ def allclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> bool:
     return np.all(isclose(a, b, as_dtype))
 
 
+def less_equal(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
+    """
+    Equivalent of `a <= b`, but where equality tests are done at a chosen numerical precision.
+    """
+    x = a <= b
+    y = isclose(a, b, as_dtype)
+    return x | y
+
+
 # Naming conventions
 # ------------------
 #
@@ -292,7 +301,7 @@ class MapT:
         for x, y in itertools.combinations(data_math_lipschitz, 2):
             lhs = np.linalg.norm(op.apply(x) - op.apply(y))
             rhs = L * np.linalg.norm(x - y)
-            stats.append(lhs <= rhs)
+            stats.append(less_equal(lhs, rhs, as_dtype=data_math_lipschitz.dtype))
 
         assert all(stats)
 
@@ -390,7 +399,7 @@ class DiffMapT(MapT):
         for x, y in itertools.combinations(data_math_diff_lipschitz, 2):
             lhs = np.linalg.norm(J(x) - J(y))
             rhs = dL * np.linalg.norm(x - y)
-            stats.append(lhs <= rhs)
+            stats.append(less_equal(lhs, rhs, as_dtype=data_math_diff_lipschitz.dtype))
 
         assert all(stats)
 
@@ -465,7 +474,7 @@ class DiffFuncT(FuncT, DiffMapT):
         rhs = rng.normal(size=(N_test, N_dim))
         lhs = rhs - op.grad(rhs) / L
 
-        assert np.all(op.apply(lhs) <= op.apply(rhs))
+        assert np.all(less_equal(op.apply(lhs), op.apply(rhs), as_dtype=lhs.dtype))
 
 
 class ProxFuncT(FuncT):
@@ -551,7 +560,7 @@ class ProxFuncT(FuncT):
             b = np.linalg.norm(in_["arr"] - x, axis=-1, keepdims=True) ** 2
             return a + b
 
-        assert np.all(g(y) <= g(x))
+        assert np.all(less_equal(g(y), g(x), as_dtype=y.dtype))
 
     def test_value1D_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
@@ -586,7 +595,7 @@ class ProxFuncT(FuncT):
         lhs = op_m.apply(arr)
         rhs = op.apply(arr)
 
-        assert lhs <= rhs
+        assert less_equal(lhs, rhs, as_dtype=rhs.dtype)
 
     def test_math2_moreau_envelope(self, op, _op_m, data_apply):
         # op_m.grad(x) * mu = x - op.prox(x, mu)
