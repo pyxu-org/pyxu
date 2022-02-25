@@ -120,11 +120,11 @@ class CG(pycs.Solver):
         p = mst["p"]
 
         ap = self._a.apply(p)
-        rr = np.einsum("...j,...j->...", r, r).reshape(*r.shape[:-1], 1)
-        alpha = rr / np.einsum("...j,...j->...", p, ap).reshape(*r.shape[:-1], 1)
+        rr = (r * r).sum(-1)[..., None]
+        alpha = rr / (p * ap).sum(-1)[..., None]
         x = x + alpha * p
         r = r - alpha * ap
-        beta = np.einsum("...j,...j->...", r, r).reshape(*r.shape[:-1], 1) / rr
+        beta = (r * r).sum(-1)[..., None] / rr
         p = r + beta * p
         mst["x"], mst["r"], mst["p"] = x, r, p
 
