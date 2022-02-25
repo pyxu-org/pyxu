@@ -5,6 +5,7 @@ import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
 import pycsou.linop.base as pyclo
 import pycsou.runtime as pycrt
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 
@@ -76,6 +77,8 @@ class CG(pycs.Solver):
         tol: Real
            Tolerance for convergence, norm(residual) <= tol.  Defaults to :math:`1e-5` if unspecified.
         """
+        xp = pycu.get_array_module(self._b)
+
         try:
             assert tol > 0
         except:
@@ -89,15 +92,15 @@ class CG(pycs.Solver):
                     f"(shape {x0.shape} is different from {self._b.shape}."
                 )
         else:
-            x0 = np.zeros(self._b.shape)
+            x0 = xp.zeros(self._b.shape)
         if stop_crit is None:
             stop_crit = pycs.StoppingCriterion()
 
             def info(obj):
-                return {"mean_rnorms": np.mean(obj.r_norms)}
+                return {"mean_rnorms": xp.mean(obj.r_norms)}
 
             def stop(obj, state):
-                obj.r_norms = np.linalg.norm(state["r"], axis=-1)
+                obj.r_norms = xp.linalg.norm(state["r"], axis=-1)
                 return (obj.r_norms < state["tol"]).all()
 
             setattr(stop_crit, "info", types.MethodType(info, stop_crit))
@@ -110,7 +113,7 @@ class CG(pycs.Solver):
     def m_init(self, x0: pyct.NDArray, tol: float = 1e-5):
         self._mstate["x"] = pycrt.coerce(x0)
         self._mstate["r"] = r = self._b - self._a.apply(x0)
-        self._mstate["p"] = np.copy(r)
+        self._mstate["p"] = r.copy()
         self._mstate["tol"] = tol
 
     def m_step(self):
