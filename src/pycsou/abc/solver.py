@@ -566,6 +566,7 @@ class Solver:
 
     class _Worker(threading.Thread):
         def __init__(self, solver: "Solver"):
+            super().__init__()
             self.slvr = solver
 
         def run(self):
