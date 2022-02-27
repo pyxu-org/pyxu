@@ -231,9 +231,12 @@ class MapT:
 
     @pytest.fixture
     def data_lipschitz(self) -> DataLike:
-        # override in subclass with the Lipschitz constant of op.
-        # Don't return `op.lipschitz()`: hard-code what you are expecting.
-        raise NotImplementedError
+        # override in subclass with input/output of op.lipschitz().
+        # "output" does not have to be the true Lipschitz constant: known upper-bound works too.
+        return dict(
+            in_=dict(),
+            out=np.inf,  # valid sentinel value for all operators.
+        )
 
     @pytest.fixture
     def data_apply(self) -> DataLike:
@@ -280,10 +283,16 @@ class MapT:
         assert op.codim == data_shape[0]
 
     def test_lipschitz(self, op, data_lipschitz):
+        # Ensure:
+        # * _lipschitz matches .lipschitz();
+        # * .lipschitz() upper-bounds _lipschitz.
         self._skip_if_disabled()
-        in_ = op.lipschitz(**data_lipschitz["in_"])
-        out = data_lipschitz["out"]
-        assert np.isclose(in_, out)
+        L_memoized = op._lipschitz  # should hold right value after op.__init__()
+        L_computed = op.lipschitz(**data_lipschitz["in_"])
+        L_upper_bound = data_lipschitz["out"]
+
+        assert np.isclose(L_computed, L_memoized)
+        assert L_memoized <= L_upper_bound
 
     def test_value1D_apply(self, op, _data_apply):
         self._skip_if_disabled()
@@ -305,10 +314,10 @@ class MapT:
         self._skip_if_disabled()
         self._check_precCM(op.apply, _data_apply)
 
-    def test_math_lipschitz(self, op, data_lipschitz, data_math_lipschitz):
+    def test_math_lipschitz(self, op, data_math_lipschitz):
         # \norm{f(x) - f(y)}{2} \le L * \norm{x - y}{2}
         self._skip_if_disabled()
-        L = op.lipschitz(**data_lipschitz["in_"])
+        L = op._lipschitz
 
         stats = []
         for x, y in itertools.combinations(data_math_lipschitz, 2):
@@ -367,9 +376,13 @@ class DiffMapT(MapT):
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
     def data_diff_lipschitz(self) -> DataLike:
-        # override in subclass with the Lipschitz constant of op.jacobian().
-        # Don't return `op.diff_lipschitz()`: hard-code what you are expecting.
-        raise NotImplementedError
+        # override in subclass with the input/output of op.diff_lipschitz().
+        # "output" does not have to be true diff-Lipschitz constant: known upper-bound to Lipschitz
+        # constant of op.jacobian() works too.
+        return dict(
+            in_=dict(),
+            out=np.inf,  # valid sentinel value for all operators.
+        )
 
     @pytest.fixture
     def data_math_diff_lipschitz(self) -> cabc.Collection[np.ndarray]:
@@ -380,10 +393,16 @@ class DiffMapT(MapT):
 
     # Tests -------------------------------------------------------------------
     def test_diff_lipschitz(self, op, data_diff_lipschitz):
+        # Ensure:
+        # * _diff_lipschitz matches .diff_lipschitz;
+        # * .diff_lipschitz() upper-bounds _diff_lipschitz.
         self._skip_if_disabled()
-        in_ = op.diff_lipschitz(**data_diff_lipschitz["in_"])
-        out = data_diff_lipschitz["out"]
-        assert np.isclose(in_, out)
+        dL_memoized = op._diff_lipschitz
+        dL_computed = op.diff_lipschitz(**data_diff_lipschitz["in_"])
+        dL_upper_bound = data_diff_lipschitz["out"]
+
+        assert np.isclose(dL_computed, dL_memoized)
+        assert dL_memoized <= dL_upper_bound
 
     def test_squeeze(self, op):
         # op.squeeze() sub-classes to DiffFunc for scalar outputs, and is transparent otherwise.
@@ -399,10 +418,10 @@ class DiffMapT(MapT):
         J = op.jacobian(arr)
         self._check_has_interface(J, LinOpT)
 
-    def test_math_diff_lipschitz(self, op, data_diff_lipschitz, data_math_diff_lipschitz):
+    def test_math_diff_lipschitz(self, op, data_math_diff_lipschitz):
         # \norm{J(x) - J(y)}{F} \le diff_L * \norm{x - y}{2}
         self._skip_if_disabled()
-        dL = op.diff_lipschitz(**data_diff_lipschitz["in_"])
+        dL = op._diff_lipschitz
         J = lambda _: op.jacobian(_).asarray().flatten()
         # .flatten() used to consistently compare jacobians via the L2 norm.
         # (Allows one to re-use this test for scalar-valued DiffMaps.)
@@ -473,10 +492,10 @@ class DiffFuncT(FuncT, DiffMapT):
         assert J.size == g.size
         assert allclose(J.squeeze(), g, as_dtype=arr.dtype)
 
-    def test_math2_grad(self, op, data_lipschitz):
+    def test_math2_grad(self, op):
         # f(x - \frac{1}{L} \grad_{f}(x)) <= f(x)
         self._skip_if_disabled()
-        L = op.lipschitz(**data_lipschitz["in_"])
+        L = op._lipschitz
 
         N_test, N_dim = 5, self._sanitize(op.dim, default=3)
         rhs = self._random_array((N_test, N_dim))
