@@ -1564,7 +1564,7 @@ class DiffFunc(DiffMap, Func, Gradient):
         super(DiffFunc, self).__init__(shape)
 
 
-class ProxDiffFunc(ProxFunc, Gradient):
+class ProxDiffFunc(ProxFunc, DiffFunc):
     r"""
     Base class for real-valued differentiable *and* proximable functionals :math:`f:\mathbb{R}^M\to\mathbb{R}`.
 
