@@ -1,5 +1,4 @@
 import numpy as np
-import numpy.random as npr
 import pytest
 
 import pycsou.abc.operator as pyco
@@ -13,12 +12,8 @@ class SquaredL2Norm(pyco.ProxDiffFunc):
     #      x     -> \norm{x}{2}^{2}
     def __init__(self, M: int = None):
         super().__init__(shape=(1, M))
-
-    def lipschitz(self, **kwargs):
-        return np.inf
-
-    def diff_lipschitz(self, **kwargs):
-        return 2
+        self._lipschitz = np.inf
+        self._diff_lipschitz = 2
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):
@@ -50,20 +45,6 @@ class TestSquaredL2Norm(conftest.ProxDiffFuncT):
     def data_shape(self, dim):
         return (1, dim)
 
-    @pytest.fixture
-    def data_lipschitz(self):
-        return dict(
-            in_=dict(),
-            out=np.inf,
-        )
-
-    @pytest.fixture
-    def data_diff_lipschitz(self):
-        return dict(
-            in_=dict(),
-            out=2,
-        )
-
     @pytest.fixture(
         params=[  # 2 evaluation points
             dict(
@@ -81,17 +62,13 @@ class TestSquaredL2Norm(conftest.ProxDiffFuncT):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        rng, N_test = npr.default_rng(seed=5), 5
-        if dim is None:
-            dim = 3
-        return rng.normal(size=(N_test, dim))  # 5 test points
+        N_test, dim = 5, dim if (dim is not None) else 3
+        return self._random_array((N_test, dim), seed=5)
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, dim):
-        rng, N_test = npr.default_rng(seed=6), 5
-        if dim is None:
-            dim = 3
-        return rng.normal(size=(N_test, dim))  # 5 test points
+        N_test, dim = 5, dim if (dim is not None) else 3
+        return self._random_array((N_test, dim), seed=6)
 
     @pytest.fixture(
         params=[  # 2 evaluation points

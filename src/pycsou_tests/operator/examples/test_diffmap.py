@@ -1,5 +1,4 @@
 import numpy as np
-import numpy.random as npr
 import pytest
 
 import pycsou.abc.operator as pyco
@@ -14,12 +13,8 @@ class Sin(pyco.DiffMap):
     #      x     -> sin(x)
     def __init__(self, M: int):
         super().__init__(shape=(M, M))
-
-    def lipschitz(self, **kwargs):
-        return 1
-
-    def diff_lipschitz(self, **kwargs):
-        return 1
+        self._lipschitz = 1
+        self._diff_lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):
@@ -47,20 +42,6 @@ class TestSin(conftest.DiffMapT):
         return (dim, dim)
 
     @pytest.fixture
-    def data_lipschitz(self):
-        return dict(
-            in_=dict(),
-            out=1,
-        )
-
-    @pytest.fixture
-    def data_diff_lipschitz(self):
-        return dict(
-            in_=dict(),
-            out=1,
-        )
-
-    @pytest.fixture
     def data_apply(self, dim):
         A = np.linspace(0, np.pi / 2, dim)
         B = np.sin(A)
@@ -71,10 +52,10 @@ class TestSin(conftest.DiffMapT):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        rng, N_test = npr.default_rng(seed=3), 5
-        return rng.normal(size=(N_test, dim))  # 5 test points
+        N_test = 5
+        return self._random_array((N_test, dim))
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, dim):
-        rng, N_test = npr.default_rng(seed=4), 5
-        return rng.normal(size=(N_test, dim))  # 5 test points
+        N_test = 5
+        return self._random_array((N_test, dim))

@@ -1,7 +1,6 @@
 import warnings
 
 import numpy as np
-import numpy.random as npr
 import pytest
 
 import pycsou.abc.operator as pyco
@@ -16,6 +15,7 @@ class L1Norm(pyco.ProxFunc):
     #      x     -> \norm{x}{1}
     def __init__(self, M: int = None):
         super().__init__(shape=(1, M))
+        self._lipschitz = self.lipschitz(M=M, warn=False)
 
     def lipschitz(
         self,
@@ -112,7 +112,5 @@ class TestL1Norm(conftest.ProxFuncT):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        if dim is None:
-            dim = 3
-        rng = npr.default_rng(seed=7)
-        return rng.normal(size=(5, dim))  # 5 test points
+        N_test, dim = 5, dim if (dim is not None) else 3
+        return self._random_array((N_test, dim))
