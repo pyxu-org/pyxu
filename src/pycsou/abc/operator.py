@@ -1527,7 +1527,7 @@ class ProxFunc(Func, Proximal):
         return moreau_envelope
 
 
-class DiffFunc(Func, Gradient, DiffMap):
+class DiffFunc(DiffMap, Func, Gradient):
     r"""
     Base class for real-valued differentiable functionals :math:`f:\mathbb{R}^M\to\mathbb{R}`.
 
