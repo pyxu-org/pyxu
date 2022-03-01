@@ -28,7 +28,7 @@ class CG(pycs.Solver):
        {\mathbf{A}\mathbf{x} = \mathbf{b}},
     for the vector :math:`\mathcal{x}: \mathbb{x}^N`.
     where:
-    * :math:`\mathcal{A}: \mathbb{R}^M\times^N` is a *symmetric* *positive definite* matrix.
+    * :math:`\mathcal{A}: \mathbb{R}^M\times^N` is a *symmetric* *positive definite* operator.
     * :math:`\mathcal{b}: \mathbb{b}^M`.
     """
 
@@ -48,17 +48,17 @@ class CG(pycs.Solver):
     def fit(
         self,
         x0: pyct.NDArray = None,
-        stop_crit: pycs.StoppingCriterion = None,
         mode: pycs.Mode = pycs.Mode.BLOCK,
         tol: float = 1e-5,
     ):
         r"""
         Solve the minimization problem defined in :py:meth:`CG.__init__`, with the provided
         run-specific parameters.
+
         Parameters
         ----------
         x0: NDArray
-           (..., N) Starting guess(es) for the solution(s). Defaults to a zero NDArray if unspecified.
+           (..., N) Initial point(s) for the solution(s). Defaults to a zero NDArray if unspecified.
         mode: Mode
            Execution mode. See :py:class:`Solver` for usage examples.
            Useful method pairs depending on the execution mode:
@@ -72,23 +72,13 @@ class CG(pycs.Solver):
 
         xp = pycu.get_array_module(self._b)
         x0 = x0 if (x0 is None) else pycrt.coerce(x0)
-        try:
-            assert not ((stop_crit is None) and (tol is None))
-        except:
-            raise ValueError(f"Both `stop_crit` and `tol` cannot be left undefined. Please define one.")
-        if stop_crit is None:
-            try:
-                assert tol > 0
-            except:
-                raise ValueError(f"tol must be positive, got {tol}.")
-            stop_crit = pycos.AbsError(eps=tol, var="r")
 
-        elif (stop_crit is not None) and (tol is not None):
-            warnings.warn(
-                "The `tol` tolerance value given will be ignored. A custom-made Stopping Criterion has been "
-                "given as argument. To avoid this warning use `tol=None` or use the default stopping "
-                "criterion"
-            )
+        try:
+            assert tol > 0
+        except:
+            raise ValueError(f"tol must be positive, got {tol}.")
+        stop_crit = pycos.AbsError(eps=tol, var="r")
+
         if x0 is not None:
             try:
                 assert is_broadcastable(x0, self._b)
@@ -120,13 +110,13 @@ class CG(pycs.Solver):
         x = mst["x"]
         r = mst["r"]
         p = mst["p"]
-
+        xp = pycu.get_array_module(x)
         ap = self._a.apply(p)
-        rr = (r * r).sum(-1)[..., None]
-        alpha = rr / (p * ap).sum(-1)[..., None]
+        rr = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2
+        alpha = rr / (p * ap).sum(axis=-1, keepdims=True)
         x = x + alpha * p
         r = r - alpha * ap
-        beta = (r * r).sum(-1)[..., None] / rr
+        beta = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
         p = r + beta * p
         mst["x"], mst["r"], mst["p"] = x, r, p
 
