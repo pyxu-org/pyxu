@@ -180,9 +180,7 @@ def vectorize(i: pyct.VarName) -> cabc.Callable:
 
         @functools.wraps(func)
         def wrapper(*ARGS, **KWARGS):
-            func_args = sig.bind(*ARGS, **KWARGS)
-            func_args.apply_defaults()
-            func_args = func_args.arguments
+            func_args = parse_params(func, *ARGS, **KWARGS)
 
             x = func_args[i]
             if is_1d := x.ndim == 1:
