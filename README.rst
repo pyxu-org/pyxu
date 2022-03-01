@@ -39,7 +39,7 @@ Developper Install
 .. code-block:: bash
 
    $ git clone https://github.com/matthieumeo/pycsou && cd pycsou
-   $ conda create -n pycsou --file=conda/requirements.txt
+   $ conda create -n pycsou --channel=conda-forge --file=conda/requirements.txt
    $ conda activate pycsou
    $ python3 -m pip install -e ".[dev]"
    $ pre-commit install
