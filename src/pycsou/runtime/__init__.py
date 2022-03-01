@@ -7,6 +7,7 @@ import numbers as nb
 
 import numpy as np
 
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 
@@ -139,12 +140,20 @@ def coerce(x):
     """
     dtype = getPrecision().value
     try:
+        xp = pycu.get_array_module(x)
+    except:
+        raise ValueError(f"Cannot get array module of {type(x)}.")
+
+    try:
         if isinstance(x, pyct.Real):
-            return np.array(x, dtype=dtype)[()]
+            return xp.array(x, dtype=dtype)[()]
         elif isinstance(x, nb.Number):
             raise  # other number categories cannot be converted.
         else:
-            return x.astype(dtype, copy=False, casting="same_kind")
+            if xp == np:
+                return x.astype(dtype, copy=False, casting="same_kind")
+            else:
+                return x.astype(dtype, copy=False)
     except:
         raise TypeError(f"Cannot coerce {type(x)} to scalar/array of precision {dtype}.")
 
