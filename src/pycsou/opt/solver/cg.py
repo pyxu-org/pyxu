@@ -1,12 +1,23 @@
-import types
-import typing as typ
+import warnings
 
 import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
-import pycsou.linop.base as pyclo
+import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
+
+
+def is_broadcastable(arr1, arr2):
+    shp1, shp2 = arr1.shape, arr2.shape
+    if shp1[-1] != shp2[-1]:
+        return False
+    for a, b in zip(shp1[:-1], shp2[:-1]):
+        if a == 1 or b == 1 or a == b:
+            pass
+        else:
+            return False
+    return True
 
 
 class CG(pycs.Solver):
@@ -23,33 +34,16 @@ class CG(pycs.Solver):
 
     def __init__(
         self,
-        a: typ.Optional[pyco.PosDefOp] = None,
-        b: pyct.NDArray = None,
-        *,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
+        a: pyco.PosDefOp,
+        b: pyct.NDArray,
         log_var: pyct.VarName = ("x",),
     ):
         super().__init__(
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
             log_var=log_var,
         )
 
-        self._a = pyclo.NullOp() if (a is None) else a
-        self._b = b if (b is None) else pycrt.coerce(b)
-
-        if (a is None) or (b is None):
-            msg = " ".join(
-                [
-                    "Both the linear operator `a` and the data array `b` must be specified.",
-                ]
-            )
-            raise ValueError(msg)
+        self._a = a
+        self._b = pycrt.coerce(b)
 
     def fit(
         self,
@@ -60,14 +54,11 @@ class CG(pycs.Solver):
     ):
         r"""
         Solve the minimization problem defined in :py:meth:`CG.__init__`, with the provided
-        run-specifc parameters.
+        run-specific parameters.
         Parameters
         ----------
         x0: NDArray
            (..., N) Starting guess(es) for the solution(s). Defaults to a zero NDArray if unspecified.
-        stop_crit: StoppingCriterion
-            Stopping criterion to end solver iterations. Defaults to a stopping criterion based on the convergence of
-            the norm of the residual, up to the specified tolerance `tol`.
         mode: Mode
            Execution mode. See :py:class:`Solver` for usage examples.
            Useful method pairs depending on the execution mode:
@@ -77,20 +68,35 @@ class CG(pycs.Solver):
         tol: Real
            Tolerance for convergence, norm(residual) <= tol.  Defaults to :math:`1e-5` if unspecified.
         """
+        # Create a stopping criteria from opt, using tol, and then call super().fit() method
+
         xp = pycu.get_array_module(self._b)
         x0 = x0 if (x0 is None) else pycrt.coerce(x0)
-
         try:
-            assert tol > 0
+            assert not ((stop_crit is None) and (tol is None))
         except:
-            raise ValueError(f"tol must be positive, got {tol}.")
+            raise ValueError(f"Both `stop_crit` and `tol` cannot be left undefined. Please define one.")
+        if stop_crit is None:
+            try:
+                assert tol > 0
+            except:
+                raise ValueError(f"tol must be positive, got {tol}.")
+            stop_crit = pycos.AbsError(eps=tol, var="r")
+
+        elif (stop_crit is not None) and (tol is not None):
+            warnings.warn(
+                "The `tol` tolerance value given will be ignored. A custom-made Stopping Criterion has been "
+                "given as argument. To avoid this warning use `tol=None` or use the default stopping "
+                "criterion"
+            )
         if x0 is not None:
             try:
-                assert x0.shape == self._b.shape
+                assert is_broadcastable(x0, self._b)
+
             except:
                 raise ValueError(
                     f"Input initial guess has a mismatch in its shape dimension with data array `b` "
-                    f"(shape {x0.shape} is different from {self._b.shape})."
+                    f"(shape {x0.shape} is not broadcastable with {self._b.shape})."
                 )
             try:
                 assert pycu.get_array_module(x0) == xp
@@ -100,34 +106,14 @@ class CG(pycs.Solver):
                     f"(array module {pycu.get_array_module(x0)} is different from {xp}."
                 )
         else:
-            x0 = xp.zeros(self._b.shape, dtype=pycrt.getPrecision().value)
-        if stop_crit is None:
-            stop_crit = pycs.StoppingCriterion()
+            x0 = xp.zeros((1, self._b.shape[-1]), dtype=pycrt.getPrecision().value)
 
-            def info(obj):
-                mean_norms = xp.mean(obj.r_norms)
-                try:
-                    mean_norms = mean_norms.get()
-                except:
-                    pass
-                return {"mean_rnorms": mean_norms}
-
-            def stop(obj, state):
-                obj.r_norms = xp.linalg.norm(state["r"], axis=-1)
-                return (obj.r_norms < state["tol"]).all()
-
-            setattr(stop_crit, "info", types.MethodType(info, stop_crit))
-            setattr(stop_crit, "stop", types.MethodType(stop, stop_crit))
-        self._fit_init(mode=mode, stop_crit=stop_crit)
-        self._astate["history"] = []  # todo REMOVE line
-        self.m_init(x0=x0, tol=tol)
-        self._fit_run()
+        return super().fit(x0, mode=mode, stop_crit=stop_crit)
 
     def m_init(self, x0: pyct.NDArray, tol: float = 1e-5):
         self._mstate["x"] = x0
         self._mstate["r"] = r = self._b - self._a.apply(x0)
         self._mstate["p"] = r.copy()
-        self._mstate["tol"] = tol
 
     def m_step(self):
         mst = self._mstate
