@@ -139,21 +139,14 @@ def coerce(x):
         Fails if operation is impossible or unsafe. (I.e. casting complex-valued data.)
     """
     dtype = getPrecision().value
-    try:
-        xp = pycu.get_array_module(x)
-    except:
-        raise ValueError(f"Cannot get array module of {type(x)}.")
 
     try:
         if isinstance(x, pyct.Real):
-            return xp.array(x, dtype=dtype)[()]
+            return np.array(x, dtype=dtype)[()]
         elif isinstance(x, nb.Number):
             raise  # other number categories cannot be converted.
         else:
-            if xp == np:
-                return x.astype(dtype, copy=False, casting="same_kind")
-            else:
-                return x.astype(dtype, copy=False)
+            return x.astype(dtype, copy=False)
     except:
         raise TypeError(f"Cannot coerce {type(x)} to scalar/array of precision {dtype}.")
 
