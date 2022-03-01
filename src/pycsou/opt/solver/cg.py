@@ -78,6 +78,7 @@ class CG(pycs.Solver):
            Tolerance for convergence, norm(residual) <= tol.  Defaults to :math:`1e-5` if unspecified.
         """
         xp = pycu.get_array_module(self._b)
+        x0 = x0 if (x0 is None) else pycrt.coerce(x0)
 
         try:
             assert tol > 0
@@ -85,19 +86,31 @@ class CG(pycs.Solver):
             raise ValueError(f"tol must be positive, got {tol}.")
         if x0 is not None:
             try:
-                assert x0.shape == self._b
+                assert x0.shape == self._b.shape
             except:
                 raise ValueError(
                     f"Input initial guess has a mismatch in its shape dimension with data array `b` "
-                    f"(shape {x0.shape} is different from {self._b.shape}."
+                    f"(shape {x0.shape} is different from {self._b.shape})."
+                )
+            try:
+                assert pycu.get_array_module(x0) == xp
+            except:
+                raise ValueError(
+                    f"Input initial guess has a mismatch in its shape array module with data array `b` "
+                    f"(array module {pycu.get_array_module(x0)} is different from {xp}."
                 )
         else:
-            x0 = xp.zeros(self._b.shape)
+            x0 = xp.zeros(self._b.shape, dtype=pycrt.getPrecision().value)
         if stop_crit is None:
             stop_crit = pycs.StoppingCriterion()
 
             def info(obj):
-                return {"mean_rnorms": xp.mean(obj.r_norms)}
+                mean_norms = xp.mean(obj.r_norms)
+                try:
+                    mean_norms = mean_norms.get()
+                except:
+                    pass
+                return {"mean_rnorms": mean_norms}
 
             def stop(obj, state):
                 obj.r_norms = xp.linalg.norm(state["r"], axis=-1)
@@ -111,7 +124,7 @@ class CG(pycs.Solver):
         self._fit_run()
 
     def m_init(self, x0: pyct.NDArray, tol: float = 1e-5):
-        self._mstate["x"] = pycrt.coerce(x0)
+        self._mstate["x"] = x0
         self._mstate["r"] = r = self._b - self._a.apply(x0)
         self._mstate["p"] = r.copy()
         self._mstate["tol"] = tol
@@ -131,6 +144,7 @@ class CG(pycs.Solver):
         p = r + beta * p
         mst["x"], mst["r"], mst["p"] = x, r, p
 
+    @pycrt.enforce_precision(o=True)
     def solution(self) -> pyct.NDArray:
         """
         Returns
