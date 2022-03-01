@@ -2,11 +2,11 @@ import collections.abc as cabc
 import contextlib
 import enum
 import functools
-import inspect
 import numbers as nb
 
 import numpy as np
 
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 
@@ -126,10 +126,7 @@ def enforce_precision(
     def decorator(func: cabc.Callable) -> cabc.Callable:
         @functools.wraps(func)
         def wrapper(*ARGS, **KWARGS):
-            sig = inspect.Signature.from_callable(func)
-            func_args = sig.bind(*ARGS, **KWARGS)
-            func_args.apply_defaults()
-            func_args = func_args.arguments
+            func_args = pycu.parse_params(func, *ARGS, **KWARGS)
 
             for k in [i] if isinstance(i, str) else i:
                 if k not in func_args:
