@@ -1,4 +1,6 @@
-import warnings
+import typing as typ
+
+import numpy as np
 
 import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
@@ -8,37 +10,32 @@ import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 
-def is_broadcastable(arr1, arr2):
-    shp1, shp2 = arr1.shape, arr2.shape
-    if shp1[-1] != shp2[-1]:
-        return False
-    for a, b in zip(shp1[:-1], shp2[:-1]):
-        if a == 1 or b == 1 or a == b:
-            pass
-        else:
-            return False
-    return True
-
-
 class CG(pycs.Solver):
     r"""
     Conjugate Gradient Method.
-    The Conjugate Gradient method solves the system of linear equations of the form
-    .. math::
-       {\mathbf{A}\mathbf{x} = \mathbf{b}},
-    for the vector :math:`\mathcal{x}: \mathbb{x}^N`.
+    The Conjugate Gradient method solves a minimization problem of the form
+     .. math::
+        {\argmin_{x\in\mathbb{R}^{N}} ||Ax - b||_{2}^{2}},
     where:
-    * :math:`\mathcal{A}: \mathbb{R}^M\times^N` is a *symmetric* *positive definite* operator.
-    * :math:`\mathcal{b}: \mathbb{b}^M`.
+    * :math:`\mathcal{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}` is a *symmetric* *positive definite* operator.
+    * :math:`\mathcal{b}: \mathbb{b}^{N}`.
     """
 
     def __init__(
         self,
         a: pyco.PosDefOp,
         b: pyct.NDArray,
+        folder: typ.Optional[pyct.PathLike] = None,
+        exist_ok: bool = False,
+        writeback_rate: typ.Optional[int] = None,
+        verbosity: int = 1,
         log_var: pyct.VarName = ("x",),
     ):
         super().__init__(
+            folder=folder,
+            exist_ok=exist_ok,
+            writeback_rate=writeback_rate,
+            verbosity=verbosity,
             log_var=log_var,
         )
 
@@ -72,38 +69,34 @@ class CG(pycs.Solver):
 
         xp = pycu.get_array_module(self._b)
         x0 = x0 if (x0 is None) else pycrt.coerce(x0)
-
-        try:
-            assert tol > 0
-        except:
-            raise ValueError(f"tol must be positive, got {tol}.")
         stop_crit = pycos.AbsError(eps=tol, var="r")
 
         if x0 is not None:
-            try:
-                assert is_broadcastable(x0, self._b)
-
-            except:
-                raise ValueError(
-                    f"Input initial guess has a mismatch in its shape dimension with data array `b` "
-                    f"(shape {x0.shape} is not broadcastable with {self._b.shape})."
-                )
+            msg = f"Input initial guess has a mismatch in its shape dimension with data array `b` "
+            f"(shape {x0.shape} is not broadcastable with {self._b.shape})."
+            if x0.shape[-1] != self._b.shape[-1]:
+                raise ValueError(msg)
+            else:
+                try:
+                    np.broadcast_shapes(x0.shape, self._b.shape)
+                except:
+                    raise ValueError(msg)
             try:
                 assert pycu.get_array_module(x0) == xp
             except:
                 raise ValueError(
-                    f"Input initial guess has a mismatch in its shape array module with data array `b` "
+                    f"Input initial guess has a mismatch in its array module with data array `b` "
                     f"(array module {pycu.get_array_module(x0)} is different from {xp}."
                 )
         else:
-            x0 = xp.zeros((1, self._b.shape[-1]), dtype=pycrt.getPrecision().value)
+            x0 = xp.zeros((1, self._b.shape[-1]), dtype=self._b.dtype)
 
         return super().fit(x0, mode=mode, stop_crit=stop_crit)
 
     def m_init(self, x0: pyct.NDArray, tol: float = 1e-5):
         self._mstate["x"] = x0
-        self._mstate["r"] = r = self._b - self._a.apply(x0)
-        self._mstate["p"] = r.copy()
+        self._mstate["r"] = self._b - self._a.apply(x0)
+        self._mstate["p"] = self._mstate["r"].copy()
 
     def m_step(self):
         mst = self._mstate
@@ -120,7 +113,6 @@ class CG(pycs.Solver):
         p = r + beta * p
         mst["x"], mst["r"], mst["p"] = x, r, p
 
-    @pycrt.enforce_precision(o=True)
     def solution(self) -> pyct.NDArray:
         """
         Returns
