@@ -1,9 +1,10 @@
-import types
 import typing as typ
+
+import numpy as np
 
 import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
-import pycsou.linop.base as pyclo
+import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
@@ -12,20 +13,18 @@ import pycsou.util.ptype as pyct
 class CG(pycs.Solver):
     r"""
     Conjugate Gradient Method.
-    The Conjugate Gradient method solves the system of linear equations of the form
-    .. math::
-       {\mathbf{A}\mathbf{x} = \mathbf{b}},
-    for the vector :math:`\mathcal{x}: \mathbb{x}^N`.
+    The Conjugate Gradient method solves a minimization problem of the form
+     .. math::
+        {\argmin_{x\in\mathbb{R}^{N}} ||Ax - b||_{2}^{2}},
     where:
-    * :math:`\mathcal{A}: \mathbb{R}^M\times^N` is a *symmetric* *positive definite* matrix.
-    * :math:`\mathcal{b}: \mathbb{b}^M`.
+    * :math:`\mathcal{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}` is a *symmetric* *positive definite* operator.
+    * :math:`\mathcal{b}: \mathbb{b}^{N}`.
     """
 
     def __init__(
         self,
-        a: typ.Optional[pyco.PosDefOp] = None,
-        b: pyct.NDArray = None,
-        *,
+        a: pyco.PosDefOp,
+        b: pyct.NDArray,
         folder: typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
         writeback_rate: typ.Optional[int] = None,
@@ -40,34 +39,22 @@ class CG(pycs.Solver):
             log_var=log_var,
         )
 
-        self._a = pyclo.NullOp() if (a is None) else a
-        self._b = b if (b is None) else pycrt.coerce(b)
-
-        if (a is None) or (b is None):
-            msg = " ".join(
-                [
-                    "Both the linear operator `a` and the data array `b` must be specified.",
-                ]
-            )
-            raise ValueError(msg)
+        self._a = a
+        self._b = pycrt.coerce(b)
 
     def fit(
         self,
         x0: pyct.NDArray = None,
-        stop_crit: pycs.StoppingCriterion = None,
         mode: pycs.Mode = pycs.Mode.BLOCK,
         tol: float = 1e-5,
     ):
         r"""
         Solve the minimization problem defined in :py:meth:`CG.__init__`, with the provided
-        run-specifc parameters.
+        run-specific parameters.
         Parameters
         ----------
         x0: NDArray
-           (..., N) Starting guess(es) for the solution(s). Defaults to a zero NDArray if unspecified.
-        stop_crit: StoppingCriterion
-            Stopping criterion to end solver iterations. Defaults to a stopping criterion based on the convergence of
-            the norm of the residual, up to the specified tolerance `tol`.
+           (..., N) Initial point(s) for the solution(s). Defaults to a zero NDArray if unspecified.
         mode: Mode
            Execution mode. See :py:class:`Solver` for usage examples.
            Useful method pairs depending on the execution mode:
@@ -77,74 +64,54 @@ class CG(pycs.Solver):
         tol: Real
            Tolerance for convergence, norm(residual) <= tol.  Defaults to :math:`1e-5` if unspecified.
         """
+        # Create a stopping criteria from opt, using tol, and then call super().fit() method
+
         xp = pycu.get_array_module(self._b)
         x0 = x0 if (x0 is None) else pycrt.coerce(x0)
+        stop_crit = pycos.AbsError(eps=tol, var="r")
 
-        try:
-            assert tol > 0
-        except:
-            raise ValueError(f"tol must be positive, got {tol}.")
         if x0 is not None:
-            try:
-                assert x0.shape == self._b.shape
-            except:
-                raise ValueError(
-                    f"Input initial guess has a mismatch in its shape dimension with data array `b` "
-                    f"(shape {x0.shape} is different from {self._b.shape})."
-                )
+            msg = f"Input initial guess has a mismatch in its shape dimension with data array `b` "
+            f"(shape {x0.shape} is not broadcastable with {self._b.shape})."
+            if x0.shape[-1] != self._b.shape[-1]:
+                raise ValueError(msg)
+            else:
+                try:
+                    np.broadcast_shapes(x0.shape, self._b.shape)
+                except:
+                    raise ValueError(msg)
             try:
                 assert pycu.get_array_module(x0) == xp
             except:
                 raise ValueError(
-                    f"Input initial guess has a mismatch in its shape array module with data array `b` "
+                    f"Input initial guess has a mismatch in its array module with data array `b` "
                     f"(array module {pycu.get_array_module(x0)} is different from {xp}."
                 )
         else:
-            x0 = xp.zeros(self._b.shape, dtype=pycrt.getPrecision().value)
-        if stop_crit is None:
-            stop_crit = pycs.StoppingCriterion()
+            x0 = xp.zeros((1, self._b.shape[-1]), dtype=self._b.dtype)
 
-            def info(obj):
-                mean_norms = xp.mean(obj.r_norms)
-                try:
-                    mean_norms = mean_norms.get()
-                except:
-                    pass
-                return {"mean_rnorms": mean_norms}
-
-            def stop(obj, state):
-                obj.r_norms = xp.linalg.norm(state["r"], axis=-1)
-                return (obj.r_norms < state["tol"]).all()
-
-            setattr(stop_crit, "info", types.MethodType(info, stop_crit))
-            setattr(stop_crit, "stop", types.MethodType(stop, stop_crit))
-        self._fit_init(mode=mode, stop_crit=stop_crit)
-        self._astate["history"] = []  # todo REMOVE line
-        self.m_init(x0=x0, tol=tol)
-        self._fit_run()
+        return super().fit(x0, mode=mode, stop_crit=stop_crit)
 
     def m_init(self, x0: pyct.NDArray, tol: float = 1e-5):
         self._mstate["x"] = x0
-        self._mstate["r"] = r = self._b - self._a.apply(x0)
-        self._mstate["p"] = r.copy()
-        self._mstate["tol"] = tol
+        self._mstate["r"] = self._b - self._a.apply(x0)
+        self._mstate["p"] = self._mstate["r"].copy()
 
     def m_step(self):
         mst = self._mstate
         x = mst["x"]
         r = mst["r"]
         p = mst["p"]
-
+        xp = pycu.get_array_module(x)
         ap = self._a.apply(p)
-        rr = (r * r).sum(-1)[..., None]
-        alpha = rr / (p * ap).sum(-1)[..., None]
+        rr = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2
+        alpha = rr / (p * ap).sum(axis=-1, keepdims=True)
         x = x + alpha * p
         r = r - alpha * ap
-        beta = (r * r).sum(-1)[..., None] / rr
+        beta = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
         p = r + beta * p
         mst["x"], mst["r"], mst["p"] = x, r, p
 
-    @pycrt.enforce_precision(o=True)
     def solution(self) -> pyct.NDArray:
         """
         Returns

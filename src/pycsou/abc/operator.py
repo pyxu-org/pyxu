@@ -1675,7 +1675,7 @@ class LinOp(DiffMap, Adjoint):
         adj._lipschitz = self._lipschitz
         return adj
 
-    def to_scipy_operator(self, dtype: typ.Optional[type] = None, cupyx: bool = False) -> splin.LinearOperator:
+    def to_sciop(self, dtype: typ.Optional[type] = None, cupyx: bool = False) -> splin.LinearOperator:
         r"""
         Cast a :py:class:`~pycsou.abc.operator.LinOp` instance into a :py:class:`scipy.sparse.linalg.LinearOperator` instance,
         compatible with the matrix-free linear algebra routines of `scipy.sparse.linalg <https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html>`_.
@@ -1796,7 +1796,7 @@ class LinOp(DiffMap, Adjoint):
         for more information on its behaviour and the underlying ARPACK/LOBPCG functions it relies on.
         """
         kwargs.update(dict(k=k, which=which, return_singular_vectors=False))
-        SciOp = self.to_scipy_operator(pycrt.getPrecision().value, cupyx=gpu)
+        SciOp = self.to_sciop(pycrt.getPrecision().value, cupyx=gpu)
         if pycu.deps.CUPY_ENABLED and gpu:
             import cupyx.scipy.sparse.linalg as spx
         else:
@@ -2060,7 +2060,7 @@ class LinOp(DiffMap, Adjoint):
         See Also
         --------
         :py:meth:`~pycsou.abc.operator.LinOp.from_array`, :py:meth:`~pycsou.abc.operator.Map.from_source` and
-        :py:meth:`~pycsou.abc.operator.LinOp.to_scipy_operator`.
+        :py:meth:`~pycsou.abc.operator.LinOp.to_sciop`.
         """
 
         if scipy_operator.dtype not in [elem.value for elem in pycrt.Width]:
@@ -2236,7 +2236,7 @@ class NormalOp(SquareOp):
             import cupyx.scipy.sparse.linalg as spx
         else:
             spx = splin
-        return spx.eigs(self.to_scipy_operator(pycrt.getPrecision().value, cupyx=gpu), **kwargs)
+        return spx.eigs(self.to_sciop(pycrt.getPrecision().value, cupyx=gpu), **kwargs)
 
     def cogram(self) -> "NormalOp":
         r"""
@@ -2274,7 +2274,7 @@ class SelfAdjointOp(NormalOp):
             import cupyx.scipy.sparse.linalg as spx
         else:
             spx = splin
-        return spx.eigsh(self.to_scipy_operator(pycrt.getPrecision().value, cupyx=gpu), **kwargs)
+        return spx.eigsh(self.to_sciop(pycrt.getPrecision().value, cupyx=gpu), **kwargs)
 
 
 class UnitOp(NormalOp):

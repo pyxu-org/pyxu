@@ -2,7 +2,6 @@ import collections.abc as cabc
 import contextlib
 import enum
 import functools
-import inspect
 import numbers as nb
 
 import numpy as np
@@ -55,6 +54,38 @@ class Precision(contextlib.AbstractContextManager):
         return False if exc_raised else True
 
 
+class EnforcePrecision(contextlib.AbstractContextManager):
+    """
+    Context Manager to locally disable effect of `enforce_precision()`. [Default: enabled.]
+
+    Use this object via a with-block.
+
+    Example
+    -------
+    >>> import pycsou.runtime as pycrt
+    >>> pycrt.getCoerceState()                    # True
+    ... with pycrt.EnforcePrecision(False):
+    ...     pycrt.getCoerceState()                # False
+    ... pycrt.getCoerceState()                    # True
+    """
+
+    def __init__(self, state: bool):
+        self._state = state
+        self._state_prev = getCoerceState()
+
+    def __enter__(self) -> "EnforcePrecision":
+        _setCoerceState(self._state)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> bool:
+        exc_raised = any(_ is not None for _ in [exc_type, exc_value, traceback])
+        if exc_raised:
+            pass
+
+        _setCoerceState(self._state_prev)
+        return False if exc_raised else True
+
+
 def enforce_precision(
     i: pyct.VarName = frozenset(),
     o: bool = True,
@@ -95,10 +126,7 @@ def enforce_precision(
     def decorator(func: cabc.Callable) -> cabc.Callable:
         @functools.wraps(func)
         def wrapper(*ARGS, **KWARGS):
-            sig = inspect.Signature.from_callable(func)
-            func_args = sig.bind(*ARGS, **KWARGS)
-            func_args.apply_defaults()
-            func_args = func_args.arguments
+            func_args = pycu.parse_params(func, *ARGS, **KWARGS)
 
             for k in [i] if isinstance(i, str) else i:
                 if k not in func_args:
@@ -124,6 +152,11 @@ def getPrecision() -> Width:
     return state["__width"]
 
 
+def getCoerceState() -> bool:
+    state = globals()
+    return state["__coerce"]
+
+
 def coerce(x):
     """
     Transform input to match runtime FP-precision.
@@ -137,18 +170,25 @@ def coerce(x):
     y: Real | NDArray
         Input cast to the runtime FP-precision.
         Fails if operation is impossible or unsafe. (I.e. casting complex-valued data.)
-    """
-    dtype = getPrecision().value
 
-    try:
-        if isinstance(x, pyct.Real):
-            return np.array(x, dtype=dtype)[()]
-        elif isinstance(x, nb.Number):
-            raise  # other number categories cannot be converted.
-        else:
-            return x.astype(dtype, copy=False)
-    except:
-        raise TypeError(f"Cannot coerce {type(x)} to scalar/array of precision {dtype}.")
+    Note
+    ----
+    This method is a NO-OP if `getCoerceState()` returns False.
+    """
+    
+    if getCoerceState() == False:
+        return x
+    else:
+        dtype = getPrecision().value
+        try:
+            if isinstance(x, pyct.Real):
+                return np.array(x, dtype=dtype)[()]
+            elif isinstance(x, nb.Number):
+                raise  # other number categories cannot be converted.
+            else:
+                return x.astype(dtype, copy=False)
+        except:
+            raise TypeError(f"Cannot coerce {type(x)} to scalar/array of precision {dtype}.")
 
 
 def _setPrecision(width: Width):
@@ -158,4 +198,12 @@ def _setPrecision(width: Width):
     state["__width"] = width
 
 
+def _setCoerceState(s: bool):
+    # For internal use only. It is recommended to modify coercion effect locally using the `Coerce`
+    # context manager.
+    state = globals()
+    state["__coerce"] = s
+
+
 __width = Width.DOUBLE  # default FP-precision.
+__coerce = True  # default: coerce() activated.
