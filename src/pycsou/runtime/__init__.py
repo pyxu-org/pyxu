@@ -175,7 +175,6 @@ def coerce(x):
     ----
     This method is a NO-OP if `getCoerceState()` returns False.
     """
-    
     if getCoerceState() == False:
         return x
     else:
@@ -185,8 +184,10 @@ def coerce(x):
                 return np.array(x, dtype=dtype)[()]
             elif isinstance(x, nb.Number):
                 raise  # other number categories cannot be converted.
+            elif np.can_cast(x.dtype, dtype, casting="same_kind"):
+                return x.astype(dtype, copy=False)  # cast warnings impossible
             else:
-                return x.astype(dtype, copy=False)
+                raise
         except:
             raise TypeError(f"Cannot coerce {type(x)} to scalar/array of precision {dtype}.")
 
