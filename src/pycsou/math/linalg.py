@@ -18,6 +18,8 @@ def hutchpp(linop, m: int = 4002, gpu: bool = False):
         The number of queries desired to estimate the trace of the linear operator. ``m`` is set to 4002 by default,
         based on the analysis of variance described in theorem 10 of the Hutch++ paper. This default number of queries
         corresponds to having an estimation error smaller than 0.01 with a probability of 0.9.
+    gpu: bool
+        If ``True`` the estimation of the trace is performed on the GPU.
 
     Returns
     -------
