@@ -1755,11 +1755,14 @@ class LinOp(DiffMap, Adjoint):
         computing the trace of :math:`L^\ast L` (or  :math:`LL^\ast` depending on which is most advantageous) via the
         `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_. Currently, only the SVD-based approach is supported.
 
-        .. todo::
-            Add support for trace-based estimate (@Joan).
         """
         if algo == "fro":
-            raise NotImplementedError
+            import pycsou.math.linalg as pycl
+
+            if np.diff(self.shape) > 0:
+                self._lipschitz = np.sqrt(pycl.hutchpp(self.cogram(), m=m, gpu=gpu))
+            else:
+                self._lipschitz = np.sqrt(pycl.hutchpp(self.gram(), m=m, gpu=gpu))
         if recompute or (self._lipschitz == np.infty):
             kwargs.update(dict(k=1, which="LM", gpu=gpu))
             self._lipschitz = self.svdvals(**kwargs)
