@@ -252,7 +252,7 @@ class Solver:
         Solve minimization problem(s) defined in ``Solver.__init__``, with the provided run-specifc
         parameters.
 
-        Parameterss
+        Parameters
         ----------
         args[0]: NDArray
             (..., N) primal variable initial point(s).
