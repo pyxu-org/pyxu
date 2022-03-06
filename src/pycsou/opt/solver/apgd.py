@@ -113,27 +113,28 @@ class APGD(pycs.Solver):
         self._fit_run()
 
     def m_init(self, primal_init: pyct.NDArray, tau: pyct.Real, d: pyct.Real):
-        self._mstate["primal"] = self._mstate["primal_prev"] = pycrt.coerce(primal_init)
+        mst = self._mstate  # shorthand
+        mst["primal"] = mst["primal_prev"] = pycrt.coerce(primal_init)
 
         if tau is None:
             if math.isfinite(dl := self._f._diff_lipschitz):
-                self._mstate["tau"] = pycrt.coerce(1 / dl)
+                mst["tau"] = pycrt.coerce(1 / dl)
             else:
                 msg = "tau: automatic inference not supported for operators with unbounded Lipschitz gradients."
                 raise ValueError(msg)
         else:
             try:
                 assert tau > 0
-                self._mstate["tau"] = pycrt.coerce(tau)
+                mst["tau"] = pycrt.coerce(tau)
             except:
                 raise ValueError(f"tau must be positive, got {tau}.")
 
         if d is None:
-            self._mstate["a"] = itertools.repeat(pycrt.coerce(0))
+            mst["a"] = itertools.repeat(pycrt.coerce(0))
         else:
             try:
                 assert d > 2
-                self._mstate["a"] = (pycrt.coerce(k / (k + 1 + d)) for k in itertools.count(start=0))
+                mst["a"] = (pycrt.coerce(k / (k + 1 + d)) for k in itertools.count(start=0))
             except:
                 raise ValueError(f"Expected d > 2, got {d}.")
 
