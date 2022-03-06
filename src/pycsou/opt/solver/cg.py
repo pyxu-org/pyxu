@@ -100,19 +100,18 @@ class CG(pycs.Solver):
         mst["conjugate_dir"] = mst["residual"].copy()
 
     def m_step(self):
-        mst = self._mstate
-        x = mst["primal"]
-        r = mst["residual"]
-        p = mst["conjugate_dir"]
+        mst = self._mstate  # shorthand
+        x, r, p = mst["primal"], mst["residual"], mst["conjugate_dir"]
         xp = pycu.get_array_module(x)
-        ap = self._A.apply(p)
+
+        Ap = self._A.apply(p)
         rr = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2
-        alpha = rr / (p * ap).sum(axis=-1, keepdims=True)
-        x = x + alpha * p
-        r = r - alpha * ap
+        alpha = rr / (p * Ap).sum(axis=-1, keepdims=True)
+        x += alpha * p
+        r -= alpha * Ap
         beta = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
-        p = r + beta * p
-        mst["primal"], mst["residual"], mst["conjugate_dir"] = x, r, p
+        p *= beta
+        p += r
 
     def solution(self) -> pyct.NDArray:
         """
