@@ -154,5 +154,5 @@ class APGD(pycs.Solver):
         p: NDArray
             (..., N) primal solution.
         """
-        _, data = self.stats()
+        data, _ = self.stats()
         return data.get("primal")

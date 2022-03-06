@@ -147,21 +147,21 @@ class Solver:
 
        ### 1. Blocking Mode: .fit() does not return until solver has stopped.
        >>> slvr.fit(mode=Mode.BLOCK, ...)
-       >>> hist, data = slvr.stats()  # final output of solver.
+       >>> data, hist = slvr.stats()  # final output of solver.
 
        ### 2. Async Mode: solver iterations run in the background.
        >>> slvr.fit(mode=Mode.ASYNC, ...)
        >>> print('test')  # you can do something in between.
        >>> slvr.busy()  # or check whether the solver already stopped.
        >>> slvr.stop()  # and preemptively force it to stop.
-       >>> hist, data = slvr.stats()  # then query the result after a (potential) force-stop.
+       >>> data, hist = slvr.stats()  # then query the result after a (potential) force-stop.
 
        ### 3. Manual Mode: fine-grain control of solver data per iteration.
        >>> slvr.fit(mode=Mode.MANUAL, ...)
        >>> for data in slvr.steps():
        ...     # Do something with the logged variables after each iteration.
        ...     pass  # solver has stopped after the loop.
-       >>> hist, data = slvr.stats()  # final output of solver.
+       >>> data, hist = slvr.stats()  # final output of solver.
     """
 
     def __init__(
@@ -329,7 +329,7 @@ class Solver:
         i = 0
         while (n is None) or (i < n):
             if self._step():
-                _, data = self.stats()
+                data, _ = self.stats()
                 yield data
                 i += 1
             else:
@@ -342,10 +342,10 @@ class Solver:
 
         Returns
         -------
-        history: np.ndarray | None
-            (N_iter,) records of stopping-criteria values per iteration.
         data: dict[str, Real | NDArray | None]
             Value(s) of ``log_var``(s) after last iteration.
+        history: np.ndarray | None
+            (N_iter,) records of stopping-criteria values per iteration.
 
         Notes
         -----
@@ -359,7 +359,7 @@ class Solver:
             else:
                 history = None
         data = {k: self._mstate.get(k) for k in self._astate["log_var"]}
-        return history, data
+        return data, history
 
     @property
     def workdir(self) -> plib.Path:
