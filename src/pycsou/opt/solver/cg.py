@@ -72,10 +72,18 @@ class CG(pycs.Solver):
            * MANUAL: fit() + steps()
         """
         if stop_crit is None:
+
+            def explicit_residual(primal):
+                mst = self._mstate  # shorthand
+                xp = pycu.get_array_module(mst["b"])
+                residual = xp.zeros_like(mst["b"])
+                residual[:] = mst["b"] - self._A.apply(primal)
+                return residual
+
             stop_crit = pycos.AbsError(
                 eps=1e-5,
-                var="residual",
-                f=None,
+                var="primal",
+                f=explicit_residual,
                 norm=2,
                 satisfy_all=True,
             )
@@ -87,6 +95,7 @@ class CG(pycs.Solver):
         mst = self._mstate  # shorthand
 
         b = pycrt.coerce(b)
+        mst["b"] = b
         xp = pycu.get_array_module(b)
         if primal_init is None:
             mst["primal"] = xp.zeros_like(b)
