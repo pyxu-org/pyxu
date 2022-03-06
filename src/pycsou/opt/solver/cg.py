@@ -13,12 +13,15 @@ import pycsou.util.ptype as pyct
 class CG(pycs.Solver):
     r"""
     Conjugate Gradient Method.
-    The Conjugate Gradient method solves a minimization problem of the form
-     .. math::
-        {\argmin_{x\in\mathbb{R}^{N}} ||Ax - b||_{2}^{2}},
-    where:
-    * :math:`\mathcal{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}` is a *symmetric* *positive definite* operator.
-    * :math:`\mathcal{b}: \mathbb{b}^{N}`.
+
+    The Conjugate Gradient method solves the minimization problem
+
+    .. math::
+
+       \min_{x\in\mathbb{R}^{N}} \frac{1}{2} \mathbf{x}^{T} \mathbf{A} \mathbf{x} - \mathbf{x}^{T} \mathbf{b},
+
+    where :math:`\mathbf{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}` is a *symmetric* *positive definite*
+    operator, and :math:`\mathbf{b} \in \mathbb{R}^{N}`.
     """
 
     def __init__(
