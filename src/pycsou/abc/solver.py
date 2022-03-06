@@ -259,6 +259,9 @@ class Solver:
         args[1]: NDArray
             (..., M) dual variable initial point(s). Only required for Primal-Dual solvers.
             ``*args`` must suitably broadcast along their leading dimensions.
+        args[...]: NDArray
+            Any other arrays needed to fully determine the problem. (Rare to need this, except for
+            specialized solvers.)
         stop_crit: StoppingCriterion
             Stopping criterion to end solver iterations.
         mode: Mode
