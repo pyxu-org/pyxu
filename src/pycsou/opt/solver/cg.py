@@ -86,12 +86,17 @@ class CG(pycs.Solver):
     def m_init(self, b: pyct.NDArray, primal_init: pyct.NDArray):
         mst = self._mstate  # shorthand
 
-        mst["b"] = pyct.coerce(b)
+        b = pycrt.coerce(b)
+        xp = pycu.get_array_module(b)
         if primal_init is None:
-            xp = pycu.get_array_module(mst["b"])
-            mst["primal"] = xp.zeros_like(mst["b"])
+            mst["primal"] = xp.zeros_like(b)
+        else:
+            mst["primal"] = pycrt.coerce(primal_init)
 
-        mst["residual"] = mst["b"] - self._A.apply(mst["primal"])
+        # 2-stage res-computation guarantees RT-precision in case apply() not
+        # enforce_precision()-ed.
+        mst["residual"] = xp.zeros_like(b)
+        mst["residual"][:] = b - self._A.apply(mst["primal"])
         mst["conjugate_dir"] = mst["residual"].copy()
 
     def m_step(self):
