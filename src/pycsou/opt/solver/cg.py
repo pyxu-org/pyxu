@@ -29,7 +29,7 @@ class CG(pycs.Solver):
         exist_ok: bool = False,
         writeback_rate: typ.Optional[int] = None,
         verbosity: int = 1,
-        log_var: pyct.VarName = ("x",),
+        log_var: pyct.VarName = ("primal",),
     ):
         super().__init__(
             folder=folder,
@@ -68,7 +68,7 @@ class CG(pycs.Solver):
 
         xp = pycu.get_array_module(self._b)
         x0 = x0 if (x0 is None) else pycrt.coerce(x0)
-        stop_crit = pycos.AbsError(eps=tol, var="r")
+        stop_crit = pycos.AbsError(eps=tol, var="residual")
 
         if x0 is not None:
             msg = f"Input initial guess has a mismatch in its shape dimension with data array `b` "
@@ -93,15 +93,15 @@ class CG(pycs.Solver):
         return super().fit(x0, mode=mode, stop_crit=stop_crit)
 
     def m_init(self, x0: pyct.NDArray, tol: float = 1e-5):
-        self._mstate["x"] = x0
-        self._mstate["r"] = self._b - self._a.apply(x0)
-        self._mstate["p"] = self._mstate["r"].copy()
+        self._mstate["primal"] = x0
+        self._mstate["residual"] = self._b - self._A.apply(x0)
+        self._mstate["conjugate_dir"] = self._mstate["residual"].copy()
 
     def m_step(self):
         mst = self._mstate
-        x = mst["x"]
-        r = mst["r"]
-        p = mst["p"]
+        x = mst["primal"]
+        r = mst["residual"]
+        p = mst["conjugate_dir"]
         xp = pycu.get_array_module(x)
         ap = self._a.apply(p)
         rr = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2
@@ -110,14 +110,14 @@ class CG(pycs.Solver):
         r = r - alpha * ap
         beta = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
         p = r + beta * p
-        mst["x"], mst["r"], mst["p"] = x, r, p
+        mst["primal"], mst["residual"], mst["conjugate_dir"] = x, r, p
 
     def solution(self) -> pyct.NDArray:
         """
         Returns
         -------
-        x: NDArray
-            (..., N) The converged solution.
+        p: NDArray
+            (..., N) primal solution.
         """
         _, data = self.stats()
-        return data.get("x")
+        return data.get("primal")
