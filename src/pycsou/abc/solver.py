@@ -458,7 +458,7 @@ class Solver:
         self._mstate.clear()
         stop_crit.clear()
         self._astate.update(  # suitable state for a new call to fit().
-            history=None,
+            history=[],
             idx=0,
             logger=_init_logger(),
             stop_crit=stop_crit,
