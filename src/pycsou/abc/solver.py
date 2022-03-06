@@ -351,7 +351,10 @@ class Solver:
         """
         history = self._astate["history"]
         if history is not None:
-            history = np.concatenate(history, dtype=history[0].dtype, axis=0)
+            if len(history) > 0:
+                history = np.concatenate(history, dtype=history[0].dtype, axis=0)
+            else:
+                history = None
         data = {k: self._mstate.get(k) for k in self._astate["log_var"]}
         return history, data
 
