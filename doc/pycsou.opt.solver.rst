@@ -12,6 +12,14 @@ pycsou.opt.solver.apgd module
    :undoc-members:
    :show-inheritance:
 
+pycsou.opt.solver.cg module
+---------------------------
+
+.. automodule:: pycsou.opt.solver.cg
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 
