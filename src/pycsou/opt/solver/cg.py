@@ -47,58 +47,52 @@ class CG(pycs.Solver):
     def fit(
         self,
         b: pyct.NDArray,
-        x0: pyct.NDArray = None,
+        primal_init: pyct.NDArray = None,
+        stop_crit: typ.Optional[pycs.StoppingCriterion] = None,
         mode: pycs.Mode = pycs.Mode.BLOCK,
-        tol: float = 1e-5,
     ):
         r"""
         Solve the minimization problem defined in :py:meth:`CG.__init__`, with the provided
         run-specific parameters.
+
         Parameters
         ----------
-        x0: NDArray
-           (..., N) Initial point(s) for the solution(s). Defaults to a zero NDArray if unspecified.
+        b: NDArray
+            (..., N) 'b' terms in the CG cost function. All problems are solved in parallel.
+        primal_init: NDArray
+           (..., N) primal variable initial point(s). Defaults to 0 if unspecified.
+        stop_crit: StoppingCriterion
+            Stopping criterion to end solver iterations.
+            Defaults to stopping if all residual abs-norms reach 1e-5.
         mode: Mode
            Execution mode. See :py:class:`Solver` for usage examples.
            Useful method pairs depending on the execution mode:
            * BLOCK: fit()
            * ASYNC: fit() + busy() + stop()
            * MANUAL: fit() + steps()
-        tol: Real
-           Tolerance for convergence, norm(residual) <= tol.  Defaults to :math:`1e-5` if unspecified.
         """
-        # Create a stopping criteria from opt, using tol, and then call super().fit() method
+        if stop_crit is None:
+            stop_crit = pycos.AbsError(
+                eps=1e-5,
+                var="residual",
+                f=None,
+                norm=2,
+                satisfy_all=True,
+            )
+        self._fit_init(mode, stop_crit)
+        self.m_init(b=b, primal_init=primal_init)
+        self._fit_run()
 
-        xp = pycu.get_array_module(self._b)
-        x0 = x0 if (x0 is None) else pycrt.coerce(x0)
-        stop_crit = pycos.AbsError(eps=tol, var="residual")
+    def m_init(self, b: pyct.NDArray, primal_init: pyct.NDArray):
+        mst = self._mstate  # shorthand
 
-        if x0 is not None:
-            msg = f"Input initial guess has a mismatch in its shape dimension with data array `b` "
-            f"(shape {x0.shape} is not broadcastable with {self._b.shape})."
-            if x0.shape[-1] != self._b.shape[-1]:
-                raise ValueError(msg)
-            else:
-                try:
-                    np.broadcast_shapes(x0.shape, self._b.shape)
-                except:
-                    raise ValueError(msg)
-            try:
-                assert pycu.get_array_module(x0) == xp
-            except:
-                raise ValueError(
-                    f"Input initial guess has a mismatch in its array module with data array `b` "
-                    f"(array module {pycu.get_array_module(x0)} is different from {xp}."
-                )
-        else:
-            x0 = xp.zeros((1, self._b.shape[-1]), dtype=self._b.dtype)
+        mst["b"] = pyct.coerce(b)
+        if primal_init is None:
+            xp = pycu.get_array_module(mst["b"])
+            mst["primal"] = xp.zeros_like(mst["b"])
 
-        return super().fit(x0, mode=mode, stop_crit=stop_crit)
-
-    def m_init(self, x0: pyct.NDArray, tol: float = 1e-5):
-        self._mstate["primal"] = x0
-        self._mstate["residual"] = self._b - self._A.apply(x0)
-        self._mstate["conjugate_dir"] = self._mstate["residual"].copy()
+        mst["residual"] = mst["b"] - self._A.apply(mst["primal"])
+        mst["conjugate_dir"] = mst["residual"].copy()
 
     def m_step(self):
         mst = self._mstate
