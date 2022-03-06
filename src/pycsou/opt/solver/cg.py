@@ -28,6 +28,7 @@ class CG(pycs.Solver):
         self,
         A: pyco.PosDefOp,
         b: pyct.NDArray,
+        *,
         folder: typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
         writeback_rate: typ.Optional[int] = None,
