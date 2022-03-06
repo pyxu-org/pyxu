@@ -121,6 +121,7 @@ class CG(pycs.Solver):
         beta = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
         p *= beta
         p += r
+        mst["primal"], mst["residual"], mst["conjugate_dir"] = x, r, p
 
     def solution(self) -> pyct.NDArray:
         """
