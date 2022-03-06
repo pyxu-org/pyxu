@@ -495,7 +495,7 @@ class Solver:
         """
         Checkpoint state to disk.
         """
-        history, data = self.stats()
+        data, history = self.stats()
         kwargs = {k: v for (k, v) in dict(history=history, **data).items() if (v is not None)}
         np.savez(self.datafile, **pycu.compute(kwargs))  # savez() requires NumPy arrays as input.
         # [TODO][Feature Request] Allow user to choose writeback format. Useful for large-scale
