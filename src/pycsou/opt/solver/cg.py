@@ -26,7 +26,7 @@ class CG(pycs.Solver):
 
     def __init__(
         self,
-        a: pyco.PosDefOp,
+        A: pyco.PosDefOp,
         b: pyct.NDArray,
         folder: typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
@@ -42,8 +42,7 @@ class CG(pycs.Solver):
             log_var=log_var,
         )
 
-        self._a = a
-        self._b = pycrt.coerce(b)
+        self._A = A
 
     def fit(
         self,
@@ -106,7 +105,7 @@ class CG(pycs.Solver):
         r = mst["residual"]
         p = mst["conjugate_dir"]
         xp = pycu.get_array_module(x)
-        ap = self._a.apply(p)
+        ap = self._A.apply(p)
         rr = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2
         alpha = rr / (p * ap).sum(axis=-1, keepdims=True)
         x = x + alpha * p
