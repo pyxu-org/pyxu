@@ -27,7 +27,6 @@ class CG(pycs.Solver):
     def __init__(
         self,
         A: pyco.PosDefOp,
-        b: pyct.NDArray,
         *,
         folder: typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
@@ -47,6 +46,7 @@ class CG(pycs.Solver):
 
     def fit(
         self,
+        b: pyct.NDArray,
         x0: pyct.NDArray = None,
         mode: pycs.Mode = pycs.Mode.BLOCK,
         tol: float = 1e-5,
