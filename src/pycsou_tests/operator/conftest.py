@@ -357,6 +357,7 @@ class MapT:
 
 class FuncT(MapT):
     # Class Properties --------------------------------------------------------
+    interface = frozenset(MapT.interface | {"as_loss"})
     disable_test = frozenset(MapT.disable_test | {"test_squeeze"})
 
     # Tests -------------------------------------------------------------------
@@ -367,6 +368,16 @@ class FuncT(MapT):
     def test_squeeze(self, op):
         self._skip_if_disabled()
         assert op.squeeze() is op
+
+    def test_interface_as_loss(self, op):
+        # op.as_loss() sub-classes Func if data provided, transparent otherwise.
+        # Disable this test if as_loss() not defined.
+        self._skip_if_disabled()
+        assert op.as_loss() is op
+
+        N_dim = self._sanitize(op.dim, default=3)
+        data = self._random_array((N_dim,))
+        self._check_has_interface(op.as_loss(data), self.__class__)
 
 
 class DiffMapT(MapT):
