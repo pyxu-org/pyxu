@@ -1811,6 +1811,7 @@ class LinOp(DiffMap, Adjoint):
             else:
                 import numpy as xp
             kwargs.update(dict(xp=xp))
+            del kwargs["gpu"]
 
         return pycl.hutchpp(self, **kwargs)
 
