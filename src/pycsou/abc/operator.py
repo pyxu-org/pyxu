@@ -6,6 +6,7 @@ import warnings
 import numpy as np
 import scipy.sparse.linalg as splin
 
+import pycsou.math.linalg as pycl
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
@@ -1757,16 +1758,44 @@ class LinOp(DiffMap, Adjoint):
 
         """
         if algo == "fro":
-            import pycsou.math.linalg as pycl
-
+            kwargs.update(dict(m=126, gpu=gpu))
             if np.diff(self.shape) > 0:
-                self._lipschitz = np.sqrt(pycl.hutchpp(self.cogram(), m=m, gpu=gpu))
+                return np.sqrt(self.cogram().trace(**kwargs))
             else:
-                self._lipschitz = np.sqrt(pycl.hutchpp(self.gram(), m=m, gpu=gpu))
+                return np.sqrt(self.gram().trace(**kwargs))
+
         if recompute or (self._lipschitz == np.infty):
             kwargs.update(dict(k=1, which="LM", gpu=gpu))
             self._lipschitz = self.svdvals(**kwargs)
         return self._lipschitz
+
+    @pycrt.enforce_precision(o=True)
+    def trace(self, **kwargs):
+        """
+        Compute the trace of a squared linear operator.
+
+        Parameters
+        ----------
+        kwargs: dict
+            Optional arguments to be passed to the algorithm used for computing the trace. The parameter ``m``
+            of :py:func:`~pycsou.math.linalg.hutchpp` routine can be particularly interesting to reduce the compute time
+            of the trace.
+
+        Returns
+        -------
+        float
+            Hutch++ stochastic estimate of the trace.
+
+        """
+        keys = kwargs.keys()
+        if ("gpu" in keys) and ("xp" not in keys):
+            if kwargs["gpu"]:
+                import cupy as xp
+            else:
+                import numpy as xp
+            kwargs.update(dict(xp=xp))
+
+        return pycl.hutchpp(self, **kwargs)
 
     @pycrt.enforce_precision(o=True)
     def svdvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
