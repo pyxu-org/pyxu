@@ -1753,7 +1753,7 @@ class LinOp(DiffMap, Adjoint):
             Algorithm used for computing the Lipschitz constant. If ``algo==svds`` the Lispchtiz constant is estimated as the
             spectral norm of :math:`L`, computed via Scipy's :py:func:`scipy.sparse.linalg.svds` routine (more accurate but more compute intensive).  If ``algo==fro`` the Lispchtiz constant is estimated as the
             Froebenius norm of :math:`L`, computed via the matrix-free `Hutch++ stochastic trace estimation algorithm <https://arxiv.org/abs/2010.09649>`_ (less accurate but less compute intensive).
-            Currently, only ``algo==svds`` is supported.
+
         kwargs:
             Optional arguments to be passed to the algorithm used for computing the Lipschitz constant.
             The parameter ``tol`` of Scipy's :py:func:`scipy.sparse.linalg.svds` routine can be particularly interesting to reduce
@@ -1770,8 +1770,10 @@ class LinOp(DiffMap, Adjoint):
         It can be computed by means of truncated matrix-free SVD, which can be a compute-intensive task for large-scale
         operators. In which case, it can be advantageous to overestimate the Lipschtiz constant via the Frobenius norm of :math:`L`
         (we have indeed :math:`\|L\|_F \geq \|L\|_2`). The Frobenius norm of  :math:`L` can indeed be approximated efficiently by
-        computing the trace of :math:`L^\ast L` (or  :math:`LL^\ast` depending on which is most advantageous) via the
-        `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_. Currently, only the SVD-based approach is supported.
+        computing the trace of :math:`L^\ast L` (or  :math:`LL^\ast`) depending on which is most advantageous) via the
+        `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_. The Frobenius norm of  :math:`L` is upper
+        bounded by :math:`\|L\|_F \leq \sqrt{n} \|L\|_2`, with the equality approximated in those cases in which the
+        eigenspectrum of the linear operator is flat.
 
         """
         if algo == "fro":
@@ -1796,7 +1798,7 @@ class LinOp(DiffMap, Adjoint):
         kwargs: dict
             Optional arguments to be passed to the algorithm used for computing the trace. The parameter ``m``
             of :py:func:`~pycsou.math.linalg.hutchpp` routine can be particularly interesting to reduce the compute time
-            of the trace.
+            of the trace (at the cost of accuracy).
 
         Returns
         -------
