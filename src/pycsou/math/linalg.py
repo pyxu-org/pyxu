@@ -10,7 +10,7 @@ import pycsou.util.ptype as pyct
 
 
 @pycrt.enforce_precision(o=True)
-def hutchpp(linop: pyco.LinOp, m: int = 126, xp: pyct.ArrayModule = np, seed: float = 0):
+def hutchpp(linop: pyco.LinOp, m: int = 4002, xp: pyct.ArrayModule = np, seed: float = 0):
     r"""
     Computes an stocastic estimate of the trace for linear operators based on the Hutch++ algorithm (specifically,
     algorithm 3 of the paper https://arxiv.org/abs/2010.09649.
@@ -22,7 +22,7 @@ def hutchpp(linop: pyco.LinOp, m: int = 126, xp: pyct.ArrayModule = np, seed: fl
     m: int
         The number of queries desired to estimate the trace of the linear operator. ``m`` is set to 4002 by default,
         based on the analysis of variance described in theorem 10 of the Hutch++ paper. This default number of queries
-        corresponds to having an estimation error smaller than 0.1 with a probability of 0.9.
+        corresponds to having an estimation error smaller than 0.01 with a probability of 0.9.
     xp:  pycsou.util.ptype.ArrayModule
          Which array module to use to represent the output.
     seed: float
