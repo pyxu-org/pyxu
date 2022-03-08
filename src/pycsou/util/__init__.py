@@ -192,7 +192,8 @@ def vectorize(i: pyct.VarName) -> cabc.Callable:
             # infer output dimensions + allocate
             func_args[i] = x[0]
             y0 = func(**func_args)
-            y = np.zeros((*sh_xf[:-1], y0.size), dtype=y0.dtype)
+            xp = get_array_module(y0)
+            y = xp.zeros((*sh_xf[:-1], y0.size), dtype=y0.dtype)
 
             y[0] = y0
             for k in range(1, sh_xf[0]):

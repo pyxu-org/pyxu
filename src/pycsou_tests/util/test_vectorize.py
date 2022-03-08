@@ -9,22 +9,10 @@ import pycsou.util as pycu
 class TestVectorize:
     @pytest.fixture(
         params=[
-            lambda x: np.array(  # 1D only
-                x.sum(keepdims=True) + 1,
-                dtype=np.half,
-            ),
-            lambda x, y: np.array(  # 1D only, multi-parameter
-                x.sum(keepdims=True) + y,
-                dtype=np.half,
-            ),
-            lambda x, y=1: np.array(  # 1D only, multi-parameter (with defaults)
-                x.sum(keepdims=True) + y,
-                dtype=np.half,
-            ),
-            lambda x: np.array(  # already has desired ND behaviour
-                x.sum(axis=-1, keepdims=True) + 1,
-                dtype=np.half,
-            ),
+            lambda x: (x.sum(keepdims=True) + 1).astype(np.half),  # 1D only
+            lambda x, y: (x.sum(keepdims=True) + y).astype(np.half),  # 1D only, multi-parameter
+            lambda x, y=1: (x.sum(keepdims=True) + y).astype(np.half),  # 1D only, multi-parameter (with defaults)
+            lambda x: (x.sum(axis=-1, keepdims=True) + 1).astype(np.half),  # already has desired ND behaviour
         ]
     )
     def func(self, request):
@@ -76,3 +64,11 @@ class TestVectorize:
         out_vf = vfunc(**in_)
 
         assert out_f.dtype == out_vf.dtype
+
+    def test_backend(self, vfunc, data_func, xp):
+        # returned array from decorated function should have same type as input array.
+        in_ = data_func["in_"]
+        in_["x"] = xp.array(in_["x"])
+        out = vfunc(**in_)
+
+        assert type(out) == type(in_["x"])
