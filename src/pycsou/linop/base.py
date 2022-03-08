@@ -191,7 +191,7 @@ class HomothetyOp(pyco.SelfAdjointOp):
             op.specialize(cast_to=pyco.ProxFunc)
             post_composition_prox = lambda obj, arr, tau: other.prox(arr, self._cst * tau)
             op.prox = types.MethodType(post_composition_prox, op)
-            return op
+        return op
 
 
 class NullOp(pyco.LinOp):
