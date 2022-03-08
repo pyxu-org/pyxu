@@ -331,7 +331,7 @@ class MapT:
         # op.squeeze() sub-classes to Func for scalar outputs, and is transparent otherwise.
         self._skip_if_disabled()
         if op.codim == 1:
-            assert isinstance(op.squeeze(), pyco.Func)
+            self._check_has_interface(op.squeeze(), FuncT)
         else:
             assert op.squeeze() is op
 
@@ -408,7 +408,7 @@ class DiffMapT(MapT):
         # op.squeeze() sub-classes to DiffFunc for scalar outputs, and is transparent otherwise.
         self._skip_if_disabled()
         if op.codim == 1:
-            assert isinstance(op.squeeze(), pyco.DiffFunc)
+            self._check_has_interface(op.squeeze(), DiffFuncT)
         else:
             assert op.squeeze() is op
 
