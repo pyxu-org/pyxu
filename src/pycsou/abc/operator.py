@@ -1275,6 +1275,23 @@ class Func(Map, SingleValued):
             raise ValueError("Functionals" " must be of the form (1,n).")
         super(Func, self).__init__(shape)
 
+    def as_loss(self, data: typ.Optional[pyct.NDArray] = None) -> "Func":
+        """
+        Transform a Function into a loss function.
+
+        Parameters
+        ----------
+        data: NDArray
+            (N,) data terms.
+
+        Returns
+        -------
+        :py:class:`~pycsou.abc.operator.Func`
+            Loss function.
+            If `data = None`, then should return `self`.
+        """
+        raise NotImplementedError
+
 
 class ProxFunc(Func, Proximal):
     r"""
