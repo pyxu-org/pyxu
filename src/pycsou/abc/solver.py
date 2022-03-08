@@ -147,21 +147,21 @@ class Solver:
 
        ### 1. Blocking Mode: .fit() does not return until solver has stopped.
        >>> slvr.fit(mode=Mode.BLOCK, ...)
-       >>> hist, data = slvr.stats()  # final output of solver.
+       >>> data, hist = slvr.stats()  # final output of solver.
 
        ### 2. Async Mode: solver iterations run in the background.
        >>> slvr.fit(mode=Mode.ASYNC, ...)
        >>> print('test')  # you can do something in between.
        >>> slvr.busy()  # or check whether the solver already stopped.
        >>> slvr.stop()  # and preemptively force it to stop.
-       >>> hist, data = slvr.stats()  # then query the result after a (potential) force-stop.
+       >>> data, hist = slvr.stats()  # then query the result after a (potential) force-stop.
 
        ### 3. Manual Mode: fine-grain control of solver data per iteration.
        >>> slvr.fit(mode=Mode.MANUAL, ...)
        >>> for data in slvr.steps():
        ...     # Do something with the logged variables after each iteration.
        ...     pass  # solver has stopped after the loop.
-       >>> hist, data = slvr.stats()  # final output of solver.
+       >>> data, hist = slvr.stats()  # final output of solver.
     """
 
     def __init__(
@@ -252,13 +252,16 @@ class Solver:
         Solve minimization problem(s) defined in ``Solver.__init__``, with the provided run-specifc
         parameters.
 
-        Parameterss
+        Parameters
         ----------
         args[0]: NDArray
             (..., N) primal variable initial point(s).
         args[1]: NDArray
             (..., M) dual variable initial point(s). Only required for Primal-Dual solvers.
             ``*args`` must suitably broadcast along their leading dimensions.
+        args[...]: NDArray
+            Any other arrays needed to fully determine the problem. (Rare to need this, except for
+            specialized solvers.)
         stop_crit: StoppingCriterion
             Stopping criterion to end solver iterations.
         mode: Mode
@@ -326,7 +329,7 @@ class Solver:
         i = 0
         while (n is None) or (i < n):
             if self._step():
-                _, data = self.stats()
+                data, _ = self.stats()
                 yield data
                 i += 1
             else:
@@ -339,10 +342,10 @@ class Solver:
 
         Returns
         -------
-        history: np.ndarray | None
-            (N_iter,) records of stopping-criteria values per iteration.
         data: dict[str, Real | NDArray | None]
             Value(s) of ``log_var``(s) after last iteration.
+        history: np.ndarray | None
+            (N_iter,) records of stopping-criteria values per iteration.
 
         Notes
         -----
@@ -351,9 +354,12 @@ class Solver:
         """
         history = self._astate["history"]
         if history is not None:
-            history = np.concatenate(history, dtype=history[0].dtype, axis=0)
+            if len(history) > 0:
+                history = np.concatenate(history, dtype=history[0].dtype, axis=0)
+            else:
+                history = None
         data = {k: self._mstate.get(k) for k in self._astate["log_var"]}
-        return history, data
+        return data, history
 
     @property
     def workdir(self) -> plib.Path:
@@ -455,7 +461,7 @@ class Solver:
         self._mstate.clear()
         stop_crit.clear()
         self._astate.update(  # suitable state for a new call to fit().
-            history=None,
+            history=[],
             idx=0,
             logger=_init_logger(),
             stop_crit=stop_crit,
@@ -489,7 +495,7 @@ class Solver:
         """
         Checkpoint state to disk.
         """
-        history, data = self.stats()
+        data, history = self.stats()
         kwargs = {k: v for (k, v) in dict(history=history, **data).items() if (v is not None)}
         np.savez(self.datafile, **pycu.compute(kwargs))  # savez() requires NumPy arrays as input.
         # [TODO][Feature Request] Allow user to choose writeback format. Useful for large-scale
@@ -566,6 +572,7 @@ class Solver:
 
     class _Worker(threading.Thread):
         def __init__(self, solver: "Solver"):
+            super().__init__()
             self.slvr = solver
 
         def run(self):

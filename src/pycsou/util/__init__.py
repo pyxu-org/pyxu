@@ -125,6 +125,26 @@ def compute(*args, mode: str = "compute", **kwargs):
     return cargs
 
 
+def parse_params(func, *args, **kwargs) -> cabc.Mapping:
+    """
+    Get function parameterization.
+
+    Returns
+    -------
+    params: dict
+        (key, value) params as seen in body of `func` when called via `func(*args, **kwargs)`.
+    """
+    sig = inspect.Signature.from_callable(func)
+    f_args = sig.bind(*args, **kwargs)
+    f_args.apply_defaults()
+
+    params = dict(
+        zip(f_args.arguments.keys(), f_args.args),  # positional arguments
+        **f_args.kwargs,
+    )
+    return params
+
+
 def vectorize(i: pyct.VarName) -> cabc.Callable:
     """
     Decorator to auto-vectorize an array function to abide by
@@ -160,9 +180,7 @@ def vectorize(i: pyct.VarName) -> cabc.Callable:
 
         @functools.wraps(func)
         def wrapper(*ARGS, **KWARGS):
-            func_args = sig.bind(*ARGS, **KWARGS)
-            func_args.apply_defaults()
-            func_args = func_args.arguments
+            func_args = parse_params(func, *ARGS, **KWARGS)
 
             x = func_args[i]
             if is_1d := x.ndim == 1:
