@@ -7,6 +7,7 @@ import pycsou.abc as pyca
 import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
 import pycsou.linop.base as pyclo
+import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
@@ -85,7 +86,7 @@ class PGD(pycs.Solver):
     def fit(
         self,
         primal_init: pyct.NDArray,
-        stop_crit: pycs.StoppingCriterion,
+        stop_crit: typ.Optional[pycs.StoppingCriterion] = None,
         mode: pycs.Mode = pycs.Mode.BLOCK,
         tau: typ.Optional[pyct.Real] = None,
         acceleration: bool = True,
@@ -167,6 +168,16 @@ class PGD(pycs.Solver):
         z = y - mst["tau"] * self._f.grad(y)
 
         mst["primal_prev"], mst["primal"] = mst["primal"], self._g.prox(z)
+
+    def default_stop_crit(self) -> pycs.StoppingCriterion:
+        stop_crit = pycos.RelError(
+            eps=1e-4,
+            var="primal",
+            f=None,
+            norm=2,
+            satisfy_all=True,
+        )
+        return stop_crit
 
     def solution(self) -> pyct.NDArray:
         """
