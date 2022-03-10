@@ -11,11 +11,11 @@ import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
 
-class APGD(pycs.Solver):
+class PGD(pycs.Solver):
     r"""
-    Accelerated Proximal Gradient Descent (APGD) solver.
+    Proximal Gradient Descent (PGD) solver.
 
-    APGD solves minimization problems of the form
+    PGD solves minimization problems of the form
 
     .. math::
 
@@ -34,7 +34,7 @@ class APGD(pycs.Solver):
     is zero.
 
     **Remark 2:** The convergence is guaranteed for step sizes :math:`\tau\leq 1/\beta`. Various
-    acceleration schemes are described in [APGD]_. APGD achieves the following (optimal)
+    acceleration schemes are described in [APGD]_. PGD achieves the following (optimal)
     *convergence rate* with the implemented acceleration scheme from Chambolle & Dossal:
 
     .. math::
@@ -44,7 +44,7 @@ class APGD(pycs.Solver):
        \lim\limits_{n\rightarrow \infty} n^2\Vert \mathbf{x}_n-\mathbf{x}_{n-1}\Vert^2_\mathcal{X}=0,
 
     for *some minimiser* :math:`{\mathbf{x}^\star}\in\arg\min_{\mathbf{x}\in\mathbb{R}^N} \;\left\{\mathcal{J}(\mathbf{x}):=\mathcal{F}(\mathbf{x})+\mathcal{G}(\mathbf{x})\right\}`.
-    In other words, both the objective functional and the APGD iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}`
+    In other words, both the objective functional and the PGD iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}`
     converge at a rate :math:`o(1/n^2)`. Significant practical *speedup* can be achieved for values
     of :math:`d` in the range:math:`[50,100]` [APGD]_.
     """
@@ -88,7 +88,7 @@ class APGD(pycs.Solver):
         d: typ.Optional[pyct.Real] = 75,
     ):
         r"""
-        Solve the minimization problem defined in :py:meth:`APGD.__init__`, with the provided
+        Solve the minimization problem defined in :py:meth:`PGD.__init__`, with the provided
         run-specifc parameters.
 
         Parameters
