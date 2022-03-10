@@ -85,6 +85,7 @@ class PGD(pycs.Solver):
         stop_crit: pycs.StoppingCriterion,
         mode: pycs.Mode = pycs.Mode.BLOCK,
         tau: typ.Optional[pyct.Real] = None,
+        acceleration: bool = True,
         d: typ.Optional[pyct.Real] = 75,
     ):
         r"""
@@ -104,15 +105,32 @@ class PGD(pycs.Solver):
             * ASYNC: fit() + busy() + stop()
             * MANUAL: fit() + steps()
         tau: Real
-            Gradient step size. Defaults to :math:`1 / \beta` if unspecified.
+            Gradient step size.
+            Defaults to :math:`1 / \beta` if unspecified.
+        acceleration: bool
+            If True (default), then use Chambolle & Dossal acceleration scheme.
         d: Real
-            Chambolle & Dossal acceleration parameter :math:`d`. Should be greater than 2.
+            Chambolle & Dossal acceleration parameter :math:`d`.
+            Should be greater than 2.
+            Only meaningful if `acceleration` is True.
+            Defaults to 75 in unspecified.
         """
         self._fit_init(mode, stop_crit)
-        self.m_init(primal_init=primal_init, tau=tau, d=d)
+        self.m_init(
+            primal_init=primal_init,
+            tau=tau,
+            acceleration=acceleration,
+            d=d,
+        )
         self._fit_run()
 
-    def m_init(self, primal_init: pyct.NDArray, tau: pyct.Real, d: pyct.Real):
+    def m_init(
+        self,
+        primal_init: pyct.NDArray,
+        tau: typ.Optional[pyct.Real] = None,
+        acceleration: bool = True,
+        d: typ.Optional[pyct.Real] = 75,
+    ):
         mst = self._mstate  # shorthand
         mst["primal"] = mst["primal_prev"] = pycrt.coerce(primal_init)
 
@@ -129,14 +147,14 @@ class PGD(pycs.Solver):
             except:
                 raise ValueError(f"tau must be positive, got {tau}.")
 
-        if d is None:
-            mst["a"] = itertools.repeat(pycrt.coerce(0))
-        else:
+        if acceleration:
             try:
                 assert d > 2
                 mst["a"] = (pycrt.coerce(k / (k + 1 + d)) for k in itertools.count(start=0))
             except:
                 raise ValueError(f"Expected d > 2, got {d}.")
+        else:
+            mst["a"] = itertools.repeat(pycrt.coerce(0))
 
     def m_step(self):
         mst = self._mstate  # shorthand
