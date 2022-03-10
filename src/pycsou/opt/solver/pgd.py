@@ -59,6 +59,7 @@ class PGD(pycs.Solver):
         exist_ok: bool = False,
         writeback_rate: typ.Optional[int] = None,
         verbosity: int = 1,
+        show_progress: bool = True,
         log_var: pyct.VarName = ("primal",),
     ):
         super().__init__(
@@ -66,6 +67,7 @@ class PGD(pycs.Solver):
             exist_ok=exist_ok,
             writeback_rate=writeback_rate,
             verbosity=verbosity,
+            show_progress=show_progress,
             log_var=log_var,
         )
 
