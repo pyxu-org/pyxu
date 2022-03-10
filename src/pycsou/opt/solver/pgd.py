@@ -167,7 +167,7 @@ class PGD(pycs.Solver):
         y = (1 + a) * mst["primal"] - a * mst["primal_prev"]
         z = y - mst["tau"] * self._f.grad(y)
 
-        mst["primal_prev"], mst["primal"] = mst["primal"], self._g.prox(z)
+        mst["primal_prev"], mst["primal"] = mst["primal"], self._g.prox(z, mst["tau"])
 
     def default_stop_crit(self) -> pycs.StoppingCriterion:
         stop_crit = pycos.RelError(
