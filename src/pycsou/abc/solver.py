@@ -132,6 +132,7 @@ class Solver:
         * ``__init__()``
         * ``m_init()``  # i.e. math-init()
         * ``m_step()``  # i.e. math-step()
+        * ``default_stop_crit()``  # optional; see method definition for details
 
     Advanced functionalities of ``Solver`` are automatically inherited by sub-classes.
 
@@ -248,7 +249,7 @@ class Solver:
     def fit(
         self,
         *args,
-        stop_crit: StoppingCriterion,
+        stop_crit: typ.Optional[StoppingCriterion] = None,
         mode: Mode = Mode.BLOCK,
         **kwargs,
     ):
@@ -268,6 +269,7 @@ class Solver:
             specialized solvers.)
         stop_crit: StoppingCriterion
             Stopping criterion to end solver iterations.
+            If unspecified, defaults to ``Solver.default_stop_crit()``.
         mode: Mode
             Execution mode. See ``Solver`` for usage examples.
             Useful method pairs depending on the execution mode:
@@ -463,7 +465,11 @@ class Solver:
             return logger
 
         self._mstate.clear()
+
+        if stop_crit is None:
+            stop_crit = self.default_stop_crit()
         stop_crit.clear()
+
         self._astate.update(  # suitable state for a new call to fit().
             history=[],
             idx=0,
@@ -573,6 +579,15 @@ class Solver:
     def _m_persist(self):
         # Persist math state to avoid re-eval overhead.
         self._mstate.update(**pycu.compute(self._mstate, mode="persist"))
+
+    def default_stop_crit(self) -> StoppingCriterion:
+        """
+        Default stopping criterion for solver if unspecified in ``Solver.fit()`` calls.
+
+        Sub-classes are expected to overwrite this method. If not overridden, then omitting the
+        `stop_crit` parameter in ``Solver.fit()` is forbidden.
+        """
+        raise NotImplementedError("No default stopping criterion defined.")
 
     class _Worker(threading.Thread):
         def __init__(self, solver: "Solver"):
