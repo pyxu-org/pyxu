@@ -170,6 +170,7 @@ class Solver:
         exist_ok: bool = False,
         writeback_rate: typ.Optional[int] = None,
         verbosity: int = 1,
+        show_progress: bool = True,
         log_var: pyct.VarName = frozenset(),
     ):
         """
@@ -185,8 +186,10 @@ class Solver:
             Rate at which solver checkpoints are written to disk. No checkpointing is done if
             unspecified: only the final solver output will be written back to disk.
         verbosity: int
-            Rate at which stopping criteria statistics are logged to disk. If ``Solver.fit`` is run
-            with mode=BLOCK, then statistics are also logged to stdout.
+            Rate at which stopping criteria statistics are logged to disk.
+        show_progress: bool
+            If True (default) and ``Solver.fit`` is run with mode=BLOCK, then statistics are also
+            logged to stdout.
         log_var: VarName
             Variables from the solver's math-state (slvr._mstate) to be logged per iteration.
             These are the variables made available when calling ``Solver.stats``.
@@ -198,6 +201,7 @@ class Solver:
             log_rate=None,
             log_var=None,
             logger=None,
+            stdout=None,
             stop_crit=None,
             wb_rate=None,
             workdir=None,
@@ -230,6 +234,7 @@ class Solver:
         try:
             assert verbosity >= 1
             self._astate["log_rate"] = int(verbosity)
+            self._astate["stdout"] = bool(show_progress)
         except:
             raise ValueError(f"verbosity must be positive, got {verbosity}.")
 
@@ -448,7 +453,7 @@ class Solver:
 
             fmt = logging.Formatter(fmt="{levelname} -- {message}", style="{")
             handler = [logging.FileHandler(self.logfile, mode="w")]
-            if mode is Mode.BLOCK:
+            if (mode is Mode.BLOCK) and self._astate["stdout"]:
                 handler.append(logging.StreamHandler(sys.stdout))
             for h in handler:
                 h.setLevel("DEBUG")
