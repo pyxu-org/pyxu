@@ -46,7 +46,7 @@ class PGD(pycs.Solver):
     for *some minimiser* :math:`{\mathbf{x}^\star}\in\arg\min_{\mathbf{x}\in\mathbb{R}^N} \;\left\{\mathcal{J}(\mathbf{x}):=\mathcal{F}(\mathbf{x})+\mathcal{G}(\mathbf{x})\right\}`.
     In other words, both the objective functional and the PGD iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}`
     converge at a rate :math:`o(1/n^2)`. Significant practical *speedup* can be achieved for values
-    of :math:`d` in the range:math:`[50,100]` [APGD]_.
+    of :math:`d` in the range :math:`[50,100]` [APGD]_.
     """
 
     def __init__(
