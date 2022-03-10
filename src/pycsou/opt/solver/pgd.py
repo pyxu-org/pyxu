@@ -33,9 +33,10 @@ class PGD(pycs.Solver):
     **Remark 1:** the algorithm is still valid if either :math:`\mathcal{F}` or :math:`\mathcal{G}`
     is zero.
 
-    **Remark 2:** The convergence is guaranteed for step sizes :math:`\tau\leq 1/\beta`. Various
-    acceleration schemes are described in [APGD]_. PGD achieves the following (optimal)
-    *convergence rate* with the implemented acceleration scheme from Chambolle & Dossal:
+    **Remark 2:** The convergence is guaranteed for step sizes :math:`\tau\leq 1/\beta`.
+
+    **Remark 3:** Various acceleration schemes are described in [APGD]_. PGD achieves the following
+    (optimal) *convergence rate* with the implemented acceleration scheme from Chambolle & Dossal:
 
     .. math::
 
