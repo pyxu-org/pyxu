@@ -65,7 +65,6 @@ class CG(pycs.Solver):
            (..., N) primal variable initial point(s). Defaults to 0 if unspecified.
         stop_crit: StoppingCriterion
             Stopping criterion to end solver iterations.
-            Defaults to stopping if all residual abs-norms reach 1e-5.
         mode: Mode
            Execution mode. See :py:class:`Solver` for usage examples.
            Useful method pairs depending on the execution mode:
@@ -73,21 +72,6 @@ class CG(pycs.Solver):
            * ASYNC: fit() + busy() + stop()
            * MANUAL: fit() + steps()
         """
-        if stop_crit is None:
-
-            def explicit_residual(primal):
-                mst = self._mstate  # shorthand
-                residual = mst["b"].copy()
-                residual -= self._A.apply(primal)
-                return residual
-
-            stop_crit = pycos.AbsError(
-                eps=1e-5,
-                var="primal",
-                f=explicit_residual,
-                norm=2,
-                satisfy_all=True,
-            )
         self._fit_init(mode, stop_crit)
         self.m_init(b=b, primal_init=primal_init)
         self._fit_run()
@@ -124,6 +108,22 @@ class CG(pycs.Solver):
 
         # for homogenity with other solver code. Optional in CG due to in-place computations.
         mst["primal"], mst["residual"], mst["conjugate_dir"] = x, r, p
+
+    def default_stop_crit(self) -> pycs.StoppingCriterion:
+        def explicit_residual(primal):
+            mst = self._mstate  # shorthand
+            residual = mst["b"].copy()
+            residual -= self._A.apply(primal)
+            return residual
+
+        stop_crit = pycos.AbsError(
+            eps=1e-4,
+            var="primal",
+            f=explicit_residual,
+            norm=2,
+            satisfy_all=True,
+        )
+        return stop_crit
 
     def solution(self) -> pyct.NDArray:
         """
