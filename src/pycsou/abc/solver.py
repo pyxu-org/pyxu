@@ -117,24 +117,23 @@ class Solver:
 
     Solver provides a versatile API for solving inverse problems, with the following features:
 
-    * manual/automatic/background execution of solver iterations via parameters provided to
-      `Solver.fit`. (See below.)
-    * automatic checkpointing of solver progress, providing a safe restore point in case of faulty
-      numerical code. Each solver instance backs its state and final output to a folder on disk for
-      post-analysis. In particular ``Solver.fit`` will never crash: detailed exception information
-      will always be available in a logfile for post-analysis.
-    * arbitrary specification of complex stopping criteria via the `StoppingCriterion` class.
-    * solve for multiple initial points in parallel.
+        * manual/automatic/background execution of solver iterations via parameters provided to
+          ``Solver.fit``. (See below.)
+        * automatic checkpointing of solver progress, providing a safe restore point in case of
+          faulty numerical code. Each solver instance backs its state and final output to a folder
+          on disk for post-analysis. In particular ``Solver.fit`` will never crash: detailed
+          exception information will always be available in a logfile for post-analysis.
+        * arbitrary specification of complex stopping criteria via the ``StoppingCriterion`` class.
+        * solve for multiple initial points in parallel.
 
     To implement a new iterative solver, users need to sub-class `Solver` and overwrite the methods
     below:
 
-    * __init__()
-    * fit()     # optional, for better signatures only.
-    * m_init()  # i.e. math-init()
-    * m_step()  # i.e. math-step()
+        * ``__init__()``
+        * ``m_init()``  # i.e. math-init()
+        * ``m_step()``  # i.e. math-step()
 
-    Advanced functionalities of `Solver` are automatically inherited by sub-classes.
+    Advanced functionalities of ``Solver`` are automatically inherited by sub-classes.
 
 
     Examples
