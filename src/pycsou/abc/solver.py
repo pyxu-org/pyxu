@@ -246,27 +246,15 @@ class Solver:
         except:
             raise ValueError(f"log_var: expected collection, got {type(log_var)}.")
 
-    def fit(
-        self,
-        *args,
-        stop_crit: typ.Optional[StoppingCriterion] = None,
-        mode: Mode = Mode.BLOCK,
-        **kwargs,
-    ):
+    def fit(self, **kwargs):
         r"""
         Solve minimization problem(s) defined in ``Solver.__init__``, with the provided run-specifc
         parameters.
 
         Parameters
         ----------
-        args[0]: NDArray
-            (..., N) primal variable initial point(s).
-        args[1]: NDArray
-            (..., M) dual variable initial point(s). Only required for Primal-Dual solvers.
-            ``*args`` must suitably broadcast along their leading dimensions.
-        args[...]: NDArray
-            Any other arrays needed to fully determine the problem. (Rare to need this, except for
-            specialized solvers.)
+        kwargs
+            See class-level docstring for class-specific keyword parameters.
         stop_crit: StoppingCriterion
             Stopping criterion to end solver iterations.
             If unspecified, defaults to ``Solver.default_stop_crit()``.
@@ -276,27 +264,22 @@ class Solver:
             * BLOCK: fit()
             * ASYNC: fit() + busy() + stop()
             * MANUAL: fit() + steps()
-        **kwargs
-            Extra solver-specific parameters, if applicable.
-
-        Sub-classes may change the method signature of ``Solver.fit`` and ``Solver.m_init`` to improve
-        clarity.
         """
-        self._fit_init(mode, stop_crit)
-        self.m_init(*args, **kwargs)
+        self._fit_init(
+            mode=kwargs.pop("mode", Mode.BLOCK),
+            stop_crit=kwargs.pop("stop_crit", None),
+        )
+        self.m_init(**kwargs)
         self._fit_run()
 
-    def m_init(self, *args, **kwargs):
+    def m_init(self, **kwargs):
         """
-        Set solver's initial mathematical state based on (args, kwargs) provided to ``Solver.fit``.
+        Set solver's initial mathematical state based on kwargs provided to ``Solver.fit``.
 
         This method must only manipulate ``Solver._mstate``.
 
         After calling this method, the solver must be able to complete its 1st iteration via a call
         to ``Solver.m_step``.
-
-        Sub-classes may change the method signature of ``Solver.fit`` and ``Solver.m_init`` to improve
-        clarity.
         """
         raise NotImplementedError
 
