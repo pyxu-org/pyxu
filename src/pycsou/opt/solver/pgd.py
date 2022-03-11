@@ -49,6 +49,22 @@ class PGD(pycs.Solver):
     In other words, both the objective functional and the PGD iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}`
     converge at a rate :math:`o(1/n^2)`. Significant practical *speedup* can be achieved for values
     of :math:`d` in the range :math:`[50,100]` [APGD]_.
+
+
+    ``PGD.fit()`` **Parameterization**
+
+    primal_init: NDArray
+        (..., N) primal variable initial point(s).
+    tau: Real
+        Gradient step size.
+        Defaults to :math:`1 / \beta` if unspecified.
+    acceleration: bool
+        If True (default), then use Chambolle & Dossal acceleration scheme.
+    d: Real
+        Chambolle & Dossal acceleration parameter :math:`d`.
+        Should be greater than 2.
+        Only meaningful if `acceleration` is True.
+        Defaults to 75 in unspecified.
     """
 
     def __init__(
@@ -82,51 +98,6 @@ class PGD(pycs.Solver):
                 ]
             )
             raise ValueError(msg)
-
-    def fit(
-        self,
-        primal_init: pyct.NDArray,
-        stop_crit: typ.Optional[pycs.StoppingCriterion] = None,
-        mode: pycs.Mode = pycs.Mode.BLOCK,
-        tau: typ.Optional[pyct.Real] = None,
-        acceleration: bool = True,
-        d: typ.Optional[pyct.Real] = 75,
-    ):
-        r"""
-        Solve the minimization problem defined in :py:meth:`PGD.__init__`, with the provided
-        run-specifc parameters.
-
-        Parameters
-        ----------
-        primal_init: NDArray
-            (..., N) primal variable initial point(s).
-        stop_crit: StoppingCriterion
-            Stopping criterion to end solver iterations.
-        mode: Mode
-            Execution mode. See :py:class:`Solver` for usage examples.
-            Useful method pairs depending on the execution mode:
-            * BLOCK: fit()
-            * ASYNC: fit() + busy() + stop()
-            * MANUAL: fit() + steps()
-        tau: Real
-            Gradient step size.
-            Defaults to :math:`1 / \beta` if unspecified.
-        acceleration: bool
-            If True (default), then use Chambolle & Dossal acceleration scheme.
-        d: Real
-            Chambolle & Dossal acceleration parameter :math:`d`.
-            Should be greater than 2.
-            Only meaningful if `acceleration` is True.
-            Defaults to 75 in unspecified.
-        """
-        self._fit_init(mode, stop_crit)
-        self.m_init(
-            primal_init=primal_init,
-            tau=tau,
-            acceleration=acceleration,
-            d=d,
-        )
-        self._fit_run()
 
     def m_init(
         self,
