@@ -1416,15 +1416,17 @@ class ProxFunc(Func, Proximal):
         f = Property.__mul__(self, other)
         if isinstance(other, pyct.Real):
             other = HomothetyOp(other, dim=self.shape[0])
-
+        for cast_to in _base_operators:
+            if cast_to.properties() == self.properties():
+                break
         if isinstance(self, LinFunc) and isinstance(other, LinOp):
-            f.specialize(cast_to=self.__class__)
+            f.specialize(cast_to=cast_to)
             f.prox = types.MethodType(lambda _, arr, tau: arr - tau * other.adjoint(self.asarray()), f)
         elif isinstance(other, UnitOp):
-            f.specialize(cast_to=self.__class__)
+            f.specialize(cast_to=cast_to)
             f.prox = types.MethodType(lambda _, arr, tau: other.adjoint(self.prox(other.apply(arr), tau)), f)
         elif isinstance(other, HomothetyOp):
-            f.specialize(cast_to=self.__class__)
+            f.specialize(cast_to=cast_to)
             f.prox = types.MethodType(
                 lambda _, arr, tau: (1 / other._cst) * self.prox(other._cst * arr, tau * (other._cst) ** 2), f
             )
