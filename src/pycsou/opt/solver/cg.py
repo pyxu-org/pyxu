@@ -28,8 +28,8 @@ class CG(pycs.Solver):
 
     b: NDArray
         (..., N) 'b' terms in the CG cost function. All problems are solved in parallel.
-    primal_init: NDArray
-       (..., N) primal variable initial point(s). Defaults to 0 if unspecified.
+    x0: NDArray
+       (..., N) initial point(s). Defaults to 0 if unspecified.
     """
 
     def __init__(
@@ -41,7 +41,7 @@ class CG(pycs.Solver):
         writeback_rate: typ.Optional[int] = None,
         verbosity: int = 1,
         show_progress: bool = True,
-        log_var: pyct.VarName = ("primal",),
+        log_var: pyct.VarName = ("x",),
     ):
         super().__init__(
             folder=folder,
@@ -57,26 +57,26 @@ class CG(pycs.Solver):
     def m_init(
         self,
         b: pyct.NDArray,
-        primal_init: pyct.NDArray = None,
+        x0: pyct.NDArray = None,
     ):
         mst = self._mstate  # shorthand
 
         mst["b"] = b = pycrt.coerce(b)
         xp = pycu.get_array_module(b)
-        if primal_init is None:
-            mst["primal"] = xp.zeros_like(b)
+        if x0 is None:
+            mst["x"] = xp.zeros_like(b)
         else:
-            mst["primal"] = pycrt.coerce(primal_init)
+            mst["x"] = pycrt.coerce(x0)
 
         # 2-stage res-computation guarantees RT-precision in case apply() not
         # enforce_precision()-ed.
         mst["residual"] = xp.zeros_like(b)
-        mst["residual"][:] = b - self._A.apply(mst["primal"])
+        mst["residual"][:] = b - self._A.apply(mst["x"])
         mst["conjugate_dir"] = mst["residual"].copy()
 
     def m_step(self):
         mst = self._mstate  # shorthand
-        x, r, p = mst["primal"], mst["residual"], mst["conjugate_dir"]
+        x, r, p = mst["x"], mst["residual"], mst["conjugate_dir"]
         xp = pycu.get_array_module(x)
 
         Ap = self._A.apply(p)
@@ -89,18 +89,18 @@ class CG(pycs.Solver):
         p += r
 
         # for homogenity with other solver code. Optional in CG due to in-place computations.
-        mst["primal"], mst["residual"], mst["conjugate_dir"] = x, r, p
+        mst["x"], mst["residual"], mst["conjugate_dir"] = x, r, p
 
     def default_stop_crit(self) -> pycs.StoppingCriterion:
-        def explicit_residual(primal):
+        def explicit_residual(x):
             mst = self._mstate  # shorthand
             residual = mst["b"].copy()
-            residual -= self._A.apply(primal)
+            residual -= self._A.apply(x)
             return residual
 
         stop_crit = pycos.AbsError(
             eps=1e-4,
-            var="primal",
+            var="x",
             f=explicit_residual,
             norm=2,
             satisfy_all=True,
@@ -112,7 +112,7 @@ class CG(pycs.Solver):
         Returns
         -------
         p: NDArray
-            (..., N) primal solution.
+            (..., N) solution.
         """
         data, _ = self.stats()
-        return data.get("primal")
+        return data.get("x")
