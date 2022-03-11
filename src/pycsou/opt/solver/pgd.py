@@ -53,8 +53,8 @@ class PGD(pycs.Solver):
 
     ``PGD.fit()`` **Parameterization**
 
-    primal_init: NDArray
-        (..., N) primal variable initial point(s).
+    x0: NDArray
+        (..., N) initial point(s).
     tau: Real
         Gradient step size.
         Defaults to :math:`1 / \beta` if unspecified.
@@ -77,7 +77,7 @@ class PGD(pycs.Solver):
         writeback_rate: typ.Optional[int] = None,
         verbosity: int = 1,
         show_progress: bool = True,
-        log_var: pyct.VarName = ("primal",),
+        log_var: pyct.VarName = ("x",),
     ):
         super().__init__(
             folder=folder,
@@ -101,13 +101,13 @@ class PGD(pycs.Solver):
 
     def m_init(
         self,
-        primal_init: pyct.NDArray,
+        x0: pyct.NDArray,
         tau: typ.Optional[pyct.Real] = None,
         acceleration: bool = True,
         d: typ.Optional[pyct.Real] = 75,
     ):
         mst = self._mstate  # shorthand
-        mst["primal"] = mst["primal_prev"] = pycrt.coerce(primal_init)
+        mst["x"] = mst["x_prev"] = pycrt.coerce(x0)
 
         if tau is None:
             if math.isfinite(dl := self._f._diff_lipschitz):
@@ -135,15 +135,15 @@ class PGD(pycs.Solver):
         mst = self._mstate  # shorthand
 
         a = next(mst["a"])
-        y = (1 + a) * mst["primal"] - a * mst["primal_prev"]
+        y = (1 + a) * mst["x"] - a * mst["x_prev"]
         z = y - mst["tau"] * self._f.grad(y)
 
-        mst["primal_prev"], mst["primal"] = mst["primal"], self._g.prox(z, mst["tau"])
+        mst["x_prev"], mst["x"] = mst["x"], self._g.prox(z, mst["tau"])
 
     def default_stop_crit(self) -> pycs.StoppingCriterion:
         stop_crit = pycos.RelError(
             eps=1e-4,
-            var="primal",
+            var="x",
             f=None,
             norm=2,
             satisfy_all=True,
@@ -155,7 +155,7 @@ class PGD(pycs.Solver):
         Returns
         -------
         p: NDArray
-            (..., N) primal solution.
+            (..., N) solution.
         """
         data, _ = self.stats()
-        return data.get("primal")
+        return data.get("x")
