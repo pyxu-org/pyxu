@@ -22,6 +22,14 @@ class CG(pycs.Solver):
 
     where :math:`\mathbf{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}` is a *symmetric* *positive definite*
     operator, and :math:`\mathbf{b} \in \mathbb{R}^{N}`.
+
+
+    ``CG.fit()`` **Parameterization**
+
+    b: NDArray
+        (..., N) 'b' terms in the CG cost function. All problems are solved in parallel.
+    primal_init: NDArray
+       (..., N) primal variable initial point(s). Defaults to 0 if unspecified.
     """
 
     def __init__(
@@ -46,37 +54,11 @@ class CG(pycs.Solver):
 
         self._A = A
 
-    def fit(
+    def m_init(
         self,
         b: pyct.NDArray,
         primal_init: pyct.NDArray = None,
-        stop_crit: typ.Optional[pycs.StoppingCriterion] = None,
-        mode: pycs.Mode = pycs.Mode.BLOCK,
     ):
-        r"""
-        Solve the minimization problem defined in :py:meth:`CG.__init__`, with the provided
-        run-specific parameters.
-
-        Parameters
-        ----------
-        b: NDArray
-            (..., N) 'b' terms in the CG cost function. All problems are solved in parallel.
-        primal_init: NDArray
-           (..., N) primal variable initial point(s). Defaults to 0 if unspecified.
-        stop_crit: StoppingCriterion
-            Stopping criterion to end solver iterations.
-        mode: Mode
-           Execution mode. See :py:class:`Solver` for usage examples.
-           Useful method pairs depending on the execution mode:
-           * BLOCK: fit()
-           * ASYNC: fit() + busy() + stop()
-           * MANUAL: fit() + steps()
-        """
-        self._fit_init(mode, stop_crit)
-        self.m_init(b=b, primal_init=primal_init)
-        self._fit_run()
-
-    def m_init(self, b: pyct.NDArray, primal_init: pyct.NDArray):
         mst = self._mstate  # shorthand
 
         mst["b"] = b = pycrt.coerce(b)
