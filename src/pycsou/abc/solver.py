@@ -578,7 +578,7 @@ class Solver:
 
     def _m_persist(self):
         # Persist math state to avoid re-eval overhead.
-        self._mstate.update(**pycu.compute(self._mstate, mode="persist"))
+        self._mstate.update(**pycu.compute(self._mstate, mode="persist", traverse=False))
 
     def default_stop_crit(self) -> StoppingCriterion:
         """
