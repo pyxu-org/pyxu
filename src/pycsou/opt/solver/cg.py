@@ -100,13 +100,9 @@ class CG(pycs.Solver):
         self._A = A
 
     @pycrt.enforce_precision(i=["b", "x0"], allow_None=True)
-    def m_init(
-        self,
-        b: pyct.NDArray,
-        x0: typ.Optional[pyct.NDArray] = None,
-    ):
+    def m_init(self, b: pyct.NDArray, x0: typ.Optional[pyct.NDArray] = None, restart_rate: typ.Optional[int] = None):
         mst = self._mstate  # shorthand
-
+        mst["restart_rate"] = self._A.shape[0] if restart_rate is None else restart_rate
         mst["b"] = b
         xp = pycu.get_array_module(b)
         if x0 is None:
@@ -130,7 +126,12 @@ class CG(pycs.Solver):
         alpha = rr / (p * Ap).sum(axis=-1, keepdims=True)
         x += alpha * p
         r -= alpha * Ap
-        beta = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
+        # Because CG can only generate n conjugate vectors in an n-dimensional space, it makes sense to restart
+        # CG every n iterations.
+        if self._astate["idx"] == mst["restart_rate"]:
+            beta = 0
+        else:
+            beta = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
         p *= beta
         p += r
 
