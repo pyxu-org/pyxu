@@ -35,27 +35,40 @@ class CG(pycs.Solver):
          (..., N) 'b' terms in the CG cost function. All problems are solved in parallel.
      x0: NDArray
         (..., N) initial point(s). Defaults to 0 if unspecified.
+     restart_rate: int
+        Number of iterations after which restart is applied. By default, restart is done after 'n' iterations, where 'n'
+        corresponds to the dimension of the linear operator :math:`\mathbf{A}`.
 
-    **Remark:** 'x0' can be any array with the same shape as 'b' or with any other shape that is broadcastable with the
+    **Remark 1:** 'x0' can be any array with the same shape as 'b' or with any other shape that is broadcastable with the
     shape of 'b'. In the latter case, the initial point(s) are broadcasted following the `numpy broadcasting rules
     <https://numpy.org/doc/stable/user/basics.broadcasting.html.>`_.
 
+    **Remark 2:** The default stopping criterion evaluates the linear operator :math:`\mathbf{A}` at every iteration.
+    This computation can be very costly in some scenarios in which alternative stopping criteria might allow faster
+    performance, (e.g. relative improvement :py:class:`~pycsou.opt.solver.stop.RelError`).
+
+    **Remark 3:** `Restarts <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ could slow down convergence, but
+    they might improve stability due to round-off error or ill-posedness of the linear operator. If these issues are
+    suspected, the user can adjust 'restart_rate' variable accrodingly.
+
+
      Examples
      --------
-     To construct a concrete map, it is recommended to subclass :py:class:`~pycsou.abc.operator.Map` as ilustrated
-     in the following example:
-
      >>> import numpy as np
      >>> from pycsou.abc import LinOp
+     >>> # Create a PSD linear operator
      >>> rng = np.random.default_rng(seed=0)
      >>> mat = rng.normal(size=(10, 10))
+     >>> A = LinOp.from_array(mat).gram()
+     >>> # Create the ground truth 'x_star'
      >>> x_star = rng.normal(size=(2, 2, 10))
-     >>> # Create a PSD linear operator
-     >>> linop = LinOp.from_array(mat).gram()
-     >>> b = linop.apply(x_star)
-     >>> cg = CG(linop, show_progress=False)
+     >>> # Generate the corresponding data vector 'b'
+     >>> b = A.apply(x_star)
+     >>> # Solve 'Ax=b' for 'x' with the conjugate gradient method
+     >>> cg = CG(A, show_progress=False)
      >>> cg.fit(b=b)
-     >>> assert np.allclose(x_star, cg.solution())
+     >>> x_solution = cg.solution()
+     >>> assert np.allclose(x_star, x_solution)
 
      .. Warning::
 
