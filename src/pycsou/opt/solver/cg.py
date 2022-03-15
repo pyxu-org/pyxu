@@ -54,19 +54,20 @@ class CG(pycs.Solver):
 
         self._A = A
 
+    @pycrt.enforce_precision(i=["b", "x0"], allow_None=True)
     def m_init(
         self,
         b: pyct.NDArray,
-        x0: pyct.NDArray = None,
+        x0: typ.Optional[pyct.NDArray] = None,
     ):
         mst = self._mstate  # shorthand
 
-        mst["b"] = b = pycrt.coerce(b)
+        mst["b"] = b
         xp = pycu.get_array_module(b)
         if x0 is None:
             mst["x"] = xp.zeros_like(b)
         else:
-            mst["x"] = pycrt.coerce(x0)
+            mst["x"] = x0
 
         # 2-stage res-computation guarantees RT-precision in case apply() not
         # enforce_precision()-ed.
