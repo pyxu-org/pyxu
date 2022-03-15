@@ -99,6 +99,7 @@ class PGD(pycs.Solver):
             )
             raise ValueError(msg)
 
+    @pycrt.enforce_precision(i=["x0", "tau"])
     def m_init(
         self,
         x0: pyct.NDArray,
@@ -107,7 +108,7 @@ class PGD(pycs.Solver):
         d: typ.Optional[pyct.Real] = 75,
     ):
         mst = self._mstate  # shorthand
-        mst["x"] = mst["x_prev"] = pycrt.coerce(x0)
+        mst["x"] = mst["x_prev"] = x0
 
         if tau is None:
             if math.isfinite(dl := self._f._diff_lipschitz):
@@ -118,7 +119,7 @@ class PGD(pycs.Solver):
         else:
             try:
                 assert tau > 0
-                mst["tau"] = pycrt.coerce(tau)
+                mst["tau"] = tau
             except:
                 raise ValueError(f"tau must be positive, got {tau}.")
 
