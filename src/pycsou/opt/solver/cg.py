@@ -12,24 +12,56 @@ import pycsou.util.ptype as pyct
 
 class CG(pycs.Solver):
     r"""
-    Conjugate Gradient Method.
+     Conjugate Gradient Method.
 
-    The Conjugate Gradient method solves the minimization problem
+     The Conjugate Gradient method solves the minimization problem
 
-    .. math::
+     .. math::
 
-       \min_{x\in\mathbb{R}^{N}} \frac{1}{2} \mathbf{x}^{T} \mathbf{A} \mathbf{x} - \mathbf{x}^{T} \mathbf{b},
+        \min_{x\in\mathbb{R}^{N}} \frac{1}{2} \mathbf{x}^{T} \mathbf{A} \mathbf{x} - \mathbf{x}^{T} \mathbf{b},
 
-    where :math:`\mathbf{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}` is a *symmetric* *positive definite*
-    operator, and :math:`\mathbf{b} \in \mathbb{R}^{N}`.
+     where :math:`\mathbf{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}` is a *symmetric* *positive definite*
+     operator, and :math:`\mathbf{b} \in \mathbb{R}^{N}`.
+
+     The norm of the `explicit residual <https://www.wikiwand.com/en/Conjugate_gradient_method>`_
+     :math:`\mathbf {r}_{k+1}:=\mathbf{b}-\mathbf{Ax}_{k+1}}` is used as the default stopping criteria. This provides a
+     guaranteed level of accuracy both in exact arithmetic and in the presence of the rounding errors. By default, the
+     iterations stop when the norm of the explicit residual is smaller than 1e-4.
 
 
-    ``CG.fit()`` **Parameterization**
+     ``CG.fit()`` **Parameterization**
 
-    b: NDArray
-        (..., N) 'b' terms in the CG cost function. All problems are solved in parallel.
-    x0: NDArray
-       (..., N) initial point(s). Defaults to 0 if unspecified.
+     b: NDArray
+         (..., N) 'b' terms in the CG cost function. All problems are solved in parallel.
+     x0: NDArray
+        (..., N) initial point(s). Defaults to 0 if unspecified.
+
+    **Remark:** 'x0' can be any array with the same shape as 'b' or with any other shape that is broadcastable with the
+    shape of 'b'. In the latter case, the initial point(s) are broadcasted following the `numpy broadcasting rules
+    <https://numpy.org/doc/stable/user/basics.broadcasting.html.>`_.
+
+     Examples
+     --------
+     To construct a concrete map, it is recommended to subclass :py:class:`~pycsou.abc.operator.Map` as ilustrated
+     in the following example:
+
+     >>> import numpy as np
+     >>> from pycsou.abc import LinOp
+     >>> rng = np.random.default_rng(seed=0)
+     >>> mat = rng.normal(size=(10, 10))
+     >>> x_star = rng.normal(size=(2, 2, 10))
+     >>> # Create a PSD linear operator
+     >>> linop = LinOp.from_array(mat).gram()
+     >>> b = linop.apply(x_star)
+     >>> cg = CG(linop, show_progress=False)
+     >>> cg.fit(b=b)
+     >>> assert np.allclose(x_star, cg.solution())
+
+     .. Warning::
+
+         This  is a simplified example for illustration puposes only. It may not abide by all the rules listed in the
+         :ref:`developer-notes`.
+
     """
 
     def __init__(
