@@ -84,9 +84,13 @@ def hutchpp(linop: pyco.LinOp, m: int = 4002, xp: pyct.ArrayModule = np, seed: f
                 UserWarning,
             )
 
-    rng = xp.random.default_rng(seed=seed)
-    s = rng.standard_normal(size=(d, (m + 2) // 4))
-    g = rng.binomial(n=1, p=0.5, size=(d, (m - 2) // 2)) * 2 - 1
-    q, _ = xlin.qr(linop.apply(s.T).T, **kwargs)
+    rng = np.random.default_rng(seed=seed)
+    s = xp.asarray(rng.standard_normal(size=(d, (m + 2) // 4)))
+    g = xp.asarray(rng.binomial(n=1, p=0.5, size=(d, (m - 2) // 2)) * 2 - 1)
+    if xp == da:
+        q, _ = xlin.qr(linop.apply(s.T).T.rechunk({0: "auto", 1: -1}), **kwargs)
+    else:
+        q, _ = xlin.qr(linop.apply(s.T).T, **kwargs)
+
     proj = g - q @ (q.T @ g)
     return xp.trace(q.T @ linop.apply(q.T).T) + (2.0 / (m - 2)) * xp.trace(proj.T @ linop.apply(proj.T).T)
