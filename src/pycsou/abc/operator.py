@@ -6,7 +6,6 @@ import warnings
 import numpy as np
 import scipy.sparse.linalg as splin
 
-import pycsou.math.linalg as pycl
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
@@ -1806,14 +1805,7 @@ class LinOp(DiffMap, Adjoint):
             Hutch++ stochastic estimate of the trace.
 
         """
-        keys = kwargs.keys()
-        if ("gpu" in keys) and ("xp" not in keys):
-            if kwargs["gpu"]:
-                import cupy as xp
-            else:
-                import numpy as xp
-            kwargs.update(dict(xp=xp))
-            del kwargs["gpu"]
+        import pycsou.math.linalg as pycl
 
         return pycl.hutchpp(self, **kwargs)
 
