@@ -12,7 +12,7 @@ import pycsou.util.ptype as pyct
 @pycrt.enforce_precision(o=True)
 def hutchpp(linop: pyco.LinOp, m: int = 4002, xp: pyct.ArrayModule = np, seed: float = 0):
     r"""
-    Computes an stocastic estimate of the trace for linear operators based on the Hutch++ algorithm (specifically,
+    Computes an stochastic estimate of the trace for linear operators based on the Hutch++ algorithm (specifically,
     algorithm 3 of the paper https://arxiv.org/abs/2010.09649.
 
     Parameters
@@ -25,7 +25,7 @@ def hutchpp(linop: pyco.LinOp, m: int = 4002, xp: pyct.ArrayModule = np, seed: f
         corresponds to having an estimation error smaller than 0.01 with a probability of 0.9.
     xp:  pycsou.util.ptype.ArrayModule
          Which array module to use to represent the output.
-    seed: float
+    seed: int
         Seed for the random number generator.
 
 
