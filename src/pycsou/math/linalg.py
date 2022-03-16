@@ -55,23 +55,16 @@ def hutchpp(linop: pyco.LinOp, m: int = 4002, xp: pyct.ArrayModule = np, seed: f
      10398.448002578634
     """
 
-    if xp == np:
-        kwargs = {"mode": "economic"}
-        import scipy
+    if linop.shape[0] != linop.shape[1]:
+        raise NotImplementedError
 
-        xlin = scipy.linalg
-    elif pycu.deps.CUPY_ENABLED:  # Scipy casts any input to the LinOp as a Numpy array so the cupyx version is needed.
-        import cupy as cp
+    import dask.array as da
 
-        if xp == cp:
-            xlin = cp.linalg
-            kwargs = {"mode": "reduced"}
+    xlin = xp.linalg
+    if xp == da:
+        kwargs = {}
     else:
-        import dask.array as da
-
-        if xp == da:
-            xlin = da
-            kwargs = {}
+        kwargs = {"mode": "reduced"}
 
     d = linop.shape[1]
     if m >= d:
