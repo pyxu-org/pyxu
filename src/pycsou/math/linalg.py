@@ -73,7 +73,7 @@ def hutchpp(linop: pyco.LinOp, m: int = 4002, xp: pyct.ArrayModule = np, seed: f
             "of queries is larger or equal to the dimension of the linear operator.",
             UserWarning,
         )
-        return xp.trace(linop.apply(xp.eye(d)))
+        return xp.sum(xp.array([linop.apply(e)[i] for i, e in enumerate(xp.eye(d))]))
 
     if isinstance(linop, pycb.ExplicitLinOp):
         if xp != pycu.get_array_module(linop.mat):
