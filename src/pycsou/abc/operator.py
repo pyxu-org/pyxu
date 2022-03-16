@@ -1775,16 +1775,29 @@ class LinOp(DiffMap, Adjoint):
         eigenspectrum of the linear operator is flat.
 
         """
-        if algo == "fro":
-            kwargs.update(dict(m=126, gpu=gpu))
-            if np.diff(self.shape) > 0:
-                return np.sqrt(self.cogram().trace(**kwargs))
-            else:
-                return np.sqrt(self.gram().trace(**kwargs))
 
         if recompute or (self._lipschitz == np.infty):
-            kwargs.update(dict(k=1, which="LM", gpu=gpu))
-            self._lipschitz = self.svdvals(**kwargs)
+            if algo == "fro":
+                if "gpu" in kwargs.keys():
+                    if "xp" not in kwargs.keys():
+                        if kwargs["gpu"]:
+                            import cupy as xp
+                        else:
+                            import numpy as xp
+                        kwargs.update(dict(xp=xp))
+                    del kwargs["gpu"]
+                if "m" not in kwargs.keys():
+                    kwargs.update(dict(m=126))
+                if np.diff(self.shape) > 0:
+                    self._lipschitz = np.sqrt(self.cogram().trace(**kwargs))
+                else:
+                    self._lipschitz = np.sqrt(self.gram().trace(**kwargs))
+            elif algo == "svds":
+                kwargs.update(dict(k=1, which="LM", gpu=gpu))
+                self._lipschitz = self.svdvals(**kwargs)
+            else:
+                raise NotImplementedError
+
         return self._lipschitz
 
     @pycrt.enforce_precision(o=True)
