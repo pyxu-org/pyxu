@@ -36,8 +36,23 @@ def hutchpp(linop: pyco.LinOp, m: int = 4002, xp: pyct.ArrayModule = np, seed: f
 
     Notes
     -----
-    This function calls Scipy’s function: :py:func:`scipy.sparse.linalg.qr`. See the documentation of this function
+    This function calls Numpy’s function: :py:func:`numpy.linalg.qr`. See the documentation of this function
     for more information on its behaviour and the underlying LAPACK routines it relies on.
+
+    Examples
+     --------
+     >>> import numpy as np
+     >>> from pycsou.abc import LinOp
+     >>> # Create a square PSD linear operator
+     >>> rng = np.random.default_rng(seed=0)
+     >>> mat = rng.normal(size=(100, 100))
+     >>> A = LinOp.from_array(mat).gram()
+     >>> trace_stoch = hutchpp(A, m=10)
+     >>> trace = np.trace(A.apply(np.eye(100)))
+     >>> print(trace)
+     9961.972635463775
+     >>> print(trace_stoch)
+     10398.448002578634
     """
 
     if xp == np:
