@@ -1756,7 +1756,7 @@ class LinOp(DiffMap, Adjoint):
         kwargs:
             Optional arguments to be passed to the algorithm used for computing the Lipschitz constant.
             The parameter ``tol`` of Scipy's :py:func:`scipy.sparse.linalg.svds` routine can be particularly interesting to reduce
-            the compute time of the Lipschitz constant.
+            the compute time of the Lipschitz constant. The parameter ``m`` of LinOps :py:func:`pycsou.abc.operator.LinOp.trace` can also be interesting to control the number of queries used for the stochastic estimation.
 
         Returns
         -------
