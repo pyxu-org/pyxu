@@ -216,7 +216,7 @@ class Property:
         out_op = Op(out_shape)
         for prop in shared_props:
             if prop in ["lipschitz", "diff_lipschitz"]:
-                setattr(out_op, prop, getattr(self, prop) + getattr(other, prop))
+                setattr(out_op, "_" + prop, getattr(self, "_" + prop) + getattr(other, "_" + prop))
             else:
 
                 @pycrt.enforce_precision(i="arr", o=False)  # Decorate composite method to avoid recasting [arr] twice.
@@ -552,7 +552,7 @@ class Property:
         props.discard("single_valued")
         for prop in out_op.properties():
             if prop in ["lipschitz", "diff_lipschitz"]:
-                setattr(out_op, prop, getattr(self, prop))
+                setattr(out_op, "_" + prop, getattr(self, "_" + prop))
             elif prop == "prox":
                 out_op.prox = types.MethodType(
                     ft.partial(lambda arr, _, x, tau: self.prox(x + arr, tau) - arr, arr), out_op
@@ -1141,7 +1141,7 @@ class Map(Apply):
             raise ValueError(f"Cannot create a {cls.__name__} object with the given properties.")
         for prop in properties:
             if prop in ["lipschitz", "diff_lipschitz"]:
-                setattr(out_op, prop, kwargs[prop])
+                setattr(out_op, "_" + prop, kwargs["_" + prop])
             elif prop == "prox":
                 f = lambda key, _, arr, tau: kwargs[key](arr, tau)
                 setattr(out_op, prop, types.MethodType(ft.partial(f, prop), out_op))
