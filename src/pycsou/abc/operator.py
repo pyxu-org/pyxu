@@ -189,7 +189,7 @@ class Property:
         | ProxDiffFunc |     |         |      |          |          |         |          | DiffFunc     |
         +--------------+-----+---------+------+----------+----------+---------+----------+--------------+
 
-        If the sum has one or more of the following properties ``[apply, jacobian, grad, adjoint, _lipschitz, _diff_lipschitz]``,
+        If the sum has one or more of the following properties ``[apply, jacobian, grad, adjoint, lipschitz, diff_lipschitz]``,
         the latter are defined as the sum of the corresponding properties of the addends. In the case ``ProxFunc/ProxDiffFunc/LinFunc + LinFunc``,
         the ``prox`` property is updated as described in the method ``__add__`` of the subclass :py:class:`~pycsou.abc.operator.ProxFunc`.
 
@@ -215,7 +215,7 @@ class Property:
         shared_props.discard("single_valued")
         out_op = Op(out_shape)
         for prop in shared_props:
-            if prop in ["_lispchitz", "_diff_lipschitz"]:
+            if prop in ["lipschitz", "diff_lipschitz"]:
                 setattr(out_op, prop, getattr(self, prop) + getattr(other, prop))
             else:
 
@@ -286,7 +286,7 @@ class Property:
         +--------------+---------+----------+------+----------+----------+-------------+----------+--------------+
 
 
-        If the product output has one or more of the following properties ``[apply, jacobian, grad, adjoint, _lipschitz, _diff_lipschitz]``,
+        If the product output has one or more of the following properties ``[apply, jacobian, grad, adjoint, lipschitz, diff_lipschitz]``,
         the latter are defined from the corresponding properties of the factors as follows (the pseudocode below is mathematically equivalent to but does
         not necessarily reflect the actual implementation):
 
@@ -346,12 +346,12 @@ class Property:
             shared_props.discard("jacobian")
         shared_props.discard("single_valued")
         out_op = Op(out_shape)
-        for prop in shared_props:  # ("apply", "_lipschitz", "jacobian", "_diff_lipschitz", "grad", "adjoint")
+        for prop in shared_props:  # ("apply", "lipschitz", "jacobian", "diff_lipschitz", "grad", "adjoint")
             if prop == "apply":
                 out_op.apply = types.MethodType(lambda _, arr: self.apply(other.apply(arr)), out_op)
-            elif prop == "_lipschitz":
+            elif prop == "lipschitz":
                 out_op._lipschitz = self._lipschitz * other._lipschitz
-            elif prop == "_diff_lipschitz":
+            elif prop == "diff_lipschitz":
                 if isinstance(self, LinOp):
                     out_op._diff_lipschitz = self._lipschitz * other._diff_lipschitz
                 elif isinstance(other, LinOp):
@@ -515,7 +515,7 @@ class Property:
         The output domain-shifted operator has either the same type of ``self`` or is of type
         :py:class:`~pycsou.abc.operator.DiffMap`/:py:class:`~pycsou.abc.operator.DiffFunc` when ``self`` is a
         :py:class:`~pycsou.abc.operator.LinOp`/:py:class:`~pycsou.abc.operator.LinFunc` object respectively (since shifting does not preserve linearity).
-        Moreover, if the output has one or more of the following properties ``[apply, jacobian, grad, prox, _lipschitz, _diff_lipschitz]``,
+        Moreover, if the output has one or more of the following properties ``[apply, jacobian, grad, prox, lipschitz, diff_lipschitz]``,
         the latter are defined from the corresponding properties of ``self`` as follows (the pseudocode below is mathematically equivalent to but does
         not necessarily reflect the actual implementation):
 
@@ -551,7 +551,7 @@ class Property:
             props.discard("jacobian")
         props.discard("single_valued")
         for prop in out_op.properties():
-            if prop in ["_lispchitz", "_diff_lipschitz"]:
+            if prop in ["lipschitz", "diff_lipschitz"]:
                 setattr(out_op, prop, getattr(self, prop))
             elif prop == "prox":
                 out_op.prox = types.MethodType(
@@ -1140,7 +1140,7 @@ class Map(Apply):
         else:
             raise ValueError(f"Cannot create a {cls.__name__} object with the given properties.")
         for prop in properties:
-            if prop in ["_lispchitz", "_diff_lipschitz"]:
+            if prop in ["lipschitz", "diff_lipschitz"]:
                 setattr(out_op, prop, kwargs[prop])
             elif prop == "prox":
                 f = lambda key, _, arr, tau: kwargs[key](arr, tau)
@@ -1749,8 +1749,8 @@ class LinOp(DiffMap, Adjoint):
         gpu: bool
             If ``True`` the computation of the Lipschitz constant is performed on the GPU. Has no effect if ``recompute==False``.
         algo: 'svds', 'fro'
-            Algorithm used for computing the Lipschitz constant. If ``algo==svds`` the Lispchtiz constant is estimated as the
-            spectral norm of :math:`L`, computed via Scipy's :py:func:`scipy.sparse.linalg.svds` routine (more accurate but more compute intensive).  If ``algo==fro`` the Lispchtiz constant is estimated as the
+            Algorithm used for computing the Lipschitz constant. If ``algo==svds`` the Lipschitz constant is estimated as the
+            spectral norm of :math:`L`, computed via Scipy's :py:func:`scipy.sparse.linalg.svds` routine (more accurate but more compute intensive).  If ``algo==fro`` the Lipschitz constant is estimated as the
             Froebenius norm of :math:`L`, computed via the matrix-free `Hutch++ stochastic trace estimation algorithm <https://arxiv.org/abs/2010.09649>`_ (less accurate but less compute intensive).
             Currently, only ``algo==svds`` is supported.
         kwargs:
