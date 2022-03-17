@@ -1774,6 +1774,27 @@ class LinOp(DiffMap, Adjoint):
         bounded by :math:`\|L\|_F \leq \sqrt{n} \|L\|_2`, with the equality approximated in those cases in which the
         eigenspectrum of the linear operator is flat.
 
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from pycsou.abc import LinOp
+        >>> # Create a square PSD linear operator
+        >>> rng = np.random.default_rng(seed=0)
+        >>> mat = rng.normal(size=(100, 100))
+        >>> A = LinOp.from_array(mat).gram()
+        >>> # Compute Stochastic upper bound of Lipschitz (using Hutch++)
+        >>> stochastic_upper_bound = A.lipschitz(algo="fro", xp=np, m=10)
+        >>> # Compute Deterministic upper bound of Lipschitz
+        >>> deterministic_upper_bound = A.lipschitz(algo="fro", xp=np, m=100, recompute=True)
+        >>> # Compute Lipschitz
+        >>> lipschitz = A.lipschitz(algo="svds", recompute=True)
+        >>> print(stochastic_upper_bound)
+        [1411.78659953]
+        >>> print(deterministic_upper_bound)
+        [1411.44955295]
+        >>> print(lipschitz)
+        [384.29239583]
+
         """
 
         if recompute or (self._lipschitz == np.infty):
