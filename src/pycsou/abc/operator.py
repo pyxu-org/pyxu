@@ -335,6 +335,8 @@ class Property:
             out_shape = pycu.infer_composition_shape(self.shape, other.shape)
         except ValueError:
             raise ValueError(f"Cannot compose two maps with inconsistent shapes {self.shape} and {other.shape}.")
+        if self.shape[0] == 1:
+            self = self.squeeze()
         shared_props = self.properties() & other.properties()
         shared_props.discard("prox")
         if self.shape[0] == 1 and "jacobian" in shared_props:
