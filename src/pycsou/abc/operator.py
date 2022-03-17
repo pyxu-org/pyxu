@@ -61,9 +61,9 @@ class Property:
         return frozenset(
             (
                 "apply",
-                "_lipschitz",
+                "lipschitz",
                 "jacobian",
-                "_diff_lipschitz",
+                "diff_lipschitz",
                 "single_valued",
                 "grad",
                 "prox",
