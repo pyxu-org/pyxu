@@ -1075,7 +1075,7 @@ class Map(Apply):
             for prop in self.properties():
                 if prop == "jacobian" and cast_to.has("single_valued"):
                     obj.grad = types.MethodType(lambda _, x: self.jacobian(x).asarray().reshape(-1), obj)
-                if prop in ["lispchitz", "diff_lipschitz"]:
+                if prop in ["lipschitz", "diff_lipschitz"]:
                     setattr(obj, "_" + prop, getattr(self, "_" + prop))
                 else:
                     setattr(obj, prop, getattr(self, prop))
