@@ -24,8 +24,8 @@ class CG(pycs.Solver):
      operator, and :math:`\mathbf{b} \in \mathbb{R}^{N}`.
 
      The norm of the `explicit residual <https://www.wikiwand.com/en/Conjugate_gradient_method>`_
-     :math:`\mathbf {r}_{k+1}:=\mathbf{b}-\mathbf{Ax}_{k+1}}` is used as the default stopping criteria. This provides a
-     guaranteed level of accuracy both in exact arithmetic and in the presence of the rounding errors. By default, the
+     :math:`\mathbf {r}_{k+1}:=\mathbf{b}-\mathbf{Ax}_{k+1}}` is used as the default stopping criterion. This provides a
+     guaranteed level of accuracy both in exact arithmetic and in the presence of the round-off errors. By default, the
      iterations stop when the norm of the explicit residual is smaller than 1e-4.
 
 
@@ -49,7 +49,7 @@ class CG(pycs.Solver):
 
     **Remark 3:** `Restarts <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ could slow down convergence, but
     they might improve stability due to round-off error or ill-posedness of the linear operator. If these issues are
-    suspected, the user can adjust 'restart_rate' variable accrodingly.
+    suspected, the user can adjust 'restart_rate' variable accordingly.
 
 
      Examples
