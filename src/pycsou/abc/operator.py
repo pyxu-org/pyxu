@@ -1789,9 +1789,9 @@ class LinOp(DiffMap, Adjoint):
                 if "m" not in kwargs.keys():
                     kwargs.update(dict(m=126))
                 if np.diff(self.shape) > 0:
-                    self._lipschitz = np.sqrt(self.cogram().trace(**kwargs))
+                    self._lipschitz = kwargs["xp"].array(np.sqrt(self.cogram().trace(**kwargs))).reshape(-1)
                 else:
-                    self._lipschitz = np.sqrt(self.gram().trace(**kwargs))
+                    self._lipschitz = kwargs["xp"].array(np.sqrt(self.gram().trace(**kwargs))).reshape(-1)
             elif algo == "svds":
                 kwargs.update(dict(k=1, which="LM", gpu=gpu))
                 self._lipschitz = self.svdvals(**kwargs)
