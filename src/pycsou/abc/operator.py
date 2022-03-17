@@ -1422,13 +1422,13 @@ class ProxFunc(Func, Proximal):
             other = HomothetyOp(other, dim=self.shape[0])
 
         if isinstance(self, LinFunc) and isinstance(other, LinOp):
-            f.specialize(cast_to=self.__class__)
+            f = f.specialize(cast_to=self.__class__)
             f.prox = types.MethodType(lambda _, arr, tau: arr - tau * other.adjoint(self.asarray()), f)
         elif isinstance(other, UnitOp):
-            f.specialize(cast_to=self.__class__)
+            f = f.specialize(cast_to=self.__class__)
             f.prox = types.MethodType(lambda _, arr, tau: other.adjoint(self.prox(other.apply(arr), tau)), f)
         elif isinstance(other, HomothetyOp):
-            f.specialize(cast_to=self.__class__)
+            f = f.specialize(cast_to=self.__class__)
             f.prox = types.MethodType(
                 lambda _, arr, tau: (1 / other._cst) * self.prox(other._cst * arr, tau * (other._cst) ** 2), f
             )
