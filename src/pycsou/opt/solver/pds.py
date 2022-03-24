@@ -350,6 +350,9 @@ class PrimalDualSplitting(pycs.Solver):
             return self._mstate["x"].copy() if z is None else z
 
 
+PDS = PrimalDualSplitting
+
+
 class ChambollePockSplitting(PDS):
     def __init__(
         self,
@@ -388,6 +391,9 @@ class ChambollePockSplitting(PDS):
         mst["tau"] = tau
         mst["sigma"] = 1.0 / tau
         mst["rho"] = 1.0
+
+
+CPS = ChambollePockSplitting
 
 
 class DouglasRachfordSplitting(PDS):
@@ -429,6 +435,9 @@ class DouglasRachfordSplitting(PDS):
         mst["rho"] = 1.0
 
 
+DRS = DouglasRachfordSplitting
+
+
 class ForwardBackwardSplitting(PDS):
     def __init__(
         self,
@@ -467,6 +476,8 @@ class ForwardBackwardSplitting(PDS):
         mst["tau"] = tau
         mst["rho"] = 1.0
 
+
+FBS = ForwardBackwardSplitting
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
