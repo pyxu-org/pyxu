@@ -47,7 +47,7 @@ class L1Norm(pyco.ProxFunc):
 
 
 class FirstDerivative(pyco.LinOp):
-    def __init__(self, size: int, axis: int = 0, sampling: float = 1.0, edge: bool = True, kind: str = "forward"):
+    def __init__(self, size: int, axis: int = -1, sampling: float = 1.0, edge: bool = True, kind: str = "forward"):
         super(FirstDerivative, self).__init__((size, size))
         self.axis = axis
         self.sampling = sampling
