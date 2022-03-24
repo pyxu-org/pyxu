@@ -1432,7 +1432,8 @@ class ProxFunc(Func, Proximal):
             f.prox = types.MethodType(
                 lambda _, arr, tau: (1 / other._cst) * self.prox(other._cst * arr, tau * (other._cst) ** 2), f
             )
-        return f.squeeze()
+
+        return f.squeeze() if f is NonProxLike else f
 
     @pycrt.enforce_precision(i="mu", o=False)
     def moreau_envelope(self, mu: pyct.Real) -> "DiffFunc":
