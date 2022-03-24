@@ -156,10 +156,7 @@ class PrimalDualSplitting(pycs.Solver):
 
         self._f = pyclo.NullFunc() if (f is None) else f
         self._g = pyclo.NullFunc() if (g is None) else g
-        self._h = (
-            pyclo.NullFunc() if (h is None) else h
-        )  # TODO >> MAYBE IS EASIER TO SET TO NONE IF THIS IS NOT USE AFTERWARDS
-
+        self._h = pyclo.NullFunc() if (h is None) else h
         if h is not None:
             if K is None:
                 self._K = pyclo.IdentityOp()
@@ -176,7 +173,7 @@ class PrimalDualSplitting(pycs.Solver):
             if K is None:
                 self._K = pyclo.NullOp()
 
-        if (f is None) and (g is None) and (h is None):  # TODO
+        if (f is None) and (g is None) and (h is None):
             msg = " ".join(
                 [
                     "Cannot minimize always-0 functional.",
