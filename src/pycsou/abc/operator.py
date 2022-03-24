@@ -1610,7 +1610,8 @@ class LinOp(DiffMap, Adjoint):
 
     Any instance/subclass of this class must implement the methods :py:meth:`~pycsou.abc.operator.Apply.apply` and :py:meth:`~pycsou.abc.operator.Adjoint.adjoint`.
     If known, the Lipschitz constant of the linear map can be stored in the private instance attribute
-    ``_lipschitz`` (initialized to :math:`+\infty` by default).
+    ``_lipschitz`` (initialized to :math:`+\infty` by default). By default, a squared linear operator (i.e., :math:`L:\mathbb{R}^N\to\mathbb{R}^N`)
+    will be automatically initialized as a :py:class:`~pycsou.abc.operator.SquareOp`.
 
     .. todo::
 
@@ -1632,6 +1633,8 @@ class LinOp(DiffMap, Adjoint):
         """
         super(LinOp, self).__init__(shape)
         self._diff_lipschitz = 0
+        if shape[0] == shape[1]:
+            self.__class__ = SquareOp
 
     def squeeze(self) -> typ.Union["LinOp", "LinFunc"]:
         r"""
