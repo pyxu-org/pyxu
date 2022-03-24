@@ -1074,7 +1074,9 @@ class Map(Apply):
             obj = cast_to(self.shape)
             for prop in self.properties():
                 if prop == "jacobian" and cast_to.has("single_valued"):
-                    obj.grad = types.MethodType(lambda _, x: self.jacobian(x).asarray().reshape(-1), obj)
+                    obj.grad = types.MethodType(
+                        lambda _, x: self.jacobian(x).asarray(xp=pycu.get_array_module(x)).reshape(-1), obj
+                    )
                 if prop in ["lipschitz", "diff_lipschitz"]:
                     setattr(obj, "_" + prop, getattr(self, "_" + prop))
                 else:
@@ -1370,7 +1372,9 @@ class ProxFunc(Func, Proximal):
         f = Property.__add__(self, other)
         if isinstance(other, LinFunc):
             f = f.specialize(cast_to=self.__class__)
-            f.prox = types.MethodType(lambda _, x, tau: self.prox(x - tau * other.asarray(), tau), f)
+            f.prox = types.MethodType(
+                lambda _, x, tau: self.prox(x - tau * other.asarray(xp=pycu.get_array_module(x)), tau), f
+            )
         return f.squeeze()
 
     def __mul__(self: "ProxFunc", other: MapLike) -> MapLike:
@@ -1423,7 +1427,9 @@ class ProxFunc(Func, Proximal):
 
         if isinstance(self, LinFunc) and isinstance(other, LinOp):
             f = f.specialize(cast_to=self.__class__)
-            f.prox = types.MethodType(lambda _, arr, tau: arr - tau * other.adjoint(self.asarray()), f)
+            f.prox = types.MethodType(
+                lambda _, arr, tau: arr - tau * other.adjoint(self.asarray(xp=pycu.get_array_module(arr))), f
+            )
         elif isinstance(other, UnitOp):
             f = f.specialize(cast_to=self.__class__)
             f.prox = types.MethodType(lambda _, arr, tau: other.adjoint(self.prox(other.apply(arr), tau)), f)
