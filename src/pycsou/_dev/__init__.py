@@ -37,7 +37,7 @@ class L1Norm(pyco.ProxFunc):
 
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.clip(xp.abs(arr) - tau, a_min=0, a_max=None) * xp.sign(arr)
+        return (abs(arr) - tau).clip(0, None) * xp.sign(arr)
 
     def as_loss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.ProxFunc:
         if data is None:
