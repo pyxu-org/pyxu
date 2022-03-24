@@ -462,8 +462,8 @@ class ForwardBackwardSplitting(PDS):
         rho: typ.Optional[pyct.Real] = 1.0,
     ):
         mst = self._mstate  # shorthand
-        mst["x"] = mst["x_prev"] = x_init
-        mst["z"] = mst["z_prev"] = self.set_dual_variable(z_init)
+        mst["x"] = mst["x_prev"] = x0
+        mst["z"] = mst["z_prev"] = self.set_dual_variable(z0)
         mst["tau"] = tau
         mst["rho"] = 1.0
 
