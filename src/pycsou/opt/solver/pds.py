@@ -185,19 +185,19 @@ class PrimalDualSplitting(pycs.Solver):
             )
             raise ValueError(msg)
 
-    @pycrt.enforce_precision(i=["x_init", "z_init", "tau", "sigma", "rho", "beta"], allow_None=True)
+    @pycrt.enforce_precision(i=["x0", "z0", "tau", "sigma", "rho", "beta"], allow_None=True)
     def m_init(
         self,
-        x_init: pyct.NDArray,
-        z_init: typ.Optional[pyct.NDArray],
+        x0: pyct.NDArray,
+        z0: typ.Optional[pyct.NDArray],
         tau: typ.Optional[pyct.Real] = None,
         sigma: typ.Optional[pyct.Real] = None,
         rho: typ.Optional[pyct.Real] = None,
         beta: typ.Optional[pyct.Real] = None,
     ):
         mst = self._mstate  # shorthand
-        mst["x"] = mst["x_prev"] = x_init
-        mst["z"] = mst["z_prev"] = self.set_dual_variable(z_init)
+        mst["x"] = mst["x_prev"] = x0
+        mst["z"] = mst["z_prev"] = self.set_dual_variable(z0)
         mst["beta"] = self.set_beta(beta)
         mst["tau"], mst["sigma"] = self.set_step_sizes(tau, sigma)
         mst["rho"] = self.set_momentum_term(rho)
@@ -378,16 +378,16 @@ class ChambollePockSplitting(PDS):
             log_var=log_var,
         )
 
-    @pycrt.enforce_precision(i=["x_init", "z_init", "tau"], allow_None=True)
+    @pycrt.enforce_precision(i=["x0", "z0", "tau"], allow_None=True)
     def m_init(
         self,
-        x_init: pyct.NDArray,
-        z_init: typ.Optional[pyct.NDArray],
+        x0: pyct.NDArray,
+        z0: typ.Optional[pyct.NDArray],
         tau: typ.Optional[pyct.Real] = 1.0,
     ):
         mst = self._mstate  # shorthand
-        mst["x"] = mst["x_prev"] = x_init
-        mst["z"] = mst["z_prev"] = self.set_dual_variable(z_init)
+        mst["x"] = mst["x_prev"] = x0
+        mst["z"] = mst["z_prev"] = self.set_dual_variable(z0)
         mst["tau"] = tau
         mst["sigma"] = 1.0 / tau
         mst["rho"] = 1.0
@@ -417,16 +417,16 @@ class DouglasRachfordSplitting(PDS):
             log_var=log_var,
         )
 
-    @pycrt.enforce_precision(i=["x_init", "z_init", "tau"], allow_None=True)
+    @pycrt.enforce_precision(i=["x0", "z0", "tau"], allow_None=True)
     def m_init(
         self,
-        x_init: pyct.NDArray,
-        z_init: typ.Optional[pyct.NDArray],
+        x0: pyct.NDArray,
+        z0: typ.Optional[pyct.NDArray],
         tau: typ.Optional[pyct.Real] = 1.0,
     ):
         mst = self._mstate  # shorthand
-        mst["x"] = mst["x_prev"] = x_init
-        mst["z"] = mst["z_prev"] = self.set_dual_variable(z_init)
+        mst["x"] = mst["x_prev"] = x0
+        mst["z"] = mst["z_prev"] = self.set_dual_variable(z0)
         mst["tau"] = tau
         mst["sigma"] = 1.0 / tau
         mst["rho"] = 1.0
@@ -456,11 +456,11 @@ class ForwardBackwardSplitting(PDS):
             log_var=log_var,
         )
 
-    @pycrt.enforce_precision(i=["x_init", "z_init", "tau"], allow_None=True)
+    @pycrt.enforce_precision(i=["x0", "z0", "tau"], allow_None=True)
     def m_init(
         self,
-        x_init: pyct.NDArray,
-        z_init: typ.Optional[pyct.NDArray],
+        x0: pyct.NDArray,
+        z0: typ.Optional[pyct.NDArray],
         tau: typ.Optional[pyct.Real] = None,
         rho: typ.Optional[pyct.Real] = 1.0,
     ):
