@@ -2221,7 +2221,9 @@ class LinFunc(ProxDiffFunc, LinOp):
 class SquareOp(LinOp):
     r"""
     Base class for *square* linear operators :math:`L:\mathbb{R}^N\to \mathbb{R}^N` (endomorphsisms).
-    """
+    While being functionally equivalent to a :py:class:`~pycsou.abc.operator.LinOp`,
+    the :py:class:`~pycsou.abc.operator.SquareOp` includes the method :py:meth:`~pycsou.abc.operator.SquareOp.trace`,
+    allowing the (deterministic and stochastic) estimation of the operator trace."""
 
     def __init__(self, shape: pyct.SquareShape):
         r"""
