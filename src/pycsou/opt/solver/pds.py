@@ -583,6 +583,10 @@ if __name__ == "__main__":
     estimate = pds.solution()
     plt.figure()
     plt.stem(x, linefmt="C0-", markerfmt="C0o")
+    markerline, stemlines, baseline = plt.stem(
+        np.where(downsampling.downsampling_mask)[0], y, linefmt="C3-", markerfmt="C3o"
+    )
+    markerline.set_markerfacecolor("none")
     plt.stem(estimate[0], linefmt="C1--", markerfmt="C1s")
-    plt.legend(["Ground truth", "PDS Estimate"])
+    plt.legend(["Ground truth", "Observation", "PDS Estimate"])
     plt.show()
