@@ -12,7 +12,127 @@ import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
 
-class PDS(pycs.Solver):
+class PrimalDualSplitting(pycs.Solver):
+    r"""
+    Primal Dual Splitting (PDS) solver.
+
+    This class is also accessible via the alias ``PDS()``.
+
+    Notes
+    -----
+    The *Primal Dual Splitting (PDS)* method is described in [PDS]_ (this particular implementation is based on the pseudo-code Algorithm 7.1 provided in [FuncSphere]_ Chapter 7, Section1).
+    It can be used to solve problems of the form:
+
+    .. math::
+       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
+
+    where:
+
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
+      for some :math:`\beta\in[0,+\infty[`.
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+    * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *linear operator*, with **operator norm**:
+
+      .. math::
+         \Vert{\mathbf{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathbf{K}\mathbf{x}\Vert_2.
+
+    * The problem is *feasible* --i.e. there exists at least one solution.
+
+    **Remark 1:**
+
+    The algorithm is still valid if one or more of the terms :math:`\mathcal{F}`, :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
+
+    **Remark 2:**
+
+    Assume that the following holds:
+
+    * :math:`\beta>0` and:
+
+      - :math:`\frac{1}{\tau}-\sigma\Vert\mathbf{K}\Vert_{2}^2\geq \frac{\beta}{2}`,
+      - :math:`\rho \in ]0,\delta[`, where :math:`\delta:=2-\frac{\beta}{2}\left(\frac{1}{\tau}-\sigma\Vert\mathbf{K}\Vert_{2}^2\right)^{-1}\in[1,2[.`
+
+    * or :math:`\beta=0` and:
+
+      - :math:`\tau\sigma\Vert\mathbf{K}\Vert_{2}^2\leq 1`
+      - :math:`\rho \in [\epsilon,2-\epsilon]`, for some  :math:`\epsilon>0.`
+
+    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M`} solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
+
+    .. math::
+
+       \lim_{n\rightarrow +\infty}\Vert\mathbf{x}^\star-\mathbf{x}_n\Vert_2=0, \quad \text{and} \quad  \lim_{n\rightarrow +\infty}\Vert\mathbf{z}^\star-\mathbf{z}_n\Vert_2=0.
+
+    **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
+
+
+    ``PrimalDualSplitting.fit()`` **Parameterization**
+
+    x0: NDArray
+        (..., N) initial point(s) for the primal variable.
+    z0: NDArray
+        (..., N) initial point(s) for the dual variable.
+        If None (default), then use x0 as the initial point(s) for the dual variable as well.
+    tau: Real
+        Primal step size
+    sigma: Real
+        Dual step size
+    rho: Real
+        Momentum parameter
+    beta: Real
+        Lipschitz constant :math:`\beta` of the derivative of :math:`\mathcal{F}`.
+
+
+    Examples
+    --------
+    Consider the following optimisation problem:
+
+    .. math::
+
+       \min_{\mathbf{x}\in\mathbb{R}_+^N}\frac{1}{2}\left\|\mathbf{y}-\mathbf{G}\mathbf{x}\right\|_2^2\quad+\quad\lambda_1 \|\mathbf{D}\mathbf{x}\|_1\quad+\quad\lambda_2 \|\mathbf{x}\|_1,
+
+    with :math:`\mathbf{D}\in\mathbb{R}^{N\times N}` the discrete derivative operator and :math:`\mathbf{G}\in\mathbb{R}^{L\times N}, \, \mathbf{y}\in\mathbb{R}^L, \lambda_1,\lambda_2>0.`
+    This problem can be solved via PDS with :math:`\mathcal{F}(\mathbf{x})= \frac{1}{2}\left\|\mathbf{y}-\mathbf{G}\mathbf{x}\right\|_2^2`, :math:`\mathcal{G}(\mathbf{x})=\lambda_2\|\mathbf{x}\|_1,`
+    :math:`\mathcal{H}(\mathbf{x})=\lambda \|\mathbf{x}\|_1` and :math:`\mathbf{K}=\mathbf{D}`.
+
+    .. plot::
+    >>> import matplotlib.pyplot as plt
+    >>> import numpy as np
+    >>> from pycsou.opt.solver.pds import PDS
+    >>> from pycsou._dev import FirstDerivative, DownSampling, SquaredL2Norm, L1Norm
+
+    >>> x = np.repeat(np.asarray([0, 2, 1, 3, 0, 2, 0]), 10)
+    >>> D = FirstDerivative(size=x.size, kind="forward")
+    >>> D.lipschitz(tol=1e-3)
+    >>> downsampling = DownSampling(size=x.size, downsampling_factor=3)
+    >>> downsampling.lipschitz()
+    >>> y = downsampling(x)
+    >>> l22_loss = (1 / 2) * SquaredL2Norm().as_loss(data=y)
+    >>> fidelity = l22_loss * downsampling
+    >>> H = 0.1 * L1Norm()
+
+    >>> G = 0.01 * L1Norm()
+    >>> pds = PDS(f=fidelity, g=G, h=H, K=D)
+    >>> x0, z0 = x * 0, x * 0
+    >>> pds.fit(x0=x0, z0=z0)
+
+    >>> estimate = pds.solution()
+    >>> x_recons = estimate[0]
+    >>>
+    >>> plt.figure()
+    >>> plt.stem(x, linefmt="C0-", markerfmt="C0o")
+    >>> markerline, stemlines, baseline = plt.stem(
+    >>>     np.where(downsampling.downsampling_mask)[0], y, linefmt="C3-", markerfmt="C3o"
+    >>> )
+    >>> markerline.set_markerfacecolor("none")
+    >>> plt.stem(x_recons, linefmt="C1--", markerfmt="C1s")
+    >>> plt.legend(["Ground truth", "Observation", "PDS Estimate"])
+    >>> plt.show()
+
+    See Also
+    --------
+    :py:class:`~pycsou.opt.solver.pds.PDS`, :py:class:`~pycsou.opt.solver.pds.ChambollePockSplitting`, :py:class:`~pycsou.opt.solver.pds.DouglasRachford`
+    """
+
     def __init__(
         self,
         f: typ.Optional[pyco.DiffFunc] = None,
