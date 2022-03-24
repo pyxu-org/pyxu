@@ -1822,28 +1822,6 @@ class LinOp(DiffMap, Adjoint):
         return self._lipschitz
 
     @pycrt.enforce_precision(o=True)
-    def trace(self, **kwargs):
-        """
-        Compute the trace of a squared linear operator.
-
-        Parameters
-        ----------
-        kwargs: dict
-            Optional arguments to be passed to the algorithm used for computing the trace. The parameter ``m``
-            of :py:func:`~pycsou.math.linalg.hutchpp` routine can be particularly interesting to reduce the compute time
-            of the trace (at the cost of accuracy).
-
-        Returns
-        -------
-        float
-            Hutch++ stochastic estimate of the trace.
-
-        """
-        import pycsou.math.linalg as pycl
-
-        return pycl.hutchpp(self, **kwargs)
-
-    @pycrt.enforce_precision(o=True)
     def svdvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
         r"""
         Compute the ``k`` largest or smallest singular values of the linear operator. The order of the singular values is not guaranteed.
@@ -2258,6 +2236,28 @@ class SquareOp(LinOp):
         elif shape[0] != shape[1]:
             raise ValueError(f"Inconsistent shape {shape} for operator of type {SquareOp}")
         super(SquareOp, self).__init__(shape=(shape[0], shape[0]))
+
+    @pycrt.enforce_precision(o=True)
+    def trace(self, **kwargs):
+        """
+        Compute the trace of a squared linear operator.
+
+        Parameters
+        ----------
+        kwargs: dict
+            Optional arguments to be passed to the algorithm used for computing the trace. The parameter ``m``
+            of :py:func:`~pycsou.math.linalg.hutchpp` routine can be particularly interesting to reduce the compute time
+            of the trace (at the cost of accuracy).
+
+        Returns
+        -------
+        float
+            Hutch++ stochastic estimate of the trace.
+
+        """
+        import pycsou.math.linalg as pycl
+
+        return pycl.hutchpp(self, **kwargs)
 
 
 class NormalOp(SquareOp):
