@@ -354,6 +354,65 @@ PDS = PrimalDualSplitting
 
 
 class ChambollePockSplitting(PDS):
+    r"""
+    Chambolle and Pock primal-dual splitting method.
+
+    This class is also accessible via the alias ``CPS()``.
+
+    Notes
+    -----
+    The *Chambolle and Pock primal-dual splitting (CPS)* method can be used to solve problems of the form:
+
+    .. math::
+      {\min_{\mathbf{x}\in\mathbb{R}^N} \mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
+
+    where:
+
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+    * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M``` is a *linear operator*, with **operator norm**:
+
+     .. math::
+        \Vert{\mathbf{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathbf{K}\mathbf{x}\Vert_2.
+
+    * The problem is *feasible* --i.e. there exists at least one solution.
+
+    **Remark 1:**
+
+    The algorithm is still valid if one of the terms :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
+
+    **Remark 2:**
+
+    Assume that the following holds:
+    - :math:`\tau\sigma\Vert\mathbf{K}\Vert_{2}^2\leq 1`
+    - :math:`\rho \in [\epsilon,2-\epsilon]`, for some  :math:`\epsilon>0.`
+
+    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M`} solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
+
+    .. math::
+      \lim_{n\rightarrow +\infty}\Vert\mathbf{x}^\star-\mathbf{x}_n\Vert_2=0, \quad \text{and} \quad  \lim_{n\rightarrow +\infty}\Vert\mathbf{z}^\star-\mathbf{z}_n\Vert_2=0.
+
+    **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
+
+
+    ``ChambollePockSplitting.fit()`` **Parameterization**
+
+    x0: NDArray
+        (..., N) initial point(s) for the primal variable.
+    z0: NDArray
+        (..., N) initial point(s) for the dual variable.
+        If None (default), then use x0 as the initial point(s) for the dual variable as well.
+    tau: Real
+        Primal step size
+    sigma: Real
+        Dual step size
+    rho: Real
+        Momentum parameter
+
+    See Also
+    --------
+    :py:class:`~pycsou.opt.solver.pds.CPS`, :py:class:`~pycsou.opt.solver.pds.PrimalDualSplitting`, :py:class:`~pycsou.opt.solver.pds.DouglasRachfordSplitting`
+    """
+
     def __init__(
         self,
         g: typ.Optional[pyco.ProxFunc] = None,
@@ -397,6 +456,42 @@ CPS = ChambollePockSplitting
 
 
 class DouglasRachfordSplitting(PDS):
+    r"""
+    Douglas Rachford splitting algorithm.
+
+    This class is also accessible via the alias ``DRS()``.
+
+    Notes
+    -----
+    The *Douglas Rachford Splitting (DRS)* can be used to solve problems of the form:
+
+    .. math::
+       {\min_{\mathbf{x}\in\mathbb{R}^N} \mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{x}).}
+
+    where:
+
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+    * The problem is *feasible* --i.e. there exists at least one solution.
+
+    **Remark 1:**
+    The algorithm is still valid if one of the terms :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
+    **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
+
+    ``DouglasRachfordSplitting.fit()`` **Parameterization**
+
+    x0: NDArray
+        (..., N) initial point(s) for the primal variable.
+    z0: NDArray
+        (..., N) initial point(s) for the dual variable.
+        If None (default), then use x0 as the initial point(s) for the dual variable as well.
+    tau: Real
+        Primal step size
+
+    See Also
+    --------
+    :py:class:`~pycsou.opt.solver.pds.DRS`, :py:class:`~pycsou.opt.solver.pds.PrimalDualSplitting`, :py:class:`~pycsou.opt.solver.pds.ChambollePockSplitting`
+    """
+
     def __init__(
         self,
         g: typ.Optional[pyco.ProxFunc] = None,
@@ -439,6 +534,63 @@ DRS = DouglasRachfordSplitting
 
 
 class ForwardBackwardSplitting(PDS):
+    r"""
+    Forward-backward splitting algorithm.
+
+    This class is also accessible via the alias ``FBS()``.
+
+    Notes
+    -----
+    The *Forward-backward splitting (FBS)* method can be used to solve problems of the form:
+
+    .. math::
+       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x}).}
+
+    where:
+
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
+      for some :math:`\beta\in[0,+\infty[`.
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is *proper*, *lower semicontinuous* and *convex function* with *simple proximal operator*.
+    * The problem is *feasible* --i.e. there exists at least one solution.
+
+    **Remark 1:**
+
+    The algorithm is still valid if one of the terms :math:`\mathcal{F}` or :math:`\mathcal{G}` is zero.
+
+    **Remark 2:**
+
+    Assume that the following holds:
+      - :math:`\frac{1}{\tau}\geq \frac{\beta}{2}`,
+      - :math:`\rho \in ]0,\delta[`, where :math:`\delta:=2-\frac{\beta}{2}\tau\in[1,2[.`
+
+    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M`} solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
+
+    .. math::
+       \lim_{n\rightarrow +\infty}\Vert\mathbf{x}^\star-\mathbf{x}_n\Vert_2=0, \quad \text{and} \quad  \lim_{n\rightarrow +\infty}\Vert\mathbf{z}^\star-\mathbf{z}_n\Vert_2=0.
+
+    **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
+
+    ``ForwardBackwardSplitting.fit()`` **Parameterization**
+
+    x0: NDArray
+        (..., N) initial point(s) for the primal variable.
+    z0: NDArray
+        (..., N) initial point(s) for the dual variable.
+        If None (default), then use x0 as the initial point(s) for the dual variable as well.
+    tau: Real
+        Primal step size
+    rho: Real
+        Momentum parameter
+    beta: Real
+        Lipschitz constant :math:`\beta` of the derivative of :math:`\mathcal{F}`.
+
+
+
+    See Also
+    --------
+    :py:class:`~pycsou.opt.solver.pds.FBS`, :py:class:`~pycsou.opt.solver.pgd.PGD`
+    """
+
     def __init__(
         self,
         f: typ.Optional[pyco.ProxFunc] = None,
