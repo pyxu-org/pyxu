@@ -50,6 +50,10 @@ class PGD(pycs.Solver):
     converge at a rate :math:`o(1/n^2)`. Significant practical *speedup* can be achieved for values
     of :math:`d` in the range :math:`[50,100]` [APGD]_.
 
+    **Remark 4:** The relative norm change of the primal variable is used as the default stopping criterion. By
+    default, the algorithm stops when the norm of the difference between two consecutive PGD iterates
+    :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4. Different stopping criteria can be used (see
+    :py:mod:`~pycsou.opt.solver.stop`).
 
     ``PGD.fit()`` **Parameterization**
 
@@ -99,6 +103,7 @@ class PGD(pycs.Solver):
             )
             raise ValueError(msg)
 
+    @pycrt.enforce_precision(i=["x0", "tau"])
     def m_init(
         self,
         x0: pyct.NDArray,
@@ -107,7 +112,7 @@ class PGD(pycs.Solver):
         d: typ.Optional[pyct.Real] = 75,
     ):
         mst = self._mstate  # shorthand
-        mst["x"] = mst["x_prev"] = pycrt.coerce(x0)
+        mst["x"] = mst["x_prev"] = x0
 
         if tau is None:
             if math.isfinite(dl := self._f._diff_lipschitz):
@@ -118,7 +123,7 @@ class PGD(pycs.Solver):
         else:
             try:
                 assert tau > 0
-                mst["tau"] = pycrt.coerce(tau)
+                mst["tau"] = tau
             except:
                 raise ValueError(f"tau must be positive, got {tau}.")
 
