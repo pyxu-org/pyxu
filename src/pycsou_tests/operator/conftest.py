@@ -358,7 +358,6 @@ class MapT:
 class FuncT(MapT):
     # Class Properties --------------------------------------------------------
     interface = frozenset(MapT.interface | {"asloss"})
-    disable_test = frozenset(MapT.disable_test | {"test_squeeze"})
 
     # Tests -------------------------------------------------------------------
     def test_codim(self, op, data_shape):
