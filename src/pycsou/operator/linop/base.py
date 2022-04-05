@@ -38,7 +38,7 @@ class ExplicitLinFunc(pyco.LinFunc):
 
     Examples
     --------
-    >>> from pycsou.linop.base import ExplicitLinFunc
+    >>> from pycsou.operator.linop.base import ExplicitLinFunc
     >>> import numpy as np
     >>> vec = np.ones(10)
     >>> sum_func = ExplicitLinFunc(vec)
@@ -51,16 +51,16 @@ class ExplicitLinFunc(pyco.LinFunc):
 
     Notes
     -----
-    :py:class:`~pycsou.linop.base.ExplicitLinFunc` instances are **not array module agnostic**: they will only work with input arrays
-    belonging to the same array module than the one of the array ``vec`` used to initialize the :py:class:`~pycsou.linop.base.ExplicitLinFunc` object.
-    Moreover, while the input/output precisions of the callable methods of :py:class:`~pycsou.linop.base.ExplicitLinFunc` objects are
+    :py:class:`~pycsou.operator.linop.base.ExplicitLinFunc` instances are **not array module agnostic**: they will only work with input arrays
+    belonging to the same array module than the one of the array ``vec`` used to initialize the :py:class:`~pycsou.operator.linop.base.ExplicitLinFunc` object.
+    Moreover, while the input/output precisions of the callable methods of :py:class:`~pycsou.operator.linop.base.ExplicitLinFunc` objects are
     guaranteed to match the user-requested precision, the inner computations may force a recast of the input arrays when
     the precision of ``vec`` does not match the user-requested precision. If such a situation occurs, a warning is raised.
 
     See Also
     --------
     :py:meth:`~pycsou.abc.operator.LinOp.asarray`
-        Convert a matrix-free :py:class:`~pycsou.abc.operator.LinFunc` into an :py:class:`~pycsou.linop.base.ExplicitLinFunc`.
+        Convert a matrix-free :py:class:`~pycsou.abc.operator.LinFunc` into an :py:class:`~pycsou.operator.linop.base.ExplicitLinFunc`.
     """
 
     @pycrt.enforce_precision(i="vec")
@@ -79,7 +79,7 @@ class ExplicitLinFunc(pyco.LinFunc):
         The input ``vec`` is automatically casted by the decorator :py:func:`~pycsou.runtime.enforce_precision` to the user-requested precision at initialization time.
         Explicit control over the precision of ``vec`` is hence only possible via the context manager :py:class:`~pycsou.runtime.Precision`:
 
-        >>> from pycsou.linop.base import ExplicitLinFunc
+        >>> from pycsou.operator.linop.base import ExplicitLinFunc
         >>> import pycsou.runtime as pycrt
         >>> import numpy as np
         >>> vec = np.ones(10) # This array will be recasted to requested precision.
@@ -126,7 +126,7 @@ class IdentityOp(pyco.PosDefOp, pyco.SelfAdjointOp, pyco.UnitOp):
 
     Examples
     --------
-    >>> from pycsou.linop.base import IdentityOp
+    >>> from pycsou.operator.linop.base import IdentityOp
     >>> import pycsou.runtime as pycrt
     >>> import numpy as np
     >>> id = IdentityOp(10)
@@ -273,7 +273,7 @@ class ExplicitLinOp(pyco.LinOp):
 
     Examples
     --------
-    >>> from pycsou.linop.base import ExplicitLinOp
+    >>> from pycsou.operator.linop.base import ExplicitLinOp
     >>> import numpy as np
     >>> mat = np.arange(10).reshape(2,5)
     >>> f = ExplicitLinOp(mat)
@@ -286,17 +286,17 @@ class ExplicitLinOp(pyco.LinOp):
 
     Notes
     -----
-    :py:class:`~pycsou.linop.base.ExplicitLinOp` instances are **not array module agnostic**: they will only work with input arrays
-    belonging to the same array module than the one of the array ``mat`` used to initialize the :py:class:`~pycsou.linop.base.ExplicitLinOp` object.
-    Moreover, while the input/output precisions of the callable methods of :py:class:`~pycsou.linop.base.ExplicitLinOp` objects are
+    :py:class:`~pycsou.operator.linop.base.ExplicitLinOp` instances are **not array module agnostic**: they will only work with input arrays
+    belonging to the same array module than the one of the array ``mat`` used to initialize the :py:class:`~pycsou.operator.linop.base.ExplicitLinOp` object.
+    Moreover, while the input/output precisions of the callable methods of :py:class:`~pycsou.operator.linop.base.ExplicitLinOp` objects are
     guaranteed to match the user-requested precision, the inner computations may force a recast of the input arrays when
     the precision of ``mat`` does not match the user-requested precision. If such a situation occurs, a warning is raised.
 
     See Also
     --------
-    :py:class:`~pycsou.linop.base.ExplicitLinFunc`
+    :py:class:`~pycsou.operator.linop.base.ExplicitLinFunc`
     :py:meth:`~pycsou.abc.operator.LinOp.asarray`
-        Convert a matrix-free :py:class:`~pycsou.abc.operator.LinOp` into an :py:class:`~pycsou.linop.base.ExplicitLinOp`.
+        Convert a matrix-free :py:class:`~pycsou.abc.operator.LinOp` into an :py:class:`~pycsou.operator.linop.base.ExplicitLinOp`.
     """
 
     @pycrt.enforce_precision(i="mat")
@@ -317,7 +317,7 @@ class ExplicitLinOp(pyco.LinOp):
         The input ``mat`` is automatically casted by the decorator :py:func:`~pycsou.runtime.enforce_precision` to the user-requested precision at initialization time.
         Explicit control over the precision of ``mat`` is hence only possible via the context manager :py:class:`~pycsou.runtime.Precision`:
 
-        >>> from pycsou.linop.base import ExplicitLinOp
+        >>> from pycsou.operator.linop.base import ExplicitLinOp
         >>> import pycsou.runtime as pycrt
         >>> import numpy as np
         >>> mat = np.arange(10).reshape(2,5) # This array will be recasted to requested precision.

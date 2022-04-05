@@ -1,12 +1,10 @@
 import itertools
 import math
-import numbers as nb
 import typing as typ
 
-import pycsou.abc as pyca
 import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
-import pycsou.linop.base as pyclo
+import pycsou.operator.linop.base as pyclo
 import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct

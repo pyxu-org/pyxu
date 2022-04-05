@@ -6,7 +6,7 @@ import typing as typ
 import numpy as np
 
 import pycsou.abc.operator as pyco
-import pycsou.linop.base as pycb
+import pycsou.operator.linop.base as pycb
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
@@ -54,7 +54,7 @@ def stack(
     Examples
     --------
     >>> import numpy as np
-    >>> from pycsou.linop.base import ExplicitLinFunc, ExplicitLinOp
+    >>> from pycsou.operator.linop.base import ExplicitLinFunc, ExplicitLinOp
     >>> from pycsou.compound import stack
     >>> # Define a bunch of operators/functionals
     >>> vec1 = np.arange(10); f1 = ExplicitLinFunc(vec1)

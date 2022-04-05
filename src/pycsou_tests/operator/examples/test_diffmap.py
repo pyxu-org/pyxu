@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 import pycsou.abc.operator as pyco
-import pycsou.linop.base as pyclb
+import pycsou.operator.linop.base as pyclb
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
