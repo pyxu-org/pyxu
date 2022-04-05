@@ -5,6 +5,7 @@ Matthieu
 * [doc] Fix missing reference warnings. (See build/html/WARNINGS.log)
 * use pycrt.coerce() where it makes sense.
 * use **kwargs to simplify signatures
+* raise NotImpelmentedError if __matmul__ is called on a LinOp (to avoid side effects and implicit conversion done by Numpy on objects implementing __array__).
 
 @Matthieu: Remarks from Sepand
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -83,3 +84,26 @@ Joan
 
   * Add carbon_footprint
   * Add duality_gap
+
+
+
+
+  Roadmap:
+  - Numpy ufuncs -> Eelis
+  - operators (Pycsou v1) -> core dev team
+  - functionals (Pycsou v1 but unify loss and reg with 1 class and method "asloss") -> Eelis
+  - Tutorials, examples and notebooks. -> Student
+  - CI: pip/conda packaging (quick fix of pip lenghty install) + ReadTheDocs + Run tests in cloud (Infomaniak)
+  - benchmarking suite (low priority)
+
+  - Automatic hyperparameter tuning (hyperpriors) 
+  - Uncertainty quantification (approximate credibility intervals)
+  - Nonconvex/linear (APGD nonconvex + PDS nonlinear)
+  - Pytorch interfacing (autodiff+jac+bwd eval) -> Alec
+  - Stochastic solvers -> Alec
+  - Second order solvers?
+  - LSQR/LSMR
+  
+
+
+
