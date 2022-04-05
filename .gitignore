@@ -79,6 +79,9 @@ instance/
 # Sphinx documentation
 docs/_build/
 
+# Dask
+dask-worker-space/
+
 # PyBuilder
 target/
 

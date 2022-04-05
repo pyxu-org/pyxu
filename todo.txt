@@ -10,15 +10,9 @@ Matthieu
 @Matthieu: Remarks from Sepand
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* Median.lipschitz == 1?
-* LeastSquares.lipschitz == inf/2 -> ok
-* L2.lipschitz/diff_lip == 1/inf -> ok, proxfunc, so no diff_lip
-* L1.lipschitz != 1? -> fails a test
-  lipschitz = sqrt(n)
-* DiffMap example .jacobian() -> should be ExplicitLinOp(np.diag(np.cos(arr))) -> ok
-* prox/fenchel_prox: tau == 0 forbidden -> be explicit in docs
 * modify specialize/squeeze to return self when possible
-* proxfunc
+* prox/fenchel_prox: tau == 0 forbidden -> be explicit in docs
+
 
 
 Sepand
@@ -31,11 +25,11 @@ Sepand
 
   * MapT.test_specialize() skipped -> enable once scaffolding in place.
   * Func.squeeze() fails FuncT.test_squeeze() -> deactivated for now.
-  * DiffMap.test_interface_jacobian() fails since LinOpT not defined -> deactivated for now.
-
+  * test_math_() routines should be conducted for each precision to ensure pre-conditions hold.
 
 * Arithmetic tests
 * Solver tests [APGD for now]
+* Go over all code: refactor docstrings, type hints, etc.
 
    
 

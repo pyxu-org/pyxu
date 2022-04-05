@@ -117,24 +117,24 @@ class Solver:
 
     Solver provides a versatile API for solving inverse problems, with the following features:
 
-    * manual/automatic/background execution of solver iterations via parameters provided to
-      `Solver.fit`. (See below.)
-    * automatic checkpointing of solver progress, providing a safe restore point in case of faulty
-      numerical code. Each solver instance backs its state and final output to a folder on disk for
-      post-analysis. In particular ``Solver.fit`` will never crash: detailed exception information
-      will always be available in a logfile for post-analysis.
-    * arbitrary specification of complex stopping criteria via the `StoppingCriterion` class.
-    * solve for multiple initial points in parallel.
+        * manual/automatic/background execution of solver iterations via parameters provided to
+          ``Solver.fit``. (See below.)
+        * automatic checkpointing of solver progress, providing a safe restore point in case of
+          faulty numerical code. Each solver instance backs its state and final output to a folder
+          on disk for post-analysis. In particular ``Solver.fit`` will never crash: detailed
+          exception information will always be available in a logfile for post-analysis.
+        * arbitrary specification of complex stopping criteria via the ``StoppingCriterion`` class.
+        * solve for multiple initial points in parallel.
 
     To implement a new iterative solver, users need to sub-class `Solver` and overwrite the methods
     below:
 
-    * __init__()
-    * fit()     # optional, for better signatures only.
-    * m_init()  # i.e. math-init()
-    * m_step()  # i.e. math-step()
+        * ``__init__()``
+        * ``m_init()``  # i.e. math-init()
+        * ``m_step()``  # i.e. math-step()
+        * ``default_stop_crit()``  # optional; see method definition for details
 
-    Advanced functionalities of `Solver` are automatically inherited by sub-classes.
+    Advanced functionalities of ``Solver`` are automatically inherited by sub-classes.
 
 
     Examples
@@ -147,21 +147,21 @@ class Solver:
 
        ### 1. Blocking Mode: .fit() does not return until solver has stopped.
        >>> slvr.fit(mode=Mode.BLOCK, ...)
-       >>> hist, data = slvr.stats()  # final output of solver.
+       >>> data, hist = slvr.stats()  # final output of solver.
 
        ### 2. Async Mode: solver iterations run in the background.
        >>> slvr.fit(mode=Mode.ASYNC, ...)
        >>> print('test')  # you can do something in between.
        >>> slvr.busy()  # or check whether the solver already stopped.
        >>> slvr.stop()  # and preemptively force it to stop.
-       >>> hist, data = slvr.stats()  # then query the result after a (potential) force-stop.
+       >>> data, hist = slvr.stats()  # then query the result after a (potential) force-stop.
 
        ### 3. Manual Mode: fine-grain control of solver data per iteration.
        >>> slvr.fit(mode=Mode.MANUAL, ...)
        >>> for data in slvr.steps():
        ...     # Do something with the logged variables after each iteration.
        ...     pass  # solver has stopped after the loop.
-       >>> hist, data = slvr.stats()  # final output of solver.
+       >>> data, hist = slvr.stats()  # final output of solver.
     """
 
     def __init__(
@@ -171,6 +171,7 @@ class Solver:
         exist_ok: bool = False,
         writeback_rate: typ.Optional[int] = None,
         verbosity: int = 1,
+        show_progress: bool = True,
         log_var: pyct.VarName = frozenset(),
     ):
         """
@@ -186,8 +187,10 @@ class Solver:
             Rate at which solver checkpoints are written to disk. No checkpointing is done if
             unspecified: only the final solver output will be written back to disk.
         verbosity: int
-            Rate at which stopping criteria statistics are logged to disk. If ``Solver.fit`` is run
-            with mode=BLOCK, then statistics are also logged to stdout.
+            Rate at which stopping criteria statistics are logged to disk.
+        show_progress: bool
+            If True (default) and ``Solver.fit`` is run with mode=BLOCK, then statistics are also
+            logged to stdout.
         log_var: VarName
             Variables from the solver's math-state (slvr._mstate) to be logged per iteration.
             These are the variables made available when calling ``Solver.stats``.
@@ -199,6 +202,7 @@ class Solver:
             log_rate=None,
             log_var=None,
             logger=None,
+            stdout=None,
             stop_crit=None,
             wb_rate=None,
             workdir=None,
@@ -231,6 +235,7 @@ class Solver:
         try:
             assert verbosity >= 1
             self._astate["log_rate"] = int(verbosity)
+            self._astate["stdout"] = bool(show_progress)
         except:
             raise ValueError(f"verbosity must be positive, got {verbosity}.")
 
@@ -241,53 +246,40 @@ class Solver:
         except:
             raise ValueError(f"log_var: expected collection, got {type(log_var)}.")
 
-    def fit(
-        self,
-        *args,
-        stop_crit: StoppingCriterion,
-        mode: Mode = Mode.BLOCK,
-        **kwargs,
-    ):
+    def fit(self, **kwargs):
         r"""
         Solve minimization problem(s) defined in ``Solver.__init__``, with the provided run-specifc
         parameters.
 
-        Parameterss
+        Parameters
         ----------
-        args[0]: NDArray
-            (..., N) primal variable initial point(s).
-        args[1]: NDArray
-            (..., M) dual variable initial point(s). Only required for Primal-Dual solvers.
-            ``*args`` must suitably broadcast along their leading dimensions.
+        kwargs
+            See class-level docstring for class-specific keyword parameters.
         stop_crit: StoppingCriterion
             Stopping criterion to end solver iterations.
+            If unspecified, defaults to ``Solver.default_stop_crit()``.
         mode: Mode
             Execution mode. See ``Solver`` for usage examples.
             Useful method pairs depending on the execution mode:
             * BLOCK: fit()
             * ASYNC: fit() + busy() + stop()
             * MANUAL: fit() + steps()
-        **kwargs
-            Extra solver-specific parameters, if applicable.
-
-        Sub-classes may change the method signature of ``Solver.fit`` and ``Solver.m_init`` to improve
-        clarity.
         """
-        self._fit_init(mode, stop_crit)
-        self.m_init(*args, **kwargs)
+        self._fit_init(
+            mode=kwargs.pop("mode", Mode.BLOCK),
+            stop_crit=kwargs.pop("stop_crit", None),
+        )
+        self.m_init(**kwargs)
         self._fit_run()
 
-    def m_init(self, *args, **kwargs):
+    def m_init(self, **kwargs):
         """
-        Set solver's initial mathematical state based on (args, kwargs) provided to ``Solver.fit``.
+        Set solver's initial mathematical state based on kwargs provided to ``Solver.fit``.
 
         This method must only manipulate ``Solver._mstate``.
 
         After calling this method, the solver must be able to complete its 1st iteration via a call
         to ``Solver.m_step``.
-
-        Sub-classes may change the method signature of ``Solver.fit`` and ``Solver.m_init`` to improve
-        clarity.
         """
         raise NotImplementedError
 
@@ -326,7 +318,7 @@ class Solver:
         i = 0
         while (n is None) or (i < n):
             if self._step():
-                _, data = self.stats()
+                data, _ = self.stats()
                 yield data
                 i += 1
             else:
@@ -339,10 +331,10 @@ class Solver:
 
         Returns
         -------
-        history: np.ndarray | None
-            (N_iter,) records of stopping-criteria values per iteration.
         data: dict[str, Real | NDArray | None]
             Value(s) of ``log_var``(s) after last iteration.
+        history: np.ndarray | None
+            (N_iter,) records of stopping-criteria values per iteration.
 
         Notes
         -----
@@ -351,9 +343,12 @@ class Solver:
         """
         history = self._astate["history"]
         if history is not None:
-            history = np.concatenate(history, dtype=history[0].dtype, axis=0)
+            if len(history) > 0:
+                history = np.concatenate(history, dtype=history[0].dtype, axis=0)
+            else:
+                history = None
         data = {k: self._mstate.get(k) for k in self._astate["log_var"]}
-        return history, data
+        return data, history
 
     @property
     def workdir(self) -> plib.Path:
@@ -443,7 +438,7 @@ class Solver:
 
             fmt = logging.Formatter(fmt="{levelname} -- {message}", style="{")
             handler = [logging.FileHandler(self.logfile, mode="w")]
-            if mode is Mode.BLOCK:
+            if (mode is Mode.BLOCK) and self._astate["stdout"]:
                 handler.append(logging.StreamHandler(sys.stdout))
             for h in handler:
                 h.setLevel("DEBUG")
@@ -453,9 +448,13 @@ class Solver:
             return logger
 
         self._mstate.clear()
+
+        if stop_crit is None:
+            stop_crit = self.default_stop_crit()
         stop_crit.clear()
+
         self._astate.update(  # suitable state for a new call to fit().
-            history=None,
+            history=[],
             idx=0,
             logger=_init_logger(),
             stop_crit=stop_crit,
@@ -489,7 +488,7 @@ class Solver:
         """
         Checkpoint state to disk.
         """
-        history, data = self.stats()
+        data, history = self.stats()
         kwargs = {k: v for (k, v) in dict(history=history, **data).items() if (v is not None)}
         np.savez(self.datafile, **pycu.compute(kwargs))  # savez() requires NumPy arrays as input.
         # [TODO][Feature Request] Allow user to choose writeback format. Useful for large-scale
@@ -562,10 +561,20 @@ class Solver:
 
     def _m_persist(self):
         # Persist math state to avoid re-eval overhead.
-        self._mstate.update(**pycu.compute(self._mstate, mode="persist"))
+        self._mstate.update(**pycu.compute(self._mstate, mode="persist", traverse=False))
+
+    def default_stop_crit(self) -> StoppingCriterion:
+        """
+        Default stopping criterion for solver if unspecified in ``Solver.fit()`` calls.
+
+        Sub-classes are expected to overwrite this method. If not overridden, then omitting the
+        `stop_crit` parameter in ``Solver.fit()` is forbidden.
+        """
+        raise NotImplementedError("No default stopping criterion defined.")
 
     class _Worker(threading.Thread):
         def __init__(self, solver: "Solver"):
+            super().__init__()
             self.slvr = solver
 
         def run(self):

@@ -4,10 +4,18 @@ pycsou.opt.solver package
 Submodules
 ----------
 
-pycsou.opt.solver.apgd module
------------------------------
+pycsou.opt.solver.pgd module
+----------------------------
 
-.. automodule:: pycsou.opt.solver.apgd
+.. automodule:: pycsou.opt.solver.pgd
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycsou.opt.solver.cg module
+---------------------------
+
+.. automodule:: pycsou.opt.solver.cg
    :members:
    :undoc-members:
    :show-inheritance:

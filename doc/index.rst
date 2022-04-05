@@ -13,7 +13,7 @@ src
 
    modules
    dev_notes
-
+   references
 
 
 Indices and tables

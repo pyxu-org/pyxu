@@ -7,15 +7,16 @@ import pycsou.abc as pyca
 import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
 import pycsou.linop.base as pyclo
+import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
 
-class APGD(pycs.Solver):
+class PGD(pycs.Solver):
     r"""
-    Accelerated Proximal Gradient Descent (APGD) solver.
+    Proximal Gradient Descent (PGD) solver.
 
-    APGD solves minimization problems of the form
+    PGD solves minimization problems of the form
 
     .. math::
 
@@ -33,9 +34,10 @@ class APGD(pycs.Solver):
     **Remark 1:** the algorithm is still valid if either :math:`\mathcal{F}` or :math:`\mathcal{G}`
     is zero.
 
-    **Remark 2:** The convergence is guaranteed for step sizes :math:`\tau\leq 1/\beta`. Various
-    acceleration schemes are described in [APGD]_. APGD achieves the following (optimal)
-    *convergence rate* with the implemented acceleration scheme from Chambolle & Dossal:
+    **Remark 2:** The convergence is guaranteed for step sizes :math:`\tau\leq 1/\beta`.
+
+    **Remark 3:** Various acceleration schemes are described in [APGD]_. PGD achieves the following
+    (optimal) *convergence rate* with the implemented acceleration scheme from Chambolle & Dossal:
 
     .. math::
 
@@ -44,9 +46,29 @@ class APGD(pycs.Solver):
        \lim\limits_{n\rightarrow \infty} n^2\Vert \mathbf{x}_n-\mathbf{x}_{n-1}\Vert^2_\mathcal{X}=0,
 
     for *some minimiser* :math:`{\mathbf{x}^\star}\in\arg\min_{\mathbf{x}\in\mathbb{R}^N} \;\left\{\mathcal{J}(\mathbf{x}):=\mathcal{F}(\mathbf{x})+\mathcal{G}(\mathbf{x})\right\}`.
-    In other words, both the objective functional and the APGD iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}`
+    In other words, both the objective functional and the PGD iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}`
     converge at a rate :math:`o(1/n^2)`. Significant practical *speedup* can be achieved for values
-    of :math:`d` in the range:math:`[50,100]` [APGD]_.
+    of :math:`d` in the range :math:`[50,100]` [APGD]_.
+
+    **Remark 4:** The relative norm change of the primal variable is used as the default stopping criterion. By
+    default, the algorithm stops when the norm of the difference between two consecutive PGD iterates
+    :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4. Different stopping criteria can be used (see
+    :py:mod:`~pycsou.opt.solver.stop`).
+
+    ``PGD.fit()`` **Parameterization**
+
+    x0: NDArray
+        (..., N) initial point(s).
+    tau: Real
+        Gradient step size.
+        Defaults to :math:`1 / \beta` if unspecified.
+    acceleration: bool
+        If True (default), then use Chambolle & Dossal acceleration scheme.
+    d: Real
+        Chambolle & Dossal acceleration parameter :math:`d`.
+        Should be greater than 2.
+        Only meaningful if `acceleration` is True.
+        Defaults to 75 in unspecified.
     """
 
     def __init__(
@@ -58,13 +80,15 @@ class APGD(pycs.Solver):
         exist_ok: bool = False,
         writeback_rate: typ.Optional[int] = None,
         verbosity: int = 1,
-        log_var: pyct.VarName = ("primal",),
+        show_progress: bool = True,
+        log_var: pyct.VarName = ("x",),
     ):
         super().__init__(
             folder=folder,
             exist_ok=exist_ok,
             writeback_rate=writeback_rate,
             verbosity=verbosity,
+            show_progress=show_progress,
             log_var=log_var,
         )
 
@@ -79,79 +103,64 @@ class APGD(pycs.Solver):
             )
             raise ValueError(msg)
 
-    def fit(
+    @pycrt.enforce_precision(i=["x0", "tau"])
+    def m_init(
         self,
-        primal_init: pyct.NDArray,
-        stop_crit: pycs.StoppingCriterion,
-        mode: pycs.Mode = pycs.Mode.BLOCK,
+        x0: pyct.NDArray,
         tau: typ.Optional[pyct.Real] = None,
+        acceleration: bool = True,
         d: typ.Optional[pyct.Real] = 75,
     ):
-        r"""
-        Solve the minimization problem defined in :py:meth:`APGD.__init__`, with the provided
-        run-specifc parameters.
-
-        Parameters
-        ----------
-        primal_init: NDArray
-            (..., N) primal variable initial point(s).
-        stop_crit: StoppingCriterion
-            Stopping criterion to end solver iterations.
-        mode: Mode
-            Execution mode. See :py:class:`Solver` for usage examples.
-            Useful method pairs depending on the execution mode:
-            * BLOCK: fit()
-            * ASYNC: fit() + busy() + stop()
-            * MANUAL: fit() + steps()
-        tau: Real
-            Gradient step size. Defaults to :math:`1 / \beta` if unspecified.
-        d: Real
-            Chambolle & Dossal acceleration parameter :math:`d`. Should be greater than 2.
-        """
-        self._fit_init(mode, stop_crit)
-        self.m_init(primal_init=primal_init, tau=tau, d=d)
-        self._fit_run()
-
-    def m_init(self, primal_init: pyct.NDArray, tau: pyct.Real, d: pyct.Real):
-        self._mstate["primal"] = self._mstate["primal_prev"] = pycrt.coerce(primal_init)
+        mst = self._mstate  # shorthand
+        mst["x"] = mst["x_prev"] = x0
 
         if tau is None:
             if math.isfinite(dl := self._f._diff_lipschitz):
-                self._mstate["tau"] = pycrt.coerce(1 / dl)
+                mst["tau"] = pycrt.coerce(1 / dl)
             else:
                 msg = "tau: automatic inference not supported for operators with unbounded Lipschitz gradients."
                 raise ValueError(msg)
         else:
             try:
                 assert tau > 0
-                self._mstate["tau"] = pycrt.coerce(tau)
+                mst["tau"] = tau
             except:
                 raise ValueError(f"tau must be positive, got {tau}.")
 
-        if d is None:
-            self._mstate["a"] = itertools.repeat(pycrt.coerce(0))
-        else:
+        if acceleration:
             try:
                 assert d > 2
-                self._mstate["a"] = (pycrt.coerce(k / (k + 1 + d)) for k in itertools.count(start=0))
+                mst["a"] = (pycrt.coerce(k / (k + 1 + d)) for k in itertools.count(start=0))
             except:
                 raise ValueError(f"Expected d > 2, got {d}.")
+        else:
+            mst["a"] = itertools.repeat(pycrt.coerce(0))
 
     def m_step(self):
         mst = self._mstate  # shorthand
 
         a = next(mst["a"])
-        y = (1 + a) * mst["primal"] - a * mst["primal_prev"]
+        y = (1 + a) * mst["x"] - a * mst["x_prev"]
         z = y - mst["tau"] * self._f.grad(y)
 
-        mst["primal_prev"], mst["primal"] = mst["primal"], self._g.prox(z)
+        mst["x_prev"], mst["x"] = mst["x"], self._g.prox(z, mst["tau"])
+
+    def default_stop_crit(self) -> pycs.StoppingCriterion:
+        stop_crit = pycos.RelError(
+            eps=1e-4,
+            var="x",
+            f=None,
+            norm=2,
+            satisfy_all=True,
+        )
+        return stop_crit
 
     def solution(self) -> pyct.NDArray:
         """
         Returns
         -------
         p: NDArray
-            (..., N) primal solution.
+            (..., N) solution.
         """
-        _, data = self.stats()
-        return data.get("primal")
+        data, _ = self.stats()
+        return data.get("x")

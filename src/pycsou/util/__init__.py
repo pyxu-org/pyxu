@@ -1,3 +1,7 @@
+import collections.abc as cabc
+import functools
+import inspect
+
 import dask
 import numpy as np
 
@@ -98,8 +102,11 @@ def compute(*args, mode: str = "compute", **kwargs):
     Parameters
     ----------
     *args: object | sequence(object)
-        Any number of objects. If it is a dask object, it is evaluated and the result is returned.
+        Any number of objects.
+        If it is a dask object, it is evaluated and the result is returned.
         Non-dask arguments are passed through unchanged.
+        Python collections are traversed to find/evaluate dask objects within.
+        (Use traverse=False to disable this behavior.)
     mode: str
         Dask evaluation strategy: compute or persist.
     kwargs: dict
@@ -119,3 +126,88 @@ def compute(*args, mode: str = "compute", **kwargs):
     if len(args) == 1:
         cargs = cargs[0]
     return cargs
+
+
+def parse_params(func, *args, **kwargs) -> cabc.Mapping:
+    """
+    Get function parameterization.
+
+    Returns
+    -------
+    params: dict
+        (key, value) params as seen in body of `func` when called via `func(*args, **kwargs)`.
+    """
+    sig = inspect.Signature.from_callable(func)
+    f_args = sig.bind(*args, **kwargs)
+    f_args.apply_defaults()
+
+    params = dict(
+        zip(f_args.arguments.keys(), f_args.args),  # positional arguments
+        **f_args.kwargs,
+    )
+    return params
+
+
+def vectorize(i: pyct.VarName) -> cabc.Callable:
+    """
+    Decorator to auto-vectorize an array function to abide by
+    :py:class:`~pycsou.abc.operator.Property` API rules.
+
+    Parameters
+    ----------
+    i: VarName
+        Function parameter to vectorize. This variable must hold an object with a NumPy API.
+
+    Example
+    -------
+
+    >>> import pycsou.util as pycu
+    >>> @pycu.vectorize('x')
+    ... def f(x):
+    ...     return x.sum(keepdims=True)
+    ...
+    >>> x = np.arange(10).reshape((2, 5))
+    >>> f(x[0]), f(x[1])  #  [10], [35]
+    >>> f(x)              #  [10, 35] -> would have retured [45] if not decorated.
+
+    Notes
+    -----
+    See :ref:`developer-notes`
+    """
+
+    def decorator(func: cabc.Callable) -> cabc.Callable:
+        sig = inspect.Signature.from_callable(func)
+        if i not in sig.parameters:
+            error_msg = f"Parameter[{i}] not part of {func.__qualname__}() parameter list."
+            raise ValueError(error_msg)
+
+        @functools.wraps(func)
+        def wrapper(*ARGS, **KWARGS):
+            func_args = parse_params(func, *ARGS, **KWARGS)
+
+            x = func_args[i]
+            if is_1d := x.ndim == 1:
+                x = x.reshape((1, x.size))
+            sh_x = x.shape  # (..., N)
+            sh_xf = (np.prod(sh_x[:-1]), sh_x[-1])  # (M, N): x flattened to 2D
+            x = x.reshape(sh_xf)
+
+            # infer output dimensions + allocate
+            func_args[i] = x[0]
+            y0 = func(**func_args)
+            xp = get_array_module(y0)
+            y = xp.zeros((*sh_xf[:-1], y0.size), dtype=y0.dtype)
+
+            y[0] = y0
+            for k in range(1, sh_xf[0]):
+                func_args[i] = x[k]
+                y[k] = func(**func_args)
+            y = y.reshape((*sh_x[:-1], y.shape[-1]))
+            if is_1d:
+                y = y.reshape(-1)
+
+            return y
+
+        return wrapper
+
+    return decorator
