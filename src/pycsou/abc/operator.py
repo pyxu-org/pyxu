@@ -1452,6 +1452,11 @@ class ProxFunc(Func, Proximal):
         :py:class:`~pycsou.abc.operator.DiffFunc`
             Moreau envelope.
 
+        Raises
+        ------
+        ValueError
+            If ``mu`` is not strictly positive.
+
         Notes
         -----
         Consider a convex, non-smooth proximable functional :math:`f:\mathbb{R}^M\to\mathbb{R}\cup\{+\infty\}` and a regularization
@@ -1514,6 +1519,9 @@ class ProxFunc(Func, Proximal):
             plt.title('Derivative of Moreau Envelope')
 
         """
+        if mu <= 0:
+            raise ValueError(f"Parameter mu must be positive, got {mu}")
+
         moreau_envelope = DiffFunc(self.shape)
 
         @pycrt.enforce_precision(i="arr")

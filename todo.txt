@@ -5,13 +5,6 @@ Matthieu
 * [doc] Fix missing reference warnings. (See build/html/WARNINGS.log)
 * use pycrt.coerce() where it makes sense.
 * use **kwargs to simplify signatures
-* raise NotImpelmentedError if __matmul__ is called on a LinOp (to avoid side effects and implicit conversion done by Numpy on objects implementing __array__).
-
-@Matthieu: Remarks from Sepand
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* modify specialize/squeeze to return self when possible
-* prox/fenchel_prox: tau == 0 forbidden -> be explicit in docs
 
 
 
@@ -36,13 +29,10 @@ Sepand
 Joan
 ----
 
-* add from_source() method for creating class objects by passing their abstract methods as arguments (for Map and all of its subclasses).
-* add LinOp class method from_[array/sciop/pylop]() to create explicit linear operators from arrays/scipy/pylop operators.
-* [operator.ProxFunc] moreau_envelope(mu) -> must fail for mu = 0 [Not a DiffFunc]
-* [operator] See various TODOs in file abc/operator.py: Hutch++ algorithm high priority
+* [operator] See various TODOs in file abc/operator.py
 * [linop/base] Implement diagonal operator
-* [opt] Implement Solver.CG, LSQR LSMR
-* SVG drawing of class diagrams
+* [opt] Implement LSQR LSMR
+* Add SVG drawing of class diagrams in documentation
 * [tox] Verify tests run correctly in py38 environment.
 
   Assigned by Sepand KASHANI
@@ -83,20 +73,19 @@ Joan
 
 
   Roadmap:
-  - Numpy ufuncs -> Eelis
+  - Numpy ufuncs -> Kaan
   - operators (Pycsou v1) -> core dev team
-  - functionals (Pycsou v1 but unify loss and reg with 1 class and method "asloss") -> Eelis
-  - Tutorials, examples and notebooks. -> Student
+  - functionals (Pycsou v1 but unify loss and reg with 1 class and method "asloss") -> Kaan
+  - Tutorials, examples and notebooks. -> Kaan
   - CI: pip/conda packaging (quick fix of pip lenghty install) + ReadTheDocs + Run tests in cloud (Infomaniak)
   - benchmarking suite (low priority)
-
   - Automatic hyperparameter tuning (hyperpriors) 
   - Uncertainty quantification (approximate credibility intervals)
   - Nonconvex/linear (APGD nonconvex + PDS nonlinear)
   - Pytorch interfacing (autodiff+jac+bwd eval) -> Alec
   - Stochastic solvers -> Alec
-  - Second order solvers?
-  - LSQR/LSMR
+  - Second order solvers -> Kaan
+  - LSQR/LSMR -> Kaan
   
 
 
