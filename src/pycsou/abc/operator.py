@@ -1633,8 +1633,6 @@ class LinOp(DiffMap, Adjoint):
         """
         super(LinOp, self).__init__(shape)
         self._diff_lipschitz = 0
-        if shape[0] == shape[1]:
-            self.__class__ = SquareOp
 
     def squeeze(self) -> typ.Union["LinOp", "LinFunc"]:
         r"""
