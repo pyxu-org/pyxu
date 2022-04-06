@@ -1755,11 +1755,11 @@ class LinOp(DiffMap, Adjoint):
             Algorithm used for computing the Lipschitz constant. If ``algo==svds`` the Lispchtiz constant is estimated as the
             spectral norm of :math:`L`, computed via Scipy's :py:func:`scipy.sparse.linalg.svds` routine (more accurate but more compute intensive).  If ``algo==fro`` the Lispchtiz constant is estimated as the
             Froebenius norm of :math:`L`, computed via the matrix-free `Hutch++ stochastic trace estimation algorithm <https://arxiv.org/abs/2010.09649>`_ (less accurate but less compute intensive).
-
         kwargs:
             Optional arguments to be passed to the algorithm used for computing the Lipschitz constant.
-            The parameter ``tol`` of Scipy's :py:func:`scipy.sparse.linalg.svds` routine can be particularly interesting to reduce
-            the compute time of the Lipschitz constant. The parameter ``m`` of LinOps :py:func:`pycsou.abc.operator.LinOp.trace` can also be interesting to control the number of queries used for the stochastic estimation.
+            If ``algo==svds``, the parameter ``tol`` of Scipy's :py:func:`scipy.sparse.linalg.svds` routine can be particularly interesting to reduce
+            the compute time of the Lipschitz constant. If ``algo==fro``, the parameter ``m`` of :py:func:`pycsou.abc.operator.SquareOp.trace` can be interesting to control the number of queries used for the stochastic estimation.
+            If ``algo==fro`` the parameter ``xp`` can be used to select the desired array module backend for computation (Numpy, Cupy or Dask).
 
         Returns
         -------
@@ -1774,7 +1774,7 @@ class LinOp(DiffMap, Adjoint):
         (we have indeed :math:`\|L\|_F \geq \|L\|_2`). The Frobenius norm of  :math:`L` can indeed be approximated efficiently by
         computing the trace of :math:`L^\ast L` (or  :math:`LL^\ast`) depending on which is most advantageous) via the
         `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_. The Frobenius norm of  :math:`L` is upper
-        bounded by :math:`\|L\|_F \leq \sqrt{n} \|L\|_2`, with the equality approximated in those cases in which the
+        bounded by :math:`\|L\|_F \leq \sqrt{n} \|L\|_2`, where the equality is reached (worst-case scenario) in those cases in which the
         eigenspectrum of the linear operator is flat.
 
         Examples
@@ -1787,7 +1787,8 @@ class LinOp(DiffMap, Adjoint):
         >>> A = LinOp.from_array(mat).gram()
         >>> # Compute Stochastic upper bound of Lipschitz (using Hutch++)
         >>> stochastic_upper_bound = A.lipschitz(algo="fro", xp=np, m=10)
-        >>> # Compute Deterministic upper bound of Lipschitz
+        >>> # Compute Deterministic upper bound of Lipschitz (by setting
+        >>> # the number of queries equal to the size of the operator)
         >>> deterministic_upper_bound = A.lipschitz(algo="fro", xp=np, m=100, recompute=True)
         >>> # Compute Lipschitz
         >>> lipschitz = A.lipschitz(algo="svds", recompute=True)
@@ -1967,7 +1968,7 @@ class LinOp(DiffMap, Adjoint):
 
         Notes
         -----
-        The Moore-Penros pseudo-inverse of an operator :math:`L:\mathbb{R}^N\to \mathbb{R}^M` is defined as the operator
+        The Moore-Penrose pseudo-inverse of an operator :math:`L:\mathbb{R}^N\to \mathbb{R}^M` is defined as the operator
         :math:`L^\dagger:\mathbb{R}^M\to \mathbb{R}^N` verifying the Moore-Penrose conditions:
 
             1. :math:`LL^\dagger L =L`,
@@ -2245,7 +2246,7 @@ class SquareOp(LinOp):
     @pycrt.enforce_precision(o=True)
     def trace(self, **kwargs):
         """
-        Compute the trace of a squared linear operator.
+        Approximate the trace of a squared linear operator.
 
         Parameters
         ----------

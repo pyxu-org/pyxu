@@ -12,8 +12,8 @@ import pycsou.util.ptype as pyct
 @pycrt.enforce_precision(o=True)
 def hutchpp(linop: pyco.LinOp, m: int = 4002, xp: pyct.ArrayModule = np, seed: float = 0):
     r"""
-    Computes an stochastic estimate of the trace for linear operators based on the Hutch++ algorithm (specifically,
-    algorithm 3 of the paper https://arxiv.org/abs/2010.09649.
+    Computes a stochastic estimate of the trace for linear operators based on the Hutch++ algorithm (specifically,
+    algorithm 3 of the paper https://arxiv.org/abs/2010.09649).
 
     Parameters
     ----------
