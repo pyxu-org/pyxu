@@ -61,9 +61,9 @@ class Property:
         return frozenset(
             (
                 "apply",
-                "_lipschitz",
+                "lipschitz",
                 "jacobian",
-                "_diff_lipschitz",
+                "diff_lipschitz",
                 "single_valued",
                 "grad",
                 "prox",
@@ -189,7 +189,7 @@ class Property:
         | ProxDiffFunc |     |         |      |          |          |         |          | DiffFunc     |
         +--------------+-----+---------+------+----------+----------+---------+----------+--------------+
 
-        If the sum has one or more of the following properties ``[apply, jacobian, grad, adjoint, _lipschitz, _diff_lipschitz]``,
+        If the sum has one or more of the following properties ``[apply, jacobian, grad, adjoint, lipschitz, diff_lipschitz]``,
         the latter are defined as the sum of the corresponding properties of the addends. In the case ``ProxFunc/ProxDiffFunc/LinFunc + LinFunc``,
         the ``prox`` property is updated as described in the method ``__add__`` of the subclass :py:class:`~pycsou.abc.operator.ProxFunc`.
 
@@ -215,8 +215,8 @@ class Property:
         shared_props.discard("single_valued")
         out_op = Op(out_shape)
         for prop in shared_props:
-            if prop in ["_lispchitz", "_diff_lipschitz"]:
-                setattr(out_op, prop, getattr(self, prop) + getattr(other, prop))
+            if prop in ["lipschitz", "diff_lipschitz"]:
+                setattr(out_op, "_" + prop, getattr(self, "_" + prop) + getattr(other, "_" + prop))
             else:
 
                 @pycrt.enforce_precision(i="arr", o=False)  # Decorate composite method to avoid recasting [arr] twice.
@@ -286,7 +286,7 @@ class Property:
         +--------------+---------+----------+------+----------+----------+-------------+----------+--------------+
 
 
-        If the product output has one or more of the following properties ``[apply, jacobian, grad, adjoint, _lipschitz, _diff_lipschitz]``,
+        If the product output has one or more of the following properties ``[apply, jacobian, grad, adjoint, lipschitz, diff_lipschitz]``,
         the latter are defined from the corresponding properties of the factors as follows (the pseudocode below is mathematically equivalent to but does
         not necessarily reflect the actual implementation):
 
@@ -325,9 +325,11 @@ class Property:
             where the product's ``prox`` property update is described.
         """
         if isinstance(other, pyct.Real):
-            from pycsou.linop.base import HomothetyOp
+            from pycsou.operator.linop.base import HomothetyOp
 
             hmap = HomothetyOp(other, dim=self.shape[0])
+            if hmap.shape[0] == 1:
+                hmap.grad = types.MethodType(lambda _, arr: hmap._cst, hmap)
             return hmap.__mul__(self)
         elif not isinstance(other, Map):
             raise NotImplementedError(f"Cannot multiply object of type {type(self)} with object of type {type(other)}.")
@@ -346,12 +348,12 @@ class Property:
             shared_props.discard("jacobian")
         shared_props.discard("single_valued")
         out_op = Op(out_shape)
-        for prop in shared_props:  # ("apply", "_lipschitz", "jacobian", "_diff_lipschitz", "grad", "adjoint")
+        for prop in shared_props:  # ("apply", "lipschitz", "jacobian", "diff_lipschitz", "grad", "adjoint")
             if prop == "apply":
                 out_op.apply = types.MethodType(lambda _, arr: self.apply(other.apply(arr)), out_op)
-            elif prop == "_lipschitz":
+            elif prop == "lipschitz":
                 out_op._lipschitz = self._lipschitz * other._lipschitz
-            elif prop == "_diff_lipschitz":
+            elif prop == "diff_lipschitz":
                 if isinstance(self, LinOp):
                     out_op._diff_lipschitz = self._lipschitz * other._diff_lipschitz
                 elif isinstance(other, LinOp):
@@ -392,6 +394,9 @@ class Property:
         """
         return self.__mul__(other)
 
+    def __matmul__(self, other):
+        raise NotImplementedError("For composition or evaluation, use the dedicated __mul__() and apply() methods. ")
+
     def __pow__(self: MapLike, power: int) -> NonProxLike:
         r"""
         Exponentiate (i.e. compose with itself) an instance of :py:class:`~pycsou.abc.operator.Map` subclasses ``power`` times (overloads the ``**`` operator).
@@ -408,7 +413,7 @@ class Property:
         """
         if type(power) is int:
             if power == 0:
-                from pycsou.linop.base import IdentityOp
+                from pycsou.operator.linop.base import IdentityOp
 
                 exp_map = IdentityOp(shape=self.shape)
             else:
@@ -473,7 +478,7 @@ class Property:
 
         Notes
         -----
-        Calling ``self.argscale(scalar)`` is equivalent to precomposing ``self`` with the (unitary) linear operator :py:class:`~pycsou.linop.base.HomotethyOp`:
+        Calling ``self.argscale(scalar)`` is equivalent to precomposing ``self`` with the (unitary) linear operator :py:class:`~pycsou.operator.linop.base.HomotethyOp`:
 
         .. code-block:: python3
 
@@ -483,7 +488,7 @@ class Property:
 
         """
         if isinstance(scalar, pyct.Real):
-            from pycsou.linop.base import HomothetyOp
+            from pycsou.operator.linop.base import HomothetyOp
 
             hmap = HomothetyOp(scalar, dim=self.shape[1])
             return self.__mul__(hmap)
@@ -515,7 +520,7 @@ class Property:
         The output domain-shifted operator has either the same type of ``self`` or is of type
         :py:class:`~pycsou.abc.operator.DiffMap`/:py:class:`~pycsou.abc.operator.DiffFunc` when ``self`` is a
         :py:class:`~pycsou.abc.operator.LinOp`/:py:class:`~pycsou.abc.operator.LinFunc` object respectively (since shifting does not preserve linearity).
-        Moreover, if the output has one or more of the following properties ``[apply, jacobian, grad, prox, _lipschitz, _diff_lipschitz]``,
+        Moreover, if the output has one or more of the following properties ``[apply, jacobian, grad, prox, lipschitz, diff_lipschitz]``,
         the latter are defined from the corresponding properties of ``self`` as follows (the pseudocode below is mathematically equivalent to but does
         not necessarily reflect the actual implementation):
 
@@ -551,8 +556,8 @@ class Property:
             props.discard("jacobian")
         props.discard("single_valued")
         for prop in out_op.properties():
-            if prop in ["_lispchitz", "_diff_lipschitz"]:
-                setattr(out_op, prop, getattr(self, prop))
+            if prop in ["lipschitz", "diff_lipschitz"]:
+                setattr(out_op, "_" + prop, getattr(self, "_" + prop))
             elif prop == "prox":
                 out_op.prox = types.MethodType(
                     ft.partial(lambda arr, _, x, tau: self.prox(x + arr, tau) - arr, arr), out_op
@@ -724,7 +729,7 @@ class Gradient(Differential):
         where :math:`\nabla f (\mathbf{x})` denotes the *gradient* of :math:`f` (see :py:meth:`~pycsou.abc.operator.Gradient.grad`).
         The Jacobian matrix is hence given by the transpose of the gradient: :math:`\mathbf{J}_f(\mathbf{x})=\nabla f (\mathbf{x})^T`.
         """
-        from pycsou.linop.base import ExplicitLinFunc
+        from pycsou.operator.linop.base import ExplicitLinFunc
 
         return ExplicitLinFunc(self.grad(arr))
 
@@ -815,7 +820,7 @@ class Proximal(Property):
 
         Notes
         -----
-        The *proximity operator* of a ``tau``-scaled functional :math:`f:\mathbb{R}^M\to \mathbb{R}` is defined as:
+        For :math:`\tau>0`, the *proximity operator* of a ``tau``-scaled functional :math:`f:\mathbb{R}^M\to \mathbb{R}` is defined as:
 
         .. math:: \mathbf{\text{prox}}_{\tau f}(\mathbf{z}):=\arg\min_{\mathbf{x}\in\mathbb{R}^M} f(x)+\frac{1}{2\tau} \|\mathbf{x}-\mathbf{z}\|_2^2, \quad \forall \mathbf{z}\in\mathbb{R}^M.
 
@@ -845,7 +850,7 @@ class Proximal(Property):
 
         Notes
         -----
-        The *Fenchel conjugate* is defined as:
+        For :math:`\sigma>0`, the *Fenchel conjugate* is defined as:
 
         .. math::
 
@@ -1062,7 +1067,7 @@ class Map(Apply):
         If ``self`` does not implement all the methods of the ``cast_to`` target class, then unimplemented methods will raise a ``NotImplementedError``
         when called.
         """
-        if cast_to == self.__class__:
+        if issubclass(self.__class__, cast_to):
             obj = self
         else:
             if self.properties() > cast_to.properties():
@@ -1071,8 +1076,10 @@ class Map(Apply):
                 )
             obj = cast_to(self.shape)
             for prop in self.properties():
-                if prop == "jacobian" and cast_to.has("single_valued"):
+                if prop == "jacobian" and "grad" not in self.properties() and cast_to.has("single_valued"):
                     obj.grad = types.MethodType(lambda _, x: self.jacobian(x).asarray().reshape(-1), obj)
+                if prop in ["lipschitz", "diff_lipschitz"]:
+                    setattr(obj, "_" + prop, getattr(self, "_" + prop))
                 else:
                     setattr(obj, prop, getattr(self, prop))
         return obj
@@ -1140,8 +1147,8 @@ class Map(Apply):
         else:
             raise ValueError(f"Cannot create a {cls.__name__} object with the given properties.")
         for prop in properties:
-            if prop in ["_lispchitz", "_diff_lipschitz"]:
-                setattr(out_op, prop, kwargs[prop])
+            if prop in ["lipschitz", "diff_lipschitz"]:
+                setattr(out_op, "_" + prop, kwargs["_" + prop])
             elif prop == "prox":
                 f = lambda key, _, arr, tau: kwargs[key](arr, tau)
                 setattr(out_op, prop, types.MethodType(ft.partial(f, prop), out_op))
@@ -1166,7 +1173,7 @@ class DiffMap(Map, Differential):
 
     >>> import numpy as np
     >>> from pycsou.abc import DiffMap
-    >>> from pycsou.linop.base import ExplicitLinOp
+    >>> from pycsou.operator.linop.base import ExplicitLinOp
     >>> class  Sin(DiffMap):
     ...    def __init__(self, shape):
     ...        super(Sin, self).__init__(shape)
@@ -1174,7 +1181,7 @@ class DiffMap(Map, Differential):
     ...    def apply(self, arr):
     ...        return np.sin(arr)
     ...    def jacobian(self, arr):
-    ...        return ExplicitLinOp(np.cos(arr))
+    ...        return ExplicitLinOp(np.diag(np.cos(arr)))
     >>> sin = Sin((10,10)) # creates an instance
 
 
@@ -1274,20 +1281,20 @@ class Func(Map, SingleValued):
             raise ValueError("Functionals" " must be of the form (1,n).")
         super(Func, self).__init__(shape)
 
-    def as_loss(self, data: typ.Optional[pyct.NDArray] = None) -> "Func":
+    def asloss(self, data: typ.Optional[pyct.NDArray] = None) -> "Func":
         """
-        Transform a Function into a loss function.
+        Transform a functional into a loss functional.
 
         Parameters
         ----------
         data: NDArray
-            (N,) data terms.
+            (N,) input data.
 
         Returns
         -------
         :py:class:`~pycsou.abc.operator.Func`
             Loss function.
-            If `data = None`, then should return `self`.
+            If `data = None`, then return `self`.
         """
         raise NotImplementedError
 
@@ -1411,20 +1418,20 @@ class ProxFunc(Func, Proximal):
         :py:meth:`pycsou.abc.operator.Property.__mul__`
 
         """
-        from pycsou.linop.base import HomothetyOp
+        from pycsou.operator.linop.base import HomothetyOp
 
         f = Property.__mul__(self, other)
         if isinstance(other, pyct.Real):
             other = HomothetyOp(other, dim=self.shape[0])
 
         if isinstance(self, LinFunc) and isinstance(other, LinOp):
-            f.specialize(cast_to=self.__class__)
+            f = f.specialize(cast_to=self.__class__)
             f.prox = types.MethodType(lambda _, arr, tau: arr - tau * other.adjoint(self.asarray()), f)
         elif isinstance(other, UnitOp):
-            f.specialize(cast_to=self.__class__)
+            f = f.specialize(cast_to=self.__class__)
             f.prox = types.MethodType(lambda _, arr, tau: other.adjoint(self.prox(other.apply(arr), tau)), f)
         elif isinstance(other, HomothetyOp):
-            f.specialize(cast_to=self.__class__)
+            f = f.specialize(cast_to=self.__class__)
             f.prox = types.MethodType(
                 lambda _, arr, tau: (1 / other._cst) * self.prox(other._cst * arr, tau * (other._cst) ** 2), f
             )
@@ -1444,6 +1451,11 @@ class ProxFunc(Func, Proximal):
         -------
         :py:class:`~pycsou.abc.operator.DiffFunc`
             Moreau envelope.
+
+        Raises
+        ------
+        ValueError
+            If ``mu`` is not strictly positive.
 
         Notes
         -----
@@ -1507,6 +1519,9 @@ class ProxFunc(Func, Proximal):
             plt.title('Derivative of Moreau Envelope')
 
         """
+        if mu <= 0:
+            raise ValueError(f"Parameter mu must be positive, got {mu}")
+
         moreau_envelope = DiffFunc(self.shape)
 
         @pycrt.enforce_precision(i="arr")
@@ -1527,7 +1542,7 @@ class ProxFunc(Func, Proximal):
         return moreau_envelope
 
 
-class DiffFunc(Func, Gradient):
+class DiffFunc(DiffMap, Func, Gradient):
     r"""
     Base class for real-valued differentiable functionals :math:`f:\mathbb{R}^M\to\mathbb{R}`.
 
@@ -1564,7 +1579,7 @@ class DiffFunc(Func, Gradient):
         super(DiffFunc, self).__init__(shape)
 
 
-class ProxDiffFunc(ProxFunc, Gradient):
+class ProxDiffFunc(ProxFunc, DiffFunc):
     r"""
     Base class for real-valued differentiable *and* proximable functionals :math:`f:\mathbb{R}^M\to\mathbb{R}`.
 
@@ -1750,8 +1765,8 @@ class LinOp(DiffMap, Adjoint):
         gpu: bool
             If ``True`` the computation of the Lipschitz constant is performed on the GPU. Has no effect if ``recompute==False``.
         algo: 'svds', 'fro'
-            Algorithm used for computing the Lipschitz constant. If ``algo==svds`` the Lispchtiz constant is estimated as the
-            spectral norm of :math:`L`, computed via Scipy's :py:func:`scipy.sparse.linalg.svds` routine (more accurate but more compute intensive).  If ``algo==fro`` the Lispchtiz constant is estimated as the
+            Algorithm used for computing the Lipschitz constant. If ``algo==svds`` the Lipschitz constant is estimated as the
+            spectral norm of :math:`L`, computed via Scipy's :py:func:`scipy.sparse.linalg.svds` routine (more accurate but more compute intensive).  If ``algo==fro`` the Lipschitz constant is estimated as the
             Froebenius norm of :math:`L`, computed via the matrix-free `Hutch++ stochastic trace estimation algorithm <https://arxiv.org/abs/2010.09649>`_ (less accurate but less compute intensive).
         kwargs:
             Optional arguments to be passed to the algorithm used for computing the Lipschitz constant.
@@ -2017,7 +2032,7 @@ class LinOp(DiffMap, Adjoint):
     def _pinv(
         self, arr: pyct.NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[int] = None, **kwargs
     ) -> pyct.NDArray:
-        from pycsou.linop.base import IdentityOp
+        from pycsou.operator.linop.base import IdentityOp
 
         b = self.adjoint(arr)
         if damp is not None:
@@ -2148,15 +2163,15 @@ class LinOp(DiffMap, Adjoint):
     def from_array(cls, mat: typ.Union[pyct.NDArray, pyct.SparseArray], enable_warnings: bool = True) -> "LinOp":
         r"""
         Create an instance of a :py:class:`~pycsou.abc.operator.LinOp` from its matrix representation (see
-        :py:class:`pycsou.linop.base.ExplicitLinOp`).
+        :py:class:`pycsou.operator.linop.base.ExplicitLinOp`).
 
         See Also
         --------
         :py:meth:`~pycsou.abc.operator.LinOp.from_sciop`, :py:meth:`~pycsou.abc.operator.Map.from_source`,
-        :py:class:`pycsou.linop.base.ExplicitLinOp`, :py:meth:`~pycsou.abc.operator.LinFunc.from_array`.
+        :py:class:`pycsou.operator.linop.base.ExplicitLinOp`, :py:meth:`~pycsou.abc.operator.LinFunc.from_array`.
 
         """
-        from pycsou.linop.base import ExplicitLinOp
+        from pycsou.operator.linop.base import ExplicitLinOp
 
         return ExplicitLinOp(mat, enable_warnings)
 
@@ -2194,10 +2209,10 @@ class LinFunc(ProxDiffFunc, LinOp):
 
     >>> sum = Sum(10)
 
-    It is also possible to use the class :py:class:`~pycsou.linop.base.ExplicitLinFunc`, which constructs a linear functional
+    It is also possible to use the class :py:class:`~pycsou.operator.linop.base.ExplicitLinFunc`, which constructs a linear functional
     through its vectorial representation (i.e. :math:`f(\mathbf{x})=\langle\mathbf{x}, \mathbf{v}\rangle`):
 
-    >>> from pycsou.linop.base import ExplicitLinFunc
+    >>> from pycsou.operator.linop.base import ExplicitLinFunc
     >>> sum = ExplicitLinFunc(vec=np.ones(10)) # Creates a LinFunc instance
 
     """
@@ -2212,15 +2227,15 @@ class LinFunc(ProxDiffFunc, LinOp):
     def from_array(cls, vec: pyct.NDArray, enable_warnings: bool = True) -> "LinFunc":
         r"""
         Create an instance of a :py:class:`~pycsou.abc.operator.LinFunc` from its vectorial representation (see
-        :py:class:`pycsou.linop.base.ExplicitLinFunc`).
+        :py:class:`pycsou.operator.linop.base.ExplicitLinFunc`).
 
         See Also
         --------
         :py:meth:`~pycsou.abc.operator.LinOp.from_array`, :py:meth:`~pycsou.abc.operator.Map.from_source`,
-        :py:class:`pycsou.linop.base.ExplicitLinFunc`.
+        :py:class:`pycsou.operator.linop.base.ExplicitLinFunc`.
 
         """
-        from pycsou.linop.base import ExplicitLinFunc
+        from pycsou.operator.linop.base import ExplicitLinFunc
 
         return ExplicitLinFunc(vec, enable_warnings)
 
@@ -2400,7 +2415,7 @@ class ProjOp(SquareOp):
         For ``power>0`` just return ``self`` as projection operators are idempotent.
         """
         if power == 0:
-            from pycsou.linop.base import IdentityOp
+            from pycsou.operator.linop.base import IdentityOp
 
             return IdentityOp(self.shape)
         else:

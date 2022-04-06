@@ -102,8 +102,11 @@ def compute(*args, mode: str = "compute", **kwargs):
     Parameters
     ----------
     *args: object | sequence(object)
-        Any number of objects. If it is a dask object, it is evaluated and the result is returned.
+        Any number of objects.
+        If it is a dask object, it is evaluated and the result is returned.
         Non-dask arguments are passed through unchanged.
+        Python collections are traversed to find/evaluate dask objects within.
+        (Use traverse=False to disable this behavior.)
     mode: str
         Dask evaluation strategy: compute or persist.
     kwargs: dict

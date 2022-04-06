@@ -6,18 +6,6 @@ Matthieu
 * use pycrt.coerce() where it makes sense.
 * use **kwargs to simplify signatures
 
-@Matthieu: Remarks from Sepand
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* Median.lipschitz == 1?
-* LeastSquares.lipschitz == inf/2 -> ok
-* L2.lipschitz/diff_lip == 1/inf -> ok, proxfunc, so no diff_lip
-* L1.lipschitz != 1? -> fails a test
-  lipschitz = sqrt(n)
-* DiffMap example .jacobian() -> should be ExplicitLinOp(np.diag(np.cos(arr))) -> ok
-* prox/fenchel_prox: tau == 0 forbidden -> be explicit in docs
-* modify specialize/squeeze to return self when possible
-* proxfunc
 
 
 Sepand
@@ -30,24 +18,21 @@ Sepand
 
   * MapT.test_specialize() skipped -> enable once scaffolding in place.
   * Func.squeeze() fails FuncT.test_squeeze() -> deactivated for now.
-  * DiffMap.test_interface_jacobian() fails since LinOpT not defined -> deactivated for now.
-
+  * test_math_() routines should be conducted for each precision to ensure pre-conditions hold.
 
 * Arithmetic tests
 * Solver tests [APGD for now]
+* Go over all code: refactor docstrings, type hints, etc.
 
    
 
 Joan
 ----
 
-* add from_source() method for creating class objects by passing their abstract methods as arguments (for Map and all of its subclasses).
-* add LinOp class method from_[array/sciop/pylop]() to create explicit linear operators from arrays/scipy/pylop operators.
-* [operator.ProxFunc] moreau_envelope(mu) -> must fail for mu = 0 [Not a DiffFunc]
-* [operator] See various TODOs in file abc/operator.py: Hutch++ algorithm high priority
+* [operator] See various TODOs in file abc/operator.py
 * [linop/base] Implement diagonal operator
-* [opt] Implement Solver.CG, LSQR LSMR
-* SVG drawing of class diagrams
+* [opt] Implement LSQR LSMR
+* Add SVG drawing of class diagrams in documentation
 * [tox] Verify tests run correctly in py38 environment.
 
   Assigned by Sepand KASHANI
@@ -83,3 +68,25 @@ Joan
 
   * Add carbon_footprint
   * Add duality_gap
+
+
+
+
+  Roadmap:
+  - Numpy ufuncs -> Kaan
+  - operators (Pycsou v1) -> core dev team
+  - functionals (Pycsou v1 but unify loss and reg with 1 class and method "asloss") -> Kaan
+  - Tutorials, examples and notebooks. -> Kaan
+  - CI: pip/conda packaging (quick fix of pip lenghty install) + ReadTheDocs + Run tests in cloud (Infomaniak)
+  - benchmarking suite (low priority)
+  - Automatic hyperparameter tuning (hyperpriors) 
+  - Uncertainty quantification (approximate credibility intervals)
+  - Nonconvex/linear (APGD nonconvex + PDS nonlinear)
+  - Pytorch interfacing (autodiff+jac+bwd eval) -> Alec
+  - Stochastic solvers -> Alec
+  - Second order solvers -> Kaan
+  - LSQR/LSMR -> Kaan
+  
+
+
+
