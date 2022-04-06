@@ -1808,7 +1808,12 @@ class LinOp(DiffMap, Adjoint):
                         else:
                             import numpy as xp
                         kwargs.update(dict(xp=xp))
-                    del kwargs["gpu"]
+                    kwargs.pop("gpu", None)
+                else:
+                    if "xp" not in kwargs.keys():
+                        import numpy as xp
+
+                        kwargs.update(dict(xp=xp))
                 if "m" not in kwargs.keys():
                     kwargs.update(dict(m=126))
                 if np.diff(self.shape) > 0:
