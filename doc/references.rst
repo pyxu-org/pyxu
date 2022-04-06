@@ -6,7 +6,8 @@ References
 .. [OnKerLearn] Martins, André FT, et al. "Online multiple kernel learning for structured prediction." arXiv preprint arXiv:1010.2770 (2010).
 .. [ProxSplit] Combettes, Patrick L., and Jean-Christophe Pesquet. "Proximal splitting methods in signal processing." Fixed-point algorithms for inverse problems in science and engineering. Springer, New York, NY, 2011. 185-212.
 .. [FuncSphere] Simeoni, Matthieu Martin Jean-Andre. Functional Inverse Problems on Spheres: Theory, Algorithms and Applications. No. THESIS. EPFL, 2020.
-.. [PDS] Condat, Laurent. "A primal–dual splitting method for convex optimization involving Lipschitzian, proximable and linear composite terms." Journal of Optimization Theory and Applications 158.2 (2013): 460-479.
+.. [CVS] Condat, Laurent. "A primal–dual splitting method for convex optimization involving Lipschitzian, proximable and linear composite terms." Journal of Optimization Theory and Applications 158.2 (2013): 460-479.
+.. [PD3O] Yan, Ming. "A new primal-dual algorithm for minimizing the sum of three functions with a linear operator." arXiv preprint arXiv:1611.09805 (2018).
 .. [APGD] Liang, Jingwei, Tao Luo, and Carola-Bibiane Schönlieb. "Improving" Fast Iterative Shrinkage-Thresholding Algorithm": Faster, Smarter and Greedier." arXiv preprint arXiv:1811.01430 (2018).
 .. [P2] Jain, Raj, and Imrich Chlamtac. "The P2 algorithm for dynamic calculation of quantiles and histograms without storing observations." Communications of the ACM 28.10 (1985): 1076-1085.
 .. [GaussProcesses] Rasmussen, Carl Edward, and C. K. Williams. "Gaussian processes for machine learning, vol. 1." (2006).
