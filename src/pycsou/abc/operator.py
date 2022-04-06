@@ -1908,13 +1908,13 @@ class LinOp(DiffMap, Adjoint):
             dtype = pycrt.getPrecision().value
         return self.asarray(xp=np, dtype=dtype)
 
-    def gram(self) -> "SquareOp":
+    def gram(self) -> "SelfAdjointOp":
         r"""
         Gram operator :math:`L^\ast L:\mathbb{R}^M\to \mathbb{R}^M`.
 
         Returns
         -------
-        :py:class:`~pycsou.abc.operator.LinOp`
+        :py:class:`~pycsou.abc.operator.SelfAdjointOp`
             Gram operator with shape (M,M).
 
         Notes
@@ -1922,15 +1922,15 @@ class LinOp(DiffMap, Adjoint):
         By default the Gram is computed by the composition ``self.T * self``. This may not be the fastest
         way to compute the Gram operator. If the Gram can be computed more efficiently (e.g. with a convolution), the user should re-define this method.
         """
-        return (self.T * self).specialize(SquareOp)
+        return (self.T * self).specialize(SelfAdjointOp)
 
-    def cogram(self) -> "SquareOp":
+    def cogram(self) -> "SelfAdjointOp":
         r"""
         Co-Gram operator :math:`LL^\ast:\mathbb{R}^N\to \mathbb{R}^N`.
 
         Returns
         -------
-        :py:class:`~pycsou.abc.operator.LinOp`
+        :py:class:`~pycsou.abc.operator.SelfAdjointOp`
             Co-Gram operator with shape (N,N).
 
         Notes
@@ -1938,7 +1938,7 @@ class LinOp(DiffMap, Adjoint):
         By default the co-Gram is computed by the composition ``self * self.T``. This may not be the fastest
         way to compute the co-Gram operator. If the co-Gram can be computed more efficiently (e.g. with a convolution), the user should re-define this method.
         """
-        return (self * self.T).specialize(SquareOp)
+        return (self * self.T).specialize(SelfAdjointOp)
 
     @pycrt.enforce_precision(i="arr")
     def pinv(
