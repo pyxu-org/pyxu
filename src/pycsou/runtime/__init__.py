@@ -132,8 +132,9 @@ def enforce_precision(
                 if k not in func_args:
                     error_msg = f"Parameter[{k}] not part of {func.__qualname__}() parameter list."
                     raise ValueError(error_msg)
-                elif (func_args[k] is None) and (not allow_None):
-                    raise ValueError(f"Parameter[{k}] cannot be None-valued.")
+                elif func_args[k] is None:
+                    if not allow_None:
+                        raise ValueError(f"Parameter[{k}] cannot be None-valued.")
                 else:
                     func_args[k] = coerce(func_args[k])
 
