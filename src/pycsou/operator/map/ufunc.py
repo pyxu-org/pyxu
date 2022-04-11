@@ -497,3 +497,186 @@ class Arctanh(pyca.Map):
         xp = pycu.get_array_module(arr)
         return xp.arctanh(arr)
 
+
+# Exponentials and logarithms
+
+class Exp(pyca.DiffMap):
+    r"""
+    Exponential function
+
+    Any exponential function is differentiable function, therefore its base class is DiffMap.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Exp, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Exponential of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.exp(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+            Jacobian matrix of exponential of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(xp.exp(arr)))
+
+class Log(pyca.DiffMap):
+    r"""
+    Natural logarithm function
+
+    Any natural logarithm function is differentiable function, therefore its base class is DiffMap.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Log, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Natural logarithm of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.log(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+            Jacobian matrix of natural logarithm of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(1/arr))
+
+class Log10(pyca.DiffMap):
+    r"""
+    Base 10 logarithm function
+
+    Any base 10 logarithm function is differentiable function, therefore its base class is DiffMap.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Log10, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Base 10 logarithm of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.log10(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+            Jacobian matrix of base 10 logarithm of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(1/(xp.log(10)*arr)))
+
+class Log2(pyca.DiffMap):
+    r"""
+    Base 2 logarithm function
+
+    Any base 2 logarithm function is differentiable function, therefore its base class is DiffMap.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Log10, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Base 2 logarithm of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.log2(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+            Jacobian matrix of base 2 logarithm of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(1/(xp.log(2)*arr)))
+
