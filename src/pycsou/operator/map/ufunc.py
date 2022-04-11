@@ -244,3 +244,256 @@ class Arctan(pyca.DiffMap):
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(1/(1 + xp.power(arr, 2))))
 
+
+# Hyperbolic Functions
+
+class Sinh(pyca.DiffMap):
+    r"""
+    Hyperbolic sine function
+
+    Any hyperbolic sine function is differentiable function, therefore its base class is DiffMap.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Sinh, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Hyperbolic sine of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.sinh(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Jacobian matrix of hyperbolic sine of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(xp.cosh(arr)))
+
+class Cosh(pyca.DiffMap):
+    r"""
+    Hyperbolic cosine function
+
+    Any hyperbolic cosine function is differentiable function, therefore its base class is DiffMap.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Cosh, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Hyperbolic cosine of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.cosh(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Jacobian matrix of hyperbolic cosine of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(xp.sinh(arr)))
+
+class Tanh(pyca.DiffMap):
+    r"""
+    Hyperbolic tangent function
+
+    Any hyperbolic tangent function is differentiable function, therefore its base class is DiffMap.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Tanh, self).__init__(shape)
+        self._lipschitz = 1
+        self._diff_lipschitz = -0.65
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Hyperbolic tangent of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.tanh(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Jacobian matrix of hyperbolic tangent of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(1/(xp.power(xp.cosh(arr), 2))))
+
+class Arcsinh(pyca.DiffMap):
+    r"""
+    Inverse hyperbolic sine function
+
+    Any inverse hyperbolic sine function is differentiable function, therefore its base class is DiffMap.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Arcsinh, self).__init__(shape)
+        self._lipschitz = 1
+        self._diff_lipschitz = 0.39
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Inverse hyperbolic sine of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.arcsinh(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Jacobian matrix of inverse hyperbolic sine of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(1/(xp.sqrt(xp.power(arr, 2) + 1))))
+
+class Arccosh(pyca.Map):
+    r"""
+    Inverse hyperbolic cosine function
+
+    Any inverse hyperbolic cosine function is not differentiable function at {-1, +1}, therefore its base class is Map.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Arccosh, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array defined on positive real numbers
+
+        Returns
+        -------
+        NDArray
+            Inverse hyperbolic cosine of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.arccosh(arr)
+
+class Arctanh(pyca.Map):
+    r"""
+    Inverse hyperbolic tangent function
+
+    Any inverse hyperbolic tangent function is not differentiable function at {-1, +1}, therefore its base class is Map.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Arctanh, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array defined on [-1,1]
+
+        Returns
+        -------
+        NDArray
+            Inverse hyperbolic tangent of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.arctanh(arr)
+
