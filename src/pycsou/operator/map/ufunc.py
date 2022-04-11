@@ -807,3 +807,289 @@ class Cumsum(pyca.Map):
         xp = pycu.get_array_module(arr)
         return xp.cumsum(arr, axis=axis)
 
+
+# Miscellaneous
+
+class Clip(pyca.Map):
+    r"""
+    Clip (limit) the values in an array. Its base class is Map.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Clip, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray, a_min: float, a_max: float) -> pyct.NDArray:
+        r"""
+
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+        a_min: Float
+            Minimum value
+        a_max: Float
+            Maximum value
+
+        Returns
+        -------
+        NDArray
+            Array with elements of arr but where values < a_{min} are replaced with a_{min} and
+            those > a_{max} with a_{max}
+        """
+        return arr.clip(min=a_min, max=a_max)
+
+class Sqrt(pyca.DiffMap):
+    r"""
+    Nonnegative square-root function
+
+    Any nonnegative sqrt function is differentiable function, therefore its base class is DiffMap.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Sqrt, self).__init__(shape)
+        self._diff_lipschitz = 0
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array defined on nonnegative real numbers
+
+        Returns
+        -------
+        NDArray
+            Nonnegative square root of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.sqrt(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+            Jacobian matrix of nonnegative square root of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(1/(2*xp.sqrt(arr))))
+
+class Cbrt(pyca.DiffMap):
+    r"""
+    Cube-root function
+
+    Any cbrt function is differentiable function, therefore its base class is DiffMap.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Cbrt, self).__init__(shape)
+        self._diff_lipschitz = 0
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Cube root of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.cbrt(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+            Jacobian matrix of cube root of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(1/(3*xp.power(arr, 2/3))))
+
+class Square(pyca.DiffMap):
+    r"""
+    Square function
+
+    Any square function is differentiable function, therefore its base class is DiffMap.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Sqrt, self).__init__(shape)
+        self._diff_lipschitz = 2
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Square of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.square(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+            Jacobian matrix of square of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(2*arr))
+
+class Abs(pyca.DiffMap):
+    r"""
+    Absolute function
+
+    Any absolute function is differentiable function (except just one point), therefore its base class is DiffMap.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Abs, self).__init__(shape)
+        self._lipschitz = 1
+        self._diff_lipschitz = 0
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Absolute of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.absolute(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+            Jacobian matrix of absolute of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(xp.sign(arr)))
+
+class Sign(pyca.Map):
+    r"""
+    Sign function
+
+    Any sign function is not differentiable function, therefore its base class is Map.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Sign, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+
+        Returns
+        -------
+        NDArray
+            Sign of each element of arr
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.sign(arr)
+
+class Heaviside(pyca.Map):
+    r"""
+    Heaviside function
+
+    Any heaviside function is not differentiable function, therefore its base class is Map.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Heaviside, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr1: pyct.NDArray, arr2: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr1: NDArrray
+            Input array
+        arr2: NDArray
+            Value of the function when arr1 is 0
+
+        Returns
+        -------
+        NDArray
+            Heaviside of each element of arr1
+        """
+        xp = pycu.get_array_module(arr1)
+        return xp.heaviside(arr1, arr2)
+
