@@ -680,3 +680,130 @@ class Log2(pyca.DiffMap):
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(1/(xp.log(2)*arr)))
 
+
+# Sums and Products
+
+class Prod(pyca.Map):
+    r"""
+    Product of array elements over a given axis. Its base class is Map.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Prod, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray, axis: int) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+        axis: Int
+            Axis which the product is performed
+
+        Returns
+        -------
+        NDArray
+            Product of elements of arr over a given axis
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.prod(arr, axis=axis)
+
+class Sum(pyca.Map):
+    r"""
+    Sum of array elements over a given axis. Its base class is Map.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Sum, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray, axis: int) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+        axis: Int
+            Axis which the sum is performed
+
+        Returns
+        -------
+        NDArray
+            Sum of elements of arr over a given axis
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.sum(arr, axis=axis)
+
+class Cumprod(pyca.Map):
+    r"""
+    Cumulative product of elements along a given axis. Its base class is Map.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Cumprod, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray, axis: int) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+        axis: Int
+            Axis which the cumulative product is performed
+
+        Returns
+        -------
+        NDArray
+            Cumulative product of elements of arr over a given axis
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.cumprod(arr, axis=axis)
+
+class Cumsum(pyca.Map):
+    r"""
+    Cumulative sum of elements along a given axis. Its base class is Map.
+    """
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Cumsum, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray, axis: int) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            Input array
+        axis: Int
+            Axis which the cumulative sum is performed
+
+        Returns
+        -------
+        NDArray
+            Cumulative sum of elements of arr over a given axis
+        """
+        xp = pycu.get_array_module(arr)
+        return xp.cumsum(arr, axis=axis)
+
