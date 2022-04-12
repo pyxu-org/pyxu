@@ -12,32 +12,9 @@ import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
 
-class PrimalDualSplitting(pycs.Solver):
+class _PrimalDualSplitting(pycs.Solver):
     r"""
-    Abstract class for Primal Dual Splitting (PDS) solvers.
-
-    The *Primal Dual Splitting (PDS)* method is described in [CVS]_.
-
-    It can be used to solve problems of the form:
-
-    .. math::
-       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
-
-    where:
-
-    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
-      for some :math:`\beta\in[0,+\infty[`.
-    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
-    * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *linear operator*, with **operator norm**:
-
-      .. math::
-         \Vert{\mathbf{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathbf{K}\mathbf{x}\Vert_2.
-
-    * The problem is *feasible* --i.e. there exists at least one solution.
-
-    See Also
-    --------
-    :py:class:`~pycsou.opt.solver.pds.PDS`, :py:class:`~pycsou.opt.solver.pds.CondatVuSplitting`, :py:class:`~pycsou.opt.solver.pds.PD3O`.
+    Base class for Primal Dual Splitting (PDS) solvers.
     """
 
     def __init__(
@@ -61,19 +38,6 @@ class PrimalDualSplitting(pycs.Solver):
             verbosity=verbosity,
             log_var=log_var,
         )
-
-        self._f = pyclo.NullFunc() if (f is None) else f
-        self._g = pyclo.NullFunc() if (g is None) else g
-        self._h = pyclo.NullFunc() if (h is None) else h
-        self._beta = self._set_beta(beta)
-        if h is not None:
-            self._K = pyclo.IdentityOp() if (K is None) else K
-        else:
-            if K is None:
-                self._K = pyclo.NullOp()
-            else:
-                raise ValueError("Optional argument ``h`` mut be specified if ``K`` is not None.")
-
         if (f is None) and (g is None) and (h is None):
             msg = " ".join(
                 [
@@ -83,11 +47,24 @@ class PrimalDualSplitting(pycs.Solver):
             )
             raise ValueError(msg)
 
+        self._f = pyclo.NullFunc() if (f is None) else f
+        self._g = pyclo.NullFunc() if (g is None) else g
+        self._h = pyclo.NullFunc() if (h is None) else h
+        self._beta = self._set_beta(beta)
+        if h is not None:
+            self._K = pyclo.IdentityOp(shape=h.dim) if (K is None) else K
+        else:
+            if K is None:
+                K_dim = f.dim if f is not None else g.dim
+                self._K = pyclo.NullOp(shape=(K_dim, K_dim))
+            else:
+                raise ValueError("Optional argument ``h`` mut be specified if ``K`` is not None.")
+
     @pycrt.enforce_precision(i=["x0", "z0", "tau", "sigma", "rho"], allow_None=True)
     def m_init(
         self,
         x0: pyct.NDArray,
-        z0: typ.Optional[pyct.NDArray],
+        z0: typ.Optional[pyct.NDArray] = None,
         tau: typ.Optional[pyct.Real] = None,
         sigma: typ.Optional[pyct.Real] = None,
         rho: typ.Optional[pyct.Real] = None,
@@ -129,7 +106,8 @@ class PrimalDualSplitting(pycs.Solver):
         data, _ = self.stats()
         return data.get("x")
 
-    def _set_beta(self, beta: typ.Optional[pyct.Real]) -> float:
+    @pycrt.enforce_precision(i=["beta"], allow_None=True)
+    def _set_beta(self, beta: typ.Optional[pyct.Real]) -> pyct.Real:
         r"""
         Sets the Lipschitz constant.
 
@@ -145,11 +123,7 @@ class PrimalDualSplitting(pycs.Solver):
                 msg = "beta: automatic inference not supported for operators with unbounded Lipschitz gradients."
             raise ValueError(msg)
         else:
-            try:
-                assert beta > 0
-                return pycrt.coerce(beta)
-            except:
-                raise ValueError(f"beta must be positive, got {beta}.")
+            return beta
 
     def _set_momentum_term(self, rho: typ.Optional[pyct.Real]) -> float:
         r"""
@@ -159,12 +133,14 @@ class PrimalDualSplitting(pycs.Solver):
         -------
         float
             Momentum term.
+
+        .. TODO:: Over-relaxation in the case of quadratic f ? (Condat's paper)
         """
         if rho is None:
             if self._beta > 0:
-                rho = 0.9
+                rho = pycrt.coerce(0.9)
             else:
-                rho = 1
+                rho = pycrt.coerce(1.0)
         return rho
 
     def _set_dual_variable(self, z: typ.Optional[pyct.NDArray]) -> pyct.NDArray:
@@ -185,22 +161,32 @@ class PrimalDualSplitting(pycs.Solver):
         raise NotImplementedError
 
 
-PDS = PrimalDualSplitting
+_PDS = _PrimalDualSplitting
 
 
-class CondatVuSplitting(PDS):
+class CondatVu(_PDS):
     r"""
-    Condat-Vu Splitting (CVS) solver.
+    Condat-Vu (CV) primal-dual splitting algorithm.
 
-    This class is also accessible via the alias ``CVS()``.
+    This class is also accessible via the alias ``CV()``.
 
-    The *Condat Vu Splitting (CVS)* method is described in [CVS]_ (this particular implementation is based on the pseudo-code Algorithm 7.1 provided in [FuncSphere]_ Chapter 7, Section1).
+    The *Condat Vu (CV)* primal-dual method is described in [CVS]_ (this particular implementation is based on the pseudo-code Algorithm 7.1 provided in [FuncSphere]_ Chapter 7, Section1).
 
+    It can be used to solve problems of the form:
+    .. math::
+       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
+    where:
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
+      for some :math:`\beta\in[0,+\infty[`.
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+    * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *linear operator*, with **operator norm**:
+      .. math::
+         \Vert{\mathbf{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathbf{K}\mathbf{x}\Vert_2.
+    * The problem is *feasible* --i.e. there exists at least one solution.
 
     **Remark 1:**
 
     The algorithm is still valid if one or more of the terms :math:`\mathcal{F}`, :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
-
 
     **Remark 2:**
 
@@ -225,22 +211,22 @@ class CondatVuSplitting(PDS):
     **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
 
 
-    **Parameterization** of ``CondatVuSplitting``.
+    **Initizialization parameters of the class:**
 
     f: DiffFunc | None
-        Differentiable function, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
+        Differentiable function :math:`\mathcal{F}`, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
     g: ProxFunc | None
-        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+        Proximable function :math:`\mathcal{G}`, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
     h: ProxFunc | None
-        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
+        Proximable function :math:`\mathcal{H}`, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
         :math:`mathbf{K}`.
     K: LinOp | None
-        Linear operator, instance of :py:class:`~pycsou.abc.operator.LinOp`.
+        Linear operator :math:`\mathbf{K}`, instance of :py:class:`~pycsou.abc.operator.LinOp`.
     beta: float | None
-        Lipschitz constant of the gradient of :math:`\mathcal{F}. If not provided, it will be automatically estimated.
+        Lipschitz constant :math:`\beta` of the gradient of :math:`\mathcal{F}`. If not provided, it will be automatically estimated.
 
 
-    **Parameterization** of the ``fit()`` method.
+    **Parameterization** of the ``fit()`` method:
 
     x0: NDArray
         (..., N) initial point(s) for the primal variable.
@@ -270,7 +256,7 @@ class CondatVuSplitting(PDS):
     .. plot::
     >>> import matplotlib.pyplot as plt
     >>> import numpy as np
-    >>> from pycsou.opt.solver.pds import CVS
+    >>> from pycsou.opt.solver.pds import CV
     >>> from pycsou._dev import FirstDerivative, DownSampling, SquaredL2Norm, L1Norm
 
     >>> x = np.repeat(np.asarray([0, 2, 1, 3, 0, 2, 0]), 10)
@@ -302,7 +288,7 @@ class CondatVuSplitting(PDS):
 
     See Also
     --------
-    :py:class:`~pycsou.opt.solver.pds.CVS`, :py:class:`~pycsou.opt.solver.pds.ChambollePockSplitting`, :py:class:`~pycsou.opt.solver.pds.DouglasRachford`
+    :py:class:`~pycsou.opt.solver.pds.CV`, :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:class:`~pycsou.opt.solver.pds.ChambollePock`, :py:class:`~pycsou.opt.solver.pds.DouglasRachford`
     """
 
     def m_step(self):
@@ -345,10 +331,7 @@ class CondatVuSplitting(PDS):
         sigma = None if sigma == 0 else sigma
 
         if (tau is not None) and (sigma is None):
-            try:
-                assert tau > 0
-            except:
-                raise ValueError(f"tau must be positive, got {tau}.")
+            assert tau > 0
             if isinstance(self._h, pyclo.NullFunc):
                 sigma = 0
             else:
@@ -358,10 +341,7 @@ class CondatVuSplitting(PDS):
                     msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                     raise ValueError(msg)
         elif (tau is None) and (sigma is not None):
-            try:
-                assert sigma > 0
-            except:
-                raise ValueError(f"sigma must be positive, got {sigma}.")
+            assert sigma > 0
             if isinstance(self._h, pyclo.NullFunc):
                 tau = 2 / self._beta
             else:
@@ -396,15 +376,26 @@ class CondatVuSplitting(PDS):
         return tau, sigma
 
 
-CVS = CondatVuSplitting
+CV = CondatVu
 
 
-class PD3O(PDS):
+class PD3O(_PDS):
     r"""
-    Primal Dual Three-Operator Splitting (PD3O) solver.
+    Primal Dual Three-Operator Splitting (PD3O) algoritm.
 
     The *Primal Dual three Operator splitting (PD3O)* method is described in [PD3O]_.
 
+    It can be used to solve problems of the form:
+    .. math::
+       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
+    where:
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
+      for some :math:`\beta\in[0,+\infty[`.
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+    * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *linear operator*, with **operator norm**:
+      .. math::
+         \Vert{\mathbf{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathbf{K}\mathbf{x}\Vert_2.
+    * The problem is *feasible* --i.e. there exists at least one solution.
 
     **Remark 1:**
 
@@ -473,7 +464,7 @@ class PD3O(PDS):
     .. plot::
     >>> import matplotlib.pyplot as plt
     >>> import numpy as np
-    >>> from pycsou.opt.solver.pds import CVS
+    >>> from pycsou.opt.solver.pds import CV
     >>> from pycsou._dev import FirstDerivative, DownSampling, SquaredL2Norm, L1Norm
 
     >>> x = np.repeat(np.asarray([0, 2, 1, 3, 0, 2, 0]), 10)
@@ -591,67 +582,8 @@ class PD3O(PDS):
                         raise ValueError(msg)
         return tau, sigma
 
-    def _set_step_sizes_old(
-        self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real]
-    ) -> typ.Tuple[float, float]:
-        r"""
-        Set the x/z step sizes.
 
-        Returns
-        -------
-        Tuple[float, float]
-            Sensible x/z step sizes.
-
-        Notes
-        -----
-        In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as large as possible and relatively well-balanced --so that both the x and z variables converge at the same pace. In practice, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the convergence inequalities.
-        For :math:`\beta>0` this yields:
-        .. math::
-           \tau^2\Vert\mathbf{K}\Vert_{2}^2 < 1 \quad; \quad \frac{\tau\beta}{2} < 1 \quad\Longleftrightarrow\quad \tau=\sigma=\operatorname{min}\left[ \frac{1}{\Vert\mathbf{K}\Vert_{2}}, \frac{2}{\beta},  /right],
-        For :math:`\beta=0`, this yields
-        .. math::
-           \tau=\sigma=\frac{1}{\Vert\mathbf{K}\Vert_{2}}.
-        """
-
-        if (tau is not None) and (sigma is None):
-            try:
-                assert tau > 0
-            except:
-                raise ValueError(f"tau must be positive, got {tau}.")
-            tau = sigma = tau
-        elif (tau is None) and (sigma is not None):
-            try:
-                assert sigma > 0
-            except:
-                raise ValueError(f"sigma must be positive, got {sigma}.")
-            tau = sigma = sigma
-        elif (tau is None) and (sigma is None):
-            if self._beta > 0:
-                if isinstance(self._h, pyclo.NullFunc):
-                    tau = 2 / self._beta
-                    sigma = 0
-                else:
-                    if math.isfinite(self._K._lipschitz):
-                        tau = sigma = min((1 / self._K._lipschitz), 2 / self._beta)
-                    else:
-                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
-                        raise ValueError(msg)
-            else:
-                if isinstance(self._h, pyclo.NullFunc):
-                    tau = 1
-                    sigma = 0
-                else:
-                    if math.isfinite(self._K._lipschitz):
-                        tau = sigma = 1 / self._K._lipschitz
-                    else:
-                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
-                        raise ValueError(msg)
-
-        print(f"{tau=}, {sigma=}")
-        return tau, sigma
-
-
-class ChambollePockSplitting(CVS):
+class ChambollePock(CV):
     r"""
     Chambolle and Pock primal-dual splitting method.
 
