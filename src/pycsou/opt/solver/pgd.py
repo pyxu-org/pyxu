@@ -53,16 +53,7 @@ class PGD(pycs.Solver):
     :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4. Different stopping criteria can be used (see
     :py:mod:`~pycsou.opt.solver.stop`).
 
-
-    **Parameterization** of ``PGD``
-
-    f: DiffFunc | None
-        Differentiable function, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
-    g: ProxFunc | None
-        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
-
-
-    **Parameterization** of ``PGD.fit()``
+    ``PGD.fit()`` **Parameterization**
 
     x0: NDArray
         (..., N) initial point(s).
