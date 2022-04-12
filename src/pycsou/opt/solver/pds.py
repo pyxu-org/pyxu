@@ -415,14 +415,8 @@ class PD3O(PDS):
 
     Assume that the following holds:
 
-    * :math:`\beta>0` and:
-
-      - :math:`\tau\sigma\Vert\mathbf{K}\Vert_{2}^2 \leq 1`,
-      - :math:`\tau \in \[0, \frac{2}{\beta}\]`,
-
-    * or :math:`\beta=0` and:
-
-      - :math:`\frac{1}{\tau}-\sigma\Vert\mathbf{K}\Vert_{2}^2 < 1`,
+    * :math:`\tau\sigma\Vert\mathbf{K}\Vert_{2}^2 \leq 1`,
+    * :math:`\tau \in [0, \frac{2}{\beta}]`,
 
     Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
 
