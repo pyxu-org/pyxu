@@ -216,3 +216,37 @@ class DownSampling(Masking):
                 downsampled_mask[downsampled_axis_indices == 0, ...] = True
                 downsampled_mask = np.swapaxes(downsampled_mask, 0, self.axis)
         return downsampled_mask.reshape(-1)
+
+
+class SubSampling(pyco.LinOp):
+    """
+    SubSampling operator that extracts a sub array of smaller size from another array.
+
+    Output module is the module of the sampling indices. Maybe this behavior needs to be changed.
+    """
+
+    def __init__(self, size: int, sampling_indices: typ.Union[pyct.NDArray, list]):
+        if isinstance(sampling_indices, list):
+            import numpy as xp
+        else:
+            xp = pycu.get_array_module(sampling_indices)
+
+        self.sampling_indices = xp.asarray(sampling_indices).reshape(-1)
+        self.input_size = size
+        self.nb_of_samples = self.sampling_indices.size
+        super(SubSampling, self).__init__(shape=(self.nb_of_samples, self.input_size))
+
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return arr[..., self.sampling_indices]
+
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        # arr = arr.reshape(1, -1) if (arr.ndim == 1) else arr
+        # y = xp.zeros((*arr.shape[:-1], self.input_size), dtype=arr.dtype)
+        y = (
+            xp.zeros(self.input_size, dtype=arr.dtype)
+            if (arr.ndim == 1)
+            else xp.zeros((*arr.shape[:-1], self.input_size), dtype=arr.dtype)
+        )
+        y[..., self.sampling_indices] = arr
+        return y
