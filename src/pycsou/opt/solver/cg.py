@@ -12,46 +12,45 @@ import pycsou.util.ptype as pyct
 
 class CG(pycs.Solver):
     r"""
-    Conjugate Gradient Method.
+     Conjugate Gradient Method.
 
-    The Conjugate Gradient method solves the minimization problem
+     The Conjugate Gradient method solves the minimization problem
 
-    .. math::
+     .. math::
 
-        \min_{x\in\mathbb{R}^{N}} \frac{1}{2} \mathbf{x}^{\top} \mathbf{A} \mathbf{x} - \mathbf{x}^{\top} \mathbf{b},
+        \min_{x\in\mathbb{R}^{N}} \frac{1}{2} \mathbf{x}^{T} \mathbf{A} \mathbf{x} - \mathbf{x}^{T} \mathbf{b},
 
-    where :math:`\mathbf{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}` is a *symmetric* *positive definite* operator, and
-    :math:`\mathbf{b} \in \mathbb{R}^{N}`.
+     where :math:`\mathbf{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}` is a *symmetric* *positive definite*
+     operator, and :math:`\mathbf{b} \in \mathbb{R}^{N}`.
 
-    The norm of the `explicit residual <https://www.wikiwand.com/en/Conjugate_gradient_method>`_
-    :math:`\mathbf {r}_{k+1}:=\mathbf{b}-\mathbf{Ax}_{k+1}` is used as the default stopping criterion. This provides a
-    guaranteed level of accuracy both in exact arithmetic and in the presence of the round-off errors. By default, the
-    iterations stop when the norm of the explicit residual is smaller than 1e-4.
+     The norm of the `explicit residual <https://www.wikiwand.com/en/Conjugate_gradient_method>`_
+     :math:`\mathbf {r}_{k+1}:=\mathbf{b}-\mathbf{Ax}_{k+1}}` is used as the default stopping criterion. This provides a
+     guaranteed level of accuracy both in exact arithmetic and in the presence of the round-off errors. By default, the
+     iterations stop when the norm of the explicit residual is smaller than 1e-4.
 
-    **Remark:** The default stopping criterion evaluates the linear operator :math:`\mathbf{A}` at every iteration.
+
+     ``CG.fit()`` **Parameterization**
+
+     b: NDArray
+         (..., N) 'b' terms in the CG cost function. All problems are solved in parallel.
+     x0: NDArray
+        (..., N) initial point(s). Defaults to 0 if unspecified.
+     restart_rate: int
+        Number of iterations after which restart is applied. By default, restart is done after 'n' iterations, where 'n'
+        corresponds to the dimension of the linear operator :math:`\mathbf{A}`.
+
+    **Remark 1:** 'x0' can be any array with the same shape as 'b' or with any other shape that is broadcastable with the
+    shape of 'b'. In the latter case, the initial point(s) are broadcasted following the `numpy broadcasting rules
+    <https://numpy.org/doc/stable/user/basics.broadcasting.html.>`_.
+
+    **Remark 2:** The default stopping criterion evaluates the linear operator :math:`\mathbf{A}` at every iteration.
     This computation can be very costly in some scenarios in which alternative stopping criteria might allow faster
     performance, (e.g. relative improvement :py:class:`~pycsou.opt.solver.stop.RelError`).
 
-    **Parameterization** of ``CG``
+    **Remark 3:** `Restarts <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ could slow down convergence, but
+    they might improve stability due to round-off error or ill-posedness of the linear operator. If these issues are
+    suspected, the user can adjust 'restart_rate' variable accordingly.
 
-    A: PosDefOp
-        :math:`\mathbf{A}` term in the CG cost function. Instance of :py:class:`~pycsou.abc.operator.PosDefOp`.
-
-    **Parameterization** of ``CG.fit()``
-
-    b: NDArray
-        (..., N) :math:`\mathbf{b}` terms in the CG cost function. All problems are solved in parallel.
-    x0: NDArray
-        (..., N) initial point(s) :math:`\mathbf{x}_{0}`. Defaults to a zero-valued array if unspecified. It can be any
-        array with the same shape as :math:`\mathbf{b}` or with any other shape that is broadcastable with the shape of
-        :math:`\mathbf{b}`. In the latter case, the initial point(s) are broadcasted following the `numpy broadcasting
-        rules <https://numpy.org/doc/stable/user/basics.broadcasting.html.>`_.
-    restart_rate: int
-        Number of iterations after which restart is applied. By default, restart is done after `n` iterations, where `n`
-        corresponds to the dimension of the linear operator :math:`\mathbf{A}`.
-        `Restarts <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ could slow down convergence, but they might
-        improve stability due to round-off error or ill-posedness of the linear operator. If these issues are
-        suspected, the user can adjust 'restart_rate' variable accordingly.
 
      Examples
      --------
