@@ -10,6 +10,7 @@ Subpackages
    pycsou.abc
    pycsou.compound
    pycsou.operator
+   pycsou.math
    pycsou.opt
    pycsou.runtime
    pycsou.util

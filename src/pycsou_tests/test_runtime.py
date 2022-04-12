@@ -108,13 +108,17 @@ class TestEnforcePrecisionDecorator:
             with pytest.raises(TypeError):
                 f(x)
 
-    def test_None_input(self):
-        @pycrt.enforce_precision("x", allow_None=False)
+    @pytest.mark.parametrize("allow_None", [True, False])
+    def test_None_input(self, allow_None):
+        @pycrt.enforce_precision("x", allow_None=allow_None)
         def f(x):
             return x
 
-        with pytest.raises(ValueError):
-            f(None)
+        if allow_None:
+            assert f(None) == None
+        else:
+            with pytest.raises(ValueError):
+                f(None)
 
 
 class TestCoerce:

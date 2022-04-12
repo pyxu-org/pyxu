@@ -1625,7 +1625,8 @@ class LinOp(DiffMap, Adjoint):
 
     Any instance/subclass of this class must implement the methods :py:meth:`~pycsou.abc.operator.Apply.apply` and :py:meth:`~pycsou.abc.operator.Adjoint.adjoint`.
     If known, the Lipschitz constant of the linear map can be stored in the private instance attribute
-    ``_lipschitz`` (initialized to :math:`+\infty` by default).
+    ``_lipschitz`` (initialized to :math:`+\infty` by default). By default, a squared linear operator (i.e., :math:`L:\mathbb{R}^N\to\mathbb{R}^N`)
+    will be automatically initialized as a :py:class:`~pycsou.abc.operator.SquareOp`.
 
     .. todo::
 
@@ -1767,11 +1768,11 @@ class LinOp(DiffMap, Adjoint):
             Algorithm used for computing the Lipschitz constant. If ``algo==svds`` the Lipschitz constant is estimated as the
             spectral norm of :math:`L`, computed via Scipy's :py:func:`scipy.sparse.linalg.svds` routine (more accurate but more compute intensive).  If ``algo==fro`` the Lipschitz constant is estimated as the
             Froebenius norm of :math:`L`, computed via the matrix-free `Hutch++ stochastic trace estimation algorithm <https://arxiv.org/abs/2010.09649>`_ (less accurate but less compute intensive).
-            Currently, only ``algo==svds`` is supported.
         kwargs:
             Optional arguments to be passed to the algorithm used for computing the Lipschitz constant.
-            The parameter ``tol`` of Scipy's :py:func:`scipy.sparse.linalg.svds` routine can be particularly interesting to reduce
-            the compute time of the Lipschitz constant.
+            If ``algo==svds``, the parameter ``tol`` of Scipy's :py:func:`scipy.sparse.linalg.svds` routine can be particularly interesting to reduce
+            the compute time of the Lipschitz constant. If ``algo==fro``, the parameter ``m`` of :py:func:`pycsou.abc.operator.SquareOp.trace` can be interesting to control the number of queries used for the stochastic estimation.
+            If ``algo==fro`` the parameter ``xp`` can be used to select the desired array module backend for computation (Numpy, Cupy or Dask).
 
         Returns
         -------
@@ -1784,17 +1785,62 @@ class LinOp(DiffMap, Adjoint):
         It can be computed by means of truncated matrix-free SVD, which can be a compute-intensive task for large-scale
         operators. In which case, it can be advantageous to overestimate the Lipschtiz constant via the Frobenius norm of :math:`L`
         (we have indeed :math:`\|L\|_F \geq \|L\|_2`). The Frobenius norm of  :math:`L` can indeed be approximated efficiently by
-        computing the trace of :math:`L^\ast L` (or  :math:`LL^\ast` depending on which is most advantageous) via the
-        `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_. Currently, only the SVD-based approach is supported.
+        computing the trace of :math:`L^\ast L` (or  :math:`LL^\ast`) depending on which is most advantageous) via the
+        `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_. The Frobenius norm of  :math:`L` is upper
+        bounded by :math:`\|L\|_F \leq \sqrt{n} \|L\|_2`, where the equality is reached (worst-case scenario) in those cases in which the
+        eigenspectrum of the linear operator is flat.
 
-        .. todo::
-            Add support for trace-based estimate (@Joan).
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from pycsou.abc import LinOp
+        >>> # Create a square PSD linear operator
+        >>> rng = np.random.default_rng(seed=0)
+        >>> mat = rng.normal(size=(100, 100))
+        >>> A = LinOp.from_array(mat).gram()
+        >>> # Compute Stochastic upper bound of Lipschitz (using Hutch++)
+        >>> stochastic_upper_bound = A.lipschitz(algo="fro", xp=np, m=10)
+        >>> # Compute Deterministic upper bound of Lipschitz (by setting
+        >>> # the number of queries equal to the size of the operator)
+        >>> deterministic_upper_bound = A.lipschitz(algo="fro", xp=np, m=100, recompute=True)
+        >>> # Compute Lipschitz
+        >>> lipschitz = A.lipschitz(algo="svds", recompute=True)
+        >>> print(stochastic_upper_bound)
+        [1411.78659953]
+        >>> print(deterministic_upper_bound)
+        [1411.44955295]
+        >>> print(lipschitz)
+        [384.29239583]
+
         """
-        if algo == "fro":
-            raise NotImplementedError
+
         if recompute or (self._lipschitz == np.infty):
-            kwargs.update(dict(k=1, which="LM", gpu=gpu))
-            self._lipschitz = self.svdvals(**kwargs)
+            if algo == "fro":
+                if "gpu" in kwargs.keys():
+                    if "xp" not in kwargs.keys():
+                        if kwargs["gpu"]:
+                            import cupy as xp
+                        else:
+                            import numpy as xp
+                        kwargs.update(dict(xp=xp))
+                    kwargs.pop("gpu", None)
+                else:
+                    if "xp" not in kwargs.keys():
+                        import numpy as xp
+
+                        kwargs.update(dict(xp=xp))
+                if "m" not in kwargs.keys():
+                    kwargs.update(dict(m=126))
+                if np.diff(self.shape) > 0:
+                    self._lipschitz = kwargs["xp"].array(np.sqrt(self.cogram().trace(**kwargs))).reshape(-1)
+                else:
+                    self._lipschitz = kwargs["xp"].array(np.sqrt(self.gram().trace(**kwargs))).reshape(-1)
+            elif algo == "svds":
+                kwargs.update(dict(k=1, which="LM", gpu=gpu))
+                self._lipschitz = self.svdvals(**kwargs)
+            else:
+                raise NotImplementedError
+
         return self._lipschitz
 
     @pycrt.enforce_precision(o=True)
@@ -1882,13 +1928,13 @@ class LinOp(DiffMap, Adjoint):
             dtype = pycrt.getPrecision().value
         return self.asarray(xp=np, dtype=dtype)
 
-    def gram(self) -> "LinOp":
+    def gram(self) -> "SelfAdjointOp":
         r"""
         Gram operator :math:`L^\ast L:\mathbb{R}^M\to \mathbb{R}^M`.
 
         Returns
         -------
-        :py:class:`~pycsou.abc.operator.LinOp`
+        :py:class:`~pycsou.abc.operator.SelfAdjointOp`
             Gram operator with shape (M,M).
 
         Notes
@@ -1896,15 +1942,15 @@ class LinOp(DiffMap, Adjoint):
         By default the Gram is computed by the composition ``self.T * self``. This may not be the fastest
         way to compute the Gram operator. If the Gram can be computed more efficiently (e.g. with a convolution), the user should re-define this method.
         """
-        return self.T * self
+        return (self.T * self).specialize(SelfAdjointOp)
 
-    def cogram(self) -> "LinOp":
+    def cogram(self) -> "SelfAdjointOp":
         r"""
         Co-Gram operator :math:`LL^\ast:\mathbb{R}^N\to \mathbb{R}^N`.
 
         Returns
         -------
-        :py:class:`~pycsou.abc.operator.LinOp`
+        :py:class:`~pycsou.abc.operator.SelfAdjointOp`
             Co-Gram operator with shape (N,N).
 
         Notes
@@ -1912,7 +1958,7 @@ class LinOp(DiffMap, Adjoint):
         By default the co-Gram is computed by the composition ``self * self.T``. This may not be the fastest
         way to compute the co-Gram operator. If the co-Gram can be computed more efficiently (e.g. with a convolution), the user should re-define this method.
         """
-        return self * self.T
+        return (self * self.T).specialize(SelfAdjointOp)
 
     @pycrt.enforce_precision(i="arr")
     def pinv(
@@ -1940,7 +1986,7 @@ class LinOp(DiffMap, Adjoint):
 
         Notes
         -----
-        The Moore-Penros pseudo-inverse of an operator :math:`L:\mathbb{R}^N\to \mathbb{R}^M` is defined as the operator
+        The Moore-Penrose pseudo-inverse of an operator :math:`L:\mathbb{R}^N\to \mathbb{R}^M` is defined as the operator
         :math:`L^\dagger:\mathbb{R}^M\to \mathbb{R}^N` verifying the Moore-Penrose conditions:
 
             1. :math:`LL^\dagger L =L`,
@@ -2197,7 +2243,9 @@ class LinFunc(ProxDiffFunc, LinOp):
 class SquareOp(LinOp):
     r"""
     Base class for *square* linear operators :math:`L:\mathbb{R}^N\to \mathbb{R}^N` (endomorphsisms).
-    """
+    While being functionally equivalent to a :py:class:`~pycsou.abc.operator.LinOp`,
+    the :py:class:`~pycsou.abc.operator.SquareOp` includes the method :py:meth:`~pycsou.abc.operator.SquareOp.trace`,
+    allowing the (deterministic and stochastic) estimation of the operator trace."""
 
     def __init__(self, shape: pyct.SquareShape):
         r"""
@@ -2212,6 +2260,28 @@ class SquareOp(LinOp):
         elif shape[0] != shape[1]:
             raise ValueError(f"Inconsistent shape {shape} for operator of type {SquareOp}")
         super(SquareOp, self).__init__(shape=(shape[0], shape[0]))
+
+    @pycrt.enforce_precision(o=True)
+    def trace(self, **kwargs):
+        """
+        Approximate the trace of a squared linear operator.
+
+        Parameters
+        ----------
+        kwargs: dict
+            Optional arguments to be passed to the algorithm used for computing the trace. The parameter ``m``
+            of :py:func:`~pycsou.math.linalg.hutchpp` routine can be particularly interesting to reduce the compute time
+            of the trace (at the cost of accuracy).
+
+        Returns
+        -------
+        float
+            Hutch++ stochastic estimate of the trace.
+
+        """
+        import pycsou.math.linalg as pycl
+
+        return pycl.hutchpp(self, **kwargs)
 
 
 class NormalOp(SquareOp):
