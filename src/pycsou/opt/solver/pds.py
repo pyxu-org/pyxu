@@ -16,11 +16,8 @@ class PrimalDualSplitting(pycs.Solver):
     r"""
     Abstract class for Primal Dual Splitting (PDS) solvers.
 
-    This class is also accessible via the alias ``PDS()``.
-
-    Notes
-    -----
     The *Primal Dual Splitting (PDS)* method is described in [CVS]_.
+
     It can be used to solve problems of the form:
 
     .. math::
@@ -120,6 +117,8 @@ class PrimalDualSplitting(pycs.Solver):
 
     def solution(self) -> pyct.NDArray:
         """
+        Returns the solution of the optimization problem.
+
         Returns
         -------
         p: NDArray
@@ -195,13 +194,13 @@ class CondatVuSplitting(PDS):
 
     This class is also accessible via the alias ``CVS()``.
 
-    Notes
-    -----
     The *Condat Vu Splitting (CVS)* method is described in [CVS]_ (this particular implementation is based on the pseudo-code Algorithm 7.1 provided in [FuncSphere]_ Chapter 7, Section1).
+
 
     **Remark 1:**
 
     The algorithm is still valid if one or more of the terms :math:`\mathcal{F}`, :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
+
 
     **Remark 2:**
 
@@ -217,7 +216,7 @@ class CondatVuSplitting(PDS):
       - :math:`\tau\sigma\Vert\mathbf{K}\Vert_{2}^2\leq 1`
       - :math:`\rho \in [\epsilon,2-\epsilon]`, for some  :math:`\epsilon>0.`
 
-    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M`} solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
+    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
 
     .. math::
 
@@ -226,18 +225,33 @@ class CondatVuSplitting(PDS):
     **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
 
 
-    ``CondatVuSplitting.fit()`` **Parameterization**
+    **Parameterization** of ``CondatVuSplitting``.
+
+    f: DiffFunc | None
+        Differentiable function, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
+    g: ProxFunc | None
+        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+    h: ProxFunc | None
+        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
+        :math:`mathbf{K}`.
+    K: LinOp | None
+        Linear operator, instance of :py:class:`~pycsou.abc.operator.LinOp`.
+    beta: float | None
+        Lipschitz constant of the gradient of :math:`\mathcal{F}. If not provided, it will be automatically estimated.
+
+
+    **Parameterization** of the ``fit()`` method.
 
     x0: NDArray
         (..., N) initial point(s) for the primal variable.
     z0: NDArray
         (..., N) initial point(s) for the dual variable.
         If None (default), then use x0 as the initial point(s) for the dual variable as well.
-    tau: Real
+    tau: Real | None
         Primal step size.
-    sigma: Real
+    sigma: Real | None
         Dual step size.
-    rho: Real
+    rho: Real | None
         Momentum parameter.
 
 
@@ -306,10 +320,12 @@ class CondatVuSplitting(PDS):
     def _set_step_sizes(self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real]) -> typ.Tuple[float, float]:
         r"""
         Set the x/z step sizes.
+
         Returns
         -------
         Tuple[float, float]
             Sensible x/z step sizes.
+
         Notes
         -----
         In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as large as
@@ -387,13 +403,13 @@ class PD3O(PDS):
     r"""
     Primal Dual Three-Operator Splitting (PD3O) solver.
 
-     Notes
-    -----
     The *Primal Dual three Operator splitting (PD3O)* method is described in [PD3O]_.
+
 
     **Remark 1:**
 
     The algorithm is still valid if one or more of the terms :math:`\mathcal{F}`, :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
+
 
     **Remark 2:**
 
@@ -408,7 +424,7 @@ class PD3O(PDS):
 
       - :math:`\frac{1}{\tau}-\sigma\Vert\mathbf{K}\Vert_{2}^2 < 1`,
 
-    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M`} solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
+    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
 
     .. math::
 
@@ -418,19 +434,34 @@ class PD3O(PDS):
     **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
 
 
-    ``PD3O.fit()`` **Parameterization**
+    **Parameterization** of ``PD3O``.
+
+    f: DiffFunc | None
+        Differentiable function, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
+    g: ProxFunc | None
+        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+    h: ProxFunc | None
+        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
+        :math:`mathbf{K}`.
+    K: LinOp | None
+        Linear operator, instance of :py:class:`~pycsou.abc.operator.LinOp`.
+    beta: float | None
+        Lipschitz constant of the gradient of :math:`\mathcal{F}. If not provided, it will be automatically estimated.
+
+
+    **Parameterization** of the ``fit()`` method.
 
     x0: NDArray
         (..., N) initial point(s) for the primal variable.
-    z0: NDArray
+    z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
         If None (default), then use x0 as the initial point(s) for the dual variable as well.
-    tau: Real
-        Primal step size
-    sigma: Real
-        Dual step size
-    rho: Real
-        Momentum parameter
+    tau: Real | None
+        Primal step size.
+    sigma: Real | None
+        Dual step size.
+    rho: Real | None
+        Momentum parameter.
 
 
     Examples
@@ -571,10 +602,12 @@ class PD3O(PDS):
     ) -> typ.Tuple[float, float]:
         r"""
         Set the x/z step sizes.
+
         Returns
         -------
         Tuple[float, float]
             Sensible x/z step sizes.
+
         Notes
         -----
         In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as large as possible and relatively well-balanced --so that both the x and z variables converge at the same pace. In practice, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the convergence inequalities.
@@ -630,8 +663,6 @@ class ChambollePockSplitting(CVS):
 
     This class is also accessible via the alias ``CPS()``.
 
-    Notes
-    -----
     The *Chambolle and Pock primal-dual splitting (CPS)* method can be used to solve problems of the form:
 
     .. math::
@@ -647,17 +678,20 @@ class ChambollePockSplitting(CVS):
 
     * The problem is *feasible* --i.e. there exists at least one solution.
 
+
     **Remark 1:**
 
     The algorithm is still valid if one of the terms :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
 
+
     **Remark 2:**
 
     Assume that the following holds:
-    - :math:`\tau\sigma\Vert\mathbf{K}\Vert_{2}^2\leq 1`
-    - :math:`\rho \in [\epsilon,2-\epsilon]`, for some  :math:`\epsilon>0.`
 
-    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M`} solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
+    * :math:`\tau\sigma\Vert\mathbf{K}\Vert_{2}^2\leq 1`
+    * :math:`\rho \in [\epsilon,2-\epsilon]`, for some  :math:`\epsilon>0.`
+
+    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
 
     .. math::
       \lim_{n\rightarrow +\infty}\Vert\mathbf{x}^\star-\mathbf{x}_n\Vert_2=0, \quad \text{and} \quad  \lim_{n\rightarrow +\infty}\Vert\mathbf{z}^\star-\mathbf{z}_n\Vert_2=0.
@@ -665,19 +699,30 @@ class ChambollePockSplitting(CVS):
     **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
 
 
-    ``ChambollePockSplitting.fit()`` **Parameterization**
+    **Parameterization** of ``ChambollePockSplitting``.
+
+    g: ProxFunc | None
+        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+    h: ProxFunc | None
+        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
+        :math:`mathbf{K}`.
+    K: LinOp | None
+        Linear operator, instance of :py:class:`~pycsou.abc.operator.LinOp`.
+
+
+    **Parameterization** of the ``fit()`` method.
 
     x0: NDArray
         (..., N) initial point(s) for the primal variable.
-    z0: NDArray
+    z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
         If None (default), then use x0 as the initial point(s) for the dual variable as well.
-    tau: Real
-        Primal step size
-    sigma: Real
-        Dual step size
-    rho: Real
-        Momentum parameter
+    tau: Real | None
+        Primal step size.
+    sigma: Real | None
+        Dual step size.
+    rho: Real | None
+        Momentum parameter.
 
     See Also
     --------
@@ -735,8 +780,6 @@ class DouglasRachfordSplitting(CVS):
 
     This class is also accessible via the alias ``DRS()``.
 
-    Notes
-    -----
     The *Douglas Rachford Splitting (DRS)* can be used to solve problems of the form:
 
     .. math::
@@ -747,19 +790,32 @@ class DouglasRachfordSplitting(CVS):
     * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
     * The problem is *feasible* --i.e. there exists at least one solution.
 
+
     **Remark 1:**
     The algorithm is still valid if one of the terms :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
+
+
     **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
 
-    ``DouglasRachfordSplitting.fit()`` **Parameterization**
+
+    **Parameterization** of ``DouglasRachfordSplitting``.
+
+    g: ProxFunc | None
+        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+    h: ProxFunc | None
+        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
+        :math:`mathbf{K}`.
+
+
+    **Parameterization** of the ``fit()`` method.
 
     x0: NDArray
         (..., N) initial point(s) for the primal variable.
-    z0: NDArray
+    z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
         If None (default), then use x0 as the initial point(s) for the dual variable as well.
-    tau: Real
-        Primal step size
+    tau: Real | None
+        Primal step size.
 
     See Also
     --------
@@ -814,8 +870,6 @@ class ForwardBackwardSplitting(CVS):
 
     This class is also accessible via the alias ``FBS()``.
 
-    Notes
-    -----
     The *Forward-backward splitting (FBS)* method can be used to solve problems of the form:
 
     .. math::
@@ -828,34 +882,48 @@ class ForwardBackwardSplitting(CVS):
     * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is *proper*, *lower semicontinuous* and *convex function* with *simple proximal operator*.
     * The problem is *feasible* --i.e. there exists at least one solution.
 
+
     **Remark 1:**
 
     The algorithm is still valid if one of the terms :math:`\mathcal{F}` or :math:`\mathcal{G}` is zero.
 
+
     **Remark 2:**
 
     Assume that the following holds:
-      - :math:`\frac{1}{\tau}\geq \frac{\beta}{2}`,
-      - :math:`\rho \in ]0,\delta[`, where :math:`\delta:=2-\frac{\beta}{2}\tau\in[1,2[.`
 
-    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M`} solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
+    * :math:`\frac{1}{\tau}\geq \frac{\beta}{2}`,
+    * :math:`\rho \in ]0,\delta[`, where :math:`\delta:=2-\frac{\beta}{2}\tau\in[1,2[.`
+
+    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
 
     .. math::
        \lim_{n\rightarrow +\infty}\Vert\mathbf{x}^\star-\mathbf{x}_n\Vert_2=0, \quad \text{and} \quad  \lim_{n\rightarrow +\infty}\Vert\mathbf{z}^\star-\mathbf{z}_n\Vert_2=0.
 
     **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
 
-    ``ForwardBackwardSplitting.fit()`` **Parameterization**
+
+    **Parameterization** of ``ForwardBackwardSplitting``.
+
+    f: DiffFunc | None
+        Differentiable function, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
+    g: ProxFunc | None
+        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+    beta: float | None
+        Lipschitz constant of the gradient of :math:`\mathcal{F}. If not provided, it will be automatically estimated.
+
+
+    **Parameterization** of the ``fit()`` method.
 
     x0: NDArray
         (..., N) initial point(s) for the primal variable.
     z0: NDArray
         (..., N) initial point(s) for the dual variable.
         If None (default), then use x0 as the initial point(s) for the dual variable as well.
-    tau: Real
-        Primal step size
-    rho: Real
-        Momentum parameter
+    tau: Real | None
+        Primal step size.
+    rho: Real | None
+        Momentum parameter.
 
 
     See Also
