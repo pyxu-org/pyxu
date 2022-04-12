@@ -48,7 +48,6 @@ class PrimalDualSplitting(pycs.Solver):
         f: typ.Optional[pyco.DiffFunc] = None,
         g: typ.Optional[pyco.ProxFunc] = None,
         h: typ.Optional[pyco.ProxFunc] = None,
-        # K: typ.Optional[pyco.DiffMap] = None, # TODO
         K: typ.Optional[pyco.LinOp] = None,
         beta: typ.Optional[pyct.Real] = None,
         *,
@@ -295,7 +294,6 @@ class CondatVuSplitting(PDS):
     def m_step(self):
         mst = self._mstate  # shorthand
         x_temp = self._g.prox(
-            # mst["x"] - mst["tau"] * self._f.grad(mst["x"]) - mst["tau"] * self._K.jacobian(mst["x"]).adjoint(mst["z"]), # TODO
             mst["x"] - mst["tau"] * self._f.grad(mst["x"]) - mst["tau"] * self._K.adjoint(mst["z"]),
             tau=mst["tau"],
         )
@@ -487,7 +485,6 @@ class PD3O(PDS):
         x_temp = self._g.prox(mst["x"], tau=mst["tau"])
         f_grad = self._f.grad(x_temp)
         if not isinstance(self._h, pyclo.NullFunc):
-            # u = 2 * x_temp - mst["x"] - mst["tau"] * (f_grad + self._K.jacobian(mst["x"]).adjoint(mst["z"])) # TODO
             u = 2 * x_temp - mst["x"] - mst["tau"] * (f_grad + self._K.adjoint(mst["z"]))
             z_temp = self._h.fenchel_prox(mst["z"] + mst["sigma"] * self._K(u), sigma=mst["sigma"])
         mst["x"] = mst["x"] + mst["rho"] * (x_temp - mst["x"] - mst["tau"] * (f_grad + self._K.adjoint(z_temp)))
@@ -602,7 +599,6 @@ class PD3O(PDS):
                 raise ValueError(f"sigma must be positive, got {sigma}.")
             tau = sigma = sigma
         elif (tau is None) and (sigma is None):
-            mst = self._mstate  # shorthand
             if self._beta > 0:
                 if isinstance(self._h, pyclo.NullFunc):
                     tau = 2 / self._beta
