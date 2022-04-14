@@ -173,15 +173,21 @@ class CondatVu(_PDS):
     The *Condat Vu (CV)* primal-dual method is described in [CVS]_ (this particular implementation is based on the pseudo-code Algorithm 7.1 provided in [FuncSphere]_ Chapter 7, Section1).
 
     It can be used to solve problems of the form:
+
     .. math::
        {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
     where:
+
     * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
       for some :math:`\beta\in[0,+\infty[`.
+
     * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+
     * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *linear operator*, with **operator norm**:
-      .. math::
+
+    .. math::
          \Vert{\mathbf{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathbf{K}\mathbf{x}\Vert_2.
+
     * The problem is *feasible* --i.e. there exists at least one solution.
 
     **Remark 1:**
@@ -219,7 +225,7 @@ class CondatVu(_PDS):
         Proximable function :math:`\mathcal{G}`, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
     h: ProxFunc | None
         Proximable function :math:`\mathcal{H}`, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
-        :math:`mathbf{K}`.
+        :math:`\mathbf{K}`.
     K: LinOp | None
         Linear operator :math:`\mathbf{K}`, instance of :py:class:`~pycsou.abc.operator.LinOp`.
     beta: float | None
@@ -270,11 +276,11 @@ class CondatVu(_PDS):
     >>> H = 0.1 * L1Norm()
 
     >>> G = 0.01 * L1Norm()
-    >>> cvs = CVS(f=fidelity, g=G, h=H, K=D)
+    >>> cv = CV(f=fidelity, g=G, h=H, K=D)
     >>> x0, z0 = x * 0, x * 0
-    >>> cvs.fit(x0=x0, z0=z0)
+    >>> cv.fit(x0=x0, z0=z0)
 
-    >>> estimate = cvs.solution()
+    >>> estimate = cv.solution()
     >>> x_recons = estimate[0]
     >>>
     >>> plt.figure()
@@ -283,7 +289,7 @@ class CondatVu(_PDS):
     >>> markerline, stemlines, baseline = plt.stem(mask_ids, y, linefmt="C3-", markerfmt="C3o")
     >>> markerline.set_markerfacecolor("none")
     >>> plt.stem(x_recons, linefmt="C1--", markerfmt="C1s")
-    >>> plt.legend(["Ground truth", "Observation", "CVS Estimate"])
+    >>> plt.legend(["Ground truth", "Observation", "CV Estimate"])
     >>> plt.show()
 
     See Also
@@ -336,7 +342,7 @@ class CondatVu(_PDS):
                 sigma = 0
             else:
                 if math.isfinite(self._K._lipschitz):
-                    sigma = ((1 / tau) + (self._beta / 2)) * (1 / self._K._lipschitz**2)
+                    sigma = ((1 / tau) - (self._beta / 2)) * (1 / self._K._lipschitz**2)
                 else:
                     msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                     raise ValueError(msg)
@@ -386,15 +392,21 @@ class PD3O(_PDS):
     The *Primal Dual three Operator splitting (PD3O)* method is described in [PD3O]_.
 
     It can be used to solve problems of the form:
+
     .. math::
-       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
+        {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
+
     where:
+
     * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
       for some :math:`\beta\in[0,+\infty[`.
+
     * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+
     * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *linear operator*, with **operator norm**:
-      .. math::
-         \Vert{\mathbf{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathbf{K}\mathbf{x}\Vert_2.
+
+    .. math::
+        \Vert{\mathbf{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathbf{K}\mathbf{x}\Vert_2.
     * The problem is *feasible* --i.e. there exists at least one solution.
 
     **Remark 1:**
@@ -419,22 +431,22 @@ class PD3O(_PDS):
     **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
 
 
-    **Parameterization** of ``PD3O``.
+    **Initizialization parameters of the class:**
 
     f: DiffFunc | None
-        Differentiable function, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
+        Differentiable function :math:`\mathcal{F}`, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
     g: ProxFunc | None
-        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+        Proximable function :math:`\mathcal{G}`, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
     h: ProxFunc | None
-        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
-        :math:`mathbf{K}`.
+        Proximable function :math:`\mathcal{H}`, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
+        :math:`\mathbf{K}`.
     K: LinOp | None
-        Linear operator, instance of :py:class:`~pycsou.abc.operator.LinOp`.
+        Linear operator :math:`\mathbf{K}`, instance of :py:class:`~pycsou.abc.operator.LinOp`.
     beta: float | None
-        Lipschitz constant of the gradient of :math:`\mathcal{F}. If not provided, it will be automatically estimated.
+        Lipschitz constant :math:`\beta` of the gradient of :math:`\mathcal{F}`. If not provided, it will be automatically estimated.
 
 
-    **Parameterization** of the ``fit()`` method.
+    **Parameterization** of the ``fit()`` method:
 
     x0: NDArray
         (..., N) initial point(s) for the primal variable.
@@ -587,9 +599,9 @@ class ChambollePock(CV):
     r"""
     Chambolle and Pock primal-dual splitting method.
 
-    This class is also accessible via the alias ``CPS()``.
+    This class is also accessible via the alias ``CP()``.
 
-    The *Chambolle and Pock primal-dual splitting (CPS)* method can be used to solve problems of the form:
+    The *Chambolle and Pock (CP) primal-dual splitting* method can be used to solve problems of the form:
 
     .. math::
       {\min_{\mathbf{x}\in\mathbb{R}^N} \mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
@@ -625,18 +637,18 @@ class ChambollePock(CV):
     **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
 
 
-    **Parameterization** of ``ChambollePockSplitting``.
+    **Initizialization parameters of the class:**
 
     g: ProxFunc | None
         Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
     h: ProxFunc | None
         Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
-        :math:`mathbf{K}`.
+        :math:`\mathbf{K}`.
     K: LinOp | None
         Linear operator, instance of :py:class:`~pycsou.abc.operator.LinOp`.
 
 
-    **Parameterization** of the ``fit()`` method.
+    **Parameterization** of the ``fit()`` method:
 
     x0: NDArray
         (..., N) initial point(s) for the primal variable.
@@ -652,7 +664,7 @@ class ChambollePock(CV):
 
     See Also
     --------
-    :py:class:`~pycsou.opt.solver.pds.CPS`, :py:class:`~pycsou.opt.solver.pds.PrimalDualSplitting`, :py:class:`~pycsou.opt.solver.pds.DouglasRachfordSplitting`
+    :py:class:`~pycsou.opt.solver.pds.CP`, :py:class:`~pycsou.opt.solver.pds.PrimalDual`, :py:class:`~pycsou.opt.solver.pds.DouglasRachford`
     """
 
     def __init__(
@@ -667,7 +679,7 @@ class ChambollePock(CV):
         verbosity: int = 1,
         log_var: pyct.VarName = ("x",),
     ):
-        super(ChambollePockSplitting).__init__(
+        super(ChambollePock).__init__(
             f=None,
             g=g,
             h=h,
@@ -697,16 +709,16 @@ class ChambollePock(CV):
         mst["rho"] = rho
 
 
-CPS = ChambollePockSplitting
+CP = ChambollePock
 
 
-class DouglasRachfordSplitting(CVS):
+class DouglasRachford(CV):
     r"""
     Douglas Rachford splitting algorithm.
 
-    This class is also accessible via the alias ``DRS()``.
+    This class is also accessible via the alias ``DR()``.
 
-    The *Douglas Rachford Splitting (DRS)* can be used to solve problems of the form:
+    The *Douglas Rachford (DR) primal-dual splitting* can be used to solve problems of the form:
 
     .. math::
        {\min_{\mathbf{x}\in\mathbb{R}^N} \mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{x}).}
@@ -724,16 +736,16 @@ class DouglasRachfordSplitting(CVS):
     **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
 
 
-    **Parameterization** of ``DouglasRachfordSplitting``.
+    **Initizialization parameters of the class:**
 
     g: ProxFunc | None
         Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
     h: ProxFunc | None
         Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
-        :math:`mathbf{K}`.
+        :math:`\mathbf{K}`.
 
 
-    **Parameterization** of the ``fit()`` method.
+    **Parameterization** of the ``fit()`` method:
 
     x0: NDArray
         (..., N) initial point(s) for the primal variable.
@@ -745,7 +757,7 @@ class DouglasRachfordSplitting(CVS):
 
     See Also
     --------
-    :py:class:`~pycsou.opt.solver.pds.DRS`, :py:class:`~pycsou.opt.solver.pds.PrimalDualSplitting`, :py:class:`~pycsou.opt.solver.pds.ChambollePockSplitting`
+    :py:class:`~pycsou.opt.solver.pds.DR`, :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.ChambollePock`, , :py:class:`~pycsou.opt.solver.pds.ForwardBackward`
     """
 
     def __init__(
@@ -759,7 +771,7 @@ class DouglasRachfordSplitting(CVS):
         verbosity: int = 1,
         log_var: pyct.VarName = ("x",),
     ):
-        super(DouglasRachfordSplitting).__init__(
+        super(DouglasRachford).__init__(
             f=None,
             g=g,
             h=h,
@@ -787,16 +799,16 @@ class DouglasRachfordSplitting(CVS):
         mst["rho"] = 1.0
 
 
-DRS = DouglasRachfordSplitting
+DR = DouglasRachford
 
 
-class ForwardBackwardSplitting(CVS):
+class ForwardBackward(CV):
     r"""
     Forward-backward splitting algorithm.
 
-    This class is also accessible via the alias ``FBS()``.
+    This class is also accessible via the alias ``FB()``.
 
-    The *Forward-backward splitting (FBS)* method can be used to solve problems of the form:
+    The *Forward-backward (FB) splitting* method can be used to solve problems of the form:
 
     .. math::
        {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x}).}
@@ -829,17 +841,17 @@ class ForwardBackwardSplitting(CVS):
     **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
 
 
-    **Parameterization** of ``ForwardBackwardSplitting``.
+    **Initizialization parameters of the class:**
 
     f: DiffFunc | None
         Differentiable function, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
     g: ProxFunc | None
         Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
     beta: float | None
-        Lipschitz constant of the gradient of :math:`\mathcal{F}. If not provided, it will be automatically estimated.
+        Lipschitz constant of the gradient of :math:`\mathcal{F}`. If not provided, it will be automatically estimated.
 
 
-    **Parameterization** of the ``fit()`` method.
+    **Parameterization** of the ``fit()`` method:
 
     x0: NDArray
         (..., N) initial point(s) for the primal variable.
@@ -854,7 +866,7 @@ class ForwardBackwardSplitting(CVS):
 
     See Also
     --------
-    :py:class:`~pycsou.opt.solver.pds.FBS`, :py:class:`~pycsou.opt.solver.pgd.PGD`
+    :py:class:`~pycsou.opt.solver.pds.FB`, :py:class:`~pycsou.opt.solver.pgd.PGD`
     """
 
     def __init__(
@@ -869,7 +881,7 @@ class ForwardBackwardSplitting(CVS):
         verbosity: int = 1,
         log_var: pyct.VarName = ("x",),
     ):
-        super(ForwardBackwardSplitting).__init__(
+        super(ForwardBackward).__init__(
             f=f,
             g=g,
             h=None,
@@ -897,4 +909,4 @@ class ForwardBackwardSplitting(CVS):
         mst["rho"] = rho
 
 
-FBS = ForwardBackwardSplitting
+FBS = ForwardBackward
