@@ -1794,7 +1794,7 @@ class LinOp(DiffMap, Adjoint):
         return self._lipschitz
 
     @pycrt.enforce_precision(o=True)
-    def svdvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
+    def svdvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> float:
         r"""
         Compute the ``k`` largest or smallest singular values of the linear operator. The order of the singular values is not guaranteed.
 
