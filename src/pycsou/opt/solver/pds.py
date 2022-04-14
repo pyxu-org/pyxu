@@ -125,24 +125,6 @@ class _PrimalDualSplitting(pycs.Solver):
         else:
             return beta
 
-    def _set_momentum_term(self, rho: typ.Optional[pyct.Real]) -> float:
-        r"""
-        Sets the momentum term.
-
-        Returns
-        -------
-        float
-            Momentum term.
-
-        .. TODO:: Over-relaxation in the case of quadratic f ? (Condat's paper)
-        """
-        if rho is None:
-            if self._beta > 0:
-                rho = pycrt.coerce(0.9)
-            else:
-                rho = pycrt.coerce(1.0)
-        return rho
-
     def _set_dual_variable(self, z: typ.Optional[pyct.NDArray]) -> pyct.NDArray:
         r"""
         Initialize the dual variable if it is None. Creates a copy of the primal variable.
@@ -392,6 +374,25 @@ class CondatVu(_PDS):
                         raise ValueError(msg)
         return tau, sigma
 
+    def _set_momentum_term(self, rho: typ.Optional[pyct.Real]) -> float:
+        r"""
+        Sets the momentum term according to theorem 8.2 in [PSA]_.
+
+        Returns
+        -------
+        float
+            Momentum term.
+
+        .. TODO:: Over-relaxation in the case of quadratic f ? (Condat's paper)
+        """
+
+        if rho is None:
+            if self._beta > 0:
+                rho = pycrt.coerce(0.9)
+            else:
+                rho = pycrt.coerce(1.0)
+        return rho
+
 
 CV = CondatVu
 
@@ -615,6 +616,25 @@ class PD3O(_PDS):
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                         raise ValueError(msg)
         return tau, sigma
+
+    def _set_momentum_term(self, rho: typ.Optional[pyct.Real]) -> float:
+        r"""
+        Sets the momentum term.
+
+        Returns
+        -------
+        float
+            Momentum term.
+
+        .. TODO:: Over-relaxation in the case of quadratic f ? (Condat's paper)
+        """
+
+        if rho is None:
+            if self._beta > 0:
+                rho = 2 - self._mstate["tau"] * self._beta / 2
+            else:
+                rho = pycrt.coerce(2)
+        return rho
 
 
 class ChambollePock(CV):
