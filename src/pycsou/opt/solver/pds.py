@@ -320,17 +320,28 @@ class CondatVu(_PDS):
 
         Notes
         -----
-        In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as large as
-         and relatively well-balanced --so that both the x and z variables converge at the same pace. In practice, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the convergence inequalities.
+        In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as
+        large as possible and relatively well-balanced --so that both the x and z variables converge at the same pace.
+        In practice, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the
+        convergence inequalities.
+
         For :math:`\beta>0` this yields:
         .. math::
-           \frac{1}{\tau}-\tau\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad -2\tau^2\Vert\mathbf{K}\Vert_{2}^2-\beta\tau+2=0,
+            \frac{1}{\tau}-\tau\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad -2\tau^2\Vert\mathbf{K}\Vert_{2}^2-\beta\tau+2=0,
         which admits one positive root
         .. math::
-           \tau=\sigma=\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}\left(-\frac{\beta}{4}+\sqrt{\frac{\beta^2}{16}+\Vert\mathbf{K}\Vert_{2}^2}\right).
+            \tau=\sigma=\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}\left(-\frac{\beta}{4}+\sqrt{\frac{\beta^2}{16}+\Vert\mathbf{K}\Vert_{2}^2}\right).
         For :math:`\beta=0`, this yields
         .. math::
-           \tau=\sigma=\Vert\mathbf{K\Vert_{2}^{-1}.}
+            \tau=\sigma=\Vert\mathbf{K\Vert_{2}^{-1}.}
+
+        When :math:`\tau` is provided (:math:`\tau = \tau_{1}`), but not :math:`\sigma`, the latter is chosen as:
+        .. math::
+            \frac{1}{\tau_{1}}-\sigma\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad \sigma=\left(\frac{1}{\tau_{1}}-\frac{\beta}{2}\right)\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}.
+
+        When :math:`\sigma` is provided (:math:`\sigma = \sigma_{1}`), but not :math:`\tau`, the latter is chosen as:
+        .. math::
+            \frac{1}{\tau}-\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad \tau=\frac{1}{\left(\frac{\beta}{2}+\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2\right)}.
         """
 
         tau = None if tau == 0 else tau
@@ -421,12 +432,10 @@ class PD3O(_PDS):
     * :math:`\tau\sigma\Vert\mathbf{K}\Vert_{2}^2 \leq 1`,
     * :math:`\tau \in [0, \frac{2}{\beta}]`,
 
-    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
+    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively (Theorem 8.2 of [PSA]_), i.e.
 
-    .. math::
-
-       \lim_{n\rightarrow +\infty}\Vert\mathbf{x}^\star-\mathbf{x}_n\Vert_2=0, \quad \text{and} \quad  \lim_{n\rightarrow +\infty}\Vert\mathbf{z}^\star-\mathbf{z}_n\Vert_2=0.
-
+    Futhermore, the objective function for the estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` is minimized at a with
+    rate :math:`O(\frac{1}{\sqrt(n)})` (Theorem 1 of [dPSA]_).
 
     **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
 
@@ -529,16 +538,29 @@ class PD3O(_PDS):
 
         Notes
         -----
-        In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as large as possible and relatively well-balanced --so that both the x and z variables converge at the same pace. In practice, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the convergence inequalities.
-        For :math:`\beta>0` this yields:
+        In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as
+        large as possible and relatively well-balanced --so that both the x and z variables converge at the same pace. In practice, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the convergence inequalities.
+
+        This yields:
 
         .. math::
-           \tau^2\Vert\mathbf{K}\Vert_{2}^2 < 1 \quad; \quad \frac{\tau\beta}{2} < 1 \quad\Longleftrightarrow\quad \tau=\sigma=\operatorname{min}\left[ \frac{1}{\Vert\mathbf{K}\Vert_{2}}, \frac{2}{\beta},  /right],
-
-        For :math:`\beta=0`, this yields
-
+            \tau\sigma\Vert\mathbf{K}\Vert_{2}^2 = 1,
+        which admits one positive root
         .. math::
-           \tau=\sigma=\frac{1}{\Vert\mathbf{K}\Vert_{2}}.
+            \tau=\sigma=\Vert\mathbf{K}\Vert_{2}^{-1},
+        if :math:`\Vert\mathbf{K}\Vert_{2}^{-1}<\frac{2}{\beta}`, and otherwise:
+        .. math::
+            \tau=\frac{1.99}{\beta}, \quad\quad \sigma=\frac{\beta}{1.99}\Vert\mathbf{K}\Vert_{2}^{-2}.
+
+        When :math:`\tau` is given (i.e., :math:`\tau=\tau_{1}`), but not :math:`\sigma`, the latter is chosen as:
+        .. math::
+            \tau_{1}\sigma\Vert\mathbf{K}\Vert_{2}^2= 1 \quad\Longleftrightarrow\quad \sigma=\frac{1}{\tau_{1}}\Vert\mathbf{K}\Vert_{2}^{-2}.
+
+        When :math:`\sigma` is given (i.e., :math:`\sigma=\sigma_{1}`), but not :math:`\tau`, the latter is chosen as:
+        .. math::
+            \tau\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2=1 \quad\Longleftrightarrow\quad \tau=\frac{1}{\sigma_{1}}\Vert\mathbf{K}\Vert_{2}^{-2},
+
+        if :math:`\frac{1}{\sigma_{1}}\Vert\mathbf{K}\Vert_{2}^{-2}< \frac{2}{\beta}`, or :math:`\tau=\frac{1.99}{\beta}` otherwise.
         """
 
         tau = None if tau == 0 else tau
