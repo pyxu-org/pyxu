@@ -585,21 +585,21 @@ class PD3O(_PDS):
             except:
                 raise ValueError(f"sigma must be positive, got {sigma}.")
             if isinstance(self._h, pyclo.NullFunc):
-                tau = 2 / self._beta
+                tau = 1.99 / self._beta
             else:
                 if math.isfinite(self._K._lipschitz):
-                    tau = min(1 / (sigma * self._K._lipschitz**2), 2 / self._beta)
+                    tau = min(1 / (sigma * self._K._lipschitz**2), 1.99 / self._beta)
                 else:
                     msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                     raise ValueError(msg)
         elif (tau is None) and (sigma is None):
             if self._beta > 0:
                 if isinstance(self._h, pyclo.NullFunc):
-                    tau = 2 / self._beta
+                    tau = 1.99 / self._beta
                     sigma = 0
                 else:
                     if math.isfinite(self._K._lipschitz):
-                        tau = min(1 / (self._K._lipschitz), 2 / self._beta)
+                        tau = min(1 / (self._K._lipschitz), 1.99 / self._beta)
                         sigma = 1 / (tau * self._K._lipschitz**2)
                     else:
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
@@ -610,7 +610,7 @@ class PD3O(_PDS):
                     sigma = 0
                 else:
                     if math.isfinite(self._K._lipschitz):
-                        tau = sigma = math.sqrt(1 / self._K._lipschitz)
+                        tau = sigma = 1 / self._K._lipschitz
                     else:
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                         raise ValueError(msg)
