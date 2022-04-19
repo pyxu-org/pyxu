@@ -93,16 +93,6 @@ class _PrimalDualSplitting(pycs.Solver):
         return stop_crit_x & stop_crit_z
 
     def solution(self) -> pyct.NDArray:
-        """
-        Returns the solution of the optimization problem.
-
-        Returns
-        -------
-        p: NDArray
-            (..., N) x solution.
-        d: NDArray
-            (..., N) z solution.
-        """
         data, _ = self.stats()
         return data.get("x")
 
@@ -127,7 +117,7 @@ class _PrimalDualSplitting(pycs.Solver):
 
     def _set_dual_variable(self, z: typ.Optional[pyct.NDArray]) -> pyct.NDArray:
         r"""
-        Initialize the dual variable if it is None. Creates a copy of the primal variable.
+        Initialize the dual variable if it is ``None`` by copying of the primal variable.
 
         Returns
         -------
@@ -139,7 +129,10 @@ class _PrimalDualSplitting(pycs.Solver):
         else:
             return self._mstate["x"].copy() if z is None else z
 
-    def _set_step_sizes(self, tau, sigma):
+    def _set_step_sizes(self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real]):
+        raise NotImplementedError
+
+    def _set_momentum_term(self, beta: typ.Optional[pyct.Real]):
         raise NotImplementedError
 
 
@@ -196,10 +189,8 @@ class CondatVu(_PDS):
 
        \lim_{n\rightarrow +\infty}\Vert\mathbf{x}^\star-\mathbf{x}_n\Vert_2=0, \quad \text{and} \quad  \lim_{n\rightarrow +\infty}\Vert\mathbf{z}^\star-\mathbf{z}_n\Vert_2=0.
 
-    **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
 
-
-    **Initizialization parameters of the class:**
+    **Initialization parameters of the class:**
 
     f: DiffFunc | None
         Differentiable function :math:`\mathcal{F}`, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
@@ -227,6 +218,49 @@ class CondatVu(_PDS):
         Dual step size.
     rho: Real | None
         Momentum parameter.
+
+    **Default values of the hyperparameters.**
+
+    In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as
+    large as possible and relatively well-balanced --so that both the primal and dual variables converge at the same pace.
+    When in doubt, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the
+    convergence inequalities.
+
+    For :math:`\beta>0` and :math:`\mathcal{H}\neq 0` this yields:
+
+    .. math::
+        \frac{1}{\tau}-\tau\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad -2\tau^2\Vert\mathbf{K}\Vert_{2}^2-\beta\tau+2=0,
+
+    which admits one positive root
+
+    .. math::
+        \tau=\sigma=\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}\left(-\frac{\beta}{4}+\sqrt{\frac{\beta^2}{16}+\Vert\mathbf{K}\Vert_{2}^2}\right).
+
+    For :math:`\beta>0` and :math:`\mathcal{H}\neq 0` this yields:
+
+    .. math::
+        \tau=2/\beta, \quad \sigma=0.
+
+    For :math:`\beta=0`, this yields
+
+    .. math::
+        \tau=\sigma=\Vert\mathbf{K}\Vert_{2}^{-1}.
+
+    When :math:`\tau` is provided (:math:`\tau = \tau_{1}`), but not :math:`\sigma`, the latter is chosen as:
+
+    .. math::
+        \frac{1}{\tau_{1}}-\sigma\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad \sigma=\left(\frac{1}{\tau_{1}}-\frac{\beta}{2}\right)\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}.
+
+    When :math:`\sigma` is provided (:math:`\sigma = \sigma_{1}`), but not :math:`\tau`, the latter is chosen as:
+
+    .. math::
+        \frac{1}{\tau}-\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad \tau=\frac{1}{\left(\frac{\beta}{2}+\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2\right)}.
+
+    Warnings
+    --------
+    When values are provided for both :math:`\tau` and :math:`\sigma` it is assumed that the latter satisfy the convergence inequalities,
+    but this check is not explicitly performed.
+
 
 
     Examples
@@ -282,8 +316,7 @@ class CondatVu(_PDS):
     def m_step(self):
         mst = self._mstate  # shorthand
         x_temp = self._g.prox(
-            mst["x"] - mst["tau"] * self._f.grad(mst["x"]) - mst["tau"] * self._K.adjoint(mst["z"]),
-            tau=mst["tau"],
+            mst["x"] - mst["tau"] * self._f.grad(mst["x"]) - mst["tau"] * self._K.adjoint(mst["z"]), tau=mst["tau"]
         )
         if not isinstance(self._h, pyclo.NullFunc):
             u = 2 * x_temp - mst["x"]
@@ -291,39 +324,16 @@ class CondatVu(_PDS):
             mst["z"] = mst["rho"] * z_temp + (1 - mst["rho"]) * mst["z"]
         mst["x"] = mst["rho"] * x_temp + (1 - mst["rho"]) * mst["x"]
 
-    def _set_step_sizes(self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real]) -> typ.Tuple[float, float]:
+    def _set_step_sizes(
+        self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real]
+    ) -> typ.Tuple[pyct.Real, pyct.Real]:
         r"""
-        Set the x/z step sizes.
+        Set the primal/dual step sizes.
 
         Returns
         -------
-        Tuple[float, float]
-            Sensible x/z step sizes.
-
-        Notes
-        -----
-        In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as
-        large as possible and relatively well-balanced --so that both the x and z variables converge at the same pace.
-        In practice, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the
-        convergence inequalities.
-
-        For :math:`\beta>0` this yields:
-        .. math::
-            \frac{1}{\tau}-\tau\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad -2\tau^2\Vert\mathbf{K}\Vert_{2}^2-\beta\tau+2=0,
-        which admits one positive root
-        .. math::
-            \tau=\sigma=\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}\left(-\frac{\beta}{4}+\sqrt{\frac{\beta^2}{16}+\Vert\mathbf{K}\Vert_{2}^2}\right).
-        For :math:`\beta=0`, this yields
-        .. math::
-            \tau=\sigma=\Vert\mathbf{K\Vert_{2}^{-1}.}
-
-        When :math:`\tau` is provided (:math:`\tau = \tau_{1}`), but not :math:`\sigma`, the latter is chosen as:
-        .. math::
-            \frac{1}{\tau_{1}}-\sigma\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad \sigma=\left(\frac{1}{\tau_{1}}-\frac{\beta}{2}\right)\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}.
-
-        When :math:`\sigma` is provided (:math:`\sigma = \sigma_{1}`), but not :math:`\tau`, the latter is chosen as:
-        .. math::
-            \frac{1}{\tau}-\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad \tau=\frac{1}{\left(\frac{\beta}{2}+\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2\right)}.
+        Tuple[Real, Real]
+            Sensible primal/dual step sizes.
         """
 
         tau = None if tau == 0 else tau
@@ -376,14 +386,15 @@ class CondatVu(_PDS):
 
     def _set_momentum_term(self, rho: typ.Optional[pyct.Real]) -> float:
         r"""
-        Sets the momentum term according to theorem 8.2 in [PSA]_.
+        Sets the momentum term according to Theorem 8.2 in [PSA]_.
 
         Returns
         -------
         float
             Momentum term.
 
-        .. TODO:: Over-relaxation in the case of quadratic f ? (Condat's paper)
+        .. TODO::
+            Over-relaxation in the case of quadratic f ? (Condat's paper)
         """
 
         if rho is None:
@@ -406,7 +417,7 @@ class PD3O(_PDS):
     It can be used to solve problems of the form:
 
     .. math::
-        {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
+        {\min_{\mathbf{x}\in\mathbb{R}^N} \;\Psi(\mathbf{x}):=\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
 
     where:
 
@@ -431,15 +442,19 @@ class PD3O(_PDS):
     Assume that the following holds:
 
     * :math:`\tau\sigma\Vert\mathbf{K}\Vert_{2}^2 \leq 1`,
-    * :math:`\tau \in [0, \frac{2}{\beta}]`,
+    * :math:`\tau \in (0, \frac{2}{\beta})`,
 
     Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively (Theorem 8.2 of [PSA]_), i.e.
 
-    Futhermore, the objective function for the estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` is minimized at a with
-    rate :math:`O(\frac{1}{\sqrt(n)})` (Theorem 1 of [dPSA]_).
+    .. math::
 
-    **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
+       \lim_{n\rightarrow +\infty}\Vert\mathbf{x}^\star-\mathbf{x}_n\Vert_2=0, \quad \text{and} \quad  \lim_{n\rightarrow +\infty}\Vert\mathbf{z}^\star-\mathbf{z}_n\Vert_2=0.
 
+    Futhermore, the objective functional sequence :math:`\left(\Psi(\mathbf{x}_n)\right)_{n\in\mathbb{N}}` converges towards
+    its minimum :math:`\Psi^\ast` with rate :math:`o(1/\sqrt(n))` (Theorem 1 of [dPSA]_):
+
+    ..math::
+        \Psi(\mathbf{x}_n) - \Psi^\ast = o(1/\sqrt(n)).
 
     **Initizialization parameters of the class:**
 
@@ -470,6 +485,38 @@ class PD3O(_PDS):
     rho: Real | None
         Momentum parameter.
 
+    **Default values of the hyperparameters.**
+
+    In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as
+    large as possible and relatively well-balanced --so that both the x and z variables converge at the same pace.
+    When in doubt, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the convergence inequalities.
+
+    This yields:
+
+    .. math::
+        \tau\sigma\Vert\mathbf{K}\Vert_{2}^2 = 1,
+
+    which admits one positive root
+
+    .. math::
+        \tau=\sigma=\Vert\mathbf{K}\Vert_{2}^{-1},
+
+    if :math:`\Vert\mathbf{K}\Vert_{2}^{-1}<\frac{2}{\beta}`, and otherwise:
+
+    .. math::
+        \tau=\frac{1.99}{\beta}, \quad\quad \sigma=\frac{\beta}{1.99}\Vert\mathbf{K}\Vert_{2}^{-2}.
+
+    When :math:`\tau` is given (i.e., :math:`\tau=\tau_{1}`), but not :math:`\sigma`, the latter is chosen as:
+
+    .. math::
+        \tau_{1}\sigma\Vert\mathbf{K}\Vert_{2}^2= 1 \quad\Longleftrightarrow\quad \sigma=\frac{1}{\tau_{1}}\Vert\mathbf{K}\Vert_{2}^{-2}.
+
+    When :math:`\sigma` is given (i.e., :math:`\sigma=\sigma_{1}`), but not :math:`\tau`, the latter is chosen as:
+
+    .. math::
+        \tau\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2=1 \quad\Longleftrightarrow\quad \tau=\frac{1}{\sigma_{1}}\Vert\mathbf{K}\Vert_{2}^{-2},
+
+    if :math:`\frac{1}{\sigma_{1}}\Vert\mathbf{K}\Vert_{2}^{-2}< \frac{2}{\beta}`, or :math:`\tau=\frac{1.99}{\beta}` otherwise.
 
     Examples
     --------
@@ -528,40 +575,16 @@ class PD3O(_PDS):
         mst["x"] = mst["x"] + mst["rho"] * (x_temp - mst["x"] - mst["tau"] * (f_grad + self._K.adjoint(z_temp)))
         mst["z"] = mst["z"] + mst["rho"] * (z_temp - mst["z"])
 
-    def _set_step_sizes(self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real]) -> typ.Tuple[float, float]:
+    def _set_step_sizes(
+        self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real]
+    ) -> typ.Tuple[pyct.Real, pyct.Real]:
         r"""
-        Set the x/z step sizes.
+        Set the primal/dual step sizes.
 
         Returns
         -------
-        Tuple[float, float]
-            Sensible x/z step sizes.
-
-        Notes
-        -----
-        In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as
-        large as possible and relatively well-balanced --so that both the x and z variables converge at the same pace. In practice, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the convergence inequalities.
-
-        This yields:
-
-        .. math::
-            \tau\sigma\Vert\mathbf{K}\Vert_{2}^2 = 1,
-        which admits one positive root
-        .. math::
-            \tau=\sigma=\Vert\mathbf{K}\Vert_{2}^{-1},
-        if :math:`\Vert\mathbf{K}\Vert_{2}^{-1}<\frac{2}{\beta}`, and otherwise:
-        .. math::
-            \tau=\frac{1.99}{\beta}, \quad\quad \sigma=\frac{\beta}{1.99}\Vert\mathbf{K}\Vert_{2}^{-2}.
-
-        When :math:`\tau` is given (i.e., :math:`\tau=\tau_{1}`), but not :math:`\sigma`, the latter is chosen as:
-        .. math::
-            \tau_{1}\sigma\Vert\mathbf{K}\Vert_{2}^2= 1 \quad\Longleftrightarrow\quad \sigma=\frac{1}{\tau_{1}}\Vert\mathbf{K}\Vert_{2}^{-2}.
-
-        When :math:`\sigma` is given (i.e., :math:`\sigma=\sigma_{1}`), but not :math:`\tau`, the latter is chosen as:
-        .. math::
-            \tau\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2=1 \quad\Longleftrightarrow\quad \tau=\frac{1}{\sigma_{1}}\Vert\mathbf{K}\Vert_{2}^{-2},
-
-        if :math:`\frac{1}{\sigma_{1}}\Vert\mathbf{K}\Vert_{2}^{-2}< \frac{2}{\beta}`, or :math:`\tau=\frac{1.99}{\beta}` otherwise.
+        Tuple[Real, Real]
+            Sensible primal/dual step sizes.
         """
 
         tau = None if tau == 0 else tau
@@ -725,7 +748,7 @@ class ChambollePock(CV):
             f=None,
             g=g,
             h=h,
-            k=K,
+            K=K,
             beta=0,
             folder=folder,
             exist_ok=exist_ok,
@@ -739,7 +762,7 @@ class ChambollePock(CV):
         self,
         x0: pyct.NDArray,
         z0: typ.Optional[pyct.NDArray],
-        tau: typ.Optional[pyct.Real] = 1.0,
+        tau: typ.Optional[pyct.Real] = None,
         sigma: typ.Optional[pyct.Real] = None,
         rho: typ.Optional[pyct.Real] = None,
     ):

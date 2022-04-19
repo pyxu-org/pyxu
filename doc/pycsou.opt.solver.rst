@@ -21,7 +21,7 @@ pycsou.opt.solver.cg module
    :show-inheritance:
 
 pycsou.opt.solver.pds module
----------------------------
+----------------------------
 
 .. automodule:: pycsou.opt.solver.pds
    :members:
