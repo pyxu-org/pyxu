@@ -33,7 +33,7 @@ class L1Norm(pyco.ProxFunc):
 
     def apply(self, arr: pyct.NDArray) -> pyct.Real:
         xp = pycu.get_array_module(arr)
-        return xp.linalg.norm(arr, ord=1)
+        return xp.linalg.norm(arr, ord=1, keepdims=True)
 
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
