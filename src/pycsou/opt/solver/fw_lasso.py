@@ -55,24 +55,24 @@ class GenericFWforLasso(pycs.Solver):
         self.penalty = self.lambda_ * L1Norm()  # rename as regul ??
         self.objective = self.data_fidelity + self.penalty
 
-        self.bound = 0.5 * SquaredL2Norm()(data) / self.lambda_
+        self.bound = 0.5 * SquaredL2Norm()(data)[0] / self.lambda_
 
-        self.module = pycu.get_array_module(data)
-        self.compute_ofv = True
+        # self.module = pycu.get_array_module(data)
+        self.compute_ofv = True  # default
 
     # The inputs of m_init should be the type of the iterates to manipulate (module) and the running precision.
     def m_init(self, **kwargs):
-        # xp = pycu.get_array_module
+        xp = pycu.get_array_module(self.data)
         mst = self._mstate  # shorthand
 
-        mst["x"] = np.zeros(self.forwardOp.shape[1])
+        mst["x"] = xp.zeros(self.forwardOp.shape[1])
         mst["dcv"] = np.inf
         self.compute_ofv = kwargs.pop("compute_ofv", True)  # if we don't need the objective function, this can be
         # specified with compute_ofv=False
         # if isinstance(crit := self._astate["stop_crit"], (pycos.RelError, pycos.AbsError)):
         #     self.compute_ofv = (crit._var == "ofv") | kwargs.pop("compute_ofv", False)
         if self.compute_ofv:
-            mst["ofv"] = self.objective(mst["x"])  # objective function value should not be computed if not required
+            mst["ofv"] = self.objective(mst["x"])[0]  # objective function value should not be computed if not required
             # as stopping crit
             self._astate["log_var"] = frozenset(("ofv",)).union(self._astate["log_var"])
         # mst["positions"] = []  # numpy array of indices instead ?
@@ -89,6 +89,16 @@ class GenericFWforLasso(pycs.Solver):
             satisfy_all=True,
         )
         return stop_crit
+
+    def solution(self) -> pyct.NDArray:
+        """
+        Returns
+        -------
+        p: NDArray
+            (..., N) solution.
+        """
+        data, _ = self.stats()
+        return data.get("x")
 
 
 class VanillaFWforLasso(GenericFWforLasso):
@@ -133,32 +143,33 @@ class VanillaFWforLasso(GenericFWforLasso):
 
     def m_step(self):
         mst = self._mstate  # shorthand
+        xp = pycu.get_array_module(mst["x"])
         mgrad = -self.data_fidelity.grad(mst["x"])
-        new_ind = np.argmax(np.abs(mgrad), axis=-1)  # axis for parallel runs
+        new_ind = xp.argmax(xp.abs(mgrad), axis=-1)  # axis for parallel runs
         dcv = mgrad[new_ind] / self.lambda_
         mst["dcv"] = dcv
 
         if self.step_size_strategy == "regular":
             gamma = 2 / (2 + self._astate["idx"])
         elif self.step_size_strategy == "optimal":
-            gamma = -np.dot(mgrad, mst["x"])
+            gamma = -xp.dot(mgrad, mst["x"]).real
             if abs(dcv) > 1.0:
+                xp = pycu.get_array_module(mst["x"])
                 gamma += self.lambda_ * (mst["lift_variable"] + (abs(dcv) - 1.0) * self.bound)
-                injection = SubSampling(self.forwardOp.shape[1], self.module.array(new_ind)).T
+                injection = SubSampling(self.forwardOp.shape[1], xp.array(new_ind)).T
                 # print(SquaredL2Norm(self.bound * np.sign(dcv) * self.forwardOp(injection(self.module.array(1.))) -
                 #                        self.forwardOp(mst["x"])))
                 # print(self.bound * np.sign(dcv) * self.forwardOp(injection(self.module.array(1.))))
                 gamma /= SquaredL2Norm()(
-                    self.bound * np.sign(dcv) * self.forwardOp(injection(self.module.array(1.0)))
-                    - self.forwardOp(mst["x"])
-                )
+                    self.bound * np.sign(dcv) * self.forwardOp(injection(xp.array(1.0))) - self.forwardOp(mst["x"])[0]
+                )  # we can use numpy (np) as dcv is a float
             else:
                 gamma += self.lambda_ * mst["lift_variable"]
-                gamma /= SquaredL2Norm()(self.forwardOp(mst["x"]))
+                gamma /= SquaredL2Norm()(self.forwardOp(mst["x"]))[0]
 
         if not 0 < gamma < 1:
             print("Warning, gamma value not valid: {}".format(gamma))
-            gamma = np.clip(gamma, 0.0, 1.0)
+            gamma = xp.clip(gamma, 0.0, 1.0)
 
         mst["x"] *= 1 - gamma
         mst["lift_variable"] *= 1 - gamma
@@ -166,11 +177,10 @@ class VanillaFWforLasso(GenericFWforLasso):
             mst["x"][new_ind] += gamma * np.sign(dcv) * self.bound
             mst["lift_variable"] += gamma * self.bound
         if self.compute_ofv:
-            mst["ofv"] = self.objective(mst["x"])
+            mst["ofv"] = self.objective(mst["x"])[0]
 
 
 # todo vendredi:
-# todo      * make sure module agnosticity is working fine : use xp.get_module_... and not self.array_module
 #           * enforce data precision
 #           * define private and public variables
 
@@ -201,7 +211,6 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         self._ms_threshold = ms_threshold
         self._init_correction_prec = init_correction_prec
         self._final_correction_prec = final_correction_prec
-        self._correction_prec = init_correction_prec
         self._remove_positions = remove_positions
         super().__init__(
             data=data,
@@ -217,8 +226,12 @@ class PolyatomicFWforLasso(GenericFWforLasso):
 
     def m_init(self, **kwargs):
         super(PolyatomicFWforLasso, self).m_init(**kwargs)
-        self._mstate["positions"] = self.module.array([], dtype="int32")
+        xp = pycu.get_array_module(self._mstate["x"])
+        mst = self._mstate
+        mst["positions"] = xp.array([], dtype="int32")
         # is it worth storing this as an xp array, given that it should remain small or moderate size ?
+        mst["delta"] = None  # initial buffer for multi spike thresholding
+        mst["correction_prec"] = self._init_correction_prec
 
     def m_step(self):
         mst = self._mstate  # shorthand
@@ -226,9 +239,10 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         mst["dcv"] = max(mgrad.max(), mgrad.min(), key=abs) / self.lambda_
         maxi = abs(mst["dcv"])
         if self._astate["idx"] == 1:
-            self.delta = maxi * (1.0 - self._ms_threshold)
-        thresh = maxi - (2 / self._astate["idx"] + 1) * self.delta
+            mst["delta"] = maxi * (1.0 - self._ms_threshold)
+        thresh = maxi - (2 / self._astate["idx"] + 1) * mst["delta"]
         new_indices = (abs(mgrad) > max(thresh, 1.0)).nonzero()[0]
+        print(new_indices.shape)
 
         xp = pycu.get_array_module(mst["x"])
         if new_indices.size > 0:
@@ -240,7 +254,7 @@ class PolyatomicFWforLasso(GenericFWforLasso):
             mst["positions"] = (mst["x"] > 1e-5).nonzero()[0]
         # else would correspond to empty new_indices, in this case the set of active indices does not change
 
-        self._correction_prec = max(self._init_correction_prec / self._astate["idx"], self._final_correction_prec)
+        mst["correction_prec"] = max(self._init_correction_prec / self._astate["idx"], self._final_correction_prec)
         if mst["positions"].size > 1:
             mst["x"] = self.rs_correction(mst["positions"])
         elif mst["positions"].size == 1:
@@ -251,11 +265,13 @@ class PolyatomicFWforLasso(GenericFWforLasso):
             if abs(corr) <= self.lambda_:
                 mst["x"] = xp.zeros(self.forwardOp.shape[1])
             elif corr > self.lambda_:
-                mst["x"] = ((corr - self.lambda_) / SquaredL2Norm()(column)) * tmp
+                mst["x"] = ((corr - self.lambda_) / SquaredL2Norm()(column)[0]) * tmp
             else:
-                mst["x"] = ((corr + self.lambda_) / SquaredL2Norm()(column)) * tmp
+                mst["x"] = ((corr + self.lambda_) / SquaredL2Norm()(column)[0]) * tmp
         else:
             mst["x"] = xp.zeros(self.forwardOp.shape[1])
+        if self.compute_ofv:
+            mst["ofv"] = self.objective(mst["x"])[0]
 
     def rs_correction(self, support_indices: pyct.NDArray) -> pyct.NDArray:
         def correction_stop_crit(eps) -> pycs.StoppingCriterion:
@@ -274,13 +290,13 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         rs_data_fid = self.data_fidelity * injection
         # rs_penalty = self.penalty * injection
         x0 = injection.T(self._mstate["x"])
-        apgd = PGD(rs_data_fid, self.penalty, verbosity=10000)
-        apgd.fit(x0=x0, stop_crit=correction_stop_crit(self._correction_prec))
+        apgd = PGD(rs_data_fid, self.penalty, show_progress=False)
+        apgd.fit(x0=x0, stop_crit=correction_stop_crit(self._mstate["correction_prec"]))
         sol, _ = apgd.stats()
-        return injection(sol)
+        return injection(sol["x"])
 
 
-def DCVStoppingCrit(eps: float = 1e-2) -> pycs.StoppingCriterion:
+def dcvStoppingCrit(eps: float = 1e-2) -> pycs.StoppingCriterion:
     def abs_diff_to_one(x):
         return abs(x) - 1.0
 
@@ -297,4 +313,3 @@ def DCVStoppingCrit(eps: float = 1e-2) -> pycs.StoppingCriterion:
 # todo :
 #   * test pfw first remove=False then True
 #   * then check module agnosticity and enforce precision
-#   * verbosity = None => infinity
