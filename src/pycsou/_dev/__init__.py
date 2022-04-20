@@ -235,6 +235,7 @@ class SubSampling(pyco.LinOp):
         self.input_size = size
         self.nb_of_samples = self.sampling_indices.size
         super(SubSampling, self).__init__(shape=(self.nb_of_samples, self.input_size))
+        self._lipschitz = 1.0
 
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         return arr[..., self.sampling_indices]
