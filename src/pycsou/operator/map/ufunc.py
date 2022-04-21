@@ -354,7 +354,7 @@ class Tanh(pyca.DiffMap):
         """
         super(Tanh, self).__init__(shape)
         self._lipschitz = 1
-        self._diff_lipschitz = -0.65
+        self._diff_lipschitz = 0.77
 
     @pycrt.enforce_precision(i='arr', o=True)
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -648,7 +648,7 @@ class Log2(pyca.DiffMap):
         shape: tuple(int, [int|None])
             Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
         """
-        super(Log10, self).__init__(shape)
+        super(Log2, self).__init__(shape)
 
     @pycrt.enforce_precision(i='arr', o=True)
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -697,14 +697,14 @@ class Prod(pyca.Map):
         super(Prod, self).__init__(shape)
 
     @pycrt.enforce_precision(i='arr', o=True)
-    def apply(self, arr: pyct.NDArray, axis: int) -> pyct.NDArray:
+    def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
         r"""
         Parameters
         ----------
         arr: NDArray
             Input array
         axis: Int
-            Axis which the product is performed
+            Axis which the product is performed. Default is -1.
 
         Returns
         -------
@@ -712,7 +712,7 @@ class Prod(pyca.Map):
             Product of elements of arr over a given axis
         """
         xp = pycu.get_array_module(arr)
-        return xp.prod(arr, axis=axis)
+        return xp.array([xp.prod(arr, axis=axis)])
 
 class Sum(pyca.Map):
     r"""
@@ -728,14 +728,14 @@ class Sum(pyca.Map):
         super(Sum, self).__init__(shape)
 
     @pycrt.enforce_precision(i='arr', o=True)
-    def apply(self, arr: pyct.NDArray, axis: int) -> pyct.NDArray:
+    def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
         r"""
         Parameters
         ----------
         arr: NDArray
             Input array
         axis: Int
-            Axis which the sum is performed
+            Axis which the sum is performed. Default is -1.
 
         Returns
         -------
@@ -743,7 +743,7 @@ class Sum(pyca.Map):
             Sum of elements of arr over a given axis
         """
         xp = pycu.get_array_module(arr)
-        return xp.sum(arr, axis=axis)
+        return xp.array([xp.sum(arr, axis=axis)])
 
 class Cumprod(pyca.Map):
     r"""
@@ -759,14 +759,14 @@ class Cumprod(pyca.Map):
         super(Cumprod, self).__init__(shape)
 
     @pycrt.enforce_precision(i='arr', o=True)
-    def apply(self, arr: pyct.NDArray, axis: int) -> pyct.NDArray:
+    def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
         r"""
         Parameters
         ----------
         arr: NDArray
             Input array
         axis: Int
-            Axis which the cumulative product is performed
+            Axis which the cumulative product is performed. Default is -1.
 
         Returns
         -------
@@ -790,14 +790,14 @@ class Cumsum(pyca.Map):
         super(Cumsum, self).__init__(shape)
 
     @pycrt.enforce_precision(i='arr', o=True)
-    def apply(self, arr: pyct.NDArray, axis: int) -> pyct.NDArray:
+    def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
         r"""
         Parameters
         ----------
         arr: NDArray
             Input array
         axis: Int
-            Axis which the cumulative sum is performed
+            Axis which the cumulative sum is performed. Default is -1.
 
         Returns
         -------
@@ -824,17 +824,16 @@ class Clip(pyca.Map):
         super(Clip, self).__init__(shape)
 
     @pycrt.enforce_precision(i='arr', o=True)
-    def apply(self, arr: pyct.NDArray, a_min: float, a_max: float) -> pyct.NDArray:
+    def apply(self, arr: pyct.NDArray, a_min=0.0, a_max=1.0) -> pyct.NDArray:
         r"""
-
         Parameters
         ----------
         arr: NDArray
             Input array
         a_min: Float
-            Minimum value
+            Minimum value. Default is 0.0.
         a_max: Float
-            Maximum value
+            Maximum value. Default is 1.0.
 
         Returns
         -------
@@ -842,13 +841,13 @@ class Clip(pyca.Map):
             Array with elements of arr but where values < a_{min} are replaced with a_{min} and
             those > a_{max} with a_{max}
         """
-        return arr.clip(min=a_min, max=a_max)
+        return arr.clip(a_min, a_max)
 
-class Sqrt(pyca.DiffMap):
+class Sqrt(pyca.Map):
     r"""
     Nonnegative square-root function
 
-    Any nonnegative sqrt function is differentiable function, therefore its base class is DiffMap.
+    The sqrt function is nondifferentiable function at 0, therefore its base class is Map.
     """
     def __init__(self, shape: pyct.Shape):
         r"""
@@ -858,7 +857,6 @@ class Sqrt(pyca.DiffMap):
             Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
         """
         super(Sqrt, self).__init__(shape)
-        self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i='arr', o=True)
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -876,25 +874,11 @@ class Sqrt(pyca.DiffMap):
         xp = pycu.get_array_module(arr)
         return xp.sqrt(arr)
 
-    def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-            Jacobian matrix of nonnegative square root of arr
-        """
-        xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(1/(2*xp.sqrt(arr))))
-
-class Cbrt(pyca.DiffMap):
+class Cbrt(pyca.Map):
     r"""
     Cube-root function
 
-    Any cbrt function is differentiable function, therefore its base class is DiffMap.
+    The cbrt function is nondifferentiable function at 0, therefore its base class is Map.
     """
     def __init__(self, shape: pyct.Shape):
         r"""
@@ -904,7 +888,6 @@ class Cbrt(pyca.DiffMap):
             Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
         """
         super(Cbrt, self).__init__(shape)
-        self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i='arr', o=True)
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -922,20 +905,6 @@ class Cbrt(pyca.DiffMap):
         xp = pycu.get_array_module(arr)
         return xp.cbrt(arr)
 
-    def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-            Jacobian matrix of cube root of arr
-        """
-        xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(1/(3*xp.power(arr, 2/3))))
-
 class Square(pyca.DiffMap):
     r"""
     Square function
@@ -949,7 +918,7 @@ class Square(pyca.DiffMap):
         shape: tuple(int, [int|None])
             Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
         """
-        super(Sqrt, self).__init__(shape)
+        super(Square, self).__init__(shape)
         self._diff_lipschitz = 2
 
     @pycrt.enforce_precision(i='arr', o=True)
@@ -997,7 +966,6 @@ class Abs(pyca.DiffMap):
         """
         super(Abs, self).__init__(shape)
         self._lipschitz = 1
-        self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i='arr', o=True)
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1076,20 +1044,25 @@ class Heaviside(pyca.Map):
         super(Heaviside, self).__init__(shape)
 
     @pycrt.enforce_precision(i='arr', o=True)
-    def apply(self, arr1: pyct.NDArray, arr2: pyct.NDArray) -> pyct.NDArray:
+    def apply(self, arr: pyct.NDArray, x2=0) -> pyct.NDArray:
         r"""
         Parameters
         ----------
-        arr1: NDArrray
+        arr: NDArray
             Input array
-        arr2: NDArray
-            Value of the function when arr1 is 0
+        x2: Int
+            Value of function when arr is 0
 
         Returns
         -------
         NDArray
-            Heaviside of each element of arr1
+            Heaviside of each element of arr
         """
-        xp = pycu.get_array_module(arr1)
-        return xp.heaviside(arr1, arr2)
-
+        xp = pycu.get_array_module(arr)
+        if 'heaviside' in dir(xp):
+            res = xp.heaviside(arr, x2)
+        else:
+            res = xp.sign(arr)
+            res[res == 0] = x2
+            res[res < 0] = 0
+        return res
