@@ -892,3 +892,302 @@ class TestCumsum(conftest.MapT):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
+
+# Miscellaneous
+
+class Clip(pyca.Map):
+    def __init__(self, shape: pyct.Shape):
+        super(Clip, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray, a_min=0.0, a_max=1.0) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.clip(arr, a_min, a_max)
+
+class TestClip(conftest.MapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return Clip(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-100, 100, data_shape[0])
+        B = np.clip(A, a_min=0.0, a_max=1.0)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class Sqrt(pyca.Map):
+    def __init__(self, shape: pyct.Shape):
+        super(Sqrt, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.sqrt(arr)
+
+class TestSqrt(conftest.MapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return Sqrt(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(0.1, 100, data_shape[0])
+        B = np.sqrt(A)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return np.abs(self._random_array((N_test, data_shape[0])))
+
+
+class Cbrt(pyca.Map):
+    def __init__(self, shape: pyct.Shape):
+        super(Cbrt, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.cbrt(arr)
+
+class TestCbrt(conftest.MapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return Cbrt(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-10, 10, data_shape[0])
+        B = np.cbrt(A)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class Square(pyca.DiffMap):
+    r"""
+    Square function
+
+    Any square function is differentiable function, therefore its base class is DiffMap.
+    """
+
+    def __init__(self, shape: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        shape: tuple(int, [int|None])
+            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
+        """
+        super(Square, self).__init__(shape)
+        self._diff_lipschitz = 2
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.square(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(2*arr))
+
+class TestSquare(conftest.DiffMapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return Square(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-2, 2, data_shape[0])
+        B = np.square(A)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class Abs(pyca.DiffMap):
+    def __init__(self, shape: pyct.Shape):
+        super(Abs, self).__init__(shape)
+        self._lipschitz = 1
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.absolute(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.diag(xp.sign(arr)))
+
+class TestAbs(conftest.DiffMapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return Abs(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-4, 4, data_shape[0])
+        B = np.abs(A)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        temp = self._random_array((N_test, data_shape[0]))
+        return temp
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class Sign(pyca.Map):
+    def __init__(self, shape: pyct.Shape):
+        super(Sign, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.sign(arr)
+
+class TestSign(conftest.MapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return Sign(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-100, 100, data_shape[0])
+        B = np.sign(A)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class Heaviside(pyca.Map):
+    def __init__(self, shape: pyct.Shape):
+        super(Heaviside, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray, x2=0) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        if 'heaviside' in dir(xp):
+            res = xp.heaviside(arr, x2)
+        else:
+            res = xp.sign(arr)
+            res[res == 0] = x2
+            res[res < 0] = 0
+        return res
+
+class TestHeaviside(conftest.MapT):
+    @pytest.fixture
+    def dim(self):
+        return 10000
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return Heaviside(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-100, 100, data_shape[0])
+        B = np.heaviside(A, 0)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
