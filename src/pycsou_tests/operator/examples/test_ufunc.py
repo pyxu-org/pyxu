@@ -742,3 +742,153 @@ class TestLog2(conftest.DiffMapT):
         N_test = 5
         return np.abs(self._random_array((N_test, data_shape[0])))
 
+
+# Sums, Products and Differences
+
+class Prod(pyca.Map):
+    def __init__(self, shape: pyct.Shape):
+        super(Prod, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.array([xp.prod(arr, axis=axis)])
+
+class TestProd(conftest.MapT):
+    @pytest.fixture
+    def dim(self):
+        return 5
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim,0)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return Prod(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(1, 5, data_shape[0])
+        B = np.prod(A, axis=-1)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class Sum(pyca.Map):
+    def __init__(self, shape: pyct.Shape):
+        super(Sum, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.array([xp.sum(arr, axis=axis)])
+
+class TestSum(conftest.MapT):
+    @pytest.fixture
+    def dim(self):
+        return 10
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim,0)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return Sum(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(5, 10, data_shape[0])
+        B = np.sum(A, axis=-1)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class Cumprod(pyca.Map):
+    def __init__(self, shape: pyct.Shape):
+        super(Cumprod, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.cumprod(arr, axis=axis)
+
+class TestCumprod(conftest.MapT):
+    @pytest.fixture
+    def dim(self):
+        return 5
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return Cumprod(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(1.0, 5.0, data_shape[0])
+        B = np.cumprod(A, axis=-1)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class Cumsum(pyca.Map):
+    def __init__(self, shape: pyct.Shape):
+        super(Cumsum, self).__init__(shape)
+
+    @pycrt.enforce_precision(i='arr', o=True)
+    def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.cumsum(arr, axis=axis)
+
+class TestCumsum(conftest.MapT):
+    @pytest.fixture
+    def dim(self):
+        return 5
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return Cumsum(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(1.0, 5.0, data_shape[0])
+        B = np.cumsum(A, axis=-1)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
