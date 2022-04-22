@@ -528,23 +528,16 @@ class PD3O(_PDS):
     **Default values of the hyperparameters.**
 
     In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as
-    large as possible and relatively well-balanced --so that both the x and z variables converge at the same pace.
+    large as possible and relatively well-balanced --so that both the :math:`\mathbf{x}_n` and :math:`\mathbf{z}_n` variables converge at the same pace.
     When in doubt, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the convergence inequalities.
 
-    This yields:
+    In practice, the following linear programming optimization problem is solved:
 
     .. math::
-        \tau\sigma\Vert\mathbf{K}\Vert_{2}^2 = 1,
-
-    which admits one positive root
-
-    .. math::
-        \tau=\sigma=\Vert\mathbf{K}\Vert_{2}^{-1},
-
-    if :math:`\Vert\mathbf{K}\Vert_{2}^{-1}<\frac{2}{\beta}`, and otherwise:
-
-    .. math::
-        \tau=\frac{1.99}{\beta}, \quad\quad \sigma=\frac{\beta}{1.99}\Vert\mathbf{K}\Vert_{2}^{-2}.
+        (\tau, \, \sigma) = \operatorname{arg} \max_{(\tau^{*}, \,  \sigma^{*})} \quad & \operatorname{log}(\tau^{*}) + \operatorname{log}(\sigma^{*})\\
+        \text{s.t.} \quad & \operatorname{log}(\tau^{*}) + \operatorname{log}(\sigma^{*}) \leq 2\operatorname{log}(\Vert\mathbf{K}\Vert_{2})\\
+        & \operatorname{log}(\tau^{*}) \leq \operatorname{log}(\frac{1.99}{\beta})\\
+        & \operatorname{log}(\tau^{*}) = \operatorname{log}(\sigma^{*})   \\
 
     When :math:`\tau` is given (i.e., :math:`\tau=\tau_{1}`), but not :math:`\sigma`, the latter is chosen as:
 
@@ -665,8 +658,7 @@ class PD3O(_PDS):
                     sigma = 0
                 else:
                     if math.isfinite(self._K._lipschitz):
-                        tau = min(1 / (self._K._lipschitz), 1.99 / self._beta)
-                        sigma = 1 / (tau * self._K._lipschitz**2)
+                        tau, sigma = self._optimize_step_sizes()
                     else:
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                         raise ValueError(msg)
@@ -681,6 +673,29 @@ class PD3O(_PDS):
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                         raise ValueError(msg)
         return tau, sigma
+
+    @pycrt.enforce_precision(o=True)
+    def _optimize_step_sizes(self):
+        r"""
+        Optimize the primal/dual step sizes.
+
+        Returns
+        -------
+        Tuple[Real, Real]
+            Sensible primal/dual step sizes.
+        """
+        import numpy as np
+        from scipy.optimize import linprog
+
+        c = np.array([-1, -1])
+        A_ub = np.array([[1, 1], [1, 0]])
+        b_ub = np.array([-2 * np.log(self._K._lipschitz), np.log(1.99 / self._beta)])
+        A_eq = np.array([[1, -1]])
+        b_eq = np.array([0])
+        result = linprog(c=c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=(None, None))
+        if not result.success:
+            warnings.warn("Automatic parameter selection has not converged.", UserWarning)
+        return np.exp(result.x)
 
     def _set_momentum_term(self, rho: typ.Optional[pyct.Real]) -> float:
         r"""
