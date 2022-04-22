@@ -11,6 +11,7 @@ References
 .. [PSA] Condat L., Kitahara D., Contreras A., and Hirabayashi A. "Proximal Splitting Algorithms for Convex Optimization: A Tour of Recent Advances, with New Twists." arXiv preprint arXiv:1912.00137 (2021).
 .. [dPSA] Condat L., Malinovsky G., and Richtarik, P.. "Distributed Proximal Splitting Algorithms with rates and acceleration." Frontiers in Signal Processing (2022) 1:776825. doi: 10.3389/frsip.2021.776825
 .. [APGD] Liang, Jingwei, Tao Luo, and Carola-Bibiane Schönlieb. "Improving" Fast Iterative Shrinkage-Thresholding Algorithm": Faster, Smarter and Greedier." arXiv preprint arXiv:1811.01430 (2018).
+.. [NLCP] Valkonen, Tuomo, "A primal-dual hybrid gradient method for nonlinear operators with applications to MRI." Inverse Problems 30 (2014), 055012, doi:10.1088/0266-5611/30/5/055012.
 .. [P2] Jain, Raj, and Imrich Chlamtac. "The P2 algorithm for dynamic calculation of quantiles and histograms without storing observations." Communications of the ACM 28.10 (1985): 1076-1085.
 .. [GaussProcesses] Rasmussen, Carl Edward, and C. K. Williams. "Gaussian processes for machine learning, vol. 1." (2006).
 .. [SubGauss] Aziznejad, Shayan, and Michael Unser. "An L1 representer theorem for multiple-kernel regression." arXiv preprint arXiv:1811.00836 (2018).
