@@ -2,6 +2,7 @@ import itertools
 import math
 import numbers as nb
 import typing as typ
+import warnings
 
 import pycsou.abc as pyca
 import pycsou.abc.operator as pyco
@@ -22,7 +23,7 @@ class _PrimalDualSplitting(pycs.Solver):
         f: typ.Optional[pyco.DiffFunc] = None,
         g: typ.Optional[pyco.ProxFunc] = None,
         h: typ.Optional[pyco.ProxFunc] = None,
-        K: typ.Optional[pyco.LinOp] = None,
+        K: typ.Optional[pyco.DiffMap] = None,
         beta: typ.Optional[pyct.Real] = None,
         *,
         folder: typ.Optional[pyct.PathLike] = None,
@@ -127,7 +128,7 @@ class _PrimalDualSplitting(pycs.Solver):
 
     def _set_dual_variable(self, z: typ.Optional[pyct.NDArray]) -> pyct.NDArray:
         r"""
-        Initialize the dual variable if it is ``None`` by copying of the primal variable.
+        Initialize the dual variable if it is ```None``` by copying of the primal variable.
 
         Returns
         -------
@@ -180,7 +181,7 @@ class CondatVu(_PDS):
     It can be used to solve problems of the form:
 
     .. math::
-       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
+       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathcal{K} \mathbf{x}).}
     where:
 
     * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
@@ -188,10 +189,10 @@ class CondatVu(_PDS):
 
     * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
 
-    * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *linear operator*, with **operator norm**:
+    * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator* :math:`\mathbf{K}`), with **operator norm**:
 
     .. math::
-         \Vert{\mathbf{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathbf{K}\mathbf{x}\Vert_2.
+         \Vert{\mathcal{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathcal{K}(\mathbf{x})\Vert_2.
 
     * The problem is *feasible* --i.e. there exists at least one solution.
 
@@ -200,6 +201,12 @@ class CondatVu(_PDS):
     The algorithm is still valid if one or more of the terms :math:`\mathcal{F}`, :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
 
     **Remark 2:**
+
+    The algorithm has convergence guarantees for the case in which :math:`\mathcal{H}` is composed with a
+    *linear operator* :math:`\mathbf{K}`, except in the case of Chambolle-Pock (see [NLCP]_). Automatic selection of
+    parameters is not supported for the cases in which :math:`\mathcal{K}` is a *non-linear differentiable map*.
+
+    **Remark 3:**
 
     Assume that the following holds:
 
@@ -227,10 +234,11 @@ class CondatVu(_PDS):
     g: ProxFunc | None
         Proximable function :math:`\mathcal{G}`, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
     h: ProxFunc | None
-        Proximable function :math:`\mathcal{H}`, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
-        :math:`\mathbf{K}`.
-    K: LinOp | None
-        Linear operator :math:`\mathbf{K}`, instance of :py:class:`~pycsou.abc.operator.LinOp`.
+        Proximable function :math:`\mathcal{H}`, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a differentiable map
+        :math:`\mathcal{K}`.
+    K: DiffMap | None
+        Differentiable map :math:`\mathcal{K}` instance of :py:class:`~pycsou.abc.operator.DiffMap`, or a linear
+        operator :math:`\mathbf{K}` instance of :py:class:`~pycsou.abc.operator.LinOp`.
     beta: float | None
         Lipschitz constant :math:`\beta` of the gradient of :math:`\mathcal{F}`. If not provided, it will be automatically estimated.
 
@@ -241,7 +249,7 @@ class CondatVu(_PDS):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray
         (..., N) initial point(s) for the dual variable.
-        If None (default), then use x0 as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
     tau: Real | None
         Primal step size.
     sigma: Real | None
@@ -256,7 +264,7 @@ class CondatVu(_PDS):
     When in doubt, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the
     convergence inequalities.
 
-    For :math:`\beta>0` and :math:`\mathcal{H}\neq 0` this yields:
+    * For :math:`\beta>0` and :math:`\mathcal{H}\neq 0` this yields:
 
     .. math::
         \frac{1}{\tau}-\tau\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad -2\tau^2\Vert\mathbf{K}\Vert_{2}^2-\beta\tau+2=0,
@@ -266,12 +274,12 @@ class CondatVu(_PDS):
     .. math::
         \tau=\sigma=\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}\left(-\frac{\beta}{4}+\sqrt{\frac{\beta^2}{16}+\Vert\mathbf{K}\Vert_{2}^2}\right).
 
-    For :math:`\beta>0` and :math:`\mathcal{H}\neq 0` this yields:
+    * For :math:`\beta>0` and :math:`\mathcal{H}=0` the convergence inequalities yield:
 
     .. math::
         \tau=2/\beta, \quad \sigma=0.
 
-    For :math:`\beta=0`, this yields
+    * For :math:`\beta=0` and :math:`\mathcal{H}\neq 0` this yields:
 
     .. math::
         \tau=\sigma=\Vert\mathbf{K}\Vert_{2}^{-1}.
@@ -364,6 +372,12 @@ class CondatVu(_PDS):
             Sensible primal/dual step sizes.
         """
 
+        if not (isinstance(self._K, pyco.LinOp) or isinstance(self._K, pyclo.NullOp)):
+            msg = (
+                f"Automatic selection of parameters is only supported in the case in which K is a linear operator. "
+                "Got operator of type {self._K}."
+            )
+            raise ValueError(msg)
         tau = None if tau == 0 else tau
         sigma = None if sigma == 0 else sigma
 
@@ -438,14 +452,14 @@ CV = CondatVu
 
 class PD3O(_PDS):
     r"""
-    Primal Dual Three-Operator Splitting (PD3O) algoritm.
+    Primal Dual Three-Operator Splitting (PD3O) algorithm.
 
     The *Primal Dual three Operator splitting (PD3O)* method is described in [PD3O]_.
 
     It can be used to solve problems of the form:
 
     .. math::
-        {\min_{\mathbf{x}\in\mathbb{R}^N} \;\Psi(\mathbf{x}):=\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
+        {\min_{\mathbf{x}\in\mathbb{R}^N} \;\Psi(\mathbf{x}):=\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathcal{K} \mathbf{x}).}
 
     where:
 
@@ -454,18 +468,24 @@ class PD3O(_PDS):
 
     * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
 
-    * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *linear operator*, with **operator norm**:
+    * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator* :math:`\mathbf{K}`), with **operator norm**:
 
     .. math::
-        \Vert{\mathbf{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathbf{K}\mathbf{x}\Vert_2.
+         \Vert{\mathcal{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathcal{K}(\mathbf{x})\Vert_2.
+
     * The problem is *feasible* --i.e. there exists at least one solution.
 
     **Remark 1:**
 
     The algorithm is still valid if one or more of the terms :math:`\mathcal{F}`, :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
 
-
     **Remark 2:**
+
+    The algorithm has convergence guarantees for the case in which :math:`\mathcal{H}` is composed with a
+    *linear operator* :math:`\mathbf{K}`, except in the case of Chambolle-Pock (see [NLCP]_). Automatic selection of
+    parameters is not supported for the cases in which :math:`\mathcal{K}` is a *non-linear differentiable map*.
+
+    **Remark 3:**
 
     Assume that the following holds:
 
@@ -502,8 +522,9 @@ class PD3O(_PDS):
     h: ProxFunc | None
         Proximable function :math:`\mathcal{H}`, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
         :math:`\mathbf{K}`.
-    K: LinOp | None
-        Linear operator :math:`\mathbf{K}`, instance of :py:class:`~pycsou.abc.operator.LinOp`.
+    K: DiffMap | None
+        Differentiable map :math:`\mathcal{K}` instance of :py:class:`~pycsou.abc.operator.DiffMap`, or a linear
+        operator :math:`\mathbf{K}` instance of :py:class:`~pycsou.abc.operator.LinOp`.
     beta: float | None
         Lipschitz constant :math:`\beta` of the gradient of :math:`\mathcal{F}`. If not provided, it will be automatically estimated.
 
@@ -514,7 +535,7 @@ class PD3O(_PDS):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
-        If None (default), then use x0 as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
     tau: Real | None
         Primal step size.
     sigma: Real | None
@@ -622,6 +643,12 @@ class PD3O(_PDS):
             Sensible primal/dual step sizes.
         """
 
+        if not (isinstance(self._K, pyco.LinOp) or isinstance(self._K, pyclo.NullOp)):
+            msg = (
+                f"Automatic selection of parameters is only supported in the case in which K is a linear operator. "
+                "Got operator of type {self._K}."
+            )
+            raise ValueError(msg)
         tau = None if tau == 0 else tau
         sigma = None if sigma == 0 else sigma
 
@@ -717,7 +744,18 @@ class PD3O(_PDS):
         return rho
 
 
-class ChambollePock(CV):
+def ChambollePock(
+    g: typ.Optional[pyco.ProxFunc] = None,
+    h: typ.Optional[pyco.ProxFunc] = None,
+    K: typ.Optional[pyco.DiffMap] = None,
+    base: typ.Optional[_PrimalDualSplitting] = CondatVu,
+    *,
+    folder: typ.Optional[pyct.PathLike] = None,
+    exist_ok: bool = False,
+    writeback_rate: typ.Optional[int] = None,
+    verbosity: int = 1,
+    log_var: pyct.VarName = ("x",),
+):
     r"""
     Chambolle and Pock primal-dual splitting method.
 
@@ -731,10 +769,10 @@ class ChambollePock(CV):
     where:
 
     * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
-    * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M``` is a *linear operator*, with **operator norm**:
+    * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator* :math:`\mathbf{K}`), with **operator norm**:
 
-     .. math::
-        \Vert{\mathbf{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathbf{K}\mathbf{x}\Vert_2.
+    .. math::
+         \Vert{\mathcal{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathcal{K}(\mathbf{x})\Vert_2.
 
     * The problem is *feasible* --i.e. there exists at least one solution.
 
@@ -745,6 +783,11 @@ class ChambollePock(CV):
 
 
     **Remark 2:**
+
+    Automatic selection of parameters is not supported for the cases in which :math:`\mathcal{K}` is a *non-linear
+    differentiable map*.
+
+    **Remark 3:**
 
     Assume that the following holds:
 
@@ -766,8 +809,14 @@ class ChambollePock(CV):
     h: ProxFunc | None
         Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
         :math:`\mathbf{K}`.
-    K: LinOp | None
-        Linear operator, instance of :py:class:`~pycsou.abc.operator.LinOp`.
+    K: DiffMap | None
+        Differentiable map :math:`\mathcal{K}` instance of :py:class:`~pycsou.abc.operator.DiffMap`, or a linear
+        operator :math:`\mathbf{K}` instance of :py:class:`~pycsou.abc.operator.LinOp`.
+
+    base: PrimalDual | None
+        Primal dual base algorithm from which inherit mathematical iterative updates and default parameterization.
+        Currently, the existing base classes are :py:class:`~pycsou.opt.solver.pds.CondatVu` (default), and
+        :py:class:`~pycsou.opt.solver.pds.PD3O`
 
 
     **Parameterization** of the ``fit()`` method:
@@ -776,7 +825,7 @@ class ChambollePock(CV):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
-        If None (default), then use x0 as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
     tau: Real | None
         Primal step size.
     sigma: Real | None
@@ -786,55 +835,39 @@ class ChambollePock(CV):
 
     See Also
     --------
-    :py:class:`~pycsou.opt.solver.pds.CP`, :py:class:`~pycsou.opt.solver.pds.PrimalDual`, :py:class:`~pycsou.opt.solver.pds.DouglasRachford`
+    :py:class:`~pycsou.opt.solver.pds.PrimalDual`, :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`, :py:func:`~pycsou.opt.solver.pds.ForwardBackward`
     """
 
-    def __init__(
-        self,
-        g: typ.Optional[pyco.ProxFunc] = None,
-        h: typ.Optional[pyco.ProxFunc] = None,
-        K: typ.Optional[pyco.LinOp] = None,
-        *,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
-        log_var: pyct.VarName = ("x",),
-    ):
-        super(ChambollePock).__init__(
-            f=None,
-            g=g,
-            h=h,
-            K=K,
-            beta=0,
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
-            log_var=log_var,
-        )
-
-    @pycrt.enforce_precision(i=["x0", "z0", "tau", "sigma", "rho"], allow_None=True)
-    def m_init(
-        self,
-        x0: pyct.NDArray,
-        z0: typ.Optional[pyct.NDArray],
-        tau: typ.Optional[pyct.Real] = None,
-        sigma: typ.Optional[pyct.Real] = None,
-        rho: typ.Optional[pyct.Real] = None,
-    ):
-        mst = self._mstate  # shorthand
-        mst["x"] = mst["x_prev"] = x0
-        mst["z"] = mst["z_prev"] = self._set_dual_variable(z0)
-        mst["tau"] = tau
-        mst["sigma"] = sigma
-        mst["rho"] = rho
+    obj = base.__init__(
+        f=None,
+        g=g,
+        h=h,
+        K=K,
+        beta=0,
+        folder=folder,
+        exist_ok=exist_ok,
+        writeback_rate=writeback_rate,
+        verbosity=verbosity,
+        log_var=log_var,
+    )
+    obj.__repr__ = lambda _: "ChambollePock"
+    return obj
 
 
 CP = ChambollePock
 
 
-class DouglasRachford(CV):
+def DouglasRachford(
+    g: typ.Optional[pyco.ProxFunc] = None,
+    h: typ.Optional[pyco.ProxFunc] = None,
+    base: typ.Optional[_PrimalDualSplitting] = CondatVu,
+    *,
+    folder: typ.Optional[pyct.PathLike] = None,
+    exist_ok: bool = False,
+    writeback_rate: typ.Optional[int] = None,
+    verbosity: int = 1,
+    log_var: pyct.VarName = ("x",),
+):
     r"""
     Douglas Rachford splitting algorithm.
 
@@ -863,8 +896,7 @@ class DouglasRachford(CV):
     g: ProxFunc | None
         Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
     h: ProxFunc | None
-        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a linear operator
-        :math:`\mathbf{K}`.
+        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
 
 
     **Parameterization** of the ``fit()`` method:
@@ -873,58 +905,49 @@ class DouglasRachford(CV):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
-        If None (default), then use x0 as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
     tau: Real | None
         Primal step size.
+    base: PrimalDual | None
+        Primal dual base algorithm from which inherit mathematical iterative updates and default parameterization.
+        Currently, the existing base classes are :py:class:`~pycsou.opt.solver.pds.CondatVu` (default), and
+        :py:class:`~pycsou.opt.solver.pds.PD3O`
 
     See Also
     --------
-    :py:class:`~pycsou.opt.solver.pds.DR`, :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.ChambollePock`, , :py:class:`~pycsou.opt.solver.pds.ForwardBackward`
-    """
+    :py:class:`~pycsou.opt.solver.pds.PrimalDual`, :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.ForwardBackward`"""
 
-    def __init__(
-        self,
-        g: typ.Optional[pyco.ProxFunc] = None,
-        h: typ.Optional[pyco.ProxFunc] = None,
-        *,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
-        log_var: pyct.VarName = ("x",),
-    ):
-        super(DouglasRachford).__init__(
-            f=None,
-            g=g,
-            h=h,
-            K=None,
-            beta=0,
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
-            log_var=log_var,
-        )
-
-    @pycrt.enforce_precision(i=["x0", "z0", "tau", "sigma", "rho"], allow_None=True)
-    def m_init(
-        self,
-        x0: pyct.NDArray,
-        z0: typ.Optional[pyct.NDArray],
-        tau: typ.Optional[pyct.Real] = 1.0,
-    ):
-        mst = self._mstate  # shorthand
-        mst["x"] = mst["x_prev"] = x0
-        mst["z"] = mst["z_prev"] = self._set_dual_variable(z0)
-        mst["tau"] = tau
-        mst["sigma"] = 1.0 / tau
-        mst["rho"] = 1.0
+    obj = base.__init__(
+        f=None,
+        g=g,
+        h=h,
+        K=None,
+        beta=0,
+        folder=folder,
+        exist_ok=exist_ok,
+        writeback_rate=writeback_rate,
+        verbosity=verbosity,
+        log_var=log_var,
+    )
+    obj.__repr__ = lambda _: "DouglasRachford"
+    return obj
 
 
 DR = DouglasRachford
 
 
-class ForwardBackward(CV):
+def ForwardBackward(
+    f: typ.Optional[pyco.ProxFunc] = None,
+    g: typ.Optional[pyco.ProxFunc] = None,
+    beta: typ.Optional[pyct.Real] = None,
+    base: typ.Optional[_PrimalDualSplitting] = CondatVu,
+    *,
+    folder: typ.Optional[pyct.PathLike] = None,
+    exist_ok: bool = False,
+    writeback_rate: typ.Optional[int] = None,
+    verbosity: int = 1,
+    log_var: pyct.VarName = ("x",),
+):
     r"""
     Forward-backward splitting algorithm.
 
@@ -979,22 +1002,164 @@ class ForwardBackward(CV):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray
         (..., N) initial point(s) for the dual variable.
-        If None (default), then use x0 as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
     tau: Real | None
         Primal step size.
     rho: Real | None
         Momentum parameter.
+    base: PrimalDual | None
+        Primal dual base algorithm from which inherit mathematical iterative updates and default parameterization.
+        Currently, the existing base classes are :py:class:`~pycsou.opt.solver.pds.CondatVu` (default), and
+        :py:class:`~pycsou.opt.solver.pds.PD3O`
 
 
     See Also
     --------
-    :py:class:`~pycsou.opt.solver.pds.FB`, :py:class:`~pycsou.opt.solver.pgd.PGD`
+    See Also
+    --------
+    :py:class:`~pycsou.opt.solver.pds.PrimalDual`, :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`,:py:class:`~pycsou.opt.solver.pgd.PGD`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`"""
+
+    obj = base.__init__(
+        f=f,
+        g=g,
+        h=None,
+        K=None,
+        beta=beta,
+        folder=folder,
+        exist_ok=exist_ok,
+        writeback_rate=writeback_rate,
+        verbosity=verbosity,
+        log_var=log_var,
+    )
+
+    obj.__repr__ = lambda _: "ForwardBackward"
+    return obj
+
+
+FB = ForwardBackward
+
+
+def ProximalPoint(
+    g: typ.Optional[pyco.ProxFunc] = None,
+    base: typ.Optional[_PrimalDualSplitting] = CondatVu,
+    *,
+    folder: typ.Optional[pyct.PathLike] = None,
+    exist_ok: bool = False,
+    writeback_rate: typ.Optional[int] = None,
+    verbosity: int = 1,
+    log_var: pyct.VarName = ("x",),
+):
+    r"""
+    Proximal-point method algorithm.
+
+    This class is also accessible via the alias ``PP()``.
+
+    The *Proximal-point (PP) splitting* method can be used to solve problems of the form:
+
+    .. math::
+       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{G}(\mathbf{x}).}
+
+    where:
+
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is *proper*, *lower semicontinuous* and *convex function* with *simple proximal operator*.
+    * The problem is *feasible* --i.e. there exists at least one solution.
+
+    **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
+
+
+    **Initizialization parameters of the class:**
+
+    g: ProxFunc | None
+        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+
+    **Parameterization** of the ``fit()`` method:
+
+    x0: NDArray
+        (..., N) initial point(s) for the primal variable.
+    tau: Real | None
+        Primal step size.
+    rho: Real | None
+        Momentum parameter.
+    base: PrimalDual | None
+        Primal dual base algorithm from which inherit mathematical iterative updates and default parameterization.
+        Currently, the existing base classes are :py:class:`~pycsou.opt.solver.pds.CondatVu` (default), and
+        :py:class:`~pycsou.opt.solver.pds.PD3O`
+
+
+    See Also
+    --------
+    See Also
+    --------
+    :py:class:`~pycsou.opt.solver.pds.PrimalDual`, :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`,:py:class:`~pycsou.opt.solver.pgd.PGD`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`"""
+
+    obj = base.__init__(
+        f=None,
+        g=g,
+        h=None,
+        K=None,
+        beta=None,
+        folder=folder,
+        exist_ok=exist_ok,
+        writeback_rate=writeback_rate,
+        verbosity=verbosity,
+        log_var=log_var,
+    )
+
+    obj.__repr__ = lambda _: "ProximalPoint"
+    return obj
+
+
+PP = ProximalPoint
+
+
+class DavisYin(PD3O):
+    r"""
+    Davis-Yin (DY) algorithm.
+
+    The *Davis-Yin* method is recovered from the PD3O algorithm when :math:`\mathcal{K}=\mathbf{I}` (identity) [PSA]_.
+
+    **Initizialization parameters of the class:**
+
+    f: DiffFunc | None
+        Differentiable function :math:`\mathcal{F}`, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
+    g: ProxFunc | None
+        Proximable function :math:`\mathcal{G}`, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+    h: ProxFunc | None
+        Proximable function :math:`\mathcal{H}`, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+    beta: float | None
+        Lipschitz constant :math:`\beta` of the gradient of :math:`\mathcal{F}`. If not provided, it will be automatically estimated.
+
+
+    **Parameterization** of the ``fit()`` method:
+
+    x0: NDArray
+        (..., N) initial point(s) for the primal variable.
+    z0: NDArray | None
+        (..., N) initial point(s) for the dual variable.
+        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+    tau: Real | None
+        Primal step size.
+    sigma: Real | None
+        Dual step size.
+    rho: Real | None
+        Momentum parameter.
+    ergodic: Bool | None
+        Return the ergodic estimate, which has accelerated properties of convergence with respect to the
+        regular iterate (see "Remark 4" in :py:class:`~pycsou.solver.pds.PD3O`'s documentation).
+
+    **Default values of the hyperparameters.**
+
+    The Davis-Yin algorithm requires :math:`\sigma=\frac{1}{\tau}`. Unless both :math:`\sigma` and :math:`\tau` are
+    provided, this is ensured by the automatic parameter selection inherited from the base class
+    :py:class:`~pycsou.solver.pds.PD3O`.
+
     """
 
     def __init__(
         self,
-        f: typ.Optional[pyco.ProxFunc] = None,
+        f: typ.Optional[pyco.DiffFunc] = None,
         g: typ.Optional[pyco.ProxFunc] = None,
+        h: typ.Optional[pyco.ProxFunc] = None,
         beta: typ.Optional[pyct.Real] = None,
         *,
         folder: typ.Optional[pyct.PathLike] = None,
@@ -1003,10 +1168,10 @@ class ForwardBackward(CV):
         verbosity: int = 1,
         log_var: pyct.VarName = ("x",),
     ):
-        super(ForwardBackward).__init__(
+        super(DavisYin).__init__(
             f=f,
             g=g,
-            h=None,
+            h=h,
             K=None,
             beta=beta,
             folder=folder,
@@ -1016,19 +1181,78 @@ class ForwardBackward(CV):
             log_var=log_var,
         )
 
-    @pycrt.enforce_precision(i=["x0", "z0", "tau", "rho"], allow_None=True)
-    def m_init(
+
+DY = DavisYin
+
+
+class LorisVerhoeven(PD3O):
+    r"""
+    Loris-Verhoeven (LV) algorithm.
+
+    The *Loris-Verhoeven* method is recovered from the PD3O algorithm when :math:`\mathcal{G}=0` [PSA]_.
+
+    **Initizialization parameters of the class:**
+
+    f: DiffFunc | None
+        Differentiable function :math:`\mathcal{F}`, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
+    h: ProxFunc | None
+        Proximable function :math:`\mathcal{H}`, instance of :py:class:`~pycsou.abc.operator.ProxFunc`, composed with a differentiable map
+        :math:`\mathcal{K}`.
+    K: DiffMap | None
+        Differentiable map :math:`\mathcal{K}` instance of :py:class:`~pycsou.abc.operator.DiffMap`, or a linear
+        operator :math:`\mathbf{K}` instance of :py:class:`~pycsou.abc.operator.LinOp`.
+    beta: float | None
+        Lipschitz constant :math:`\beta` of the gradient of :math:`\mathcal{F}`. If not provided, it will be automatically estimated.
+
+
+    **Parameterization** of the ``fit()`` method:
+
+    x0: NDArray
+        (..., N) initial point(s) for the primal variable.
+    z0: NDArray | None
+        (..., N) initial point(s) for the dual variable.
+        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+    tau: Real | None
+        Primal step size.
+    sigma: Real | None
+        Dual step size.
+    rho: Real | None
+        Momentum parameter.
+    ergodic: Bool | None
+        Return the ergodic estimate, which has accelerated properties of convergence with respect to the
+        regular iterate (see "Remark 4" in :py:class:`~pycsou.solver.pds.PD3O`'s documentation).
+
+    **Default values of the hyperparameters.**
+
+    Automatic parameter selection is inherited from the base class :py:class:`~pycsou.solver.pds.PD3O`.
+
+    """
+
+    def __init__(
         self,
-        x0: pyct.NDArray,
-        z0: typ.Optional[pyct.NDArray],
-        tau: typ.Optional[pyct.Real] = None,
-        rho: typ.Optional[pyct.Real] = 1.0,
+        f: typ.Optional[pyco.DiffFunc] = None,
+        h: typ.Optional[pyco.ProxFunc] = None,
+        K: typ.Optional[pyco.DiffMap] = None,
+        beta: typ.Optional[pyct.Real] = None,
+        *,
+        folder: typ.Optional[pyct.PathLike] = None,
+        exist_ok: bool = False,
+        writeback_rate: typ.Optional[int] = None,
+        verbosity: int = 1,
+        log_var: pyct.VarName = ("x",),
     ):
-        mst = self._mstate  # shorthand
-        mst["x"] = mst["x_prev"] = x0
-        mst["z"] = mst["z_prev"] = self._set_dual_variable(z0)
-        mst["tau"] = tau
-        mst["rho"] = rho
+        super(LorisVerhoeven).__init__(
+            f=f,
+            g=None,
+            h=h,
+            K=K,
+            beta=beta,
+            folder=folder,
+            exist_ok=exist_ok,
+            writeback_rate=writeback_rate,
+            verbosity=verbosity,
+            log_var=log_var,
+        )
 
 
-FBS = ForwardBackward
+LV = LorisVerhoeven
