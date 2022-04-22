@@ -68,12 +68,22 @@ class _PrimalDualSplitting(pycs.Solver):
         tau: typ.Optional[pyct.Real] = None,
         sigma: typ.Optional[pyct.Real] = None,
         rho: typ.Optional[pyct.Real] = None,
+        ergodic: bool = False,
     ):
         mst = self._mstate  # shorthand
-        mst["x"] = mst["x_prev"] = x0
-        mst["z"] = mst["z_prev"] = self._set_dual_variable(z0)
+        mst["x"] = x0 if x0.ndim > 1 else x0.reshape(1, -1)
+        mst["z"] = self._set_dual_variable(z0)
         mst["tau"], mst["sigma"] = self._set_step_sizes(tau, sigma)
         mst["rho"] = self._set_momentum_term(rho)
+        mst["x_c"] = x0 if ergodic else None
+
+    def m_step(self):
+        mst = self._mstate  # shorthand
+        if mst["x_c"] is None:
+            mst["x"], mst["z"] = self._iter(mst["x"], mst["z"], mst["tau"], mst["sigma"], mst["rho"])
+        else:
+            mst["x_c"], mst["z"] = self._iter(mst["x_c"], mst["z"], mst["tau"], mst["sigma"], mst["rho"])
+            mst["x"] = self._ergodic(mst["x_c"], mst["x"])
 
     def default_stop_crit(self) -> pycs.StoppingCriterion:
         stop_crit_x = pycos.RelError(
@@ -127,7 +137,27 @@ class _PrimalDualSplitting(pycs.Solver):
         if isinstance(self._h, pyclo.NullFunc):
             return None
         else:
-            return self._mstate["x"].copy() if z is None else z
+            if z is None:
+                return self._mstate["x"].copy()
+            else:
+                return z if z.ndim > 1 else z.reshape(1, -1)
+
+    def _iter(
+        self,
+        x: typ.Optional[pyct.NDArray],
+        z: typ.Optional[pyct.NDArray],
+        tau: typ.Optional[pyct.Real],
+        sigma: typ.Optional[pyct.Real],
+        rho: typ.Optional[pyct.Real],
+    ):
+        raise NotImplementedError
+
+    def _ergodic(self, x_c, x):
+        idx = self._astate["idx"] + 1
+        x *= idx * (idx - 1) / 2
+        x += idx * x_c
+        x *= 2 / (idx * (idx + 1))
+        return x
 
     def _set_step_sizes(self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real]):
         raise NotImplementedError
@@ -313,16 +343,14 @@ class CondatVu(_PDS):
     :py:class:`~pycsou.opt.solver.pds.CV`, :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:class:`~pycsou.opt.solver.pds.ChambollePock`, :py:class:`~pycsou.opt.solver.pds.DouglasRachford`
     """
 
-    def m_step(self):
-        mst = self._mstate  # shorthand
-        x_temp = self._g.prox(
-            mst["x"] - mst["tau"] * self._f.grad(mst["x"]) - mst["tau"] * self._K.adjoint(mst["z"]), tau=mst["tau"]
-        )
+    def _iter(self, x, z, tau, sigma, rho):
+        x_temp = self._g.prox(x - tau * self._f.grad(x) - tau * self._K.jacobian(x).adjoint(z), tau=tau)
         if not isinstance(self._h, pyclo.NullFunc):
-            u = 2 * x_temp - mst["x"]
-            z_temp = self._h.fenchel_prox(mst["z"] + mst["sigma"] * self._K(u), sigma=mst["sigma"])
-            mst["z"] = mst["rho"] * z_temp + (1 - mst["rho"]) * mst["z"]
-        mst["x"] = mst["rho"] * x_temp + (1 - mst["rho"]) * mst["x"]
+            u = 2 * x_temp - x
+            z_temp = self._h.fenchel_prox(z + sigma * self._K(u), sigma=sigma)
+            z = rho * z_temp + (1 - rho) * z
+        x = rho * x_temp + (1 - rho) * x
+        return x, z
 
     def _set_step_sizes(
         self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real]
@@ -451,10 +479,19 @@ class PD3O(_PDS):
        \lim_{n\rightarrow +\infty}\Vert\mathbf{x}^\star-\mathbf{x}_n\Vert_2=0, \quad \text{and} \quad  \lim_{n\rightarrow +\infty}\Vert\mathbf{z}^\star-\mathbf{z}_n\Vert_2=0.
 
     Futhermore, the objective functional sequence :math:`\left(\Psi(\mathbf{x}_n)\right)_{n\in\mathbb{N}}` converges towards
-    its minimum :math:`\Psi^\ast` with rate :math:`o(1/\sqrt(n))` (Theorem 1 of [dPSA]_):
+    its minimum :math:`\Psi^\ast` with rate :math:`o(1/\sqrt{n})` (Theorem 1 of [dPSA]_):
 
-    ..math::
-        \Psi(\mathbf{x}_n) - \Psi^\ast = o(1/\sqrt(n)).
+    .. math::
+        \Psi(\mathbf{x}_n) - \Psi^\ast = o(1/\sqrt{n}).
+
+    **Remark 4:**
+
+    Assuming the same conditions as in "Remark 3" are held, then, we can define the following weighted ergodic iterate:
+    .. math::
+        \bar{\mathbf{x}}_{n} = \frac{2}{n(n+1)}\sum^{n}_{i=1}i\mathbf{x}_{n}
+
+    which objective functional sequence :math:`\left(\Psi(\bar{\mathbf{x}}_{n})\right)_{n\in\mathbb{N}}` converges towards
+    its minimum :math:`\Psi^\ast` with rate :math:`O(1/n)` (Theorem 1 of [dPSA]_):
 
     **Initizialization parameters of the class:**
 
@@ -484,6 +521,9 @@ class PD3O(_PDS):
         Dual step size.
     rho: Real | None
         Momentum parameter.
+    ergodic: Bool | None
+        Return the ergodic estimate, which has accelerated properties of convergence with respect to the
+        regular iterate (see "Remark 4").
 
     **Default values of the hyperparameters.**
 
@@ -549,7 +589,7 @@ class PD3O(_PDS):
     >>> G = 0.01 * L1Norm()
     >>> pd3o = PD3O(f=fidelity, g=G, h=H, K=D)
     >>> x0, z0 = x * 0, x * 0
-    >>> pd3o.fit(x0=x0, z0=z0)
+    >>> pd3o.fit(x0=x0, z0=z0, ergodic=True)
 
     >>> estimate = pd3o.solution()
     >>> x_recons = estimate[0]
@@ -565,15 +605,17 @@ class PD3O(_PDS):
 
     """
 
-    def m_step(self):
-        mst = self._mstate  # shorthand
-        x_temp = self._g.prox(mst["x"], tau=mst["tau"])
+    def _iter(self, x, z, tau, sigma, rho):
+        x_temp = self._g.prox(x, tau=tau)
         f_grad = self._f.grad(x_temp)
         if not isinstance(self._h, pyclo.NullFunc):
-            u = 2 * x_temp - mst["x"] - mst["tau"] * (f_grad + self._K.adjoint(mst["z"]))
-            z_temp = self._h.fenchel_prox(mst["z"] + mst["sigma"] * self._K(u), sigma=mst["sigma"])
-        mst["x"] = mst["x"] + mst["rho"] * (x_temp - mst["x"] - mst["tau"] * (f_grad + self._K.adjoint(z_temp)))
-        mst["z"] = mst["z"] + mst["rho"] * (z_temp - mst["z"])
+            u = 2 * x_temp - x - tau * (f_grad + self._K.jacobian(x).adjoint(z))
+            z_temp = self._h.fenchel_prox(z + sigma * self._K(u), sigma=sigma)
+            x = x + rho * (x_temp - x - tau * (f_grad + self._K.jacobian(x).adjoint(z_temp)))
+            z = z + rho * (z_temp - z)
+        else:
+            x = x + rho * (x_temp - x - tau * f_grad)
+        return x, z
 
     def _set_step_sizes(
         self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real]
