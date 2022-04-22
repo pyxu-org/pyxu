@@ -1790,7 +1790,7 @@ class LinOp(DiffMap, Adjoint):
             raise NotImplementedError
         if recompute or (self._lipschitz == np.infty):
             kwargs.update(dict(k=1, which="LM", gpu=gpu))
-            self._lipschitz = self.svdvals(**kwargs)
+            self._lipschitz = self.svdvals(**kwargs).item()
         return self._lipschitz
 
     @pycrt.enforce_precision(o=True)
@@ -1829,7 +1829,7 @@ class LinOp(DiffMap, Adjoint):
             import cupyx.scipy.sparse.linalg as spx
         else:
             spx = splin
-        return spx.svds(SciOp, **kwargs).item()
+        return spx.svds(SciOp, **kwargs)
 
     def asarray(self, xp: pyct.ArrayModule = np, dtype: typ.Optional[type] = None) -> pyct.NDArray:
         r"""
