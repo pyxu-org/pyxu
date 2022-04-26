@@ -218,10 +218,8 @@ class Arctanh(pyca.Map):
 
 
 class Exp(pyca.DiffMap):
-    r"""
-    Exponential function
-
-    Any exponential function is differentiable function, therefore its base class is DiffMap.
+    """
+    Exponential function, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -238,10 +236,8 @@ class Exp(pyca.DiffMap):
 
 
 class Log(pyca.DiffMap):
-    r"""
-    Natural logarithm function
-
-    Any natural logarithm function is differentiable function, therefore its base class is DiffMap.
+    """
+    Natural logarithm, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -258,10 +254,8 @@ class Log(pyca.DiffMap):
 
 
 class Log10(pyca.DiffMap):
-    r"""
-    Base 10 logarithm function
-
-    Any base 10 logarithm function is differentiable function, therefore its base class is DiffMap.
+    """
+    Base-10 logarithm, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -278,10 +272,8 @@ class Log10(pyca.DiffMap):
 
 
 class Log2(pyca.DiffMap):
-    r"""
-    Base 2 logarithm function
-
-    Any base 2 logarithm function is differentiable function, therefore its base class is DiffMap.
+    """
+    Base-2 logarithm, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
