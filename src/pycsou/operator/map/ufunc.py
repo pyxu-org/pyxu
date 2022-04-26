@@ -111,10 +111,8 @@ class Arctan(pyca.DiffMap):
 
 
 class Sinh(pyca.DiffMap):
-    r"""
-    Hyperbolic sine function
-
-    Any hyperbolic sine function is differentiable function, therefore its base class is DiffMap.
+    """
+    Hyperbolic sine, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -131,10 +129,8 @@ class Sinh(pyca.DiffMap):
 
 
 class Cosh(pyca.DiffMap):
-    r"""
-    Hyperbolic cosine function
-
-    Any hyperbolic cosine function is differentiable function, therefore its base class is DiffMap.
+    """
+    Hyperbolic cosine, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -151,16 +147,14 @@ class Cosh(pyca.DiffMap):
 
 
 class Tanh(pyca.DiffMap):
-    r"""
-    Hyperbolic tangent function
-
-    Any hyperbolic tangent function is differentiable function, therefore its base class is DiffMap.
+    """
+    Hyperbolic tangent, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape)
         self._lipschitz = 1
-        self._diff_lipschitz = 0.77
+        self._diff_lipschitz = 0.77  # Sepand: how is this computed?
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -169,20 +163,18 @@ class Tanh(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(1 / (xp.power(xp.cosh(arr), 2))))
+        return pyclb.ExplicitLinOp(xp.diag(1 - xp.tanh(arr) ** 2))
 
 
 class Arcsinh(pyca.DiffMap):
-    r"""
-    Inverse hyperbolic sine function
-
-    Any inverse hyperbolic sine function is differentiable function, therefore its base class is DiffMap.
+    """
+    Inverse hyperbolic sine, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape)
-        self._lipschitz = 1
-        self._diff_lipschitz = 0.39
+        self._lipschitz = 1  # Sepand: how is this computed?
+        self._diff_lipschitz = 0.39  # Sepand: how is this computed?
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -191,14 +183,12 @@ class Arcsinh(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(1 / (xp.sqrt(xp.power(arr, 2) + 1))))
+        return pyclb.ExplicitLinOp(xp.diag(1 / (xp.sqrt(1 + arr**2))))
 
 
 class Arccosh(pyca.Map):
-    r"""
-    Inverse hyperbolic cosine function
-
-    Any inverse hyperbolic cosine function is not differentiable function at {-1, +1}, therefore its base class is Map.
+    """
+    Inverse hyperbolic cosine, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -211,10 +201,8 @@ class Arccosh(pyca.Map):
 
 
 class Arctanh(pyca.Map):
-    r"""
-    Inverse hyperbolic tangent function
-
-    Any inverse hyperbolic tangent function is not differentiable function at {-1, +1}, therefore its base class is Map.
+    """
+    Inverse hyperbolic tangent, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
