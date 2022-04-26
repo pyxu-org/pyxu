@@ -20,32 +20,10 @@ class Sin(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Angle in radians
-
-        Returns
-        -------
-        NDArray
-            Sine of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.sin(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Angle in radians
-
-        Returns
-        -------
-        NDArray
-            Jacobian matrix of sine function of arr
-        """
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(xp.cos(arr)))
 
@@ -63,32 +41,10 @@ class Cos(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Angle in radians
-
-        Returns
-        -------
-        NDArray
-            Cosine of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.cos(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Angle in radians
-
-        Returns
-        -------
-        NDArray
-            Jacobian matrix of cosine function of arr
-        """
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(-xp.sin(arr)))
 
@@ -105,17 +61,6 @@ class Tan(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Angle, in radians (2\pi rad equals 360 degrees)
-
-        Returns
-        -------
-        NDArray
-            Tangent of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.tan(arr)
 
@@ -132,17 +77,6 @@ class Arcsin(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            y-coordinate on the unit circle, defined over [-1,1]
-
-        Returns
-        -------
-        NDArray
-            Inverse sine of each element of arr in radians
-        """
         xp = pycu.get_array_module(arr)
         return xp.arcsin(arr)
 
@@ -159,17 +93,6 @@ class Arccos(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            y-coordinate on the unit circle, defined over [-1,1]
-
-        Returns
-        -------
-        NDArray
-            Inverse cosine of each element of arr in radians
-        """
         xp = pycu.get_array_module(arr)
         return xp.arccos(arr)
 
@@ -188,31 +111,10 @@ class Arctan(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-
-        Returns
-        -------
-        NDArray
-            Inverse tangent of each element of arr in radians
-        """
         xp = pycu.get_array_module(arr)
         return xp.arctan(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Jacobian matrix of inverse tangent of arr
-        """
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(1 / (1 + xp.power(arr, 2))))
 
@@ -232,32 +134,10 @@ class Sinh(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Hyperbolic sine of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.sinh(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Jacobian matrix of hyperbolic sine of arr
-        """
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(xp.cosh(arr)))
 
@@ -274,32 +154,10 @@ class Cosh(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Hyperbolic cosine of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.cosh(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Jacobian matrix of hyperbolic cosine of arr
-        """
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(xp.sinh(arr)))
 
@@ -318,32 +176,10 @@ class Tanh(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Hyperbolic tangent of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.tanh(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Jacobian matrix of hyperbolic tangent of arr
-        """
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(1 / (xp.power(xp.cosh(arr), 2))))
 
@@ -362,32 +198,10 @@ class Arcsinh(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Inverse hyperbolic sine of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.arcsinh(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Jacobian matrix of inverse hyperbolic sine of arr
-        """
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(1 / (xp.sqrt(xp.power(arr, 2) + 1))))
 
@@ -404,17 +218,6 @@ class Arccosh(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array defined on positive real numbers
-
-        Returns
-        -------
-        NDArray
-            Inverse hyperbolic cosine of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.arccosh(arr)
 
@@ -431,17 +234,6 @@ class Arctanh(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array defined on [-1,1]
-
-        Returns
-        -------
-        NDArray
-            Inverse hyperbolic tangent of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.arctanh(arr)
 
@@ -461,31 +253,10 @@ class Exp(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Exponential of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.exp(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-            Jacobian matrix of exponential of arr
-        """
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(xp.exp(arr)))
 
@@ -502,31 +273,10 @@ class Log(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Natural logarithm of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.log(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-            Jacobian matrix of natural logarithm of arr
-        """
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(1 / arr))
 
@@ -543,31 +293,10 @@ class Log10(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Base 10 logarithm of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.log10(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-            Jacobian matrix of base 10 logarithm of arr
-        """
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(1 / (xp.log(10) * arr)))
 
@@ -584,31 +313,10 @@ class Log2(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Base 2 logarithm of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.log2(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-            Jacobian matrix of base 2 logarithm of arr
-        """
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(1 / (xp.log(2) * arr)))
 
@@ -626,19 +334,6 @@ class Prod(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-        axis: Int
-            Axis which the product is performed. Default is -1.
-
-        Returns
-        -------
-        NDArray
-            Product of elements of arr over a given axis
-        """
         xp = pycu.get_array_module(arr)
         return xp.array([xp.prod(arr, axis=axis)])
 
@@ -653,19 +348,6 @@ class Sum(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-        axis: Int
-            Axis which the sum is performed. Default is -1.
-
-        Returns
-        -------
-        NDArray
-            Sum of elements of arr over a given axis
-        """
         xp = pycu.get_array_module(arr)
         return xp.array([xp.sum(arr, axis=axis)])
 
@@ -680,19 +362,6 @@ class Cumprod(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-        axis: Int
-            Axis which the cumulative product is performed. Default is -1.
-
-        Returns
-        -------
-        NDArray
-            Cumulative product of elements of arr over a given axis
-        """
         xp = pycu.get_array_module(arr)
         return xp.cumprod(arr, axis=axis)
 
@@ -707,19 +376,6 @@ class Cumsum(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-        axis: Int
-            Axis which the cumulative sum is performed. Default is -1.
-
-        Returns
-        -------
-        NDArray
-            Cumulative sum of elements of arr over a given axis
-        """
         xp = pycu.get_array_module(arr)
         return xp.cumsum(arr, axis=axis)
 
@@ -768,17 +424,6 @@ class Sqrt(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array defined on nonnegative real numbers
-
-        Returns
-        -------
-        NDArray
-            Nonnegative square root of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.sqrt(arr)
 
@@ -795,17 +440,6 @@ class Cbrt(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Cube root of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.cbrt(arr)
 
@@ -823,31 +457,10 @@ class Square(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Square of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.square(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-            Jacobian matrix of square of arr
-        """
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(2 * arr))
 
@@ -865,31 +478,10 @@ class Abs(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Absolute of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.absolute(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-            Jacobian matrix of absolute of arr
-        """
         xp = pycu.get_array_module(arr)
         return pyclb.ExplicitLinOp(xp.diag(xp.sign(arr)))
 
@@ -906,17 +498,6 @@ class Sign(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-
-        Returns
-        -------
-        NDArray
-            Sign of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         return xp.sign(arr)
 
@@ -933,19 +514,6 @@ class Heaviside(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray, x2=0) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-        x2: Int
-            Value of function when arr is 0
-
-        Returns
-        -------
-        NDArray
-            Heaviside of each element of arr
-        """
         xp = pycu.get_array_module(arr)
         if "heaviside" in dir(xp):
             res = xp.heaviside(arr, x2)
