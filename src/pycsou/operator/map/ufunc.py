@@ -15,12 +15,6 @@ class Sin(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Sin, self).__init__(shape)
         self._lipschitz = self._diff_lipschitz = 1
 
@@ -64,12 +58,6 @@ class Cos(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Cos, self).__init__(shape)
         self._lipschitz = self._diff_lipschitz = 1
 
@@ -113,12 +101,6 @@ class Tan(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Tan, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -146,12 +128,6 @@ class Arcsin(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Arcsin, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -179,12 +155,6 @@ class Arccos(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Arccos, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -212,12 +182,6 @@ class Arctan(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Arctan, self).__init__(shape)
         self._lipschitz = 1
         self._diff_lipschitz = 0.65
@@ -264,12 +228,6 @@ class Sinh(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Sinh, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -312,12 +270,6 @@ class Cosh(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Cosh, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -360,12 +312,6 @@ class Tanh(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Tanh, self).__init__(shape)
         self._lipschitz = 1
         self._diff_lipschitz = 0.77
@@ -410,12 +356,6 @@ class Arcsinh(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Arcsinh, self).__init__(shape)
         self._lipschitz = 1
         self._diff_lipschitz = 0.39
@@ -460,12 +400,6 @@ class Arccosh(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Arccosh, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -493,12 +427,6 @@ class Arctanh(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Arctanh, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -529,12 +457,6 @@ class Exp(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Exp, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -576,12 +498,6 @@ class Log(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Log, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -623,12 +539,6 @@ class Log10(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Log10, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -670,12 +580,6 @@ class Log2(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Log2, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -718,12 +622,6 @@ class Prod(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Prod, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -751,12 +649,6 @@ class Sum(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Sum, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -784,12 +676,6 @@ class Cumprod(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Cumprod, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -817,12 +703,6 @@ class Cumsum(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Cumsum, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -853,12 +733,6 @@ class Clip(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Clip, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -890,12 +764,6 @@ class Sqrt(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Sqrt, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -923,12 +791,6 @@ class Cbrt(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Cbrt, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -956,12 +818,6 @@ class Square(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Square, self).__init__(shape)
         self._diff_lipschitz = 2
 
@@ -1004,12 +860,6 @@ class Abs(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Abs, self).__init__(shape)
         self._lipschitz = 1
 
@@ -1052,12 +902,6 @@ class Sign(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Sign, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
@@ -1085,12 +929,6 @@ class Heaviside(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: tuple(int, [int|None])
-            Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
-        """
         super(Heaviside, self).__init__(shape)
 
     @pycrt.enforce_precision(i="arr", o=True)
