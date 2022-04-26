@@ -292,60 +292,79 @@ class Log2(pyca.DiffMap):
 # Sums and Products
 
 
-class Prod(pyca.Map):
+class Prod(pyca.DiffFunc):
+    """
+    Product of array elements.
+    """
+
+    def __init__(self):
+        super().__init__(shape=(1, None))
+        # Sepand: lipschitz/diff_lipschitz?
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return arr.prod(axis=-1, keepdims=True)
+
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        # Sepand: to implement safely. (Beware of 0s.)
+        # f'(x)[q] = \prod_{k \ne q} x_{k}
+        pass
+
+
+class Sum(pyca.DiffFunc):
     r"""
-    Product of array elements over a given axis. Its base class is Map.
+    Sum of array elements.
+    """
+
+    def __init__(self):
+        super().__init__(shape=(1, None))
+        # Sepand: lipschitz/diff_lipschitz?
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return arr.sum(axis=-1, keepdims=True)
+
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.ones_like(arr)
+
+
+class Cumprod(pyca.DiffMap):
+    """
+    Cumulative product of elements.
     """
 
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.array([xp.prod(arr, axis=axis)])
+        return xp.cumprod(arr, axis=-1)
+
+    def jacobian(self, arr: pyct.NDArray):
+        # Sepand: to implement
+        pass
 
 
-class Sum(pyca.Map):
-    r"""
-    Sum of array elements over a given axis. Its base class is Map.
+class Cumsum(pyca.DiffMap):
+    """
+    Cumulative sum of elements.
     """
 
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.array([xp.sum(arr, axis=axis)])
+        return xp.cumsum(arr, axis=-1)
 
-
-class Cumprod(pyca.Map):
-    r"""
-    Cumulative product of elements along a given axis. Its base class is Map.
-    """
-
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        return xp.cumprod(arr, axis=axis)
-
-
-class Cumsum(pyca.Map):
-    r"""
-    Cumulative sum of elements along a given axis. Its base class is Map.
-    """
-
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        return xp.cumsum(arr, axis=axis)
+    def jacobian(self, arr: pyct.NDArray):
+        # Sepand: to implement
+        pass
 
 
 # Miscellaneous
