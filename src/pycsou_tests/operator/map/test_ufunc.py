@@ -71,7 +71,7 @@ class TestCos(conftest.DiffMapT):
         return self._random_array((N_test, data_shape[0]))
 
 class TestTan(conftest.MapT):
-    """
+    r"""
     Tangent function diverges for :math:`\mp(2k+1)k\pi/2`, with
     :math:`k \in \mathbb{N}`. Testing is done on :math`[-3*\pi/2+0.2,
     -\pi/2-0.2] \cup [-\pi/2+0.2, \pi/2-0.2] \cup [\pi/2+0.2,
@@ -337,7 +337,7 @@ class TestArcsinh(conftest.DiffMapT):
         return self._random_array((N_test, data_shape[0]))
 
 class TestArccosh(conftest.MapT):
-    """
+    r"""
     Inverse hyperbolic cosine function defined for :math:`[1,\infty)`.
     """
     @pytest.fixture
@@ -432,7 +432,7 @@ class TestExp(conftest.DiffMapT):
         return self._random_array((N_test, data_shape[0]))
 
 class TestLog(conftest.DiffMapT):
-    """
+    r"""
     Natural logarithm function defined for :math:`(0,\infty)`.
     """
     @pytest.fixture
@@ -468,7 +468,7 @@ class TestLog(conftest.DiffMapT):
         return np.abs(self._random_array((N_test, data_shape[0])))
 
 class TestLog10(conftest.DiffMapT):
-    """
+    r"""
     Base 10 logarithm function defined for :math:`(0,\infty)`.
     """
     @pytest.fixture
@@ -503,7 +503,7 @@ class TestLog10(conftest.DiffMapT):
         return np.abs(self._random_array((N_test, data_shape[0])))
 
 class TestLog2(conftest.DiffMapT):
-    """
+    r"""
     Base 2 logarithm function defined for :math:`(0,\infty)`.
     """
     @pytest.fixture
@@ -679,7 +679,7 @@ class TestClip(conftest.MapT):
         return self._random_array((N_test, data_shape[0]))
 
 class TestSqrt(conftest.MapT):
-    """
+    r"""
     Square root function defined for :math:`[0,\infty)`.
     """
     @pytest.fixture
