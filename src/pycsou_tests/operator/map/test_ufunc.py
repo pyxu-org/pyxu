@@ -1,10 +1,11 @@
 import numpy as np
 import pytest
+
 import pycsou.operator.map.ufunc as pycmu
 import pycsou_tests.operator.conftest as conftest
 
-
 # Trigonometric Functions
+
 
 class TestSin(conftest.DiffMapT):
     @pytest.fixture
@@ -21,7 +22,7 @@ class TestSin(conftest.DiffMapT):
 
     @pytest.fixture
     def data_apply(self, data_shape):
-        A = np.linspace(0, 2*np.pi, data_shape[0])
+        A = np.linspace(0, 2 * np.pi, data_shape[0])
         B = np.sin(A)
         return dict(
             in_=dict(arr=A),
@@ -38,6 +39,7 @@ class TestSin(conftest.DiffMapT):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
+
 class TestCos(conftest.DiffMapT):
     @pytest.fixture
     def dim(self):
@@ -53,7 +55,7 @@ class TestCos(conftest.DiffMapT):
 
     @pytest.fixture
     def data_apply(self, data_shape):
-        A = np.linspace(0, 2*np.pi, data_shape[0])
+        A = np.linspace(0, 2 * np.pi, data_shape[0])
         B = np.cos(A)
         return dict(
             in_=dict(arr=A),
@@ -70,6 +72,7 @@ class TestCos(conftest.DiffMapT):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
+
 class TestTan(conftest.MapT):
     r"""
     Tangent function diverges for :math:`\mp(2k+1)k\pi/2`, with
@@ -77,6 +80,7 @@ class TestTan(conftest.MapT):
     -\pi/2-0.2] \cup [-\pi/2+0.2, \pi/2-0.2] \cup [\pi/2+0.2,
     3*\pi/2-0.2]`.
     """
+
     @pytest.fixture
     def dim(self):
         return 7
@@ -92,17 +96,17 @@ class TestTan(conftest.MapT):
     @pytest.fixture(
         params=[
             dict(
-                in_=dict(arr=np.linspace(-3*np.pi / 2 + 0.2, -np.pi / 2 - 0.2, 5)),
-                out=np.tan(np.linspace(-3*np.pi / 2 + 0.2, -np.pi / 2 - 0.2, 5))
+                in_=dict(arr=np.linspace(-3 * np.pi / 2 + 0.2, -np.pi / 2 - 0.2, 5)),
+                out=np.tan(np.linspace(-3 * np.pi / 2 + 0.2, -np.pi / 2 - 0.2, 5)),
             ),
             dict(
-                in_=dict(arr=np.linspace(-np.pi/2+0.1, np.pi/2-0.1, 5)),
-                out=np.tan(np.linspace(-np.pi/2+0.1, np.pi/2-0.1, 5))
+                in_=dict(arr=np.linspace(-np.pi / 2 + 0.1, np.pi / 2 - 0.1, 5)),
+                out=np.tan(np.linspace(-np.pi / 2 + 0.1, np.pi / 2 - 0.1, 5)),
             ),
             dict(
                 in_=dict(arr=np.linspace(np.pi / 2 + 0.2, 3 * np.pi / 2 - 0.2, 5)),
-                out=np.tan(np.linspace(np.pi / 2 + 0.2, 3 * np.pi / 2 - 0.2, 5))
-            )
+                out=np.tan(np.linspace(np.pi / 2 + 0.2, 3 * np.pi / 2 - 0.2, 5)),
+            ),
         ]
     )
     def data_apply(self, request):
@@ -113,10 +117,12 @@ class TestTan(conftest.MapT):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
+
 class TestArcsin(conftest.MapT):
     """
     Inverse sine function defined for :math:`[-1,1]`.
     """
+
     @pytest.fixture
     def dim(self):
         return 7
@@ -143,10 +149,12 @@ class TestArcsin(conftest.MapT):
         N_test = 5
         return np.clip(self._random_array((N_test, data_shape[0])), -1, 1)
 
+
 class TestArccos(conftest.MapT):
     """
     Inverse cosine function defined for :math:`[-1,1]`.
     """
+
     @pytest.fixture
     def dim(self):
         return 7
@@ -172,6 +180,7 @@ class TestArccos(conftest.MapT):
     def data_math_lipschitz(self, data_shape):
         N_test = 5
         return np.clip(self._random_array((N_test, data_shape[0])), -1, 1)
+
 
 class TestArctan(conftest.DiffMapT):
     @pytest.fixture
@@ -208,6 +217,7 @@ class TestArctan(conftest.DiffMapT):
 
 # Hyperbolic Functions
 
+
 class TestSinh(conftest.DiffMapT):
     @pytest.fixture
     def dim(self):
@@ -239,6 +249,7 @@ class TestSinh(conftest.DiffMapT):
     def data_math_diff_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
+
 
 class TestCosh(conftest.DiffMapT):
     @pytest.fixture
@@ -272,6 +283,7 @@ class TestCosh(conftest.DiffMapT):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
+
 class TestTanh(conftest.DiffMapT):
     @pytest.fixture
     def dim(self):
@@ -303,6 +315,7 @@ class TestTanh(conftest.DiffMapT):
     def data_math_diff_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
+
 
 class TestArcsinh(conftest.DiffMapT):
     @pytest.fixture
@@ -336,10 +349,12 @@ class TestArcsinh(conftest.DiffMapT):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
+
 class TestArccosh(conftest.MapT):
     r"""
     Inverse hyperbolic cosine function defined for :math:`[1,\infty)`.
     """
+
     @pytest.fixture
     def dim(self):
         return 7
@@ -364,12 +379,14 @@ class TestArccosh(conftest.MapT):
     @pytest.fixture
     def data_math_lipschitz(self, data_shape):
         N_test = 5
-        return np.clip(self._random_array((N_test, data_shape[0]))+3, a_min=1, a_max=4)
+        return np.clip(self._random_array((N_test, data_shape[0])) + 3, a_min=1, a_max=4)
+
 
 class TestArctanh(conftest.MapT):
     """
     Inverse hyperbolic tangent function defined for :math:`(-1,1)`.
     """
+
     @pytest.fixture
     def dim(self):
         return 7
@@ -384,7 +401,7 @@ class TestArctanh(conftest.MapT):
 
     @pytest.fixture
     def data_apply(self, data_shape):
-        A = np.linspace(-1+0.01, 1-0.01, data_shape[0])
+        A = np.linspace(-1 + 0.01, 1 - 0.01, data_shape[0])
         B = np.arctanh(A)
         return dict(
             in_=dict(arr=A),
@@ -394,10 +411,11 @@ class TestArctanh(conftest.MapT):
     @pytest.fixture
     def data_math_lipschitz(self, data_shape):
         N_test = 5
-        return np.clip(self._random_array((N_test, data_shape[0])), a_min=-1+0.01, a_max=1-0.01)
+        return np.clip(self._random_array((N_test, data_shape[0])), a_min=-1 + 0.01, a_max=1 - 0.01)
 
 
 # Exponentials and logarithms
+
 
 class TestExp(conftest.DiffMapT):
     @pytest.fixture
@@ -431,10 +449,12 @@ class TestExp(conftest.DiffMapT):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
+
 class TestLog(conftest.DiffMapT):
     r"""
     Natural logarithm function defined for :math:`(0,\infty)`.
     """
+
     @pytest.fixture
     def dim(self):
         return 100
@@ -467,10 +487,12 @@ class TestLog(conftest.DiffMapT):
         N_test = 5
         return np.abs(self._random_array((N_test, data_shape[0])))
 
+
 class TestLog10(conftest.DiffMapT):
     r"""
     Base 10 logarithm function defined for :math:`(0,\infty)`.
     """
+
     @pytest.fixture
     def dim(self):
         return 100
@@ -502,10 +524,12 @@ class TestLog10(conftest.DiffMapT):
         N_test = 5
         return np.abs(self._random_array((N_test, data_shape[0])))
 
+
 class TestLog2(conftest.DiffMapT):
     r"""
     Base 2 logarithm function defined for :math:`(0,\infty)`.
     """
+
     @pytest.fixture
     def dim(self):
         return 100
@@ -540,6 +564,7 @@ class TestLog2(conftest.DiffMapT):
 
 # Sums, Products and Differences
 
+
 class TestProd(conftest.MapT):
     @pytest.fixture
     def dim(self):
@@ -547,7 +572,7 @@ class TestProd(conftest.MapT):
 
     @pytest.fixture
     def data_shape(self, dim):
-        return (dim,0)
+        return (dim, 0)
 
     @pytest.fixture
     def op(self, data_shape):
@@ -567,6 +592,7 @@ class TestProd(conftest.MapT):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
+
 class TestSum(conftest.MapT):
     @pytest.fixture
     def dim(self):
@@ -574,7 +600,7 @@ class TestSum(conftest.MapT):
 
     @pytest.fixture
     def data_shape(self, dim):
-        return (dim,0)
+        return (dim, 0)
 
     @pytest.fixture
     def op(self, data_shape):
@@ -593,6 +619,7 @@ class TestSum(conftest.MapT):
     def data_math_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
+
 
 class TestCumprod(conftest.MapT):
     @pytest.fixture
@@ -620,6 +647,7 @@ class TestCumprod(conftest.MapT):
     def data_math_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
+
 
 class TestCumsum(conftest.MapT):
     @pytest.fixture
@@ -651,6 +679,7 @@ class TestCumsum(conftest.MapT):
 
 # Miscellaneous
 
+
 class TestClip(conftest.MapT):
     @pytest.fixture
     def dim(self):
@@ -678,10 +707,12 @@ class TestClip(conftest.MapT):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
+
 class TestSqrt(conftest.MapT):
     r"""
     Square root function defined for :math:`[0,\infty)`.
     """
+
     @pytest.fixture
     def dim(self):
         return 100
@@ -707,6 +738,7 @@ class TestSqrt(conftest.MapT):
     def data_math_lipschitz(self, data_shape):
         N_test = 5
         return np.abs(self._random_array((N_test, data_shape[0])))
+
 
 class TestCbrt(conftest.MapT):
     @pytest.fixture
@@ -734,6 +766,7 @@ class TestCbrt(conftest.MapT):
     def data_math_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
+
 
 class TestSquare(conftest.DiffMapT):
     @pytest.fixture
@@ -766,6 +799,7 @@ class TestSquare(conftest.DiffMapT):
     def data_math_diff_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
+
 
 class TestAbs(conftest.DiffMapT):
     @pytest.fixture
@@ -800,6 +834,7 @@ class TestAbs(conftest.DiffMapT):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
+
 class TestSign(conftest.MapT):
     @pytest.fixture
     def dim(self):
@@ -826,6 +861,7 @@ class TestSign(conftest.MapT):
     def data_math_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
+
 
 class TestHeaviside(conftest.MapT):
     @pytest.fixture
