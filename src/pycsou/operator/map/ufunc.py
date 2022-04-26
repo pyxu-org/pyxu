@@ -15,7 +15,7 @@ class Sin(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Sin, self).__init__(shape)
+        super().__init__(shape)
         self._lipschitz = self._diff_lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
@@ -36,7 +36,7 @@ class Cos(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Cos, self).__init__(shape)
+        super().__init__(shape)
         self._lipschitz = self._diff_lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
@@ -57,7 +57,7 @@ class Tan(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Tan, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -73,7 +73,7 @@ class Arcsin(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Arcsin, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -89,7 +89,7 @@ class Arccos(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Arccos, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -105,7 +105,7 @@ class Arctan(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Arctan, self).__init__(shape)
+        super().__init__(shape)
         self._lipschitz = 1
         self._diff_lipschitz = 0.65
 
@@ -130,7 +130,7 @@ class Sinh(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Sinh, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -150,7 +150,7 @@ class Cosh(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Cosh, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -170,7 +170,7 @@ class Tanh(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Tanh, self).__init__(shape)
+        super().__init__(shape)
         self._lipschitz = 1
         self._diff_lipschitz = 0.77
 
@@ -192,7 +192,7 @@ class Arcsinh(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Arcsinh, self).__init__(shape)
+        super().__init__(shape)
         self._lipschitz = 1
         self._diff_lipschitz = 0.39
 
@@ -214,7 +214,7 @@ class Arccosh(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Arccosh, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -230,7 +230,7 @@ class Arctanh(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Arctanh, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -249,7 +249,7 @@ class Exp(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Exp, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -269,7 +269,7 @@ class Log(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Log, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -289,7 +289,7 @@ class Log10(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Log10, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -309,7 +309,7 @@ class Log2(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Log2, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -330,7 +330,7 @@ class Prod(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Prod, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
@@ -344,7 +344,7 @@ class Sum(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Sum, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
@@ -358,7 +358,7 @@ class Cumprod(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Cumprod, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
@@ -372,7 +372,7 @@ class Cumsum(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Cumsum, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray, axis=-1) -> pyct.NDArray:
@@ -389,7 +389,7 @@ class Clip(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Clip, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray, a_min=0.0, a_max=1.0) -> pyct.NDArray:
@@ -420,7 +420,7 @@ class Sqrt(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Sqrt, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -436,7 +436,7 @@ class Cbrt(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Cbrt, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -452,7 +452,7 @@ class Square(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Square, self).__init__(shape)
+        super().__init__(shape)
         self._diff_lipschitz = 2
 
     @pycrt.enforce_precision(i="arr")
@@ -473,7 +473,7 @@ class Abs(pyca.DiffMap):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Abs, self).__init__(shape)
+        super().__init__(shape)
         self._lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
@@ -494,7 +494,7 @@ class Sign(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Sign, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -510,7 +510,7 @@ class Heaviside(pyca.Map):
     """
 
     def __init__(self, shape: pyct.Shape):
-        super(Heaviside, self).__init__(shape)
+        super().__init__(shape)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray, x2=0) -> pyct.NDArray:
