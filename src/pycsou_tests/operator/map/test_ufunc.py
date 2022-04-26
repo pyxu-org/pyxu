@@ -576,7 +576,7 @@ class TestProd(conftest.MapT):
 
     @pytest.fixture
     def op(self, data_shape):
-        return pycmu.Prod(shape=data_shape)
+        return pycmu.Prod()
 
     @pytest.fixture
     def data_apply(self, data_shape):
@@ -604,7 +604,7 @@ class TestSum(conftest.MapT):
 
     @pytest.fixture
     def op(self, data_shape):
-        return pycmu.Sum(shape=data_shape)
+        return pycmu.Sum()
 
     @pytest.fixture
     def data_apply(self, data_shape):
