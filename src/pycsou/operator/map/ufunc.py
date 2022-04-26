@@ -8,10 +8,8 @@ import pycsou.util.ptype as pyct
 
 
 class Sin(pyca.DiffMap):
-    r"""
-    Sine function
-
-    Any sine function is differentiable function, therefore its base class is DiffMap.
+    """
+    Trigonometric sine, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -29,10 +27,8 @@ class Sin(pyca.DiffMap):
 
 
 class Cos(pyca.DiffMap):
-    r"""
-    Cosine function
-
-    Any cosine function is differentiable function, therefore its base class is DiffMap.
+    """
+    Trigonometric cosine, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -50,10 +46,8 @@ class Cos(pyca.DiffMap):
 
 
 class Tan(pyca.Map):
-    r"""
-    Tangent function
-
-    Any tangent function is non-differentiable function, therefore its base class is Map.
+    """
+    Trigonometric tangent, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -66,10 +60,8 @@ class Tan(pyca.Map):
 
 
 class Arcsin(pyca.Map):
-    r"""
-    Inverse sine function
-
-    Any inverse sine function is not differentiable function at {-1, +1}, therefore its base class is Map.
+    """
+    Inverse sine, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -82,10 +74,8 @@ class Arcsin(pyca.Map):
 
 
 class Arccos(pyca.Map):
-    r"""
-    Inverse cosine function
-
-    Any inverse cosine function is not differentiable function at {-1, +1}, therefore its base class is Map.
+    """
+    Inverse cosine, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -98,16 +88,14 @@ class Arccos(pyca.Map):
 
 
 class Arctan(pyca.DiffMap):
-    r"""
-    Inverse tangent function
-
-    Inverse tangent function is differentiable function, therefore its base class is DiffMap.
+    """
+    Inverse tangent, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape)
         self._lipschitz = 1
-        self._diff_lipschitz = 0.65
+        self._diff_lipschitz = 0.65  # Sepand: how is this computed?
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -116,7 +104,7 @@ class Arctan(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(1 / (1 + xp.power(arr, 2))))
+        return pyclb.ExplicitLinOp(xp.diag(1 / (1 + arr**2)))
 
 
 # Hyperbolic Functions
