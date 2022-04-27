@@ -11,3 +11,5 @@ References
 .. [P2] Jain, Raj, and Imrich Chlamtac. "The P2 algorithm for dynamic calculation of quantiles and histograms without storing observations." Communications of the ACM 28.10 (1985): 1076-1085.
 .. [GaussProcesses] Rasmussen, Carl Edward, and C. K. Williams. "Gaussian processes for machine learning, vol. 1." (2006).
 .. [SubGauss] Aziznejad, Shayan, and Michael Unser. "An L1 representer theorem for multiple-kernel regression." arXiv preprint arXiv:1811.00836 (2018).
+.. [PFW] Jarret, Adrian, Julien Fageot, and Matthieu Simeoni. “A Fast and Scalable Polyatomic Frank-Wolfe Algorithm for the LASSO.” IEEE Signal Processing Letters 29 (2022): 637–41.
+.. [RevFW] Jaggi, Martin. “Revisiting Frank-Wolfe: Projection-Free Sparse Convex Optimization.” In Proceedings of the 30th International Conference on Machine Learning, 427–35. PMLR, 2013.
