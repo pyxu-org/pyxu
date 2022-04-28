@@ -62,6 +62,7 @@ class GenericFWforLasso(pycs.Solver):
         self.objective = self._data_fidelity + self._penalty
 
         self._bound = 0.5 * SquaredL2Norm()(data)[0] / self.lambda_  # todo : [0] te remove maybe ?
+        # self._bound = self.objective(data)[0] / self.lambda_  # alternative expression
 
         # self.module = pycu.get_array_module(data)
         self.compute_ofv = True  # default
@@ -71,7 +72,7 @@ class GenericFWforLasso(pycs.Solver):
         xp = pycu.get_array_module(self.data)
         mst = self._mstate  # shorthand
 
-        mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision())
+        mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
         mst["dcv"] = np.inf
         self.compute_ofv = kwargs.pop("compute_ofv", True)  # if we don't need the objective function, this can be
         # specified with compute_ofv=False
@@ -368,18 +369,18 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         if mst["positions"].size > 1:
             mst["x"] = self.rs_correction(mst["positions"])
         elif mst["positions"].size == 1:
-            tmp = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision())
+            tmp = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
             tmp[mst["positions"]] = 1.0
             column = self.forwardOp(tmp)
             corr = xp.dot(self.data, column).real
             if abs(corr) <= self.lambda_:
-                mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision())
+                mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
             elif corr > self.lambda_:
                 mst["x"] = ((corr - self.lambda_) / SquaredL2Norm()(column)[0]) * tmp
             else:
                 mst["x"] = ((corr + self.lambda_) / SquaredL2Norm()(column)[0]) * tmp
         else:
-            mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision())
+            mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
         if self.compute_ofv:
             mst["ofv"] = self.objective(mst["x"])[0]
 
@@ -441,3 +442,4 @@ def dcvStoppingCrit(eps: float = 1e-2) -> pycs.StoppingCriterion:
 #   * test pfw first remove=False then True
 #   * consistency of the docstrings: s or z in -zation -ze words
 #   * define private and public variables
+#   * remove the calls to SquaredL2Norm so that is becomes independent of the implementation of the functional
