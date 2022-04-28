@@ -11,8 +11,8 @@ import pycsou.util.ptype as pyct
 class SquaredL2Norm(pyco.ProxDiffFunc):
     # f: \bR^{M} -> \bR
     #      x     -> \norm{x}{2}^{2}
-    def __init__(self, M: int = None):
-        super().__init__(shape=(1, M))
+    def __init__(self, shape=None):
+        super().__init__(shape=(1, None))
         self._lipschitz = np.inf
         self._diff_lipschitz = 2
 
@@ -31,6 +31,13 @@ class SquaredL2Norm(pyco.ProxDiffFunc):
     def prox(self, arr, tau):
         y = arr / (2 * tau + 1)
         return y
+
+    #    @pycrt.enforce_precision(i=["data"])
+    def asloss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.ProxFunc:
+        if data is None:
+            return self
+        else:
+            return self.argshift(-data)
 
 
 class L1Norm(pyco.ProxFunc):
