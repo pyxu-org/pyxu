@@ -596,7 +596,7 @@ class PD3O(_PDS):
         sigma: typ.Optional[pyct.Real] = None,
         rho: typ.Optional[pyct.Real] = None,
     ):
-        super(PD3O, self).m_init()
+        super(PD3O, self).m_init(x0=x0, z0=z0, tau=tau, sigma=sigma, rho=rho)
         self._mstate["u"] = x0 if x0.ndim > 1 else x0.reshape(1, -1)
 
     def m_step(
@@ -606,7 +606,9 @@ class PD3O(_PDS):
         mst["x"] = self._g.prox(mst["u"] - mst["tau"] * self._K.jacobian(mst["u"]).adjoint(mst["z"]), tau=mst["tau"])
         u_temp = mst["x"] - mst["tau"] * self._f.grad(mst["x"])
         if not isinstance(self._h, pyclo.NullFunc):
-            z_temp = self._h.fenchel_prox(mst["z"] + mst["sigma"] * self._K(mst["x"] + u_temp - mst["u"]))
+            z_temp = self._h.fenchel_prox(
+                mst["z"] + mst["sigma"] * self._K(mst["x"] + u_temp - mst["u"]), sigma=mst["sigma"]
+            )
             mst["z"] = (1 - mst["rho"]) * mst["z"] + mst["rho"] * z_temp
         mst["u"] = (1 - mst["rho"]) * mst["u"] + mst["rho"] * u_temp
 
