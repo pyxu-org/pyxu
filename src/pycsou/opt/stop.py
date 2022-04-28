@@ -250,8 +250,9 @@ class RelError(pycs.StoppingCriterion):
             norm = lambda _: xp.linalg.norm(_, ord=self._norm, axis=-1, keepdims=True)
             rule = xp.all if self._satisfy_all else xp.any
 
-            denominator = norm(self._f(self._x_prev))
-            numerator = norm(f(x) - denominator)
+            fx_prev = self._f(self._x_prev)
+            numerator = norm(self._f(x) - fx_prev)
+            denominator = norm(fx_prev)
             decision = rule(numerator <= self._eps * denominator)
 
             with warnings.catch_warnings():
