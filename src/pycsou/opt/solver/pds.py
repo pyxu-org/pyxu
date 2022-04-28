@@ -700,7 +700,7 @@ class PD3O(_PDS):
 
         c = np.array([-1, -1])
         A_ub = np.array([[1, 1], [1, 0]])
-        b_ub = np.array([-2 * np.log(self._K._lipschitz), np.log(1.99 / self._beta)])
+        b_ub = np.array([np.log(0.99) - 2 * np.log(self._K._lipschitz), np.log(1.99 / self._beta)])
         A_eq = np.array([[1, -1]])
         b_eq = np.array([0])
         result = linprog(c=c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=(None, None))
