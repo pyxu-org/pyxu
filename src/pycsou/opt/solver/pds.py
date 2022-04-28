@@ -480,15 +480,6 @@ class PD3O(_PDS):
     .. math::
         \Psi(\mathbf{x}_n) - \Psi^\ast = o(1/\sqrt{n}).
 
-    **Remark 4:**
-
-    Assuming the same conditions as in "Remark 3" are held, then, we can define the following weighted ergodic iterate:
-    .. math::
-        \bar{\mathbf{x}}_{n} = \frac{2}{n(n+1)}\sum^{n}_{i=1}i\mathbf{x}_{n}
-
-    which objective functional sequence :math:`\left(\Psi(\bar{\mathbf{x}}_{n})\right)_{n\in\mathbb{N}}` converges towards
-    its minimum :math:`\Psi^\ast` with asymptotic rate :math:`O(1/n)` (Theorem 1 of [dPSA]_).
-
     **Initizialization parameters of the class:**
 
     f: DiffFunc | None
