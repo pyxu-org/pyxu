@@ -536,6 +536,10 @@ class PD3O(_PDS):
 
     if :math:`\frac{1}{\sigma_{1}}\Vert\mathbf{K}\Vert_{2}^{-2}< \frac{2}{\beta}`, or :math:`\tau=\frac{1.99}{\beta}` otherwise.
 
+    The momentum parameter is set by default to :math:`\rho = 1`, as the convergence rate :math:`o(1/\sqrt{n})` in *Remark 3*
+    is only proven for this value of :math:`\rho` (Theorem 1 of [dPSA]_).
+
+
     Examples
     --------
     Consider the following optimisation problem:
