@@ -28,6 +28,10 @@ class Sin(pyca.DiffMap):
         return pyclb.DiagonalOp(xp.cos(arr))
 
 
+def sin(op: pyca.Map) -> pyca.Map:
+    return Sin(op.shape)
+
+
 class Cos(pyca.DiffMap):
     """
     Trigonometric cosine, element-wise.
@@ -47,6 +51,10 @@ class Cos(pyca.DiffMap):
         return pyclb.DiagonalOp(-xp.sin(arr))
 
 
+def cos(op: pyca.Map) -> pyca.Map:
+    return Cos(op.shape)
+
+
 class Tan(pyca.Map):
     """
     Trigonometric tangent, element-wise.
@@ -59,6 +67,10 @@ class Tan(pyca.Map):
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         return xp.tan(arr)
+
+
+def tan(op: pyca.Map) -> pyca.Map:
+    return Tan(op.shape)
 
 
 class Arcsin(pyca.Map):
@@ -75,6 +87,10 @@ class Arcsin(pyca.Map):
         return xp.arcsin(arr)
 
 
+def arcsin(op: pyca.Map) -> pyca.Map:
+    return Arcsin(op.shape)
+
+
 class Arccos(pyca.Map):
     """
     Inverse cosine, element-wise.
@@ -87,6 +103,10 @@ class Arccos(pyca.Map):
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         return xp.arccos(arr)
+
+
+def arccos(op: pyca.Map) -> pyca.Map:
+    return Arccos(op.shape)
 
 
 class Arctan(pyca.DiffMap):
@@ -107,6 +127,10 @@ class Arctan(pyca.DiffMap):
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(1 / (1 + arr**2))
+
+
+def arctan(op: pyca.Map) -> pyca.Map:
+    return Arctan(op.shape)
 
 
 # Hyperbolic Functions
