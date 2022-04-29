@@ -23,7 +23,7 @@ class Sin(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(xp.cos(arr)))
+        return pyclb.DiagonalOp(xp.cos(arr))
 
 
 class Cos(pyca.DiffMap):
@@ -42,7 +42,7 @@ class Cos(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(-xp.sin(arr)))
+        return pyclb.DiagonalOp(-xp.sin(arr))
 
 
 class Tan(pyca.Map):
@@ -104,7 +104,7 @@ class Arctan(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(1 / (1 + arr**2)))
+        return pyclb.DiagonalOp(1 / (1 + arr**2))
 
 
 # Hyperbolic Functions
@@ -125,7 +125,7 @@ class Sinh(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(xp.cosh(arr)))
+        return pyclb.DiagonalOp(xp.cosh(arr))
 
 
 class Cosh(pyca.DiffMap):
@@ -143,7 +143,7 @@ class Cosh(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(xp.sinh(arr)))
+        return pyclb.DiagonalOp(xp.sinh(arr))
 
 
 class Tanh(pyca.DiffMap):
@@ -163,7 +163,7 @@ class Tanh(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(1 - xp.tanh(arr) ** 2))
+        return pyclb.DiagonalOp(1 - xp.tanh(arr) ** 2)
 
 
 class Arcsinh(pyca.DiffMap):
@@ -183,7 +183,7 @@ class Arcsinh(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(1 / (xp.sqrt(1 + arr**2))))
+        return pyclb.DiagonalOp(1 / (xp.sqrt(1 + arr**2)))
 
 
 class Arccosh(pyca.Map):
@@ -232,7 +232,7 @@ class Exp(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(xp.exp(arr)))
+        return pyclb.DiagonalOp(xp.exp(arr))
 
 
 class Log(pyca.DiffMap):
@@ -250,7 +250,7 @@ class Log(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(1 / arr))
+        return pyclb.DiagonalOp(1 / arr)
 
 
 class Log10(pyca.DiffMap):
@@ -268,7 +268,7 @@ class Log10(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(1 / (xp.log(10) * arr)))
+        return pyclb.DiagonalOp(1 / (xp.log(10) * arr))
 
 
 class Log2(pyca.DiffMap):
@@ -286,7 +286,7 @@ class Log2(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(1 / (xp.log(2) * arr)))
+        return pyclb.DiagonalOp(1 / (xp.log(2) * arr))
 
 
 # Sums and Products
@@ -449,7 +449,7 @@ class Square(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(2 * arr))
+        return pyclb.DiagonalOp(2 * arr)
 
 
 class Abs(pyca.DiffMap):
@@ -470,7 +470,7 @@ class Abs(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.diag(xp.sign(arr)))
+        return pyclb.DiagonalOp(xp.sign(arr))
 
 
 class Sign(pyca.Map):
