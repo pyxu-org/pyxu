@@ -262,9 +262,6 @@ class Log(pyca.DiffMap):
         return pyclb.DiagonalOp(y)
 
 
-Log2 = lambda shape: Log(shape, base=2)
-Log10 = lambda shape: Log(shape, base=10)
-
 # Sums and Products
 
 
