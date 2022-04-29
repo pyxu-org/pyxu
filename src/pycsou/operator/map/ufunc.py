@@ -285,6 +285,10 @@ class Exp(pyca.DiffMap):
         return pyclb.DiagonalOp(xp.exp(arr))
 
 
+def exp(op: pyca.Map) -> pyca.Map:
+    return Exp(op.shape)
+
+
 class Log(pyca.DiffMap):
     """
     Logarithm, element-wise. (Default: base-E logarithm.)
@@ -308,6 +312,10 @@ class Log(pyca.DiffMap):
         if self._base is not None:
             y /= np.log(self._base)
         return pyclb.DiagonalOp(y)
+
+
+def log(op: pyca.Map, base: pyct.Real = None) -> pyca.Map:
+    return Log(op.shape, base)
 
 
 # Sums and Products
