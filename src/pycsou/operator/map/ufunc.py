@@ -1,3 +1,5 @@
+import numpy as np
+
 import pycsou.abc as pyca
 import pycsou.operator.linop.base as pyclb
 import pycsou.runtime as pycrt
@@ -237,57 +239,31 @@ class Exp(pyca.DiffMap):
 
 class Log(pyca.DiffMap):
     """
-    Natural logarithm, element-wise.
+    Logarithm, element-wise. (Default: base-E logarithm.)
     """
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.Shape, base: pyct.Real = None):
         super().__init__(shape)
+        self._base = base
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.log(arr)
+        out = xp.log(arr)
+        if self._base is not None:
+            out /= np.log(self._base)
+        return out
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(1 / arr)
+        y = 1 / arr
+        if self._base is not None:
+            y /= np.log(self._base)
+        return pyclb.DiagonalOp(y)
 
 
-class Log10(pyca.DiffMap):
-    """
-    Base-10 logarithm, element-wise.
-    """
-
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        return xp.log10(arr)
-
-    def jacobian(self, arr: pyct.NDArray):
-        xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(1 / (xp.log(10) * arr))
-
-
-class Log2(pyca.DiffMap):
-    """
-    Base-2 logarithm, element-wise.
-    """
-
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        return xp.log2(arr)
-
-    def jacobian(self, arr: pyct.NDArray):
-        xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(1 / (xp.log(2) * arr))
-
+Log2 = lambda shape: Log(shape, base=2)
+Log10 = lambda shape: Log(shape, base=10)
 
 # Sums and Products
 
