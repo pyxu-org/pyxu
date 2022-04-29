@@ -269,24 +269,31 @@ def arctanh(op: pyca.Map) -> pyca.Map:
 
 class Exp(pyca.DiffMap):
     """
-    Exponential function, element-wise.
+    Exponential function, element-wise. (Default: base-E exponential.)
     """
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.Shape, base: pyct.Real = None):
         super().__init__(shape)
+        self._base = base
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.exp(arr)
+        out = arr.copy()
+        if self._base is not None:
+            out *= np.log(self._base)
+        return xp.exp(out)
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(xp.exp(arr))
+        y = self.apply(arr)
+        if self._base is not None:
+            y *= np.log(self._base)
+        return pyclb.DiagonalOp(y)
 
 
-def exp(op: pyca.Map) -> pyca.Map:
-    return Exp(op.shape)
+def exp(op: pyca.Map, base: pyct.Real = None) -> pyca.Map:
+    return Exp(op.shape, base)
 
 
 class Log(pyca.DiffMap):
