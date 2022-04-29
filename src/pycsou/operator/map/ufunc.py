@@ -526,25 +526,3 @@ class Sign(pyca.Map):
 
 def sign(op: pyca.Map) -> pyca.Map:
     return Sign(op.shape)
-
-
-class Heaviside(pyca.Map):
-    r"""
-    Heaviside function
-
-    Any heaviside function is not differentiable function, therefore its base class is Map.
-    """
-
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray, x2=0) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        if "heaviside" in dir(xp):
-            res = xp.heaviside(arr, x2)
-        else:
-            res = xp.sign(arr)
-            res[res == 0] = x2
-            res[res < 0] = 0
-        return res

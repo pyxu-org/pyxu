@@ -787,31 +787,3 @@ class TestSign(conftest.MapT):
     def data_math_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
-
-
-class TestHeaviside(conftest.MapT):
-    @pytest.fixture
-    def dim(self):
-        return 10000
-
-    @pytest.fixture
-    def data_shape(self, dim):
-        return (dim, dim)
-
-    @pytest.fixture
-    def op(self, data_shape):
-        return pycmu.Heaviside(shape=data_shape)
-
-    @pytest.fixture
-    def data_apply(self, data_shape):
-        A = np.linspace(-100, 100, data_shape[0])
-        B = np.heaviside(A, 0)
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
-
-    @pytest.fixture
-    def data_math_lipschitz(self, data_shape):
-        N_test = 5
-        return self._random_array((N_test, data_shape[0]))
