@@ -154,6 +154,10 @@ class Sinh(pyca.DiffMap):
         return pyclb.DiagonalOp(xp.cosh(arr))
 
 
+def sinh(op: pyca.Map) -> pyca.Map:
+    return Sinh(op.shape)
+
+
 class Cosh(pyca.DiffMap):
     """
     Hyperbolic cosine, element-wise.
@@ -170,6 +174,10 @@ class Cosh(pyca.DiffMap):
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(xp.sinh(arr))
+
+
+def cosh(op: pyca.Map) -> pyca.Map:
+    return Cosh(op.shape)
 
 
 class Tanh(pyca.DiffMap):
@@ -192,6 +200,10 @@ class Tanh(pyca.DiffMap):
         return pyclb.DiagonalOp(1 - xp.tanh(arr) ** 2)
 
 
+def tanh(op: pyca.Map) -> pyca.Map:
+    return Tanh(op.shape)
+
+
 class Arcsinh(pyca.DiffMap):
     """
     Inverse hyperbolic sine, element-wise.
@@ -212,6 +224,10 @@ class Arcsinh(pyca.DiffMap):
         return pyclb.DiagonalOp(1 / (xp.sqrt(1 + arr**2)))
 
 
+def arcsinh(op: pyca.Map) -> pyca.Map:
+    return Arcsinh(op.shape)
+
+
 class Arccosh(pyca.Map):
     """
     Inverse hyperbolic cosine, element-wise.
@@ -226,6 +242,10 @@ class Arccosh(pyca.Map):
         return xp.arccosh(arr)
 
 
+def arccosh(op: pyca.Map) -> pyca.Map:
+    return Arccosh(op.shape)
+
+
 class Arctanh(pyca.Map):
     """
     Inverse hyperbolic tangent, element-wise.
@@ -238,6 +258,10 @@ class Arctanh(pyca.Map):
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         return xp.arctanh(arr)
+
+
+def arctanh(op: pyca.Map) -> pyca.Map:
+    return Arctanh(op.shape)
 
 
 # Exponentials and logarithms
