@@ -194,6 +194,24 @@ class HomothetyOp(pyco.SelfAdjointOp):
         return op
 
 
+class DiagonalOp(pyco.SelfAdjointOp):
+    def __init__(self, arr: pyct.NDArray):
+        assert arr.ndim == 1
+        codim = dim = arr.shape[-1]
+        super().__init__(shape=(codim, dim))
+        self._diag = arr
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        out = arr.copy()
+        out *= self._diag
+        return out
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return self.apply(arr)
+
+
 class NullOp(pyco.LinOp):
     r"""
     Null operator.
