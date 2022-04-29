@@ -429,10 +429,8 @@ class Clip(pyca.Map):
 
 
 class Sqrt(pyca.Map):
-    r"""
-    Nonnegative square-root function
-
-    The sqrt function is nondifferentiable function at 0, therefore its base class is Map.
+    """
+    Non-negative square-root, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -444,11 +442,13 @@ class Sqrt(pyca.Map):
         return xp.sqrt(arr)
 
 
-class Cbrt(pyca.Map):
-    r"""
-    Cube-root function
+def sqrt(op: pyca.Map) -> pyca.Map:
+    return Sqrt(op.shape)
 
-    The cbrt function is nondifferentiable function at 0, therefore its base class is Map.
+
+class Cbrt(pyca.Map):
+    """
+    Cube-root, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -460,11 +460,13 @@ class Cbrt(pyca.Map):
         return xp.cbrt(arr)
 
 
-class Square(pyca.DiffMap):
-    r"""
-    Square function
+def cbrt(op: pyca.Map) -> pyca.Map:
+    return Cbrt(op.shape)
 
-    Any square function is differentiable function, therefore its base class is DiffMap.
+
+class Square(pyca.DiffMap):
+    """
+    Square function, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -481,11 +483,13 @@ class Square(pyca.DiffMap):
         return pyclb.DiagonalOp(2 * arr)
 
 
-class Abs(pyca.DiffMap):
-    r"""
-    Absolute function
+def square(op: pyca.Map) -> pyca.Map:
+    return Square(op.shape)
 
-    Any absolute function is differentiable function (except just one point), therefore its base class is DiffMap.
+
+class Abs(pyca.DiffMap):
+    """
+    Absolute value, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -502,11 +506,13 @@ class Abs(pyca.DiffMap):
         return pyclb.DiagonalOp(xp.sign(arr))
 
 
-class Sign(pyca.Map):
-    r"""
-    Sign function
+def abs(op: pyca.Map) -> pyca.Map:
+    return Abs(op.shape)
 
-    Any sign function is not differentiable function, therefore its base class is Map.
+
+class Sign(pyca.Map):
+    """
+    Sign function, element-wise.
     """
 
     def __init__(self, shape: pyct.Shape):
@@ -516,6 +522,10 @@ class Sign(pyca.Map):
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         return xp.sign(arr)
+
+
+def sign(op: pyca.Map) -> pyca.Map:
+    return Sign(op.shape)
 
 
 class Heaviside(pyca.Map):
