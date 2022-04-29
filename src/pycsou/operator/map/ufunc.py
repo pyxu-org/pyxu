@@ -400,32 +400,25 @@ class Cumsum(pyca.DiffMap):
 
 
 class Clip(pyca.Map):
-    r"""
-    Clip (limit) the values in an array. Its base class is Map.
+    """
+    Clip (limit) values in an array, element-wise.
     """
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.Shape, a_min: pyct.Real = None, a_max: pyct.Real = None):
         super().__init__(shape)
+        if (a_min is None) and (a_ax is None):
+            raise ValueError("One of Parameter[a_min, a_max] must be specified.")
+        else:
+            self._llim = a_min
+            self._ulim = a_max
 
     @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray, a_min=0.0, a_max=1.0) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Input array
-        a_min: Float
-            Minimum value. Default is 0.0.
-        a_max: Float
-            Maximum value. Default is 1.0.
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return arr.clip(self._llim, self._ulim)
 
-        Returns
-        -------
-        NDArray
-            Array with elements of arr but where values < a_{min} are replaced with a_{min} and
-            those > a_{max} with a_{max}
-        """
-        return arr.clip(a_min, a_max)
+
+def clip(op: pyca.Map, a_min: pyct.Real = None, a_max: pyct.Real = None):
+    return Clip(op.shape, a_min, a_max)
 
 
 class Sqrt(pyca.Map):
