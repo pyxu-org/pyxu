@@ -309,7 +309,6 @@ class Exp(pyca.DiffMap):
         return xp.exp(out)
 
     def jacobian(self, arr: pyct.NDArray):
-        xp = pycu.get_array_module(arr)
         y = self.apply(arr)
         if self._base is not None:
             y *= np.log(self._base)
@@ -338,7 +337,6 @@ class Log(pyca.DiffMap):
         return out
 
     def jacobian(self, arr: pyct.NDArray):
-        xp = pycu.get_array_module(arr)
         y = 1 / arr
         if self._base is not None:
             y /= np.log(self._base)
