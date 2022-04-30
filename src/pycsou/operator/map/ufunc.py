@@ -55,7 +55,7 @@ def cos(op: pyca.Map) -> pyca.Map:
     return Cos(op.shape) * op
 
 
-class Tan(pyca.Map):
+class Tan(pyca.DiffMap):
     """
     Trigonometric tangent, element-wise.
     """
@@ -68,12 +68,16 @@ class Tan(pyca.Map):
         xp = pycu.get_array_module(arr)
         return xp.tan(arr)
 
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        return pyclb.DiagonalOp(1 / xp.cos(arr) ** 2)
+
 
 def tan(op: pyca.Map) -> pyca.Map:
     return Tan(op.shape) * op
 
 
-class Arcsin(pyca.Map):
+class Arcsin(pyca.DiffMap):
     """
     Inverse sine, element-wise.
     """
@@ -85,6 +89,10 @@ class Arcsin(pyca.Map):
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         return xp.arcsin(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        return pyclb.DiagonalOp(1 / xp.sqrt(1 - arr**2))
 
 
 def arcsin(op: pyca.Map) -> pyca.Map:
@@ -104,6 +112,10 @@ class Arccos(pyca.Map):
         xp = pycu.get_array_module(arr)
         return xp.arccos(arr)
 
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        return pyclb.DiagonalOp(-1 / xp.sqrt(1 - arr**2))
+
 
 def arccos(op: pyca.Map) -> pyca.Map:
     return Arccos(op.shape) * op
@@ -117,7 +129,7 @@ class Arctan(pyca.DiffMap):
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape)
         self._lipschitz = 1
-        self._diff_lipschitz = 0.65  # Sepand: how is this computed?
+        self._diff_lipschitz = 3 * np.sqrt(3) / 8  # Max of |arctan''(x)|=|2x/(1+x^2)^2| is 3sqrt(3)/8 at x=+-1/sqrt(3)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -188,7 +200,9 @@ class Tanh(pyca.DiffMap):
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape)
         self._lipschitz = 1
-        self._diff_lipschitz = 0.77  # Sepand: how is this computed?
+        self._diff_lipschitz = 4 / (
+            3 * np.sqrt(3)
+        )  # Max of |tanh''(x)|=|2sech^2(x)tanh(x)| is 4/3sqrt(3) at x=+-log(2-sqrt(3))/2
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -197,7 +211,7 @@ class Tanh(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(1 - xp.tanh(arr) ** 2)
+        return pyclb.DiagonalOp(1 / xp.cosh(arr) ** 2)
 
 
 def tanh(op: pyca.Map) -> pyca.Map:
@@ -211,8 +225,10 @@ class Arcsinh(pyca.DiffMap):
 
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape)
-        self._lipschitz = 1  # Sepand: how is this computed?
-        self._diff_lipschitz = 0.39  # Sepand: how is this computed?
+        self._lipschitz = 1  # Max of |arcsinh'(x)|=|1/sqrt(1+x^2)| is 1 at x=0
+        self._diff_lipschitz = 2 / (
+            3 * np.sqrt(3)
+        )  # Max of |arcsinh''(x)|=|x/(1+x^2)^(3/2)| is 2/3sqrt(3) at x=+-1/sqrt(2)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -228,7 +244,7 @@ def arcsinh(op: pyca.Map) -> pyca.Map:
     return Arcsinh(op.shape) * op
 
 
-class Arccosh(pyca.Map):
+class Arccosh(pyca.DiffMap):
     """
     Inverse hyperbolic cosine, element-wise.
     """
@@ -241,12 +257,16 @@ class Arccosh(pyca.Map):
         xp = pycu.get_array_module(arr)
         return xp.arccosh(arr)
 
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        return pyclb.DiagonalOp(1 / xp.sqrt(-1 + arr**2))
+
 
 def arccosh(op: pyca.Map) -> pyca.Map:
     return Arccosh(op.shape) * op
 
 
-class Arctanh(pyca.Map):
+class Arctanh(pyca.DiffMap):
     """
     Inverse hyperbolic tangent, element-wise.
     """
@@ -258,6 +278,10 @@ class Arctanh(pyca.Map):
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         return xp.arctanh(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        return pyclb.DiagonalOp(1 / (1 - arr**2))
 
 
 def arctanh(op: pyca.Map) -> pyca.Map:
