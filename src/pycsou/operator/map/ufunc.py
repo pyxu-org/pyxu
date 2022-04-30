@@ -280,7 +280,6 @@ class Arctanh(pyca.DiffMap):
         return xp.arctanh(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(1 / (1 - arr**2))
 
 
@@ -450,7 +449,7 @@ def clip(op: pyca.Map, a_min: pyct.Real = None, a_max: pyct.Real = None):
     return Clip(op.shape, a_min, a_max) * op
 
 
-class Sqrt(pyca.Map):
+class Sqrt(pyca.DiffMap):
     """
     Non-negative square-root, element-wise.
     """
@@ -463,12 +462,15 @@ class Sqrt(pyca.Map):
         xp = pycu.get_array_module(arr)
         return xp.sqrt(arr)
 
+    def jacobian(self, arr: pyct.NDArray):
+        return pyclb.DiagonalOp(1 / (2 * self.apply(arr)))
+
 
 def sqrt(op: pyca.Map) -> pyca.Map:
     return Sqrt(op.shape) * op
 
 
-class Cbrt(pyca.Map):
+class Cbrt(pyca.DiffMap):
     """
     Cube-root, element-wise.
     """
@@ -480,6 +482,9 @@ class Cbrt(pyca.Map):
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         return xp.cbrt(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        return pyclb.DiagonalOp(1 / (3 * (arr ** (2 / 3))))
 
 
 def cbrt(op: pyca.Map) -> pyca.Map:
@@ -501,7 +506,6 @@ class Square(pyca.DiffMap):
         return xp.square(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(2 * arr)
 
 
