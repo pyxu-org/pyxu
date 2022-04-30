@@ -29,7 +29,7 @@ class Sin(pyca.DiffMap):
 
 
 def sin(op: pyca.Map) -> pyca.Map:
-    return Sin(op.shape)
+    return Sin(op.shape) * op
 
 
 class Cos(pyca.DiffMap):
@@ -52,7 +52,7 @@ class Cos(pyca.DiffMap):
 
 
 def cos(op: pyca.Map) -> pyca.Map:
-    return Cos(op.shape)
+    return Cos(op.shape) * op
 
 
 class Tan(pyca.Map):
@@ -70,7 +70,7 @@ class Tan(pyca.Map):
 
 
 def tan(op: pyca.Map) -> pyca.Map:
-    return Tan(op.shape)
+    return Tan(op.shape) * op
 
 
 class Arcsin(pyca.Map):
@@ -88,7 +88,7 @@ class Arcsin(pyca.Map):
 
 
 def arcsin(op: pyca.Map) -> pyca.Map:
-    return Arcsin(op.shape)
+    return Arcsin(op.shape) * op
 
 
 class Arccos(pyca.Map):
@@ -106,7 +106,7 @@ class Arccos(pyca.Map):
 
 
 def arccos(op: pyca.Map) -> pyca.Map:
-    return Arccos(op.shape)
+    return Arccos(op.shape) * op
 
 
 class Arctan(pyca.DiffMap):
@@ -130,7 +130,7 @@ class Arctan(pyca.DiffMap):
 
 
 def arctan(op: pyca.Map) -> pyca.Map:
-    return Arctan(op.shape)
+    return Arctan(op.shape) * op
 
 
 # Hyperbolic Functions
@@ -155,7 +155,7 @@ class Sinh(pyca.DiffMap):
 
 
 def sinh(op: pyca.Map) -> pyca.Map:
-    return Sinh(op.shape)
+    return Sinh(op.shape) * op
 
 
 class Cosh(pyca.DiffMap):
@@ -177,7 +177,7 @@ class Cosh(pyca.DiffMap):
 
 
 def cosh(op: pyca.Map) -> pyca.Map:
-    return Cosh(op.shape)
+    return Cosh(op.shape) * op
 
 
 class Tanh(pyca.DiffMap):
@@ -201,7 +201,7 @@ class Tanh(pyca.DiffMap):
 
 
 def tanh(op: pyca.Map) -> pyca.Map:
-    return Tanh(op.shape)
+    return Tanh(op.shape) * op
 
 
 class Arcsinh(pyca.DiffMap):
@@ -225,7 +225,7 @@ class Arcsinh(pyca.DiffMap):
 
 
 def arcsinh(op: pyca.Map) -> pyca.Map:
-    return Arcsinh(op.shape)
+    return Arcsinh(op.shape) * op
 
 
 class Arccosh(pyca.Map):
@@ -243,7 +243,7 @@ class Arccosh(pyca.Map):
 
 
 def arccosh(op: pyca.Map) -> pyca.Map:
-    return Arccosh(op.shape)
+    return Arccosh(op.shape) * op
 
 
 class Arctanh(pyca.Map):
@@ -261,7 +261,7 @@ class Arctanh(pyca.Map):
 
 
 def arctanh(op: pyca.Map) -> pyca.Map:
-    return Arctanh(op.shape)
+    return Arctanh(op.shape) * op
 
 
 # Exponentials and logarithms
@@ -293,7 +293,7 @@ class Exp(pyca.DiffMap):
 
 
 def exp(op: pyca.Map, base: pyct.Real = None) -> pyca.Map:
-    return Exp(op.shape, base)
+    return Exp(op.shape, base) * op
 
 
 class Log(pyca.DiffMap):
@@ -322,7 +322,7 @@ class Log(pyca.DiffMap):
 
 
 def log(op: pyca.Map, base: pyct.Real = None) -> pyca.Map:
-    return Log(op.shape, base)
+    return Log(op.shape, base) * op
 
 
 # Sums and Products
@@ -413,7 +413,7 @@ class Clip(pyca.Map):
 
     def __init__(self, shape: pyct.Shape, a_min: pyct.Real = None, a_max: pyct.Real = None):
         super().__init__(shape)
-        if (a_min is None) and (a_ax is None):
+        if (a_min is None) and (a_max is None):
             raise ValueError("One of Parameter[a_min, a_max] must be specified.")
         else:
             self._llim = a_min
@@ -425,7 +425,7 @@ class Clip(pyca.Map):
 
 
 def clip(op: pyca.Map, a_min: pyct.Real = None, a_max: pyct.Real = None):
-    return Clip(op.shape, a_min, a_max)
+    return Clip(op.shape, a_min, a_max) * op
 
 
 class Sqrt(pyca.Map):
@@ -443,7 +443,7 @@ class Sqrt(pyca.Map):
 
 
 def sqrt(op: pyca.Map) -> pyca.Map:
-    return Sqrt(op.shape)
+    return Sqrt(op.shape) * op
 
 
 class Cbrt(pyca.Map):
@@ -461,7 +461,7 @@ class Cbrt(pyca.Map):
 
 
 def cbrt(op: pyca.Map) -> pyca.Map:
-    return Cbrt(op.shape)
+    return Cbrt(op.shape) * op
 
 
 class Square(pyca.DiffMap):
@@ -484,7 +484,7 @@ class Square(pyca.DiffMap):
 
 
 def square(op: pyca.Map) -> pyca.Map:
-    return Square(op.shape)
+    return Square(op.shape) * op
 
 
 class Abs(pyca.DiffMap):
@@ -507,7 +507,7 @@ class Abs(pyca.DiffMap):
 
 
 def abs(op: pyca.Map) -> pyca.Map:
-    return Abs(op.shape)
+    return Abs(op.shape) * op
 
 
 class Sign(pyca.Map):
@@ -525,4 +525,4 @@ class Sign(pyca.Map):
 
 
 def sign(op: pyca.Map) -> pyca.Map:
-    return Sign(op.shape)
+    return Sign(op.shape) * op
