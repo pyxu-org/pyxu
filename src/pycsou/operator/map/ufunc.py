@@ -393,17 +393,26 @@ class Cumprod(pyca.DiffMap):
     Cumulative product of elements.
     """
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.Shape, axis: pyct.Real = -1):
         super().__init__(shape)
+        self._axis = axis
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.cumprod(arr, axis=-1)
+        return xp.cumprod(arr, axis=self._axis)
 
     def jacobian(self, arr: pyct.NDArray):
-        # Sepand: to implement
-        pass
+        assert arr.ndim == 1 and (self._axis == -1 or self._axis == 0)  # Jacobian matrix is only valid for vectors
+        xp = pycu.get_array_module(arr)
+        temp = xp.expand_dims(self.apply(), axis=0)
+        num_mtx = temp.transpose() * np.tri(self.shape[0])
+        denum_mtx = xp.tile(arr, (self.shape[0], 1))
+        return pyclb.ExplicitLinOp(num_mtx / denum_mtx)
+
+
+def cumprod(op: pyca.Map, axis: pyct.Real = -1) -> pyca.Map:
+    return Cumprod(op.shape, axis) * op
 
 
 class Cumsum(pyca.DiffMap):
@@ -411,17 +420,22 @@ class Cumsum(pyca.DiffMap):
     Cumulative sum of elements.
     """
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.Shape, axis: pyct.Real = -1):
         super().__init__(shape)
+        self._axis = axis
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.cumsum(arr, axis=-1)
+        return xp.cumsum(arr, axis=self._axis)
 
     def jacobian(self, arr: pyct.NDArray):
-        # Sepand: to implement
-        pass
+        assert arr.ndim == 1 and (self._axis == -1 or self._axis == 0)  # Jacobian matrix is only valid for vectors
+        return pyclb.ExplicitLinOp(np.tri(self.shape[0]))
+
+
+def cumsum(op: pyca.Map, axis: pyct.Real = -1) -> pyca.Map:
+    return Cumsum(op.shape, axis) * op
 
 
 # Miscellaneous
