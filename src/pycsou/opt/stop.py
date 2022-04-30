@@ -247,11 +247,12 @@ class RelError(pycs.StoppingCriterion):
             self._x_prev = x.copy()
             return False  # decision deferred: insufficient history to evaluate rel-err.
         else:
-            norm = lambda _: xp.linalg.norm(self._f(_), ord=self._norm, axis=-1, keepdims=True)
+            norm = lambda _: xp.linalg.norm(_, ord=self._norm, axis=-1, keepdims=True)
             rule = xp.all if self._satisfy_all else xp.any
 
-            numerator = norm(x - self._x_prev)
-            denominator = norm(self._x_prev)
+            fx_prev = self._f(self._x_prev)
+            numerator = norm(self._f(x) - fx_prev)
+            denominator = norm(fx_prev)
             decision = rule(numerator <= self._eps * denominator)
 
             with warnings.catch_warnings():
