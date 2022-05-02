@@ -356,7 +356,6 @@ class Prod(pyca.DiffFunc):
 
     def __init__(self):
         super().__init__(shape=(1, None))
-        # Sepand: lipschitz/diff_lipschitz?
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -364,9 +363,17 @@ class Prod(pyca.DiffFunc):
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
-        # Sepand: to implement safely. (Beware of 0s.)
-        # f'(x)[q] = \prod_{k \ne q} x_{k}
-        pass
+        xp = pycu.get_array_module(arr)
+        nzeros = xp.count_zeros(arr)
+        if nzeros == 0:
+            return xp.ones_like(arr) * self.apply(arr) / arr
+        elif nzeros == 1:
+            res = xp.zeros_like(arr)
+            nonzero_temp = arr[arr != 0]
+            res[arr == 0] = nonzero_temp.prod(axis=-1, keepdims=True)
+            return res
+        else:
+            return xp.zeros_like(arr)
 
 
 class Sum(pyca.DiffFunc):
@@ -376,7 +383,8 @@ class Sum(pyca.DiffFunc):
 
     def __init__(self):
         super().__init__(shape=(1, None))
-        # Sepand: lipschitz/diff_lipschitz?
+        self._lipschitz = 1
+        self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -405,10 +413,23 @@ class Cumprod(pyca.DiffMap):
     def jacobian(self, arr: pyct.NDArray):
         assert arr.ndim == 1 and (self._axis == -1 or self._axis == 0)  # Jacobian matrix is only valid for vectors
         xp = pycu.get_array_module(arr)
-        temp = xp.expand_dims(self.apply(), axis=0)
-        num_mtx = temp.transpose() * np.tri(self.shape[0])
-        denum_mtx = xp.tile(arr, (self.shape[0], 1))
-        return pyclb.ExplicitLinOp(num_mtx / denum_mtx)
+        nzeros = xp.count_zeros(arr)
+        max_idx = max(self.shape[0], self.shape[1])
+        if nzeros == 0:
+            temp = xp.expand_dims(self.apply(arr), axis=0)
+            num_mtx = temp.transpose() * xp.tri(self.shape[0])
+            denum_mtx = xp.tile(arr, (max_idx, 1))
+            return pyclb.ExplicitLinOp(num_mtx / denum_mtx)
+        elif nzeros == 1:
+            temp = xp.zeros((max_idx, max_idx))
+            temp[0, 0] = 1
+            zero_ind = max(xp.where(arr == 0))[0]
+            temp[:, zero_ind] = self.apply(arr)
+            return pyclb.ExplicitLinOp(temp * xp.tri(max_idx))
+        else:
+            temp = xp.zeros((max_idx, max_idx))
+            temp[0, 0] = 1
+            return pyclb.ExplicitLinOp(temp)
 
 
 def cumprod(op: pyca.Map, axis: pyct.Real = -1) -> pyca.Map:
@@ -423,6 +444,8 @@ class Cumsum(pyca.DiffMap):
     def __init__(self, shape: pyct.Shape, axis: pyct.Real = -1):
         super().__init__(shape)
         self._axis = axis
+        self._lipschitz = 1
+        self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -431,7 +454,8 @@ class Cumsum(pyca.DiffMap):
 
     def jacobian(self, arr: pyct.NDArray):
         assert arr.ndim == 1 and (self._axis == -1 or self._axis == 0)  # Jacobian matrix is only valid for vectors
-        return pyclb.ExplicitLinOp(np.tri(self.shape[0]))
+        xp = pycu.get_array_module(arr)
+        return pyclb.ExplicitLinOp(xp.tri(self.shape[0]))
 
 
 def cumsum(op: pyca.Map, axis: pyct.Real = -1) -> pyca.Map:
