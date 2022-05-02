@@ -12,12 +12,28 @@ import pycsou.util.ptype as pyct
 from pycsou._dev import L1Norm, SquaredL2Norm, SubSampling
 from pycsou.opt.solver.pgd import PGD
 
-# [TODO] Need to import these methods from files where there will be properly defined
+# [TODO] I. Currently, the norm operators "L1Norm, SquaredL2Norm" and the linear operator "SubSampling" are imported
+# [todo] from src/pycsou/_dev, which is supposed to be temporary dev file. In the final version, the imports should come
+# [todo] from the Pycsou sub-module in which they will be implemented.
 
+# [TODO] II. When the feature will be available, FW algorithms should integrate the possibility to keep track of the
+# [todo] value of the objective function along the iterations.
 
-# [TODO] Integrate a minimum number of iterations
+# Question for reviewers (QfR): During the computations, we need to compute the squared L2 norm of some vectors.
+#   Should we use an instance of "SquaredL2Norm" operator or should we simply use some "xp.linalg.norm(...)" method ?
 
-# Question: is there a way to keep track of the objective funciton values ? Or do we need to store it in the mstate ?
+# QfR: Some 1-dimensional variables are computed along the iterations, used for different purposes, and not necessarily
+#   visible for the end-user. Should we store these values as NDArray of shape (1,) or as float ? The concerned
+#   variables are: (also tagged in the code with # todo [0])
+#     * mst["dcv"]
+#     * mst["ofv"]
+#     * mst["lift_variable"]
+
+# QfR: In the computation of gamma in the optimal reweighting strategy of VFW and in the computation of the 1-sparse
+# solution of the restricted support reweighting of PFW, we make use of instances of SquaredL2Norm operators to
+# compute the norm of some arrays. In these cases, the functional is not used as a building block for more complex
+# functionals (as it is intended to be) but for quick computation of some quantities. Maybe it should be replaced by
+# the call of xp.linalg.norm in these cases ?
 
 
 class GenericFWforLasso(pycs.Solver):
@@ -55,39 +71,24 @@ class GenericFWforLasso(pycs.Solver):
         self.forwardOp = forwardOp
         self.data = pycrt.coerce(data)
 
-        # Do we need to/Is there an advantage of specifying the shape/dim of the inputs in the losses? (we have access
-        # to them with the forward operator
         self._data_fidelity = 0.5 * SquaredL2Norm().asloss(data=self.data) * self.forwardOp
-        self._penalty = self.lambda_ * L1Norm()  # rename as regul ??
+        self._penalty = self.lambda_ * L1Norm()
+        # QfR: Vocabulary question: penalty or regul ?
         self.objective = self._data_fidelity + self._penalty
+        self._compute_ofv = True  # by default, the "objective function value" (ofv) is computed
 
-        self._bound = 0.5 * SquaredL2Norm()(data)[0] / self.lambda_  # todo : [0] te remove maybe ?
-        # self._bound = self.objective(data)[0] / self.lambda_  # alternative expression
+        self._bound = 0.5 * SquaredL2Norm()(data)[0] / self.lambda_  # todo [0]
 
-        # self.module = pycu.get_array_module(data)
-        self.compute_ofv = True  # default
-
-    # The inputs of m_init should be the type of the iterates to manipulate (module) and the running precision.
     def m_init(self, **kwargs):
         xp = pycu.get_array_module(self.data)
         mst = self._mstate  # shorthand
 
         mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
-        mst["dcv"] = np.inf
-        self.compute_ofv = kwargs.pop("compute_ofv", True)  # if we don't need the objective function, this can be
-        # specified with compute_ofv=False
-        # if isinstance(crit := self._astate["stop_crit"], (pycos.RelError, pycos.AbsError)):
-        #     self.compute_ofv = (crit._var == "ofv") | kwargs.pop("compute_ofv", False)
-        if self.compute_ofv:
-            mst["ofv"] = self.objective(mst["x"])[
-                0
-            ]  # todo : [0] te remove maybe ?  # objective function value should not be computed if not required
-            # as stopping crit
+        mst["dcv"] = np.inf  # "dual certificate value"
+        self._compute_ofv = kwargs.pop("compute_ofv", True)  # check if the user decides not to compute the ofv
+        if self._compute_ofv:
+            mst["ofv"] = self.objective(mst["x"])[0]  # todo : [0]
             self._astate["log_var"] = frozenset(("ofv",)).union(self._astate["log_var"])
-        # mst["positions"] = []  # numpy array of indices instead ?
-        # should I keep track of previous encountered locations ? Allow for multiple indices = history
-
-        # What happens at iteration 0 ? Before any algorithm iteration, should we update the variables and history ?
 
     def default_stop_crit(self) -> pycs.StoppingCriterion:
         stop_crit = pycos.RelError(
@@ -127,8 +128,8 @@ class VanillaFWforLasso(GenericFWforLasso):
     * :math:`\lambda>0` is the *regularization* or *penalty* parameter.
 
     The FW algorithms ensure convergence of the iterates in terms of the value of the objective function with a
-    convergence rate of :math:`\mathcal{O}(1/k)`[RevFW]_. Consequently, the default stopping criterion is set as a threshold
-    over the relative improvement of the value of the objective function. The algorithm stops if the relative
+    convergence rate of :math:`\mathcal{O}(1/k)`[RevFW]_. Consequently, the default stopping criterion is set as a
+    threshold over the relative improvement of the value of the objective function. The algorithm stops if the relative
     improvement is below 1e-4. If this default stopping criterion is used, you must not run the algorithm with argument
     ``compute_ofv=False``.
 
@@ -137,7 +138,7 @@ class VanillaFWforLasso(GenericFWforLasso):
     ``VanillaFWforLasso.fit()`` **Parametrisation**
 
     compute_ofv: Bool
-        Indicator to keep track of the value of the objective function along the iterations.
+        Indicator to keep track of the value of the objective function along the iterations, default is True.
         This value is optional for running the Vanilla FW iterations, but can be used to determine a stopping criterion.
     """
 
@@ -163,7 +164,8 @@ class VanillaFWforLasso(GenericFWforLasso):
         Parameters
         ----------
         data: NDArray
-            (..., L) measurements term(s) in the LASSO objective function.
+            (..., L) measurements term(s) in the LASSO objective function. The type of NDArray defines the module used
+            for the iterates.
         forwardOp: LinOp
             (N, L) measurement operator in the LASSO objective function.
         lambda_: float
@@ -195,49 +197,48 @@ class VanillaFWforLasso(GenericFWforLasso):
 
     def m_init(self, **kwargs):
         super(VanillaFWforLasso, self).m_init(**kwargs)
-        self._mstate["lift_variable"] = 0.0  # todo do I need to enforce the precision on plain floats ?
+        self._mstate["lift_variable"] = 0.0  # todo [0]
+        # QfR: Do I need to enforce the precision on plain floats ?
 
     def m_step(self):
         mst = self._mstate  # shorthand
         xp = pycu.get_array_module(mst["x"])
         mgrad = -self._data_fidelity.grad(mst["x"])
-        new_ind = xp.argmax(xp.abs(mgrad), axis=-1)  # axis for parallel runs
-        dcv = mgrad[new_ind] / self.lambda_
+        new_ind = xp.argmax(xp.abs(mgrad), axis=-1)
+        dcv = mgrad[new_ind] / self.lambda_  # todo [0]
         mst["dcv"] = dcv
+        # To be careful about mst["dcv"] as it can be either float if new_ind is size 1 or NDArray if new_ind is size>1
 
         if self.step_size_strategy == "regular":
             gamma = 2 / (2 + self._astate["idx"])
         elif self.step_size_strategy == "optimal":
+            # The optimal value of gamma has a closed form expression, which depends on the dual certificate value.
             gamma = -xp.dot(mgrad, mst["x"]).real
             if abs(dcv) > 1.0:
                 gamma += self.lambda_ * (mst["lift_variable"] + (abs(dcv) - 1.0) * self._bound)
                 injection = SubSampling(self.forwardOp.shape[1], xp.array(new_ind)).T
-                # print(SquaredL2Norm(self.bound * np.sign(dcv) * self.forwardOp(injection(self.module.array(1.))) -
-                #                        self.forwardOp(mst["x"])))
-                # print(self.bound * np.sign(dcv) * self.forwardOp(injection(self.module.array(1.))))
                 gamma /= SquaredL2Norm()(
-                    self._bound * np.sign(dcv) * self.forwardOp(injection(xp.array(1.0))) - self.forwardOp(mst["x"])[0]
-                )  # we can use numpy (np) as dcv is a float
+                    self._bound * np.sign(dcv) * self.forwardOp(injection(xp.array(1.0))) - self.forwardOp(mst["x"])
+                )[
+                    0
+                ]  # we can use numpy (np) as dcv is a float
             else:
                 gamma += self.lambda_ * mst["lift_variable"]
                 gamma /= SquaredL2Norm()(self.forwardOp(mst["x"]))[0]
 
         if not 0 < gamma < 1:
             print("Warning, gamma value not valid: {}".format(gamma))
-            gamma = xp.clip(gamma, 0.0, 1.0)
+            gamma = np.clip(gamma, 0.0, 1.0)
 
         mst["x"] *= 1 - gamma
         mst["lift_variable"] *= 1 - gamma
         if abs(dcv) > 1.0:
             mst["x"][new_ind] += pycrt.coerce(gamma * np.sign(dcv) * self._bound)
             mst["lift_variable"] += gamma * self._bound
-        if self.compute_ofv:
+        if self._compute_ofv:
             mst["ofv"] = self.objective(mst["x"])[0]
 
 
-# 2 ideas for efficient restricted support computations:
-#       * provide a restricted support operator as input for PFW
-#       * create a new class the inherits from PFW and that redefines the m_step (or the targeted submethod)
 class PolyatomicFWforLasso(GenericFWforLasso):
     r"""
     Polyatomic version of the Frank-Wolfe algorithm (FW) specifically design to solve the LASSO problem of the form
@@ -259,12 +260,21 @@ class PolyatomicFWforLasso(GenericFWforLasso):
     supposed to be very sparse, in terms of convergence time as well as memory requirements.
 
     The FW algorithms ensure convergence of the iterates in terms of the value of the objective function with a
-    convergence rate of :math:`\mathcal{O}(1/k)` [RevFW]_. Consequently, the default stopping criterion is set as a threshold
-    over the relative improvement of the value of the objective function. The algorithm stops if the relative
+    convergence rate of :math:`\mathcal{O}(1/k)` [RevFW]_. Consequently, the default stopping criterion is set as a
+    threshold over the relative improvement of the value of the objective function. The algorithm stops if the relative
     improvement is below 1e-4. If this default stopping criterion is used, you must not run the algorithm with argument
     ``compute_ofv=False``.
 
-    **Remark:** The array module used in the algorithm iterations is inferred from the module of the input measurements.
+    **Remark 1:** The array module used in the algorithm iterations is inferred from the module of the input
+        measurements.
+
+    **Remark 2:** The second step of the PFW algorithm consists in computing/updating the weights attributed to the
+    atoms. To do so, the algorithm solves a LASSO problem with a restricted support defined by the selected atoms.
+    The implementation provided for this step makes use of an injection/sub-sampling operator that allows to extract
+    the sub-problem of interest. This generic procedure might be sub-optimal and could be improved depending on the
+    forward operator (e.g. non-uniform FFT as a restricted support FFT). The interested user can provide an
+    alternative and posisbly more efficient method for the correction of the weights by overriding the
+    ``.rs_correction()`` method in a child class.
 
     ``PolyatomicFWforLasso.fit()`` **Parametrisation**
 
@@ -340,15 +350,17 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         xp = pycu.get_array_module(self._mstate["x"])
         mst = self._mstate
         mst["positions"] = xp.array([], dtype="int32")
-        # is it worth storing this as an xp array, given that it should remain small or moderate size ?
-        # maybe the set of active indices can be stored as an np array
+        # QfR: mst["positions"] stores the set of actives indices of the solution. As the solution should be sparse,
+        # in most of the cases this set will remain of relatively small size. Is there any advantage/disadvantage
+        # storing it as a np array instead of a xp array ?
         mst["delta"] = None  # initial buffer for multi spike thresholding
         mst["correction_prec"] = self._init_correction_prec
 
     def m_step(self):
         mst = self._mstate  # shorthand
         mgrad = -self._data_fidelity.grad(mst["x"])
-        mst["dcv"] = max(mgrad.max(), mgrad.min(), key=abs) / self.lambda_
+        mst["dcv"] = max(mgrad.max(), mgrad.min(), key=abs) / self.lambda_  # todo [0]
+        # mst["dcv"] is stored as a float in this case and does not handle stacked multidimensional inputs.
         maxi = abs(mst["dcv"])
         if self._astate["idx"] == 1:
             mst["delta"] = maxi * (1.0 - self._ms_threshold)
@@ -368,7 +380,7 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         mst["correction_prec"] = max(self._init_correction_prec / self._astate["idx"], self._final_correction_prec)
         if mst["positions"].size > 1:
             mst["x"] = self.rs_correction(mst["positions"])
-        elif mst["positions"].size == 1:
+        elif mst["positions"].size == 1:  # case 1-sparse solution => the solution can be computed explicitly
             tmp = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
             tmp[mst["positions"]] = 1.0
             column = self.forwardOp(tmp)
@@ -381,10 +393,26 @@ class PolyatomicFWforLasso(GenericFWforLasso):
                 mst["x"] = ((corr + self.lambda_) / SquaredL2Norm()(column)[0]) * tmp
         else:
             mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
-        if self.compute_ofv:
+        if self._compute_ofv:
             mst["ofv"] = self.objective(mst["x"])[0]
 
     def rs_correction(self, support_indices: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Method to update the weights after the selection of the new atoms. It solves a LASSO problem with a
+        restricted support corresponding to the current set of active indices (active atoms). As mentionned,
+        this method should be overriden in a child class for case-specific improved implementation.
+
+        Parameters
+        ----------
+        support_indices: NDArray
+            Set of active indices.
+
+        Returns
+        -------
+        weights: NDArray
+            New iterate with the updated weights.
+        """
+
         def correction_stop_crit(eps) -> pycs.StoppingCriterion:
             stop_crit = pycos.RelError(
                 eps=eps,
@@ -396,12 +424,10 @@ class PolyatomicFWforLasso(GenericFWforLasso):
             return stop_crit
 
         injection = SubSampling(size=self.forwardOp.shape[1], sampling_indices=support_indices).T
-        # rsOp = self.forwardOp * injection
-        # # rsOp._lipschitz = self.forwardOp.lipschitz()
         rs_data_fid = self._data_fidelity * injection
-        # rs_penalty = self.penalty * injection
         x0 = injection.T(self._mstate["x"])
         apgd = PGD(rs_data_fid, self._penalty, show_progress=False)
+        # The penalty is agnostic to the dimension in this implementation (L1Norm()).
         apgd.fit(x0=x0, stop_crit=correction_stop_crit(self._mstate["correction_prec"]))
         sol, _ = apgd.stats()
         return injection(sol["x"])
@@ -436,10 +462,3 @@ def dcvStoppingCrit(eps: float = 1e-2) -> pycs.StoppingCriterion:
         satisfy_all=True,
     )
     return stop_crit
-
-
-# todo :
-#   * test pfw first remove=False then True
-#   * consistency of the docstrings: s or z in -zation -ze words
-#   * define private and public variables
-#   * remove the calls to SquaredL2Norm so that is becomes independent of the implementation of the functional
