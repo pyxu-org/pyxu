@@ -354,17 +354,17 @@ class Prod(pyca.DiffFunc):
     Product of array elements.
     """
 
-    def __init__(self):
-        super().__init__(shape=(1, None))
+    def __init__(self, dim: int):
+        super().__init__(shape=(1, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         return arr.prod(axis=-1, keepdims=True)
 
     @pycrt.enforce_precision(i="arr")
-    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+    def _decide_func_nzeros(self, arr):
         xp = pycu.get_array_module(arr)
-        nzeros = xp.count_zeros(arr)
+        nzeros = xp.sum(arr == 0, axis=-1)
         if nzeros == 0:
             return xp.ones_like(arr) * self.apply(arr) / arr
         elif nzeros == 1:
@@ -375,15 +375,23 @@ class Prod(pyca.DiffFunc):
         else:
             return xp.zeros_like(arr)
 
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.apply_along_axis(self._decide_func_nzeros, axis=-1, arr=arr)
+
+
+def prod(op: pyca.Map) -> pyca.Map:
+    return Prod(op.shape[-1]) * op
+
 
 class Sum(pyca.DiffFunc):
     r"""
     Sum of array elements.
     """
 
-    def __init__(self):
-        super().__init__(shape=(1, None))
-        self._lipschitz = 1
+    def __init__(self, dim: int):
+        super().__init__(shape=(1, dim))
         self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
@@ -394,6 +402,10 @@ class Sum(pyca.DiffFunc):
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         return xp.ones_like(arr)
+
+
+def sum(op: pyca.Map) -> pyca.Map:
+    return Sum(op.shape[-1]) * op
 
 
 class Cumprod(pyca.DiffMap):
@@ -413,21 +425,23 @@ class Cumprod(pyca.DiffMap):
     def jacobian(self, arr: pyct.NDArray):
         assert arr.ndim == 1 and (self._axis == -1 or self._axis == 0)  # Jacobian matrix is only valid for vectors
         xp = pycu.get_array_module(arr)
-        nzeros = xp.count_zeros(arr)
-        max_idx = max(self.shape[0], self.shape[1])
+        nzeros = sum(arr == 0)
         if nzeros == 0:
-            temp = xp.expand_dims(self.apply(arr), axis=0)
+            temp = xp.array([self.apply(arr)])
             num_mtx = temp.transpose() * xp.tri(self.shape[0])
-            denum_mtx = xp.tile(arr, (max_idx, 1))
+            denum_mtx = xp.tile(arr, (self.shape[0], 1))
             return pyclb.ExplicitLinOp(num_mtx / denum_mtx)
         elif nzeros == 1:
-            temp = xp.zeros((max_idx, max_idx))
+            temp = xp.zeros((self.shape[0], self.shape[0]))
             temp[0, 0] = 1
-            zero_ind = max(xp.where(arr == 0))[0]
+            if xp == np:
+                zero_ind = xp.argwhere(arr == 0)[0, 0]
+            else:
+                zero_ind = xp.argwhere(arr == 1).compute()[0, 0]
             temp[:, zero_ind] = self.apply(arr)
-            return pyclb.ExplicitLinOp(temp * xp.tri(max_idx))
+            return pyclb.ExplicitLinOp(temp * xp.tri(self.shape[0]))
         else:
-            temp = xp.zeros((max_idx, max_idx))
+            temp = xp.zeros((self.shape[0], self.shape[0]))
             temp[0, 0] = 1
             return pyclb.ExplicitLinOp(temp)
 
@@ -444,7 +458,6 @@ class Cumsum(pyca.DiffMap):
     def __init__(self, shape: pyct.Shape, axis: pyct.Real = -1):
         super().__init__(shape)
         self._axis = axis
-        self._lipschitz = 1
         self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
@@ -522,7 +535,7 @@ class Cbrt(pyca.DiffMap):
         return xp.cbrt(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        return pyclb.DiagonalOp(1 / (3 * (arr ** (2 / 3))))
+        return pyclb.DiagonalOp(1 / (3 * (self.apply(arr) ** 2)))
 
 
 def cbrt(op: pyca.Map) -> pyca.Map:
