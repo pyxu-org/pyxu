@@ -603,3 +603,308 @@ class Sign(pyca.Map):
 
 def sign(op: pyca.Map) -> pyca.Map:
     return Sign(op.shape) * op
+
+
+# Activation Functions (Tanh already implemented)
+
+
+class Sigmoid(pyca.DiffMap):
+    """
+    Sigmoid function, element-wise.
+    """
+
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape)
+        self._lipschitz = 0.25  # Max of |\sigma'(x)|=|\sigma(x)(1-\sigma(x))| is 0.25 at x=0
+        self._diff_lipschitz = 1 / (
+            6 * np.sqrt(3)
+        )  # Max of |\sigma''(x)|=|(\exp^x (-1 + \exp^x))/(1 + \exp^x)^3| is 1/(6*\sqrt(3)) at x=log(2+-\sqrt(3))
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return 1 / (1 + xp.exp(-arr))
+
+    def jacobian(self, arr: pyct.NDArray):
+        return pyclb.DiagonalOp(self.apply(arr) * (1 - self.apply(arr)))
+
+
+def sigmoid(op: pyca.Map) -> pyca.Map:
+    return Sigmoid(op.shape) * op
+
+
+class ReLU(pyca.DiffMap):
+    """
+    Rectified linear unit, element-wise.
+    """
+
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape)
+        self._lipschitz = 1
+        self._diff_lipschitz = 0
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return arr.clip(min=0)
+
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        return pyclb.DiagonalOp(2 * xp.sign(arr) - 1)
+
+
+def relu(op: pyca.Map) -> pyca.Map:
+    return ReLU(op.shape) * op
+
+
+class GELU(pyca.DiffMap):
+    """
+    Gaussian error linear unit, element-wise.
+    """
+
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape)
+        raise NotImplementedError
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        raise NotImplementedError
+
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        raise NotImplementedError
+
+
+def gelu(op: pyca.Map) -> pyca.Map:
+    return GELU(op.shape) * op
+
+
+class Softplus(pyca.DiffMap):
+    """
+    Softplus function, element-wise.
+    """
+
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape)
+        self._lipschitz = 1
+        self._diff_lipschitz = 0.25
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.log(xp.exp(arr) + 1)
+
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        return pyclb.DiagonalOp(1 / (1 + xp.exp(-arr)))
+
+
+def softplus(op: pyca.Map) -> pyca.Map:
+    return Softplus(op.shape) * op
+
+
+class ELU(pyca.DiffMap):
+    """
+    Exponential linear unit, element-wise.
+    """
+
+    def __init__(self, shape: pyct.Shape, alpha: pyct.Real = None):
+        super().__init__(shape)
+        if alpha is None:
+            raise ValueError("Parameter[alpha] must be specified.")
+        self._alpha = alpha
+        self._lipschitz = max(1, abs(alpha))
+        self._diff_lipschitz = max(0, abs(alpha))
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.where(arr >= 0, arr, self._alpha * (xp.exp(arr) - 1))
+
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        elu = self.apply(arr)
+        return pyclb.DiagonalOp(xp.where(elu >= 0, 1, elu + self._alpha))
+
+
+def elu(op: pyca.Map) -> pyca.Map:
+    return ELU(op.shape) * op
+
+
+class SELU(pyca.DiffMap):
+    """
+    Scaled exponential linear unit, element-wise.
+    """
+
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape)
+        self._alpha = 1.67326
+        self._lambda = 1.0507
+        self._lipschitz = self._lambda * max(1, self._alpha)
+        self._diff_lipschitz = self._lambda * max(0, self._alpha)
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return self._lambda * xp.where(arr >= 0, arr, self._alpha * (xp.exp(arr) - 1))
+
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        elu = self.apply(arr)
+        return pyclb.DiagonalOp(self._lambda * xp.where(elu >= 0, 1, elu + self._alpha))
+
+
+def selu(op: pyca.Map) -> pyca.Map:
+    return SELU(op.shape) * op
+
+
+class LeakyReLU(pyca.DiffMap):
+    """
+    Leaky rectified linear unit, element-wise.
+    """
+
+    def __init__(self, shape: pyct.Shape, alpha: pyct.Real = None):
+        super().__init__(shape)
+        if alpha is None:
+            raise ValueError("Parameter[alpha] must be specified.")
+        self._alpha = alpha
+        self._lipschitz = max(abs(alpha), 1)
+        self._diff_lipschitz = 0
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.where(arr >= 0, arr, arr * self._alpha)
+
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        return pyclb.DiagonalOp(xp.where(arr >= 0, 1, self._alpha))
+
+
+def leakyrelu(op: pyca.Map) -> pyca.Map:
+    return LeakyReLU(op.shape) * op
+
+
+class SiLU(pyca.DiffMap):
+    """
+    Sigmoid linear unit, element-wise.
+    """
+
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape)
+        self._lipschitz = 1.0999  # Max of |silu'(x)| = |(e^x(-e^x(x-2)+x-2))/(1+e^x)^3| is 1.0999 at x=2.3994
+        self._diff_lipschitz = 0.5  # Max of |silu''(x)| = |(e^x(-e^x(x-2)+x+2))/((1+e^x)^3)| is 0.5 at x=0
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return arr / (1 + xp.exp(-arr))
+
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        exp_arr = xp.exp(arr)
+        return pyclb.DiagonalOp(((1 + exp_arr + arr) * exp_arr) / ((1 + exp_arr) ** 2))
+
+
+def silu(op: pyca.Map) -> pyca.Map:
+    return SiLU(op.shape) * op
+
+
+class Gaussian(pyca.DiffMap):
+    """
+    Gaussian function (\exp^(-x^2)) , element-wise.
+    """
+
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape)
+        self._lipschitz = np.sqrt(2 / np.exp(1))  # Max of |f'(x)|=|-2xe^(-x^2)| is sqrt(2/e) at x = +-1/sqrt(2)
+        self._diff_lipschitz = 2  # Max of |f''(x)|=|(4x^2-2)*e^(-x^2)| is 2 at x=0
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.exp(-(arr**2))
+
+    def jacobian(self, arr: pyct.NDArray):
+        return pyclb.DiagonalOp(-2 * arr * self.apply(arr))
+
+
+def gaussian(op: pyca.Map) -> pyca.Map:
+    return Gaussian(op.shape) * op
+
+
+class GCU(pyca.DiffMap):
+    """
+    Growing cosine function, element-wise.
+    """
+
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape)
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return arr * xp.cos(arr)
+
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        return pyclb.DiagonalOp(xp.cos(arr) - arr * xp.sin(arr))
+
+
+def gcu(op: pyca.Map) -> pyca.Map:
+    return GCU(op.shape) * op
+
+
+class Softmax(pyca.DiffMap):
+    """
+    Softmax function, element-wise.
+    """
+
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape)
+        self._lipschitz = 1
+        # TODO: self._diff_lipschitz ?
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        exp_arr = xp.exp(arr)
+        return exp_arr / xp.sum(exp_arr, axis=-1)
+
+    def jacobian(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        S = self.apply(arr)
+        return pyclb.DiagonalOp(xp.diag(S) - xp.dot(S, S.T))
+
+
+def softmax(op: pyca.Map) -> pyca.Map:
+    return Softmax(op.shape) * op
+
+
+class Maxout(pyca.DiffFunc):
+    """
+    Maxout function, element-wise.
+    """
+
+    def __init__(self, dim: int):
+        super().__init__(shape=(1, dim))
+        self._lipschitz = 1
+        self._diff_lipschitz = 0
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.max(arr, axis=-1)
+
+    @pycrt.enforce_precision(i="arr")
+    def _generate_grad(self, arr):
+        xp = pycu.get_array_module(arr)
+        return xp.where(arr == self.array(arr), 1, 0)
+
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        return xp.apply_along_axis(self._generate_grad, axis=-1, arr=arr)
+
+
+def maxout(op: pyca.Map) -> pyca.Map:
+    return Maxout(op.shape) * op
