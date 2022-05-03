@@ -73,7 +73,7 @@ class TestCos(conftest.DiffMapT):
         return self._random_array((N_test, data_shape[0]))
 
 
-class TestTan(conftest.MapT):
+class TestTan(conftest.DiffMapT):
     r"""
     Tangent function diverges for :math:`\mp(2k+1)k\pi/2`, with
     :math:`k \in \mathbb{N}`. Testing is done on :math`[-3*\pi/2+0.2,
@@ -117,8 +117,13 @@ class TestTan(conftest.MapT):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
 
-class TestArcsin(conftest.MapT):
+
+class TestArcsin(conftest.DiffMapT):
     """
     Inverse sine function defined for :math:`[-1,1]`.
     """
@@ -149,8 +154,13 @@ class TestArcsin(conftest.MapT):
         N_test = 5
         return np.clip(self._random_array((N_test, data_shape[0])), -1, 1)
 
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return np.clip(self._random_array((N_test, data_shape[0])), -0.9, 0.9)
 
-class TestArccos(conftest.MapT):
+
+class TestArccos(conftest.DiffMapT):
     """
     Inverse cosine function defined for :math:`[-1,1]`.
     """
@@ -178,6 +188,11 @@ class TestArccos(conftest.MapT):
 
     @pytest.fixture
     def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return np.clip(self._random_array((N_test, data_shape[0])), -1, 1)
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
         N_test = 5
         return np.clip(self._random_array((N_test, data_shape[0])), -1, 1)
 
@@ -350,7 +365,7 @@ class TestArcsinh(conftest.DiffMapT):
         return self._random_array((N_test, data_shape[0]))
 
 
-class TestArccosh(conftest.MapT):
+class TestArccosh(conftest.DiffMapT):
     r"""
     Inverse hyperbolic cosine function defined for :math:`[1,\infty)`.
     """
@@ -381,8 +396,13 @@ class TestArccosh(conftest.MapT):
         N_test = 5
         return np.clip(self._random_array((N_test, data_shape[0])) + 3, a_min=1, a_max=4)
 
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return np.clip(self._random_array((N_test, data_shape[0])) + 3, a_min=1.1, a_max=4)
 
-class TestArctanh(conftest.MapT):
+
+class TestArctanh(conftest.DiffMapT):
     """
     Inverse hyperbolic tangent function defined for :math:`(-1,1)`.
     """
@@ -412,6 +432,11 @@ class TestArctanh(conftest.MapT):
     def data_math_lipschitz(self, data_shape):
         N_test = 5
         return np.clip(self._random_array((N_test, data_shape[0])), a_min=-1 + 0.01, a_max=1 - 0.01)
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return np.clip(self._random_array((N_test, data_shape[0])), a_min=-0.9, a_max=0.9)
 
 
 # Exponentials and logarithms
@@ -491,63 +516,123 @@ class TestLog(conftest.DiffMapT):
 # Sums, Products and Differences
 
 
-class TestProd(conftest.MapT):
-    @pytest.fixture
-    def dim(self):
-        return 5
+class TestProd(conftest.DiffFuncT):
+    @pytest.fixture(params=[5, None])
+    def dim(self, request):
+        return request.param
 
     @pytest.fixture
     def data_shape(self, dim):
-        return (dim, 0)
+        return (1, dim)
 
     @pytest.fixture
-    def op(self, data_shape):
-        return pycmu.Prod()
+    def op(self, dim):
+        return pycmu.Prod(dim)
+
+    @pytest.fixture(
+        params=[
+            dict(
+                in_=dict(arr=np.linspace(-1, 3, 5)),
+                out=np.prod(np.linspace(-1, 3, 5), axis=-1, keepdims=True),
+            ),
+            dict(
+                in_=dict(arr=np.linspace(1, 3, 5)),
+                out=np.prod(np.linspace(1, 3, 5), axis=-1, keepdims=True),
+            ),
+            dict(
+                in_=dict(arr=np.array([1, 2, 0, 3, 0])),
+                out=np.prod(np.array([1, 2, 0, 3, 0]), axis=-1, keepdims=True),
+            ),
+        ]
+    )
+    def data_apply(self, request):
+        return request.param
 
     @pytest.fixture
-    def data_apply(self, data_shape):
-        A = np.linspace(1, 5, data_shape[0])
-        B = np.prod(A, axis=-1)
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
+    def data_math_lipschitz(self, dim):
+        N_test, dim = 6, dim if (dim is not None) else 3
+        return self._random_array((N_test, dim))
 
     @pytest.fixture
-    def data_math_lipschitz(self, data_shape):
-        N_test = 5
-        return self._random_array((N_test, data_shape[0]))
+    def data_math_diff_lipschitz(self, dim):
+        N_test, dim = 6, dim if (dim is not None) else 3
+        return self._random_array((N_test, dim))
+
+    @pytest.fixture(
+        params=[
+            dict(
+                in_=dict(arr=np.linspace(-1, 3, 5)),
+                out=np.array([0.0, -6.0, 0.0, 0.0, 0.0]),
+            ),
+            dict(
+                in_=dict(arr=np.linspace(1, 5, 5)),
+                out=np.array([120.0, 60.0, 40.0, 30.0, 24.0]),
+            ),
+            dict(
+                in_=dict(arr=np.array([1, 2, 0, 3, 0])),
+                out=np.array([0.0, 0.0, 0.0, 0.0, 0.0]),
+            ),
+        ]
+    )
+    def data_grad(self, request):
+        return request.param
 
 
-class TestSum(conftest.MapT):
-    @pytest.fixture
-    def dim(self):
-        return 10
+class TestSum(conftest.DiffFuncT):
+    @pytest.fixture(params=[5, None])
+    def dim(self, request):
+        return request.param
 
     @pytest.fixture
     def data_shape(self, dim):
-        return (dim, 0)
+        return (1, dim)
 
     @pytest.fixture
-    def op(self, data_shape):
-        return pycmu.Sum()
+    def op(self, dim):
+        return pycmu.Sum(dim)
+
+    @pytest.fixture(
+        params=[
+            dict(
+                in_=dict(arr=np.linspace(-1, 3, 5)),
+                out=np.sum(np.linspace(-1, 3, 5), axis=-1, keepdims=True),
+            ),
+            dict(
+                in_=dict(arr=np.linspace(1, 3, 5)),
+                out=np.sum(np.linspace(1, 3, 5), axis=-1, keepdims=True),
+            ),
+        ]
+    )
+    def data_apply(self, request):
+        return request.param
 
     @pytest.fixture
-    def data_apply(self, data_shape):
-        A = np.linspace(5, 10, data_shape[0])
-        B = np.sum(A, axis=-1)
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
+    def data_math_lipschitz(self, dim):
+        N_test, dim = 6, dim if (dim is not None) else 3
+        return self._random_array((N_test, dim))
 
     @pytest.fixture
-    def data_math_lipschitz(self, data_shape):
-        N_test = 5
-        return self._random_array((N_test, data_shape[0]))
+    def data_math_diff_lipschitz(self, dim):
+        N_test, dim = 6, dim if (dim is not None) else 3
+        return self._random_array((N_test, dim))
+
+    @pytest.fixture(
+        params=[
+            dict(
+                in_=dict(arr=np.linspace(-1, 3, 5)),
+                out=np.array([1.0, 1.0, 1.0, 1.0, 1.0]),
+            ),
+            dict(
+                in_=dict(arr=np.linspace(1, 5, 5)),
+                out=np.array([1.0, 1.0, 1.0, 1.0, 1.0]),
+            ),
+        ]
+    )
+    def data_grad(self, request):
+        return request.param
 
 
-class TestCumprod(conftest.MapT):
+class TestCumprod(conftest.DiffMapT):
     @pytest.fixture
     def dim(self):
         return 5
@@ -560,22 +645,37 @@ class TestCumprod(conftest.MapT):
     def op(self, data_shape):
         return pycmu.Cumprod(shape=data_shape)
 
-    @pytest.fixture
-    def data_apply(self, data_shape):
-        A = np.linspace(1.0, 5.0, data_shape[0])
-        B = np.cumprod(A, axis=-1)
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
+    @pytest.fixture(
+        params=[
+            dict(
+                in_=dict(arr=np.linspace(-1, 3, 5)),
+                out=np.cumprod(np.linspace(-1, 3, 5), axis=-1),
+            ),
+            dict(
+                in_=dict(arr=np.linspace(1, 3, 5)),
+                out=np.cumprod(np.linspace(1, 3, 5), axis=-1),
+            ),
+            dict(
+                in_=dict(arr=np.array([1, 2, 0, 3, 0])),
+                out=np.cumprod(np.array([1, 2, 0, 3, 0]), axis=-1),
+            ),
+        ]
+    )
+    def data_apply(self, request):
+        return request.param
 
     @pytest.fixture
     def data_math_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
 
-class TestCumsum(conftest.MapT):
+
+class TestCumsum(conftest.DiffMapT):
     @pytest.fixture
     def dim(self):
         return 5
@@ -590,7 +690,7 @@ class TestCumsum(conftest.MapT):
 
     @pytest.fixture
     def data_apply(self, data_shape):
-        A = np.linspace(1.0, 5.0, data_shape[0])
+        A = np.linspace(-25.0, 125.0, data_shape[0])
         B = np.cumsum(A, axis=-1)
         return dict(
             in_=dict(arr=A),
@@ -599,6 +699,11 @@ class TestCumsum(conftest.MapT):
 
     @pytest.fixture
     def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
@@ -617,7 +722,7 @@ class TestClip(conftest.MapT):
 
     @pytest.fixture
     def op(self, data_shape):
-        return pycmu.Clip(shape=data_shape)
+        return pycmu.Clip(shape=data_shape, a_min=0, a_max=1)
 
     @pytest.fixture
     def data_apply(self, data_shape):
@@ -634,7 +739,7 @@ class TestClip(conftest.MapT):
         return self._random_array((N_test, data_shape[0]))
 
 
-class TestSqrt(conftest.MapT):
+class TestSqrt(conftest.DiffMapT):
     r"""
     Square root function defined for :math:`[0,\infty)`.
     """
@@ -665,8 +770,13 @@ class TestSqrt(conftest.MapT):
         N_test = 5
         return np.abs(self._random_array((N_test, data_shape[0])))
 
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return np.abs(self._random_array((N_test, data_shape[0])))
 
-class TestCbrt(conftest.MapT):
+
+class TestCbrt(conftest.DiffMapT):
     @pytest.fixture
     def dim(self):
         return 100
@@ -690,6 +800,11 @@ class TestCbrt(conftest.MapT):
 
     @pytest.fixture
     def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
