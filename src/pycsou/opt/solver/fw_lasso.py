@@ -1,20 +1,19 @@
 import typing as typ
 
-# for development purposes
 import numpy as np
 
+import pycsou._dev.fw_utils as pycdevu
 import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
 import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
-from pycsou._dev import L1Norm, SquaredL2Norm, SubSampling
 from pycsou.opt.solver.pgd import PGD
 
 # [TODO] I. Currently, the norm operators "L1Norm, SquaredL2Norm" and the linear operator "SubSampling" are imported
-# [todo] from src/pycsou/_dev, which is supposed to be temporary dev file. In the final version, the imports should come
-# [todo] from the Pycsou sub-module in which they will be implemented.
+# [todo] from src/pycsou/fw_utils, which is supposed to be a temporary dev file. In the final version, the imports
+# [todo] should come from the Pycsou sub-module in which they will be implemented.
 
 # [TODO] II. When the feature will be available, FW algorithms should integrate the possibility to keep track of the
 # [todo] value of the objective function along the iterations.
@@ -71,13 +70,13 @@ class GenericFWforLasso(pycs.Solver):
         self.forwardOp = forwardOp
         self.data = pycrt.coerce(data)
 
-        self._data_fidelity = 0.5 * SquaredL2Norm().asloss(data=self.data) * self.forwardOp
-        self._penalty = self.lambda_ * L1Norm()
+        self._data_fidelity = 0.5 * pycdevu.SquaredL2Norm().asloss(data=self.data) * self.forwardOp
+        self._penalty = self.lambda_ * pycdevu.L1Norm()
         # QfR: Vocabulary question: penalty or regul ?
         self.objective = self._data_fidelity + self._penalty
         self._compute_ofv = True  # by default, the "objective function value" (ofv) is computed
 
-        self._bound = 0.5 * SquaredL2Norm()(data)[0] / self.lambda_  # todo [0]
+        self._bound = 0.5 * pycdevu.SquaredL2Norm()(data)[0] / self.lambda_  # todo [0]
 
     def m_init(self, **kwargs):
         xp = pycu.get_array_module(self.data)
@@ -216,15 +215,15 @@ class VanillaFWforLasso(GenericFWforLasso):
             gamma = -xp.dot(mgrad, mst["x"]).real
             if abs(dcv) > 1.0:
                 gamma += self.lambda_ * (mst["lift_variable"] + (abs(dcv) - 1.0) * self._bound)
-                injection = SubSampling(self.forwardOp.shape[1], xp.array(new_ind)).T
-                gamma /= SquaredL2Norm()(
+                injection = pycdevu.SubSampling(self.forwardOp.shape[1], xp.array(new_ind)).T
+                gamma /= pycdevu.SquaredL2Norm()(
                     self._bound * np.sign(dcv) * self.forwardOp(injection(xp.array(1.0))) - self.forwardOp(mst["x"])
                 )[
                     0
                 ]  # we can use numpy (np) as dcv is a float
             else:
                 gamma += self.lambda_ * mst["lift_variable"]
-                gamma /= SquaredL2Norm()(self.forwardOp(mst["x"]))[0]
+                gamma /= pycdevu.SquaredL2Norm()(self.forwardOp(mst["x"]))[0]
 
         if not 0 < gamma < 1:
             print("Warning, gamma value not valid: {}".format(gamma))
@@ -388,9 +387,9 @@ class PolyatomicFWforLasso(GenericFWforLasso):
             if abs(corr) <= self.lambda_:
                 mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
             elif corr > self.lambda_:
-                mst["x"] = ((corr - self.lambda_) / SquaredL2Norm()(column)[0]) * tmp
+                mst["x"] = ((corr - self.lambda_) / pycdevu.SquaredL2Norm()(column)[0]) * tmp
             else:
-                mst["x"] = ((corr + self.lambda_) / SquaredL2Norm()(column)[0]) * tmp
+                mst["x"] = ((corr + self.lambda_) / pycdevu.SquaredL2Norm()(column)[0]) * tmp
         else:
             mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
         if self._compute_ofv:
@@ -423,7 +422,7 @@ class PolyatomicFWforLasso(GenericFWforLasso):
             )
             return stop_crit
 
-        injection = SubSampling(size=self.forwardOp.shape[1], sampling_indices=support_indices).T
+        injection = pycdevu.SubSampling(size=self.forwardOp.shape[1], sampling_indices=support_indices).T
         rs_data_fid = self._data_fidelity * injection
         x0 = injection.T(self._mstate["x"])
         apgd = PGD(rs_data_fid, self._penalty, show_progress=False)
