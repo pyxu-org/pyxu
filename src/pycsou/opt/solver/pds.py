@@ -69,12 +69,15 @@ class _PrimalDualSplitting(pycs.Solver):
         tau: typ.Optional[pyct.Real] = None,
         sigma: typ.Optional[pyct.Real] = None,
         rho: typ.Optional[pyct.Real] = None,
+        tuning_strategy: typ.Literal[1, 2, 3] = 1,
     ):
         mst = self._mstate  # shorthand
         mst["x"] = x0 if x0.ndim > 1 else x0.reshape(1, -1)
         mst["z"] = self._set_dual_variable(z0)
-        mst["tau"], mst["sigma"] = self._set_step_sizes(tau, sigma)
-        mst["rho"] = self._set_momentum_term(rho)
+        self._tuning_strategy = tuning_strategy
+        gamma = self._set_gamma(tuning_strategy)
+        mst["tau"], mst["sigma"], delta = self._set_step_sizes(tau, sigma, gamma)
+        mst["rho"] = self._set_momentum_term(rho, delta)
 
     def default_stop_crit(self) -> pycs.StoppingCriterion:
         stop_crit_x = pycos.RelError(
@@ -133,10 +136,23 @@ class _PrimalDualSplitting(pycs.Solver):
             else:
                 return z if z.ndim > 1 else z.reshape(1, -1)
 
-    def _set_step_sizes(self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real]):
+    def _set_gamma(self, tuning_strategy: typ.Literal[1, 2, 3]) -> pyct.Real:
+        r"""
+        Sets the gamma parameter according to the tuning strategy.
+
+        Returns
+        -------
+        float
+            Gamma parameter.
+        """
+        return pycrt.coerce(self._beta) if tuning_strategy != 2 else pycrt.coerce(self._beta / 2)
+
+    def _set_step_sizes(
+        self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real], gamma: pyct.Real
+    ) -> typ.Tuple[pyct.Real, pyct.Real, pyct.Real]:
         raise NotImplementedError
 
-    def _set_momentum_term(self, beta: typ.Optional[pyct.Real]):
+    def _set_momentum_term(self, beta: typ.Optional[pyct.Real], delta: pyct.Real) -> pyct.Real:
         raise NotImplementedError
 
 
@@ -176,8 +192,8 @@ class CondatVu(_PDS):
     **Remark 2:**
 
     The algorithm has convergence guarantees for the case in which :math:`\mathcal{H}` is composed with a
-    *linear operator* :math:`\mathbf{K}`, except in the case of Chambolle-Pock (see [NLCP]_). Automatic selection of
-    parameters is not supported for the cases in which :math:`\mathcal{K}` is a *non-linear differentiable map*.
+    *linear operator* :math:`\mathbf{K}`. When :math:`\mathcal{F}=0`, convergence can be proven for *non-linear differentiable maps* :math:`\mathcal{K}` (see [NLCP]_).
+    Note that this class does not support yet automatic selection of hyperparameters for the case of *non-linear differentiable maps* :math:`\mathcal{K}`.
 
     **Remark 3:**
 
@@ -185,15 +201,18 @@ class CondatVu(_PDS):
 
     * :math:`\beta>0` and:
 
-      - :math:`\frac{1}{\tau}-\sigma\Vert\mathbf{K}\Vert_{2}^2\geq \frac{\beta}{2}`,
-      - :math:`\rho \in ]0,\delta[`, where :math:`\delta:=2-\frac{\beta}{2}\left(\frac{1}{\tau}-\sigma\Vert\mathbf{K}\Vert_{2}^2\right)^{-1}\in[1,2[.`
+      - :math:`\gamma \geq \frac{\beta}{2}`,
+      - :math:`\frac{1}{\tau}-\sigma\Vert\mathbf{K}\Vert_{2}^2\geq \gamma`,
+      - :math:`\rho \in ]0,\delta[`, where :math:`\delta:=2-\frac{\beta}{2}\gamma^{-1}\in[1,2[` (:math:`\delta=2` is possible when :math:`\mathcal{F}` is *quadratic*
+       and :math:`\gamma \geq \beta`, see [PSA]_).
 
     * or :math:`\beta=0` and:
 
       - :math:`\tau\sigma\Vert\mathbf{K}\Vert_{2}^2\leq 1`
-      - :math:`\rho \in [\epsilon,2-\epsilon]`, for some  :math:`\epsilon>0.`
+      - :math:`\rho \in ]0,2[`.
 
-    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
+    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences
+    of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
 
     .. math::
 
@@ -229,50 +248,56 @@ class CondatVu(_PDS):
         Dual step size.
     rho: Real | None
         Momentum parameter.
+    tuning_strategy: [1, 2, 3]
+        Strategy to be employed when setting the hyperparameters (default to 1). See section below for more details.
 
     **Default values of the hyperparameters.**
 
-    In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as
+    This class supports three strategies for automaticly setting the hyperparameters (see [PSA]_ for more details and numerical experiments
+    comparing the performances of the three strategies):
+
+        - ``tuning_strategy == 1``: :math:`\gamma = \beta` (safe step sizes) and :math:`\rho=1` (no relaxation).
+          This is the most standard way of setting the parameters in the literature, does not leverage relaxation.
+        - ``tuning_strategy == 2``: :math:`\gamma = \beta/1.9` (large step sizes) and :math:`\rho=1` (no relaxation).
+          This strategy favours large step sizes forbidding the use of overrelaxation. When :math:`beta=0`, same as first strategy.
+        - ``tuning_strategy == 3``: :math:`\gamma = \beta` (safe step sizes) and :math:`\rho=\delta - 0.1 > 1` (overrelaxation).
+          This strategy chooses smaller step sizes, but performs overrelaxation.
+
+    Once :math:`\gamma` chosen, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as
     large as possible and relatively well-balanced --so that both the primal and dual variables converge at the same pace.
-    When in doubt, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the
-    convergence inequalities.
+    Whenever possible, we therefore choose perfectly balanced parameters :math:`\sigma=\tau` saturating the convergence inequalities for a given value of :math:`\gamma`.
 
     * For :math:`\beta>0` and :math:`\mathcal{H}\neq 0` this yields:
 
-    .. math::
-        \frac{1}{\tau}-\tau\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad -2\tau^2\Vert\mathbf{K}\Vert_{2}^2-\beta\tau+2=0,
+        .. math::
+            \frac{1}{\tau}-\tau\Vert\mathbf{K}\Vert_{2}^2= \gamma \quad\Longleftrightarrow\quad -\tau^2\Vert\mathbf{K}\Vert_{2}^2-\gamma\tau+1=0,
 
-    which admits one positive root
+        which admits one positive root
 
-    .. math::
-        \tau=\sigma=\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}\left(-\frac{\beta}{4}+\sqrt{\frac{\beta^2}{16}+\Vert\mathbf{K}\Vert_{2}^2}\right).
+        .. math::
+            \tau=\sigma=\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}\left(-\frac{\gamma}{2}+\sqrt{\frac{\gamma^2}{4}+\Vert\mathbf{K}\Vert_{2}^2}\right).
 
-    * For :math:`\beta>0` and :math:`\mathcal{H}=0` the convergence inequalities yield:
+    * For :math:`\beta>0` and :math:`\mathcal{H}=0` this yields: :math:`\tau=1/\gamma.`
 
-    .. math::
-        \tau=2/\beta, \quad \sigma=0.
+    * For :math:`\beta=0` this yields:
 
-    * For :math:`\beta=0` and :math:`\mathcal{H}\neq 0` this yields:
-
-    .. math::
-        \tau=\sigma=\Vert\mathbf{K}\Vert_{2}^{-1}.
+        .. math::
+            \tau=\sigma=\Vert\mathbf{K}\Vert_{2}^{-1}.
 
     When :math:`\tau` is provided (:math:`\tau = \tau_{1}`), but not :math:`\sigma`, the latter is chosen as:
 
     .. math::
-        \frac{1}{\tau_{1}}-\sigma\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad \sigma=\left(\frac{1}{\tau_{1}}-\frac{\beta}{2}\right)\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}.
+        \frac{1}{\tau_{1}}-\sigma\Vert\mathbf{K}\Vert_{2}^2= \gamma \quad\Longleftrightarrow\quad \sigma=\left(\frac{1}{\tau_{1}}-\gamma\right)\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}.
 
     When :math:`\sigma` is provided (:math:`\sigma = \sigma_{1}`), but not :math:`\tau`, the latter is chosen as:
 
     .. math::
-        \frac{1}{\tau}-\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2= \frac{\beta}{2} \quad\Longleftrightarrow\quad \tau=\frac{1}{\left(\frac{\beta}{2}+\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2\right)}.
+        \frac{1}{\tau}-\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2= \gamma \quad\Longleftrightarrow\quad \tau=\frac{1}{\left(\gamma+\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2\right)}.
 
     Warnings
     --------
     When values are provided for both :math:`\tau` and :math:`\sigma` it is assumed that the latter satisfy the convergence inequalities,
-    but this check is not explicitly performed.
-
-
+    but this check is not explicitly performed. Automatic selection of hyperparameters for the case of non-linear differentiable maps :math:`\mathcal{K}` is not supported yet.
 
     Examples
     --------
@@ -337,55 +362,58 @@ class CondatVu(_PDS):
         mst["x"] = mst["rho"] * x_temp + (1 - mst["rho"]) * mst["x"]
 
     def _set_step_sizes(
-        self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real]
-    ) -> typ.Tuple[pyct.Real, pyct.Real]:
+        self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real], gamma: typ.Optional[pyct.Real]
+    ) -> typ.Tuple[pyct.Real, pyct.Real, pyct.Real]:
         r"""
         Set the primal/dual step sizes.
 
         Returns
         -------
-        Tuple[Real, Real]
-            Sensible primal/dual step sizes.
+        Tuple[Real, Real, Real]
+            Sensible primal/dual step sizes and value of the parameter :math:`delta`.
+
+        .. todo:: Update reference to QuadraticFunc once the latter is implemented.
         """
 
-        if not (isinstance(self._K, pyco.LinOp) or isinstance(self._K, pyclo.NullOp)):
+        if not issubclass(self._K.__class__, pyco.LinOp):
             msg = (
                 f"Automatic selection of parameters is only supported in the case in which K is a linear operator. "
-                "Got operator of type {self._K}."
+                f"Got operator of type {self._K.__class__}."
             )
             raise ValueError(msg)
         tau = None if tau == 0 else tau
         sigma = None if sigma == 0 else sigma
 
         if (tau is not None) and (sigma is None):
-            assert tau > 0
+            assert tau > 0, f"Parameter tau must be positive, got {tau}."
             if isinstance(self._h, pyclo.NullFunc):
+                assert tau <= 1 / gamma, f"Parameter tau must be smaller than 1/gamma: {tau} > {1 / gamma}."
                 sigma = 0
             else:
                 if math.isfinite(self._K._lipschitz):
-                    sigma = ((1 / tau) - (self._beta / 2)) * (1 / self._K._lipschitz**2)
+                    sigma = ((1 / tau) - gamma) * (1 / self._K._lipschitz**2)
                 else:
                     msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                     raise ValueError(msg)
         elif (tau is None) and (sigma is not None):
             assert sigma > 0
             if isinstance(self._h, pyclo.NullFunc):
-                tau = 2 / self._beta
+                tau = 1 / gamma
             else:
                 if math.isfinite(self._K._lipschitz):
-                    tau = 1 / ((self._beta / 2) + (sigma * self._K._lipschitz**2))
+                    tau = 1 / (gamma + (sigma * self._K._lipschitz**2))
                 else:
                     msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                     raise ValueError(msg)
         elif (tau is None) and (sigma is None):
             if self._beta > 0:
                 if isinstance(self._h, pyclo.NullFunc):
-                    tau = 2 / self._beta
+                    tau = 1 / gamma
                     sigma = 0
                 else:
                     if math.isfinite(self._K._lipschitz):
                         tau = sigma = (1 / (self._K._lipschitz) ** 2) * (
-                            (-self._beta / 4) + math.sqrt((self._beta**2 / 16) + self._K._lipschitz**2)
+                            (-gamma / 2) + math.sqrt((gamma**2 / 4) + self._K._lipschitz**2)
                         )
                     else:
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
@@ -400,9 +428,14 @@ class CondatVu(_PDS):
                     else:
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                         raise ValueError(msg)
-        return tau, sigma
+        delta = (
+            2
+            if (self._beta == 0 or (issubclass(self._f.__class__, QuadraticFunc) and gamma <= self._beta))
+            else 2 - self._beta / (2 * gamma)
+        )
+        return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
 
-    def _set_momentum_term(self, rho: typ.Optional[pyct.Real]) -> float:
+    def _set_momentum_term(self, rho: typ.Optional[pyct.Real], delta: pyct.Real) -> pyct.Real:
         r"""
         Sets the momentum term according to Theorem 8.2 in [PSA]_.
 
@@ -410,17 +443,12 @@ class CondatVu(_PDS):
         -------
         float
             Momentum term.
-
-        .. TODO::
-            Over-relaxation in the case of quadratic f ? (Condat's paper)
         """
-
         if rho is None:
-            if self._beta > 0:
-                rho = pycrt.coerce(0.9)
-            else:
-                rho = pycrt.coerce(1.0)
-        return rho
+            rho = 1.0 if self._tuning_strategy != 3 else delta - 0.1
+        else:
+            assert rho < delta, f"Parameter rho must be smaller than delta: {rho} > {delta}."
+        return pycrt.coerce(rho)
 
 
 CV = CondatVu
@@ -458,23 +486,27 @@ class PD3O(_PDS):
     **Remark 2:**
 
     The algorithm has convergence guarantees for the case in which :math:`\mathcal{H}` is composed with a
-    *linear operator* :math:`\mathbf{K}`, except in the case of Chambolle-Pock (see [NLCP]_). Automatic selection of
-    parameters is not supported for the cases in which :math:`\mathcal{K}` is a *non-linear differentiable map*.
+    *linear operator* :math:`\mathbf{K}`. When :math:`\mathcal{F}=0`, convergence can be proven for *non-linear differentiable maps* :math:`\mathcal{K}` (see [NLCP]_).
+    Note that this class does not support yet automatic selection of hyperparameters for the case of *non-linear differentiable maps* :math:`\mathcal{K}`.
 
     **Remark 3:**
 
     Assume that the following holds:
 
+    * :math:`\gamma\geq\frac{\beta}{2}`,
+    * :math:`\tau \in ]0, \frac{1}{\gamma}[`,
     * :math:`\tau\sigma\Vert\mathbf{K}\Vert_{2}^2 \leq 1`,
-    * :math:`\tau \in (0, \frac{2}{\beta})`,
+    * :math:`\delta = 2-\beta\tau/2 \in [1, 2[` and :math:`\rho \in (0, \delta]`,
 
-    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively (Theorem 8.2 of [PSA]_), i.e.
+    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution
+    s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}`
+    *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively (Theorem 8.2 of [PSA]_), i.e.
 
     .. math::
 
        \lim_{n\rightarrow +\infty}\Vert\mathbf{x}^\star-\mathbf{x}_n\Vert_2=0, \quad \text{and} \quad  \lim_{n\rightarrow +\infty}\Vert\mathbf{z}^\star-\mathbf{z}_n\Vert_2=0.
 
-    Futhermore, the objective functional sequence :math:`\left(\Psi(\mathbf{x}_n)\right)_{n\in\mathbb{N}}` converges towards
+    Futhermore, when :math:`\rho=1`, the objective functional sequence :math:`\left(\Psi(\mathbf{x}_n)\right)_{n\in\mathbb{N}}` can be shown to converge towards
     its minimum :math:`\Psi^\ast` with rate :math:`o(1/\sqrt{n})` (Theorem 1 of [dPSA]_):
 
     .. math::
@@ -509,35 +541,48 @@ class PD3O(_PDS):
         Dual step size.
     rho: Real | None
         Momentum parameter.
+    tuning_strategy: [1, 2, 3]
+        Strategy to be employed when setting the hyperparameters (default to 1). See section below for more details.
+
 
     **Default values of the hyperparameters.**
 
-    In practice, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as
-    large as possible and relatively well-balanced --so that both the :math:`\mathbf{x}_n` and :math:`\mathbf{z}_n` variables converge at the same pace.
-    When in doubt, it is hence recommended to choose perfectly balanced parameters :math:`\sigma=\tau` saturating the convergence inequalities.
+    This class supports three strategies for automaticly setting the hyperparameters (see [PSA]_ for more details and numerical experiments
+    comparing the performances of the three strategies):
+
+        - ``tuning_strategy == 1``: :math:`\gamma = \beta` (safe step sizes) and :math:`\rho=1` (no relaxation).
+          This is the most standard way of setting the parameters in the literature, does not leverage relaxation.
+        - ``tuning_strategy == 2``: :math:`\gamma = \beta/1.9` (large step sizes) and :math:`\rho=1` (no relaxation).
+          This strategy favours large step sizes forbidding the use of overrelaxation. When :math:`beta=0`, same as first strategy.
+        - ``tuning_strategy == 3``: :math:`\gamma = \beta` (safe step sizes) and :math:`\rho=\delta - 0.1 > 1` (overrelaxation).
+          This strategy chooses smaller step sizes, but performs overrelaxation.
+
+    Once :math:`\gamma` chosen, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as
+    large as possible and relatively well-balanced --so that both the primal and dual variables converge at the same pace.
+    Whenever possible, we therefore choose perfectly balanced parameters :math:`\sigma=\tau` saturating the convergence inequalities for a given value of :math:`\gamma`.
 
     In practice, the following linear programming optimization problem is solved:
 
     .. math::
         (\tau, \, \sigma) = \operatorname{arg} \max_{(\tau^{*}, \,  \sigma^{*})} \quad & \operatorname{log}(\tau^{*}) + \operatorname{log}(\sigma^{*})\\
         \text{s.t.} \quad & \operatorname{log}(\tau^{*}) + \operatorname{log}(\sigma^{*}) \leq 2\operatorname{log}(\Vert\mathbf{K}\Vert_{2})\\
-        & \operatorname{log}(\tau^{*}) \leq \operatorname{log}(\frac{1.99}{\beta})\\
-        & \operatorname{log}(\tau^{*}) = \operatorname{log}(\sigma^{*})   \\
+        & \operatorname{log}(\tau^{*}) \leq -\operatorname{log}(\gamma)\\
+        & \operatorname{log}(\tau^{*}) = \operatorname{log}(\sigma^{*}).
 
-    When :math:`\tau` is given (i.e., :math:`\tau=\tau_{1}`), but not :math:`\sigma`, the latter is chosen as:
+    When :math:`\tau \leq 1/\gamma` is given (i.e., :math:`\tau=\tau_{1}`), but not :math:`\sigma`, the latter is chosen as:
 
     .. math::
-        \tau_{1}\sigma\Vert\mathbf{K}\Vert_{2}^2= 1 \quad\Longleftrightarrow\quad \sigma=\frac{1}{\tau_{1}}\Vert\mathbf{K}\Vert_{2}^{-2}.
+        \tau_{1}\sigma\Vert\mathbf{K}\Vert_{2}^2= 1 \quad\Longleftrightarrow\quad \sigma=\frac{1}{\tau_{1}\Vert\mathbf{K}\Vert_{2}^{2}}.
 
     When :math:`\sigma` is given (i.e., :math:`\sigma=\sigma_{1}`), but not :math:`\tau`, the latter is chosen as:
 
     .. math::
-        \tau\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2=1 \quad\Longleftrightarrow\quad \tau=\frac{1}{\sigma_{1}}\Vert\mathbf{K}\Vert_{2}^{-2},
+        \tau = \min \left\{\frac{1}{\gamma}, \frac{1}{\sigma_{1}\Vert\mathbf{K}\Vert_{2}^{2}}\right\}.
 
-    if :math:`\frac{1}{\sigma_{1}}\Vert\mathbf{K}\Vert_{2}^{-2}< \frac{2}{\beta}`, or :math:`\tau=\frac{1.99}{\beta}` otherwise.
-
-    The momentum parameter is set by default to :math:`\rho = 1`, as the convergence rate :math:`o(1/\sqrt{n})` in *Remark 3*
-    is only proven for this value of :math:`\rho` (Theorem 1 of [dPSA]_).
+    Warnings
+    --------
+    When values are provided for both :math:`\tau` and :math:`\sigma` it is assumed that the latter satisfy the convergence inequalities,
+    but this check is not explicitly performed. Automatic selection of hyperparameters for the case of non-linear differentiable maps :math:`\mathcal{K}` is not supported yet.
 
 
     Examples
@@ -601,7 +646,7 @@ class PD3O(_PDS):
 
     def m_step(
         self,
-    ):  # Slightly more rewriting of iterations (216) of [PSA] with M=1. Faster than (185) since only one call to the adjoint and the gradient per iteration.
+    ):  # Slightly more efficient rewriting of iterations (216) of [PSA] with M=1. Faster than (185) since only one call to the adjoint and the gradient per iteration.
         mst = self._mstate
         mst["x"] = self._g.prox(mst["u"] - mst["tau"] * self._K.jacobian(mst["u"]).adjoint(mst["z"]), tau=mst["tau"])
         u_temp = mst["x"] - mst["tau"] * self._f.grad(mst["x"])
@@ -613,31 +658,28 @@ class PD3O(_PDS):
         mst["u"] = (1 - mst["rho"]) * mst["u"] + mst["rho"] * u_temp
 
     def _set_step_sizes(
-        self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real]
-    ) -> typ.Tuple[pyct.Real, pyct.Real]:
+        self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real], gamma: pyct.Real
+    ) -> typ.Tuple[pyct.Real, pyct.Real, pyct.Real]:
         r"""
         Set the primal/dual step sizes.
 
         Returns
         -------
-        Tuple[Real, Real]
-            Sensible primal/dual step sizes.
+        Tuple[Real, Real, Real]
+            Sensible primal/dual step sizes and value of :math:`\delta`.
         """
 
-        if not (isinstance(self._K, pyco.LinOp) or isinstance(self._K, pyclo.NullOp)):
+        if not issubclass(self._K.__class__, pyco.LinOp):
             msg = (
                 f"Automatic selection of parameters is only supported in the case in which K is a linear operator. "
-                "Got operator of type {self._K}."
+                f"Got operator of type {self._K.__class__}."
             )
             raise ValueError(msg)
         tau = None if tau == 0 else tau
         sigma = None if sigma == 0 else sigma
 
         if (tau is not None) and (sigma is None):
-            try:
-                assert 0 < tau
-            except:
-                raise ValueError(f"tau must be positive, got {tau}.")
+            assert 0 < tau <= 1 / gamma, f"tau must be positive and smaller than 1/gamma."
             if isinstance(self._h, pyclo.NullFunc):
                 sigma = 0
             else:
@@ -647,26 +689,23 @@ class PD3O(_PDS):
                     msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                     raise ValueError(msg)
         elif (tau is None) and (sigma is not None):
-            try:
-                assert sigma > 0
-            except:
-                raise ValueError(f"sigma must be positive, got {sigma}.")
+            assert sigma > 0, f"sigma must be positive, got {sigma}."
             if isinstance(self._h, pyclo.NullFunc):
-                tau = 1.99 / self._beta
+                tau = 1 / gamma
             else:
                 if math.isfinite(self._K._lipschitz):
-                    tau = min(1 / (sigma * self._K._lipschitz**2), 1.99 / self._beta)
+                    tau = min(1 / (sigma * self._K._lipschitz**2), 1 / gamma)
                 else:
                     msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                     raise ValueError(msg)
         elif (tau is None) and (sigma is None):
             if self._beta > 0:
                 if isinstance(self._h, pyclo.NullFunc):
-                    tau = 1.99 / self._beta
+                    tau = 1 / gamma
                     sigma = 0
                 else:
                     if math.isfinite(self._K._lipschitz):
-                        tau, sigma = self._optimize_step_sizes()
+                        tau, sigma = self._optimize_step_sizes(gamma)
                     else:
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                         raise ValueError(msg)
@@ -680,12 +719,18 @@ class PD3O(_PDS):
                     else:
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                         raise ValueError(msg)
-        return tau, sigma
+        delta = 2 if self._beta == 0 else 2 - self._beta * tau / 2
+        return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
 
     @pycrt.enforce_precision(o=True)
-    def _optimize_step_sizes(self):
+    def _optimize_step_sizes(self, gamma: pyct.Real) -> pyct.Real:
         r"""
         Optimize the primal/dual step sizes.
+
+        Parameters
+        ----------
+        gamma: Real
+            Gamma parameter.
 
         Returns
         -------
@@ -697,7 +742,7 @@ class PD3O(_PDS):
 
         c = np.array([-1, -1])
         A_ub = np.array([[1, 1], [1, 0]])
-        b_ub = np.array([np.log(0.99) - 2 * np.log(self._K._lipschitz), np.log(1.99 / self._beta)])
+        b_ub = np.array([np.log(0.99) - 2 * np.log(self._K._lipschitz), np.log(1 / gamma)])
         A_eq = np.array([[1, -1]])
         b_eq = np.array([0])
         result = linprog(c=c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=(None, None))
@@ -705,7 +750,7 @@ class PD3O(_PDS):
             warnings.warn("Automatic parameter selection has not converged.", UserWarning)
         return np.exp(result.x)
 
-    def _set_momentum_term(self, rho: typ.Optional[pyct.Real]) -> float:
+    def _set_momentum_term(self, rho: typ.Optional[pyct.Real], delta: pyct.Real) -> float:
         r"""
         Sets the momentum term.
 
@@ -717,13 +762,12 @@ class PD3O(_PDS):
         Notes
         -----
         The :math:`O(1/\sqrt(k))` objective functional convergence rate of (Theorem 1 of [dPSA]_) is  for ``rho=1``.
-
-        .. TODO:: Over-relaxation in the case of quadratic f ? (Condat's paper)
         """
-
         if rho is None:
-            rho = pycrt.coerce(1.0)
-        return rho
+            rho = 1.0 if self._tuning_strategy != 3 else delta - 0.1
+        else:
+            assert rho <= delta, f"Parameter rho must be smaller than delta: {rho} > {delta}."
+        return pycrt.coerce(rho)
 
 
 def ChambollePock(
