@@ -1,6 +1,7 @@
 import itertools
 import math
 import numbers as nb
+import types
 import typing as typ
 import warnings
 
@@ -447,7 +448,7 @@ class CondatVu(_PDS):
         if rho is None:
             rho = 1.0 if self._tuning_strategy != 3 else delta - 0.1
         else:
-            assert rho < delta, f"Parameter rho must be smaller than delta: {rho} > {delta}."
+            assert rho <= delta, f"Parameter rho must be smaller than delta: {rho} > {delta}."
         return pycrt.coerce(rho)
 
 
@@ -810,25 +811,16 @@ def ChambollePock(
 
     **Remark 2:**
 
-    Automatic selection of parameters is not supported for the cases in which :math:`\mathcal{K}` is a *non-linear
-    differentiable map*.
+    Automatic selection of parameters is not supported for *non-linear differentiable maps* :math:`\mathcal{K}`.
 
     **Remark 3:**
 
-    Assume that the following holds:
-
-    * :math:`\tau\sigma\Vert\mathbf{K}\Vert_{2}^2\leq 1`
-    * :math:`\rho \in [\epsilon,2-\epsilon]`, for some  :math:`\epsilon>0.`
-
-    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
-
-    .. math::
-      \lim_{n\rightarrow +\infty}\Vert\mathbf{x}^\star-\mathbf{x}_n\Vert_2=0, \quad \text{and} \quad  \lim_{n\rightarrow +\infty}\Vert\mathbf{z}^\star-\mathbf{z}_n\Vert_2=0.
-
-    **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
+    The *Chambolle and Pock (CP) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{F}=0` in the :py:class:`~pycsou.opt.solver.pds.CondatVu` or :py:class:`~pycsou.opt.solver.pds.PD3O`
+    algorithms. Chambolle and Pock originally introduced the algorithm without relaxation (:math:`\rho=1`) [CPA]_. Relaxed versions have been proposed afterwards [PSA]_.
+    Chambolle and Pock's algorithm is also known as the *Primal-Dual Hybrid Gradient (PDHG)* algorithm. It can be seen as a preconditionned ADMM method [CPA]_.
 
 
-    **Initizialization parameters of the class:**
+    **Initialization parameters of the class:**
 
     g: ProxFunc | None
         Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
@@ -838,12 +830,9 @@ def ChambollePock(
     K: DiffMap | None
         Differentiable map :math:`\mathcal{K}` instance of :py:class:`~pycsou.abc.operator.DiffMap`, or a linear
         operator :math:`\mathbf{K}` instance of :py:class:`~pycsou.abc.operator.LinOp`.
-
     base: PrimalDual | None
-        Primal dual base algorithm from which inherit mathematical iterative updates and default parameterization.
-        Currently, the existing base classes are :py:class:`~pycsou.opt.solver.pds.CondatVu` (default), and
-        :py:class:`~pycsou.opt.solver.pds.PD3O`
-
+        Specifies the base primal-dual algorithm (:py:class:`~pycsou.opt.solver.pds.CondatVu` (default)
+        or :py:class:`~pycsou.opt.solver.pds.PD3O`). Both yield the same iterates but the rules for setting the hyperparameters may differ slightly.
 
     **Parameterization** of the ``fit()`` method:
 
@@ -858,10 +847,12 @@ def ChambollePock(
         Dual step size.
     rho: Real | None
         Momentum parameter.
+    tuning_strategy: [1, 2, 3]
+        Strategy to be employed when setting the hyperparameters (default to 1). See base class for more details.
 
     See Also
     --------
-    :py:class:`~pycsou.opt.solver.pds.PrimalDual`, :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`, :py:func:`~pycsou.opt.solver.pds.ForwardBackward`
+    :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`
     """
 
     obj = base.__init__(
@@ -913,17 +904,20 @@ def DouglasRachford(
     **Remark 1:**
     The algorithm is still valid if one of the terms :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
 
+    **Remark 2:**
+    The *Douglas Rachford (DR) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{F}=0`, :math:`\mathbf{K}=\mathbf{Id}` and :math:`\tau=1/\sigma`  in the :py:class:`~pycsou.opt.solver.pds.CondatVu` or :py:class:`~pycsou.opt.solver.pds.PD3O`
+    algorithms. Douglas and Rachford originally introduced the algorithm without relaxation (:math:`\rho=1`), but relaxed versions have been proposed afterwards [PSA]_.
+    When :math:`\rho=1`, Douglas Rachford's algorithm is *functionally equivalent* to ADMM (up to a change of variable, see [PSA]_ for a derivation).
 
-    **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
-
-
-    **Initizialization parameters of the class:**
+    **Initialization parameters of the class:**
 
     g: ProxFunc | None
         Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
     h: ProxFunc | None
         Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
-
+    base: PrimalDual | None
+        Specifies the base primal-dual algorithm (:py:class:`~pycsou.opt.solver.pds.CondatVu` (default)
+        or :py:class:`~pycsou.opt.solver.pds.PD3O`). Both yield identical algorithms.
 
     **Parameterization** of the ``fit()`` method:
 
@@ -933,15 +927,12 @@ def DouglasRachford(
         (..., N) initial point(s) for the dual variable.
         If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
     tau: Real | None
-        Primal step size.
-    base: PrimalDual | None
-        Primal dual base algorithm from which inherit mathematical iterative updates and default parameterization.
-        Currently, the existing base classes are :py:class:`~pycsou.opt.solver.pds.CondatVu` (default), and
-        :py:class:`~pycsou.opt.solver.pds.PD3O`
+        Primal step size. Defaults to 1.
+
 
     See Also
     --------
-    :py:class:`~pycsou.opt.solver.pds.PrimalDual`, :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.ForwardBackward`"""
+    :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.ForwardBackward`"""
 
     obj = base.__init__(
         f=None,
@@ -956,6 +947,15 @@ def DouglasRachford(
         log_var=log_var,
     )
     obj.__repr__ = lambda _: "DouglasRachford"
+
+    def _set_step_sizes_custom(
+        tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real], gamma: pyct.Real
+    ) -> typ.Tuple[pyct.Real, pyct.Real, pyct.Real]:
+        tau = 1.0 if tau is None else tau
+        delta = 2.0
+        return pycrt.coerce(tau), pycrt.coerce(1 / tau), pycrt.coerce(delta)
+
+    obj._set_step_sizes = types.MethodType(_set_step_sizes_custom, obj)
     return obj
 
 
