@@ -260,7 +260,7 @@ class CondatVu(_PDS):
         - ``tuning_strategy == 1``: :math:`\gamma = \beta` (safe step sizes) and :math:`\rho=1` (no relaxation).
           This is the most standard way of setting the parameters in the literature, does not leverage relaxation.
         - ``tuning_strategy == 2``: :math:`\gamma = \beta/1.9` (large step sizes) and :math:`\rho=1` (no relaxation).
-          This strategy favours large step sizes forbidding the use of overrelaxation. When :math:`beta=0`, same as first strategy.
+          This strategy favours large step sizes forbidding the use of overrelaxation. When :math:`\beta=0`, same as first strategy.
         - ``tuning_strategy == 3``: :math:`\gamma = \beta` (safe step sizes) and :math:`\rho=\delta - 0.1 > 1` (overrelaxation).
           This strategy chooses smaller step sizes, but performs overrelaxation.
 
@@ -324,7 +324,7 @@ class CondatVu(_PDS):
     >>> downsampling = DownSampling(size=x.size, downsampling_factor=3)
     >>> downsampling.lipschitz()
     >>> y = downsampling(x)
-    >>> l22_loss = (1 / 2) * SquaredL2Norm().as_loss(data=y)
+    >>> l22_loss = (1 / 2) * SquaredL2Norm().asloss(data=y)
     >>> fidelity = l22_loss * downsampling
     >>> H = 0.1 * L1Norm()
 
@@ -513,7 +513,7 @@ class PD3O(_PDS):
     .. math::
         \Psi(\mathbf{x}_n) - \Psi^\ast = o(1/\sqrt{n}).
 
-    **Initizialization parameters of the class:**
+    **Initialization parameters of the class:**
 
     f: DiffFunc | None
         Differentiable function :math:`\mathcal{F}`, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
@@ -554,7 +554,7 @@ class PD3O(_PDS):
         - ``tuning_strategy == 1``: :math:`\gamma = \beta` (safe step sizes) and :math:`\rho=1` (no relaxation).
           This is the most standard way of setting the parameters in the literature, does not leverage relaxation.
         - ``tuning_strategy == 2``: :math:`\gamma = \beta/1.9` (large step sizes) and :math:`\rho=1` (no relaxation).
-          This strategy favours large step sizes forbidding the use of overrelaxation. When :math:`beta=0`, same as first strategy.
+          This strategy favours large step sizes forbidding the use of overrelaxation. When :math:\beta=0`, same as first strategy.
         - ``tuning_strategy == 3``: :math:`\gamma = \beta` (safe step sizes) and :math:`\rho=\delta - 0.1 > 1` (overrelaxation).
           This strategy chooses smaller step sizes, but performs overrelaxation.
 
@@ -610,7 +610,7 @@ class PD3O(_PDS):
     >>> downsampling = DownSampling(size=x.size, downsampling_factor=3)
     >>> downsampling.lipschitz()
     >>> y = downsampling(x)
-    >>> l22_loss = (1 / 2) * SquaredL2Norm().as_loss(data=y)
+    >>> l22_loss = (1 / 2) * SquaredL2Norm().asloss(data=y)
     >>> fidelity = l22_loss * downsampling
     >>> H = 0.1 * L1Norm()
 
@@ -762,7 +762,7 @@ class PD3O(_PDS):
 
         Notes
         -----
-        The :math:`O(1/\sqrt(k))` objective functional convergence rate of (Theorem 1 of [dPSA]_) is  for ``rho=1``.
+        The :math:`O(1/\sqrt(k))` objective functional convergence rate of (Theorem 1 of [dPSA]_) is  for `\rho=1`.
         """
         if rho is None:
             rho = 1.0 if self._tuning_strategy != 3 else delta - 0.1
@@ -775,7 +775,7 @@ def ChambollePock(
     g: typ.Optional[pyco.ProxFunc] = None,
     h: typ.Optional[pyco.ProxFunc] = None,
     K: typ.Optional[pyco.DiffMap] = None,
-    base: typ.Optional[_PrimalDualSplitting] = CondatVu,
+    base: typ.Type[_PrimalDualSplitting] = CondatVu,
     *,
     folder: typ.Optional[pyct.PathLike] = None,
     exist_ok: bool = False,
@@ -855,7 +855,7 @@ def ChambollePock(
     :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`
     """
 
-    obj = base.__init__(
+    obj = base(
         f=None,
         g=g,
         h=h,
@@ -877,7 +877,7 @@ CP = ChambollePock
 def DouglasRachford(
     g: typ.Optional[pyco.ProxFunc] = None,
     h: typ.Optional[pyco.ProxFunc] = None,
-    base: typ.Optional[_PrimalDualSplitting] = CondatVu,
+    base: typ.Type[_PrimalDualSplitting] = CondatVu,
     *,
     folder: typ.Optional[pyct.PathLike] = None,
     exist_ok: bool = False,
@@ -934,7 +934,7 @@ def DouglasRachford(
     --------
     :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.ForwardBackward`"""
 
-    obj = base.__init__(
+    obj = base(
         f=None,
         g=g,
         h=h,
@@ -1093,7 +1093,7 @@ def ProximalPoint(
     **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
 
 
-    **Initizialization parameters of the class:**
+    **Initialization parameters of the class:**
 
     g: ProxFunc | None
         Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
@@ -1114,9 +1114,7 @@ def ProximalPoint(
 
     See Also
     --------
-    See Also
-    --------
-    :py:class:`~pycsou.opt.solver.pds.PrimalDual`, :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`,:py:class:`~pycsou.opt.solver.pgd.PGD`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`"""
+    :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`,:py:class:`~pycsou.opt.solver.pgd.PGD`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`"""
 
     obj = base.__init__(
         f=None,
@@ -1144,7 +1142,7 @@ class DavisYin(PD3O):
 
     The *Davis-Yin* method is recovered from the PD3O algorithm when :math:`\mathcal{K}=\mathbf{I}` (identity) [PSA]_.
 
-    **Initizialization parameters of the class:**
+    **Initialization parameters of the class:**
 
     f: DiffFunc | None
         Differentiable function :math:`\mathcal{F}`, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
@@ -1214,7 +1212,7 @@ class LorisVerhoeven(PD3O):
 
     The *Loris-Verhoeven* method is recovered from the PD3O algorithm when :math:`\mathcal{G}=0` [PSA]_.
 
-    **Initizialization parameters of the class:**
+    **Initialization parameters of the class:**
 
     f: DiffFunc | None
         Differentiable function :math:`\mathcal{F}`, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
