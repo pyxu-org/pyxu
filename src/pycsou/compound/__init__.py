@@ -152,8 +152,8 @@ def stack(
     shared_props.discard("single_valued")  # Useful for determining the base class only, can discard now.
     out_op = Op(out_shape)
     for prop in shared_props:
-        if prop in ["_lispchitz", "_diff_lipschitz"]:
-            setattr(out_op, prop, np.linalg.norm(np.array([getattr(m, prop) for m in maps])))
+        if prop in ["lipschitz", "diff_lipschitz"]:
+            setattr(out_op, "_" + prop, np.linalg.norm(np.array([getattr(m, "_" + prop) for m in maps])))
         else:
             methods = [getattr(m, prop) for m in maps]
             if prop == "apply":
