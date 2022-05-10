@@ -1288,5 +1288,77 @@ class LorisVerhoeven(PD3O):
             log_var=log_var,
         )
 
+    def _set_step_sizes(
+        self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real], gamma: typ.Optional[pyct.Real]
+    ) -> typ.Tuple[pyct.Real, pyct.Real, pyct.Real]:
+        r"""
+        Set the primal/dual step sizes.
+
+        Returns
+        -------
+        Tuple[Real, Real, Real]
+            Sensible primal/dual step sizes and value of the parameter :math:`delta`.
+
+        .. todo:: Update reference to QuadraticFunc once the latter is implemented.
+        .. todo:: **Remark 1:*
+        .. todo:: In the specific case when :math:`\mathcal{F}` is *quadratic*, then one can set :math:`\rho \in ]0,\delta[` with
+        .. todo:: :math:`\delta=2` (see Theorem 4.3 in [PSA]_).
+
+        """
+
+        if not issubclass(self._K.__class__, pyco.LinOp):
+            msg = (
+                f"Automatic selection of parameters is only supported in the case in which K is a linear operator. "
+                f"Got operator of type {self._K.__class__}."
+            )
+            raise ValueError(msg)
+        tau = None if tau == 0 else tau
+        sigma = None if sigma == 0 else sigma
+
+        if (tau is not None) and (sigma is None):
+            assert 0 < tau <= 1 / gamma, f"tau must be positive and smaller than 1/gamma."
+            if isinstance(self._h, pyclo.NullFunc):
+                sigma = 0
+            else:
+                if math.isfinite(self._K._lipschitz):
+                    sigma = 1 / (tau * self._K._lipschitz**2)
+                else:
+                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
+                    raise ValueError(msg)
+        elif (tau is None) and (sigma is not None):
+            assert sigma > 0, f"sigma must be positive, got {sigma}."
+            if isinstance(self._h, pyclo.NullFunc):
+                tau = 1 / gamma
+            else:
+                if math.isfinite(self._K._lipschitz):
+                    tau = min(1 / (sigma * self._K._lipschitz**2), 1 / gamma)
+                else:
+                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
+                    raise ValueError(msg)
+        elif (tau is None) and (sigma is None):
+            if self._beta > 0:
+                if isinstance(self._h, pyclo.NullFunc):
+                    tau = 1 / gamma
+                    sigma = 0
+                else:
+                    if math.isfinite(self._K._lipschitz):
+                        tau, sigma = self._optimize_step_sizes(gamma)
+                    else:
+                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
+                        raise ValueError(msg)
+            else:
+                if isinstance(self._h, pyclo.NullFunc):
+                    tau = 1
+                    sigma = 0
+                else:
+                    if math.isfinite(self._K._lipschitz):
+                        tau = sigma = 1 / self._K._lipschitz
+                    else:
+                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
+                        raise ValueError(msg)
+
+        delta = 2 if (self._beta == 0 or issubclass(self._f.__class__, QuadraticFunc)) else 2 - self._beta / (2 * gamma)
+        return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
+
 
 LV = LorisVerhoeven
