@@ -1013,10 +1013,8 @@ class ForwardBackward(CV):
         Primal step size.
     rho: Real | None
         Momentum parameter.
-    base: PrimalDual | None
-        Primal dual base algorithm from which inherit mathematical iterative updates and default parameterization.
-        Currently, the existing base classes are :py:class:`~pycsou.opt.solver.pds.CondatVu` (default), and
-        :py:class:`~pycsou.opt.solver.pds.PD3O`
+    tuning_strategy: [1, 2, 3]
+        Strategy to be employed when setting the hyperparameters (default to 1). See base class for more details.
 
 
     See Also
@@ -1078,8 +1076,9 @@ def ProximalPoint(
     * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is *proper*, *lower semicontinuous* and *convex function* with *simple proximal operator*.
     * The problem is *feasible* --i.e. there exists at least one solution.
 
-    **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
-
+    The *Proximal-point algorithm (PP)* method can be obtained by choosing :math:`\mathcal{F}=0` and :math:`\mathcal{G}=0` in the :py:class:`~pycsou.opt.solver.pds.CondatVu` or :py:class:`~pycsou.opt.solver.pds.PD3O`
+    algorithms. The original version of the algorithm was introduced without relaxation (:math:`\rho=1`) [PP]_. Relaxed versions have been proposed afterwards [PSA]_.
+    Chambolle and Pock's algorithm is also known as the *Primal-Dual Hybrid Gradient (PDHG)* algorithm. It can be seen as a preconditionned ADMM method [CPA]_.
 
     **Initialization parameters of the class:**
 
@@ -1152,16 +1151,20 @@ class DavisYin(PD3O):
     tau: Real | None
         Primal step size.
     sigma: Real | None
-        Dual step size.
+        Dual step size. In this class, this parameter is overlooked and redefined by the automatic parameter selection.
     rho: Real | None
         Momentum parameter.
+    tuning_strategy: [1, 2, 3]
+        Strategy to be employed when setting the hyperparameters (default to 1). See base class for more details.
+
 
     **Default values of the hyperparameters.**
 
-    The Davis-Yin algorithm requires :math:`\sigma=\frac{1}{\tau}`. Unless both :math:`\sigma` and :math:`\tau` are
-    provided, this is ensured by the automatic parameter selection inherited from the base class
-    :py:class:`~pycsou.solver.pds.PD3O`.
+    The Davis-Yin algorithm requires :math:`\sigma=\frac{1}{\tau}`. This is ensured by the automatic parameter selection.
 
+    See Also
+    --------
+    :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:class:`~pycsou.opt.solver.pds.LorisVerhoeven`, :py:class:`~pycsou.opt.solver.pgd.PGD`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`
     """
 
     def __init__(
@@ -1227,11 +1230,16 @@ class LorisVerhoeven(PD3O):
         Dual step size.
     rho: Real | None
         Momentum parameter.
+    tuning_strategy: [1, 2, 3]
+        Strategy to be employed when setting the hyperparameters (default to 1). See base class for more details.
 
     **Default values of the hyperparameters.**
 
     Automatic parameter selection is inherited from the base class :py:class:`~pycsou.solver.pds.PD3O`.
 
+    See Also
+    --------
+    :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:class:`~pycsou.opt.solver.pds.DavisYin`, :py:class:`~pycsou.opt.solver.pgd.PGD`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`
     """
 
     def __init__(
