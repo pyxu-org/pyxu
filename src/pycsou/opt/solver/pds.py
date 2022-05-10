@@ -9,6 +9,7 @@ import pycsou.abc as pyca
 import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
 import pycsou.linop.base as pyclo
+import pycsou.operator.func.base as pycfb
 import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
@@ -163,7 +164,7 @@ class _PrimalDualSplitting(pycs.Solver):
 _PDS = _PrimalDualSplitting
 
 
-class CondatVu(_PDS):
+class CondatVu(_PrimalDualSplitting):
     r"""
     Condat-Vu (CV) primal-dual splitting algorithm.
 
@@ -434,7 +435,7 @@ class CondatVu(_PDS):
                         raise ValueError(msg)
         delta = (
             2
-            if (self._beta == 0 or (issubclass(self._f.__class__, QuadraticFunc) and gamma <= self._beta))
+            if (self._beta == 0 or (issubclass(self._f.__class__, pycfb.QuadraticFunc) and gamma <= self._beta))
             else 2 - self._beta / (2 * gamma)
         )
         return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
@@ -458,7 +459,7 @@ class CondatVu(_PDS):
 CV = CondatVu
 
 
-class PD3O(_PDS):
+class PD3O(_PrimalDualSplitting):
     r"""
     Primal Dual Three-Operator Splitting (PD3O) algorithm.
 
@@ -965,7 +966,7 @@ def DouglasRachford(
 DR = DouglasRachford
 
 
-class ForwardBackward(CV):
+class ForwardBackward(CondatVu):
     r"""
     Forward-backward splitting algorithm.
 
@@ -990,9 +991,11 @@ class ForwardBackward(CV):
 
 
     **Remark 2:**
+
     The *Forward-backward (FB) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{H}=0` in the :py:class:`~pycsou.opt.solver.pds.CondatVu`
     algorithm. Mercier originally introduced the algorithm without relaxation (:math:`\rho=1`) [FB]_. Relaxed versions have been proposed afterwards [PSA]_.
-    The Forward-backward algorithm is also known as the *Proximal Gradient Descent (PDG)* algorithm. For the accelerated version of PGD, see :py:class:`~pycsou.opt.solver.pgd`.
+    The Forward-backward algorithm is also known as the *Proximal Gradient Descent (PGD)* algorithm.
+    For the accelerated version of PGD, see :py:class:`~pycsou.opt.solver.pgd`.
 
 
     **Initialization parameters of the class:**
@@ -1069,7 +1072,7 @@ def ProximalPoint(
 
     This class is also accessible via the alias ``PP()``.
 
-    The *Proximal-point (PP) splitting* method can be used to solve problems of the form:
+    The *Proximal-point (PP)* method can be used to solve problems of the form:
 
     .. math::
        {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{G}(\mathbf{x}).}
@@ -1079,9 +1082,8 @@ def ProximalPoint(
     * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is *proper*, *lower semicontinuous* and *convex function* with *simple proximal operator*.
     * The problem is *feasible* --i.e. there exists at least one solution.
 
-    The *Proximal-point algorithm (PP)* method can be obtained by choosing :math:`\mathcal{F}=0` and :math:`\mathcal{G}=0` in the :py:class:`~pycsou.opt.solver.pds.CondatVu` or :py:class:`~pycsou.opt.solver.pds.PD3O`
+    The *Proximal-point (PP)* algorithm can be obtained by choosing :math:`\mathcal{F}=0` and :math:`\mathcal{G}=0` in the :py:class:`~pycsou.opt.solver.pds.CondatVu` or :py:class:`~pycsou.opt.solver.pds.PD3O`
     algorithms. The original version of the algorithm was introduced without relaxation (:math:`\rho=1`) [PP]_. Relaxed versions have been proposed afterwards [PSA]_.
-    Chambolle and Pock's algorithm is also known as the *Primal-Dual Hybrid Gradient (PDHG)* algorithm. It can be seen as a preconditionned ADMM method [CPA]_.
 
     **Initialization parameters of the class:**
 
