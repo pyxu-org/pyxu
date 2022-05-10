@@ -336,7 +336,7 @@ class Property:
         except ValueError:
             raise ValueError(f"Cannot compose two maps with inconsistent shapes {self.shape} and {other.shape}.")
         if self.shape[0] == 1:
-            self = self.squeeze() if self is NonProxLike or issubclass(self.__class__, LinOp) else self
+            self = self.squeeze()
         shared_props = self.properties() & other.properties()
         shared_props.discard("prox")
         if self.shape[0] == 1 and "jacobian" in shared_props:
@@ -565,7 +565,7 @@ class Property:
                     return getattr(self, prop)(x + arr)
 
                 setattr(out_op, prop, types.MethodType(ft.partial(argshifted_method, prop, arr), out_op))
-        return out_op.squeeze() if out_op is NonProxLike or issubclass(out_op.__class__, LinOp) else out_op
+        return out_op.squeeze()
 
 
 class SingleValued(Property):
@@ -1439,7 +1439,7 @@ class ProxFunc(Func, Proximal):
                 lambda _, arr, tau: (1 / other._cst) * self.prox(other._cst * arr, tau * (other._cst) ** 2), f
             )
 
-        return f.squeeze() if f is NonProxLike or issubclass(f.__class__, LinOp) else f
+        return f.squeeze()
 
     @pycrt.enforce_precision(i="mu", o=False)
     def moreau_envelope(self, mu: pyct.Real) -> "DiffFunc":
@@ -1794,7 +1794,7 @@ class LinOp(DiffMap, Adjoint):
         return self._lipschitz
 
     @pycrt.enforce_precision(o=True)
-    def svdvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> float:
+    def svdvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
         r"""
         Compute the ``k`` largest or smallest singular values of the linear operator. The order of the singular values is not guaranteed.
 
