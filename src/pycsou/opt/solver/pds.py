@@ -80,6 +80,9 @@ class _PrimalDualSplitting(pycs.Solver):
         mst["tau"], mst["sigma"], delta = self._set_step_sizes(tau, sigma, gamma)
         mst["rho"] = self._set_momentum_term(rho, delta)
 
+    def m_step(self):
+        raise NotImplementedError
+
     def default_stop_crit(self) -> pycs.StoppingCriterion:
         stop_crit_x = pycos.RelError(
             eps=1e-4,
