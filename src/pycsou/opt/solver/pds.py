@@ -962,18 +962,7 @@ def DouglasRachford(
 DR = DouglasRachford
 
 
-def ForwardBackward(
-    f: typ.Optional[pyco.ProxFunc] = None,
-    g: typ.Optional[pyco.ProxFunc] = None,
-    beta: typ.Optional[pyct.Real] = None,
-    base: typ.Optional[_PrimalDualSplitting] = CondatVu,
-    *,
-    folder: typ.Optional[pyct.PathLike] = None,
-    exist_ok: bool = False,
-    writeback_rate: typ.Optional[int] = None,
-    verbosity: int = 1,
-    log_var: pyct.VarName = ("x",),
-):
+class ForwardBackward(CV):
     r"""
     Forward-backward splitting algorithm.
 
@@ -998,21 +987,12 @@ def ForwardBackward(
 
 
     **Remark 2:**
-
-    Assume that the following holds:
-
-    * :math:`\frac{1}{\tau}\geq \frac{\beta}{2}`,
-    * :math:`\rho \in ]0,\delta[`, where :math:`\delta:=2-\frac{\beta}{2}\tau\in[1,2[.`
-
-    Then, there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively, i.e.
-
-    .. math::
-       \lim_{n\rightarrow +\infty}\Vert\mathbf{x}^\star-\mathbf{x}_n\Vert_2=0, \quad \text{and} \quad  \lim_{n\rightarrow +\infty}\Vert\mathbf{z}^\star-\mathbf{z}_n\Vert_2=0.
-
-    **Default values of the hyperparameters provided here always ensure convergence of the algorithm.**
+    The *Forward-backward (FB) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{H}=0` in the :py:class:`~pycsou.opt.solver.pds.CondatVu`
+    algorithm. Mercier originally introduced the algorithm without relaxation (:math:`\rho=1`) [FB]_. Relaxed versions have been proposed afterwards [PSA]_.
+    The Forward-backward algorithm is also known as the *Proximal Gradient Descent (PDG)* algorithm. For the accelerated version of PGD, see :py:class:`~pycsou.opt.solver.pgd`.
 
 
-    **Initizialization parameters of the class:**
+    **Initialization parameters of the class:**
 
     f: DiffFunc | None
         Differentiable function, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
@@ -1041,25 +1021,33 @@ def ForwardBackward(
 
     See Also
     --------
-    See Also
-    --------
-    :py:class:`~pycsou.opt.solver.pds.PrimalDual`, :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`,:py:class:`~pycsou.opt.solver.pgd.PGD`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`"""
+    :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`,:py:class:`~pycsou.opt.solver.pgd.PGD`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`"""
 
-    obj = base.__init__(
-        f=f,
-        g=g,
-        h=None,
-        K=None,
-        beta=beta,
-        folder=folder,
-        exist_ok=exist_ok,
-        writeback_rate=writeback_rate,
-        verbosity=verbosity,
-        log_var=log_var,
-    )
+    def __init__(
+        self,
+        f: typ.Optional[pyco.DiffFunc] = None,
+        g: typ.Optional[pyco.ProxFunc] = None,
+        beta: typ.Optional[pyct.Real] = None,
+        *,
+        folder: typ.Optional[pyct.PathLike] = None,
+        exist_ok: bool = False,
+        writeback_rate: typ.Optional[int] = None,
+        verbosity: int = 1,
+        log_var: pyct.VarName = ("x",),
+    ):
 
-    obj.__repr__ = lambda _: "ForwardBackward"
-    return obj
+        super(ForwardBackward).__init__(
+            f=f,
+            g=g,
+            h=None,
+            K=None,
+            beta=beta,
+            folder=folder,
+            exist_ok=exist_ok,
+            writeback_rate=writeback_rate,
+            verbosity=verbosity,
+            log_var=log_var,
+        )
 
 
 FB = ForwardBackward
