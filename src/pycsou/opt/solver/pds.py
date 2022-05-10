@@ -1362,3 +1362,117 @@ class LorisVerhoeven(PD3O):
 
 
 LV = LorisVerhoeven
+
+
+class ADMM(_PDS):
+    r"""
+    Alternating Direction Method of Multipliers algorithm.
+    :: todo add example and test
+    :: todo compare current implementation [algorithm (130)] with algorithm (145) in [PSA]_
+
+    The *Alternating Direction Method of Multipliers (ADMM)* method can be used to solve problems of the form:
+
+    .. math::
+       \min_{\mathbf{x}\in\mathbb{R}^N} & \mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{z}) \\
+       \text{subject to} & \mathbf{x} + \mathbf{z} = \mathbf{c},
+
+    where:
+
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+    * The problem is *feasible* --i.e. there exists at least one solution.
+
+    **Remark 1:**
+
+    The algorithm is still valid if one of the terms :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
+
+    **Remark 2:**
+    The *Alternating Direction Method of Multipliers (ADMM)* method is equivalent to the *Douglas Rachford (DR)* method
+    with :math:`\rho = 1` and :math:`\sigma = \frac{1}{2}` (see section 5.3 of [PSA]_). However, ADMM provides access to
+    one variable optimized in :math:`\operatorname{dom}\{\mathcal{G}\}` and another in :math:`\operatorname{dom}\{\mathcal{H}\}`
+
+    **Initialization parameters of the class:**
+
+    g: ProxFunc | None
+        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+    h: ProxFunc | None
+        Proximable function, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+
+
+    **Parameterization** of the ``fit()`` method:
+
+    x0: NDArray
+        (..., N) initial point(s) for the primal variable.
+    z0: NDArray
+        (..., N) initial point(s) for the dual variable.
+        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+    tau: Real | None
+        Primal step size.
+    rho: Real | None
+        Momentum parameter.
+    tuning_strategy: [1, 2, 3]
+        Strategy to be employed when setting the hyperparameters (default to 1). See base class for more details.
+
+
+    See Also
+    --------
+    :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`,:py:class:`~pycsou.opt.solver.pgd.PGD`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`"""
+
+    def __init__(
+        self,
+        g: typ.Optional[pyco.ProxFunc] = None,
+        h: typ.Optional[pyco.ProxFunc] = None,
+        beta: typ.Optional[pyct.Real] = None,
+        *,
+        folder: typ.Optional[pyct.PathLike] = None,
+        exist_ok: bool = False,
+        writeback_rate: typ.Optional[int] = None,
+        verbosity: int = 1,
+        log_var: pyct.VarName = ("x",),
+    ):
+
+        super(ADMM).__init__(
+            f=None,
+            g=g,
+            h=h,
+            K=None,
+            beta=0,
+            folder=folder,
+            exist_ok=exist_ok,
+            writeback_rate=writeback_rate,
+            verbosity=verbosity,
+            log_var=log_var,
+        )
+
+    def m_step(
+        self,
+    ):  # Algorithm (130) in [PSA]. :: todo compare with algorithm (145)
+
+        mst = self._mstate
+        x_temp = self._g.prox(mst["x"] - mst["z"], tau=mst["tau"])
+        z_temp = mst["z"] + x_temp - mst["x"]
+        if not isinstance(self._h, pyclo.NullFunc):
+            mst["x"] = self._h.prox(x_temp + z_temp, tau=mst["tau"])
+        mst["z"] = z_temp + (mst["rho"] - 1) * (x_temp - mst["x"])
+
+    def _set_gamma(self, tuning_strategy: typ.Literal[1, 2, 3]) -> pyct.Real:
+        r"""
+        Sets the gamma parameter according to the tuning strategy.
+
+        Returns
+        -------
+        float
+            Gamma parameter.
+        """
+        return pycrt.coerce(1.0) if tuning_strategy != 3 else pycrt.coerce(1.9)
+
+    def _set_step_sizes(
+        self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real], gamma: pyct.Real
+    ) -> typ.Tuple[pyct.Real, pyct.Real, pyct.Real]:
+        if tau is not None:
+            assert tau > 0, f"Parameter tau must be positive, got {tau}."
+        else:
+            tau = 1.0
+        return pycrt.coerce(tau), pycrt.coerce(0.0), gamma
+
+    def _set_momentum_term(self, beta: typ.Optional[pyct.Real], delta: pyct.Real) -> pyct.Real:
+        return delta
