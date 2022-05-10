@@ -1193,6 +1193,26 @@ class DavisYin(PD3O):
             log_var=log_var,
         )
 
+    def _set_step_sizes(
+        self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real], gamma: pyct.Real
+    ) -> typ.Tuple[pyct.Real, pyct.Real, pyct.Real]:
+        r"""
+        Set the primal/dual step sizes.
+
+        Returns
+        -------
+        Tuple[Real, Real, Real]
+            Sensible primal/dual step sizes and value of :math:`\delta`.
+        """
+        if tau is not None:
+            assert 0 < tau <= 1 / gamma, f"tau must be positive and smaller than 1/gamma."
+        else:
+            tau = 1.0 if self._beta == 0 else 1 / gamma
+
+        delta = 2.0 if self._beta == 0 else 2 - self._beta * tau / 2
+
+        return pycrt.coerce(tau), pycrt.coerce(1 / tau), pycrt.coerce(delta)
+
 
 DY = DavisYin
 
