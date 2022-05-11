@@ -99,7 +99,7 @@ def arcsin(op: pyca.Map) -> pyca.Map:
     return Arcsin(op.shape) * op
 
 
-class Arccos(pyca.Map):
+class Arccos(pyca.DiffMap):
     """
     Inverse cosine, element-wise.
     """
@@ -137,7 +137,6 @@ class Arctan(pyca.DiffMap):
         return xp.arctan(arr)
 
     def jacobian(self, arr: pyct.NDArray):
-        xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(1 / (1 + arr**2))
 
 
@@ -641,7 +640,6 @@ class ReLU(pyca.DiffMap):
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape)
         self._lipschitz = 1
-        self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
