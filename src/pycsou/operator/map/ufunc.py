@@ -362,8 +362,7 @@ class Prod(pyca.DiffFunc):
         return arr.prod(axis=-1, keepdims=True)
 
     @pycrt.enforce_precision(i="arr")
-    def _decide_func_nzeros(self, arr):
-        xp = pycu.get_array_module(arr)
+    def _grad_row(self, arr, xp):
         nzeros = xp.sum(arr == 0, axis=-1)
         if nzeros == 0:
             return xp.ones_like(arr) * self.apply(arr) / arr
@@ -378,7 +377,7 @@ class Prod(pyca.DiffFunc):
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.apply_along_axis(self._decide_func_nzeros, axis=-1, arr=arr)
+        return xp.apply_along_axis(self._grad_row, axis=-1, arr=arr, xp=xp)
 
 
 def prod(op: pyca.Map) -> pyca.Map:
@@ -392,6 +391,7 @@ class Sum(pyca.DiffFunc):
 
     def __init__(self, dim: int):
         super().__init__(shape=(1, dim))
+        self._lipschitz = np.sqrt(dim) if (dim is not None) else np.inf
         self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
@@ -425,7 +425,7 @@ class Cumprod(pyca.DiffMap):
     def jacobian(self, arr: pyct.NDArray):
         assert arr.ndim == 1 and (self._axis == -1 or self._axis == 0)  # Jacobian matrix is only valid for vectors
         xp = pycu.get_array_module(arr)
-        nzeros = sum(arr == 0)
+        nzeros = xp.sum(arr == 0)
         if nzeros == 0:
             temp = xp.array([self.apply(arr)])
             num_mtx = temp.transpose() * xp.tri(self.shape[0])
