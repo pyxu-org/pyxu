@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.special import erf
 
 import pycsou.abc as pyca
 import pycsou.operator.linop.base as pyclb
@@ -661,15 +662,25 @@ class GELU(pyca.DiffMap):
 
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape)
-        raise NotImplementedError
+        self._lipschitz = (np.sqrt(2) * erf(1) + 2) / 4 + 1 / (np.exp(1) * np.sqrt(2 * np.pi))
+        self._diff_lipschitz = np.sqrt(2 / np.pi)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        raise NotImplementedError
+        arr_dtype = arr.dtype
+        if arr_dtype == "float128":
+            arr = arr.astype("float64")  # scipy erf function does not support float128
+        return arr * (1 + erf(arr).astype(arr_dtype) / np.sqrt(2)) / 2
 
     def jacobian(self, arr: pyct.NDArray):
+        arr_dtype = arr.dtype
+        arr_erf = (
+            arr.astype("float64") if arr_dtype == "float128" else arr
+        )  # scipy erf function does not support float128
         xp = pycu.get_array_module(arr)
-        raise NotImplementedError
+        op1 = (np.sqrt(2) * erf(arr_erf).astype(arr_dtype) + 1) / 4
+        op2 = xp.exp(-(arr**2)) * arr / np.sqrt(2 * np.pi)
+        return pyclb.DiagonalOp(op1 + op2)
 
 
 def gelu(op: pyca.Map) -> pyca.Map:
