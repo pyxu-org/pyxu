@@ -872,7 +872,7 @@ class Softmax(pyca.DiffMap):
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape)
         self._lipschitz = 1
-        # TODO: self._diff_lipschitz ?
+        self._diff_lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -883,7 +883,9 @@ class Softmax(pyca.DiffMap):
     def jacobian(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
         S = self.apply(arr)
-        return pyclb.DiagonalOp(xp.diag(S) - xp.dot(S, S.T))
+        mtx = -S[:, None] * S[None, :]
+        mtx = mtx + xp.eye(mtx.shape[0])
+        return pyclb.ExplicitLinOp(mtx)
 
 
 def softmax(op: pyca.Map) -> pyca.Map:
@@ -898,17 +900,17 @@ class Maxout(pyca.DiffFunc):
     def __init__(self, dim: int):
         super().__init__(shape=(1, dim))
         self._lipschitz = 1
-        self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.max(arr, axis=-1)
+        return xp.array([xp.max(arr, axis=-1)])
 
     @pycrt.enforce_precision(i="arr")
     def _generate_grad(self, arr):
         xp = pycu.get_array_module(arr)
-        return xp.where(arr == self.array(arr), 1, 0)
+        arr_dtype = arr.dtype
+        return xp.where(arr == self.apply(arr), 1.0, 0.0).astype(arr_dtype)
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
