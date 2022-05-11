@@ -188,13 +188,13 @@ class TestArccos(conftest.DiffMapT):
 
     @pytest.fixture
     def data_math_lipschitz(self, data_shape):
-        N_test = 5
+        N_test = 15
         return np.clip(self._random_array((N_test, data_shape[0])), -1, 1)
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, data_shape):
-        N_test = 5
-        return np.clip(self._random_array((N_test, data_shape[0])), -1, 1)
+        N_test = 15
+        return np.clip(self._random_array((N_test, data_shape[0])), -0.9, 0.9)
 
 
 class TestArctan(conftest.DiffMapT):
@@ -579,7 +579,7 @@ class TestProd(conftest.DiffFuncT):
 
 
 class TestSum(conftest.DiffFuncT):
-    @pytest.fixture(params=[5, None])
+    @pytest.fixture(params=[15, None])
     def dim(self, request):
         return request.param
 
@@ -594,12 +594,12 @@ class TestSum(conftest.DiffFuncT):
     @pytest.fixture(
         params=[
             dict(
-                in_=dict(arr=np.linspace(-1, 3, 5)),
-                out=np.sum(np.linspace(-1, 3, 5), axis=-1, keepdims=True),
+                in_=dict(arr=np.linspace(-1, 3, 15)),
+                out=np.sum(np.linspace(-1, 3, 15), axis=-1, keepdims=True),
             ),
             dict(
-                in_=dict(arr=np.linspace(1, 3, 5)),
-                out=np.sum(np.linspace(1, 3, 5), axis=-1, keepdims=True),
+                in_=dict(arr=np.linspace(1, 3, 15)),
+                out=np.sum(np.linspace(1, 3, 15), axis=-1, keepdims=True),
             ),
         ]
     )
@@ -608,19 +608,19 @@ class TestSum(conftest.DiffFuncT):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        N_test, dim = 6, dim if (dim is not None) else 3
+        N_test, dim = 15, dim if (dim is not None) else 15
         return self._random_array((N_test, dim))
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, dim):
-        N_test, dim = 6, dim if (dim is not None) else 3
+        N_test, dim = 15, dim if (dim is not None) else 13
         return self._random_array((N_test, dim))
 
     @pytest.fixture(
         params=[
             dict(
-                in_=dict(arr=np.linspace(-1, 3, 5)),
-                out=np.array([1.0, 1.0, 1.0, 1.0, 1.0]),
+                in_=dict(arr=np.linspace(-1, 3, 15)),
+                out=np.ones(15),
             ),
             dict(
                 in_=dict(arr=np.linspace(1, 5, 5)),
