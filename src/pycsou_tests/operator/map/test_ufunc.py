@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from scipy.special import erf
 
 import pycsou.operator.map.ufunc as pycmu
 import pycsou_tests.operator.conftest as conftest
@@ -902,3 +903,424 @@ class TestSign(conftest.MapT):
     def data_math_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
+
+
+# Activation Functions (TestTanh already implemented)
+
+
+class TestSigmoid(conftest.DiffMapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return pycmu.Sigmoid(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-4, 4, data_shape[0])
+        B = 1 / (1 + np.exp(-A))
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class TestReLU(conftest.DiffMapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return pycmu.ReLU(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-4, 4, data_shape[0])
+        B = A.clip(min=0)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class TestGELU(conftest.DiffMapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return pycmu.GELU(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-4, 4, data_shape[0])
+        B = A * (1 + erf(A) / np.sqrt(2)) / 2
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class TestSoftplus(conftest.DiffMapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return pycmu.Softplus(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-4, 4, data_shape[0])
+        B = np.log(np.exp(A) + 1)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class TestELU(conftest.DiffMapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return pycmu.ELU(shape=data_shape, alpha=10.0)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-4, 4, data_shape[0])
+        B = np.where(A >= 0, A, 10.0 * (np.exp(A) - 1))
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class TestSELU(conftest.DiffMapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return pycmu.SELU(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-4, 4, data_shape[0])
+        B = 1.0507 * np.where(A >= 0, A, 1.67326 * (np.exp(A) - 1))
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class TestLeakyReLU(conftest.DiffMapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return pycmu.LeakyReLU(shape=data_shape, alpha=0.01)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-4, 4, data_shape[0])
+        B = np.where(A >= 0, A, A * 0.01)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class TestSiLU(conftest.DiffMapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return pycmu.SiLU(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-4, 4, data_shape[0])
+        B = A / (1 + np.exp(-A))
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class TestGaussian(conftest.DiffMapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return pycmu.Gaussian(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-4, 4, data_shape[0])
+        B = np.exp(-(A**2))
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class TestGCU(conftest.DiffMapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return pycmu.GCU(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-4, 4, data_shape[0])
+        B = A * np.cos(A)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class TestSoftmax(conftest.DiffMapT):
+    @pytest.fixture
+    def dim(self):
+        return 100
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (dim, dim)
+
+    @pytest.fixture
+    def op(self, data_shape):
+        return pycmu.Softmax(shape=data_shape)
+
+    @pytest.fixture
+    def data_apply(self, data_shape):
+        A = np.linspace(-4, 4, data_shape[0])
+        exp_A = np.exp(A)
+        B = exp_A / np.sum(exp_A, axis=-1)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+
+class TestMaxout(conftest.DiffFuncT):
+    @pytest.fixture(params=[5, None])
+    def dim(self, request):
+        return request.param
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (1, dim)
+
+    @pytest.fixture
+    def op(self, dim):
+        return pycmu.Maxout(dim)
+
+    @pytest.fixture(
+        params=[
+            dict(
+                in_=dict(arr=np.linspace(-1, 3, 5)),
+                out=np.array([np.max(np.linspace(-1, 3, 5), axis=-1)]),
+            ),
+            dict(
+                in_=dict(arr=np.array([0.1, 0.6, 0.5, 0.3, 0.1])),
+                out=np.array([np.max(np.array([0.1, 0.6, 0.5, 0.3, 0.1]), axis=-1)]),
+            ),
+        ]
+    )
+    def data_apply(self, request):
+        return request.param
+
+    @pytest.fixture
+    def data_math_lipschitz(self, dim):
+        N_test, dim = 6, dim if (dim is not None) else 3
+        return self._random_array((N_test, dim))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, dim):
+        N_test, dim = 6, dim if (dim is not None) else 3
+        return self._random_array((N_test, dim))
+
+    @pytest.fixture(
+        params=[
+            dict(
+                in_=dict(arr=np.linspace(-1, 3, 5)),
+                out=np.array([0.0, 0.0, 0.0, 0.0, 1.0]),
+            ),
+            dict(
+                in_=dict(arr=np.array([0.1, 0.6, 0.5, 0.3, 0.1])),
+                out=np.array([0.0, 1.0, 0.0, 0.0, 0.0]),
+            ),
+        ]
+    )
+    def data_grad(self, request):
+        return request.param
