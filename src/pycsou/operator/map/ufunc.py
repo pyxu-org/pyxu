@@ -721,8 +721,8 @@ class ELU(pyca.DiffMap):
         if alpha is None:
             raise ValueError("Parameter[alpha] must be specified.")
         self._alpha = alpha
-        self._lipschitz = max(1, abs(alpha))
-        self._diff_lipschitz = max(0, abs(alpha))
+        self._lipschitz = max(1, np.abs(alpha))
+        self._diff_lipschitz = max(0, np.abs(alpha))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -776,8 +776,9 @@ class LeakyReLU(pyca.DiffMap):
         if alpha is None:
             raise ValueError("Parameter[alpha] must be specified.")
         self._alpha = alpha
-        self._lipschitz = max(abs(alpha), 1)
-        self._diff_lipschitz = 0
+        self._lipschitz = max(np.abs(alpha), 1)
+        if alpha == 1:
+            self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
