@@ -1073,10 +1073,8 @@ class Map(Apply):
                 )
             obj = cast_to(self.shape)
             for prop in self.properties():
-                if prop == "jacobian" and cast_to.has("single_valued"):
-                    obj.grad = types.MethodType(
-                        lambda _, x: self.jacobian(x).asarray(xp=pycu.get_array_module(x)).reshape(-1), obj
-                    )
+                if prop == "jacobian" and "grad" not in self.properties() and cast_to.has("single_valued"):
+                    obj.grad = types.MethodType(lambda _, x: self.jacobian(x).asarray().reshape(-1), obj)
                 if prop in ["lipschitz", "diff_lipschitz"]:
                     setattr(obj, "_" + prop, getattr(self, "_" + prop))
                 else:
@@ -1786,11 +1784,33 @@ class LinOp(DiffMap, Adjoint):
         .. todo::
             Add support for trace-based estimate (@Joan).
         """
-        if algo == "fro":
-            raise NotImplementedError
         if recompute or (self._lipschitz == np.infty):
-            kwargs.update(dict(k=1, which="LM", gpu=gpu))
-            self._lipschitz = self.svdvals(**kwargs).item()
+            if algo == "fro":
+                if "gpu" in kwargs.keys():
+                    if "xp" not in kwargs.keys():
+                        if kwargs["gpu"]:
+                            import cupy as xp
+                        else:
+                            import numpy as xp
+                        kwargs.update(dict(xp=xp))
+                    kwargs.pop("gpu", None)
+                else:
+                    if "xp" not in kwargs.keys():
+                        import numpy as xp
+
+                        kwargs.update(dict(xp=xp))
+                if "m" not in kwargs.keys():
+                    kwargs.update(dict(m=126))
+                if np.diff(self.shape) > 0:
+                    self._lipschitz = kwargs["xp"].array(np.sqrt(self.cogram().trace(**kwargs))).reshape(-1)
+                else:
+                    self._lipschitz = kwargs["xp"].array(np.sqrt(self.gram().trace(**kwargs))).reshape(-1)
+            elif algo == "svds":
+                kwargs.update(dict(k=1, which="LM", gpu=gpu))
+                self._lipschitz = self.svdvals(**kwargs)
+            else:
+                raise NotImplementedError
+
         return self._lipschitz
 
     @pycrt.enforce_precision(o=True)
