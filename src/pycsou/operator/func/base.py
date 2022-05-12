@@ -78,37 +78,37 @@ class QuadraticFunc(pyco.ProxDiffFunc):
             If ``True``, the user will be warned in case of mismatching precision issues.
         """
         super(QuadraticFunc, self).__init__(shape=(1, c.size))
-        self.Q = Q
-        self.c = pycrt.coerce(c)
-        self.t = pycrt.coerce(t)
-        self.enable_warnings = enable_warnings
+        self._Q = Q
+        self._c = pycrt.coerce(c)
+        self._t = pycrt.coerce(t)
+        self._enable_warnings = enable_warnings
 
         self._lipschitz = np.infty
-        self._diff_lipschitz = self.Q._lipschitz
+        self._diff_lipschitz = self._Q._lipschitz
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         if (
-            not all([(elem.dtype == pycrt.getPrecision().value) or (elem is None) for elem in [self.c, self.t]])
+            not all([(elem.dtype == pycrt.getPrecision().value) or (elem is None) for elem in [self._c, self._t]])
             and self._enable_warnings
         ):
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        return (self.Q(arr) * arr).sum(axis=-1, keepdims=True) / 2 + self.c(arr) + self.t
+        return (self._Q(arr) * arr).sum(axis=-1, keepdims=True) / 2 + self._c(arr) + self._t
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         if (
-            not all([(elem.dtype == pycrt.getPrecision().value) or (elem is None) for elem in [self.c, self.t]])
+            not all([(elem.dtype == pycrt.getPrecision().value) or (elem is None) for elem in [self._c, self._t]])
             and self._enable_warnings
         ):
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        return self.Q(arr) + self.c
+        return self._Q(arr) + self._c
 
     @pycrt.enforce_precision(i=["arr", "tau"])
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         if (
-            not all([(elem.dtype == pycrt.getPrecision().value) or (elem is None) for elem in [self.c, self.t]])
+            not all([(elem.dtype == pycrt.getPrecision().value) or (elem is None) for elem in [self._c, self._t]])
             and self._enable_warnings
         ):
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        return pycs.cg.CG(self.Q + (1 / tau) * pycl.IdentityOp(self.Q.shape)).fit(arr / tau - self.c)
+        return pycs.cg.CG(self._Q + (1 / tau) * pycl.IdentityOp(self._Q.shape)).fit(arr / tau - self._c)
