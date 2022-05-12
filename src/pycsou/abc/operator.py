@@ -1784,6 +1784,7 @@ class LinOp(DiffMap, Adjoint):
         .. todo::
             Add support for trace-based estimate (@Joan).
         """
+
         if recompute or (self._lipschitz == np.infty):
             if algo == "fro":
                 if "gpu" in kwargs.keys():
