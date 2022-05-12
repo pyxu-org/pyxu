@@ -1112,9 +1112,31 @@ PP = ProximalPoint
 
 class DavisYin(PD3O):
     r"""
-    Davis-Yin (DY) algorithm.
+    Davis-Yin primal-dual splitting method.
 
-    The *Davis-Yin* method is recovered from the PD3O algorithm when :math:`\mathcal{K}=\mathbf{I}` (identity) [PSA]_.
+    This class is also accessible via the alias ``DY()``.
+
+    The *Davis and Yin (DY) primal-dual splitting* method can be used to solve problems of the form:
+
+    .. math::
+       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{x}).}
+    where:
+
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
+      for some :math:`\beta\in[0,+\infty[`.
+
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are two *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+
+    * The problem is *feasible* --i.e. there exists at least one solution.
+
+    **Remark 1:**
+
+    The algorithm is still valid if one of the terms :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
+
+    **Remark 2:**
+
+    The *Davis and Yin (DY) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{K}=\mathbf{I}`
+    (identity) and :math:`\tau=1/\sigma` in the :py:class:`~pycsou.opt.solver.pds.PD3O` algorithm [PSA]_.
 
     **Initialization parameters of the class:**
 
@@ -1143,11 +1165,6 @@ class DavisYin(PD3O):
         Momentum parameter.
     tuning_strategy: [1, 2, 3]
         Strategy to be employed when setting the hyperparameters (default to 1). See base class for more details.
-
-
-    **Default values of the hyperparameters.**
-
-    The Davis-Yin algorithm requires :math:`\sigma=\frac{1}{\tau}`. This is ensured by the automatic parameter selection.
 
     See Also
     --------
@@ -1206,9 +1223,46 @@ DY = DavisYin
 
 class LorisVerhoeven(PD3O):
     r"""
-    Loris-Verhoeven (LV) algorithm.
+    Loris Verhoeven splitting algorithm.
 
-    The *Loris-Verhoeven* method is recovered from the PD3O algorithm when :math:`\mathcal{G}=0` [PSA]_.
+    This class is also accessible via the alias ``LV()``.
+
+     The *Loris Verhoeven (LV) primal-dual splitting* can be used to solve problems of the form:
+
+    .. math::
+       {\min_{\mathbf{x}\in\mathbb{R}^N} \mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K} \mathbf{x}).}
+
+    where:
+
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
+      for some :math:`\beta\in[0,+\infty[`.
+
+    * :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` is a *proper*, *lower semicontinuous* and *convex function* with *simple proximal operator*.
+
+    * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator* :math:`\mathbf{K}`), with **operator norm**:
+
+    .. math::
+         \Vert{\mathcal{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathcal{K}(\mathbf{x})\Vert_2.
+
+    * The problem is *feasible* --i.e. there exists at least one solution.
+
+    **Remark 1:**
+
+    The algorithm is still valid if one of the terms :math:`\mathcal{F}` or :math:`\mathcal{H}` is zero.
+
+    **Remark 2:**
+
+    Automatic selection of parameters is not supported for *non-linear differentiable maps* :math:`\mathcal{K}`.
+
+    **Remark 3:**
+
+    The *Loris and Verhoeven (CP) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{G}=0` in the :py:class:`~pycsou.opt.solver.pds.PD3O`
+    algorithm.
+
+    **Remark 4:**
+
+    In the specific case when :math:`\mathcal{F}` is *quadratic*, then one can set :math:`\rho \in ]0,\delta[` with
+    :math:`\delta=2` (see Theorem 4.3 in [PSA]_).
 
     **Initialization parameters of the class:**
 
@@ -1239,10 +1293,6 @@ class LorisVerhoeven(PD3O):
         Momentum parameter.
     tuning_strategy: [1, 2, 3]
         Strategy to be employed when setting the hyperparameters (default to 1). See base class for more details.
-
-    **Default values of the hyperparameters.**
-
-    Automatic parameter selection is inherited from the base class :py:class:`~pycsou.solver.pds.PD3O`.
 
     See Also
     --------
@@ -1285,12 +1335,6 @@ class LorisVerhoeven(PD3O):
         -------
         Tuple[Real, Real, Real]
             Sensible primal/dual step sizes and value of the parameter :math:`delta`.
-
-        .. todo:: Update reference to QuadraticFunc once the latter is implemented.
-        .. todo:: **Remark 1:*
-        .. todo:: In the specific case when :math:`\mathcal{F}` is *quadratic*, then one can set :math:`\rho \in ]0,\delta[` with
-        .. todo:: :math:`\delta=2` (see Theorem 4.3 in [PSA]_).
-
         """
 
         if not issubclass(self._K.__class__, pyco.LinOp):
@@ -1360,8 +1404,8 @@ class ADMM(_PDS):
     The *Alternating Direction Method of Multipliers (ADMM)* method can be used to solve problems of the form:
 
     .. math::
-       \min_{\mathbf{x}\in\mathbb{R}^N} & \mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{z}) \\
-       \text{subject to} & \mathbf{x} + \mathbf{z} = \mathbf{c},
+       \min_{\mathbf{x}\in\mathbb{R}^N} \quad & \mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{z}) \\
+       \text{subject to} \quad &  \mathbf{x} + \mathbf{z} = \mathbf{c},
 
     where:
 
