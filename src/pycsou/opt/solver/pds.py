@@ -157,8 +157,24 @@ class _PrimalDualSplitting(pycs.Solver):
     ) -> typ.Tuple[pyct.Real, pyct.Real, pyct.Real]:
         raise NotImplementedError
 
-    def _set_momentum_term(self, beta: typ.Optional[pyct.Real], delta: pyct.Real) -> pyct.Real:
-        raise NotImplementedError
+    def _set_momentum_term(self, rho: typ.Optional[pyct.Real], delta: pyct.Real) -> pyct.Real:
+        r"""
+        Sets the momentum term according to Theorem 8.2 in [PSA]_.
+
+        Returns
+        -------
+        float
+            Momentum term.
+
+        Notes
+        -----
+        The :math:`O(1/\sqrt(k))` objective functional convergence rate of (Theorem 1 of [dPSA]_) is  for `\rho=1`.
+        """
+        if rho is None:
+            rho = 1.0 if self._tuning_strategy != 3 else delta - 0.1
+        else:
+            assert rho <= delta, f"Parameter rho must be smaller than delta: {rho} > {delta}."
+        return pycrt.coerce(rho)
 
 
 _PDS = _PrimalDualSplitting
@@ -439,21 +455,6 @@ class CondatVu(_PrimalDualSplitting):
             else 2 - self._beta / (2 * gamma)
         )
         return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
-
-    def _set_momentum_term(self, rho: typ.Optional[pyct.Real], delta: pyct.Real) -> pyct.Real:
-        r"""
-        Sets the momentum term according to Theorem 8.2 in [PSA]_.
-
-        Returns
-        -------
-        float
-            Momentum term.
-        """
-        if rho is None:
-            rho = 1.0 if self._tuning_strategy != 3 else delta - 0.1
-        else:
-            assert rho <= delta, f"Parameter rho must be smaller than delta: {rho} > {delta}."
-        return pycrt.coerce(rho)
 
 
 CV = CondatVu
@@ -754,25 +755,6 @@ class PD3O(_PrimalDualSplitting):
         if not result.success:
             warnings.warn("Automatic parameter selection has not converged.", UserWarning)
         return np.exp(result.x)
-
-    def _set_momentum_term(self, rho: typ.Optional[pyct.Real], delta: pyct.Real) -> float:
-        r"""
-        Sets the momentum term.
-
-        Returns
-        -------
-        float
-            Momentum term.
-
-        Notes
-        -----
-        The :math:`O(1/\sqrt(k))` objective functional convergence rate of (Theorem 1 of [dPSA]_) is  for `\rho=1`.
-        """
-        if rho is None:
-            rho = 1.0 if self._tuning_strategy != 3 else delta - 0.1
-        else:
-            assert rho <= delta, f"Parameter rho must be smaller than delta: {rho} > {delta}."
-        return pycrt.coerce(rho)
 
 
 def ChambollePock(
