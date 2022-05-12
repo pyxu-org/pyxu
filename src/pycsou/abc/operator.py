@@ -1960,7 +1960,7 @@ class LinOp(DiffMap, Adjoint):
         """
         return (self * self.T).specialize(SelfAdjointOp)
 
-    @pycrt.enforce_precision(i="arr")
+    @pycrt.enforce_precision(i=["arr", "damp"], allow_None=True)
     def pinv(
         self,
         arr: pyct.NDArray,
