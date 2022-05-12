@@ -1962,7 +1962,11 @@ class LinOp(DiffMap, Adjoint):
 
     @pycrt.enforce_precision(i="arr")
     def pinv(
-        self, arr: pyct.NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[bool] = False, **kwargs
+        self,
+        arr: pyct.NDArray,
+        damp: typ.Optional[float] = None,
+        kwargs_init: typ.Optional[dict] = None,
+        kwargs_fit: typ.Optional[dict] = None,
     ) -> pyct.NDArray:  # Should we have a decorator that performs trivial vectorization like that for us?
         r"""
         Evaluate the Moore-Penrose pseudo-inverse :math:`L^\dagger` of the linear operator.
@@ -1970,12 +1974,15 @@ class LinOp(DiffMap, Adjoint):
         Parameters
         ----------
         arr: NDArray
-            Input 1-D array with shape (M,).
+            (..., N), Input array used to evaluate the pseudo-inverse.
         damp: float | None
             Dampening factor for regularizing the pseudo-inverse in case of ill-conditioning.
-        verbose: bool | False
-            Verbosity of the conjugate gradient algorithm used to evaluate the pseudo-inverse. If ``True``, diagnostics
-            are printed every iteration. If ``False``, the algorithm is silent.
+        kwargs_init: dict | None
+            See :py:func:`pycsou.abc.solver.Solver.__init__`'s  docstring for keyword parameters.
+        kwargs_fit: dict | None
+            See :py:class:`pycsou.opt.solver.cg.CG`'s docstring on ``fit()`` parameterization, and
+            :py:func:`pycsou.abc.solver.Solver.fit` for keyword parameters.
+
 
         Returns
         -------
@@ -2022,13 +2029,15 @@ class LinOp(DiffMap, Adjoint):
         from pycsou.operator.linop.base import IdentityOp
         from pycsou.opt.solver.cg import CG
 
+        kwargs_fit = {} if kwargs_fit is None else kwargs_fit
+        kwargs_init = {} if kwargs_init is None else kwargs_init
         b = self.adjoint(arr)
         if damp is not None:
             A = self.gram() + damp * IdentityOp(shape=(self.shape[1], self.shape[1]))
         else:
             A = self.gram()
-        cg = CG(A)
-        cg.fit(b=b)
+        cg = CG(A, **kwargs_init)
+        cg.fit(b=b, show_progress=verbose, **kwargs_fit)
         return cg.solution()
 
     def dagger(self, damp: typ.Optional[float] = None, **kwargs) -> "LinOp":
