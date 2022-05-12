@@ -1962,7 +1962,7 @@ class LinOp(DiffMap, Adjoint):
 
     @pycrt.enforce_precision(i="arr")
     def pinv(
-        self, arr: pyct.NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[int] = None, **kwargs
+        self, arr: pyct.NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[bool] = False, **kwargs
     ) -> pyct.NDArray:  # Should we have a decorator that performs trivial vectorization like that for us?
         r"""
         Evaluate the Moore-Penrose pseudo-inverse :math:`L^\dagger` of the linear operator.
@@ -1973,11 +1973,9 @@ class LinOp(DiffMap, Adjoint):
             Input 1-D array with shape (M,).
         damp: float | None
             Dampening factor for regularizing the pseudo-inverse in case of ill-conditioning.
-        verbose: int | None
-            Verbosity of the conjugate gradient algorithm used to evaluate the pseudo-inverse. If an integer ``n``, diagnostics
-            are printed every ``n`` iterations. If ``None``, the algorithm is silent.
-        kwargs:
-            Additional keyword arguments values accepted by Scipy’s function :py:func:`scipy.sparse.linalg.cg`.
+        verbose: bool | False
+            Verbosity of the conjugate gradient algorithm used to evaluate the pseudo-inverse. If ``True``, diagnostics
+            are printed every iteration. If ``False``, the algorithm is silent.
 
         Returns
         -------
@@ -2010,7 +2008,7 @@ class LinOp(DiffMap, Adjoint):
 
         where :math:`\tau>0` is the ``damp`` parameter from this routine, controlling the amount of regularization (the more the stabler/the less accurate).
 
-        The normal equations can be solved via the conjugate gradient method (:py:func:`scipy.sparse.linalg.cg`) or the `LSQR <https://web.stanford.edu/group/SOL/software/lsqr/>`_ /`LSMR <https://web.stanford.edu/group/SOL/software/lsmr/>`_
+        The normal equations can be solved via the conjugate gradient method (:py:class:`pycsou.opt.solver.cg`) or the `LSQR <https://web.stanford.edu/group/SOL/software/lsqr/>`_ /`LSMR <https://web.stanford.edu/group/SOL/software/lsmr/>`_
         algorithms (see :py:func:`scipy.sparse.linalg.lsqr` and :py:func:`scipy.sparse.linalg.lsmr` respectively). The
         latter may converge faster when the operator is ill-conditioned and/or when there is no fast algorithm for ``self.gram()``
         (i.e. when ``self.gram()`` is trivially evaluated as the composition ``self.T * self``). The GPU implementation of LSQR
@@ -2020,56 +2018,18 @@ class LinOp(DiffMap, Adjoint):
         .. todo::
 
             Add support for LSQR/LSMR. **Add support for N-D inputs** (will require re-implementing cg ourselves).
-
         """
-        if arr.ndim == 1:
-            return self._pinv(arr=arr, damp=damp, verbose=verbose, **kwargs)
-        else:
-            xp = pycu.get_array_module(arr)
-            pinv1d = lambda x: self._pinv(arr=x, damp=damp, verbose=verbose, **kwargs)
-            return xp.apply_along_axis(func1d=pinv1d, arr=arr, axis=-1)
-
-    def _pinv(
-        self, arr: pyct.NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[int] = None, **kwargs
-    ) -> pyct.NDArray:
         from pycsou.operator.linop.base import IdentityOp
+        from pycsou.opt.solver.cg import CG
 
         b = self.adjoint(arr)
         if damp is not None:
-            damp = np.array(damp, dtype=arr.dtype).item()  # cast to correct type
             A = self.gram() + damp * IdentityOp(shape=(self.shape[1], self.shape[1]))
         else:
             A = self.gram()
-        if "x0" not in kwargs:
-            kwargs["x0"] = 0 * arr
-        if "atol" not in kwargs:
-            kwargs["atol"] = 1e-16
-        if verbose is not None:
-
-            class CallBack:
-                def __init__(self, verbose: int, A: LinOp, b: pyct.NDArray):
-                    self.verbose = verbose
-                    self.n = 0
-                    self.A, self.b = A, b
-
-                def __call__(self, x: pyct.NDArray):
-                    if self.n % self.verbose == 0:
-                        xp = pycu.get_array_module(x)
-                        print(
-                            f"Iteration: {self.n}, Relative residual norm:{xp.linalg.norm(self.b - self.A(x)) / xp.linalg.norm(self.b)}"
-                        )
-                        self.n += 1
-
-            kwargs.update(dict(callback=CallBack(verbose, A, b)))
-
-        xp = pycu.get_array_module(arr)
-        if xp is np:
-            spx = splin
-        elif pycu.deps.CUPY_ENABLED and (xp is cp):
-            import cupyx.scipy.sparse.linalg as spx
-        else:
-            raise NotImplementedError
-        return spx.cg(A, b, **kwargs)[0]
+        cg = CG(A)
+        cg.fit(b=b)
+        return cg.solution()
 
     def dagger(self, damp: typ.Optional[float] = None, **kwargs) -> "LinOp":
         r"""
