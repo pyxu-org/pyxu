@@ -1401,7 +1401,6 @@ class ADMM(_PDS):
         self,
         g: typ.Optional[pyco.ProxFunc] = None,
         h: typ.Optional[pyco.ProxFunc] = None,
-        beta: typ.Optional[pyct.Real] = None,
         *,
         folder: typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
@@ -1454,5 +1453,5 @@ class ADMM(_PDS):
             tau = 1.0
         return pycrt.coerce(tau), pycrt.coerce(0.0), gamma
 
-    def _set_momentum_term(self, beta: typ.Optional[pyct.Real], delta: pyct.Real) -> pyct.Real:
+    def _set_momentum_term(self, rho: typ.Optional[pyct.Real], delta: pyct.Real) -> pyct.Real:
         return delta
