@@ -1967,7 +1967,7 @@ class LinOp(DiffMap, Adjoint):
         damp: typ.Optional[float] = None,
         kwargs_init: typ.Optional[dict] = None,
         kwargs_fit: typ.Optional[dict] = None,
-    ) -> pyct.NDArray:  # Should we have a decorator that performs trivial vectorization like that for us?
+    ) -> pyct.NDArray:
         r"""
         Evaluate the Moore-Penrose pseudo-inverse :math:`L^\dagger` of the linear operator.
 
@@ -1978,11 +1978,9 @@ class LinOp(DiffMap, Adjoint):
         damp: float | None
             Dampening factor for regularizing the pseudo-inverse in case of ill-conditioning.
         kwargs_init: dict | None
-            See :py:func:`pycsou.abc.solver.Solver.__init__`'s  docstring for keyword parameters.
+            Optional keywords arguments to be passed to :py:func:`pycsou.abc.solver.Solver.__init__`.
         kwargs_fit: dict | None
-            See :py:class:`pycsou.opt.solver.cg.CG`'s docstring on ``fit()`` parameterization, and
-            :py:func:`pycsou.abc.solver.Solver.fit` for keyword parameters.
-
+            Optional keywords arguments to be passed to ``fit()`` method of :py:class:`pycsou.opt.solver.cg.CG`.
 
         Returns
         -------
@@ -2036,11 +2034,18 @@ class LinOp(DiffMap, Adjoint):
             A = self.gram() + damp * IdentityOp(shape=(self.shape[1], self.shape[1]))
         else:
             A = self.gram()
+        if "show_progress" not in kwargs_init.keys():
+            kwargs_init["show_progress"] = False  # Algorithm is silent by default.
         cg = CG(A, **kwargs_init)
-        cg.fit(b=b, show_progress=verbose, **kwargs_fit)
+        cg.fit(b=b, **kwargs_fit)
         return cg.solution()
 
-    def dagger(self, damp: typ.Optional[float] = None, **kwargs) -> "LinOp":
+    def dagger(
+        self,
+        damp: typ.Optional[float] = None,
+        kwargs_init: typ.Optional[dict] = None,
+        kwargs_fit: typ.Optional[dict] = None,
+    ) -> "LinOp":
         r"""
         Return the Moore-Penrose pseudo-inverse :math:`L^\dagger` as a :py:class:`~pycsou.abc.operator.LinOp` instance.
 
@@ -2048,8 +2053,10 @@ class LinOp(DiffMap, Adjoint):
         ----------
         damp: float | None
             Dampening factor for regularizing the pseudo-inverse in case of ill-conditioning.
-        kwargs:
-            Additional keyword arguments values accepted by Scipy’s function :py:func:`scipy.sparse.linalg.cg`.
+        kwargs_init: dict | None
+            Optional keywords arguments to be passed to :py:func:`pycsou.abc.solver.Solver.__init__`.
+        kwargs_fit: dict | None
+            Optional keywords arguments to be passed to ``fit()`` method of :py:class:`pycsou.opt.solver.cg.CG`.
 
         Returns
         -------
@@ -2058,10 +2065,22 @@ class LinOp(DiffMap, Adjoint):
         """
         dagger = LinOp(self.shape[::-1])
         dagger.apply = types.MethodType(
-            ft.partial(lambda damp, kwargs, _, x: self.pinv(x, damp, **kwargs), damp, kwargs), dagger
+            ft.partial(
+                lambda damp, kwargs_init, kwargs_fit, _, x: self.pinv(x, damp, kwargs_init, kwargs_fit),
+                damp,
+                kwargs_init,
+                kwargs_fit,
+            ),
+            dagger,
         )
         dagger.adjoint = types.MethodType(
-            ft.partial(lambda damp, kwargs, _, x: self.T.pinv(x, damp, **kwargs), damp, kwargs), dagger
+            ft.partial(
+                lambda damp, kwargs_init, kwargs_fit, _, x: self.T.pinv(x, damp, kwargs_init, kwargs_fit),
+                damp,
+                kwargs_init,
+                kwargs_fit,
+            ),
+            dagger,
         )
         return dagger
 

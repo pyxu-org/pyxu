@@ -16,10 +16,10 @@ class TestAbsError:
             [3, None, 4, False],
             [3, None, 3, True],
             [3, None, 2, True],
-            [3, lambda _: _ ** 2, 4, False],
-            [3, lambda _: _ ** 2, 3, False],
-            [3, lambda _: _ ** 2, np.sqrt(3), True],
-            [3, lambda _: _ ** 2, 1, True],
+            [3, lambda _: _**2, 4, False],
+            [3, lambda _: _**2, 3, False],
+            [3, lambda _: _**2, np.sqrt(3), True],
+            [3, lambda _: _**2, 1, True],
         ],
     )
     def test_scalar_in(self, eps, f, state, stop_val):
@@ -55,9 +55,9 @@ class TestRelError:
             [0.5, None, (1, 2), False],
             [0.5, None, (2, 3), True],
             [0.5, None, (3, 4), True],
-            [0.3, lambda _: _ ** 2, (1, 2), False],
-            [0.3, lambda _: _ ** 2, (2, 3), True],
-            [0.3, lambda _: _ ** 2, (3, 4), True],
+            [0.3, lambda _: _**2, (1, 2), False],
+            [0.3, lambda _: _**2, (2, 3), True],
+            [0.3, lambda _: _**2, (3, 4), True],
         ],
     )
     def test_scalar_in(self, eps, f, state, stop_val):
