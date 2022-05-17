@@ -56,8 +56,8 @@ class TestRelError:
             [0.5, None, (2, 3), True],
             [0.5, None, (3, 4), True],
             [0.3, lambda _: _**2, (1, 2), False],
-            [0.3, lambda _: _**2, (2, 3), True],
-            [0.3, lambda _: _**2, (3, 4), True],
+            [0.3, lambda _: _**2, (2, 3), False],
+            [0.9, lambda _: _**2, (3, 4), True],
         ],
     )
     def test_scalar_in(self, eps, f, state, stop_val):
