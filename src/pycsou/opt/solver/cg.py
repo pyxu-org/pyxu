@@ -107,7 +107,13 @@ class CG(pycs.Solver):
         restart_rate: typ.Optional[int] = None,
     ):
         mst = self._mstate  # shorthand
-        mst["restart_rate"] = self._A.shape[0] if restart_rate is None else restart_rate
+
+        if restart_rate is not None:
+            assert restart_rate >= 1
+            mst["restart_rate"] = int(restart_rate)
+        else:
+            mst["restart_rate"] = self._A.dim
+
         mst["b"] = b
         xp = pycu.get_array_module(b)
         if x0 is None:
