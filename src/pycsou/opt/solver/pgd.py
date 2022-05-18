@@ -143,6 +143,12 @@ class PGD(pycs.Solver):
         )
         return stop_crit
 
+    def objective_func(self) -> pyct.NDArray:
+        func = lambda x: self._f.apply(x) + self._g.apply(x)
+
+        y = func(self._mstate["x"])
+        return y
+
     def solution(self) -> pyct.NDArray:
         """
         Returns
