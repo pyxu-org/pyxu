@@ -27,9 +27,9 @@ class MaxIter(pycs.StoppingCriterion):
     Example
     -------
 
-    >>> sc = MaxIter(n=5) & AbsErr(eps=0.1)
+    >>> sc = MaxIter(n=5) & AbsError(eps=0.1)
     # If N_iter < 5 -> never stop.
-    # If N_iter >= 5 -> stop if AbsErr() decides to.
+    # If N_iter >= 5 -> stop if AbsError() decides to.
     """
 
     def __init__(self, n: int):
