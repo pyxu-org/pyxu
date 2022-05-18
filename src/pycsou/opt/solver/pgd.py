@@ -157,7 +157,7 @@ class PGD(pycs.Solver):
         """
         Returns
         -------
-        p: NDArray
+        x: NDArray
             (..., N) solution.
         """
         data, _ = self.stats()
