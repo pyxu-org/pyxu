@@ -150,6 +150,17 @@ class CG(pycs.Solver):
         )
         return stop_crit
 
+    def objective_func(self) -> pyct.NDArray:
+        x = self._mstate["x"]
+        b = self._mstate["b"]
+
+        f = self._A.apply(x)
+        f /= 2
+        f -= b
+        f = (x * f).sum(axis=-1, keepdims=True)
+
+        return f
+
     def solution(self) -> pyct.NDArray:
         """
         Returns
