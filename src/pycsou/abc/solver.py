@@ -568,7 +568,7 @@ class Solver:
         Default stopping criterion for solver if unspecified in ``Solver.fit()`` calls.
 
         Sub-classes are expected to overwrite this method. If not overridden, then omitting the
-        `stop_crit` parameter in ``Solver.fit()` is forbidden.
+        `stop_crit` parameter in ``Solver.fit()`` is forbidden.
         """
         raise NotImplementedError("No default stopping criterion defined.")
 
