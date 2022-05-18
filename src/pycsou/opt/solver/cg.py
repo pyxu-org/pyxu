@@ -25,7 +25,7 @@ class CG(pycs.Solver):
 
      The norm of the `explicit residual <https://www.wikiwand.com/en/Conjugate_gradient_method>`_
      :math:`\mathbf {r}_{k+1}:=\mathbf{b}-\mathbf{Ax}_{k+1}` is used as the default stopping criterion. This provides a
-     guaranteed level of accuracy both in exact arithmetic and in the presence of the round-off errors. By default, the
+     guaranteed level of accuracy both in exact arithmetic and in the presence of round-off errors. By default, the
      iterations stop when the norm of the explicit residual is smaller than 1e-4.
 
 
@@ -49,7 +49,7 @@ class CG(pycs.Solver):
 
     **Remark 3:** `Restarts <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ could slow down convergence, but
     they might improve stability due to round-off error or ill-posedness of the linear operator. If these issues are
-    suspected, the user can adjust 'restart_rate' variable accordingly.
+    suspected, users can adjust the 'restart_rate' variable accordingly.
 
 
      Examples
@@ -99,8 +99,13 @@ class CG(pycs.Solver):
 
         self._A = A
 
-    @pycrt.enforce_precision(i=["b", "x0"], allow_None=True)
-    def m_init(self, b: pyct.NDArray, x0: typ.Optional[pyct.NDArray] = None, restart_rate: typ.Optional[int] = None):
+    @pycrt.enforce_precision(i=["b", "x0"])
+    def m_init(
+        self,
+        b: pyct.NDArray,
+        x0: typ.Optional[pyct.NDArray] = None,
+        restart_rate: typ.Optional[int] = None,
+    ):
         mst = self._mstate  # shorthand
         mst["restart_rate"] = self._A.shape[0] if restart_rate is None else restart_rate
         mst["b"] = b
@@ -126,8 +131,9 @@ class CG(pycs.Solver):
         alpha = rr / (p * Ap).sum(axis=-1, keepdims=True)
         x += alpha * p
         r -= alpha * Ap
-        # Because CG can only generate n conjugate vectors in an n-dimensional space, it makes sense to restart
-        # CG every n iterations.
+
+        # Because CG can only generate n conjugate vectors in an n-dimensional space, it makes sense
+        # to restart CG every n iterations.
         if self._astate["idx"] == mst["restart_rate"]:
             beta = 0
         else:
@@ -158,7 +164,7 @@ class CG(pycs.Solver):
         """
         Returns
         -------
-        p: NDArray
+        x: NDArray
             (..., N) solution.
         """
         data, _ = self.stats()
