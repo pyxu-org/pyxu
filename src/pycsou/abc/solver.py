@@ -170,6 +170,7 @@ class Solver:
         *,
         folder: typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
+        stop_rate: int = 1,
         writeback_rate: typ.Optional[int] = None,
         verbosity: int = 1,
         show_progress: bool = True,
@@ -184,11 +185,15 @@ class Solver:
         exist_ok: bool
             If ``folder`` is specified and ``exist_ok`` is false (the default), FileExistsError is
             raised if the target directory already exists.
+        stop_rate: int
+            Rate at which solver evaluates stopping criteria.
         writeback_rate: int
             Rate at which solver checkpoints are written to disk. No checkpointing is done if
             unspecified: only the final solver output will be written back to disk.
+            Must be a multiple of `stop_rate` if specified.
         verbosity: int
-            Rate at which stopping criteria statistics are logged to disk.
+            Rate at which stopping criteria statistics are logged.
+            Must be a multiple of `stop_rate`.
         show_progress: bool
             If True (default) and ``Solver.fit`` is run with mode=BLOCK, then statistics are also
             logged to stdout.
@@ -205,6 +210,7 @@ class Solver:
             logger=None,
             stdout=None,
             stop_crit=None,
+            stop_rate=None,
             track_objective=None,
             wb_rate=None,
             workdir=None,
@@ -227,19 +233,25 @@ class Solver:
             raise Exception(f"folder: expected path-like, got {type(folder)}.")
 
         try:
-            self._astate["wb_rate"] = writeback_rate
-            if writeback_rate is not None:
-                assert writeback_rate >= 1
-                self._astate["wb_rate"] = int(writeback_rate)
+            assert stop_rate >= 1
+            self._astate["stop_rate"] = int(stop_rate)
         except:
-            raise ValueError(f"writeback_rate must be positive, got {writeback_rate}.")
+            raise ValueError(f"stop_rate must be positive, got {stop_rate}.")
 
         try:
-            assert verbosity >= 1
+            self._astate["wb_rate"] = writeback_rate
+            if writeback_rate is not None:
+                assert writeback_rate % self._astate["stop_rate"] == 0
+                self._astate["wb_rate"] = int(writeback_rate)
+        except:
+            raise ValueError(f"writeback_rate must be a multiple of stop_rate({stop_rate}), got {writeback_rate}.")
+
+        try:
+            assert verbosity % self._astate["stop_rate"] == 0
             self._astate["log_rate"] = int(verbosity)
             self._astate["stdout"] = bool(show_progress)
         except:
-            raise ValueError(f"verbosity must be positive, got {verbosity}.")
+            raise ValueError(f"verbosity must be a multiple of stop_rate({stop_rate}), got {verbosity}.")
 
         try:
             if isinstance(log_var, str):
@@ -536,6 +548,10 @@ class Solver:
     def _step(self) -> bool:
         ast = self._astate  # shorthand
 
+        must_stop = lambda: ast["idx"] % ast["stop_rate"] == 0
+        must_log = lambda: ast["idx"] % ast["log_rate"] == 0
+        must_writeback = lambda: (ast["wb_rate"] is not None) and (ast["idx"] % ast["wb_rate"] == 0)
+
         def _log(msg: str = None):
             if msg is None:  # report stopping-criterion values
                 h = ast["history"][-1][0]
@@ -548,32 +564,51 @@ class Solver:
         def _update_history():
             def _as_struct(data: dict[str, float]) -> np.ndarray:
                 ftype = pycrt.getPrecision().value
-                dtype = np.dtype([(k, ftype) for k in data])
-                s = np.array(list(data.values()), dtype=ftype).view(dtype)
+                spec_data = [(k, ftype) for k in data]
+
+                itype = np.int64
+                spec_iter = [("iteration", itype)]
+
+                dtype = np.dtype(spec_iter + spec_data)
+
+                utype = np.uint8
+                s = np.concatenate(  # to allow mixed int/float fields:
+                    [  # (1) cast to uint, then (2) to compound dtype.
+                        np.array([ast["idx"]], dtype=itype).view(utype),
+                        np.array(list(data.values()), dtype=ftype).view(utype),
+                    ]
+                ).view(dtype)
                 return s
 
             h = _as_struct(ast["stop_crit"].info())
             ast["history"].append(h)
 
+        # [Sepand] Important
+        # stop_crit.stop(), _update_history(), _log() must always be called in this order.
+
         try:
-            if ast["track_objective"]:
+            _ms, _ml, _mw = must_stop(), must_log(), must_writeback()
+
+            if _ms and ast["track_objective"]:
                 self._mstate["objective_func"] = self.objective_func()
 
-            if ast["stop_crit"].stop(self._mstate):
+            if _ms and ast["stop_crit"].stop(self._mstate):
                 _update_history()
                 _log()
                 _log(msg=f"[{dt.datetime.now()}] Stopping Criterion satisfied -> END")
                 self.writeback()
                 return False
             else:
-                _update_history()
-                if ast["idx"] % ast["log_rate"] == 0:
+                if _ms:
+                    _update_history()
+                if _ml:
                     _log()
-                if (ast["wb_rate"] is not None) and (ast["idx"] % ast["wb_rate"] == 0):
+                if _mw:
                     self.writeback()
                 ast["idx"] += 1
                 self.m_step()
-                self._m_persist()
+                if _ms:
+                    self._m_persist()
                 return True
         except Exception as e:
             msg = f"[{dt.datetime.now()}] Something went wrong -> EXCEPTION RAISED"
@@ -582,7 +617,7 @@ class Solver:
             if ast["wb_rate"] is not None:  # checkpointing enabled
                 _, r = divmod(ast["idx"], ast["wb_rate"])
                 idx_valid = ast["idx"] - r
-                msg_idx = f"Last valid checkpoint done at idx={idx_valid}."
+                msg_idx = f"Last valid checkpoint done at iteration={idx_valid}."
                 msg = "\n".join([msg, msg_idx])
             ast["logger"].exception(msg, exc_info=e)
             return False
