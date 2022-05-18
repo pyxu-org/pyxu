@@ -560,18 +560,20 @@ class Solver:
                 self._mstate["objective_func"] = self.objective_func()
 
             if ast["stop_crit"].stop(self._mstate):
+                _update_history()
+                _log()
                 _log(msg=f"[{dt.datetime.now()}] Stopping Criterion satisfied -> END")
                 self.writeback()
                 return False
             else:
-                ast["idx"] += 1
-                self.m_step()
-                self._m_persist()
                 _update_history()
                 if ast["idx"] % ast["log_rate"] == 0:
                     _log()
                 if (ast["wb_rate"] is not None) and (ast["idx"] % ast["wb_rate"] == 0):
                     self.writeback()
+                ast["idx"] += 1
+                self.m_step()
+                self._m_persist()
                 return True
         except Exception as e:
             msg = f"[{dt.datetime.now()}] Something went wrong -> EXCEPTION RAISED"
