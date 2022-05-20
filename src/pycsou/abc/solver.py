@@ -479,16 +479,9 @@ class Solver:
         stop_crit.clear()
 
         if track_objective:
-            from pycsou.opt.stop import AbsError
+            from pycsou.opt.stop import Memorize
 
-            obj_crit = AbsError(
-                eps=sys.float_info.min,
-                var="objective_func",
-                f=None,
-                norm=1,
-                satisfy_all=True,
-            )
-            stop_crit |= obj_crit
+            stop_crit |= Memorize(var="objective_func")
 
         self._astate.update(  # suitable state for a new call to fit().
             history=[],
@@ -593,7 +586,7 @@ class Solver:
             _ms, _ml, _mw = must_stop(), must_log(), must_writeback()
 
             if _ms and ast["track_objective"]:
-                self._mstate["objective_func"] = self.objective_func()
+                self._mstate["objective_func"] = self.objective_func().reshape(-1)
 
             if _ms and ast["stop_crit"].stop(self._mstate):
                 _update_history()
@@ -641,6 +634,10 @@ class Solver:
     def objective_func(self) -> pyct.NDArray:
         """
         Evaluate objective function given current math state.
+
+        The output array must have shape:
+        * (1,) if evaluated at 1 point,
+        * (N, 1) if evaluated at N different points.
 
         Sub-classes are expected to overwrite this method. If not overridden, then setting
         `track_objective=True` in ``Solver.fit()`` is forbidden.

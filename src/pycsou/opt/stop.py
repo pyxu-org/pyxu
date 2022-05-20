@@ -110,6 +110,46 @@ class MaxDuration(pycs.StoppingCriterion):
         self._t_now = self._t_start
 
 
+class Memorize(pycs.StoppingCriterion):
+    """
+    Memorize a variable. (Special StoppingCriterion mostly useful for tracking objective functions
+    in Solver.)
+    """
+
+    def __init__(self, var: str):
+        """
+        Parameters
+        ----------
+        var: str
+            Variable in `Solver._mstate` to query.
+            Must be a scalar or NDArray (1D).
+        """
+        self._var = var
+        self._val = np.r_[0]  # last memorized value in stop().
+
+    def stop(self, state: cabc.Mapping) -> bool:
+        x = state[self._var]
+        if isinstance(x, pyct.Real):
+            x = np.r_[x]
+        assert x.ndim == 1
+
+        self._val = pycu.compute(x)
+        return False
+
+    def info(self) -> cabc.Mapping[str, float]:
+        if self._val.size == 1:
+            data = {f"Memorize[{self._var}]": float(self._val.max())}  # takes the only element available.
+        else:
+            data = {
+                f"Memorize[{self._var}]_min": float(self._val.min()),
+                f"Memorize[{self._var}]_max": float(self._val.max()),
+            }
+        return data
+
+    def clear(self):
+        self._val = np.r_[0]
+
+
 class AbsError(pycs.StoppingCriterion):
     """
     Stop iterative solver after absolute norm of a variable (or function thereof) reaches threshold.
