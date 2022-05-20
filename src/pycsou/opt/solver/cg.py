@@ -1,7 +1,5 @@
 import typing as typ
 
-import numpy as np
-
 import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
 import pycsou.opt.stop as pycos
@@ -77,25 +75,11 @@ class CG(pycs.Solver):
 
     """
 
-    def __init__(
-        self,
-        A: pyco.PosDefOp,
-        *,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
-        show_progress: bool = True,
-        log_var: pyct.VarName = ("x",),
-    ):
-        super().__init__(
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
-            show_progress=show_progress,
-            log_var=log_var,
+    def __init__(self, A: pyco.PosDefOp, **kwargs):
+        kwargs.update(
+            log_var=kwargs.get("log_var", ("x",)),
         )
+        super().__init__(**kwargs)
 
         self._A = A
 
