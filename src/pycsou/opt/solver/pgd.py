@@ -73,22 +73,12 @@ class PGD(pycs.Solver):
         self,
         f: typ.Optional[pyco.DiffFunc] = None,
         g: typ.Optional[pyco.ProxFunc] = None,
-        *,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
-        show_progress: bool = True,
-        log_var: pyct.VarName = ("x",),
+        **kwargs,
     ):
-        super().__init__(
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
-            show_progress=show_progress,
-            log_var=log_var,
+        kwargs.update(
+            log_var=kwargs.get("log_var", ("x",)),
         )
+        super().__init__(**kwargs)
 
         self._f = pyclo.NullFunc() if (f is None) else f
         self._g = pyclo.NullFunc() if (g is None) else g
