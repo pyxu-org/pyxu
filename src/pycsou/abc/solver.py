@@ -133,6 +133,7 @@ class Solver:
         * ``m_init()``  # i.e. math-init()
         * ``m_step()``  # i.e. math-step()
         * ``default_stop_crit()``  # optional; see method definition for details
+        * ``objective_func()``  # optional; see method definition for details.
 
     Advanced functionalities of ``Solver`` are automatically inherited by sub-classes.
 
@@ -204,6 +205,7 @@ class Solver:
             logger=None,
             stdout=None,
             stop_crit=None,
+            track_objective=None,
             wb_rate=None,
             workdir=None,
             # Execution-mode related -----------
@@ -264,10 +266,13 @@ class Solver:
             * BLOCK: fit()
             * ASYNC: fit() + busy() + stop()
             * MANUAL: fit() + steps()
+        track_objective: bool
+            Auto-compute objective function every time stopping criterion is evaluated.
         """
         self._fit_init(
             mode=kwargs.pop("mode", Mode.BLOCK),
             stop_crit=kwargs.pop("stop_crit", None),
+            track_objective=kwargs.pop("track_objective", False),
         )
         self.m_init(**kwargs)
         self._fit_run()
@@ -429,7 +434,12 @@ class Solver:
             worker=None,
         )
 
-    def _fit_init(self, mode: Mode, stop_crit: StoppingCriterion):
+    def _fit_init(
+        self,
+        mode: Mode,
+        stop_crit: StoppingCriterion,
+        track_objective: bool,
+    ):
         def _init_logger():
             log_name = str(self.workdir)
             logger = logging.getLogger(log_name)
@@ -453,11 +463,24 @@ class Solver:
             stop_crit = self.default_stop_crit()
         stop_crit.clear()
 
+        if track_objective:
+            from pycsou.opt.stop import AbsError
+
+            obj_crit = AbsError(
+                eps=sys.float_info.min,
+                var="objective_func",
+                f=None,
+                norm=1,
+                satisfy_all=True,
+            )
+            stop_crit |= obj_crit
+
         self._astate.update(  # suitable state for a new call to fit().
             history=[],
             idx=0,
             logger=_init_logger(),
             stop_crit=stop_crit,
+            track_objective=track_objective,
             mode=mode,
             active=None,
             worker=None,
@@ -533,6 +556,9 @@ class Solver:
             ast["history"].append(h)
 
         try:
+            if ast["track_objective"]:
+                self._mstate["objective_func"] = self.objective_func()
+
             if ast["stop_crit"].stop(self._mstate):
                 _log(msg=f"[{dt.datetime.now()}] Stopping Criterion satisfied -> END")
                 self.writeback()
@@ -571,6 +597,15 @@ class Solver:
         `stop_crit` parameter in ``Solver.fit()`` is forbidden.
         """
         raise NotImplementedError("No default stopping criterion defined.")
+
+    def objective_func(self) -> pyct.NDArray:
+        """
+        Evaluate objective function given current math state.
+
+        Sub-classes are expected to overwrite this method. If not overridden, then setting
+        `track_objective=True` in ``Solver.fit()`` is forbidden.
+        """
+        raise NotImplementedError("No objective function defined.")
 
     class _Worker(threading.Thread):
         def __init__(self, solver: "Solver"):
