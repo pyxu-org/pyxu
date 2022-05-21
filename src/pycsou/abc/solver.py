@@ -172,7 +172,7 @@ class Solver:
         exist_ok: bool = False,
         stop_rate: int = 1,
         writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
+        verbosity: typ.Optional[int] = None,
         show_progress: bool = True,
         log_var: pyct.VarName = frozenset(),
     ):
@@ -194,6 +194,7 @@ class Solver:
         verbosity: int
             Rate at which stopping criteria statistics are logged.
             Must be a multiple of `stop_rate`.
+            Defaults to `stop_rate` if unspecified.
         show_progress: bool
             If True (default) and ``Solver.fit`` is run with mode=BLOCK, then statistics are also
             logged to stdout.
@@ -247,6 +248,8 @@ class Solver:
             raise ValueError(f"writeback_rate must be a multiple of stop_rate({stop_rate}), got {writeback_rate}.")
 
         try:
+            if verbosity is None:
+                verbosity = self._astate["stop_rate"]
             assert verbosity % self._astate["stop_rate"] == 0
             self._astate["log_rate"] = int(verbosity)
             self._astate["stdout"] = bool(show_progress)
