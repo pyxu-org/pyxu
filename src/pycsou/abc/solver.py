@@ -620,7 +620,12 @@ class Solver:
 
     def _m_persist(self):
         # Persist math state to avoid re-eval overhead.
-        self._mstate.update(**pycu.compute(self._mstate, mode="persist", traverse=False))
+        k, v = zip(*self._mstate.items())
+        v = pycu.compute(*v, mode="persist", traverse=False)
+        self._mstate.update(zip(k, v))
+        # [Sepand] Note:
+        # The above evaluation strategy with `traverse=False` chosen since _mstate can hold any type
+        # of object.
 
     def default_stop_crit(self) -> StoppingCriterion:
         """
