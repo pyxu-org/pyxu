@@ -118,7 +118,7 @@ class AbsError(pycs.StoppingCriterion):
     def __init__(
         self,
         eps: float,
-        var: str = "primal",
+        var: str = "x",
         f: typ.Optional[SVFunction] = None,
         norm: float = 2,
         satisfy_all: bool = True,
@@ -195,7 +195,7 @@ class RelError(pycs.StoppingCriterion):
     def __init__(
         self,
         eps: float,
-        var: str = "primal",
+        var: str = "x",
         f: typ.Optional[SVFunction] = None,
         norm: float = 2,
         satisfy_all: bool = True,
