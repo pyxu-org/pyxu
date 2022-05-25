@@ -33,16 +33,6 @@ Joan
 * [linop/base] Implement diagonal operator
 * [opt] Implement LSQR LSMR
 * Add SVG drawing of class diagrams in documentation
-* [tox] Verify tests run correctly in py38 environment.
-
-  Assigned by Sepand KASHANI
-
-  We use `tox` to run pycsou's test suite and ensure the package is useable under multiple Python
-  versions.
-
-  Problem: The codebase contains 3.9+ constructs; hence `tox -e py38` fails due to parsing errors.
-  Goal: Assess whether "porting" to allow 3.8 is worth it, or just stick to 3.9+.
-
 * create benchmark suite for all operators.
 
   We must track the runtime of operator methods across commits to identify performance regressions and fix them. A comprehensive benchmark suite is therefore required.
