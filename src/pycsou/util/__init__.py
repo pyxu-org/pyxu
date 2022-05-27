@@ -82,7 +82,7 @@ def get_array_module(x, fallback: pyct.ArrayModule = None) -> pyct.ArrayModule:
     """
 
     def infer_api(y):
-        for array_t, api in pycd.array_backend_info().items():
+        for array_t, api, _ in pycd.array_backend_info():
             if isinstance(y, array_t):
                 return api
         return None
