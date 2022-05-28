@@ -211,3 +211,81 @@ def vectorize(i: pyct.VarName) -> cabc.Callable:
         return wrapper
 
     return decorator
+
+
+def redirect(
+    i: pyct.VarName,
+    **kwargs: cabc.Mapping[str, cabc.Callable],
+) -> cabc.Callable:
+    """
+    Change codepath for supplied array backends.
+
+    Some functions/methods cannot be written in module-agnostic fashion. The action of this
+    decorator is summarized below:
+
+    * Analyze an array-valued parameter (`x`) of the wrapped function/method (`f`).
+    * If `x` lies in one of the supplied array namespaces: re-route execution to the specified
+      function.
+    * If `x` lies in none of the supplied array namespaces: execute `f`.
+
+    Parameters
+    ----------
+    i: str
+        name of the array-like variable in `f` to base dispatch on.
+    **kwargs: dict[str, callable]
+
+        key: array backend short-name as defined in :py:func:`~pycsou.util.deps.array_backend_info`.
+
+        value: function/method to dispatch to.
+
+    Notes
+    -----
+    Auto-dispatch via :py:func:`redirect` assumes the
+    dispatcher/dispatchee have the same parameterization, i.e.:
+
+    * if `f` is a function -> dispatch possible to another callable with identical signature (i.e.,
+      function or staticmethod)
+    * if `f` is a staticmethod -> dispatch possible to another callable with identical signature
+      (i.e., function or staticmethod)
+    * if `f` is an instance-method -> dispatch to another instance-method of the class with
+      identical signature.
+
+    Example
+    -------
+    >>> def f(x, y): return "f"
+    >>>
+    >>> @redirect('x', NUMPY=f)    # if 'x' lies in the array namespace having
+    >>> def g(x, y): return "g"    # short-name 'NUMPY' -> reroute execution to `f`
+    >>>
+    >>> x1 = np.arange(5)
+    >>> x2 = da.array(x1)
+    >>> y = 1
+    >>> g(x1, y), g(x2, y)  # 'f', 'g'
+    """
+
+    def decorator(func: cabc.Callable) -> cabc.Callable:
+        @functools.wraps(func)
+        def wrapper(*ARGS, **KWARGS):
+            try:
+                func_args = parse_params(func, *ARGS, **KWARGS)
+            except Exception as e:
+                error_msg = f"Could not parameterize {func}()."
+                raise ValueError(error_msg) from e
+
+            if i not in func_args:
+                error_msg = f"Parameter[{i}] not part of {func.__qualname__}() parameter list."
+                raise ValueError(error_msg)
+
+            xp = get_array_module(func_args[i])
+            short_name = {xp_: short_name for (_, xp_, short_name) in pycd.array_backend_info()}.get(xp)
+
+            if (alt_func := kwargs.get(short_name)) is not None:
+                out = alt_func(**func_args)
+            else:
+                out = func(**func_args)
+
+            return out
+
+        return wrapper
+
+    return decorator
