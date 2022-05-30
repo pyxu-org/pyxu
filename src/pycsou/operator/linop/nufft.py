@@ -245,6 +245,8 @@ class _NUFFT1(NUFFT):
         for k in ("nufft_type", "n_modes_or_dim", "eps", "dtype", "modeord"):
             kwargs.pop(k, None)
         t = kwargs["t"] = cls._as_canonical_coordinate(kwargs["t"])
+        xp = pycu.get_array_module(t)
+        t = kwargs["t"] = xp.fmod(t, 2 * np.pi)
         M = kwargs["M"] = cls._as_canonical_mode(kwargs["M"])
         if (D := t.shape[-1]) == len(M):
             pass
