@@ -1,3 +1,4 @@
+import copy
 import functools as ft
 import types
 import typing as typ
@@ -1702,7 +1703,8 @@ class LinOp(DiffMap, Adjoint):
         :py:class:`~pycsou.abc.operator.LinOp`
             Adjoint of the linear operator.
         """
-        adj = LinOp(shape=self.shape[::-1])
+        adj = copy.copy(self)
+        adj._shape = self.shape[::-1]
         adj.apply = self.adjoint
         adj.adjoint = self.apply
         adj._lipschitz = self._lipschitz
