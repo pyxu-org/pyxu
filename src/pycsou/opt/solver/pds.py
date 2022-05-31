@@ -52,6 +52,7 @@ class _PrimalDualSplitting(pycs.Solver):
                 self._K = pyclo.NullOp(shape=(K_dim, K_dim))
             else:
                 raise ValueError("Optional argument ``h`` mut be specified if ``K`` is not None.")
+        self._objective_func = self._f + self._g + (self._h * self._K)
 
     @pycrt.enforce_precision(i=["x0", "z0", "tau", "sigma", "rho"], allow_None=True)
     def m_init(
@@ -100,6 +101,9 @@ class _PrimalDualSplitting(pycs.Solver):
         else:
             raise ValueError(f"Parameter which must be one of ['primal', 'dual'] got: {which}.")
         return data.get("x") if which == "primal" else data.get("z")
+
+    def objective_func(self) -> pyct.NDArray:
+        return self._objective_func(self._mstate["x"])
 
     @pycrt.enforce_precision(i=["beta"], allow_None=True)
     def _set_beta(self, beta: typ.Optional[pyct.Real]) -> pyct.Real:
