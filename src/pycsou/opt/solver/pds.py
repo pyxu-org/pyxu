@@ -27,20 +27,10 @@ class _PrimalDualSplitting(pycs.Solver):
         h: typ.Optional[pyco.ProxFunc] = None,
         K: typ.Optional[pyco.DiffMap] = None,
         beta: typ.Optional[pyct.Real] = None,
-        *,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
-        log_var: pyct.VarName = ("x", "z"),
+        **kwargs,
     ):
-        super().__init__(
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
-            log_var=log_var,
-        )
+        kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
+        super().__init__(**kwargs)
         if (f is None) and (g is None) and (h is None):
             msg = " ".join(
                 [
@@ -767,12 +757,7 @@ def ChambollePock(
     h: typ.Optional[pyco.ProxFunc] = None,
     K: typ.Optional[pyco.DiffMap] = None,
     base: typ.Type[_PrimalDualSplitting] = CondatVu,
-    *,
-    folder: typ.Optional[pyct.PathLike] = None,
-    exist_ok: bool = False,
-    writeback_rate: typ.Optional[int] = None,
-    verbosity: int = 1,
-    log_var: pyct.VarName = ("x", "z"),
+    **kwargs,
 ):
     r"""
     Chambolle and Pock primal-dual splitting method.
@@ -845,18 +830,14 @@ def ChambollePock(
     --------
     :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`
     """
-
+    kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
     obj = base(
         f=None,
         g=g,
         h=h,
         K=K,
         beta=0,
-        folder=folder,
-        exist_ok=exist_ok,
-        writeback_rate=writeback_rate,
-        verbosity=verbosity,
-        log_var=log_var,
+        **kwargs,
     )
     obj.__repr__ = lambda _: "ChambollePock"
     return obj
@@ -949,24 +930,16 @@ class LorisVerhoeven(PD3O):
         h: typ.Optional[pyco.ProxFunc] = None,
         K: typ.Optional[pyco.DiffMap] = None,
         beta: typ.Optional[pyct.Real] = None,
-        *,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
-        log_var: pyct.VarName = ("x", "z"),
+        **kwargs,
     ):
+        kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
         super(LorisVerhoeven).__init__(
             f=f,
             g=None,
             h=h,
             K=K,
             beta=beta,
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
-            log_var=log_var,
+            **kwargs,
         )
 
     def _set_step_sizes(
@@ -1055,24 +1028,16 @@ class DavisYin(PD3O):
         g: typ.Optional[pyco.ProxFunc] = None,
         h: typ.Optional[pyco.ProxFunc] = None,
         beta: typ.Optional[pyct.Real] = None,
-        *,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
-        log_var: pyct.VarName = ("x", "z"),
+        **kwargs,
     ):
+        kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
         super(DavisYin).__init__(
             f=f,
             g=g,
             h=h,
             K=None,
             beta=beta,
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
-            log_var=log_var,
+            **kwargs,
         )
 
     def _set_step_sizes(
@@ -1103,12 +1068,7 @@ def DouglasRachford(
     g: typ.Optional[pyco.ProxFunc] = None,
     h: typ.Optional[pyco.ProxFunc] = None,
     base: typ.Type[_PrimalDualSplitting] = CondatVu,
-    *,
-    folder: typ.Optional[pyct.PathLike] = None,
-    exist_ok: bool = False,
-    writeback_rate: typ.Optional[int] = None,
-    verbosity: int = 1,
-    log_var: pyct.VarName = ("x", "z"),
+    **kwargs,
 ):
     r"""
     Douglas Rachford splitting algorithm.
@@ -1158,19 +1118,8 @@ def DouglasRachford(
     See Also
     --------
     :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.ForwardBackward`"""
-
-    obj = base(
-        f=None,
-        g=g,
-        h=h,
-        K=None,
-        beta=0,
-        folder=folder,
-        exist_ok=exist_ok,
-        writeback_rate=writeback_rate,
-        verbosity=verbosity,
-        log_var=log_var,
-    )
+    kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
+    obj = base(f=None, g=g, h=h, K=None, beta=0, **kwargs)
     obj.__repr__ = lambda _: "DouglasRachford"
 
     def _set_step_sizes_custom(
@@ -1245,25 +1194,16 @@ class ADMM(_PDS):
         self,
         g: typ.Optional[pyco.ProxFunc] = None,
         h: typ.Optional[pyco.ProxFunc] = None,
-        *,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
-        log_var: pyct.VarName = ("x", "u", "z"),
+        **kwargs,
     ):
-
+        kwargs.update(log_var=kwargs.get("log_var", ("x", "u", "z")))
         super(ADMM).__init__(
             f=None,
             g=g,
             h=h,
             K=None,
             beta=0,
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
-            log_var=log_var,
+            **kwargs,
         )
 
     @pycrt.enforce_precision(i=["x0", "z0", "tau", "sigma", "rho"], allow_None=True)
@@ -1380,24 +1320,16 @@ class ForwardBackward(CondatVu):
         f: typ.Optional[pyco.DiffFunc] = None,
         g: typ.Optional[pyco.ProxFunc] = None,
         beta: typ.Optional[pyct.Real] = None,
-        *,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
-        log_var: pyct.VarName = ("x",),
+        **kwargs,
     ):
+        kwargs.update(log_var=kwargs.get("log_var", ("x",)))
         super(ForwardBackward).__init__(
             f=f,
             g=g,
             h=None,
             K=None,
             beta=beta,
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
-            log_var=log_var,
+            **kwargs,
         )
 
 
@@ -1407,12 +1339,7 @@ FB = ForwardBackward  #: Alias of :py:class:`~pycsou.opt.solver.pds.ForwardBackw
 def ProximalPoint(
     g: typ.Optional[pyco.ProxFunc] = None,
     base: typ.Optional[_PrimalDualSplitting] = CondatVu,
-    *,
-    folder: typ.Optional[pyct.PathLike] = None,
-    exist_ok: bool = False,
-    writeback_rate: typ.Optional[int] = None,
-    verbosity: int = 1,
-    log_var: pyct.VarName = ("x",),
+    **kwargs,
 ):
     r"""
     Proximal-point method algorithm.
@@ -1454,18 +1381,14 @@ def ProximalPoint(
     See Also
     --------
     :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`,:py:class:`~pycsou.opt.solver.pgd.PGD`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`"""
-
+    kwargs.update(log_var=kwargs.get("log_var", ("x",)))
     obj = base.__init__(
         f=None,
         g=g,
         h=None,
         K=None,
         beta=None,
-        folder=folder,
-        exist_ok=exist_ok,
-        writeback_rate=writeback_rate,
-        verbosity=verbosity,
-        log_var=log_var,
+        **kwargs,
     )
 
     obj.__repr__ = lambda _: "ProximalPoint"
