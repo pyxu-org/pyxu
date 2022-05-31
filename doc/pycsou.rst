@@ -11,6 +11,7 @@ Subpackages
    pycsou.compound
    pycsou.linop
    pycsou.operator
+   pycsou.math
    pycsou.opt
    pycsou.runtime
    pycsou.util
