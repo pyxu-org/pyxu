@@ -8,6 +8,7 @@ Subpackages
    :maxdepth: 4
 
    pycsou.operator.linop
+   pycsou.operator.func
 
 Module contents
 ---------------
