@@ -19,7 +19,7 @@ class SquaredL2Norm(pyco.DiffFunc):
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         return 2 * arr
 
-    def as_loss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.DiffFunc:
+    def asloss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.DiffFunc:
         if data is None:
             return self
         else:
@@ -39,7 +39,7 @@ class L1Norm(pyco.ProxFunc):
         xp = pycu.get_array_module(arr)
         return (abs(arr) - tau).clip(0, None) * xp.sign(arr)
 
-    def as_loss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.ProxFunc:
+    def asloss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.ProxFunc:
         if data is None:
             return self
         else:

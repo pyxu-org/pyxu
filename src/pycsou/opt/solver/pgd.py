@@ -1,12 +1,10 @@
 import itertools
 import math
-import numbers as nb
 import typing as typ
 
-import pycsou.abc as pyca
 import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
-import pycsou.linop.base as pyclo
+import pycsou.operator.linop.base as pyclo
 import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
@@ -50,6 +48,10 @@ class PGD(pycs.Solver):
     converge at a rate :math:`o(1/n^2)`. Significant practical *speedup* can be achieved for values
     of :math:`d` in the range :math:`[50,100]` [APGD]_.
 
+    **Remark 4:** The relative norm change of the primal variable is used as the default stopping criterion. By
+    default, the algorithm stops when the norm of the difference between two consecutive PGD iterates
+    :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4. Different stopping criteria can be used (see
+    :py:mod:`~pycsou.opt.solver.stop`).
 
     ``PGD.fit()`` **Parameterization**
 
@@ -71,22 +73,12 @@ class PGD(pycs.Solver):
         self,
         f: typ.Optional[pyco.DiffFunc] = None,
         g: typ.Optional[pyco.ProxFunc] = None,
-        *,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
-        show_progress: bool = True,
-        log_var: pyct.VarName = ("x",),
+        **kwargs,
     ):
-        super().__init__(
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
-            show_progress=show_progress,
-            log_var=log_var,
+        kwargs.update(
+            log_var=kwargs.get("log_var", ("x",)),
         )
+        super().__init__(**kwargs)
 
         self._f = pyclo.NullFunc() if (f is None) else f
         self._g = pyclo.NullFunc() if (g is None) else g
@@ -99,6 +91,7 @@ class PGD(pycs.Solver):
             )
             raise ValueError(msg)
 
+    @pycrt.enforce_precision(i=["x0", "tau"])
     def m_init(
         self,
         x0: pyct.NDArray,
@@ -107,7 +100,7 @@ class PGD(pycs.Solver):
         d: typ.Optional[pyct.Real] = 75,
     ):
         mst = self._mstate  # shorthand
-        mst["x"] = mst["x_prev"] = pycrt.coerce(x0)
+        mst["x"] = mst["x_prev"] = x0
 
         if tau is None:
             if math.isfinite(dl := self._f._diff_lipschitz):
@@ -118,7 +111,7 @@ class PGD(pycs.Solver):
         else:
             try:
                 assert tau > 0
-                mst["tau"] = pycrt.coerce(tau)
+                mst["tau"] = tau
             except:
                 raise ValueError(f"tau must be positive, got {tau}.")
 
@@ -150,11 +143,17 @@ class PGD(pycs.Solver):
         )
         return stop_crit
 
+    def objective_func(self) -> pyct.NDArray:
+        func = lambda x: self._f.apply(x) + self._g.apply(x)
+
+        y = func(self._mstate["x"])
+        return y
+
     def solution(self) -> pyct.NDArray:
         """
         Returns
         -------
-        p: NDArray
+        x: NDArray
             (..., N) solution.
         """
         data, _ = self.stats()

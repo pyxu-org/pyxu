@@ -9,3 +9,11 @@ Subpackages
 
    pycsou.operator.linop
    pycsou.operator.func
+
+Module contents
+---------------
+
+.. automodule:: pycsou.operator
+   :members:
+   :undoc-members:
+   :show-inheritance:

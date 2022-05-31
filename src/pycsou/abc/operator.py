@@ -1,3 +1,4 @@
+import copy
 import functools as ft
 import types
 import typing as typ
@@ -325,9 +326,11 @@ class Property:
             where the product's ``prox`` property update is described.
         """
         if isinstance(other, pyct.Real):
-            from pycsou.linop.base import HomothetyOp
+            from pycsou.operator.linop.base import HomothetyOp
 
             hmap = HomothetyOp(other, dim=self.shape[0])
+            if hmap.shape[0] == 1:
+                hmap.grad = types.MethodType(lambda _, arr: hmap._cst, hmap)
             return hmap.__mul__(self)
         elif not isinstance(other, Map):
             raise NotImplementedError(f"Cannot multiply object of type {type(self)} with object of type {type(other)}.")
@@ -335,8 +338,6 @@ class Property:
             out_shape = pycu.infer_composition_shape(self.shape, other.shape)
         except ValueError:
             raise ValueError(f"Cannot compose two maps with inconsistent shapes {self.shape} and {other.shape}.")
-        if self.shape[0] == 1:
-            self = self.squeeze()
         shared_props = self.properties() & other.properties()
         shared_props.discard("prox")
         if self.shape[0] == 1 and "jacobian" in shared_props:
@@ -394,6 +395,9 @@ class Property:
         """
         return self.__mul__(other)
 
+    def __matmul__(self, other):
+        raise NotImplementedError("For composition or evaluation, use the dedicated __mul__() and apply() methods. ")
+
     def __pow__(self: MapLike, power: int) -> NonProxLike:
         r"""
         Exponentiate (i.e. compose with itself) an instance of :py:class:`~pycsou.abc.operator.Map` subclasses ``power`` times (overloads the ``**`` operator).
@@ -410,7 +414,7 @@ class Property:
         """
         if type(power) is int:
             if power == 0:
-                from pycsou.linop.base import IdentityOp
+                from pycsou.operator.linop.base import IdentityOp
 
                 exp_map = IdentityOp(shape=self.shape)
             else:
@@ -475,7 +479,7 @@ class Property:
 
         Notes
         -----
-        Calling ``self.argscale(scalar)`` is equivalent to precomposing ``self`` with the (unitary) linear operator :py:class:`~pycsou.linop.base.HomotethyOp`:
+        Calling ``self.argscale(scalar)`` is equivalent to precomposing ``self`` with the (unitary) linear operator :py:class:`~pycsou.operator.linop.base.HomotethyOp`:
 
         .. code-block:: python3
 
@@ -485,7 +489,7 @@ class Property:
 
         """
         if isinstance(scalar, pyct.Real):
-            from pycsou.linop.base import HomothetyOp
+            from pycsou.operator.linop.base import HomothetyOp
 
             hmap = HomothetyOp(scalar, dim=self.shape[1])
             return self.__mul__(hmap)
@@ -726,7 +730,7 @@ class Gradient(Differential):
         where :math:`\nabla f (\mathbf{x})` denotes the *gradient* of :math:`f` (see :py:meth:`~pycsou.abc.operator.Gradient.grad`).
         The Jacobian matrix is hence given by the transpose of the gradient: :math:`\mathbf{J}_f(\mathbf{x})=\nabla f (\mathbf{x})^T`.
         """
-        from pycsou.linop.base import ExplicitLinFunc
+        from pycsou.operator.linop.base import ExplicitLinFunc
 
         return ExplicitLinFunc(self.grad(arr))
 
@@ -817,7 +821,7 @@ class Proximal(Property):
 
         Notes
         -----
-        The *proximity operator* of a ``tau``-scaled functional :math:`f:\mathbb{R}^M\to \mathbb{R}` is defined as:
+        For :math:`\tau>0`, the *proximity operator* of a ``tau``-scaled functional :math:`f:\mathbb{R}^M\to \mathbb{R}` is defined as:
 
         .. math:: \mathbf{\text{prox}}_{\tau f}(\mathbf{z}):=\arg\min_{\mathbf{x}\in\mathbb{R}^M} f(x)+\frac{1}{2\tau} \|\mathbf{x}-\mathbf{z}\|_2^2, \quad \forall \mathbf{z}\in\mathbb{R}^M.
 
@@ -847,7 +851,7 @@ class Proximal(Property):
 
         Notes
         -----
-        The *Fenchel conjugate* is defined as:
+        For :math:`\sigma>0`, the *Fenchel conjugate* is defined as:
 
         .. math::
 
@@ -1064,7 +1068,7 @@ class Map(Apply):
         If ``self`` does not implement all the methods of the ``cast_to`` target class, then unimplemented methods will raise a ``NotImplementedError``
         when called.
         """
-        if cast_to == self.__class__:
+        if issubclass(self.__class__, cast_to):
             obj = self
         else:
             if self.properties() > cast_to.properties():
@@ -1170,7 +1174,7 @@ class DiffMap(Map, Differential):
 
     >>> import numpy as np
     >>> from pycsou.abc import DiffMap
-    >>> from pycsou.linop.base import ExplicitLinOp
+    >>> from pycsou.operator.linop.base import ExplicitLinOp
     >>> class  Sin(DiffMap):
     ...    def __init__(self, shape):
     ...        super(Sin, self).__init__(shape)
@@ -1278,20 +1282,20 @@ class Func(Map, SingleValued):
             raise ValueError("Functionals" " must be of the form (1,n).")
         super(Func, self).__init__(shape)
 
-    def as_loss(self, data: typ.Optional[pyct.NDArray] = None) -> "Func":
+    def asloss(self, data: typ.Optional[pyct.NDArray] = None) -> "Func":
         """
-        Transform a Function into a loss function.
+        Transform a functional into a loss functional.
 
         Parameters
         ----------
         data: NDArray
-            (N,) data terms.
+            (N,) input data.
 
         Returns
         -------
         :py:class:`~pycsou.abc.operator.Func`
             Loss function.
-            If `data = None`, then should return `self`.
+            If `data = None`, then return `self`.
         """
         raise NotImplementedError
 
@@ -1417,7 +1421,7 @@ class ProxFunc(Func, Proximal):
         :py:meth:`pycsou.abc.operator.Property.__mul__`
 
         """
-        from pycsou.linop.base import HomothetyOp
+        from pycsou.operator.linop.base import HomothetyOp
 
         f = Property.__mul__(self, other)
         if isinstance(other, pyct.Real):
@@ -1453,6 +1457,11 @@ class ProxFunc(Func, Proximal):
         -------
         :py:class:`~pycsou.abc.operator.DiffFunc`
             Moreau envelope.
+
+        Raises
+        ------
+        ValueError
+            If ``mu`` is not strictly positive.
 
         Notes
         -----
@@ -1516,6 +1525,9 @@ class ProxFunc(Func, Proximal):
             plt.title('Derivative of Moreau Envelope')
 
         """
+        if mu <= 0:
+            raise ValueError(f"Parameter mu must be positive, got {mu}")
+
         moreau_envelope = DiffFunc(self.shape)
 
         @pycrt.enforce_precision(i="arr")
@@ -1619,7 +1631,8 @@ class LinOp(DiffMap, Adjoint):
 
     Any instance/subclass of this class must implement the methods :py:meth:`~pycsou.abc.operator.Apply.apply` and :py:meth:`~pycsou.abc.operator.Adjoint.adjoint`.
     If known, the Lipschitz constant of the linear map can be stored in the private instance attribute
-    ``_lipschitz`` (initialized to :math:`+\infty` by default).
+    ``_lipschitz`` (initialized to :math:`+\infty` by default). By default, a squared linear operator (i.e., :math:`L:\mathbb{R}^N\to\mathbb{R}^N`)
+    will be automatically initialized as a :py:class:`~pycsou.abc.operator.SquareOp`.
 
     .. todo::
 
@@ -1695,7 +1708,8 @@ class LinOp(DiffMap, Adjoint):
         :py:class:`~pycsou.abc.operator.LinOp`
             Adjoint of the linear operator.
         """
-        adj = LinOp(shape=self.shape[::-1])
+        adj = copy.copy(self)
+        adj._shape = self.shape[::-1]
         adj.apply = self.adjoint
         adj.adjoint = self.apply
         adj._lipschitz = self._lipschitz
@@ -1761,11 +1775,11 @@ class LinOp(DiffMap, Adjoint):
             Algorithm used for computing the Lipschitz constant. If ``algo==svds`` the Lipschitz constant is estimated as the
             spectral norm of :math:`L`, computed via Scipy's :py:func:`scipy.sparse.linalg.svds` routine (more accurate but more compute intensive).  If ``algo==fro`` the Lipschitz constant is estimated as the
             Froebenius norm of :math:`L`, computed via the matrix-free `Hutch++ stochastic trace estimation algorithm <https://arxiv.org/abs/2010.09649>`_ (less accurate but less compute intensive).
-            Currently, only ``algo==svds`` is supported.
         kwargs:
             Optional arguments to be passed to the algorithm used for computing the Lipschitz constant.
-            The parameter ``tol`` of Scipy's :py:func:`scipy.sparse.linalg.svds` routine can be particularly interesting to reduce
-            the compute time of the Lipschitz constant.
+            If ``algo==svds``, the parameter ``tol`` of Scipy's :py:func:`scipy.sparse.linalg.svds` routine can be particularly interesting to reduce
+            the compute time of the Lipschitz constant. If ``algo==fro``, the parameter ``m`` of :py:func:`pycsou.abc.operator.SquareOp.trace` can be interesting to control the number of queries used for the stochastic estimation.
+            If ``algo==fro`` the parameter ``xp`` can be used to select the desired array module backend for computation (Numpy, Cupy or Dask).
 
         Returns
         -------
@@ -1778,11 +1792,33 @@ class LinOp(DiffMap, Adjoint):
         It can be computed by means of truncated matrix-free SVD, which can be a compute-intensive task for large-scale
         operators. In which case, it can be advantageous to overestimate the Lipschtiz constant via the Frobenius norm of :math:`L`
         (we have indeed :math:`\|L\|_F \geq \|L\|_2`). The Frobenius norm of  :math:`L` can indeed be approximated efficiently by
-        computing the trace of :math:`L^\ast L` (or  :math:`LL^\ast` depending on which is most advantageous) via the
-        `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_. Currently, only the SVD-based approach is supported.
+        computing the trace of :math:`L^\ast L` (or  :math:`LL^\ast`) depending on which is most advantageous) via the
+        `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_. The Frobenius norm of  :math:`L` is upper
+        bounded by :math:`\|L\|_F \leq \sqrt{n} \|L\|_2`, where the equality is reached (worst-case scenario) in those cases in which the
+        eigenspectrum of the linear operator is flat.
 
-        .. todo::
-            Add support for trace-based estimate (@Joan).
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from pycsou.abc import LinOp
+        >>> # Create a square PSD linear operator
+        >>> rng = np.random.default_rng(seed=0)
+        >>> mat = rng.normal(size=(100, 100))
+        >>> A = LinOp.from_array(mat).gram()
+        >>> # Compute Stochastic upper bound of Lipschitz (using Hutch++)
+        >>> stochastic_upper_bound = A.lipschitz(algo="fro", xp=np, m=10)
+        >>> # Compute Deterministic upper bound of Lipschitz (by setting
+        >>> # the number of queries equal to the size of the operator)
+        >>> deterministic_upper_bound = A.lipschitz(algo="fro", xp=np, m=100, recompute=True)
+        >>> # Compute Lipschitz
+        >>> lipschitz = A.lipschitz(algo="svds", recompute=True)
+        >>> print(stochastic_upper_bound)
+        [1411.78659953]
+        >>> print(deterministic_upper_bound)
+        [1411.44955295]
+        >>> print(lipschitz)
+        [384.29239583]
+
         """
 
         if recompute or (self._lipschitz == np.infty):
@@ -1899,13 +1935,13 @@ class LinOp(DiffMap, Adjoint):
             dtype = pycrt.getPrecision().value
         return self.asarray(xp=np, dtype=dtype)
 
-    def gram(self) -> "LinOp":
+    def gram(self) -> "SelfAdjointOp":
         r"""
         Gram operator :math:`L^\ast L:\mathbb{R}^M\to \mathbb{R}^M`.
 
         Returns
         -------
-        :py:class:`~pycsou.abc.operator.LinOp`
+        :py:class:`~pycsou.abc.operator.SelfAdjointOp`
             Gram operator with shape (M,M).
 
         Notes
@@ -1913,15 +1949,15 @@ class LinOp(DiffMap, Adjoint):
         By default the Gram is computed by the composition ``self.T * self``. This may not be the fastest
         way to compute the Gram operator. If the Gram can be computed more efficiently (e.g. with a convolution), the user should re-define this method.
         """
-        return self.T * self
+        return (self.T * self).specialize(SelfAdjointOp)
 
-    def cogram(self) -> "LinOp":
+    def cogram(self) -> "SelfAdjointOp":
         r"""
         Co-Gram operator :math:`LL^\ast:\mathbb{R}^N\to \mathbb{R}^N`.
 
         Returns
         -------
-        :py:class:`~pycsou.abc.operator.LinOp`
+        :py:class:`~pycsou.abc.operator.SelfAdjointOp`
             Co-Gram operator with shape (N,N).
 
         Notes
@@ -1929,26 +1965,29 @@ class LinOp(DiffMap, Adjoint):
         By default the co-Gram is computed by the composition ``self * self.T``. This may not be the fastest
         way to compute the co-Gram operator. If the co-Gram can be computed more efficiently (e.g. with a convolution), the user should re-define this method.
         """
-        return self * self.T
+        return (self * self.T).specialize(SelfAdjointOp)
 
-    @pycrt.enforce_precision(i="arr")
+    @pycrt.enforce_precision(i=["arr", "damp"], allow_None=True)
     def pinv(
-        self, arr: pyct.NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[int] = None, **kwargs
-    ) -> pyct.NDArray:  # Should we have a decorator that performs trivial vectorization like that for us?
+        self,
+        arr: pyct.NDArray,
+        damp: typ.Optional[float] = None,
+        kwargs_init: typ.Optional[dict] = None,
+        kwargs_fit: typ.Optional[dict] = None,
+    ) -> pyct.NDArray:
         r"""
         Evaluate the Moore-Penrose pseudo-inverse :math:`L^\dagger` of the linear operator.
 
         Parameters
         ----------
         arr: NDArray
-            Input 1-D array with shape (M,).
+            (..., N), Input array used to evaluate the pseudo-inverse.
         damp: float | None
             Dampening factor for regularizing the pseudo-inverse in case of ill-conditioning.
-        verbose: int | None
-            Verbosity of the conjugate gradient algorithm used to evaluate the pseudo-inverse. If an integer ``n``, diagnostics
-            are printed every ``n`` iterations. If ``None``, the algorithm is silent.
-        kwargs:
-            Additional keyword arguments values accepted by Scipy’s function :py:func:`scipy.sparse.linalg.cg`.
+        kwargs_init: dict | None
+            Optional keywords arguments to be passed to :py:func:`pycsou.abc.solver.Solver.__init__`.
+        kwargs_fit: dict | None
+            Optional keywords arguments to be passed to ``fit()`` method of :py:class:`pycsou.opt.solver.cg.CG`.
 
         Returns
         -------
@@ -1957,7 +1996,7 @@ class LinOp(DiffMap, Adjoint):
 
         Notes
         -----
-        The Moore-Penros pseudo-inverse of an operator :math:`L:\mathbb{R}^N\to \mathbb{R}^M` is defined as the operator
+        The Moore-Penrose pseudo-inverse of an operator :math:`L:\mathbb{R}^N\to \mathbb{R}^M` is defined as the operator
         :math:`L^\dagger:\mathbb{R}^M\to \mathbb{R}^N` verifying the Moore-Penrose conditions:
 
             1. :math:`LL^\dagger L =L`,
@@ -1981,7 +2020,7 @@ class LinOp(DiffMap, Adjoint):
 
         where :math:`\tau>0` is the ``damp`` parameter from this routine, controlling the amount of regularization (the more the stabler/the less accurate).
 
-        The normal equations can be solved via the conjugate gradient method (:py:func:`scipy.sparse.linalg.cg`) or the `LSQR <https://web.stanford.edu/group/SOL/software/lsqr/>`_ /`LSMR <https://web.stanford.edu/group/SOL/software/lsmr/>`_
+        The normal equations can be solved via the conjugate gradient method (:py:class:`pycsou.opt.solver.cg`) or the `LSQR <https://web.stanford.edu/group/SOL/software/lsqr/>`_ /`LSMR <https://web.stanford.edu/group/SOL/software/lsmr/>`_
         algorithms (see :py:func:`scipy.sparse.linalg.lsqr` and :py:func:`scipy.sparse.linalg.lsmr` respectively). The
         latter may converge faster when the operator is ill-conditioned and/or when there is no fast algorithm for ``self.gram()``
         (i.e. when ``self.gram()`` is trivially evaluated as the composition ``self.T * self``). The GPU implementation of LSQR
@@ -1991,58 +2030,29 @@ class LinOp(DiffMap, Adjoint):
         .. todo::
 
             Add support for LSQR/LSMR. **Add support for N-D inputs** (will require re-implementing cg ourselves).
-
         """
-        if arr.ndim == 1:
-            return self._pinv(arr=arr, damp=damp, verbose=verbose, **kwargs)
-        else:
-            xp = pycu.get_array_module(arr)
-            pinv1d = lambda x: self._pinv(arr=x, damp=damp, verbose=verbose, **kwargs)
-            return xp.apply_along_axis(func1d=pinv1d, arr=arr, axis=-1)
+        from pycsou.operator.linop.base import IdentityOp
+        from pycsou.opt.solver.cg import CG
 
-    def _pinv(
-        self, arr: pyct.NDArray, damp: typ.Optional[float] = None, verbose: typ.Optional[int] = None, **kwargs
-    ) -> pyct.NDArray:
-        from pycsou.linop.base import IdentityOp
-
+        kwargs_fit = {} if kwargs_fit is None else kwargs_fit
+        kwargs_init = {} if kwargs_init is None else kwargs_init
         b = self.adjoint(arr)
         if damp is not None:
-            damp = np.array(damp, dtype=arr.dtype).item()  # cast to correct type
             A = self.gram() + damp * IdentityOp(shape=(self.shape[1], self.shape[1]))
         else:
             A = self.gram()
-        if "x0" not in kwargs:
-            kwargs["x0"] = 0 * arr
-        if "atol" not in kwargs:
-            kwargs["atol"] = 1e-16
-        if verbose is not None:
+        if "show_progress" not in kwargs_init.keys():
+            kwargs_init["show_progress"] = False  # Algorithm is silent by default.
+        cg = CG(A, **kwargs_init)
+        cg.fit(b=b, **kwargs_fit)
+        return cg.solution()
 
-            class CallBack:
-                def __init__(self, verbose: int, A: LinOp, b: pyct.NDArray):
-                    self.verbose = verbose
-                    self.n = 0
-                    self.A, self.b = A, b
-
-                def __call__(self, x: pyct.NDArray):
-                    if self.n % self.verbose == 0:
-                        xp = pycu.get_array_module(x)
-                        print(
-                            f"Iteration: {self.n}, Relative residual norm:{xp.linalg.norm(self.b - self.A(x)) / xp.linalg.norm(self.b)}"
-                        )
-                        self.n += 1
-
-            kwargs.update(dict(callback=CallBack(verbose, A, b)))
-
-        xp = pycu.get_array_module(arr)
-        if xp is np:
-            spx = splin
-        elif pycu.deps.CUPY_ENABLED and (xp is cp):
-            import cupyx.scipy.sparse.linalg as spx
-        else:
-            raise NotImplementedError
-        return spx.cg(A, b, **kwargs)[0]
-
-    def dagger(self, damp: typ.Optional[float] = None, **kwargs) -> "LinOp":
+    def dagger(
+        self,
+        damp: typ.Optional[float] = None,
+        kwargs_init: typ.Optional[dict] = None,
+        kwargs_fit: typ.Optional[dict] = None,
+    ) -> "LinOp":
         r"""
         Return the Moore-Penrose pseudo-inverse :math:`L^\dagger` as a :py:class:`~pycsou.abc.operator.LinOp` instance.
 
@@ -2050,8 +2060,10 @@ class LinOp(DiffMap, Adjoint):
         ----------
         damp: float | None
             Dampening factor for regularizing the pseudo-inverse in case of ill-conditioning.
-        kwargs:
-            Additional keyword arguments values accepted by Scipy’s function :py:func:`scipy.sparse.linalg.cg`.
+        kwargs_init: dict | None
+            Optional keywords arguments to be passed to :py:func:`pycsou.abc.solver.Solver.__init__`.
+        kwargs_fit: dict | None
+            Optional keywords arguments to be passed to ``fit()`` method of :py:class:`pycsou.opt.solver.cg.CG`.
 
         Returns
         -------
@@ -2060,10 +2072,22 @@ class LinOp(DiffMap, Adjoint):
         """
         dagger = LinOp(self.shape[::-1])
         dagger.apply = types.MethodType(
-            ft.partial(lambda damp, kwargs, _, x: self.pinv(x, damp, **kwargs), damp, kwargs), dagger
+            ft.partial(
+                lambda damp, kwargs_init, kwargs_fit, _, x: self.pinv(x, damp, kwargs_init, kwargs_fit),
+                damp,
+                kwargs_init,
+                kwargs_fit,
+            ),
+            dagger,
         )
         dagger.adjoint = types.MethodType(
-            ft.partial(lambda damp, kwargs, _, x: self.T.pinv(x, damp, **kwargs), damp, kwargs), dagger
+            ft.partial(
+                lambda damp, kwargs_init, kwargs_fit, _, x: self.T.pinv(x, damp, kwargs_init, kwargs_fit),
+                damp,
+                kwargs_init,
+                kwargs_fit,
+            ),
+            dagger,
         )
         return dagger
 
@@ -2134,15 +2158,15 @@ class LinOp(DiffMap, Adjoint):
     def from_array(cls, mat: typ.Union[pyct.NDArray, pyct.SparseArray], enable_warnings: bool = True) -> "LinOp":
         r"""
         Create an instance of a :py:class:`~pycsou.abc.operator.LinOp` from its matrix representation (see
-        :py:class:`pycsou.linop.base.ExplicitLinOp`).
+        :py:class:`pycsou.operator.linop.base.ExplicitLinOp`).
 
         See Also
         --------
         :py:meth:`~pycsou.abc.operator.LinOp.from_sciop`, :py:meth:`~pycsou.abc.operator.Map.from_source`,
-        :py:class:`pycsou.linop.base.ExplicitLinOp`, :py:meth:`~pycsou.abc.operator.LinFunc.from_array`.
+        :py:class:`pycsou.operator.linop.base.ExplicitLinOp`, :py:meth:`~pycsou.abc.operator.LinFunc.from_array`.
 
         """
-        from pycsou.linop.base import ExplicitLinOp
+        from pycsou.operator.linop.base import ExplicitLinOp
 
         return ExplicitLinOp(mat, enable_warnings)
 
@@ -2180,10 +2204,10 @@ class LinFunc(ProxDiffFunc, LinOp):
 
     >>> sum = Sum(10)
 
-    It is also possible to use the class :py:class:`~pycsou.linop.base.ExplicitLinFunc`, which constructs a linear functional
+    It is also possible to use the class :py:class:`~pycsou.operator.linop.base.ExplicitLinFunc`, which constructs a linear functional
     through its vectorial representation (i.e. :math:`f(\mathbf{x})=\langle\mathbf{x}, \mathbf{v}\rangle`):
 
-    >>> from pycsou.linop.base import ExplicitLinFunc
+    >>> from pycsou.operator.linop.base import ExplicitLinFunc
     >>> sum = ExplicitLinFunc(vec=np.ones(10)) # Creates a LinFunc instance
 
     """
@@ -2198,15 +2222,15 @@ class LinFunc(ProxDiffFunc, LinOp):
     def from_array(cls, vec: pyct.NDArray, enable_warnings: bool = True) -> "LinFunc":
         r"""
         Create an instance of a :py:class:`~pycsou.abc.operator.LinFunc` from its vectorial representation (see
-        :py:class:`pycsou.linop.base.ExplicitLinFunc`).
+        :py:class:`pycsou.operator.linop.base.ExplicitLinFunc`).
 
         See Also
         --------
         :py:meth:`~pycsou.abc.operator.LinOp.from_array`, :py:meth:`~pycsou.abc.operator.Map.from_source`,
-        :py:class:`pycsou.linop.base.ExplicitLinFunc`.
+        :py:class:`pycsou.operator.linop.base.ExplicitLinFunc`.
 
         """
-        from pycsou.linop.base import ExplicitLinFunc
+        from pycsou.operator.linop.base import ExplicitLinFunc
 
         return ExplicitLinFunc(vec, enable_warnings)
 
@@ -2214,7 +2238,9 @@ class LinFunc(ProxDiffFunc, LinOp):
 class SquareOp(LinOp):
     r"""
     Base class for *square* linear operators :math:`L:\mathbb{R}^N\to \mathbb{R}^N` (endomorphsisms).
-    """
+    While being functionally equivalent to a :py:class:`~pycsou.abc.operator.LinOp`,
+    the :py:class:`~pycsou.abc.operator.SquareOp` includes the method :py:meth:`~pycsou.abc.operator.SquareOp.trace`,
+    allowing the (deterministic and stochastic) estimation of the operator trace."""
 
     def __init__(self, shape: pyct.SquareShape):
         r"""
@@ -2229,6 +2255,28 @@ class SquareOp(LinOp):
         elif shape[0] != shape[1]:
             raise ValueError(f"Inconsistent shape {shape} for operator of type {SquareOp}")
         super(SquareOp, self).__init__(shape=(shape[0], shape[0]))
+
+    @pycrt.enforce_precision(o=True)
+    def trace(self, **kwargs):
+        """
+        Approximate the trace of a squared linear operator.
+
+        Parameters
+        ----------
+        kwargs: dict
+            Optional arguments to be passed to the algorithm used for computing the trace. The parameter ``m``
+            of :py:func:`~pycsou.math.linalg.hutchpp` routine can be particularly interesting to reduce the compute time
+            of the trace (at the cost of accuracy).
+
+        Returns
+        -------
+        float
+            Hutch++ stochastic estimate of the trace.
+
+        """
+        import pycsou.math.linalg as pycl
+
+        return pycl.hutchpp(self, **kwargs)
 
 
 class NormalOp(SquareOp):
@@ -2362,7 +2410,7 @@ class ProjOp(SquareOp):
         For ``power>0`` just return ``self`` as projection operators are idempotent.
         """
         if power == 0:
-            from pycsou.linop.base import IdentityOp
+            from pycsou.operator.linop.base import IdentityOp
 
             return IdentityOp(self.shape)
         else:

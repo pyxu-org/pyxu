@@ -21,6 +21,15 @@ class Width(enum.Enum):
     DOUBLE = np.dtype(np.double)
     QUAD = np.dtype(np.longdouble)
 
+    def eps(self) -> float:
+        """
+        Machine precision of a floating-point type.
+
+        Returns the difference between 1 and the next smallest representable float larger than 1.
+        """
+        eps = np.finfo(self.value).eps
+        return float(eps)
+
 
 class Precision(contextlib.AbstractContextManager):
     """

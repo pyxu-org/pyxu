@@ -1,13 +1,13 @@
-pycsou.linop package
+pycsou.math package
 ====================
 
 Submodules
 ----------
 
-pycsou.linop.base module
+pycsou.math.linalg module
 ------------------------
 
-.. automodule:: pycsou.linop.base
+.. automodule:: pycsou.math.linalg
    :members:
    :undoc-members:
    :show-inheritance:
@@ -15,7 +15,7 @@ pycsou.linop.base module
 Module contents
 ---------------
 
-.. automodule:: pycsou.linop
+.. automodule:: pycsou.math
    :members:
    :undoc-members:
    :show-inheritance:

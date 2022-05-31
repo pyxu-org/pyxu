@@ -9,7 +9,6 @@ Subpackages
 
    pycsou.abc
    pycsou.compound
-   pycsou.linop
    pycsou.operator
    pycsou.math
    pycsou.opt

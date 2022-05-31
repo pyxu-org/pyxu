@@ -6,12 +6,6 @@ Matthieu
 * use pycrt.coerce() where it makes sense.
 * use **kwargs to simplify signatures
 
-@Matthieu: Remarks from Sepand
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* modify specialize/squeeze to return self when possible
-* prox/fenchel_prox: tau == 0 forbidden -> be explicit in docs
-
 
 
 Sepand
@@ -35,33 +29,10 @@ Sepand
 Joan
 ----
 
-* add from_source() method for creating class objects by passing their abstract methods as arguments (for Map and all of its subclasses).
-* add LinOp class method from_[array/sciop/pylop]() to create explicit linear operators from arrays/scipy/pylop operators.
-* [operator.ProxFunc] moreau_envelope(mu) -> must fail for mu = 0 [Not a DiffFunc]
-* [operator] See various TODOs in file abc/operator.py: Hutch++ algorithm high priority
+* [operator] See various TODOs in file abc/operator.py
 * [linop/base] Implement diagonal operator
-* [opt] Implement Solver.CG, LSQR LSMR
-* SVG drawing of class diagrams
-* [tox] Verify tests run correctly in py38 environment.
-
-  Assigned by Sepand KASHANI
-
-  We use `tox` to run pycsou's test suite and ensure the package is useable under multiple Python
-  versions. Since pycsou depends on numerical libraries, we rely on `tox-conda` to create the
-  necessary virtual environments via `conda`.
-
-  Problem: it is unclear if tests actually are executing in testenvs py38 and minReq using
-  Python3.8. I'm sure the interpreter in {py38,minReq} are Python3.8, but for some reason L13 in
-  tox.ini calls Python3.9 on my system.
-
-  My hunch is that since `pytest` is listed as external command in tox.ini, it is allowed to
-  execute the test suite. However, since pycsou is installed in non-dev mode in the virtual
-  environments, `pytest` does not exist there -> default to outer pytest command for execution.
-
-  Goal: investigate how to get pytest to run the tests in each virtual environment using the right
-  interpreter. I expect some tests to fail in Python3.8 since we may be using language constructs
-  which were introduced in Python3.9+.
-
+* [opt] Implement LSQR LSMR
+* Add SVG drawing of class diagrams in documentation
 * create benchmark suite for all operators.
 
   We must track the runtime of operator methods across commits to identify performance regressions and fix them. A comprehensive benchmark suite is therefore required.
@@ -77,3 +48,25 @@ Joan
 
   * Add carbon_footprint
   * Add duality_gap
+
+
+
+
+  Roadmap:
+  - Numpy ufuncs -> Kaan
+  - operators (Pycsou v1) -> core dev team
+  - functionals (Pycsou v1 but unify loss and reg with 1 class and method "asloss") -> Kaan
+  - Tutorials, examples and notebooks. -> Kaan
+  - CI: pip/conda packaging (quick fix of pip lenghty install) + ReadTheDocs + Run tests in cloud (Infomaniak)
+  - benchmarking suite (low priority)
+  - Automatic hyperparameter tuning (hyperpriors) 
+  - Uncertainty quantification (approximate credibility intervals)
+  - Nonconvex/linear (APGD nonconvex + PDS nonlinear)
+  - Pytorch interfacing (autodiff+jac+bwd eval) -> Alec
+  - Stochastic solvers -> Alec
+  - Second order solvers -> Kaan
+  - LSQR/LSMR -> Kaan
+  
+
+
+

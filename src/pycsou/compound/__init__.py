@@ -6,7 +6,7 @@ import typing as typ
 import numpy as np
 
 import pycsou.abc.operator as pyco
-import pycsou.linop.base as pycb
+import pycsou.operator.linop.base as pycb
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
@@ -54,7 +54,7 @@ def stack(
     Examples
     --------
     >>> import numpy as np
-    >>> from pycsou.linop.base import ExplicitLinFunc, ExplicitLinOp
+    >>> from pycsou.operator.linop.base import ExplicitLinFunc, ExplicitLinOp
     >>> from pycsou.compound import stack
     >>> # Define a bunch of operators/functionals
     >>> vec1 = np.arange(10); f1 = ExplicitLinFunc(vec1)
@@ -152,8 +152,8 @@ def stack(
     shared_props.discard("single_valued")  # Useful for determining the base class only, can discard now.
     out_op = Op(out_shape)
     for prop in shared_props:
-        if prop in ["_lispchitz", "_diff_lipschitz"]:
-            setattr(out_op, prop, np.linalg.norm(np.array([getattr(m, prop) for m in maps])))
+        if prop in ["lipschitz", "diff_lipschitz"]:
+            setattr(out_op, "_" + prop, np.linalg.norm(np.array([getattr(m, "_" + prop) for m in maps])))
         else:
             methods = [getattr(m, prop) for m in maps]
             if prop == "apply":

@@ -133,6 +133,7 @@ class Solver:
         * ``m_init()``  # i.e. math-init()
         * ``m_step()``  # i.e. math-step()
         * ``default_stop_crit()``  # optional; see method definition for details
+        * ``objective_func()``  # optional; see method definition for details.
 
     Advanced functionalities of ``Solver`` are automatically inherited by sub-classes.
 
@@ -169,8 +170,9 @@ class Solver:
         *,
         folder: typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
+        stop_rate: int = 1,
         writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
+        verbosity: typ.Optional[int] = None,
         show_progress: bool = True,
         log_var: pyct.VarName = frozenset(),
     ):
@@ -183,11 +185,16 @@ class Solver:
         exist_ok: bool
             If ``folder`` is specified and ``exist_ok`` is false (the default), FileExistsError is
             raised if the target directory already exists.
+        stop_rate: int
+            Rate at which solver evaluates stopping criteria.
         writeback_rate: int
             Rate at which solver checkpoints are written to disk. No checkpointing is done if
             unspecified: only the final solver output will be written back to disk.
+            Must be a multiple of `stop_rate` if specified.
         verbosity: int
-            Rate at which stopping criteria statistics are logged to disk.
+            Rate at which stopping criteria statistics are logged.
+            Must be a multiple of `stop_rate`.
+            Defaults to `stop_rate` if unspecified.
         show_progress: bool
             If True (default) and ``Solver.fit`` is run with mode=BLOCK, then statistics are also
             logged to stdout.
@@ -204,6 +211,8 @@ class Solver:
             logger=None,
             stdout=None,
             stop_crit=None,
+            stop_rate=None,
+            track_objective=None,
             wb_rate=None,
             workdir=None,
             # Execution-mode related -----------
@@ -225,19 +234,27 @@ class Solver:
             raise Exception(f"folder: expected path-like, got {type(folder)}.")
 
         try:
-            self._astate["wb_rate"] = writeback_rate
-            if writeback_rate is not None:
-                assert writeback_rate >= 1
-                self._astate["wb_rate"] = int(writeback_rate)
+            assert stop_rate >= 1
+            self._astate["stop_rate"] = int(stop_rate)
         except:
-            raise ValueError(f"writeback_rate must be positive, got {writeback_rate}.")
+            raise ValueError(f"stop_rate must be positive, got {stop_rate}.")
 
         try:
-            assert verbosity >= 1
+            self._astate["wb_rate"] = writeback_rate
+            if writeback_rate is not None:
+                assert writeback_rate % self._astate["stop_rate"] == 0
+                self._astate["wb_rate"] = int(writeback_rate)
+        except:
+            raise ValueError(f"writeback_rate must be a multiple of stop_rate({stop_rate}), got {writeback_rate}.")
+
+        try:
+            if verbosity is None:
+                verbosity = self._astate["stop_rate"]
+            assert verbosity % self._astate["stop_rate"] == 0
             self._astate["log_rate"] = int(verbosity)
             self._astate["stdout"] = bool(show_progress)
         except:
-            raise ValueError(f"verbosity must be positive, got {verbosity}.")
+            raise ValueError(f"verbosity must be a multiple of stop_rate({stop_rate}), got {verbosity}.")
 
         try:
             if isinstance(log_var, str):
@@ -264,10 +281,13 @@ class Solver:
             * BLOCK: fit()
             * ASYNC: fit() + busy() + stop()
             * MANUAL: fit() + steps()
+        track_objective: bool
+            Auto-compute objective function every time stopping criterion is evaluated.
         """
         self._fit_init(
             mode=kwargs.pop("mode", Mode.BLOCK),
             stop_crit=kwargs.pop("stop_crit", None),
+            track_objective=kwargs.pop("track_objective", False),
         )
         self.m_init(**kwargs)
         self._fit_run()
@@ -429,7 +449,12 @@ class Solver:
             worker=None,
         )
 
-    def _fit_init(self, mode: Mode, stop_crit: StoppingCriterion):
+    def _fit_init(
+        self,
+        mode: Mode,
+        stop_crit: StoppingCriterion,
+        track_objective: bool,
+    ):
         def _init_logger():
             log_name = str(self.workdir)
             logger = logging.getLogger(log_name)
@@ -453,11 +478,17 @@ class Solver:
             stop_crit = self.default_stop_crit()
         stop_crit.clear()
 
+        if track_objective:
+            from pycsou.opt.stop import Memorize
+
+            stop_crit |= Memorize(var="objective_func")
+
         self._astate.update(  # suitable state for a new call to fit().
             history=[],
             idx=0,
             logger=_init_logger(),
             stop_crit=stop_crit,
+            track_objective=track_objective,
             mode=mode,
             active=None,
             worker=None,
@@ -513,6 +544,10 @@ class Solver:
     def _step(self) -> bool:
         ast = self._astate  # shorthand
 
+        must_stop = lambda: ast["idx"] % ast["stop_rate"] == 0
+        must_log = lambda: ast["idx"] % ast["log_rate"] == 0
+        must_writeback = lambda: (ast["wb_rate"] is not None) and (ast["idx"] % ast["wb_rate"] == 0)
+
         def _log(msg: str = None):
             if msg is None:  # report stopping-criterion values
                 h = ast["history"][-1][0]
@@ -525,27 +560,51 @@ class Solver:
         def _update_history():
             def _as_struct(data: dict[str, float]) -> np.ndarray:
                 ftype = pycrt.getPrecision().value
-                dtype = np.dtype([(k, ftype) for k in data])
-                s = np.array(list(data.values()), dtype=ftype).view(dtype)
+                spec_data = [(k, ftype) for k in data]
+
+                itype = np.int64
+                spec_iter = [("iteration", itype)]
+
+                dtype = np.dtype(spec_iter + spec_data)
+
+                utype = np.uint8
+                s = np.concatenate(  # to allow mixed int/float fields:
+                    [  # (1) cast to uint, then (2) to compound dtype.
+                        np.array([ast["idx"]], dtype=itype).view(utype),
+                        np.array(list(data.values()), dtype=ftype).view(utype),
+                    ]
+                ).view(dtype)
                 return s
 
             h = _as_struct(ast["stop_crit"].info())
             ast["history"].append(h)
 
+        # [Sepand] Important
+        # stop_crit.stop(), _update_history(), _log() must always be called in this order.
+
         try:
-            if ast["stop_crit"].stop(self._mstate):
+            _ms, _ml, _mw = must_stop(), must_log(), must_writeback()
+
+            if _ms and ast["track_objective"]:
+                self._mstate["objective_func"] = self.objective_func().reshape(-1)
+
+            if _ms and ast["stop_crit"].stop(self._mstate):
+                _update_history()
+                _log()
                 _log(msg=f"[{dt.datetime.now()}] Stopping Criterion satisfied -> END")
                 self.writeback()
                 return False
             else:
+                if _ms:
+                    _update_history()
+                if _ml:
+                    _log()
+                if _mw:
+                    self.writeback()
                 ast["idx"] += 1
                 self.m_step()
-                self._m_persist()
-                _update_history()
-                if ast["idx"] % ast["log_rate"] == 0:
-                    _log()
-                if (ast["wb_rate"] is not None) and (ast["idx"] % ast["wb_rate"] == 0):
-                    self.writeback()
+                if _ms:
+                    self._m_persist()
                 return True
         except Exception as e:
             msg = f"[{dt.datetime.now()}] Something went wrong -> EXCEPTION RAISED"
@@ -554,23 +613,41 @@ class Solver:
             if ast["wb_rate"] is not None:  # checkpointing enabled
                 _, r = divmod(ast["idx"], ast["wb_rate"])
                 idx_valid = ast["idx"] - r
-                msg_idx = f"Last valid checkpoint done at idx={idx_valid}."
+                msg_idx = f"Last valid checkpoint done at iteration={idx_valid}."
                 msg = "\n".join([msg, msg_idx])
             ast["logger"].exception(msg, exc_info=e)
             return False
 
     def _m_persist(self):
         # Persist math state to avoid re-eval overhead.
-        self._mstate.update(**pycu.compute(self._mstate, mode="persist", traverse=False))
+        k, v = zip(*self._mstate.items())
+        v = pycu.compute(*v, mode="persist", traverse=False)
+        self._mstate.update(zip(k, v))
+        # [Sepand] Note:
+        # The above evaluation strategy with `traverse=False` chosen since _mstate can hold any type
+        # of object.
 
     def default_stop_crit(self) -> StoppingCriterion:
         """
         Default stopping criterion for solver if unspecified in ``Solver.fit()`` calls.
 
         Sub-classes are expected to overwrite this method. If not overridden, then omitting the
-        `stop_crit` parameter in ``Solver.fit()` is forbidden.
+        `stop_crit` parameter in ``Solver.fit()`` is forbidden.
         """
         raise NotImplementedError("No default stopping criterion defined.")
+
+    def objective_func(self) -> pyct.NDArray:
+        """
+        Evaluate objective function given current math state.
+
+        The output array must have shape:
+        * (1,) if evaluated at 1 point,
+        * (N, 1) if evaluated at N different points.
+
+        Sub-classes are expected to overwrite this method. If not overridden, then setting
+        `track_objective=True` in ``Solver.fit()`` is forbidden.
+        """
+        raise NotImplementedError("No objective function defined.")
 
     class _Worker(threading.Thread):
         def __init__(self, solver: "Solver"):
