@@ -10,6 +10,7 @@ Subpackages
    pycsou.abc
    pycsou.compound
    pycsou.linop
+   pycsou.operator
    pycsou.opt
    pycsou.runtime
    pycsou.util
