@@ -72,7 +72,7 @@ class CG(pycs.Solver):
 
      .. Warning::
 
-         This  is a simplified example for illustration puposes only. It may not abide by all the rules listed in the
+         This  is a simplified example for illustration purposes only. It may not abide by all the rules listed in the
          :ref:`developer-notes`.
 
     """
