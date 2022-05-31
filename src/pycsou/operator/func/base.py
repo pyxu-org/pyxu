@@ -4,7 +4,8 @@ import warnings
 import numpy as np
 
 import pycsou.abc.operator as pyco
-import pycsou.operator.linop as pycl
+import pycsou.operator.linop.base as pycl
+import pycsou.opt.solver.cg as pycg
 import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
@@ -123,7 +124,7 @@ class QuadraticFunc(pyco.ProxDiffFunc):
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         if not (self._c.dtype == pycrt.getPrecision().value or (self._c is None)) and self._enable_warnings:
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        return pycs.cg.CG(self._Q + (1 / tau) * pycl.IdentityOp(self._Q.shape)).fit(arr / tau - self._c)
+        return pycg.CG(self._Q + (1 / tau) * pycl.IdentityOp(self._Q.shape)).fit(arr / tau - self._c)
 
     def __add__(self: "QuadraticFunc", other: pyco.MapLike) -> typ.Union[pyco.MapLike, "QuadraticFunc"]:
 
