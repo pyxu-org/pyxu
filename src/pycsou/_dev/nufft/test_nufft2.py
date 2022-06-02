@@ -24,6 +24,7 @@ def NUFFT2_array(t, M, isign) -> np.ndarray:
 
 rng = np.random.default_rng(0)
 D, J, M = 2, 200, 5
+M_full = (M,) * D if isinstance(M, int) else M
 t = rng.normal(size=(J, D)) + 50
 
 with pycrt.Precision(pycrt.Width.SINGLE):
@@ -31,7 +32,7 @@ with pycrt.Precision(pycrt.Width.SINGLE):
     A = nufft.NUFFT.type2(t, M, n_trans=N_trans, isign=isign)
     B = NUFFT2_array(t, M, isign)
 
-    arr = rng.normal(size=(N_trans, *A._M))
+    arr = rng.normal(size=(N_trans, *M_full))
     arr = arr + 1j * rng.normal(size=arr.shape)
     arr = arr.reshape(N_trans, -1)
     # arr = da.array(arr)
