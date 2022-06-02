@@ -71,7 +71,7 @@ class QuadraticFunc(pyco.ProxDiffFunc):
       yields another quadratic functional with parameters ``Q=A.T*Q1*A``, ``c=A.T(c1)`` and ``t=t1``.
     * Scaling a quadratic functional with parameters ``(Q1, c1, t1)`` by a scalar ``a``
       yields another quadratic functional with parameters ``Q=a*Q1``, ``c=a*c1`` and ``t=a*t1``.
-    * Scaling the argument a quadratic functional with parameters ``(Q1, c1, t1)`` by a scalar ``a``
+    * Scaling the argument of a quadratic functional with parameters ``(Q1, c1, t1)`` by a scalar ``a``
       yields another quadratic functional with parameters ``Q=(a**2)*Q1``, ``c=a*c1`` and ``t=t1``.
     * Shifting a quadratic functional ``f`` with parameters ``(Q1, c1, t1)`` by a vector ``y``
       yields another quadratic functional with parameters ``Q=Q1``, ``c=c1 + Q1(y)`` and ``t=f(y)``.
@@ -135,7 +135,7 @@ class QuadraticFunc(pyco.ProxDiffFunc):
                 t=self._t + other._t,
             )
         elif isinstance(other, pycl.ExplicitLinFunc):
-            f = QuadraticFunc(Q=self._Q, c=self._c + other.vec, t=self._t + other._t)
+            f = QuadraticFunc(Q=self._Q, c=self._c + other.vec, t=self._t)
         else:
             f = pyco.ProxDiffFunc.__add__(self, other)
         return f.squeeze()
