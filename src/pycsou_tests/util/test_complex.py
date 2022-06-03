@@ -1,4 +1,5 @@
 import collections.abc as cabc
+import warnings
 
 import numpy as np
 import pytest
@@ -29,8 +30,26 @@ class ViewAs:
     def non_array_input(self, request):
         return request.param
 
+    @pytest.fixture(
+        params=[
+            np.bool_,
+            np.byte,
+            np.ubyte,
+            np.short,
+            np.ushort,
+            np.intc,
+            np.uintc,
+            np.int_,
+            np.uint,
+            np.longlong,
+            np.ulonglong,
+        ]
+    )
+    def unrecognized_dtype(self, request) -> np.dtype:
+        return request.param
+
     @pytest.fixture
-    def unrecognized_dtype(self) -> np.dtype:
+    def no_op_dtype(self) -> np.dtype:
         raise NotImplementedError
 
     @pytest.fixture
@@ -54,6 +73,12 @@ class ViewAs:
         array = np.arange(50).astype(unrecognized_dtype)
         with pytest.raises(Exception):
             func(array)
+
+    def test_no_op_dtype(self, func, _valid_data, no_op_dtype):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", np.ComplexWarning)
+            x = _valid_data[0].astype(no_op_dtype)
+        assert x is func(x)
 
     def test_value1D(self, func, _valid_data):
         in_ = _valid_data[0]
@@ -100,20 +125,15 @@ class TestViewAsComplex(ViewAs):
         w_out = pycuc._CWidth[request.param]
         return w_in, w_out
 
-    @pytest.fixture(
-        params=[
-            *[np.uint8, np.int64],  # integer types
-            *[_.value for _ in pycuc._CWidth],  # complex-valued types
-        ]
-    )
-    def unrecognized_dtype(self, request) -> np.dtype:
-        return request.param
-
     @pytest.fixture
     def valid_data(self):
         in_ = np.arange(6)
         out = np.r_[0, 2, 4] + 1j * np.r_[1, 3, 5]
         return in_, out
+
+    @pytest.fixture(params=[_.value for _ in list(pycuc._CWidth)])
+    def no_op_dtype(self, request):
+        return request.param
 
 
 class TestViewAsReal(ViewAs):
@@ -127,17 +147,12 @@ class TestViewAsReal(ViewAs):
         w_out = pycrt.Width[request.param]
         return w_in, w_out
 
-    @pytest.fixture(
-        params=[
-            *[np.uint8, np.int64],  # integer types
-            *[_.value for _ in pycrt.Width],  # real-valued types
-        ]
-    )
-    def unrecognized_dtype(self, request) -> np.dtype:
-        return request.param
-
     @pytest.fixture
     def valid_data(self):
         in_ = np.r_[0, 2, 4] + 1j * np.r_[1, 3, 5]
         out = np.arange(6)
         return in_, out
+
+    @pytest.fixture(params=[_.value for _ in list(pycrt.Width)])
+    def no_op_dtype(self, request):
+        return request.param

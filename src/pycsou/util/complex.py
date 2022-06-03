@@ -36,7 +36,14 @@ def view_as_complex(x: pyct.NDArray) -> pyct.NDArray:
     -------
     y: NDArray
         (..., N) complex-valued array.
+
+    Note
+    ----
+    This method is a no-op if the input is complex-valued.
     """
+    if _is_complex(x):
+        return x
+
     try:
         r_dtype = x.dtype
         r_width = pycrt.Width(r_dtype)
@@ -64,7 +71,14 @@ def view_as_real(x: pyct.NDArray) -> pyct.NDArray:
     -------
     y: NDArray
         (..., 2N) real-valued array.
+
+    Note
+    ----
+    This method is a no-op if the input is real-valued.
     """
+    if _is_real(x):
+        return x
+
     try:
         c_dtype = x.dtype
         c_width = _CWidth(c_dtype)
@@ -76,3 +90,17 @@ def view_as_real(x: pyct.NDArray) -> pyct.NDArray:
     r_sh = (*x.shape[:-1], 2 * x.shape[-1])
     y = x.view(r_dtype).reshape(r_sh)
     return y
+
+
+def _is_real(x: pyct.NDArray) -> bool:
+    try:
+        return bool(pycrt.Width(x.dtype))
+    except:
+        return False
+
+
+def _is_complex(x: pyct.NDArray) -> bool:
+    try:
+        return bool(_CWidth(x.dtype))
+    except:
+        return False
