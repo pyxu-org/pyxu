@@ -59,7 +59,7 @@ class NUFFT(pyco.LinOp):
             dimension.
         **kwargs
             Extra keyword parameters to :py:func:`finufft.Plan`. (Illegal keywords are dropped.)
-            Most useful are `isign` and `n_trans`.
+            Most useful are `isign`, `n_trans` and `eps`.
 
         Returns
         -------
@@ -97,7 +97,7 @@ class NUFFT(pyco.LinOp):
             dimension.
         **kwargs
             Extra keyword parameters to :py:func:`finufft.Plan`. (Illegal keywords are dropped.)
-            Most useful are `isign` and `n_trans`.
+            Most useful are `isign`, `n_trans` and `eps`.
 
         Returns
         -------
@@ -134,7 +134,7 @@ class NUFFT(pyco.LinOp):
             (K, [D]) D-dimensional spectral coordinates :math:`f_{k} \in \mathbb{R}^{D}`.
         kwargs
             Extra keyword-arguments to :py:func:`finufft.Plan`. (Illegal keywords are dropped.)
-            Most useful are `isign` and `n_trans`.
+            Most useful are `isign`, `n_trans` and `eps`.
 
         Returns
         -------
@@ -242,7 +242,7 @@ class _NUFFT1(NUFFT):
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:
         kwargs = kwargs.copy()
-        for k in ("nufft_type", "n_modes_or_dim", "eps", "dtype", "modeord"):
+        for k in ("nufft_type", "n_modes_or_dim", "dtype", "modeord"):
             kwargs.pop(k, None)
         t = kwargs["t"] = cls._as_canonical_coordinate(kwargs["t"])
         xp = pycu.get_array_module(t)
@@ -266,7 +266,7 @@ class _NUFFT1(NUFFT):
             nufft_type=1,
             n_modes_or_dim=M,
             dtype=pycrt.getPrecision().value,
-            eps=pycrt.getPrecision().eps() * 10,  # provide some slack
+            eps=kwargs.pop("eps", pycrt.getPrecision().eps() * 10),  # provide some slack
             n_trans=kwargs.pop("n_trans", 1),
             isign=kwargs.pop("isign", 1),
             modeord=0,
@@ -291,7 +291,7 @@ class _NUFFT1(NUFFT):
             nufft_type=2,
             n_modes_or_dim=M,
             dtype=pycrt.getPrecision().value,
-            eps=pycrt.getPrecision().eps() * 10,  # provide some slack
+            eps=kwargs.pop("eps", pycrt.getPrecision().eps() * 10),  # provide some slack
             n_trans=kwargs.pop("n_trans", 1),
             isign=-kwargs.pop("isign", 1),
             modeord=0,
@@ -375,7 +375,7 @@ class _NUFFT3(NUFFT):
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:
         kwargs = kwargs.copy()
-        for k in ("nufft_type", "n_modes_or_dim", "eps", "dtype"):
+        for k in ("nufft_type", "n_modes_or_dim", "dtype"):
             kwargs.pop(k, None)
         t = kwargs["t"] = cls._as_canonical_coordinate(kwargs["t"])
         f = kwargs["f"] = cls._as_canonical_coordinate(kwargs["f"])
@@ -393,7 +393,7 @@ class _NUFFT3(NUFFT):
             nufft_type=3,
             n_modes_or_dim=N_dim,
             dtype=pycrt.getPrecision().value,
-            eps=pycrt.getPrecision().eps() * 10,  # provide some slack
+            eps=kwargs.pop("eps", pycrt.getPrecision().eps() * 10),  # provide some slack
             n_trans=kwargs.pop("n_trans", 1),
             isign=kwargs.pop("isign", 1),
             **kwargs,
@@ -421,7 +421,7 @@ class _NUFFT3(NUFFT):
             nufft_type=3,
             n_modes_or_dim=N_dim,
             dtype=pycrt.getPrecision().value,
-            eps=pycrt.getPrecision().eps() * 10,  # provide some slack
+            eps=kwargs.pop("eps", pycrt.getPrecision().eps() * 10),  # provide some slack
             n_trans=kwargs.pop("n_trans", 1),
             isign=-kwargs.pop("isign", 1),
             **kwargs,
