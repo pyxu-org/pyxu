@@ -3,6 +3,7 @@ Working notes on NUFFT interface for pycsou.
 """
 
 import collections.abc as cabc
+import math
 import typing as typ
 
 import finufft
@@ -205,26 +206,41 @@ class NUFFT(pyco.LinOp):
         # Returns
         # -------
         # x: NDArray
-        #     (n_trans, N1) complex-valued input to [_fw|_bw](), suitably augmented if needed.
+        #     (N_blk, n_trans, N1) complex-valued blocks to input to [_fw|_bw](), suitably augmented
+        #     if needed.
         # N: int
-        #     Amount of "valid" data to extract from [_fw|_bw]()
+        #     Amount of "valid" data to extract from [_fw|_bw](). {For _postprocess()}
         # sh_out: tuple[int]
-        #     Shape [apply|adjoint](arr) should have.
+        #     Shape [apply|adjoint](arr) should have. {For _postprocess()}
         sh_out = arr.shape[:-1] + (dim_out,)
         if arr.ndim == 1:
             arr = arr.reshape((1, -1))
         N, dim_in = arr.shape
 
-        if N == n_trans:
+        N_blk, r = divmod(N, n_trans)
+        N_blk += 1 if (r > 0) else 0
+        if r == 0:
             x = arr
-        elif N < n_trans:
-            # user-facing convenience: allow for < n_trans transforms /w speedup.
-            x = np.zeros((n_trans, dim_in), dtype=arr.dtype, like=arr)
-            x[:N] = arr
         else:
-            raise ValueError(f"Planned at most {n_trans} transforms, asked for {N}.")
-
+            xp = pycu.get_array_module(arr)
+            x = xp.concatenate([arr, xp.zeros((n_trans - r, dim_in), dtype=arr.dtype)], axis=0)
+        x = x.reshape((N_blk, n_trans, dim_in))
         return x, N, sh_out
+
+    @staticmethod
+    def _postprocess(blks: list[pyct.NDArray], N: int, sh_out: tuple[int]) -> pyct.NDArray:
+        # Internal method for apply/adjoint.
+        #
+        # Parameters
+        # ----------
+        # blks: list[NDArray]
+        #     (N_blk,) complex-valued outputs of [_fw|_bw]().
+        # N: int
+        #     Amount of "valid" data to extract from [_fw|_bw]()
+        # sh_out: tuple[int]
+        #     Shape [apply|adjoint](arr) should have.
+        xp = pycu.get_array_module(blks[0])
+        return xp.concatenate(blks, axis=0)[:N].reshape(sh_out)
 
 
 class _NUFFT1(NUFFT):
@@ -276,8 +292,8 @@ class _NUFFT1(NUFFT):
         return plan
 
     def _fw(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self._N == 1:  # finufft limitation: unlike type-3, type-1 insists on
-            arr = arr[0]  # having no leading-dim if n_trans==1.
+        if self._N == 1:  # finufft limitation: insists on having no
+            arr = arr[0]  # leading-dim if n_trans==1.
         out = self._plan["fw"].execute(arr)  # ([N], J) -> ([N], M1, ..., MD)
         return out.reshape((self._N, np.prod(self._M)))
 
@@ -302,8 +318,8 @@ class _NUFFT1(NUFFT):
 
     def _bw(self, arr: pyct.NDArray) -> pyct.NDArray:
         arr = arr.reshape((self._N, *self._M))
-        if self._N == 1:  # finufft limitation: unlike type-3, type-2 insists on
-            arr = arr[0]  # having no leading-dim if n_trans==1.
+        if self._N == 1:  # finufft limitation: insists on having no
+            arr = arr[0]  # leading-dim if n_trans==1.
         out = self._plan["bw"].execute(arr)  # ([N], M1, ..., MD) -> ([N], J)
         return out.reshape((self._N, self._J))  # req. if squeeze-like behaviour above kicked in.
 
@@ -329,8 +345,9 @@ class _NUFFT1(NUFFT):
         supply less that `n_trans` inputs, then computation time will still be identical.
         """
         arr = pycu.view_as_complex(arr)
-        arr, N, sh = self._preprocess(arr, self._N, np.prod(self._M))
-        out = self._fw(arr)[:N].reshape(sh)
+        data, N, sh = self._preprocess(arr, self._N, np.prod(self._M))
+        blks = [self._fw(blk) for blk in data]
+        out = self._postprocess(blks, N, sh)
         return pycu.view_as_real(out)
 
     @pycrt.enforce_precision("arr")
@@ -355,8 +372,9 @@ class _NUFFT1(NUFFT):
         supply less that `n_trans` inputs, then computation time will still be identical.
         """
         arr = pycu.view_as_complex(arr)
-        arr, N, sh = self._preprocess(arr, self._N, self._J)
-        out = self._bw(arr)[:N].reshape(sh)
+        data, N, sh = self._preprocess(arr, self._N, self._J)
+        blks = [self._bw(blk) for blk in data]
+        out = self._postprocess(blks, N, sh)
         return pycu.view_as_real(out)
 
 
@@ -409,7 +427,10 @@ class _NUFFT3(NUFFT):
         return plan
 
     def _fw(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self._plan["fw"].execute(arr)  # (N, J) -> (N, K)
+        if self._N == 1:  # finufft limitation: insists on having no
+            arr = arr[0]  # leading-dim if n_trans==1.
+        out = self._plan["fw"].execute(arr)  # ([N], J) -> ([N], K)
+        return out.reshape((self._N, self._K))
 
     @staticmethod
     def _plan_bw(**kwargs) -> finufft.Plan:
@@ -437,7 +458,10 @@ class _NUFFT3(NUFFT):
         return plan
 
     def _bw(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self._plan["bw"].execute(arr)  # (N, K) -> (N, J)
+        if self._N == 1:  # finufft limitation: insists on having no
+            arr = arr[0]  # leading-dim if n_trans==1.
+        out = self._plan["bw"].execute(arr)  # ([N,] K) -> ([N,] J)
+        return out.reshape((self._N, self._J))
 
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -459,8 +483,9 @@ class _NUFFT3(NUFFT):
         supply less that `n_trans` inputs, then computation time will still be identical.
         """
         arr = pycu.view_as_complex(arr)
-        arr, N, sh = self._preprocess(arr, self._N, self._K)
-        out = self._fw(arr)[:N].reshape(sh)
+        data, N, sh = self._preprocess(arr, self._N, self._K)
+        blks = [self._fw(blk) for blk in data]
+        out = self._postprocess(blks, N, sh)
         return pycu.view_as_real(out)
 
     @pycrt.enforce_precision("arr")
@@ -483,6 +508,7 @@ class _NUFFT3(NUFFT):
         supply less that `n_trans` inputs, then computation time will still be identical.
         """
         arr = pycu.view_as_complex(arr)
-        arr, N, sh = self._preprocess(arr, self._N, self._J)
-        out = self._bw(arr)[:N].reshape(sh)
+        data, N, sh = self._preprocess(arr, self._N, self._J)
+        blks = [self._bw(blk) for blk in data]
+        out = self._postprocess(blks, N, sh)
         return pycu.view_as_real(out)
