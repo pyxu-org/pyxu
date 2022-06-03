@@ -43,7 +43,5 @@ with pycrt.Precision(pycrt.Width.SINGLE):
     A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
     B_out_bw = np.tensordot(B.conj().T, B_out_fw, axes=[[1], [1]]).T
 
-    print(np.allclose(A_out_fw, B_out_fw))
-    print(np.allclose(A_out_bw, B_out_bw))
     print((np.linalg.norm(A_out_fw - B_out_fw, axis=-1) / np.linalg.norm(B_out_fw, axis=-1)).max())
     print((np.linalg.norm(A_out_bw - B_out_bw, axis=-1) / np.linalg.norm(B_out_bw, axis=-1)).max())

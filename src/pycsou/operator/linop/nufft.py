@@ -1,7 +1,3 @@
-"""
-Working notes on NUFFT interface for pycsou.
-"""
-
 import collections.abc as cabc
 import math
 import typing as typ
@@ -85,7 +81,7 @@ class NUFFT(pyco.LinOp):
 
            \alpha_{j} = \sum_{k \in \mathbb{Z}^{D}} \alpha_{k}^{F} \exp^{i s \langle f_{k}, t_{j} \rangle },
 
-        where :math:`s \in \{+1, -1\}`, :math:`\alpha_{j} \in \mathbb{C}`, :math:`t_{j} \in
+        where :math:`s \in \{+1, -1\}`, :math:`\alpha_{k}^{F} \in \mathbb{C}`, :math:`t_{j} \in
         \mathbb{R}^{D}`, and :math:`f_{k} \in [-M_{1}/2, \ldots, (M_{1}-1)/2] \times \cdots \times
         [-M_{D}/2, \ldots, (M_{D}-1)/2]`.
 
@@ -207,7 +203,7 @@ class NUFFT(pyco.LinOp):
         # -------
         # x: NDArray
         #     (N_blk, n_trans, N1) complex-valued blocks to input to [_fw|_bw](), suitably augmented
-        #     if needed.
+        #     as needed.
         # N: int
         #     Amount of "valid" data to extract from [_fw|_bw](). {For _postprocess()}
         # sh_out: tuple[int]
