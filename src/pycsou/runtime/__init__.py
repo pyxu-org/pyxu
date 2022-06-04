@@ -30,6 +30,32 @@ class Width(enum.Enum):
         eps = np.finfo(self.value).eps
         return float(eps)
 
+    @property
+    def complex(self) -> "_CWidth":
+        """
+        Returns precision-equivalent complex-valued type.
+        """
+        return _CWidth[self.name]
+
+
+@enum.unique
+class _CWidth(enum.Enum):
+    """
+    Machine-dependent complex-valued floating-point types.
+    """
+
+    # HALF = np.dtype(np.chalf)  # unsupported by NumPy
+    SINGLE = np.dtype(np.csingle)
+    DOUBLE = np.dtype(np.cdouble)
+    QUAD = np.dtype(np.clongdouble)
+
+    @property
+    def real(self) -> "Width":
+        """
+        Returns precision-equivalent real-valued type.
+        """
+        return Width[self.name]
+
 
 class Precision(contextlib.AbstractContextManager):
     """

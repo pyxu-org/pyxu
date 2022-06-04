@@ -1,7 +1,3 @@
-import enum
-
-import numpy as np
-
 import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
@@ -9,18 +5,6 @@ __all__ = [
     "view_as_real",
     "view_as_complex",
 ]
-
-
-@enum.unique
-class _CWidth(enum.Enum):
-    """
-    Machine-dependent complex-valued floating-point types.
-    """
-
-    # HALF = np.dtype(np.chalf)  # unsupported by NumPy
-    SINGLE = np.dtype(np.csingle)
-    DOUBLE = np.dtype(np.cdouble)
-    QUAD = np.dtype(np.clongdouble)
 
 
 def view_as_complex(x: pyct.NDArray) -> pyct.NDArray:
@@ -47,8 +31,7 @@ def view_as_complex(x: pyct.NDArray) -> pyct.NDArray:
     try:
         r_dtype = x.dtype
         r_width = pycrt.Width(r_dtype)
-        c_width = _CWidth[r_width.name]
-        c_dtype = c_width.value
+        c_dtype = r_width.complex.value
     except:
         raise ValueError(f"Unsupported dtype {r_dtype}.")
     assert x.shape[-1] % 2 == 0, "Last array dimension should be even-valued."
@@ -81,9 +64,8 @@ def view_as_real(x: pyct.NDArray) -> pyct.NDArray:
 
     try:
         c_dtype = x.dtype
-        c_width = _CWidth(c_dtype)
-        r_width = pycrt.Width[c_width.name]
-        r_dtype = r_width.value
+        c_width = pycrt._CWidth(c_dtype)
+        r_dtype = c_width.real.value
     except:
         raise ValueError(f"Unsupported dtype {c_dtype}.")
 
@@ -101,6 +83,6 @@ def _is_real(x: pyct.NDArray) -> bool:
 
 def _is_complex(x: pyct.NDArray) -> bool:
     try:
-        return bool(_CWidth(x.dtype))
+        return bool(pycrt._CWidth(x.dtype))
     except:
         return False

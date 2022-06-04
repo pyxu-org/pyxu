@@ -6,7 +6,6 @@ import pytest
 
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.complex as pycuc
 
 
 class ViewAs:
@@ -119,10 +118,10 @@ class TestViewAsComplex(ViewAs):
     def func(self) -> cabc.Callable:
         return pycu.view_as_complex
 
-    @pytest.fixture(params=[_.name for _ in pycuc._CWidth])
+    @pytest.fixture(params=[_.name for _ in pycrt._CWidth])
     def width_in_out(self, request):
         w_in = pycrt.Width[request.param]
-        w_out = pycuc._CWidth[request.param]
+        w_out = pycrt._CWidth[request.param]
         return w_in, w_out
 
     @pytest.fixture
@@ -131,7 +130,7 @@ class TestViewAsComplex(ViewAs):
         out = np.r_[0, 2, 4] + 1j * np.r_[1, 3, 5]
         return in_, out
 
-    @pytest.fixture(params=[_.value for _ in list(pycuc._CWidth)])
+    @pytest.fixture(params=[_.value for _ in list(pycrt._CWidth)])
     def no_op_dtype(self, request):
         return request.param
 
@@ -141,9 +140,9 @@ class TestViewAsReal(ViewAs):
     def func(self) -> cabc.Callable:
         return pycu.view_as_real
 
-    @pytest.fixture(params=[_.name for _ in pycuc._CWidth])
+    @pytest.fixture(params=[_.name for _ in pycrt._CWidth])
     def width_in_out(self, request):
-        w_in = pycuc._CWidth[request.param]
+        w_in = pycrt._CWidth[request.param]
         w_out = pycrt.Width[request.param]
         return w_in, w_out
 
