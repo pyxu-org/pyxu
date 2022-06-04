@@ -67,6 +67,45 @@ class NUFFT(pyco.LinOp):
 
     @staticmethod
     @pycrt.enforce_precision(i="t", o=False, allow_None=False)
+    def rtype1(
+        t: pyct.NDArray,
+        M: typ.Union[int, tuple[int, ...]],
+        **kwargs,
+    ) -> pyco.LinOp:
+        r"""
+        Type-1 NUFFT for real-valued inputs. [Syntactic sugar for .type1(): no performance
+        advantage.]
+
+        Performs the following computation:
+
+        .. math::
+
+           \alpha_{k}^{F} = \sum_{j=1}^{J} \alpha_{j} \exp^{i s \langle f_{k}, t_{j} \rangle },
+
+        where :math:`s \in \{+1, -1\}`, :math:`\alpha_{j} \in \mathbb{R}`, :math:`t_{j} \in
+        \mathbb{R}^{D}`, and :math:`f_{k} \in [-M_{1}/2, \ldots, (M_{1}-1)/2] \times \cdots \times
+        [-M_{D}/2, \ldots, (M_{D}-1)/2]`.
+
+        Parameters
+        ----------
+        t: NDArray
+            (J, [D]) D-dimensional spatial coordinates :math:`t_{j} \in \mathbb{R}^{D}`.
+        M: int | tuple[int]
+            (D,) number of Fourier modes per dimension. An integer parameter applies to each
+            dimension.
+        **kwargs
+            Extra keyword parameters to :py:func:`finufft.Plan`. (Illegal keywords are dropped.)
+            Most useful are `isign`, `n_trans` and `eps`.
+
+        Returns
+        -------
+        op: LinOp
+        """
+        init_kwargs = _rNUFFT1._sanitize_init_kwargs(t=t, M=M, **kwargs)
+        return _rNUFFT1(**init_kwargs)
+
+    @staticmethod
+    @pycrt.enforce_precision(i="t", o=False, allow_None=False)
     def type2(
         t: pyct.NDArray,
         M: typ.Union[int, tuple[int, ...]],
@@ -139,6 +178,43 @@ class NUFFT(pyco.LinOp):
         """
         init_kwargs = _NUFFT3._sanitize_init_kwargs(t=t, f=f, **kwargs)
         return _NUFFT3(**init_kwargs)
+
+    @staticmethod
+    @pycrt.enforce_precision(i=("t", "f"), o=False, allow_None=False)
+    def rtype3(
+        t: pyct.NDArray,
+        f: pyct.NDArray,
+        **kwargs,
+    ) -> pyco.LinOp:
+        r"""
+        Type-3 NUFFT for real-valued inputs. [Syntactic sugar for .type3(): no performance
+        advantage.]
+
+        Performs the following computation:
+
+        .. math::
+
+           \alpha_{k}^{F} = \sum_{j=1}^{J} \alpha_{j} \exp^{i s \langle f_{k}, t_{j} \rangle },
+
+        where :math:`s \in \{+1, -1\}`, :math:`\alpha_{j} \in \mathbb{R}`, :math:`t_{j} \in
+        \mathbb{R}^{D}`, and :math:`f_{k} \in \mathbb{R}^{D}`.
+
+        Parameters
+        ----------
+        t: NDArray
+            (J, [D]) D-dimensional spatial coordinates :math:`t_{j} \in \mathbb{R}^{D}`.
+        f: NDArray
+            (K, [D]) D-dimensional spectral coordinates :math:`f_{k} \in \mathbb{R}^{D}`.
+        kwargs
+            Extra keyword-arguments to :py:func:`finufft.Plan`. (Illegal keywords are dropped.)
+            Most useful are `isign`, `n_trans` and `eps`.
+
+        Returns
+        -------
+        op: LinOp
+        """
+        init_kwargs = _rNUFFT3._sanitize_init_kwargs(t=t, f=f, **kwargs)
+        return _rNUFFT3(**init_kwargs)
 
     @staticmethod
     def _as_canonical_coordinate(x: pyct.NDArray) -> pyct.NDArray:
@@ -333,12 +409,6 @@ class _NUFFT1(NUFFT):
             ([N], 2\prod(M)) spectral mode amplitudes :math:`\alpha_{k}^{F} \in \mathbb{C}^{M_{1}
             \times \cdots \times M_{D}}`.
             D-dimensional modes are C-ordered.
-
-        Note
-        ----
-        :py:class:`~pycsou.operator.linop.nufft._NUFFT1` pre-allocates resources to do `n_trans`
-        transforms simultaneously. Runtime is thus determined at the planning stage. I.e., if you
-        supply less that `n_trans` inputs, then computation time will still be identical.
         """
         arr = pycu.view_as_complex(arr)
         data, N, sh = self._preprocess(arr, self._N, np.prod(self._M))
@@ -360,18 +430,54 @@ class _NUFFT1(NUFFT):
         -------
         out: NDArray
             ([N], 2J) spatial amplitudes :math:`\alpha_{j} \in \mathbb{C}^{J}`.
-
-        Note
-        ----
-        :py:class:`~pycsou.operator.linop.nufft._NUFFT1` pre-allocates resources to do `n_trans`
-        transforms simultaneously. Runtime is thus determined at the planning stage. I.e., if you
-        supply less that `n_trans` inputs, then computation time will still be identical.
         """
         arr = pycu.view_as_complex(arr)
         data, N, sh = self._preprocess(arr, self._N, self._J)
         blks = [self._bw(blk) for blk in data]
         out = self._postprocess(blks, N, sh)
         return pycu.view_as_real(out)
+
+
+class _rNUFFT1(_NUFFT1):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._shape = (2 * np.prod(self._M), self._J)
+
+    @pycrt.enforce_precision("arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            ([N], J) spatial amplitudes :math:`\alpha_{j} \in \mathbb{R}^{J}`.
+
+        Returns
+        -------
+        out: NDArray
+            ([N], 2\prod(M)) spectral mode amplitudes :math:`\alpha_{k}^{F} \in \mathbb{C}^{M_{1}
+            \times \cdots \times M_{D}}`.
+            D-dimensional modes are C-ordered.
+        """
+        r_width = pycrt.Width(arr.dtype)
+        arr = arr.astype(r_width.complex.value)
+        return super().apply(pycu.view_as_real(arr))
+
+    @pycrt.enforce_precision("arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            ([N], 2\prod(M)) spectral mode amplitudes :math:`\alpha_{k}^{F} \in \mathbb{C}^{M_{1}
+            \times \cdots \times M_{D}}`.
+            D-dimensional modes are C-ordered.
+
+        Returns
+        -------
+        out: NDArray
+            ([N], J) spatial amplitudes :math:`\alpha_{j} \in \mathbb{R}^{J}`.
+        """
+        return super().adjoint(arr)[..., ::2]
 
 
 class _NUFFT3(NUFFT):
@@ -471,12 +577,6 @@ class _NUFFT3(NUFFT):
         -------
         out: NDArray
             ([N], 2K) spectral amplitudes :math:`\alpha_{k}^{F} \in \mathbb{C}^{K}`.
-
-        Note
-        ----
-        :py:class:`~pycsou.operator.linop.nufft._NUFFT3` pre-allocates resources to do `n_trans`
-        transforms simultaneously. Runtime is thus determined at the planning stage. I.e., if you
-        supply less that `n_trans` inputs, then computation time will still be identical.
         """
         arr = pycu.view_as_complex(arr)
         data, N, sh = self._preprocess(arr, self._N, self._K)
@@ -496,15 +596,47 @@ class _NUFFT3(NUFFT):
         -------
         out: NDArray
             ([N], 2J) spatial amplitudes :math:`\alpha_{j} \in \mathbb{C}^{J}`.
-
-        Note
-        ----
-        :py:class:`~pycsou.operator.linop.nufft._NUFFT3` pre-allocates resources to do `n_trans`
-        transforms simultaneously. Runtime is thus determined at the planning stage. I.e., if you
-        supply less that `n_trans` inputs, then computation time will still be identical.
         """
         arr = pycu.view_as_complex(arr)
         data, N, sh = self._preprocess(arr, self._N, self._J)
         blks = [self._bw(blk) for blk in data]
         out = self._postprocess(blks, N, sh)
         return pycu.view_as_real(out)
+
+
+class _rNUFFT3(_NUFFT3):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._shape = (2 * self._K, self._J)
+
+    @pycrt.enforce_precision("arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            ([N], J) spatial amplitudes :math:`\alpha_{j} \in \mathbb{R}^{J}`.
+
+        Returns
+        -------
+        out: NDArray
+            ([N], 2K) spectral amplitudes :math:`\alpha_{k}^{F} \in \mathbb{C}^{K}`.
+        """
+        r_width = pycrt.Width(arr.dtype)
+        arr = arr.astype(r_width.complex.value)
+        return super().apply(pycu.view_as_real(arr))
+
+    @pycrt.enforce_precision("arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            ([N], 2K) spectral amplitudes :math:`\alpha_{k}^{F} \in \mathbb{C}^{K}`.
+
+        Returns
+        -------
+        out: NDArray
+            ([N], J) spatial amplitudes :math:`\alpha_{j} \in \mathbb{R}^{J}`.
+        """
+        return super().adjoint(arr)[..., ::2]
