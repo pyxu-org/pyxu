@@ -17,39 +17,31 @@ def NUFFT1_array(t, M, isign) -> np.ndarray:
     return np.exp(1j * isign * B @ t.T)
 
 
-def NUFFT2_array(t, M, isign) -> np.ndarray:
-    A = NUFFT1_array(t, M, isign).T
-    return A
-
-
 use_dask = False
 
 rng = np.random.default_rng(0)
 D, J, M = 2, 200, 5
-M_full = (M,) * D if isinstance(M, int) else M
-t = rng.normal(size=(J, D)) + 50
+t = rng.normal(size=(J, D)) - 50
 if use_dask:
     t = da.array(t)
 
 with pycrt.Precision(pycrt.Width.DOUBLE):
     N_trans, isign = 5, -1
-    A = nufft.NUFFT.type2(t, M, n_trans=N_trans, isign=isign)
-    B = NUFFT2_array(t, M, isign)
+    A = nufft.NUFFT.rtype1(t, M, n_trans=N_trans, isign=isign)
+    B = NUFFT1_array(t, M, isign)
 
-    arr = rng.normal(size=(N_trans, *M_full))
-    arr = arr + 1j * rng.normal(size=arr.shape)
-    arr = arr.reshape(N_trans, -1)
+    arr = rng.normal(size=(N_trans, J))
     if use_dask:
         arr = da.array(arr)
 
-    A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
+    A_out_fw = pycu.view_as_complex(A.apply(arr))
     B_out_fw = np.tensordot(B, arr, axes=[[1], [1]]).T
 
-    A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
+    A_out_bw = A.adjoint(pycu.view_as_real(A_out_fw))
     B_out_bw = np.tensordot(B.conj().T, B_out_fw, axes=[[1], [1]]).T
 
     res_fw = (np.linalg.norm(A_out_fw - B_out_fw, axis=-1) / np.linalg.norm(B_out_fw, axis=-1)).max()
-    res_bw = (np.linalg.norm(A_out_bw - B_out_bw, axis=-1) / np.linalg.norm(B_out_bw, axis=-1)).max()
+    res_bw = (np.linalg.norm(A_out_bw - B_out_bw.real, axis=-1) / np.linalg.norm(B_out_bw.real, axis=-1)).max()
     if use_dask:
         res_fw, res_bw = pycu.compute(res_fw, res_bw)
     print(res_fw)

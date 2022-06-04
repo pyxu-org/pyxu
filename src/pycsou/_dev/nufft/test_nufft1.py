@@ -17,9 +17,14 @@ def NUFFT1_array(t, M, isign) -> np.ndarray:
     return np.exp(1j * isign * B @ t.T)
 
 
+use_dask = False
+
 rng = np.random.default_rng(0)
 D, J, M = 2, 200, 5
 t = rng.normal(size=(J, D)) - 50
+if use_dask:
+    t = da.array(t)
+
 
 with pycrt.Precision(pycrt.Width.DOUBLE):
     N_trans, isign = 5, -1
@@ -28,7 +33,8 @@ with pycrt.Precision(pycrt.Width.DOUBLE):
 
     arr = rng.normal(size=(N_trans, J))
     arr = arr + 1j * rng.normal(size=arr.shape)
-    # arr = da.array(arr)
+    if use_dask:
+        arr = da.array(arr)
 
     A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
     B_out_fw = np.tensordot(B, arr, axes=[[1], [1]]).T
@@ -36,7 +42,9 @@ with pycrt.Precision(pycrt.Width.DOUBLE):
     A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
     B_out_bw = np.tensordot(B.conj().T, B_out_fw, axes=[[1], [1]]).T
 
-    print(np.allclose(A_out_fw, B_out_fw))
-    print(np.allclose(A_out_bw, B_out_bw))
-    print((np.linalg.norm(A_out_fw - B_out_fw, axis=-1) / np.linalg.norm(B_out_fw, axis=-1)).max())
-    print((np.linalg.norm(A_out_bw - B_out_bw, axis=-1) / np.linalg.norm(B_out_bw, axis=-1)).max())
+    res_fw = (np.linalg.norm(A_out_fw - B_out_fw, axis=-1) / np.linalg.norm(B_out_fw, axis=-1)).max()
+    res_bw = (np.linalg.norm(A_out_bw - B_out_bw, axis=-1) / np.linalg.norm(B_out_bw, axis=-1)).max()
+    if use_dask:
+        res_fw, res_bw = pycu.compute(res_fw, res_bw)
+    print(res_fw)
+    print(res_bw)
