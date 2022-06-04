@@ -2,6 +2,7 @@ import collections.abc as cabc
 import math
 import typing as typ
 
+import dask.array as da
 import finufft
 import numpy as np
 
@@ -13,6 +14,19 @@ import pycsou.util.ptype as pyct
 __all__ = [
     "NUFFT",
 ]
+
+
+def _wrap_if_dask(func: cabc.Callable) -> cabc.Callable:
+    def wrapper(obj, arr):
+        xp = pycu.get_array_module(arr)
+        out = func(obj, pycu.compute(arr))
+
+        if xp == da:
+            return xp.array(out)
+        else:
+            return xp.array(out, copy=False)
+
+    return wrapper
 
 
 class NUFFT(pyco.LinOp):
@@ -360,9 +374,10 @@ class _NUFFT1(NUFFT):
             modeord=0,
             **kwargs,
         )
-        plan.setpts(**dict(zip("xyz"[:N_dim], t.T[:N_dim])))
+        plan.setpts(**dict(zip("xyz"[:N_dim], pycu.compute(t.T[:N_dim]))))
         return plan
 
+    @_wrap_if_dask
     def _fw(self, arr: pyct.NDArray) -> pyct.NDArray:
         if self._N == 1:  # finufft limitation: insists on having no
             arr = arr[0]  # leading-dim if n_trans==1.
@@ -385,9 +400,10 @@ class _NUFFT1(NUFFT):
             modeord=0,
             **kwargs,
         )
-        plan.setpts(**dict(zip("xyz"[:N_dim], t.T[:N_dim])))
+        plan.setpts(**dict(zip("xyz"[:N_dim], pycu.compute(t.T[:N_dim]))))
         return plan
 
+    @_wrap_if_dask
     def _bw(self, arr: pyct.NDArray) -> pyct.NDArray:
         arr = arr.reshape((self._N, *self._M))
         if self._N == 1:  # finufft limitation: insists on having no
@@ -522,12 +538,13 @@ class _NUFFT3(NUFFT):
             **dict(
                 zip(
                     "xyz"[:N_dim] + "stu"[:N_dim],
-                    (*t.T[:N_dim], *f.T[:N_dim]),
+                    pycu.compute(*t.T[:N_dim], *f.T[:N_dim]),
                 )
             ),
         )
         return plan
 
+    @_wrap_if_dask
     def _fw(self, arr: pyct.NDArray) -> pyct.NDArray:
         if self._N == 1:  # finufft limitation: insists on having no
             arr = arr[0]  # leading-dim if n_trans==1.
@@ -553,12 +570,13 @@ class _NUFFT3(NUFFT):
             **dict(
                 zip(
                     "xyz"[:N_dim] + "stu"[:N_dim],
-                    (*f.T[:N_dim], *t.T[:N_dim]),
+                    pycu.compute(*f.T[:N_dim], *t.T[:N_dim]),
                 )
             ),
         )
         return plan
 
+    @_wrap_if_dask
     def _bw(self, arr: pyct.NDArray) -> pyct.NDArray:
         if self._N == 1:  # finufft limitation: insists on having no
             arr = arr[0]  # leading-dim if n_trans==1.
