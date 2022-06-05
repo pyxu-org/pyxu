@@ -1,3 +1,4 @@
+import copy
 import functools as ft
 import types
 import typing as typ
@@ -552,7 +553,7 @@ class Property:
         elif isinstance(self, LinOp):  # Shifting a linear map makes it an affine map.
             out_op = DiffMap(shape=out_shape)
         else:
-            out_op = self.__class__(shape=out_shape)
+            out_op = copy.copy(self)
         props = out_op.properties()
         if out_op == DiffFunc:
             props.discard("jacobian")
