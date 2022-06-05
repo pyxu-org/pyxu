@@ -50,6 +50,12 @@ class L1Norm(pyco.ProxFunc):
         y = xp.fmax(0, xp.fabs(arr) - tau) * xp.sign(arr)
         return y
 
+    def asloss(self, data=None):
+        if data is None:
+            return self
+        else:
+            return self.argshift(-data)
+
 
 class TestL1Norm(conftest.ProxFuncT):
     @pytest.fixture(params=[None, 5])

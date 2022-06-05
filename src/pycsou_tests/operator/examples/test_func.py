@@ -20,6 +20,12 @@ class Median(pyco.Func):
         y = xp.median(arr, axis=-1, keepdims=True)
         return y
 
+    def asloss(self, data=None):
+        if data is None:
+            return self
+        else:
+            return self.argshift(-data)
+
 
 class TestMedian(conftest.FuncT):
     @pytest.fixture

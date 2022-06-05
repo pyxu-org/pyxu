@@ -31,6 +31,12 @@ class SquaredL2Norm(pyco.ProxDiffFunc):
         y = arr / (2 * tau + 1)
         return y
 
+    def asloss(self, data=None):
+        if data is None:
+            return self
+        else:
+            return self.argshift(-data)
+
 
 class TestSquaredL2Norm(conftest.ProxDiffFuncT):
     @pytest.fixture(params=[7, None])

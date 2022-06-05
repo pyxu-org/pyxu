@@ -26,6 +26,12 @@ class SquaredL2Norm(pyco.DiffFunc):
     def grad(self, arr):
         return 2 * arr
 
+    def asloss(self, data=None):
+        if data is None:
+            return self
+        else:
+            return self.argshift(-data)
+
 
 class TestSquaredL2Norm(conftest.DiffFuncT):
     @pytest.fixture(params=[4, None])
