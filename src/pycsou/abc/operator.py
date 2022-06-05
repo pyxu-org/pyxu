@@ -538,9 +538,11 @@ class Property:
 
         """
         try:
-            arr = arr.copy().squeeze()
+            pycu.get_array_module(arr)
         except:
             raise ValueError("Argument [arr] must be of type NDArray.")
+        if arr.ndim != 1:
+            raise ValueError("Lag must be 1D.")
         if (self.shape[-1] is None) or (self.shape[-1] == arr.shape[-1]):
             out_shape = (self.shape[0], arr.shape[-1])
         else:
