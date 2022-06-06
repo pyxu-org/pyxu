@@ -265,6 +265,28 @@ class MapT:
         )
         return data
 
+    @pytest.fixture
+    def _data_apply_argshift(self, _data_apply) -> DataLike:
+        # Do not override in subclass: for internal use only to test `op.argshift().apply()`.
+        in_ = copy.deepcopy(_data_apply["in_"])
+
+        xp = pycu.get_array_module(in_["arr"])
+        shift = self._random_array((in_["arr"].size,))
+        shift = xp.array(shift, dtype=in_["arr"].dtype)
+        in_.update(arr=in_["arr"] + shift)
+
+        data = dict(
+            in_=in_,
+            out=_data_apply["out"],
+            shift=shift,  # for _op_argshift()
+        )
+        return data
+
+    @pytest.fixture
+    def _op_argshift(self, op, _data_apply_argshift) -> pyco.Map:
+        shift = _data_apply_argshift["shift"]
+        return op.argshift(-shift)
+
     # Tests -------------------------------------------------------------------
     def test_interface(self, op):
         self._skip_if_disabled()
@@ -313,6 +335,34 @@ class MapT:
     def test_precCM_apply(self, op, _data_apply):
         self._skip_if_disabled()
         self._check_precCM(op.apply, _data_apply)
+
+    def test_interface_argshift(self, op):
+        # Must be of same class (subclass if needed)
+        self._skip_if_disabled()
+        N_dim = self._sanitize(op.dim, 3)
+        shift = self._random_array((N_dim,))
+        op_s = op.argshift(shift)
+        self._check_has_interface(op_s, self.__class__)
+
+    def test_value1D_apply_argshift(self, _op_argshift, _data_apply_argshift):
+        self._skip_if_disabled()
+        self._check_value1D(_op_argshift.apply, _data_apply_argshift)
+
+    def test_valueND_apply_argshift(self, _op_argshift, _data_apply_argshift):
+        self._skip_if_disabled()
+        self._check_valueND(_op_argshift.apply, _data_apply_argshift)
+
+    def test_backend_apply_argshift(self, _op_argshift, _data_apply_argshift):
+        self._skip_if_disabled()
+        self._check_backend(_op_argshift.apply, _data_apply_argshift)
+
+    def test_prec_apply_argshift(self, _op_argshift, _data_apply_argshift):
+        self._skip_if_disabled()
+        self._check_prec(_op_argshift.apply, _data_apply_argshift)
+
+    def test_precCM_apply_argshift(self, _op_argshift, _data_apply_argshift):
+        self._skip_if_disabled()
+        self._check_precCM(_op_argshift.apply, _data_apply_argshift)
 
     def test_math_lipschitz(self, op, data_math_lipschitz):
         # \norm{f(x) - f(y)}{2} \le L * \norm{x - y}{2}
