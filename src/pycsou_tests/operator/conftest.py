@@ -632,6 +632,24 @@ class ProxFuncT(FuncT):
         return data
 
     @pytest.fixture
+    def _data_prox_argshift(self, _data_prox) -> DataLike:
+        # Do not override in subclass: for internal use only to test `op.argshift().prox()`.
+        in_ = copy.deepcopy(_data_prox["in_"])
+
+        xp = pycu.get_array_module(in_["arr"])
+        shift = self._random_array((in_["arr"].size,))
+        shift = xp.array(shift, dtype=in_["arr"].dtype)
+        in_.update(arr=in_["arr"] + shift)
+        out = pycu.compute(_data_prox["out"] + shift)
+
+        data = dict(
+            in_=in_,
+            out=out,
+            shift=shift,  # for _op_argshift()
+        )
+        return data
+
+    @pytest.fixture
     def _data_fenchel_prox(self, _data_prox) -> DataLike:
         # Generate fenchel_prox values from prox ground-truth. (All precision/backends.)
         # Do not override in subclass: for internal use only to test `op.fenchel_prox()`.
@@ -667,6 +685,26 @@ class ProxFuncT(FuncT):
     def test_precCM_prox(self, op, _data_prox):
         self._skip_if_disabled()
         self._check_precCM(op.prox, _data_prox)
+
+    def test_value1D_prox_argshift(self, _op_argshift, _data_prox_argshift):
+        self._skip_if_disabled()
+        self._check_value1D(_op_argshift.prox, _data_prox_argshift)
+
+    def test_valueND_prox_argshift(self, _op_argshift, _data_prox_argshift):
+        self._skip_if_disabled()
+        self._check_valueND(_op_argshift.prox, _data_prox_argshift)
+
+    def test_backend_prox_argshift(self, _op_argshift, _data_prox_argshift):
+        self._skip_if_disabled()
+        self._check_backend(_op_argshift.prox, _data_prox_argshift)
+
+    def test_prec_prox_argshift(self, _op_argshift, _data_prox_argshift):
+        self._skip_if_disabled()
+        self._check_prec(_op_argshift.prox, _data_prox_argshift)
+
+    def test_precCM_prox_argshift(self, _op_argshift, _data_prox_argshift):
+        self._skip_if_disabled()
+        self._check_precCM(_op_argshift.prox, _data_prox_argshift)
 
     def test_math_prox(self, op, data_prox):
         # Ensure y = prox_{tau f}(x) minimizes:
