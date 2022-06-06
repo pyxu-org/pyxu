@@ -496,14 +496,14 @@ class Property:
         else:
             raise NotImplementedError
 
-    @pycrt.enforce_precision(i="arr", o=False)
-    def argshift(self: MapLike, arr: pyct.NDArray) -> MapLike:
+    @pycrt.enforce_precision(i="shift", o=False)
+    def argshift(self: MapLike, shift: pyct.NDArray) -> MapLike:
         r"""
-        Domain-shift an instance of :py:class:`~pycsou.abc.operator.Map` subclasses by ``arr``.
+        Domain-shift an instance of :py:class:`~pycsou.abc.operator.Map` subclasses by ``shift``.
 
         Parameters
         ----------
-        arr: NDArray
+        shift: NDArray
             Shift vector with size (N,).
 
         Returns
@@ -514,7 +514,7 @@ class Property:
         Raises
         ------
         ValueError
-            If ``arr`` is not of type NDArray or has incorrect size, i.e. ``N != self.shape[1]``.
+            If ``shift`` is not of type NDArray or has incorrect size, i.e. ``N != self.shape[1]``.
 
         Notes
         -----
@@ -529,25 +529,25 @@ class Property:
 
             out._lipschitz = self._lipschitz
             out._diff_lipschitz = self._diff_lipschitz
-            out.apply = lambda x: self.apply(x + arr)
-            out.jacobian = lambda x: self.jacobian(x + arr)
-            out.grad = lambda x: self.grad(x + arr)
-            out.prox = lambda x, tau: self.prox(x + arr, tau) - arr
+            out.apply = lambda x: self.apply(x + shift)
+            out.jacobian = lambda x: self.jacobian(x + shift)
+            out.grad = lambda x: self.grad(x + shift)
+            out.prox = lambda x, tau: self.prox(x + shift, tau) - shift
 
-        where ``out = self.argshift(arr)`` denotes the domain-shifted output.
+        where ``out = self.argshift(shift)`` denotes the domain-shifted output.
 
 
         """
         try:
-            pycu.get_array_module(arr)
+            pycu.get_array_module(shift)
         except:
-            raise ValueError("Argument [arr] must be of type NDArray.")
-        if arr.ndim != 1:
+            raise ValueError("Argument [shift] must be of type NDArray.")
+        if shift.ndim != 1:
             raise ValueError("Lag must be 1D.")
-        if (self.shape[-1] is None) or (self.shape[-1] == arr.shape[-1]):
-            out_shape = (self.shape[0], arr.shape[-1])
+        if (self.shape[-1] is None) or (self.shape[-1] == shift.shape[-1]):
+            out_shape = (self.shape[0], shift.shape[-1])
         else:
-            raise ValueError(f"Invalid lag shape: {arr.shape[-1]} != {self.shape[-1]}")
+            raise ValueError(f"Invalid lag shape: {shift.shape[-1]} != {self.shape[-1]}")
         if isinstance(self, LinFunc):  # Shifting a linear map makes it an affine map.
             out_op = DiffFunc(shape=out_shape)
         elif isinstance(self, LinOp):  # Shifting a linear map makes it an affine map.
@@ -563,14 +563,14 @@ class Property:
                 setattr(out_op, "_" + prop, getattr(self, "_" + prop))
             elif prop == "prox":
                 out_op.prox = types.MethodType(
-                    ft.partial(lambda arr, _, x, tau: self.prox(x + arr, tau) - arr, arr), out_op
+                    ft.partial(lambda shift, _, arr, tau: self.prox(arr + shift, tau) - shift, shift), out_op
                 )
             else:
 
-                def argshifted_method(prop, arr, _, x: pyct.NDArray) -> typ.Union[pyct.NDArray, "LinOp"]:
-                    return getattr(self, prop)(x + arr)
+                def argshifted_method(prop, shift, _, arr: pyct.NDArray) -> typ.Union[pyct.NDArray, "LinOp"]:
+                    return getattr(self, prop)(arr + shift)
 
-                setattr(out_op, prop, types.MethodType(ft.partial(argshifted_method, prop, arr), out_op))
+                setattr(out_op, prop, types.MethodType(ft.partial(argshifted_method, prop, shift), out_op))
         return out_op.squeeze()
 
 
