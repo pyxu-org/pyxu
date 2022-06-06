@@ -49,12 +49,12 @@ class TestSquaredL2Norm(conftest.DiffFuncT):
     @pytest.fixture(
         params=[  # 2 evaluation points
             dict(
-                in_=dict(arr=np.zeros((3,))),
+                in_=dict(arr=np.zeros((4,))),
                 out=np.zeros((1,)),
             ),
             dict(
-                in_=dict(arr=np.arange(-3, 3)),
-                out=np.array([19]),
+                in_=dict(arr=np.arange(-3, 1)),
+                out=np.array([14]),
             ),
         ]
     )
@@ -63,23 +63,23 @@ class TestSquaredL2Norm(conftest.DiffFuncT):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        N_test, dim = 6, dim if (dim is not None) else 3
+        N_test, dim = 6, self._sanitize(dim, 3)
         return self._random_array((N_test, dim), seed=5)
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, dim):
-        N_test, dim = 6, dim if (dim is not None) else 3
+        N_test, dim = 6, self._sanitize(dim, 3)
         return self._random_array((N_test, dim), seed=6)
 
     @pytest.fixture(
         params=[  # 2 evaluation points
             dict(
-                in_=dict(arr=np.zeros((3,))),
-                out=np.zeros((3,)),
+                in_=dict(arr=np.zeros((4,))),
+                out=np.zeros((4,)),
             ),
             dict(
-                in_=dict(arr=np.arange(-3, 3)),
-                out=2 * np.arange(-3, 3),
+                in_=dict(arr=np.arange(-3, 1)),
+                out=2 * np.arange(-3, 1),
             ),
         ]
     )

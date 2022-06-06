@@ -83,12 +83,12 @@ class TestL1Norm(conftest.ProxFuncT):
     @pytest.fixture(
         params=[  # 2 evaluation points
             dict(
-                in_=dict(arr=np.zeros((3,))),
+                in_=dict(arr=np.zeros((5,))),
                 out=np.zeros((1,)),
             ),
             dict(
-                in_=dict(arr=np.arange(-3, 3)),
-                out=np.array([9]),
+                in_=dict(arr=np.arange(-3, 2)),
+                out=np.array([7]),
             ),
         ]
     )
@@ -99,17 +99,17 @@ class TestL1Norm(conftest.ProxFuncT):
         params=[  # 2 evaluation points
             dict(
                 in_=dict(
-                    arr=np.zeros((4,)),
+                    arr=np.zeros((5,)),
                     tau=1,
                 ),
-                out=np.zeros((4,)),
+                out=np.zeros((5,)),
             ),
             dict(
                 in_=dict(
-                    arr=np.arange(-3, 3),
+                    arr=np.arange(-3, 2),
                     tau=1,
                 ),
-                out=np.array([-2, -1, 0, 0, 0, 1]),
+                out=np.array([-2, -1, 0, 0, 0]),
             ),
         ]
     )
@@ -118,5 +118,5 @@ class TestL1Norm(conftest.ProxFuncT):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        N_test, dim = 5, dim if (dim is not None) else 3
+        N_test, dim = 5, self._sanitize(dim, 3)
         return self._random_array((N_test, dim))

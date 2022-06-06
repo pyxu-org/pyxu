@@ -22,7 +22,7 @@ class ReLU(pyco.Map):
 class TestReLU(conftest.MapT):
     @pytest.fixture
     def dim(self):
-        return 7
+        return 3
 
     @pytest.fixture
     def op(self, dim):
