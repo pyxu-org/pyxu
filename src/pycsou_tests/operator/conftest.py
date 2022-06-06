@@ -521,6 +521,23 @@ class DiffFuncT(FuncT, DiffMapT):
         )
         return data
 
+    @pytest.fixture
+    def _data_grad_argshift(self, _data_grad) -> DataLike:
+        # Do not override in subclass: for internal use only to test `op.argshift().grad()`.
+        in_ = copy.deepcopy(_data_grad["in_"])
+
+        xp = pycu.get_array_module(in_["arr"])
+        shift = self._random_array((in_["arr"].size,))
+        shift = xp.array(shift, dtype=in_["arr"].dtype)
+        in_.update(arr=in_["arr"] + shift)
+
+        data = dict(
+            in_=in_,
+            out=_data_grad["out"],
+            shift=shift,  # for _op_argshift()
+        )
+        return data
+
     # Tests -------------------------------------------------------------------
     def test_value1D_grad(self, op, _data_grad):
         self._skip_if_disabled()
@@ -541,6 +558,26 @@ class DiffFuncT(FuncT, DiffMapT):
     def test_precCM_grad(self, op, _data_grad):
         self._skip_if_disabled()
         self._check_precCM(op.grad, _data_grad)
+
+    def test_value1D_grad_argshift(self, _op_argshift, _data_grad_argshift):
+        self._skip_if_disabled()
+        self._check_value1D(_op_argshift.grad, _data_grad_argshift)
+
+    def test_valueND_grad_argshift(self, _op_argshift, _data_grad_argshift):
+        self._skip_if_disabled()
+        self._check_valueND(_op_argshift.grad, _data_grad_argshift)
+
+    def test_backend_grad_argshift(self, _op_argshift, _data_grad_argshift):
+        self._skip_if_disabled()
+        self._check_backend(_op_argshift.grad, _data_grad_argshift)
+
+    def test_prec_grad_argshift(self, _op_argshift, _data_grad_argshift):
+        self._skip_if_disabled()
+        self._check_prec(_op_argshift.grad, _data_grad_argshift)
+
+    def test_precCM_grad_argshift(self, _op_argshift, _data_grad_argshift):
+        self._skip_if_disabled()
+        self._check_precCM(_op_argshift.grad, _data_grad_argshift)
 
     def test_math1_grad(self, op, data_grad):
         # .jacobian/.grad outputs are consistent.
