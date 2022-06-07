@@ -10,9 +10,9 @@ import sparse
 
 import pycsou._dev as dev
 import pycsou.abc.operator as pyco
+import pycsou.opt as pyo
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
-import pycsou.opt as pyo
 
 
 class Load(cabc.Sequence):
@@ -21,19 +21,37 @@ class Load(cabc.Sequence):
 
     We use dask to batch the data, therefore we must provide .shape, .ndim, .dtype and support numpy-style slicing.
     """
+
     def __init__(self, path: pyct.PathLike):
         self.path = path
-        self.data = self._load(self.path)
+        self.data, self._shape, self._ndim, self._dtype = self._load(self.path)
 
-    def __getitem__(self, ind: typ.Union[int, ]) -> pyct.NDArray:
+    def __getitem__(
+        self,
+        ind: typ.Union[
+            int,
+        ],
+    ) -> pyct.NDArray:
         return self.data[ind]
 
     def __len__(self) -> int:
         return len(self.data)
 
-    @staticmethod
+    @abc.abstractmethod
     def _load(self, path: pyct.PathLike):
         raise NotImplementedError
+
+    @property
+    def shape(self):
+        return self._shape
+
+    @property
+    def ndim(self):
+        return self._ndim
+
+    @property
+    def dtype(self):
+        return self._dtype
 
 
 class NpzLoad(Load):
@@ -43,24 +61,14 @@ class NpzLoad(Load):
     Uses mmap_mode which allows us to access small segments of large files on disk, without reading the entire file
     into memory.
     """
+
     def __init__(self, path: pyct.PathLike):
         super().__init__(path)
         self.size = self.data.size
-        self.shape = self.data.shape
-        self.ndim = len(self.shape)
-        self.dtype = self.data.dtype
 
     def _load(self, path):
-        return np.load(path, mmap_mode='c')
-
-
-class Hdf5Load(Load):
-    def __init__(self, path):
-        super().__init__(path)
-
-    def _load(self, path):
-        # TODO
-        raise NotImplementedError
+        data = np.load(path, mmap_mode="c")
+        return data, data.shape, data.ndim, data.dtype
 
 
 class BlockLoader(cabc.Sequence):
@@ -87,31 +95,31 @@ class BlockLoader(cabc.Sequence):
     will handle the edges by creating smaller blocks.
 
     """
-    def __init__(self, loader, data_shape: pyct.Shape, blocks: pyct.Shape, operator: pyco.LinOp):
-        self.loader = loader
+
+    def __init__(self, load, data_shape: pyct.Shape, blocks: pyct.Shape, operator: pyco.LinOp):
+        self.load = load
         self.blocks = blocks
         self.data_shape = data_shape
         self.global_op = operator
-        self.global_shape = self.loader.shape
+        self.global_shape = self.load.shape
         self._stack_dims = self.global_shape[:-1]
 
-        self.data = da.from_array(
-            self.loader
-        ).reshape(
-            *self._stack_dims, *data_shape
-        ).rechunk(
-            chunks=(*self._stack_dims, *self.blocks)
-        ).persist()
+        self.data = (
+            da.from_array(self.load)
+            .reshape(*self._stack_dims, *data_shape)
+            .rechunk(chunks=(*self._stack_dims, *self.blocks))
+            .persist()
+        )
 
+        # TODO don't use self.load.size
         self.chunks = self.data.chunks
         self.chunk_dim = [len(c) for c in self.chunks]
-        self.indices = da.arange(
-            self.loader.size
-        ).reshape(
-            *self._stack_dims, *data_shape
-        ).rechunk(
-            chunks=(*self._stack_dims, *self.blocks)
-        ).persist()
+        self.indices = (
+            da.arange(self.load.size)
+            .reshape(*self._stack_dims, *data_shape)
+            .rechunk(chunks=(*self._stack_dims, *self.blocks))
+            .persist()
+        )
 
     def __getitem__(self, b_index: int) -> tuple[pyct.NDArray, pyco.LinOp, np.array]:
         r"""
@@ -141,8 +149,8 @@ class BlockLoader(cabc.Sequence):
     def __len__(self):
         return self.data.npartitions
 
-    @staticmethod
-    def create_op(b_index: int, batch_shape: pyct.Shape) -> pyco.LinOp:
+    @abc.abstractmethod
+    def create_op(self, b_index: int, batch_shape: pyct.Shape) -> pyco.LinOp:
         r"""
         Create an operator that works on a batch of data.
 
@@ -183,25 +191,40 @@ class ConvolveLoader(BlockLoader):
         how to pad the edges of the data
         see np.pad - https://numpy.org/doc/stable/reference/generated/numpy.pad.html
     """
-    def __init__(self, loader, data_shape: pyct.Shape, blocks: pyct.Shape, operator: pyco.LinOp, depth: tuple[int, int], mode: str = 'reflect'):
-        super().__init__(loader, data_shape, blocks, operator)
+
+    def __init__(
+        self,
+        load,
+        data_shape: pyct.Shape,
+        blocks: pyct.Shape,
+        operator: pyco.LinOp,
+        depth: tuple[int, int],
+        mode: str = "reflect",
+    ):
+        super().__init__(load, data_shape, blocks, operator)
         if not isinstance(operator, dev.Convolve):
             raise ValueError("Operator must be a Convolve operator.")
-        self.depth = da.overlap.coerce_depth(len(depth) + len(self._stack_dims), (*[(0)]*len(self._stack_dims), *depth))
+        self.depth = da.overlap.coerce_depth(
+            len(depth) + len(self._stack_dims), (*[(0)] * len(self._stack_dims), *depth)
+        )
         self.overlap_ind = pyo.slices_from_chunks_with_overlap(self.chunks, self.depth)
         self.mode = mode
         self.stacking_shape = self.global_shape[:-1]
-        self.pad_data_shape = tuple([d + 2 * self.depth.get(i, 0) for i, d in enumerate((*self.stacking_shape, *self.data_shape))])
+        self.pad_data_shape = tuple(
+            [d + 2 * self.depth.get(i, 0) for i, d in enumerate((*self.stacking_shape, *self.data_shape))]
+        )
         self.monkey_shape = None
+
     def create_op(self, b_index: int, batch_shape: pyct.Shape) -> pyco.LinOp:
         overlap_slice = self.overlap_ind[b_index]
-        overlap_shape = tuple([s.stop - s.start for s in overlap_slice[len(self._stack_dims):]])
+        overlap_shape = tuple([s.stop - s.start for s in overlap_slice[len(self._stack_dims) :]])
 
         # TODO how to copy global convolve into local convolve
         kernel = self.global_op.filter
         # would prefer mode='valid' to save computation as we are handling padding ourselves
         # https://github.com/scipy/scipy/issues/12997
-        convolve = dev.Convolve(data_shape=overlap_shape, filter=kernel, mode='constant')
+        convolve = dev.Convolve(data_shape=overlap_shape, filter=kernel, mode="constant")
+
         def apply(arr):
             xp = pycu.get_array_module(arr)
             input_shape = arr.shape
@@ -222,8 +245,8 @@ class ConvolveLoader(BlockLoader):
             return out.reshape(*input_shape[:-1], -1)
 
         def adjoint(arr):
-            #TODO monkey patch because input shape is wrong
-            #arr = arr.reshape(self.monkey_shape)
+            # TODO monkey patch because input shape is wrong
+            # arr = arr.reshape(self.monkey_shape)
             input_shape = arr.shape
             xp = pycu.get_array_module(arr)
             padding = pyo.depth_to_pad(self.depth)
@@ -264,16 +287,17 @@ class Batch:
         if batches are shuffled
 
     """
-    def __init__(self, loader, shuffle: bool = False):
+
+    def __init__(self, loader, shuffle: bool = False, seed: int = None):
         self.loader = loader
         self._epochs = 0
         self.counter = 0
         self.batch_counter = 0
         self.num_batches = len(self.loader)
         self.shuffle = shuffle
+        self.seed = seed
         if self.shuffle:
-            rng = np.random.default_rng()
-            self.shuffled_batch = rng.permutation(np.arange(self.num_batches))
+            self.shuffled_batch = self._shuffle()
 
     @property
     def epochs(self) -> int:
@@ -293,6 +317,12 @@ class Batch:
         if self.counter >= self.num_batches:
             self.counter = 0
             self._epochs += 1
+            if (not self.seed) and self.shuffle:
+                self.shuffled_batch = self._shuffle()
+
+    def _shuffle(self):
+        rng = np.random.default_rng(self.seed)
+        return rng.permutation(np.arange(self.num_batches))
 
     def batches(self) -> typ.Tuple[pyct.NDArray, pyco.LinOp, np.array]:
         y, op, ind = self.loader[self.batch_counter]
@@ -300,34 +330,38 @@ class Batch:
         yield y, op, ind
 
 
-class Strategy(abc.ABC):
+class GradStrategy(abc.ABC):
     r"""
     Base class for gradient update strategy.
     """
-    @staticmethod
-    def apply(grad):
+
+    @abc.abstractmethod
+    def apply(self, grad):
         raise NotImplementedError
 
 
-class SGD(Strategy):
+class SGD(GradStrategy):
     r"""
 
     ..math SGD is an update of the form
 
     """
+
     def apply(self, grad):
         return grad
+
 
 # TODO -> since the batches are the same everytime (assumption) we would only need to keep a vector per batch, not a vector for every item in the batch.
 # so the grad book would be (batches, dim) and we would take batch_index instead of ind...
 # wouldn't work if we had disjoint batching strategy, but would speed things a lot otherwise.
-class SAGA(Strategy):
+class SAGA(GradStrategy):
     r"""
 
     ..math
 
     https://www.di.ens.fr/~fbach/Defazio_NIPS2014.pdf
     """
+
     def __init__(self, n, dim):
         self.n = n
         self.dim = dim
@@ -350,7 +384,7 @@ class SAGA(Strategy):
             self.grad_book_sum = xp.zeros(self.dim)
         batch = len(self._ind)
 
-        #TODO in jupyter this works quickly, but here it is super slow to subset grad_book....
+        # TODO in jupyter this works quickly, but here it is super slow to subset grad_book....
         old_grad = self.grad_book[self._ind, :]
         # convert to coo, sum, make as numpy array
         old_grad = old_grad.to_coo().sum(axis=0).todense()
@@ -380,10 +414,7 @@ class SAGA(Strategy):
 
 
 class Stochastic(pyco.DiffFunc):
-    f"""
-    
-    
-    """
+    f""" """
 
     def __init__(self, f, batch, strategy=None):
         self._f = f
@@ -395,7 +426,8 @@ class Stochastic(pyco.DiffFunc):
         self.batch = batch
         self.global_op = self.batch.loader.global_op
         n = self.global_op.shape[0]
-        self._diff_lipschitz = (1/n * self._f * self.global_op).diff_lipschitz()
+        # TODO Diff Lipschitz took out 1/n
+        self._diff_lipschitz = (1 / n * self._f * self.global_op).diff_lipschitz()
 
     def apply(self, x):
         raise NotImplementedError
@@ -406,7 +438,7 @@ class Stochastic(pyco.DiffFunc):
         f_hat = 1 / batch_size * self._f.asloss(y)
         stoc_loss = f_hat * op
         grad = stoc_loss.grad(x)
-        if hasattr(self.strategy, 'indices'):
-            setattr(self.strategy, 'indices', ind)
+        if hasattr(self.strategy, "indices"):
+            setattr(self.strategy, "indices", ind)
         full_grad = self.strategy.apply(grad)
         return full_grad
