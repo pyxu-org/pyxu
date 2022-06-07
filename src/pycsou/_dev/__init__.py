@@ -290,39 +290,6 @@ class GradientOp(pyco.LinOp):
         self.op_scipy = spls.aslinearoperator(self.op)
 
     def apply(self, arr):
-        arr = arr.reshape(-1, arr.shape[-1])
-        data = []
-        for i in range(arr.shape[0]):
-            data.append(self.op * arr[i])
-        return np.stack(data).reshape(*arr.shape[:-1], -1)
-
-    # Input of (2*shape[0], shape[1]) get back to original (shape).
-    # Note this is another derivative operation
-    def adjoint(self, arr):
-        # TODO monkey fix
-        # arr = arr.reshape(3, 5332000)
-        arr = arr.reshape(-1, arr.shape[-1])
-        data = []
-        for i in range(arr.shape[0]):
-            data.append(self.op.H * arr[i])
-        return np.stack(data).reshape(*arr.shape[:-1], -1)
-
-    # convert to scipy in order to compute lipschitz constant
-    def compute_lipschitz(self) -> float:
-        return spls.svds(A=self.op_scipy, k=1, which="LM", return_singular_vectors=False, tol=1e-3).item()
-
-
-class GradientOp(pyco.LinOp):
-    def __init__(self, shape, size, step=1.0, edge=True, dtype="float64", kind="centered"):
-        import pylops
-
-        super(GradientOp, self).__init__((2 * size, size))
-        self.dtype = dtype
-        self.data_shape = shape
-        self.op = pylops.Gradient(dims=self.data_shape, sampling=step, edge=edge, dtype=dtype, kind=kind)
-        self.op_scipy = spls.aslinearoperator(self.op)
-
-    def apply(self, arr):
         input_shape = arr.shape
         arr = arr.reshape(-1, arr.shape[-1])
         data = []
