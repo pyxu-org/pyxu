@@ -143,6 +143,28 @@ where :math:`y \in \mathbb{R}^{480000}` is our measurement, :math:`x \in \mathbb
 
     The code blocks in this section build on one another and must be run sequentially in a jupyter notebook, or pasted one after the other into a .py file.
 
+.. code-block:: python3
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import datetime as dt
+
+    import pycsou.abc.solver as pycs
+    import pycsou.opt.stop as pycos
+    import pycsou.opt.solver.pgd as pgd
+    import pycsou.opt.stochastic as pystoc
+    import pycsou._dev as dev
+    import pycsou._dev.stochastic.stoc_utils as devs
+
+    img_shape = (800, 600)
+
+    # define blur kernal and Convolution operator
+    oof_blur = devs.out_of_focus_kernel(r=6)
+    overlap = oof_blur.shape[0] // 2
+    Cop = dev.Convolve(data_shape=img_shape, filter=oof_blur, mode="reflect")
+    # Gop.lipschitz() - Lipschitz has been precomputed
+    Cop._lipschitz = np.array([0.99913936])
+
 
 Load
 ^^^^
@@ -151,10 +173,6 @@ The ``Load`` class provides a way to read data from disk. Because we use dask to
 
 .. code-block:: python3
 
-    import numpy as np
-    import pycsou.opt.stochastic as pystoc
-
-    img_shape = (800, 600)
     load = pystoc.NpzLoad('tour_de_france.npy')
     stacking_dim = load.shape[:-1]
     data_dim = load.shape[-1]
@@ -225,7 +243,7 @@ This class takes in a ``DiffFunc``, a ``Loader``, and a ``GradStrategy`` and cre
 .. code-block:: python3
 
     grad_strategy = pystoc.SGD()
-    stoc_func = pystoc.Stochastic(f = dev.SquaredL2Norm(), batch = batch, strategy = grad_strategy)
+    stoc_func = pystoc.Stochastic(f=dev.SquaredL2Norm(), batch=batch, strategy=grad_strategy)
 
 
 Now that we have defined our stochastic functional, we can build our optimization problem. The optimization problem we are solving is:
@@ -240,6 +258,10 @@ where :math:`C_i` is a batched convolution operator, :math:`y_i` is a batch of d
 
 .. code-block:: python3
 
+    Gop = dev.GradientOp(img_shape, load.shape[-1], kind="forward")
+    Gop._lipschitz = np.array([2.82841955])
+    # Gop.lipschitz() - Lipschitz has been precomputed
+
     mu = 1 / (2 * np.prod(mini_batch))
     reg = mu * dev.SquaredL2Norm() * Gop
 
@@ -248,13 +270,6 @@ where :math:`C_i` is a batched convolution operator, :math:`y_i` is a batch of d
 Lastly we select an algorithm to solve our optimization problem. Here we select PGD. We also define a few stopping criteria and then set up a loop so we can look at our reconstruction as we progress.
 
 .. code-block:: python3
-
-    import matplotlib.pyplot as plt
-    import datetime as dt
-
-    import pycsou.abc.solver as pycs
-    import pycsou.opt.stop as pycos
-    import pycsou.opt.solver.pgd as pgd
 
     pgd = pgd.PGD(F)
 
@@ -274,7 +289,7 @@ Lastly we select an algorithm to solve our optimization problem. Here we select 
     )
 
     for i, data in enumerate(pgd.steps()):
-        if i % 100 == 0:
+        if i % 30 == 0:
             plt.imshow(data['x'].reshape(img_shape), cmap='gray', vmin=0, vmax=1)
             plt.title(f"Reconstruct Iteration: {i}")
             plt.show()
@@ -298,7 +313,7 @@ This gif was run with the above code, but without random mini-batching, so that 
 .. figure:: gd_progress.gif
    :width: 40%
 
-This gif was run by using normal gradient descent and taking a snapshot every iteration for 80 iterations.
+This gif was made by using normal gradient descent and taking a snapshot every iteration for 80 iterations.
 
 |truth2|  |corrupt2|
 

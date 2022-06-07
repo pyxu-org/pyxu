@@ -13,7 +13,6 @@ src
 
    modules
    dev_notes
-   stochastic
    references
 
 

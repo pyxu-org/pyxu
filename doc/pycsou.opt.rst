@@ -7,10 +7,20 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
+   stochastic
    pycsou.opt.solver
 
 Submodules
 ----------
+
+pycsou.opt.stochastic module
+----------------------
+
+.. automodule:: pycsou.opt.stochastic
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 
 pycsou.opt.stop module
 ----------------------
