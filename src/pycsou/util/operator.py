@@ -13,6 +13,7 @@ __all__ = [
     "infer_composition_shape",
     "infer_stack_shape",
     "vectorize",
+    "unpad",
 ]
 
 
@@ -133,3 +134,11 @@ def vectorize(i: pyct.VarName) -> cabc.Callable:
         return wrapper
 
     return decorator
+
+
+def unpad(arr: pyct.NDArray, pad_width: list[tuple[int, int]]) -> pyct.NDArray:
+    r"""
+    Reverse effect of np.pad given pad_width.
+    See da.chunk.trim - https://github.com/dask/dask/blob/main/dask/array/chunk.py
+    """
+    return arr[tuple(slice(pad[0] if pad[0] else None, -pad[1] if pad[1] else None) for pad in pad_width)]
