@@ -2,6 +2,7 @@ import collections.abc as cabc
 import copy
 import inspect
 import itertools
+import math
 import types
 import typing as typ
 
@@ -287,6 +288,26 @@ class MapT:
         shift = _data_apply_argshift["shift"]
         return op.argshift(-shift)
 
+    @pytest.fixture
+    def _data_apply_argscale(self, _data_apply) -> DataLike:
+        # Do not override in subclass: for internal use only to test `op.argscale().apply()`.
+        in_ = copy.deepcopy(_data_apply["in_"])
+
+        scale = self._random_array((1,)).item()
+        in_["arr"] *= scale
+
+        data = dict(
+            in_=in_,
+            out=_data_apply["out"],
+            scale=scale,  # for _op_argscale()
+        )
+        return data
+
+    @pytest.fixture
+    def _op_argscale(self, op, _data_apply_argscale) -> pyco.Map:
+        scale = _data_apply_argscale["scale"]
+        return op.argscale(1 / scale)
+
     # Tests -------------------------------------------------------------------
     def test_interface(self, op):
         self._skip_if_disabled()
@@ -363,6 +384,33 @@ class MapT:
     def test_precCM_apply_argshift(self, _op_argshift, _data_apply_argshift):
         self._skip_if_disabled()
         self._check_precCM(_op_argshift.apply, _data_apply_argshift)
+
+    def test_interface_argscale(self, op):
+        # Must be of same class
+        self._skip_if_disabled()
+        scale = self._random_array((1,)).item()
+        op_s = op.argscale(scale)
+        self._check_has_interface(op_s, self.__class__)
+
+    def test_value1D_apply_argscale(self, _op_argscale, _data_apply_argscale):
+        self._skip_if_disabled()
+        self._check_value1D(_op_argscale.apply, _data_apply_argscale)
+
+    def test_valueND_apply_argscale(self, _op_argscale, _data_apply_argscale):
+        self._skip_if_disabled()
+        self._check_valueND(_op_argscale.apply, _data_apply_argscale)
+
+    def test_backend_apply_argscale(self, _op_argscale, _data_apply_argscale):
+        self._skip_if_disabled()
+        self._check_backend(_op_argscale.apply, _data_apply_argscale)
+
+    def test_prec_apply_argscale(self, _op_argscale, _data_apply_argscale):
+        self._skip_if_disabled()
+        self._check_prec(_op_argscale.apply, _data_apply_argscale)
+
+    def test_precCM_apply_argscale(self, _op_argscale, _data_apply_argscale):
+        self._skip_if_disabled()
+        self._check_precCM(_op_argscale.apply, _data_apply_argscale)
 
     def test_math_lipschitz(self, op, data_math_lipschitz):
         # \norm{f(x) - f(y)}{2} \le L * \norm{x - y}{2}
@@ -538,6 +586,23 @@ class DiffFuncT(FuncT, DiffMapT):
         )
         return data
 
+    @pytest.fixture
+    def _data_grad_argscale(self, _data_grad) -> DataLike:
+        # Do not override in subclass: for internal use only to test `op.argscale().grad()`.
+        in_ = copy.deepcopy(_data_grad["in_"])
+        out = copy.deepcopy(_data_grad["out"])
+
+        scale = self._random_array((1,)).item()
+        in_["arr"] *= scale
+        out = out / scale  # potential dtype change doesn't matter: see _data_grad()
+
+        data = dict(
+            in_=in_,
+            out=out,
+            scale=scale,  # for _op_argscale()
+        )
+        return data
+
     # Tests -------------------------------------------------------------------
     def test_value1D_grad(self, op, _data_grad):
         self._skip_if_disabled()
@@ -578,6 +643,26 @@ class DiffFuncT(FuncT, DiffMapT):
     def test_precCM_grad_argshift(self, _op_argshift, _data_grad_argshift):
         self._skip_if_disabled()
         self._check_precCM(_op_argshift.grad, _data_grad_argshift)
+
+    def test_value1D_grad_argscale(self, _op_argscale, _data_grad_argscale):
+        self._skip_if_disabled()
+        self._check_value1D(_op_argscale.grad, _data_grad_argscale)
+
+    def test_valueND_grad_argscale(self, _op_argscale, _data_grad_argscale):
+        self._skip_if_disabled()
+        self._check_valueND(_op_argscale.grad, _data_grad_argscale)
+
+    def test_backend_grad_argscale(self, _op_argscale, _data_grad_argscale):
+        self._skip_if_disabled()
+        self._check_backend(_op_argscale.grad, _data_grad_argscale)
+
+    def test_prec_grad_argscale(self, _op_argscale, _data_grad_argscale):
+        self._skip_if_disabled()
+        self._check_prec(_op_argscale.grad, _data_grad_argscale)
+
+    def test_precCM_grad_argscale(self, _op_argscale, _data_grad_argscale):
+        self._skip_if_disabled()
+        self._check_precCM(_op_argscale.grad, _data_grad_argscale)
 
     def test_math1_grad(self, op, data_grad):
         # .jacobian/.grad outputs are consistent.
@@ -650,6 +735,24 @@ class ProxFuncT(FuncT):
         return data
 
     @pytest.fixture
+    def _data_prox_argscale(self, _data_prox) -> DataLike:
+        # Do not override in subclass: for internal use only to test `op.argscale().prox()`.
+        in_ = copy.deepcopy(_data_prox["in_"])
+        out = copy.deepcopy(_data_prox["out"])
+
+        scale = self._random_array((1,)).item()
+        in_["arr"] *= scale
+        in_["tau"] *= scale**2
+        out = out * scale
+
+        data = dict(
+            in_=in_,
+            out=out,
+            scale=scale,  # for _op_argscale()
+        )
+        return data
+
+    @pytest.fixture
     def _data_fenchel_prox(self, _data_prox) -> DataLike:
         # Generate fenchel_prox values from prox ground-truth. (All precision/backends.)
         # Do not override in subclass: for internal use only to test `op.fenchel_prox()`.
@@ -705,6 +808,26 @@ class ProxFuncT(FuncT):
     def test_precCM_prox_argshift(self, _op_argshift, _data_prox_argshift):
         self._skip_if_disabled()
         self._check_precCM(_op_argshift.prox, _data_prox_argshift)
+
+    def test_value1D_prox_argscale(self, _op_argscale, _data_prox_argscale):
+        self._skip_if_disabled()
+        self._check_value1D(_op_argscale.prox, _data_prox_argscale)
+
+    def test_valueND_prox_argscale(self, _op_argscale, _data_prox_argscale):
+        self._skip_if_disabled()
+        self._check_valueND(_op_argscale.prox, _data_prox_argscale)
+
+    def test_backend_prox_argscale(self, _op_argscale, _data_prox_argscale):
+        self._skip_if_disabled()
+        self._check_backend(_op_argscale.prox, _data_prox_argscale)
+
+    def test_prec_prox_argscale(self, _op_argscale, _data_prox_argscale):
+        self._skip_if_disabled()
+        self._check_prec(_op_argscale.prox, _data_prox_argscale)
+
+    def test_precCM_prox_argscale(self, _op_argscale, _data_prox_argscale):
+        self._skip_if_disabled()
+        self._check_precCM(_op_argscale.prox, _data_prox_argscale)
 
     def test_math_prox(self, op, data_prox):
         # Ensure y = prox_{tau f}(x) minimizes:
