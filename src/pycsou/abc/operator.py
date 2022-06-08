@@ -328,7 +328,7 @@ class Property:
         if isinstance(other, pyct.Real):
             from pycsou.operator.linop.base import HomothetyOp
 
-            hmap = HomothetyOp(other, dim=self.shape[0])
+            hmap = HomothetyOp(other, dim=self.codim)
             if hmap.shape[0] == 1:
                 hmap.grad = types.MethodType(lambda _, arr: hmap._cst, hmap)
             return hmap.__mul__(self)
@@ -340,7 +340,7 @@ class Property:
             raise ValueError(f"Cannot compose two maps with inconsistent shapes {self.shape} and {other.shape}.")
         shared_props = self.properties() & other.properties()
         shared_props.discard("prox")
-        if self.shape[0] == 1 and "jacobian" in shared_props:
+        if self.codim == 1 and "jacobian" in shared_props:
             shared_props.update({"grad", "single_valued"})
         for Op in _base_operators:
             if Op.properties() == shared_props:
@@ -485,13 +485,13 @@ class Property:
 
             # The two statements below are functionally equivalent
             out1 = self.argscale(scalar)
-            out2 = self * HomotethyOp(scalar, dim=self.shape[1])
+            out2 = self * HomotethyOp(scalar, dim=self.dim)
 
         """
         if isinstance(scalar, pyct.Real):
             from pycsou.operator.linop.base import HomothetyOp
 
-            hmap = HomothetyOp(scalar, dim=self.shape[1])
+            hmap = HomothetyOp(scalar, dim=self.dim)
             return self.__mul__(hmap)
         else:
             raise NotImplementedError
@@ -514,7 +514,7 @@ class Property:
         Raises
         ------
         ValueError
-            If ``shift`` is not of type NDArray or has incorrect size, i.e. ``N != self.shape[1]``.
+            If ``shift`` is not of type NDArray or has incorrect size, i.e. ``N != self.dim``.
 
         Notes
         -----
@@ -544,10 +544,10 @@ class Property:
             raise ValueError("Argument [shift] must be of type NDArray.")
         if shift.ndim != 1:
             raise ValueError("Lag must be 1D.")
-        if (self.shape[-1] is None) or (self.shape[-1] == shift.shape[-1]):
-            out_shape = (self.shape[0], shift.shape[-1])
+        if (self.dim is None) or (self.dim == shift.shape[-1]):
+            out_shape = (self.codim, shift.shape[-1])
         else:
-            raise ValueError(f"Invalid lag shape: {shift.shape[-1]} != {self.shape[-1]}")
+            raise ValueError(f"Invalid lag shape: {shift.shape[-1]} != {self.dim}")
         if isinstance(self, LinFunc):  # Shifting a linear map makes it an affine map.
             out_op = DiffFunc(shape=out_shape)
         elif isinstance(self, LinOp):  # Shifting a linear map makes it an affine map.
@@ -994,7 +994,7 @@ class Map(Apply):
         self: MapLike,
         out: typ.Type[typ.Union["Func", "DiffFunc", "LinFunc"]],
     ) -> MapLike:
-        if self.shape[0] == 1:
+        if self.codim == 1:
             obj = self.specialize(cast_to=out)
         else:
             obj = self
@@ -1053,7 +1053,7 @@ class Map(Apply):
                     return np.sum(arr, axis=-1, keepdims=True)
 
                 def adjoint(self, arr):
-                    return arr * np.ones(self.shape[-1])
+                    return arr * np.ones(self.dim)
 
 
 
@@ -1433,7 +1433,7 @@ class ProxFunc(Func, Proximal):
 
         f = Property.__mul__(self, other)
         if isinstance(other, pyct.Real):
-            other = HomothetyOp(other, dim=self.shape[0])
+            other = HomothetyOp(other, dim=self.codim)
 
         if isinstance(self, LinFunc) and isinstance(other, LinOp):
             f = f.specialize(cast_to=self.__class__)
@@ -1918,7 +1918,7 @@ class LinOp(DiffMap, Adjoint):
         """
         if dtype is None:
             dtype = pycrt.getPrecision().value
-        return self.apply(xp.eye(self.shape[1], dtype=dtype)).transpose()
+        return self.apply(xp.eye(self.dim, dtype=dtype)).transpose()
 
     def __array__(self, dtype: typ.Optional[type] = None) -> np.ndarray:
         r"""
@@ -2045,7 +2045,7 @@ class LinOp(DiffMap, Adjoint):
         kwargs_init = {} if kwargs_init is None else kwargs_init
         b = self.adjoint(arr)
         if damp is not None:
-            A = self.gram() + damp * IdentityOp(shape=(self.shape[1], self.shape[1]))
+            A = self.gram() + damp * IdentityOp(shape=(self.dim, self.dim))
         else:
             A = self.gram()
         if "show_progress" not in kwargs_init.keys():
@@ -2203,11 +2203,11 @@ class LinFunc(ProxDiffFunc, LinOp):
     ...     def apply(self, arr):
     ...        return np.sum(arr, axis=-1, keepdims=True)
     ...     def adjoint(self, arr):
-    ...        return arr * np.ones(self.shape[-1])
+    ...        return arr * np.ones(self.dim)
     ...     def grad(self, arr):
     ...        return np.ones(shape=arr.shape[:-1] + (self.dim,))
     ...     def prox(self, arr, tau):
-    ...        return arr - tau * np.ones(self.shape[-1])
+    ...        return arr - tau * np.ones(self.dim)
 
     >>> sum = Sum(10)
 
