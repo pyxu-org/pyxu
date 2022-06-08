@@ -571,7 +571,6 @@ class Property:
                 setattr(out_op, "prox", types.MethodType(ft.partial(argshifted_prox, shift), out_op))
             else:
 
-                @pycrt.enforce_precision(i="arr")
                 def argshifted_method(prop, shift, _, arr: pyct.NDArray) -> typ.Union[pyct.NDArray, "LinOp"]:
                     shift = shift.astype(arr.dtype, copy=False)
                     return getattr(self, prop)(arr + shift)
