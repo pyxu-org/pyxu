@@ -491,7 +491,10 @@ class Property:
         if isinstance(scalar, pyct.Real):
             from pycsou.operator.linop.base import HomothetyOp
 
-            hmap = HomothetyOp(scalar, dim=self.dim)
+            # If op's dim is agnostic (None), then operator arithmetic with a Homothety will fail.
+            # Trick: since (self * Homothety).shape == self.shape, faking the Homothety's dim is OK.
+            h_dim = 1 if (self.dim is None) else self.dim
+            hmap = HomothetyOp(scalar, dim=h_dim)
             return self.__mul__(hmap)
         else:
             raise NotImplementedError
