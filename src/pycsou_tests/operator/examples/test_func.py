@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 import pycsou.abc.operator as pyco
+import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
@@ -21,10 +22,7 @@ class Median(pyco.Func):
         return y
 
     def asloss(self, data=None):
-        if data is None:
-            return self
-        else:
-            return self.argshift(-data)
+        return pycof.shift_loss(self, data)
 
 
 class TestMedian(conftest.FuncT):
