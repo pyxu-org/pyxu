@@ -479,7 +479,13 @@ class FuncT(MapT):
 
 class DiffMapT(MapT):
     # Class Properties --------------------------------------------------------
-    interface = frozenset(MapT.interface | {"jacobian", "diff_lipschitz"})
+    interface = frozenset(
+        MapT.interface
+        | {
+            "jacobian",
+            "diff_lipschitz",
+        }
+    )
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
@@ -688,7 +694,14 @@ class DiffFuncT(FuncT, DiffMapT):
 
 class ProxFuncT(FuncT):
     # Class Properties --------------------------------------------------------
-    interface = frozenset(FuncT.interface | {"prox", "fenchel_prox", "moreau_envelope"})
+    interface = frozenset(
+        FuncT.interface
+        | {
+            "prox",
+            "fenchel_prox",
+            "moreau_envelope",
+        }
+    )
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
@@ -902,17 +915,17 @@ class LinOpT(DiffMapT):
     interface = frozenset(
         DiffMapT.interface
         | {
-            "adjoint",
-            "from_array",
-            "asarray",
             "__array__",
-            "from_sciop",
-            "to_sciop",
-            "T",
-            "gram",
+            "adjoint",
+            "asarray",
             "cogram",
-            "svdvals",
-            "pinv",
             "dagger",
+            "from_array",
+            "from_sciop",
+            "gram",
+            "pinv",
+            "svdvals",
+            "T",
+            "to_sciop",
         }
     )
