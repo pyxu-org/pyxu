@@ -2266,55 +2266,65 @@ class NormalOp(SquareOp):
 
     Notes
     -----
-    Normal operators commute with their adjoint, i.e. :math:`LL^\ast=L^\ast L`. It is `possible to show <https://www.wikiwand.com/en/Spectral_theorem#/Normal_matrices>`_
-    that an operator is normal iff it is *unitarily diagonalizable* :math:`L=UDU^\ast`.
+    Normal operators commute with their adjoint, i.e. :math:`LL^\ast=L^\ast L`.
+    It is `possible to show <https://www.wikiwand.com/en/Spectral_theorem#/Normal_matrices>`_ that
+    an operator is normal iff it is *unitarily diagonalizable*, i.e. :math:`L=UDU^\ast`.
     """
 
-    @pycrt.enforce_precision(o=True)
-    def eigvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
+    def _eigvals(
+        self,
+        k: int,
+        which: str,
+        gpu: bool,
+        symmetric: bool,
+        **kwargs,
+    ) -> pyct.NDArray:
+        if which not in ("LM", "SM"):
+            raise NotImplementedError
+        if gpu:
+            assert pycd.CUPY_ENABLED
+            import cupyx.scipy.sparse.linalg as spx
+        else:
+            spx = splin
+        op = self.to_sciop(pycrt.getPrecision().value, gpu)
+        kwargs.update(k=k, which=which, return_eigenvectors=False)
+        f = getattr(spx, "eigvalsh" if symmetric else "eigvals")
+
+        evals = f(op, **kwargs)
+        evals.sort()
+        return evals
+
+    @pycrt.enforce_precision
+    def eigvals(
+        self,
+        k: int,
+        which: str = "LM",
+        gpu: bool = False,
+        **kwargs,
+    ) -> pyct.NDArray:
         r"""
         Find ``k`` eigenvalues of a normal operator.
 
         Parameters
         ----------
         k: int
-            The number of eigenvalues and eigenvectors desired. ``k`` must be strictly smaller than the dimension of the operator.
-            It is not possible to compute all eigenvectors of an operator.
-        which: str, [‘LM’ | ‘SM’ | ‘LR’ | ‘SR’ | ‘LI’ | ‘SI’]
+            Number of eigenvalues to compute.
+        which: ‘LM’ | ‘SM’
             Which ``k`` eigenvalues to find:
 
                 * ‘LM’ : largest magnitude
                 * ‘SM’ : smallest magnitude
-                * ‘LR’ : largest real part
-                * ‘SR’ : smallest real part
-                * ‘LI’ : largest imaginary part
-                * ‘SI’ : smallest imaginary part
-
         gpu: bool
-            If ``True`` the singular value decomposition is performed on the GPU.
+            If ``True`` the eigenvalue decomposition is performed on the GPU.
         kwargs: dict
-            A dict of additional keyword arguments values accepted by Scipy's functions :py:func:`scipy.sparse.linalg.eigs`.
+            Additional kwargs by :py:func:`scipy.sparse.linalg.eigs`.
 
         Returns
         -------
         NDArray
-            Array containing the ``k`` requested eigenvalues.
-
-        Notes
-        -----
-        This function calls Scipy's function :py:func:`scipy.sparse.linalg.eigs`.
-        See the documentation of this function for more information on its behaviour and the underlying ARPACK function it relies on.
-
-        See Also
-        --------
-        :py:meth:`~pycsou.abc.operator.LinOp.svds`
+            Array containing the ``k`` requested eigenvalues in ascending order.
         """
-        kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
-        if pycu.deps.CUPY_ENABLED and gpu:
-            import cupyx.scipy.sparse.linalg as spx
-        else:
-            spx = splin
-        return spx.eigs(self.to_sciop(pycrt.getPrecision().value, cupyx=gpu), **kwargs)
+        return self._eigvals(k, which, gpu, symmetric=False, **kwargs)
 
     def cogram(self) -> "NormalOp":
         r"""
@@ -2341,18 +2351,15 @@ class SelfAdjointOp(NormalOp):
         r"""Return ``self``."""
         return self
 
-    @pycrt.enforce_precision(o=True)
-    def eigvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
-        r"""
-        Same as :py:meth:`~pycsou.abc.operator.NormalOp.eigvals`, but calls :py:func:`scipy.sparse.linalg.eigsh`
-        in the background to leverage the self-adjointness and speed up the computation.
-        """
-        kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
-        if pycu.deps.CUPY_ENABLED and gpu:
-            import cupyx.scipy.sparse.linalg as spx
-        else:
-            spx = splin
-        return spx.eigsh(self.to_sciop(pycrt.getPrecision().value, cupyx=gpu), **kwargs)
+    @pycrt.enforce_precision
+    def eigvals(
+        self,
+        k: int,
+        which: str = "LM",
+        gpu: bool = False,
+        **kwargs,
+    ) -> pyct.NDArray:
+        return self._eigvals(k, which, gpu, symmetric=True, **kwargs)
 
 
 class UnitOp(NormalOp):
