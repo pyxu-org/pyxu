@@ -931,3 +931,13 @@ class LinOpT(DiffMapT):
             "to_sciop",
         }
     )
+
+
+class LinFuncT(ProxDiffFuncT, LinOpT):
+    # Class Properties --------------------------------------------------------
+    interface = frozenset(ProxDiffFuncT.interface | LinOpT.interface)
+    disable_test = frozenset(ProxDiffFuncT.disable_test | LinOpT.disable_test)
+
+    # Fixtures ----------------------------------------------------------------
+
+    # Tests -------------------------------------------------------------------
