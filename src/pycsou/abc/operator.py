@@ -309,10 +309,10 @@ class Property:
             elif isinstance(other, LinOp):
                 prod._diff_lipschitz = self._diff_lipschitz * (other._lipschitz) ** 2
             else:
-                prod._diff_lipschitz = np.infty
+                prod._diff_lipschitz = np.inf
 
         Unlike the other properties listed above, automatic update of the :py:attr:`~pycsou.abc.operator.DiffMap._diff_lipschitz` attribute is
-        hence only possible when either ``self`` or ``other`` is a :py:class:`~pycsou.abc.operator.LinOp` (otherwise it is set to its default value ``np.infty``).
+        hence only possible when either ``self`` or ``other`` is a :py:class:`~pycsou.abc.operator.LinOp` (otherwise it is set to its default value ``np.inf``).
 
         .. Hint::
 
@@ -360,7 +360,7 @@ class Property:
                 elif isinstance(other, LinOp):
                     out_op._diff_lipschitz = self._diff_lipschitz * (other._lipschitz) ** 2
                 else:
-                    out_op._diff_lipschitz = np.infty
+                    out_op._diff_lipschitz = np.inf
             elif prop == "grad":
 
                 @pycrt.enforce_precision(i="arr")
@@ -938,7 +938,7 @@ class Map(Apply):
         elif shape[0] is None:
             raise ValueError("Codomain agnostic maps are not supported.")
         self._shape = shape
-        self._lipschitz = np.infty
+        self._lipschitz = np.inf
 
     @property
     def shape(self) -> typ.Tuple[int, typ.Union[int, None]]:
@@ -1207,7 +1207,7 @@ class DiffMap(Map, Differential):
             Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
         """
         super(DiffMap, self).__init__(shape)
-        self._diff_lipschitz = np.infty
+        self._diff_lipschitz = np.inf
 
     def squeeze(self) -> typ.Union["DiffMap", "DiffFunc"]:
         r"""

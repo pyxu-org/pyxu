@@ -364,7 +364,7 @@ class ExplicitLinOp(pyco.LinOp):
         """
         kwargs.pop("gpu", None)
         gpu = True if self._module_name in ["cupy", "cupyx"] else False
-        if recompute or (self._lipschitz == np.infty):
+        if recompute or (self._lipschitz == np.inf):
             if algo == "fro":
                 if self._module_name in ["sparse", "cupyx"]:
                     data = self.mat.asformat("coo").data.squeeze()
