@@ -903,6 +903,60 @@ class LinOpT(DiffMapT):
         }
     )
 
+    # Fixtures ----------------------------------------------------------------
+    @pytest.fixture
+    def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
+        N_test = 5
+        return self._random_array((N_test, op.dim))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
+        N_test = 5
+        return self._random_array((N_test, op.dim))
+
+    @pytest.fixture
+    def _op_svd(self, op) -> np.ndarray:
+        # compute all singular values, sorted in ascending order.
+        D = np.linalg.svd(
+            op.asarray(),
+            full_matrices=False,
+            compute_uv=False,
+        )
+        return np.sort(D)
+
+    # Tests -------------------------------------------------------------------
+    def test_interface_argshift(self, op):
+        self._skip_if_disabled()
+        shift = self._random_array((op.dim,))
+        op_s = op.argshift(shift)
+        self._check_has_interface(op_s, DiffMapT)
+
+    def test_math2_lipschitz(self, op):
+        # op.lipschitz('fro') upper bounds op.lipschitz('svds')
+        self._skip_if_disabled()
+        L_svds = op.lipschitz(recompute=True, algo="svds")
+        L_fro = op.lipschitz(recompute=True, algo="fro", enable_warnings=False)
+        assert L_svds <= L_fro
+
+    def test_math3_lipschitz(self, op, _op_svd):
+        # op.lipschitz() computes the optimal Lipschitz constant.
+        self._skip_if_disabled()
+        assert np.isclose(op.lipschitz(), _op_svd.max())
+
+    def test_interface_jacobian(self, op, _data_apply):
+        self._skip_if_disabled()
+        arr = _data_apply["in_"]["arr"]
+        J = op.jacobian(arr)
+        assert J is op
+
+    def test_squeeze(self, op):
+        # op.squeeze() sub-classes to LinFunc for scalar outputs, and is transparent otherwise.
+        self._skip_if_disabled()
+        if op.codim == 1:
+            self._check_has_interface(op.squeeze(), LinFuncT)
+        else:
+            assert op.squeeze() is op
+
 
 class LinFuncT(ProxDiffFuncT, LinOpT):
     # Class Properties --------------------------------------------------------
