@@ -1724,30 +1724,23 @@ class LinOp(DiffMap, Adjoint):
         adj._lipschitz = self._lipschitz
         return adj
 
-    def to_sciop(self, dtype: typ.Optional[type] = None, cupyx: bool = False) -> splin.LinearOperator:
+    def to_sciop(self, dtype: typ.Optional[type] = None, gpu: bool = False) -> splin.LinearOperator:
         r"""
-        Cast a :py:class:`~pycsou.abc.operator.LinOp` instance into a :py:class:`scipy.sparse.linalg.LinearOperator` instance,
-        compatible with the matrix-free linear algebra routines of `scipy.sparse.linalg <https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html>`_.
+        Cast a :py:class:`~pycsou.abc.operator.LinOp` to a
+        :py:class:`scipy.sparse.linalg.LinearOperator`, compatible with the matrix-free linear
+        algebra routines of `scipy.sparse.linalg <https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html>`_.
 
         Parameters
         ----------
         dtype: type | None
             Optional data type (i.e. working precision of the linear operator).
-        cupyx: bool
-            If ``True`` the returned object is of type  :py:class:`cupyx.scipy.sparse.linalg.LinearOperator` which accepts
-            CuPy arrays as input (for GPU accelerated computations).
+        gpu: bool
+            If ``True`` the returned object expects CuPy arrays as inputs.
 
         Returns
         -------
-        scipy.sparse.linalg.LinearOperator | cupyx.scipy.sparse.linalg.LinearOperator
+        [cupyx.]scipy.sparse.linalg.LinearOperator
             Linear operator object compliant with SciPy's interface.
-
-        Notes
-        -----
-        This method defines the optional methods ``matmat`` and ``rmatmat`` of the output Scipy's linear operator by evaluating the
-        methods :py:meth:`~pycsou.abc.operator.Apply.apply` and :py:meth:`~pycsou.abc.operator.Adjoint.adjoint` on well-chosen N-D arrays
-        (see :ref:`developer-notes`). This can be more efficient (and is at the very least equally efficient)
-        than the naive parallelization performed by Scipy when the two methods are not provided by the user.
         """
 
         def matmat(arr: pyct.NDArray) -> pyct.NDArray:
@@ -1759,14 +1752,20 @@ class LinOp(DiffMap, Adjoint):
         if dtype is None:
             dtype = pycrt.getPrecision().value
 
-        if (
-            pycu.deps.CUPY_ENABLED and cupyx
-        ):  # Scipy casts any input to the LinOp as a Numpy array so the cupyx version is needed.
+        if gpu:
+            # Scipy will force-cast any input of the LinOp to a Numpy array, so the cupyx version is
+            # needed.
+            assert pycd.CUPY_ENABLED
             import cupyx.scipy.sparse.linalg as spx
         else:
             spx = splin
         return spx.LinearOperator(
-            shape=self.shape, matvec=self.apply, rmatvec=self.adjoint, matmat=matmat, rmatmat=rmatmat, dtype=dtype
+            shape=self.shape,
+            matvec=self.apply,
+            rmatvec=self.adjoint,
+            matmat=matmat,
+            rmatmat=rmatmat,
+            dtype=dtype,
         )
 
     def lipschitz(self, recompute: bool = False, algo: str = "svds", gpu: bool = False, **kwargs) -> float:
