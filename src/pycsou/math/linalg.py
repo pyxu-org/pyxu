@@ -9,50 +9,35 @@ import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 
-@pycrt.enforce_precision()
-def hutchpp(linop: pyco.LinOp, m: int = 4002, xp: pyct.ArrayModule = np, seed: float = 0):
+def hutchpp(
+    op: pyco.SquareOp,
+    m: int = 4002,
+    xp: pyct.ArrayModule = np,
+    seed: float = 0,
+    enable_warnings: bool = True,
+) -> float:
     r"""
-    Computes a stochastic estimate of the trace for linear operators based on the Hutch++ algorithm (specifically,
-    algorithm 3 of the paper https://arxiv.org/abs/2010.09649).
+    Stochastic estimate of the trace of a linear operator based on the Hutch++ algorithm.
+    (Specifically algorithm 3 of the paper https://arxiv.org/abs/2010.09649)
 
     Parameters
     ----------
-    linop: :py:class:`~pycsou.abc.operator.LinOp`
-        Linear operator object compliant with Pycsou's interface with square shape.
+    op: :py:class:`~pycsou.abc.operator.SquareOp`
     m: int
-        The number of queries desired to estimate the trace of the linear operator. ``m`` is set to 4002 by default,
-        based on the analysis of variance described in theorem 10 of the Hutch++ paper. This default number of queries
-        corresponds to having an estimation error smaller than 0.01 with a probability of 0.9.
-    xp:  pycsou.util.ptype.ArrayModule
-         Which array module to use to represent the output.
+        Number of queries used to estimate the trace of the linear operator.
+
+        ``m`` is set to 4002 by default based on the analysis of the variance described in theorem
+        10. This default corresponds to having an estimation error smaller than 0.01 with a
+        probability of 0.9.
+    xp: pycsou.util.ptype.ArrayModule
+        Array module used for internal computations.
     seed: int
         Seed for the random number generator.
 
-
     Returns
     -------
-    float
-        Hutch++ stochastic estimate of the trace.
-
-    Notes
-    -----
-    This function calls Numpy’s function: :py:func:`numpy.linalg.qr`. See the documentation of this function
-    for more information on its behaviour and the underlying LAPACK routines it relies on.
-
-    Examples
-     --------
-     >>> import numpy as np
-     >>> from pycsou.abc import LinOp
-     >>> # Create a square PSD linear operator
-     >>> rng = np.random.default_rng(seed=0)
-     >>> mat = rng.normal(size=(100, 100))
-     >>> A = LinOp.from_array(mat).gram()
-     >>> trace_stoch = hutchpp(A, m=10)
-     >>> trace = np.trace(A.apply(np.eye(100)))
-     >>> print(trace)
-     9961.972635463775
-     >>> print(trace_stoch)
-     10398.448002578634
+    tr: float
+        Stochastic estimate of tr(op).
     """
 
     if linop.shape[0] != linop.shape[1]:
