@@ -1827,43 +1827,47 @@ class LinOp(DiffMap, Adjoint):
 
         return self._lipschitz
 
-    @pycrt.enforce_precision(o=True)
-    def svdvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
+    @pycrt.enforce_precision
+    def svdvals(
+        self,
+        k: int,
+        which: str = "LM",
+        gpu: bool = False,
+        **kwargs,
+    ) -> pyct.NDArray:
         r"""
-        Compute the ``k`` largest or smallest singular values of the linear operator. The order of the singular values is not guaranteed.
+        Compute the ``k`` largest or smallest singular values of the linear operator.
 
         Parameters
         ----------
         k: int
-            Number of singular values to compute. Must be ``1 <= k < min(self.shape)``.
-        which: 'LM'|'SM'
+            Number of singular values to compute.
+        which: 'LM' | 'SM'
             Which k singular values to find:
 
                 * ‘LM’ : largest magnitude
                 * ‘SM’ : smallest magnitude
-
         gpu: bool
             If ``True`` the singular value decomposition is performed on the GPU.
         kwargs:
-            Additional keyword arguments values accepted by Scipy’s function :py:func:`scipy.sparse.linalg.svds`.
+            Additional kwargs accepted by :py:func:`scipy.sparse.linalg.svds`.
 
         Returns
         -------
         NDArray
-            Array containing the ``k`` requested singular values.
-
-        Notes
-        -----
-        This function calls Scipy’s function: :py:func:`scipy.sparse.linalg.svds`. See the documentation of this function
-        for more information on its behaviour and the underlying ARPACK/LOBPCG functions it relies on.
+            Array containing the ``k`` requested singular values in ascending order.
         """
-        kwargs.update(dict(k=k, which=which, return_singular_vectors=False))
-        SciOp = self.to_sciop(pycrt.getPrecision().value, cupyx=gpu)
-        if pycu.deps.CUPY_ENABLED and gpu:
+        if gpu:
+            assert pycd.CUPY_ENABLED
             import cupyx.scipy.sparse.linalg as spx
         else:
             spx = splin
-        return spx.svds(SciOp, **kwargs)
+        op = self.to_sciop(pycrt.getPrecision().value, gpu)
+        kwargs.update(k=k, which=which, return_singular_vectors=False)
+
+        svals = spx.svds(op, **kwargs)
+        svals.sort()
+        return svals
 
     def asarray(self, xp: pyct.ArrayModule = np, dtype: typ.Optional[type] = None) -> pyct.NDArray:
         r"""
