@@ -643,14 +643,18 @@ class Apply(Property):
 
         Notes
         -----
-        A constant :math:`L_\mathbf{h}>0` is said to be a *Lipschitz constant* for a map :math:`\mathbf{h}:\mathbb{R}^N\to \mathbb{R}^M` if:
+        * This method should always be callable without specifying any kwargs.
 
-        .. math::
+        * A constant :math:`L_\mathbf{h}>0` is said to be a *Lipschitz constant* for a map
+          :math:`\mathbf{h}:\mathbb{R}^N\to \mathbb{R}^M` if:
 
-            \|\mathbf{h}(\mathbf{x})-\mathbf{h}(\mathbf{y})\|_{\mathbb{R}^M} \leq L_\mathbf{h} \|\mathbf{x}-\mathbf{y}\|_{\mathbb{R}^N}, \qquad \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^N,
+          .. math::
 
-        where :math:`\|\cdot\|_{\mathbb{R}^M}`$` and :math:`\|\cdot\|_{\mathbb{R}^N}`$` are the canonical norms on their respective spaces. The smallest of all Lipschitz constants for a given map
-        is called the *optimal Lipschitz constant*.
+              \|\mathbf{h}(\mathbf{x})-\mathbf{h}(\mathbf{y})\|_{\mathbb{R}^M} \leq L_\mathbf{h} \|\mathbf{x}-\mathbf{y}\|_{\mathbb{R}^N}, \qquad \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^N,
+
+          where :math:`\|\cdot\|_{\mathbb{R}^M}`$` and :math:`\|\cdot\|_{\mathbb{R}^N}`$` are the
+          canonical norms on their respective spaces. The smallest of all Lipschitz constants for a
+          given map is called the *optimal Lipschitz constant*.
         """
         raise NotImplementedError
 
@@ -1003,14 +1007,6 @@ class Map(Apply):
         return obj
 
     def lipschitz(self, **kwargs) -> float:
-        r"""
-        Return the map's Lipschitz constant.
-
-        Returns
-        -------
-        float
-            The map's Lipschitz constant.
-        """
         return self._lipschitz
 
     def specialize(
@@ -1768,26 +1764,32 @@ class LinOp(DiffMap, Adjoint):
             dtype=dtype,
         )
 
-    def lipschitz(self, recompute: bool = False, algo: str = "svds", gpu: bool = False, **kwargs) -> float:
+    def lipschitz(
+        self,
+        recompute: bool = False,
+        algo: str = "svds",
+        **kwargs,
+    ) -> float:
         r"""
-        Return the (not necessarily optimal) Lipschitz constant of the operator.
+        Return a (not necessarily optimal) Lipschitz constant of the operator.
 
         Parameters
         ----------
         recompute: bool
-            If ``True`` forces the recomputation of the Lipschitz constant. If ``False`` the value contained in the private
-            instance attribute ``_lipschitz`` is used.
-        gpu: bool
-            If ``True`` the computation of the Lipschitz constant is performed on the GPU. Has no effect if ``recompute==False``.
+            If ``True``, forces re-estimation of the Lipschitz constant.
+            If ``False``, use the last-computed Lipschitz constant.
         algo: 'svds', 'fro'
-            Algorithm used for computing the Lipschitz constant. If ``algo==svds`` the Lipschitz constant is estimated as the
-            spectral norm of :math:`L`, computed via Scipy's :py:func:`scipy.sparse.linalg.svds` routine (more accurate but more compute intensive).  If ``algo==fro`` the Lipschitz constant is estimated as the
-            Froebenius norm of :math:`L`, computed via the matrix-free `Hutch++ stochastic trace estimation algorithm <https://arxiv.org/abs/2010.09649>`_ (less accurate but less compute intensive).
+            Algorithm used for computing the Lipschitz constant.
+
+            If ``algo==svds``, the Lipschitz constant is estimated as the spectral norm of :math:`L`
+            via :py:func:`scipy.sparse.linalg.svds`. (Accurate, but compute-intensive.)
+
+            If ``algo==fro``, the Lipschitz constant is estimated as the Froebenius norm of
+            :math:`L` via :py:func:`pycsou.math.linalg.hutchpp`. (Cheaper & less accurate than
+            SVD-based method.)
         kwargs:
-            Optional arguments to be passed to the algorithm used for computing the Lipschitz constant.
-            If ``algo==svds``, the parameter ``tol`` of Scipy's :py:func:`scipy.sparse.linalg.svds` routine can be particularly interesting to reduce
-            the compute time of the Lipschitz constant. If ``algo==fro``, the parameter ``m`` of :py:func:`pycsou.abc.operator.SquareOp.trace` can be interesting to control the number of queries used for the stochastic estimation.
-            If ``algo==fro`` the parameter ``xp`` can be used to select the desired array module backend for computation (Numpy, Cupy or Dask).
+            Optional kwargs passed on to :py:func:`scipy.sparse.linalg.svds` or
+            :py:func:`pycsou.math.linalg.hutchpp`.
 
         Returns
         -------
@@ -1796,63 +1798,30 @@ class LinOp(DiffMap, Adjoint):
 
         Notes
         -----
-        The tightest Lipschitz constant is given by the spectral norm of the operator :math:`L`: :math:`\beta=\|L\|_2`.
-        It can be computed by means of truncated matrix-free SVD, which can be a compute-intensive task for large-scale
-        operators. In which case, it can be advantageous to overestimate the Lipschtiz constant via the Frobenius norm of :math:`L`
-        (we have indeed :math:`\|L\|_F \geq \|L\|_2`). The Frobenius norm of  :math:`L` can indeed be approximated efficiently by
-        computing the trace of :math:`L^\ast L` (or  :math:`LL^\ast`) depending on which is most advantageous) via the
-        `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_. The Frobenius norm of  :math:`L` is upper
-        bounded by :math:`\|L\|_F \leq \sqrt{n} \|L\|_2`, where the equality is reached (worst-case scenario) in those cases in which the
-        eigenspectrum of the linear operator is flat.
+        * The tightest Lipschitz constant is given by the spectral norm of the operator :math:`L`:
+          :math:`\|L\|_2`.
+          It can be computed via the SVD, which is compute-intensive task for large operators.
+          In this setting, it may be advantageous to overestimate the Lipschitz constant with the
+          Frobenius norm of :math:`L` since :math:`\|L\|_F \geq \|L\|_2`.
 
-        Examples
-        --------
-        >>> import numpy as np
-        >>> from pycsou.abc import LinOp
-        >>> # Create a square PSD linear operator
-        >>> rng = np.random.default_rng(seed=0)
-        >>> mat = rng.normal(size=(100, 100))
-        >>> A = LinOp.from_array(mat).gram()
-        >>> # Compute Stochastic upper bound of Lipschitz (using Hutch++)
-        >>> stochastic_upper_bound = A.lipschitz(algo="fro", xp=np, m=10)
-        >>> # Compute Deterministic upper bound of Lipschitz (by setting
-        >>> # the number of queries equal to the size of the operator)
-        >>> deterministic_upper_bound = A.lipschitz(algo="fro", xp=np, m=100, recompute=True)
-        >>> # Compute Lipschitz
-        >>> lipschitz = A.lipschitz(algo="svds", recompute=True)
-        >>> print(stochastic_upper_bound)
-        [1411.78659953]
-        >>> print(deterministic_upper_bound)
-        [1411.44955295]
-        >>> print(lipschitz)
-        [384.29239583]
+          :math:`\|L\|_F` can be efficiently approximated by computing the trace of :math:`L^\ast L`
+          (or :math:`LL^\ast`) via the `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_.
 
+        * :math:`\|L\|_F` is upper bounded by :math:`\|L\|_F \leq \sqrt{n} \|L\|_2`, where the
+          equality is reached (worst-case scenario) when the eigenspectrum of the linear operator is
+          flat.
         """
-
-        if recompute or (self._lipschitz == np.infty):
+        if recompute or (self._lipschitz == np.inf):
             if algo == "fro":
-                if "gpu" in kwargs.keys():
-                    if "xp" not in kwargs.keys():
-                        if kwargs["gpu"]:
-                            import cupy as xp
-                        else:
-                            import numpy as xp
-                        kwargs.update(dict(xp=xp))
-                    kwargs.pop("gpu", None)
-                else:
-                    if "xp" not in kwargs.keys():
-                        import numpy as xp
+                import pycsou.math.linalg as pycl
 
-                        kwargs.update(dict(xp=xp))
-                if "m" not in kwargs.keys():
-                    kwargs.update(dict(m=126))
-                if np.diff(self.shape) > 0:
-                    self._lipschitz = kwargs["xp"].array(np.sqrt(self.cogram().trace(**kwargs))).reshape(-1)
-                else:
-                    self._lipschitz = kwargs["xp"].array(np.sqrt(self.gram().trace(**kwargs))).reshape(-1)
+                if "m" not in kwargs:
+                    kwargs.update(m=126)
+                op = self.gram() if (self.codim >= self.dim) else self.cogram()
+                self._lipschitz = pycl.hutchpp(op, **kwargs)
             elif algo == "svds":
-                kwargs.update(dict(k=1, which="LM", gpu=gpu))
-                self._lipschitz = self.svdvals(**kwargs)
+                kwargs.update(k=1, which="LM")
+                self._lipschitz = self.svdvals(**kwargs).item()
             else:
                 raise NotImplementedError
 
@@ -2392,9 +2361,6 @@ class UnitOp(NormalOp):
         self._lipschitz = 1
 
     def lipschitz(self, **kwargs) -> float:
-        r"""
-        Always return 1, since the spectral norm of unitary operators is equal to 1.
-        """
         return self._lipschitz
 
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
@@ -2437,9 +2403,6 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
         self._lipschitz = 1
 
     def lipschitz(self, **kwargs) -> float:
-        r"""
-        Always return 1, since the spectral norm of orthogonal projection operators is equal to 1.
-        """
         return self._lipschitz
 
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
