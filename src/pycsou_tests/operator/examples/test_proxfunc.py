@@ -68,16 +68,6 @@ class TestL1Norm(conftest.ProxFuncT):
     def data_shape(self, op, dim):
         return (1, dim)
 
-    @pytest.fixture
-    def data_lipschitz(self, dim):
-        return dict(
-            in_=dict(
-                M=dim,
-                warn=False,
-            ),
-            out=np.inf if (dim is None) else np.sqrt(dim),
-        )
-
     @pytest.fixture(
         params=[  # 2 evaluation points
             dict(
