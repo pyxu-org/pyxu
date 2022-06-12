@@ -161,10 +161,14 @@ class MapT:
             assert out.dtype == in_["arr"].dtype
 
     @staticmethod
-    def _check_precCM(func, data):
+    def _check_precCM(
+        func,
+        data,
+        widths: cabc.Collection[pycrt.Width] = frozenset(pycrt.Width),
+    ):
         in_ = data["in_"]
         stats = []
-        for width in pycrt.Width:
+        for width in widths:
             with pycrt.Precision(width):
                 out = func(**in_)
             stats.append(out.dtype == width.value)
@@ -1062,10 +1066,25 @@ class LinOpT(DiffMapT):
             xp_truth = np
         assert pycu.get_array_module(out) == xp_truth
 
-    def test_precCM_svdvals(self, op, _gpu):
+    @pytest.mark.parametrize(
+        "width",  # local override of this fixture
+        [
+            pytest.param(
+                pycrt.Width.HALF,
+                marks=pytest.mark.xfail(reason="Unsupported by ARPACK/PROPACK/LOBPCG."),
+            ),
+            pycrt.Width.SINGLE,
+            pycrt.Width.DOUBLE,
+            pytest.param(
+                pycrt.Width.QUAD,
+                marks=pytest.mark.xfail(reason="Unsupported by ARPACK/PROPACK/LOBPCG."),
+            ),
+        ],
+    )
+    def test_precCM_svdvals(self, op, _gpu, width):
         self._skip_if_disabled()
         data = dict(in_=dict(k=1, gpu=_gpu))
-        self._check_precCM(op.svdvals, data)
+        self._check_precCM(op.svdvals, data, (width,))
 
 
 class LinFuncT(ProxDiffFuncT, LinOpT):
