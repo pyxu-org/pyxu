@@ -1,9 +1,10 @@
 import warnings
 
+import dask.array as da
 import numpy as np
 
 import pycsou.abc.operator as pyco
-import pycsou.linop.base as pycb
+import pycsou.operator.linop.base as pycb
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
@@ -39,43 +40,35 @@ def hutchpp(
     tr: float
         Stochastic estimate of tr(op).
     """
-
-    if linop.shape[0] != linop.shape[1]:
-        raise NotImplementedError
-
-    import dask.array as da
-
-    xlin = xp.linalg
-    if xp == da:
-        kwargs = {}
-    else:
-        kwargs = {"mode": "reduced"}
-
-    d = linop.shape[1]
-    if m >= d:
-        warnings.warn(
-            "Full trace computation performed. Stochastic trace estimation not performed because the number "
-            "of queries is larger or equal to the dimension of the linear operator.",
-            UserWarning,
-        )
-        return xp.sum(xp.array([linop.apply(e)[i] for i, e in enumerate(xp.eye(d))]))
-
-    if isinstance(linop, pycb.ExplicitLinOp):
-        if xp != pycu.get_array_module(linop.mat):
+    if isinstance(op, pycb.ExplicitLinOp):
+        op_xp = pycu.get_array_module(op.mat)
+        if enable_warnings and (op_xp != xp):
             warnings.warn(
-                f"The array module of the :py:class:`~pycsou.linop.base.ExplicitLinOp` "
-                f"({pycu.get_array_module(linop.mat)}) and the requested array module "
-                f"({xp}) are different.",
+                f"Desired array module ({xp}) differs from array module of {op} ({op_xp}).",
                 UserWarning,
             )
 
-    rng = np.random.default_rng(seed=seed)
-    s = xp.asarray(rng.standard_normal(size=(d, (m + 2) // 4)))
-    g = xp.asarray(rng.binomial(n=1, p=0.5, size=(d, (m - 2) // 2)) * 2 - 1)
-    if xp == da:
-        q, _ = xlin.qr(linop.apply(s.T).T.rechunk({0: "auto", 1: -1}), **kwargs)
+    if m >= op.dim:
+        if enable_warnings:
+            warnings.warn(
+                "Number of queries >= dim(op): fallback to deterministic trace eval.",
+                UserWarning,
+            )
+        tr = op.asarray(xp=xp).trace()
     else:
-        q, _ = xlin.qr(linop.apply(s.T).T, **kwargs)
+        rng = np.random.default_rng(seed=seed)
+        s = xp.asarray(rng.standard_normal(size=(op.dim, (m + 2) // 4)))
+        g = xp.asarray(rng.binomial(n=1, p=0.5, size=(op.dim, (m - 2) // 2)) * 2 - 1)
 
-    proj = g - q @ (q.T @ g)
-    return xp.trace(q.T @ linop.apply(q.T).T) + (2.0 / (m - 2)) * xp.trace(proj.T @ linop.apply(proj.T).T)
+        data = op.apply(s.T).T
+        kwargs = dict(mode="reduced")
+        if xp == da:
+            data = data.rechunk({0: "auto", 1: -1})
+            kwargs.pop("mode")
+
+        q, _ = xp.linalg.qr(data, **kwargs)
+        proj = g - q @ (q.T @ g)
+
+        tr = xp.trace(op.apply(q.T) @ q)
+        tr += (2.0 / (m - 2)) * xp.trace(op.apply(proj.T) @ proj)
+    return tr.item()
