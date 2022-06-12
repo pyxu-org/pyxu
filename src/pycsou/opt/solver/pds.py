@@ -724,7 +724,7 @@ class PD3O(_PrimalDualSplitting):
         delta = 2 if self._beta == 0 else 2 - self._beta * tau / 2
         return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
 
-    @pycrt.enforce_precision(o=True)
+    @pycrt.enforce_precision()
     def _optimize_step_sizes(self, gamma: pyct.Real) -> pyct.Real:
         r"""
         Optimize the primal/dual step sizes.

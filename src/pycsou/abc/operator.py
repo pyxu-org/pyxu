@@ -846,7 +846,7 @@ class Proximal(Property):
         """
         raise NotImplementedError
 
-    @pycrt.enforce_precision(i=("arr", "sigma"), o=True)
+    @pycrt.enforce_precision(i=("arr", "sigma"))
     def fenchel_prox(self, arr: pyct.NDArray, sigma: pyct.Real) -> pyct.NDArray:
         r"""
         Evaluate the proximity operator of the ``sigma``-scaled Fenchel conjugate of a functional at a point ``arr``.
@@ -1827,7 +1827,7 @@ class LinOp(DiffMap, Adjoint):
 
         return self._lipschitz
 
-    @pycrt.enforce_precision
+    @pycrt.enforce_precision()
     def svdvals(
         self,
         k: int,
@@ -2237,7 +2237,7 @@ class SquareOp(LinOp):
             raise ValueError(f"Inconsistent shape {shape} for operator of type {SquareOp}")
         super(SquareOp, self).__init__(shape=(shape[0], shape[0]))
 
-    @pycrt.enforce_precision(o=True)
+    @pycrt.enforce_precision()
     def trace(self, **kwargs):
         """
         Approximate the trace of a squared linear operator.
@@ -2294,7 +2294,7 @@ class NormalOp(SquareOp):
         evals.sort()
         return evals
 
-    @pycrt.enforce_precision
+    @pycrt.enforce_precision()
     def eigvals(
         self,
         k: int,
@@ -2351,7 +2351,7 @@ class SelfAdjointOp(NormalOp):
         r"""Return ``self``."""
         return self
 
-    @pycrt.enforce_precision
+    @pycrt.enforce_precision()
     def eigvals(
         self,
         k: int,
