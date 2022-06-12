@@ -950,6 +950,22 @@ class LinOpT(DiffMapT):
         )
         return np.sort(D)
 
+    @pytest.fixture(
+        params=[
+            False,
+            pytest.param(
+                True,
+                marks=pytest.mark.skipif(
+                    not pycd.CUPY_ENABLED,
+                    reason="GPU missing",
+                ),
+            ),
+        ]
+    )
+    def _gpu(self, request) -> bool:
+        # Do not override in subclass: for use only to test methods taking a `gpu` parameter.
+        return request.param
+
     # Tests -------------------------------------------------------------------
     def test_value1D_adjoint(self, op, _data_adjoint):
         self._skip_if_disabled()
@@ -1015,6 +1031,41 @@ class LinOpT(DiffMapT):
             self._check_has_interface(op.squeeze(), LinFuncT)
         else:
             assert op.squeeze() is op
+
+    @pytest.mark.parametrize("k", [1, 2])
+    @pytest.mark.parametrize("which", ["SM", "LM"])
+    def test_value1D_svdvals(self, op, _op_svd, k, which):
+        self._skip_if_disabled()
+        out = op.svdvals(k=k, which=which)
+        assert out.size == k  # obtain N_svals asked for,
+        assert allclose(np.sort(out), out, out.dtype)  # output is sorted,
+
+        # and output is correct
+        idx = np.argsort(np.abs(out))
+        idx_gt = np.argsort(np.abs(_op_svd))
+        if which == "SM":
+            out = out[idx][:k]
+            gt = _op_svd[idx_gt][:k]
+        else:  # LM
+            out = out[idx][-k:]
+            gt = _op_svd[idx_gt][-k:]
+        assert allclose(out, gt, out.dtype)
+
+    def test_backend_svdvals(self, op, _gpu):
+        self._skip_if_disabled()
+        data = dict(k=1, gpu=_gpu)
+        out = op.svdvals(**data)
+
+        if _gpu:
+            import cupy as xp_truth
+        else:
+            xp_truth = np
+        assert pycu.get_array_module(out) == xp_truth
+
+    def test_precCM_svdvals(self, op, _gpu):
+        self._skip_if_disabled()
+        data = dict(in_=dict(k=1, gpu=_gpu))
+        self._check_precCM(op.svdvals, data)
 
 
 class LinFuncT(ProxDiffFuncT, LinOpT):
