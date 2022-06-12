@@ -905,6 +905,32 @@ class LinOpT(DiffMapT):
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
+    def data_adjoint(self, op) -> DataLike:
+        # override in subclass with 1D input/outputs of op.adjoint().
+        # Arrays should be NumPy-only. (Internal machinery will transform to different
+        # backend/precisions as needed.)
+        #
+        # Default implementation just tests A(0) = 0. Subsequent math tests ensure .adjoint() output
+        # is consistent with .apply().
+        return dict(
+            in_=dict(arr=np.zeros(op.codim)),
+            out=np.zeros(op.dim),
+        )
+
+    @pytest.fixture
+    def _data_adjoint(self, data_adjoint, xp, width) -> DataLike:
+        # Generate Cartesian product of inputs.
+        # Do not override in subclass: for internal use only to test `op.adjoint()`.
+        # Outputs are left unchanged: different tests should transform them as required.
+        in_ = copy.deepcopy(data_adjoint["in_"])
+        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
+        data = dict(
+            in_=in_,
+            out=data_adjoint["out"],
+        )
+        return data
+
+    @pytest.fixture
     def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
         N_test = 5
         return self._random_array((N_test, op.dim))
@@ -925,6 +951,39 @@ class LinOpT(DiffMapT):
         return np.sort(D)
 
     # Tests -------------------------------------------------------------------
+    def test_value1D_adjoint(self, op, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_value1D(op.adjoint, _data_adjoint)
+
+    def test_valueND_adjoint(self, op, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_valueND(op.adjoint, _data_adjoint)
+
+    def test_backend_adjoint(self, op, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_backend(op.adjoint, _data_adjoint)
+
+    def test_prec_adjoint(self, op, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_prec(op.adjoint, _data_adjoint)
+
+    def test_precCM_adjoint(self, op, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_precCM(op.adjoint, _data_adjoint)
+
+    def test_math_adjoint(self, op):
+        # <op.adjoint(x), y> = <x, op.apply(y)>
+        self._skip_if_disabled()
+        N = 20
+        x = self._random_array((N, op.codim))
+        y = self._random_array((N, op.dim))
+
+        ip = lambda a, b: (a * b).sum(axis=-1)  # (N, Q) * (N, Q) -> (N,)
+        lhs = ip(op.adjoint(x), y)
+        rhs = ip(x, op.apply(y))
+
+        assert allclose(lhs, rhs, lhs.dtype)
+
     def test_interface_argshift(self, op):
         self._skip_if_disabled()
         shift = self._random_array((op.dim,))
