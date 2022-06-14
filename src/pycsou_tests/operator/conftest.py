@@ -956,6 +956,25 @@ class LinOpT(DiffMapT):
         return data
 
     @pytest.fixture
+    def _data_adjoint_argscale(self, op, _data_apply_argscale) -> DataLike:
+        # Do not override in subclass: for internal use only to test `op.argscale().adjoint()`.
+        N_test = 30
+        arr = self._random_array((N_test, op.codim))
+        out = op.adjoint(arr)
+        _data_adjoint = dict(in_=dict(arr=arr), out=out)
+
+        in_ = copy.deepcopy(_data_adjoint["in_"])
+        scale = _data_apply_argscale["scale"]
+        out /= scale
+
+        data = dict(
+            in_=in_,
+            out=out,
+            scale=scale,  # for _op_argscale()
+        )
+        return data
+
+    @pytest.fixture
     def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
         N_test = 5
         return self._random_array((N_test, op.dim))
@@ -1030,6 +1049,26 @@ class LinOpT(DiffMapT):
         shift = self._random_array((op.dim,))
         op_s = op.argshift(shift)
         self._check_has_interface(op_s, DiffMapT)
+
+    def test_value1D_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
+        self._skip_if_disabled()
+        self._check_value1D(_op_argscale.adjoint, _data_adjoint_argscale)
+
+    def test_valueND_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
+        self._skip_if_disabled()
+        self._check_valueND(_op_argscale.adjoint, _data_adjoint_argscale)
+
+    def test_backend_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
+        self._skip_if_disabled()
+        self._check_backend(_op_argscale.adjoint, _data_adjoint_argscale)
+
+    def test_prec_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
+        self._skip_if_disabled()
+        self._check_prec(_op_argscale.adjoint, _data_adjoint_argscale)
+
+    def test_precCM_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
+        self._skip_if_disabled()
+        self._check_precCM(_op_argscale.adjoint, _data_adjoint_argscale)
 
     def test_math2_lipschitz(self, op):
         # op.lipschitz('fro') upper bounds op.lipschitz('svds')
