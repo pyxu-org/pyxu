@@ -97,6 +97,7 @@ class MapT:
             "dim",
             "codim",
             "apply",
+            "__call__",
             "lipschitz",
             "squeeze",
             "specialize",
@@ -347,6 +348,26 @@ class MapT:
     def test_precCM_apply(self, op, _data_apply):
         self._skip_if_disabled()
         self._check_precCM(op.apply, _data_apply)
+
+    def test_value1D_call(self, op, _data_apply):
+        self._skip_if_disabled()
+        self._check_value1D(op.__call__, _data_apply)
+
+    def test_valueND_call(self, op, _data_apply):
+        self._skip_if_disabled()
+        self._check_valueND(op.__call__, _data_apply)
+
+    def test_backend_call(self, op, _data_apply):
+        self._skip_if_disabled()
+        self._check_backend(op.__call__, _data_apply)
+
+    def test_prec_call(self, op, _data_apply):
+        self._skip_if_disabled()
+        self._check_prec(op.__call__, _data_apply)
+
+    def test_precCM_call(self, op, _data_apply):
+        self._skip_if_disabled()
+        self._check_precCM(op.__call__, _data_apply)
 
     def test_interface_argshift(self, op):
         # Must be of same class (subclass if needed)
