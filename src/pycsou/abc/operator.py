@@ -1966,9 +1966,9 @@ class LinOp(DiffMap, Adjoint):
         damp: float | None
             Dampening factor for regularizing the pseudo-inverse in case of ill-conditioning.
         kwargs_init: dict | None
-            Optional keywords arguments to be passed to :py:func:`pycsou.abc.solver.Solver.__init__`.
+            Optional kwargs to be passed to :py:meth:`pycsou.opt.solver.cg.CG.__init__`.
         kwargs_fit: dict | None
-            Optional keywords arguments to be passed to ``fit()`` method of :py:class:`pycsou.opt.solver.cg.CG`.
+            Optional kwargs to be passed to :py:meth:`pycsou.opt.solver.cg.CG.fit`.
 
         Returns
         -------
@@ -1977,40 +1977,33 @@ class LinOp(DiffMap, Adjoint):
 
         Notes
         -----
-        The Moore-Penrose pseudo-inverse of an operator :math:`L:\mathbb{R}^N\to \mathbb{R}^M` is defined as the operator
-        :math:`L^\dagger:\mathbb{R}^M\to \mathbb{R}^N` verifying the Moore-Penrose conditions:
+        The Moore-Penrose pseudo-inverse of an operator :math:`L:\mathbb{R}^N\to \mathbb{R}^M` is
+        defined as the operator :math:`L^\dagger:\mathbb{R}^M\to \mathbb{R}^N` verifying the
+        Moore-Penrose conditions:
 
             1. :math:`LL^\dagger L =L`,
             2. :math:`L^\dagger LL^\dagger =L^\dagger`,
             3. :math:`(L^\dagger L)^\ast=L^\dagger L`,
             4. :math:`(LL^\dagger)^\ast=LL^\dagger`.
 
-        This operator exists and is unique for any finite-dimensional linear operator. The action of the pseudo-inverse
-        :math:`L^\dagger \mathbf{y}` for every :math:`\mathbf{y}\in\mathbb{R}^M` can be computed in matrix-free fashion by
-        solving the so-called *normal equations*:
+        This operator exists and is unique for any finite-dimensional linear operator. The action of
+        the pseudo-inverse :math:`L^\dagger \mathbf{y}` for every :math:`\mathbf{y}\in\mathbb{R}^M`
+        can be computed in matrix-free fashion by solving the so-called *normal equations*:
 
         .. math::
 
-            L^\ast L \mathbf{x}= L^\ast \mathbf{y} \quad\Leftrightarrow\quad \mathbf{x}=L^\dagger \mathbf{y}, \quad \forall (\mathbf{x},\mathbf{y})\in\mathbb{R}^N\times\mathbb{R}^M.
+            L^\ast L \mathbf{x}= L^\ast \mathbf{y}
+            \quad\Leftrightarrow\quad
+            \mathbf{x}=L^\dagger \mathbf{y}, \quad \forall (\mathbf{x},\mathbf{y})\in\mathbb{R}^N\times\mathbb{R}^M.
 
-        In case of severe ill-conditioning, it is also possible to consider the dampened normal equations for a numerically stabler approximation of :math:`L^\dagger \mathbf{y}`:
+        In the case of severe ill-conditioning, it is also possible to consider the dampened normal
+        equations for a numerically-stabler approximation of :math:`L^\dagger \mathbf{y}`:
 
         .. math::
 
             (L^\ast L + \tau I) \mathbf{x}= L^\ast \mathbf{y},
 
-        where :math:`\tau>0` is the ``damp`` parameter from this routine, controlling the amount of regularization (the more the stabler/the less accurate).
-
-        The normal equations can be solved via the conjugate gradient method (:py:class:`pycsou.opt.solver.cg`) or the `LSQR <https://web.stanford.edu/group/SOL/software/lsqr/>`_ /`LSMR <https://web.stanford.edu/group/SOL/software/lsmr/>`_
-        algorithms (see :py:func:`scipy.sparse.linalg.lsqr` and :py:func:`scipy.sparse.linalg.lsmr` respectively). The
-        latter may converge faster when the operator is ill-conditioned and/or when there is no fast algorithm for ``self.gram()``
-        (i.e. when ``self.gram()`` is trivially evaluated as the composition ``self.T * self``). The GPU implementation of LSQR
-        (:py:func:`cupyx.scipy.sparse.linalg.lsqr`) seems however not matrix-free compatible. Currently, only the conjugate gradient
-        method is supported.
-
-        .. todo::
-
-            Add support for LSQR/LSMR. **Add support for N-D inputs** (will require re-implementing cg ourselves).
+        where :math:`\tau>0` corresponds to the ``damp`` parameter.
         """
         from pycsou.operator.linop.base import IdentityOp
         from pycsou.opt.solver.cg import CG
@@ -2023,7 +2016,7 @@ class LinOp(DiffMap, Adjoint):
         else:
             A = self.gram()
         if "show_progress" not in kwargs_init.keys():
-            kwargs_init["show_progress"] = False  # Algorithm is silent by default.
+            kwargs_init.update(show_progress=False)
         cg = CG(A, **kwargs_init)
         cg.fit(b=b, **kwargs_fit)
         return cg.solution()
