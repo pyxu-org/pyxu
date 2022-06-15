@@ -9,6 +9,7 @@ import typing as typ
 import numpy as np
 import numpy.random as npr
 import pytest
+import scipy.linalg as splinalg
 
 import pycsou.abc.operator as pyco
 import pycsou.runtime as pycrt
@@ -1010,6 +1011,45 @@ class LinOpT(DiffMapT):
         # Do not override in subclass: for use only to test methods taking a `gpu` parameter.
         return request.param
 
+    @pytest.fixture
+    def data_pinv(self, op, data_apply) -> DataLike:
+        # override in subclass with 1D input/outputs of op.pinv().
+        # Arrays should be NumPy-only. (Internal machinery will transform to different
+        # backend/precisions as needed.)
+        #
+        # Default implementation: auto-computes pinv() at output points specified to test op.apply().
+        A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
+        damp = abs(self._random_array((1,)).item())
+        if damp > 0:
+            for i in range(op.dim):
+                A[i, i] += damp
+
+        arr = data_apply["out"]
+        out = splinalg.solve(A, op.adjoint(arr), assume_a="pos")
+        data = dict(
+            in_=dict(
+                arr=arr,
+                damp=damp,
+                kwargs_init=dict(),
+                kwargs_fit=dict(),
+            ),
+            out=out,
+        )
+        return data
+
+    @pytest.fixture
+    def _data_pinv(self, data_pinv, xp, width) -> DataLike:
+        # Generate Cartesian product of inputs.
+        # Do not override in subclass: for internal use only to test `op.pinv()`.
+        # Outputs are left unchanged: different tests should transform them as required.
+        in_ = copy.deepcopy(data_pinv["in_"])
+        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
+        data = dict(
+            in_=in_,
+            out=data_pinv["out"],
+        )
+        return data
+
     # Tests -------------------------------------------------------------------
     def test_value1D_adjoint(self, op, _data_adjoint):
         self._skip_if_disabled()
@@ -1145,6 +1185,26 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         data = dict(in_=dict(k=1, gpu=_gpu))
         self._check_precCM(op.svdvals, data, (width,))
+
+    def test_value1D_pinv(self, op, _data_pinv):
+        self._skip_if_disabled()
+        self._check_value1D(op.pinv, _data_pinv)
+
+    def test_valueND_pinv(self, op, _data_pinv):
+        self._skip_if_disabled()
+        self._check_valueND(op.pinv, _data_pinv)
+
+    def test_backend_pinv(self, op, _data_pinv):
+        self._skip_if_disabled()
+        self._check_backend(op.pinv, _data_pinv)
+
+    def test_prec_pinv(self, op, _data_pinv):
+        self._skip_if_disabled()
+        self._check_prec(op.pinv, _data_pinv)
+
+    def test_precCM_pinv(self, op, _data_pinv):
+        self._skip_if_disabled()
+        self._check_precCM(op.pinv, _data_pinv)
 
 
 class LinFuncT(ProxDiffFuncT, LinOpT):
