@@ -2012,7 +2012,7 @@ class LinOp(DiffMap, Adjoint):
         kwargs_init = {} if kwargs_init is None else kwargs_init
         b = self.adjoint(arr)
         if damp is not None:
-            A = self.gram() + damp * IdentityOp(shape=(self.dim, self.dim))
+            A = self.gram() + (IdentityOp(shape=(self.dim, self.dim)) * damp)
         else:
             A = self.gram()
         if "show_progress" not in kwargs_init.keys():
