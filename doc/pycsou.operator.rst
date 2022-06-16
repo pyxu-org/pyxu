@@ -7,7 +7,9 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
+   pycsou.operator.func
    pycsou.operator.linop
+   pycsou.operator.map
 
 Module contents
 ---------------
