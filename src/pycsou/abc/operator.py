@@ -1869,9 +1869,13 @@ class LinOp(DiffMap, Adjoint):
         svals.sort()
         return svals
 
-    def asarray(self, xp: pyct.ArrayModule = np, dtype: typ.Optional[type] = None) -> pyct.NDArray:
+    def asarray(
+        self,
+        xp: pyct.ArrayModule = np,
+        dtype: typ.Optional[type] = None,
+    ) -> pyct.NDArray:
         r"""
-        Return the matrix representation of the linear operator.
+        Matrix representation of the linear operator.
 
         Parameters
         ----------
@@ -1882,13 +1886,8 @@ class LinOp(DiffMap, Adjoint):
 
         Returns
         -------
-        NDArray
-            Matrix representation stored as an array with shape (N,M).
-
-        Notes
-        -----
-        The matrix representation is computed by evaluating the linear operator on the canonical basis vectors, which can
-        be time consuming in large dimensions (and also require a lot of memory). Use this method with caution.
+        A: NDArray
+            (codim, dim) array-representation of the operator.
         """
         if dtype is None:
             dtype = pycrt.getPrecision().value
