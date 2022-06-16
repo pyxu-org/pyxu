@@ -2069,48 +2069,24 @@ class LinOp(DiffMap, Adjoint):
     @classmethod
     def from_sciop(cls, scipy_operator) -> "LinOp":
         r"""
-        Cast a :py:class:`scipy.sparse.linalg.LinearOperator` instance into a :py:class:`~pycsou.abc.operator.LinOp`
-        instance.
+        Cast a :py:class:`scipy.sparse.linalg.LinearOperator` to a
+        :py:class:`~pycsou.abc.operator.LinOp`.
 
         Parameters
         ----------
-        scipy_operator:  scipy.sparse.linalg.LinearOperator | cupyx.scipy.sparse.linalg.LinearOperator
+        scipy_operator: [scipy|cupyx].sparse.linalg.LinearOperator
             Linear operator object compliant with SciPy's interface.
 
         Returns
         -------
-        pycsou.abc.operator.LinOp
-           Output is a :py:class:`~pycsou.abc.operator.LinOp` object.
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> from pycsou.abc.operator import LinOp
-        >>> from scipy.sparse.linalg import aslinearoperator
-        >>> mat = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32)
-        >>> sciop = aslinearoperator(mat)
-        >>> linop = LinOp.from_sciop(sciop)
-        >>> x = np.arange(15, dtype=np.float32).reshape(5, 3)
-        >>> np.allclose(linop(x), sciop.matmat(x.T).T) # transpose to satisfy numpy n-dim convention
-        True
-
-
-        .. Warning::
-        This  is a simplified example for illustration puposes only. It may not abide by all the rules listed in the
-        :ref:`developer-notes`.
-
-        Notes
-        -----
-        Scipy linear operators by default only accept 2D inputs only. In order to use N-D arrays,
-        :py:meth:`~pycsou.abc.operator.Map.from_sciop` reshapes the first N-1 stacking dimensions of the input array
-        into a single stacking dimension. The output shape is matched to the input's stacking dimensions.
+        op: pycsou.abc.operator.LinOp
 
         See Also
         --------
-        :py:meth:`~pycsou.abc.operator.LinOp.from_array`, :py:meth:`~pycsou.abc.operator.Map.from_source` and
+        :py:meth:`~pycsou.abc.operator.LinOp.from_array`,
+        :py:meth:`~pycsou.abc.operator.Map.from_source`,
         :py:meth:`~pycsou.abc.operator.LinOp.to_sciop`.
         """
-
         if scipy_operator.dtype not in [elem.value for elem in pycrt.Width]:
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
 
@@ -2124,10 +2100,10 @@ class LinOp(DiffMap, Adjoint):
             out_shape = arr.shape[:-1] + (-1,) if arr.ndim > 1 else (-1,)
             return scipy_operator.rmatmat(arr.reshape(-1, arr.shape[-1]).transpose()).transpose().reshape(*out_shape)
 
-        out_op = cls(scipy_operator.shape)
-        setattr(out_op, "apply", types.MethodType(apply, out_op))
-        setattr(out_op, "adjoint", types.MethodType(adjoint, out_op))
-        return out_op
+        op = cls(scipy_operator.shape)
+        setattr(op, "apply", types.MethodType(apply, op))
+        setattr(op, "adjoint", types.MethodType(adjoint, op))
+        return op
 
     @classmethod
     def from_array(
