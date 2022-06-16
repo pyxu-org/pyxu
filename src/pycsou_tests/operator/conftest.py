@@ -1401,6 +1401,38 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         self._check_precCM(_op_dagger.adjoint, _data_adjoint_dagger)
 
+    def test_interface_gram(self, op):
+        self._skip_if_disabled()
+        self._check_has_interface(op.gram(), PosDefOpT)
+
+    def test_math_gram(self, op):
+        # op_g.apply == op_g.adjoint == adjoint \comp apply
+        # op_g.svdmax == op.svdmax**2
+        self._skip_if_disabled()
+        op_g = op.gram()
+        x = self._random_array((30, op.dim))
+        kwargs = dict(k=1, which="LM", gpu=False)
+
+        assert allclose(op_g.apply(x), op_g.adjoint(x), as_dtype=x.dtype)
+        assert allclose(op_g.apply(x), op.adjoint(op.apply(x)), as_dtype=x.dtype)
+        assert np.isclose(op_g.svdvals(**kwargs), op.svdvals(**kwargs) ** 2)
+
+    def test_interface_cogram(self, op):
+        self._skip_if_disabled()
+        self._check_has_interface(op.cogram(), PosDefOpT)
+
+    def test_math_cogram(self, op):
+        # op_cg.apply == op_cg.adjoint == apply \comp adjoint
+        # op_cg.svdmax == op.svdmax**2
+        self._skip_if_disabled()
+        op_cg = op.cogram()
+        x = self._random_array((30, op.codim))
+        kwargs = dict(k=1, which="LM", gpu=False)
+
+        assert allclose(op_cg.apply(x), op_cg.adjoint(x), as_dtype=x.dtype)
+        assert allclose(op_cg.apply(x), op.apply(op.adjoint(x)), as_dtype=x.dtype)
+        assert np.isclose(op_cg.svdvals(**kwargs), op.svdvals(**kwargs) ** 2)
+
 
 class LinFuncT(ProxDiffFuncT, LinOpT):
     # Class Properties --------------------------------------------------------
