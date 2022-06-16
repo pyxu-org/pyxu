@@ -10,6 +10,7 @@ import numpy as np
 import numpy.random as npr
 import pytest
 import scipy.linalg as splinalg
+import scipy.sparse.linalg as spsl
 
 import pycsou.abc.operator as pyco
 import pycsou.runtime as pycrt
@@ -1129,6 +1130,53 @@ class LinOpT(DiffMapT):
             A_gt[:, i] = op.apply(e)
         return A_gt
 
+    @pytest.fixture
+    def _op_sciop(self, op, _gpu, width) -> spsl.LinearOperator:
+        A = op.to_sciop(dtype=width.value, gpu=_gpu)
+        return A
+
+    @pytest.fixture(
+        params=[
+            "matvec",
+            "matmat",
+            "rmatvec",
+            "rmatmat",
+        ]
+    )
+    def _data_to_sciop(self, op, _op_sciop, _gpu, width, request) -> DataLike:
+        # Do not override in subclass: for internal use only to test `op.to_sciop()`.
+        if _gpu:
+            import cupy as cp
+
+            xp = cp
+        else:
+            xp = np
+
+        N_test = 5
+        f = lambda _: xp.array(_, dtype=width.value)
+        mode = request.param
+        if mode == "matvec":
+            arr = f(self._random_array((op.dim,)))
+            out_gt = op.apply(arr)
+            var = "x"
+        elif mode == "matmat":
+            arr = f(self._random_array((op.dim, N_test)))
+            out_gt = op.apply(arr.T).T
+            var = "X"
+        elif mode == "rmatvec":
+            arr = f(self._random_array((op.codim,)))
+            out_gt = op.adjoint(arr)
+            var = "x"
+        elif mode == "rmatmat":
+            arr = f(self._random_array((op.codim, N_test)))
+            out_gt = op.adjoint(arr.T).T
+            var = "X"
+        return dict(
+            in_={var: arr},
+            out=out_gt,
+            mode=mode,  # for test_xxx_sciop()
+        )
+
     # Tests -------------------------------------------------------------------
     def test_value1D_adjoint(self, op, _data_adjoint):
         self._skip_if_disabled()
@@ -1477,6 +1525,28 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         A = np.array(op, dtype=width.value)
         assert A.dtype == width.value
+
+    def test_value_to_sciop(self, _op_sciop, _data_to_sciop):
+        self._skip_if_disabled()
+        func = getattr(_op_sciop, _data_to_sciop["mode"])
+        out = func(**_data_to_sciop["in_"])
+        out_gt = _data_to_sciop["out"]
+        assert out.shape == out_gt.shape
+        assert allclose(out, out_gt, as_dtype=out_gt.dtype)
+
+    def test_backend_to_sciop(self, _op_sciop, _data_to_sciop):
+        self._skip_if_disabled()
+        func = getattr(_op_sciop, _data_to_sciop["mode"])
+        out = func(**_data_to_sciop["in_"])
+        out_gt = _data_to_sciop["out"]
+        assert pycu.get_array_module(out) == pycu.get_array_module(out_gt)
+
+    def test_prec_to_sciop(self, _op_sciop, _data_to_sciop):
+        self._skip_if_disabled()
+        func = getattr(_op_sciop, _data_to_sciop["mode"])
+        out = func(**_data_to_sciop["in_"])
+        out_gt = _data_to_sciop["out"]
+        assert out.dtype == out_gt.dtype
 
 
 class LinFuncT(ProxDiffFuncT, LinOpT):
