@@ -1,3 +1,9 @@
+# #############################################################################
+# lsmr.py
+# ========
+# Author : Kaan Okumus [okukaan@gmail.com]
+# #############################################################################
+
 import typing as typ
 
 import numpy as np
@@ -12,62 +18,65 @@ import pycsou.util.ptype as pyct
 
 class LSMR(pycs.Solver):
     r"""
-     LSMR Method.
+    LSMR Method.
 
-     The LSMR method solves the system of linear equations :math:`\mathbf{A}\mathbf{x}=\mathbf{b}` iteratively. If the
-     system is inconsistent, it solves the least-squares problem :math:`\min ||\mathbf{b} - \mathbf{A}\mathbf{x}||_2`.
-     :math:`\mathbf{A}` is a rectangular matrix of dimension m-by-n, where all cases are allowed: m=n, m>n or m<n.
-     :math:`\mathbf{b}` is a vector of length m. The matrix :math:`\mathbf{A}` may be dense or sparse.
+    The LSMR method solves the system of linear equations :math:`\mathbf{A}\mathbf{x}=\mathbf{b}` iteratively. If the
+    system is inconsistent, it solves the least-squares problem :math:`\min ||\mathbf{b} - \mathbf{A}\mathbf{x}||_2`.
+    :math:`\mathbf{A}` is a rectangular matrix of dimension m-by-n, where all cases are allowed: m=n, m>n or m<n.
+    :math:`\mathbf{b}` is a vector of length m. The matrix :math:`\mathbf{A}` may be dense or sparse.
 
-     ``CG()`` **Parameterization**
-     A: pycsou.abc.operator.PosDefOp
+    ``LSMR()`` **Parameterization**
+
+    A: :py:class:`pycsou.abc.operator.PosDefOp`
         Any positive definite linear operator is accepted.
-     damp: float
+    damp: float
         Damping coefficient. Default is 0.
-     atol, btol: float
+    atol, btol: float
         Stopping tolerances. LSMR continues iterations until a certain backward error estimate is smaller than some
         quantity depending on atol and btol. Default is 1e-6 for both.
-     conlim: float
-        LSMR terminates if an estimate :math:`cond(\mathbf{A})` exceeds conlim. Default is 1e8.
-     iter_lim: int, optional
+    conlim: float
+        LSMR terminates if an estimate :math:`\text{cond}(\mathbf{A})` exceeds conlim. Default is 1e8.
+    iter_lim: int, optional
         LSMR terminates if the number of iterations reaches iter_lim. Default is None.
 
-     ``CG.fit()`` **Parameterization**
+    ``LSMR.fit()`` **Parameterization**
 
-     b: NDArray
+    b: NDArray
          (..., N) 'b' terms in the LSMR cost function. All problems are solved in parallel.
-     x0: NDArray
+    x0: NDArray
         (..., N) initial point(s). Defaults to 0 if unspecified.
-     restart_rate: int
+    restart_rate: int
         Number of iterations after which restart is applied. By default, restart is done after 'n' iterations, where 'n'
         corresponds to the dimension of the linear operator :math:`\mathbf{A}`.
 
-    **Remark:** In pycsou.opt.solver.stop, StopCriterion_LSMR is developed for the stopping criterion of LSMR. For
+    **Remark:** :py:class:`pycsou.opt.solver.stop.StopCriterion_LSMR` is developed for the stopping criterion of LSMR. For
     computational speed, explicit norms were not computated. Instead, their estimation was used, which is referred from
-    [1].
+    [2]_.
 
-     References
-     ----------
-        [1] D. C.-L. Fong and M. A. Saunders,
-            "LSMR: An iterative algorithm for sparse least-squares problems",
-            SIAM J. Sci. Comput., vol. 33, pp. 2950-2971, 2011.
-     Examples
-     --------
-     >>> import numpy as np
+    Examples
+    --------
+    >>> import numpy as np
      >>> from pycsou.abc import LinOp
-     >>> # Create a PSD linear operator
-     >>> rng = np.random.default_rng(seed=0)
-     >>> mat = rng.normal(size=(10, 10))
-     >>> A = LinOp.from_array(mat).gram()
-     >>> # Create the ground truth 'x_star'
-     >>> x_star = rng.normal(size=(2, 2, 10))
-     >>> # Generate the corresponding data vector 'b'
-     >>> b = A.apply(x_star)
-     >>> # Solve 'Ax=b' for 'x' with the conjugate gradient method
-     >>> lsmr = LSMR(A, show_progress=False)
-     >>> lsmr.fit(b=b)
-     >>> x_solution = lsmr.solution()
-     >>> assert np.allclose(x_star, x_solution)
+    >>> # Create a PSD linear operator
+    >>> rng = np.random.default_rng(seed=0)
+    >>> mat = rng.normal(size=(10, 10))
+    >>> A = LinOp.from_array(mat).gram()
+    >>> # Create the ground truth 'x_star'
+    >>> x_star = rng.normal(size=(2, 2, 10))
+    >>> # Generate the corresponding data vector 'b'
+    >>> b = A.apply(x_star)
+    >>> # Solve 'Ax=b' for 'x' with the conjugate gradient method
+    >>> lsmr = LSMR(A, show_progress=False)
+    >>> lsmr.fit(b=b)
+    >>> x_solution = lsmr.solution()
+    >>> assert np.allclose(x_star, x_solution)
+    True
+
+    **References:**
+
+    .. [2] D. C.-L. Fong and M. A. Saunders,
+        "LSMR: An iterative algorithm for sparse least-squares problems",
+        SIAM J. Sci. Comput., vol. 33, pp. 2950-2971, 2011.
     """
 
     def __init__(
@@ -112,19 +121,21 @@ class LSMR(pycs.Solver):
     ):
         xp = pycu.get_array_module(b)
 
+        b = xp.atleast_1d(b)
+        if b.ndim > 1:
+            b = b.squeeze()
+        m, n = self._A.shape
+
         u = b
         normb = xp.linalg.norm(b)
 
         if x0 is None:
-            # TODO: make sure shape is correct
-            x = xp.zeros((self._A.shape[1],))
+            x = xp.zeros(n)
             beta = normb.copy()
         else:
             x = x0.copy()
             u -= self._A.apply(x)
             beta = xp.linalg.norm(u)
-
-        # TODO: If b is 0-vector, make x 0-vector!
 
         if beta > 0:
             u *= 1 / beta
@@ -138,7 +149,17 @@ class LSMR(pycs.Solver):
             v *= 1 / alpha
 
         mst = self._mstate
-        mst["x"], mst["u"], mst["v"], mst["alpha"] = x, u, v, alpha
+
+        normar = alpha * beta
+        if normar == 0:
+            mst["trivial"] = True
+            if b.ndim == 1:
+                mst["x"] = xp.zeros(n)
+            elif b.ndim == 2:
+                mst["x"] = xp.zeros((b.shape[0], n))
+            return
+
+        mst["x"], mst["u"], mst["v"], mst["alpha"], mst["trivial"] = x, u, v, alpha, False
 
         # Initialize variables for 1st iteration:
         mst["zetabar"], mst["alphabar"] = alpha * beta, alpha
@@ -155,7 +176,7 @@ class LSMR(pycs.Solver):
         mst["normA2"] = alpha**2
         mst["maxrbar"], mst["minrbar"] = 0, 1e100
         mst["normA"], mst["condA"] = xp.sqrt(mst["normA2"]), 1
-        mst["normx"], mst["normr"], mst["normar"] = 0, beta, alpha * beta
+        mst["normx"], mst["normr"], mst["normar"] = 0, beta, normar
         self._normb = normb
 
         # Initialize variables for testing stopping rules:
@@ -183,9 +204,10 @@ class LSMR(pycs.Solver):
         return c, s, r
 
     def m_step(self):
-        self._itn += 1
 
         mst = self._mstate
+        if mst["trivial"]:
+            return
         xp = pycu.get_array_module(mst["x"])
 
         x, u, v, alpha = mst["x"], mst["u"], mst["v"], mst["alpha"]
@@ -195,6 +217,8 @@ class LSMR(pycs.Solver):
         betadd, betad, tautildeold, thetatilde = mst["betadd"], mst["betad"], mst["tautildeold"], mst["thetatilde"]
         rhodold, zeta, d = mst["rhodold"], mst["zeta"], mst["d"]
         normA2, minrbar, maxrbar = mst["normA2"], mst["minrbar"], mst["maxrbar"]
+
+        self._itn += 1
 
         # Bidiagonalizaion to obtain next beta, u, alpha, v:
         u = self._A.apply(v) - alpha * u
@@ -227,7 +251,7 @@ class LSMR(pycs.Solver):
 
         # Update h, h_hat, x:
         hbar = h - hbar * (thetabar * rho / (rhoold * rhobarold))
-        x += (zeta / (rho * rhobar)) * hbar
+        x = x + (zeta / (rho * rhobar)) * hbar
         h = v - h * (thetanew / rho)
 
         # Estimation of ||r||:
@@ -288,7 +312,8 @@ class LSMR(pycs.Solver):
         mst["t1"], mst["rtol"] = t1, rtol
 
     def default_stop_crit(self) -> pycs.StoppingCriterion:
-        stop_crit = pycos.StopCriterion_LSMR(
+        stop_crit = pycos.StopCriterion_LSQMR(
+            method="lsmr",
             atol=self._atol,
             ctol=self._ctol,
             itn=0,
