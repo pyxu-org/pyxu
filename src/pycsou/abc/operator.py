@@ -2090,15 +2090,25 @@ class LinOp(DiffMap, Adjoint):
         if scipy_operator.dtype not in [elem.value for elem in pycrt.Width]:
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
 
+        # [r]matmat only accepts 2D inputs -> reshape apply|adjoint inputs as needed.
+
         @pycrt.enforce_precision(i="arr")
         def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-            out_shape = arr.shape[:-1] + (-1,) if arr.ndim > 1 else (-1,)
-            return scipy_operator.matmat(arr.reshape(-1, arr.shape[-1]).transpose()).transpose().reshape(*out_shape)
+            if _1d := arr.ndim == 1:
+                arr = arr.reshape((1, arr.size))
+            out = scipy_operator.matmat(arr.T).T
+            if _1d:
+                out = out.squeeze(axis=0)
+            return out
 
         @pycrt.enforce_precision(i="arr")
         def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-            out_shape = arr.shape[:-1] + (-1,) if arr.ndim > 1 else (-1,)
-            return scipy_operator.rmatmat(arr.reshape(-1, arr.shape[-1]).transpose()).transpose().reshape(*out_shape)
+            if _1d := arr.ndim == 1:
+                arr = arr.reshape((1, arr.size))
+            out = scipy_operator.rmatmat(arr.T).T
+            if _1d:
+                out = out.squeeze(axis=0)
+            return out
 
         op = cls(scipy_operator.shape)
         setattr(op, "apply", types.MethodType(apply, op))
