@@ -20,6 +20,22 @@ pycsou.opt.solver.cg module
    :undoc-members:
    :show-inheritance:
 
+pycsou.opt.solver.lsqr module
+---------------------------
+
+.. automodule:: pycsou.opt.solver.lsqr
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycsou.opt.solver.lsmr module
+---------------------------
+
+.. automodule:: pycsou.opt.solver.lsmr
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 
