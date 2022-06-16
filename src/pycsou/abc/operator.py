@@ -2047,7 +2047,7 @@ class LinOp(DiffMap, Adjoint):
         dagger = LinOp(self.shape[::-1])
         dagger.apply = types.MethodType(
             ft.partial(
-                lambda damp, kwargs_init, kwargs_fit, _, x: self.pinv(x, damp, kwargs_init, kwargs_fit),
+                lambda damp, kwargs_init, kwargs_fit, _, arr: self.pinv(arr, damp, kwargs_init, kwargs_fit),
                 damp,
                 kwargs_init,
                 kwargs_fit,
@@ -2056,7 +2056,7 @@ class LinOp(DiffMap, Adjoint):
         )
         dagger.adjoint = types.MethodType(
             ft.partial(
-                lambda damp, kwargs_init, kwargs_fit, _, x: self.T.pinv(x, damp, kwargs_init, kwargs_fit),
+                lambda damp, kwargs_init, kwargs_fit, _, arr: self.T.pinv(arr, damp, kwargs_init, kwargs_fit),
                 damp,
                 kwargs_init,
                 kwargs_fit,
