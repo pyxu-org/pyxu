@@ -81,9 +81,9 @@ class LSQR(pycs.Solver):
 
     **References:**
 
-    .. [1] S.-C. Choi, "Iterative Methods for Singular Linear Equations
-        and Least-Squares Problems", Dissertation,
-        http://www.stanford.edu/group/SOL/dissertations/sou-cheng-choi-thesis.pdf
+    .. [1] C. C. Paige and M. A. Saunders "LSQR: An algorithm for sparse linear
+        equations and sparse least squares", Dissertation,
+        https://web.stanford.edu/group/SOL/software/lsqr/lsqr-toms82a.pdf
     """
 
     def __init__(
