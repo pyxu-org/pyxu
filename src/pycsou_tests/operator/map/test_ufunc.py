@@ -712,7 +712,7 @@ class TestCumsum(conftest.DiffMapT):
 # Miscellaneous
 
 
-class TestClip(conftest.MapT):
+class TestClip(conftest.DiffMapT):
     @pytest.fixture
     def dim(self):
         return 100
@@ -736,6 +736,11 @@ class TestClip(conftest.MapT):
 
     @pytest.fixture
     def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
@@ -877,7 +882,7 @@ class TestAbs(conftest.DiffMapT):
         return self._random_array((N_test, data_shape[0]))
 
 
-class TestSign(conftest.MapT):
+class TestSign(conftest.DiffMapT):
     @pytest.fixture
     def dim(self):
         return 100
@@ -901,6 +906,11 @@ class TestSign(conftest.MapT):
 
     @pytest.fixture
     def data_math_lipschitz(self, data_shape):
+        N_test = 5
+        return self._random_array((N_test, data_shape[0]))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, data_shape):
         N_test = 5
         return self._random_array((N_test, data_shape[0]))
 
