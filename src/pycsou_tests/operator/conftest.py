@@ -1410,3 +1410,33 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
     # Fixtures ----------------------------------------------------------------
 
     # Tests -------------------------------------------------------------------
+
+
+class SquareOpT(LinOpT):
+    pass
+
+
+class NormalOpT(SquareOpT):
+    # Class Properties --------------------------------------------------------
+    interface = frozenset(SquareOpT.interface | {"eigvals"})
+
+
+class UnitOpT(NormalOpT):
+    pass
+
+
+class SelfAdjointOpT(NormalOpT):
+    pass
+
+
+class PosDefOpT(SelfAdjointOpT):
+    pass
+
+
+class ProjOpT(SquareOpT):
+    pass
+
+
+class OrthProjOpT(ProjOpT, SelfAdjointOpT):
+    # todo: make sure order is correct
+    pass
