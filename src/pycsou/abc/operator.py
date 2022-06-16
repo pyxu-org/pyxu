@@ -1749,8 +1749,6 @@ class LinOp(DiffMap, Adjoint):
             dtype = pycrt.getPrecision().value
 
         if gpu:
-            # Scipy will force-cast any input of the LinOp to a Numpy array, so the cupyx version is
-            # needed.
             assert pycd.CUPY_ENABLED
             import cupyx.scipy.sparse.linalg as spx
         else:
