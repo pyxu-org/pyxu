@@ -2132,16 +2132,19 @@ class LinOp(DiffMap, Adjoint):
         return out_op
 
     @classmethod
-    def from_array(cls, mat: typ.Union[pyct.NDArray, pyct.SparseArray], enable_warnings: bool = True) -> "LinOp":
+    def from_array(
+        cls,
+        mat: typ.Union[pyct.NDArray, pyct.SparseArray],
+        enable_warnings: bool = True,
+    ) -> "LinOp":
         r"""
-        Create an instance of a :py:class:`~pycsou.abc.operator.LinOp` from its matrix representation (see
-        :py:class:`pycsou.operator.linop.base.ExplicitLinOp`).
+        Instantiate a :py:class:`~pycsou.abc.operator.LinOp` from its array representation.
 
         See Also
         --------
-        :py:meth:`~pycsou.abc.operator.LinOp.from_sciop`, :py:meth:`~pycsou.abc.operator.Map.from_source`,
-        :py:class:`pycsou.operator.linop.base.ExplicitLinOp`, :py:meth:`~pycsou.abc.operator.LinFunc.from_array`.
-
+        :py:meth:`~pycsou.abc.operator.LinOp.from_sciop`,
+        :py:meth:`~pycsou.abc.operator.Map.from_source`,
+        :py:class:`pycsou.operator.linop.base.ExplicitLinOp`.
         """
         from pycsou.operator.linop.base import ExplicitLinOp
 
