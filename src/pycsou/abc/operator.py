@@ -1740,10 +1740,10 @@ class LinOp(DiffMap, Adjoint):
         """
 
         def matmat(arr: pyct.NDArray) -> pyct.NDArray:
-            return self.apply(arr.transpose())
+            return self.apply(arr.T).T
 
         def rmatmat(arr: pyct.NDArray) -> pyct.NDArray:
-            return self.adjoint(arr.transpose())
+            return self.adjoint(arr.T).T
 
         if dtype is None:
             dtype = pycrt.getPrecision().value
