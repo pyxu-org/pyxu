@@ -1891,7 +1891,10 @@ class LinOp(DiffMap, Adjoint):
         """
         if dtype is None:
             dtype = pycrt.getPrecision().value
-        return self.apply(xp.eye(self.dim, dtype=dtype)).transpose()
+        with pycrt.EnforcePrecision(False):
+            E = xp.eye(self.dim, dtype=dtype)
+            A = self.apply(E).T
+        return A
 
     def __array__(self, dtype: typ.Optional[type] = None) -> np.ndarray:
         r"""
