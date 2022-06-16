@@ -1119,6 +1119,16 @@ class LinOpT(DiffMapT):
         )
         return data
 
+    @pytest.fixture
+    def _op_array(self, op, xp, width) -> pyct.NDArray:
+        # Ground-truth array which should be returned by .asarray()
+        A_gt = xp.zeros((op.codim, op.dim), dtype=width.value)
+        for i in range(op.dim):
+            e = xp.zeros((op.dim,), dtype=width.value)
+            e[i] = 1
+            A_gt[:, i] = op.apply(e)
+        return A_gt
+
     # Tests -------------------------------------------------------------------
     def test_value1D_adjoint(self, op, _data_adjoint):
         self._skip_if_disabled()
@@ -1432,6 +1442,24 @@ class LinOpT(DiffMapT):
         assert allclose(op_cg.apply(x), op_cg.adjoint(x), as_dtype=x.dtype)
         assert allclose(op_cg.apply(x), op.apply(op.adjoint(x)), as_dtype=x.dtype)
         assert np.isclose(op_cg.svdvals(**kwargs), op.svdvals(**kwargs) ** 2)
+
+    def test_value_asarray(self, op, _op_array):
+        self._skip_if_disabled()
+        xp = pycu.get_array_module(_op_array)
+        dtype = _op_array.dtype
+        A = op.asarray(xp=xp, dtype=dtype)
+        assert A.shape == _op_array.shape
+        assert allclose(_op_array, A, as_dtype=dtype)
+
+    def test_backend_asarray(self, op, xp, width):
+        self._skip_if_disabled()
+        A = op.asarray(xp=xp, dtype=width.value)
+        assert pycu.get_array_module(A) == xp
+
+    def test_prec_asarray(self, op, xp, width):
+        self._skip_if_disabled()
+        A = op.asarray(xp=xp, dtype=width.value)
+        assert A.dtype == width.value
 
 
 class LinFuncT(ProxDiffFuncT, LinOpT):
