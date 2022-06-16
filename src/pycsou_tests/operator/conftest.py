@@ -92,6 +92,7 @@ DataLike = cabc.Mapping[str, typ.Any]
 
 class MapT:
     # Class Properties --------------------------------------------------------
+    base = pyco.Map
     disable_test: cabc.Set[str] = frozenset()
     interface: cabc.Set[str] = frozenset(
         {
@@ -469,6 +470,7 @@ class MapT:
 
 class FuncT(MapT):
     # Class Properties --------------------------------------------------------
+    base = pyco.Func
     interface = frozenset(MapT.interface | {"asloss"})
 
     # Tests -------------------------------------------------------------------
@@ -493,6 +495,7 @@ class FuncT(MapT):
 
 class DiffMapT(MapT):
     # Class Properties --------------------------------------------------------
+    base = pyco.DiffMap
     interface = frozenset(
         MapT.interface
         | {
@@ -551,6 +554,7 @@ class DiffMapT(MapT):
 
 class DiffFuncT(FuncT, DiffMapT):
     # Class Properties --------------------------------------------------------
+    base = pyco.DiffFunc
     interface = frozenset(FuncT.interface | DiffMapT.interface | {"grad"})
     disable_test = frozenset(FuncT.disable_test | DiffMapT.disable_test)
 
@@ -694,6 +698,7 @@ class DiffFuncT(FuncT, DiffMapT):
 
 class ProxFuncT(FuncT):
     # Class Properties --------------------------------------------------------
+    base = pyco.ProxFunc
     interface = frozenset(
         FuncT.interface
         | {
@@ -907,11 +912,13 @@ class ProxFuncT(FuncT):
 
 class ProxDiffFuncT(ProxFuncT, DiffFuncT):
     # Class Properties --------------------------------------------------------
+    base = pyco.ProxDiffFunc
     interface = frozenset(ProxFuncT.interface | DiffFuncT.interface)
 
 
 class LinOpT(DiffMapT):
     # Class Properties --------------------------------------------------------
+    base = pyco.LinOp
     interface = frozenset(
         DiffMapT.interface
         | {
@@ -1551,6 +1558,7 @@ class LinOpT(DiffMapT):
 
 class LinFuncT(ProxDiffFuncT, LinOpT):
     # Class Properties --------------------------------------------------------
+    base = pyco.LinFunc
     interface = frozenset(ProxDiffFuncT.interface | LinOpT.interface)
     disable_test = frozenset(ProxDiffFuncT.disable_test | LinOpT.disable_test)
 
@@ -1560,30 +1568,36 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
 
 
 class SquareOpT(LinOpT):
-    pass
+    # Class Properties --------------------------------------------------------
+    base = pyco.SquareOp
 
 
 class NormalOpT(SquareOpT):
     # Class Properties --------------------------------------------------------
+    base = pyco.NormalOp
     interface = frozenset(SquareOpT.interface | {"eigvals"})
 
 
 class UnitOpT(NormalOpT):
-    pass
+    # Class Properties --------------------------------------------------------
+    base = pyco.UnitOp
 
 
 class SelfAdjointOpT(NormalOpT):
-    pass
+    # Class Properties --------------------------------------------------------
+    base = pyco.SelfAdjointOp
 
 
 class PosDefOpT(SelfAdjointOpT):
-    pass
+    # Class Properties --------------------------------------------------------
+    base = pyco.PosDefOp
 
 
 class ProjOpT(SquareOpT):
-    pass
+    # Class Properties --------------------------------------------------------
+    base = pyco.ProjOp
 
 
-class OrthProjOpT(ProjOpT, SelfAdjointOpT):
-    # todo: make sure order is correct
-    pass
+class OrthProjOpT(ProjOpT, SelfAdjointOpT):  # todo: make sure order is correct
+    # Class Properties --------------------------------------------------------
+    base = pyco.OrthProjOp
