@@ -1898,21 +1898,22 @@ class LinOp(DiffMap, Adjoint):
 
     def __array__(self, dtype: typ.Optional[type] = None) -> np.ndarray:
         r"""
-        Numpy protocol allowing to coerce the linear operator into a :py:class:`numpy.ndarray` object.
+        Coerce linear operator to a :py:class:`numpy.ndarray`.
 
         Parameters
         ----------
         dtype: type | None
             Optional ``dtype`` of the array.
+
         Returns
         -------
-        numpy.ndarray
-            Matrix representation of the linear operator stored as a Numpy array.
+        A : numpy.ndarray
+            (codim, dim) representation of the linear operator, stored as a NumPy array.
 
         Notes
         -----
-        Functions like ``np.array`` or  ``np.asarray`` will check for the existence of the ``__array__`` protocol to know how to coerce the
-        custom object fed as input into an array.
+        Functions like ``np.array`` or  ``np.asarray`` will check for the existence of the
+        ``__array__`` protocol to know how to coerce the custom object fed as input into an array.
         """
         if dtype is None:
             dtype = pycrt.getPrecision().value
