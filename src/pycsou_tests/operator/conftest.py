@@ -1004,6 +1004,11 @@ class LinOpT(DiffMapT):
         )
         return np.sort(D)
 
+    @pytest.fixture
+    def _op_T(self, op) -> pyco.LinOp:
+        op_T = op.T
+        return op_T
+
     @pytest.fixture(
         params=[
             False,
@@ -1249,6 +1254,69 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         data = dict(in_=dict(k=1, gpu=_gpu))
         self._check_precCM(op.svdvals, data, (width,))
+
+    def test_interface_T(self, _op_T):
+        self._check_has_interface(_op_T, LinOpT)
+
+    def test_value1D_call_T(self, _op_T, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_value1D(_op_T.__call__, _data_adjoint)
+
+    def test_valueND_call_T(self, _op_T, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_valueND(_op_T.__call__, _data_adjoint)
+
+    def test_backend_call_T(self, _op_T, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_backend(_op_T.__call__, _data_adjoint)
+
+    def test_prec_call_T(self, _op_T, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_prec(_op_T.__call__, _data_adjoint)
+
+    def test_precCM_call_T(self, _op_T, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_precCM(_op_T.__call__, _data_adjoint)
+
+    def test_value1D_apply_T(self, _op_T, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_value1D(_op_T.apply, _data_adjoint)
+
+    def test_valueND_apply_T(self, _op_T, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_valueND(_op_T.apply, _data_adjoint)
+
+    def test_backend_apply_T(self, _op_T, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_backend(_op_T.apply, _data_adjoint)
+
+    def test_prec_apply_T(self, _op_T, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_prec(_op_T.apply, _data_adjoint)
+
+    def test_precCM_apply_T(self, _op_T, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_precCM(_op_T.apply, _data_adjoint)
+
+    def test_value1D_adjoint_T(self, _op_T, _data_apply):
+        self._skip_if_disabled()
+        self._check_value1D(_op_T.adjoint, _data_apply)
+
+    def test_valueND_adjoint_T(self, _op_T, _data_apply):
+        self._skip_if_disabled()
+        self._check_valueND(_op_T.adjoint, _data_apply)
+
+    def test_backend_adjoint_T(self, _op_T, _data_apply):
+        self._skip_if_disabled()
+        self._check_backend(_op_T.adjoint, _data_apply)
+
+    def test_prec_adjoint_T(self, _op_T, _data_apply):
+        self._skip_if_disabled()
+        self._check_prec(_op_T.adjoint, _data_apply)
+
+    def test_precCM_adjoint_T(self, _op_T, _data_apply):
+        self._skip_if_disabled()
+        self._check_precCM(_op_T.adjoint, _data_apply)
 
     def test_value1D_pinv(self, op, _data_pinv):
         self._skip_if_disabled()
