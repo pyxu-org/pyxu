@@ -1626,6 +1626,20 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
 class SquareOpT(LinOpT):
     # Class Properties --------------------------------------------------------
     base = pyco.SquareOp
+    disable_test = frozenset(
+        LinOpT.disable_test
+        | {
+            "test_precCM_pinv",  # temporary
+            "test_precCM_call_dagger",  # temporary
+            "test_precCM_apply_dagger",  # temporary
+            "test_precCM_adjoint_dagger",  # temporary
+        }
+    )
+
+    # Tests -------------------------------------------------------------------
+    def test_square(self, op):
+        self._skip_if_disabled()
+        assert op.dim == op.codim
 
 
 class NormalOpT(SquareOpT):
