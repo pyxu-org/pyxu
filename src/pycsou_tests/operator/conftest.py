@@ -1277,9 +1277,10 @@ class LinOpT(DiffMapT):
         assert L_svds <= L_fro
 
     def test_math3_lipschitz(self, op, _op_svd):
-        # op.lipschitz() computes the optimal Lipschitz constant.
+        # op.lipschitz('svds') computes the optimal Lipschitz constant.
         self._skip_if_disabled()
-        assert np.isclose(op.lipschitz(), _op_svd.max())
+        L_svds = op.lipschitz(recompute=True, algo="svds")
+        assert np.isclose(L_svds, _op_svd.max())
 
     def test_interface_jacobian(self, op, _data_apply):
         self._skip_if_disabled()
