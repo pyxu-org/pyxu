@@ -2271,7 +2271,7 @@ class NormalOp(SquareOp):
             spx = splin
         op = self.to_sciop(pycrt.getPrecision().value, gpu)
         kwargs.update(k=k, which=which, return_eigenvectors=False)
-        f = getattr(spx, "eigvalsh" if symmetric else "eigvals")
+        f = getattr(spx, "eigsh" if symmetric else "eigs")
 
         evals = f(op, **kwargs)
         evals.sort()
