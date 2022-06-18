@@ -5,6 +5,7 @@ import itertools
 import math
 import types
 import typing as typ
+import warnings
 
 import numpy as np
 import numpy.random as npr
@@ -1672,11 +1673,15 @@ class NormalOpT(SquareOpT):
     def test_value1D_eigvals(self, op, _op_eig, k, which):
         self._skip_if_disabled()
         data = dict(k=k, which=which)
-        self._check_value1D_vals(op.eigvals, data, _op_eig)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            self._check_value1D_vals(op.eigvals, data, _op_eig)
 
     def test_backend_eigvals(self, op, _gpu):
         self._skip_if_disabled()
-        self._check_backend_vals(op.eigvals, _gpu)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            self._check_backend_vals(op.eigvals, _gpu)
 
     @pytest.mark.parametrize(
         "width",  # local override of this fixture
@@ -1696,7 +1701,9 @@ class NormalOpT(SquareOpT):
     def test_precCM_eigvals(self, op, _gpu, width):
         self._skip_if_disabled()
         data = dict(in_=dict(k=1, gpu=_gpu))
-        self._check_precCM(op.eigvals, data, (width,))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            self._check_precCM(op.eigvals, data, (width,))
 
     def test_math_normality(self, op):
         # AA^{*} = A^{*}A
