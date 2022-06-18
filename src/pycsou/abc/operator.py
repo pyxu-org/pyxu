@@ -9,6 +9,7 @@ import scipy.sparse.linalg as splin
 
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.complex as pycuc
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
@@ -2274,6 +2275,10 @@ class NormalOp(SquareOp):
         f = getattr(spx, "eigsh" if symmetric else "eigs")
 
         evals = f(op, **kwargs)
+        if pycuc._is_complex(evals):
+            msg = "Complex-valued eigenvalues exist. Only their real-part will be returned."
+            warnings.warn(msg, UserWarning)
+            evals = evals.real
         evals.sort()
         return evals
 
@@ -2286,7 +2291,7 @@ class NormalOp(SquareOp):
         **kwargs,
     ) -> pyct.NDArray:
         r"""
-        Find ``k`` eigenvalues of a normal operator.
+        Find ``k`` eigenvalues of a normal operator. (Real part)
 
         Parameters
         ----------
@@ -2304,8 +2309,11 @@ class NormalOp(SquareOp):
 
         Returns
         -------
-        NDArray
-            Array containing the ``k`` requested eigenvalues in ascending order.
+        evals: NDArray
+            (k,) requested eigenvalues (real-valued part) in ascending order.
+
+            IMPORTANT: only the real-valued part of the spectrum is provided. A warning is emitted
+            if complex-valued eigenvalues are found.
         """
         return self._eigvals(k, which, gpu, symmetric=False, **kwargs)
 
