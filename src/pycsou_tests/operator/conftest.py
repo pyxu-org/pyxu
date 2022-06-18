@@ -1659,6 +1659,55 @@ class NormalOpT(SquareOpT):
     base = pyco.NormalOp
     interface = frozenset(SquareOpT.interface | {"eigvals"})
 
+    # Fixtures ----------------------------------------------------------------
+    @pytest.fixture
+    def _op_eig(self, op) -> np.ndarray:
+        # compute all eigenvalues, sorted in ascending order.
+        D = np.linalg.eigvals(op.asarray())
+        return np.sort(D)
+
+    # Tests -------------------------------------------------------------------
+    @pytest.mark.parametrize("k", [1, 2])
+    @pytest.mark.parametrize("which", ["SM", "LM"])
+    def test_value1D_eigvals(self, op, _op_eig, k, which):
+        self._skip_if_disabled()
+        data = dict(k=k, which=which)
+        self._check_value1D_vals(op.eigvals, data, _op_eig)
+
+    def test_backend_eigvals(self, op, _gpu):
+        self._skip_if_disabled()
+        self._check_backend_vals(op.eigvals, _gpu)
+
+    @pytest.mark.parametrize(
+        "width",  # local override of this fixture
+        [
+            pytest.param(
+                pycrt.Width.HALF,
+                marks=pytest.mark.xfail(reason="Unsupported by ARPACK/PROPACK/LOBPCG."),
+            ),
+            pycrt.Width.SINGLE,
+            pycrt.Width.DOUBLE,
+            pytest.param(
+                pycrt.Width.QUAD,
+                marks=pytest.mark.xfail(reason="Unsupported by ARPACK/PROPACK/LOBPCG."),
+            ),
+        ],
+    )
+    def test_precCM_eigvals(self, op, _gpu, width):
+        self._skip_if_disabled()
+        data = dict(in_=dict(k=1, gpu=_gpu))
+        self._check_precCM(op.eigvals, data, (width,))
+
+    def test_math_normality(self, op):
+        # AA^{*} = A^{*}A
+        self._skip_if_disabled()
+        N = 20
+        x = self._random_array((N, op.dim))
+
+        lhs = op.apply(op.adjoint(x))
+        rhs = op.adjoint(op.apply(x))
+        assert allclose(lhs, rhs, lhs.dtype)
+
 
 class UnitOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
