@@ -946,6 +946,37 @@ class LinOpT(DiffMapT):
         }
     )
 
+    # Internal helpers --------------------------------------------------------
+    @staticmethod
+    def _check_value1D_vals(func, kwargs, ground_truth):
+        k, which = kwargs["k"], kwargs["which"]
+
+        out = func(**kwargs)
+        assert out.size == k  # obtain N_vals asked for,
+        assert allclose(np.sort(out), out, out.dtype)  # output is sorted,
+
+        # and output is correct
+        idx = np.argsort(np.abs(out))
+        idx_gt = np.argsort(np.abs(ground_truth))
+        if which == "SM":
+            out = out[idx][:k]
+            gt = ground_truth[idx_gt][:k]
+        else:  # LM
+            out = out[idx][-k:]
+            gt = ground_truth[idx_gt][-k:]
+        assert allclose(out, gt.real, out.dtype)  # .real for eigvals() only.
+
+    @staticmethod
+    def _check_backend_vals(func, _gpu):
+        data = dict(k=1, gpu=_gpu)
+        out = func(**data)
+
+        if _gpu:
+            import cupy as xp_truth
+        else:
+            xp_truth = np
+        assert pycu.get_array_module(out) == xp_truth
+
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
     def data_adjoint(self, op) -> DataLike:
@@ -1300,31 +1331,12 @@ class LinOpT(DiffMapT):
     @pytest.mark.parametrize("which", ["SM", "LM"])
     def test_value1D_svdvals(self, op, _op_svd, k, which):
         self._skip_if_disabled()
-        out = op.svdvals(k=k, which=which)
-        assert out.size == k  # obtain N_svals asked for,
-        assert allclose(np.sort(out), out, out.dtype)  # output is sorted,
-
-        # and output is correct
-        idx = np.argsort(np.abs(out))
-        idx_gt = np.argsort(np.abs(_op_svd))
-        if which == "SM":
-            out = out[idx][:k]
-            gt = _op_svd[idx_gt][:k]
-        else:  # LM
-            out = out[idx][-k:]
-            gt = _op_svd[idx_gt][-k:]
-        assert allclose(out, gt, out.dtype)
+        data = dict(k=k, which=which)
+        self._check_value1D_vals(op.svdvals, data, _op_svd)
 
     def test_backend_svdvals(self, op, _gpu):
         self._skip_if_disabled()
-        data = dict(k=1, gpu=_gpu)
-        out = op.svdvals(**data)
-
-        if _gpu:
-            import cupy as xp_truth
-        else:
-            xp_truth = np
-        assert pycu.get_array_module(out) == xp_truth
+        self._check_backend_vals(op.svdvals, _gpu)
 
     @pytest.mark.parametrize(
         "width",  # local override of this fixture
