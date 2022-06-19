@@ -1787,6 +1787,7 @@ class PosDefOpT(SelfAdjointOpT):
     # Tests -------------------------------------------------------------------
     def test_math_eig(self, _op_eig):
         self._skip_if_disabled()
+        assert pycuc._is_real(_op_eig)
         assert np.all(_op_eig > 0)
 
     def test_math_posdef(self, op):
