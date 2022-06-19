@@ -5,7 +5,8 @@ import typing as typ
 import warnings
 
 import numpy as np
-import scipy.sparse.linalg as splin
+import scipy.linalg as spl
+import scipy.sparse.linalg as spsl
 
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
@@ -1721,7 +1722,7 @@ class LinOp(DiffMap, Adjoint):
         adj._lipschitz = self._lipschitz
         return adj
 
-    def to_sciop(self, dtype: typ.Optional[type] = None, gpu: bool = False) -> splin.LinearOperator:
+    def to_sciop(self, dtype: typ.Optional[type] = None, gpu: bool = False) -> spsl.LinearOperator:
         r"""
         Cast a :py:class:`~pycsou.abc.operator.LinOp` to a
         :py:class:`scipy.sparse.linalg.LinearOperator`, compatible with the matrix-free linear
@@ -1753,7 +1754,7 @@ class LinOp(DiffMap, Adjoint):
             assert pycd.CUPY_ENABLED
             import cupyx.scipy.sparse.linalg as spx
         else:
-            spx = splin
+            spx = spsl
         return spx.LinearOperator(
             shape=self.shape,
             matvec=self.apply,
@@ -1860,7 +1861,7 @@ class LinOp(DiffMap, Adjoint):
             assert pycd.CUPY_ENABLED
             import cupyx.scipy.sparse.linalg as spx
         else:
-            spx = splin
+            spx = spsl
         op = self.to_sciop(pycrt.getPrecision().value, gpu)
         kwargs.update(k=k, which=which, return_singular_vectors=False)
 
@@ -2269,7 +2270,7 @@ class NormalOp(SquareOp):
             assert pycd.CUPY_ENABLED
             import cupyx.scipy.sparse.linalg as spx
         else:
-            spx = splin
+            spx = spsl
         op = self.to_sciop(pycrt.getPrecision().value, gpu)
         kwargs.update(k=k, which=which, return_eigenvectors=False)
         f = getattr(spx, "eigsh" if symmetric else "eigs")
