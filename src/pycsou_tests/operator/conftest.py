@@ -1722,17 +1722,19 @@ class UnitOpT(NormalOpT):
     base = pyco.UnitOp
 
     # Internal helpers --------------------------------------------------------
-    @staticmethod
-    def _check_identity(operator):
-        x = self._random_array((30, operator.dim))
+    @classmethod
+    def _check_identity(cls, operator):
+        x = cls._random_array((30, operator.dim))
         assert allclose(operator.apply(x), x, as_dtype=x.dtype)
         assert allclose(operator.adjoint(x), x, as_dtype=x.dtype)
 
     # Fixtures ----------------------------------------------------------------
+    @pytest.fixture
     def _op_svd(self, op) -> np.ndarray:
         D = np.ones(op.dim)
         return D
 
+    @pytest.fixture
     def _op_eig(self, op) -> np.ndarray:
         D = np.ones(op.dim)
         return D
@@ -1741,12 +1743,12 @@ class UnitOpT(NormalOpT):
     def test_math_gram(self, op):
         # op_g == I
         self._skip_if_disabled()
-        self._check_identity(op.gram)
+        self._check_identity(op.gram())
 
     def test_math_cogram(self, op):
         # op_cg == I
         self._skip_if_disabled()
-        self._check_identity(op.cogram)
+        self._check_identity(op.cogram())
 
     def test_math_norm(self, op):
         # \norm{U x} = \norm{U^{*} x} = \norm{x}
