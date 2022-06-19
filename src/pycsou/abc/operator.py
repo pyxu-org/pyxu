@@ -2271,11 +2271,8 @@ class NormalOp(SquareOp):
             else:
                 xp, spx = np, spl
             op = self.asarray(xp=xp, dtype=pycrt.getPrecision().value)
-
             f = getattr(spx, "eigvalsh" if symmetric else "eigvals")
-            D = f(op)
-            D = D[xp.argsort(xp.abs(D))]
-            return D[-k:] if (which == "LM") else D[:k]
+            return f(op)
 
         def _sparse_eval():
             if gpu:
@@ -2286,26 +2283,23 @@ class NormalOp(SquareOp):
             op = self.to_sciop(pycrt.getPrecision().value, gpu)
             kwargs.update(k=k, which=which, return_eigenvectors=False)
             f = getattr(spx, "eigsh" if symmetric else "eigs")
-            D = f(op, **kwargs)
-            return D
+            return f(op, **kwargs)
 
         if which not in ("LM", "SM"):
             raise NotImplementedError
         if k >= self.dim - 1:
             msg = "Too many eigvals wanted: performing via matrix-based ops."
             warnings.warn(msg, UserWarning)
-            evals = _dense_eval()
+            D = _dense_eval()
         else:
-            evals = _sparse_eval()
+            D = _sparse_eval()
 
-        if pycuc._is_complex(evals):
-            msg = "Complex-valued eigenvalues exist. Only their real-part will be returned."
-            warnings.warn(msg, UserWarning)
-            evals = evals.real
-        evals.sort()
-        return evals
+        # Filter to k largest/smallest magnitude + sorted
+        xp = pycu.get_array_module(D)
+        D = D[xp.argsort(xp.abs(D))]
+        return D[:k] if (which == "SM") else D[-k:]
 
-    @pycrt.enforce_precision()
+    # @pycrt.enforce_precision()
     def eigvals(
         self,
         k: int,
@@ -2314,7 +2308,7 @@ class NormalOp(SquareOp):
         **kwargs,
     ) -> pyct.NDArray:
         r"""
-        Find ``k`` eigenvalues of a normal operator. (Real part)
+        Find ``k`` eigenvalues of a normal operator.
 
         Parameters
         ----------
@@ -2332,11 +2326,8 @@ class NormalOp(SquareOp):
 
         Returns
         -------
-        evals: NDArray
-            (k,) requested eigenvalues (real-valued part) in ascending order.
-
-            IMPORTANT: only the real-valued part of the spectrum is provided. A warning is emitted
-            if complex-valued eigenvalues are found.
+        D: NDArray
+            (k,) requested eigenvalues in ascending magnitude order.
         """
         return self._eigvals(k, which, gpu, symmetric=False, **kwargs)
 
