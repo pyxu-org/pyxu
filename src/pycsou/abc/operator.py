@@ -2373,6 +2373,14 @@ class UnitOp(NormalOp):
         r"""Return ``self.T``, since the inverse (and hence pseudo-inverse) of a unitary operator is given by its adjoint."""
         return self.T
 
+    def gram(self) -> "UnitOp":
+        from pycsou.operator.linop.base import IdentityOp
+
+        return IdentityOp(shape=self.shape)
+
+    def cogram(self) -> "UnitOp":
+        return self.gram()
+
 
 class ProjOp(SquareOp):
     r"""
