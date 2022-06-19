@@ -120,25 +120,13 @@ class ExplicitLinFunc(pyco.LinFunc):
         return arr - tau * self.vec
 
 
-class IdentityOp(pyco.PosDefOp, pyco.SelfAdjointOp, pyco.UnitOp):
+class IdentityOp(pyco.PosDefOp, pyco.UnitOp):
     r"""
     Identity operator :math:`\mathrm{Id}`.
-
-    Examples
-    --------
-    >>> from pycsou.operator.linop.base import IdentityOp
-    >>> import pycsou.runtime as pycrt
-    >>> import numpy as np
-    >>> id = IdentityOp(10)
-    >>> id.shape
-    (10, 10)
-    >>> np.allclose(id(np.arange(10)), np.arange(10).astype(np.float64))
-    True
     """
 
     def __init__(self, shape: pyct.SquareShape):
         pyco.PosDefOp.__init__(self, shape)
-        pyco.SelfAdjointOp.__init__(self, shape)
         pyco.UnitOp.__init__(self, shape)
 
     @pycrt.enforce_precision(i="arr")
