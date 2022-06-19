@@ -1805,7 +1805,22 @@ class ProjOpT(SquareOpT):
     # Class Properties --------------------------------------------------------
     base = pyco.ProjOp
 
+    # Fixtures ----------------------------------------------------------------
+    def test_math_svd(self, _op_svd):
+        self._skip_if_disabled()
+        f = lambda cst: np.isclose(_op_svd, cst)
+        assert np.all(f(0) | f(1))
 
-class OrthProjOpT(ProjOpT, SelfAdjointOpT):  # todo: make sure order is correct
+    def test_math_idempotent(self, op):
+        self._skip_if_disabled()
+        N = 30
+        x = self._random_array((N, op.dim))
+        y = op.apply(x)
+        z = op.apply(y)
+
+        assert allclose(y, z, as_dtype=x.dtype)
+
+
+class OrthProjOpT(ProjOpT, SelfAdjointOpT):
     # Class Properties --------------------------------------------------------
     base = pyco.OrthProjOp
