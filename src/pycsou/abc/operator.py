@@ -2366,12 +2366,18 @@ class UnitOp(NormalOp):
         return self._lipschitz
 
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-        r"""Call ``self.adjoint(arr)``, since the inverse (and hence pseudo-inverse) of a unitary operator is given by its adjoint."""
-        return self.adjoint(arr)
+        out = self.adjoint(arr)
+        if (damp := kwargs.pop("damp")) is not None:
+            out /= 1 + damp
+        return out
 
     def dagger(self, **kwargs) -> "UnitOp":
-        r"""Return ``self.T``, since the inverse (and hence pseudo-inverse) of a unitary operator is given by its adjoint."""
-        return self.T
+        op = self.T
+        if (damp := kwargs.pop("damp")) is not None:
+            from pycsou.operator.linop.base import HomothetyOp
+
+            op = HomothetyOp(cst=1 / (1 + damp), dim=self.dim) * op
+        return op
 
     def gram(self) -> "UnitOp":
         from pycsou.operator.linop.base import IdentityOp
