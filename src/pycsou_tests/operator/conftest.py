@@ -954,11 +954,11 @@ class LinOpT(DiffMapT):
         k, which = kwargs["k"], kwargs["which"]
 
         out = func(**kwargs)
-        assert out.size == k  # obtain N_vals asked for,
-        assert allclose(np.sort(out), out, out.dtype)  # output is sorted,
-
-        # and output is correct
         idx = np.argsort(np.abs(out))
+        assert out.size == k  # obtain N_vals asked for
+        assert allclose(out[idx], out, out.dtype)  # sorted in ascending magnitude
+
+        # and output is correct (in magnitude)
         idx_gt = np.argsort(np.abs(ground_truth))
         if which == "SM":
             out = out[idx][:k]
@@ -966,7 +966,7 @@ class LinOpT(DiffMapT):
         else:  # LM
             out = out[idx][-k:]
             gt = ground_truth[idx_gt][-k:]
-        assert allclose(out, gt.real, out.dtype)  # .real for eigvals() only.
+        assert allclose(np.abs(out), np.abs(gt), out.dtype)
 
     @staticmethod
     def _check_backend_vals(func, _gpu):
@@ -1664,9 +1664,10 @@ class NormalOpT(SquareOpT):
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
     def _op_eig(self, op) -> np.ndarray:
-        # compute all eigenvalues, sorted in ascending order.
+        # compute all eigenvalues, sorted in ascending magnitude order.
         D = np.linalg.eigvals(op.asarray())
-        return np.sort(D)
+        D = D[np.argsort(np.abs(D))]
+        return D
 
     # Tests -------------------------------------------------------------------
     @pytest.mark.parametrize("k", [1, 2])
@@ -1686,15 +1687,11 @@ class NormalOpT(SquareOpT):
 
     @pytest.mark.parametrize(
         "width",  # local override of this fixture
-        [
+        [  # We use the complex-valued types since .eigvals() should return complex. (Exception: SelfAdjointOp)
+            pycrt._CWidth.SINGLE,
+            pycrt._CWidth.DOUBLE,
             pytest.param(
-                pycrt.Width.HALF,
-                marks=pytest.mark.xfail(reason="Unsupported by ARPACK/PROPACK/LOBPCG."),
-            ),
-            pycrt.Width.SINGLE,
-            pycrt.Width.DOUBLE,
-            pytest.param(
-                pycrt.Width.QUAD,
+                pycrt._CWidth.QUAD,
                 marks=pytest.mark.xfail(reason="Unsupported by ARPACK/PROPACK/LOBPCG."),
             ),
         ],
