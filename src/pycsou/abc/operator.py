@@ -1827,7 +1827,7 @@ class LinOp(DiffMap, Adjoint):
 
         return self._lipschitz
 
-    @pycrt.enforce_precision()
+    # @pycrt.enforce_precision()
     def svdvals(
         self,
         k: int,
