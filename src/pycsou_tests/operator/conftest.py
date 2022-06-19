@@ -1824,3 +1824,5 @@ class ProjOpT(SquareOpT):
 class OrthProjOpT(ProjOpT, SelfAdjointOpT):
     # Class Properties --------------------------------------------------------
     base = pyco.OrthProjOp
+    interface = frozenset(ProjOpT.interface | SelfAdjointOpT.interface)
+    disable_test = frozenset(ProjOpT.disable_test | SelfAdjointOpT.disable_test)
