@@ -1720,6 +1720,46 @@ class UnitOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
     base = pyco.UnitOp
 
+    # Internal helpers --------------------------------------------------------
+    @staticmethod
+    def _check_identity(operator):
+        x = self._random_array((30, operator.dim))
+        assert allclose(operator.apply(x), x, as_dtype=x.dtype)
+        assert allclose(operator.adjoint(x), x, as_dtype=x.dtype)
+
+    # Fixtures ----------------------------------------------------------------
+    def _op_svd(self, op) -> np.ndarray:
+        D = np.ones(op.dim)
+        return D
+
+    def _op_eig(self, op) -> np.ndarray:
+        D = np.ones(op.dim)
+        return D
+
+    # Tests -------------------------------------------------------------------
+    def test_math_gram(self, op):
+        # op_g == I
+        self._skip_if_disabled()
+        self._check_identity(op.gram)
+
+    def test_math_cogram(self, op):
+        # op_cg == I
+        self._skip_if_disabled()
+        self._check_identity(op.cogram)
+
+    def test_math_norm(self, op):
+        # \norm{U x} = \norm{U^{*} x} = \norm{x}
+        self._skip_if_disabled()
+        N = 20
+        x = self._random_array((N, op.dim))
+
+        lhs1 = np.linalg.norm(op.apply(x), axis=-1)
+        lhs2 = np.linalg.norm(op.adjoint(x), axis=-1)
+        rhs = np.linalg.norm(x, axis=-1)
+
+        assert allclose(lhs1, lhs2, as_dtype=x.dtype)
+        assert allclose(lhs1, rhs, as_dtype=x.dtype)
+
 
 class SelfAdjointOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
