@@ -16,6 +16,7 @@ import scipy.sparse.linalg as spsl
 import pycsou.abc.operator as pyco
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.complex as pycuc
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
@@ -1764,6 +1765,21 @@ class UnitOpT(NormalOpT):
 class SelfAdjointOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
     base = pyco.SelfAdjointOp
+
+    # Tests -------------------------------------------------------------------
+    def test_math_eig(self, _op_eig):
+        self._skip_if_disabled()
+        assert pycuc._is_real(_op_eig)
+
+    def test_math_selfadjoint(self, op):
+        # A = A^{*}
+        self._skip_if_disabled()
+        N = 20
+        x = self._random_array((N, op.dim))
+
+        lhs = op.apply(x)
+        rhs = op.adjoint(x)
+        assert allclose(lhs, rhs, lhs.dtype)
 
 
 class PosDefOpT(SelfAdjointOpT):
