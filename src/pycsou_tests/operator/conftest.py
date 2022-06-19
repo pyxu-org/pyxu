@@ -1731,12 +1731,11 @@ class UnitOpT(NormalOpT):
         D = np.ones(op.dim)
         return D
 
-    @pytest.fixture
-    def _op_eig(self, op) -> np.ndarray:
-        D = np.ones(op.dim)
-        return D
-
     # Tests -------------------------------------------------------------------
+    def test_math_eig(self, _op_eig):
+        # |\lambda| == 1
+        assert np.allclose(np.abs(_op_eig), 1)
+
     def test_math_gram(self, op):
         # op_g == I
         self._skip_if_disabled()
