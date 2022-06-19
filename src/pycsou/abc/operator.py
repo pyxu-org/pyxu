@@ -2264,18 +2264,40 @@ class NormalOp(SquareOp):
         symmetric: bool,
         **kwargs,
     ) -> pyct.NDArray:
+        def _dense_eval():
+            if gpu:
+                import cupy as xp
+                import cupyx.scipy.linalg as spx
+            else:
+                xp, spx = np, spl
+            op = self.asarray(xp=xp, dtype=pycrt.getPrecision().value)
+
+            f = getattr(spx, "eigvalsh" if symmetric else "eigvals")
+            D = f(op)
+            D = D[xp.argsort(xp.abs(D))]
+            return D[-k:] if (which == "LM") else D[:k]
+
+        def _sparse_eval():
+            if gpu:
+                assert pycd.CUPY_ENABLED
+                import cupyx.scipy.sparse.linalg as spx
+            else:
+                spx = spsl
+            op = self.to_sciop(pycrt.getPrecision().value, gpu)
+            kwargs.update(k=k, which=which, return_eigenvectors=False)
+            f = getattr(spx, "eigsh" if symmetric else "eigs")
+            D = f(op, **kwargs)
+            return D
+
         if which not in ("LM", "SM"):
             raise NotImplementedError
-        if gpu:
-            assert pycd.CUPY_ENABLED
-            import cupyx.scipy.sparse.linalg as spx
+        if k >= self.dim - 1:
+            msg = "Too many eigvals wanted: performing via matrix-based ops."
+            warnings.warn(msg, UserWarning)
+            evals = _dense_eval()
         else:
-            spx = spsl
-        op = self.to_sciop(pycrt.getPrecision().value, gpu)
-        kwargs.update(k=k, which=which, return_eigenvectors=False)
-        f = getattr(spx, "eigsh" if symmetric else "eigs")
+            evals = _sparse_eval()
 
-        evals = f(op, **kwargs)
         if pycuc._is_complex(evals):
             msg = "Complex-valued eigenvalues exist. Only their real-part will be returned."
             warnings.warn(msg, UserWarning)
