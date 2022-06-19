@@ -1786,6 +1786,20 @@ class PosDefOpT(SelfAdjointOpT):
     # Class Properties --------------------------------------------------------
     base = pyco.PosDefOp
 
+    # Tests -------------------------------------------------------------------
+    def test_math_eig(self, _op_eig):
+        self._skip_if_disabled()
+        assert np.all(_op_eig > 0)
+
+    def test_math_posdef(self, op):
+        # <Ax,x> > 0
+        self._skip_if_disabled()
+        N = 20
+        x = self._random_array((N, op.dim))
+
+        ip = lambda a, b: (a * b).sum(axis=-1)  # (N, Q) * (N, Q) -> (N,)
+        assert np.all(ip(op.apply(x), x) > 0)
+
 
 class ProjOpT(SquareOpT):
     # Class Properties --------------------------------------------------------
