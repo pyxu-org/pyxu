@@ -1345,13 +1345,19 @@ class LinOpT(DiffMapT):
         [
             pytest.param(
                 pycrt.Width.HALF,
-                marks=pytest.mark.xfail(reason="Unsupported by ARPACK/PROPACK/LOBPCG."),
+                marks=pytest.mark.xfail(
+                    reason="Unsupported by ARPACK/PROPACK/LOBPCG.",
+                    strict=True,
+                ),
             ),
             pycrt.Width.SINGLE,
             pycrt.Width.DOUBLE,
             pytest.param(
                 pycrt.Width.QUAD,
-                marks=pytest.mark.xfail(reason="Unsupported by ARPACK/PROPACK/LOBPCG."),
+                marks=pytest.mark.xfail(
+                    reason="Unsupported by ARPACK/PROPACK/LOBPCG.",
+                    strict=True,
+                ),
             ),
         ],
     )
@@ -1692,7 +1698,10 @@ class NormalOpT(SquareOpT):
             pycrt._CWidth.DOUBLE,
             pytest.param(
                 pycrt._CWidth.QUAD,
-                marks=pytest.mark.xfail(reason="Unsupported by ARPACK/PROPACK/LOBPCG."),
+                marks=pytest.mark.xfail(
+                    reason="Unsupported by ARPACK/PROPACK/LOBPCG.",
+                    strict=True,
+                ),
             ),
         ],
     )
