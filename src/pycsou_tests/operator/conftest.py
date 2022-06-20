@@ -1670,9 +1670,11 @@ class SquareOpT(LinOpT):
         self._skip_if_disabled()
         assert op.dim == op.codim
 
+    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_interface_trace(self, op):
         assert isinstance(op.trace(), float)
 
+    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_value_trace(self, op, _op_trace):
         # Ensure computed trace (w/ default parameter values) satisfies statistical property stated
         # in hutchpp() docstring, i.e.: estimation error smaller than 1e-2 w/ probability 0.9
