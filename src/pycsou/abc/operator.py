@@ -2222,23 +2222,19 @@ class SquareOp(LinOp):
             raise ValueError(f"Inconsistent shape {shape} for operator of type {SquareOp}")
         super(SquareOp, self).__init__(shape=(shape[0], shape[0]))
 
-    @pycrt.enforce_precision()
-    def trace(self, **kwargs):
+    def trace(self, **kwargs) -> float:
         """
         Approximate the trace of a squared linear operator.
 
         Parameters
         ----------
         kwargs: dict
-            Optional arguments to be passed to the algorithm used for computing the trace. The parameter ``m``
-            of :py:func:`~pycsou.math.linalg.hutchpp` routine can be particularly interesting to reduce the compute time
-            of the trace (at the cost of accuracy).
+            Optional kwargs passed to the algorithm used for computing the trace.
 
         Returns
         -------
-        float
-            Hutch++ stochastic estimate of the trace.
-
+        tr: float
+            Stochastic trace estimate.
         """
         import pycsou.math.linalg as pycl
 
