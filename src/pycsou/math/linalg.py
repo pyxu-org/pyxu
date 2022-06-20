@@ -46,7 +46,12 @@ def hutchpp(
                 "Number of queries >= dim(op): fallback to deterministic trace eval.",
                 UserWarning,
             )
-        tr = op.asarray(xp=xp).trace()
+        tr = 0
+        e = xp.zeros(op.dim)
+        for i in range(op.dim):
+            e[:] = 0
+            e[i] = 1
+            tr += op.apply(e)[i]
     else:
         rng = np.random.default_rng(seed=seed)
         s = xp.asarray(rng.standard_normal(size=(op.dim, (m + 2) // 4)))
