@@ -1769,6 +1769,16 @@ class UnitOpT(NormalOpT):
         assert allclose(lhs1, lhs2, as_dtype=x.dtype)
         assert allclose(lhs1, rhs, as_dtype=x.dtype)
 
+    @pytest.mark.parametrize("scale", (1, -1, 2))
+    def test_interface_argscale(self, op, scale):
+        self._skip_if_disabled()
+        op_s = op.argscale(scale)
+        if np.isclose(abs(scale), 1):
+            otype = self.__class__
+        else:
+            otype = NormalOpT
+        self._check_has_interface(op_s, otype)
+
 
 class SelfAdjointOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
@@ -1809,6 +1819,16 @@ class PosDefOpT(SelfAdjointOpT):
         ip = lambda a, b: (a * b).sum(axis=-1)  # (N, Q) * (N, Q) -> (N,)
         assert np.all(ip(op.apply(x), x) > 0)
 
+    @pytest.mark.parametrize("scale", (-1, 1))
+    def test_interface_argscale(self, op, scale):
+        self._skip_if_disabled()
+        op_s = op.argscale(scale)
+        if scale > 0:
+            otype = self.__class__
+        else:
+            otype = SelfAdjointOpT
+        self._check_has_interface(op_s, otype)
+
 
 class ProjOpT(SquareOpT):
     # Class Properties --------------------------------------------------------
@@ -1824,9 +1844,30 @@ class ProjOpT(SquareOpT):
 
         assert allclose(y, z, as_dtype=x.dtype)
 
+    @pytest.mark.parametrize("scale", (1, 2))
+    def test_interface_argscale(self, op, scale):
+        self._skip_if_disabled()
+        op_s = op.argscale(scale)
+        if np.isclose(scale, 1):
+            otype = self.__class__
+        else:
+            otype = SquareOpT
+        self._check_has_interface(op_s, otype)
+
 
 class OrthProjOpT(ProjOpT, SelfAdjointOpT):
     # Class Properties --------------------------------------------------------
     base = pyco.OrthProjOp
     interface = frozenset(ProjOpT.interface | SelfAdjointOpT.interface)
     disable_test = frozenset(ProjOpT.disable_test | SelfAdjointOpT.disable_test)
+
+    # Tests -------------------------------------------------------------------
+    @pytest.mark.parametrize("scale", (1, 2))
+    def test_interface_argscale(self, op, scale):
+        self._skip_if_disabled()
+        op_s = op.argscale(scale)
+        if np.isclose(scale, 1):
+            otype = self.__class__
+        else:
+            otype = SelfAdjointOpT
+        self._check_has_interface(op_s, otype)
