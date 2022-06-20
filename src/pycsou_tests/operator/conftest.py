@@ -1814,11 +1814,6 @@ class ProjOpT(SquareOpT):
     base = pyco.ProjOp
 
     # Fixtures ----------------------------------------------------------------
-    def test_math_svd(self, _op_svd):
-        self._skip_if_disabled()
-        f = lambda cst: np.isclose(_op_svd, cst)
-        assert np.all(f(0) | f(1))
-
     def test_math_idempotent(self, op):
         self._skip_if_disabled()
         N = 30
