@@ -1331,11 +1331,13 @@ class LinOpT(DiffMapT):
 
     @pytest.mark.parametrize("k", [1, 2])
     @pytest.mark.parametrize("which", ["SM", "LM"])
+    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_value1D_svdvals(self, op, _op_svd, k, which):
         self._skip_if_disabled()
         data = dict(k=k, which=which)
         self._check_value1D_vals(op.svdvals, data, _op_svd)
 
+    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_backend_svdvals(self, op, _gpu):
         self._skip_if_disabled()
         self._check_backend_vals(op.svdvals, _gpu)
@@ -1361,6 +1363,7 @@ class LinOpT(DiffMapT):
             ),
         ],
     )
+    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_precCM_svdvals(self, op, _gpu, width):
         self._skip_if_disabled()
         data = dict(in_=dict(k=1, gpu=_gpu))
@@ -1639,8 +1642,43 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
     disable_test = frozenset(ProxDiffFuncT.disable_test | LinOpT.disable_test)
 
     # Fixtures ----------------------------------------------------------------
+    @pytest.fixture
+    def data_adjoint(self, data_grad) -> DataLike:
+        # We know for linfuncs that op.adj(x) = op.grad(x) * x
+        x = self._random_array((1,))
+        y = x * data_grad["out"]
+        return dict(
+            in_=dict(arr=x),
+            out=y,
+        )
+
+    @pytest.fixture
+    def data_prox(self, data_grad) -> DataLike:
+        # We know for linfuncs that op.prox(x, tau) = x - op.grad(x) * tau
+        x = data_grad["in_"]["arr"].copy()
+        g = data_grad["out"]
+        tau = np.abs(self._random_array((1,)))[0]
+        y = x - tau * g
+        return dict(
+            in_=dict(
+                arr=x,
+                tau=tau,
+            ),
+            out=y,
+        )
 
     # Tests -------------------------------------------------------------------
+    def test_interface_argshift(self, op):
+        self._skip_if_disabled()
+        shift = self._random_array((op.dim,))
+        op_s = op.argshift(shift)
+        self._check_has_interface(op_s, DiffFuncT)
+
+    @pytest.mark.parametrize("k", [1])
+    @pytest.mark.parametrize("which", ["SM", "LM"])
+    @pytest.mark.filterwarnings("ignore::UserWarning")
+    def test_value1D_svdvals(self, op, _op_svd, k, which):
+        super().test_value1D_svdvals(op, _op_svd, k, which)
 
 
 class SquareOpT(LinOpT):
