@@ -55,7 +55,7 @@ def hutchpp(
     else:
         rng = np.random.default_rng(seed=seed)
         s = xp.asarray(rng.standard_normal(size=(op.dim, (m + 2) // 4)))
-        g = xp.asarray(rng.binomial(n=1, p=0.5, size=(op.dim, (m - 2) // 2)) * 2 - 1)
+        g = xp.asarray(rng.choice((1, -1), size=(op.dim, (m - 2) // 2)))
 
         data = op.apply(s.T).T
         kwargs = dict(mode="reduced")
@@ -66,6 +66,6 @@ def hutchpp(
         q, _ = xp.linalg.qr(data, **kwargs)
         proj = g - q @ (q.T @ g)
 
-        tr = xp.trace(op.apply(q.T) @ q)
-        tr += (2.0 / (m - 2)) * xp.trace(op.apply(proj.T) @ proj)
-    return tr.item()
+        tr = (op.apply(q.T) @ q).trace()
+        tr += (2 / (m - 2)) * (op.apply(proj.T) @ proj).trace()
+    return float(tr)
