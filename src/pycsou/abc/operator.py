@@ -2204,6 +2204,20 @@ class LinFunc(ProxDiffFunc, LinOp):
 
     __init__.__doc__ = DiffFunc.__init__.__doc__
 
+    def lipschitz(self, **kwargs) -> float:
+        # 'fro' / 'svds' mode are identical for linfuncs.
+        g = self.grad(np.ones((1,)))
+        self._lipschitz = np.linalg.norm(g).item()
+        return self._lipschitz
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        return arr - tau * self.grad(arr)
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return arr * self.grad(arr)
+
     @classmethod
     def from_array(cls, vec: pyct.NDArray, enable_warnings: bool = True) -> "LinFunc":
         r"""
