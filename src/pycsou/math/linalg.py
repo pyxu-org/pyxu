@@ -40,14 +40,6 @@ def hutchpp(
     tr: float
         Stochastic estimate of tr(op).
     """
-    if isinstance(op, pycb.ExplicitLinOp):
-        op_xp = pycu.get_array_module(op.mat)
-        if enable_warnings and (op_xp != xp):
-            warnings.warn(
-                f"Desired array module ({xp}) differs from array module of {op} ({op_xp}).",
-                UserWarning,
-            )
-
     if m >= op.dim:
         if enable_warnings:
             warnings.warn(

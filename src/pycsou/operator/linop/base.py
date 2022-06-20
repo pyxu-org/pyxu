@@ -392,3 +392,6 @@ class ExplicitLinOp(pyco.LinOp):
         else:
             array_module = pycu.get_array_module(arr, fallback=sp)
             return array_module.__name__
+
+    def trace(self, **kwargs) -> float:
+        return self.mat.trace().item()
