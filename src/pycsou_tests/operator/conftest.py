@@ -1084,7 +1084,7 @@ class LinOpT(DiffMapT):
                 A[i, i] += _damp
 
         arr = data_apply["out"]
-        out = splinalg.solve(A, op.adjoint(arr), assume_a="pos")
+        out, *_ = splinalg.lstsq(A, op.adjoint(arr))
         data = dict(
             in_=dict(
                 arr=arr,
@@ -1136,7 +1136,8 @@ class LinOpT(DiffMapT):
                 A[i, i] += _damp
 
         arr = data_apply["in_"]["arr"]
-        out = op.apply(splinalg.solve(A, arr, assume_a="pos"))
+        out, *_ = splinalg.lstsq(A, arr)
+        out = op.apply(out)
         data = dict(
             in_=dict(
                 arr=arr,
