@@ -2436,20 +2436,18 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
         return self._lipschitz
 
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-        r"""
-        Return ``self.apply(arr)`` since the pseudo-inverse of an orthogonal projection operator is itself:
+        out = arr.copy()
+        if (damp := kwargs.pop("damp")) is not None:
+            out /= 1 + damp
+        return out
 
-            1. :math:`LLL=L`,
-            2. :math:`(LL)^\ast=L^\ast L^\ast=LL`.
+    def dagger(self, **kwargs) -> "UnitOp":
+        op = self
+        if (damp := kwargs.pop("damp")) is not None:
+            from pycsou.operator.linop.base import HomothetyOp
 
-        """
-        return self.apply(arr)
-
-    def dagger(self, **kwargs) -> "OrthProjOp":
-        r"""
-        Return ``self`` since the pseudo-inverse of an orthogonal projection operator is itself.
-        """
-        return self
+            op = HomothetyOp(cst=1 / (1 + damp), dim=self.dim) * op
+        return op
 
 
 class PosDefOp(SelfAdjointOp):
