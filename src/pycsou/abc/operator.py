@@ -1857,17 +1857,37 @@ class LinOp(DiffMap, Adjoint):
         NDArray
             Array containing the ``k`` requested singular values in ascending order.
         """
-        if gpu:
-            assert pycd.CUPY_ENABLED
-            import cupyx.scipy.sparse.linalg as spx
-        else:
-            spx = spsl
-        op = self.to_sciop(pycrt.getPrecision().value, gpu)
-        kwargs.update(k=k, which=which, return_singular_vectors=False)
 
-        svals = spx.svds(op, **kwargs)
-        svals.sort()
-        return svals
+        def _dense_eval():
+            if gpu:
+                import cupy as xp
+                import cupyx.scipy.linalg as spx
+            else:
+                xp, spx = np, spl
+            op = self.asarray(xp=xp, dtype=pycrt.getPrecision().value)
+            return spx.svdvals(op)
+
+        def _sparse_eval():
+            if gpu:
+                assert pycd.CUPY_ENABLED
+                import cupyx.scipy.sparse.linalg as spx
+            else:
+                spx = spsl
+            op = self.to_sciop(pycrt.getPrecision().value, gpu)
+            kwargs.update(k=k, which=which, return_singular_vectors=False)
+            return spx.svds(op, **kwargs)
+
+        if k >= min(self.shape):
+            msg = "Too many svdvals wanted: performing via matrix-based ops."
+            warnings.warn(msg, UserWarning)
+            D = _dense_eval()
+        else:
+            D = _sparse_eval()
+
+        # Filter to k largest/smallest magnitude + sorted
+        xp = pycu.get_array_module(D)
+        D = D[xp.argsort(D)]
+        return D[:k] if (which == "SM") else D[-k:]
 
     def asarray(
         self,
