@@ -42,6 +42,7 @@ __all__ = [
     "PosDefOp",
 ]
 
+FuncLike = typ.Union["Func", "DiffFunc", "ProxFunc", "ProxDiffFunc", "LinFunc"]
 MapLike = typ.Union["Map", "DiffMap", "Func", "DiffFunc", "ProxFunc", "ProxDiffFunc", "LinOp", "LinFunc"]
 NonProxLike = typ.Union["Map", "DiffMap", "Func", "DiffFunc", "LinOp", "LinFunc"]
 
@@ -974,36 +975,33 @@ class Map(Apply):
 
     def squeeze(self) -> typ.Union["Map", "Func"]:
         r"""
-        Cast a :py:class:`~pycsou.abc.operator.Map` object to the right type (:py:class:`~pycsou.abc.operator.Func` or :py:class:`~pycsou.abc.operator.Map`)
-        given its co-domain's dimension.
+        Cast a :py:class:`~pycsou.abc.operator.Map` to the right type given its codomain dimension.
 
         Returns
         -------
-        pycsou.abc.operator.Map | pycsou.abc.operator.Func
-            Output is a :py:class:`~pycsou.abc.operator.Func` object if ``self.codim==1`` and a :py:class:`~pycsou.abc.operator.Map` object otherwise.
+        op : pycsou.abc.operator.Map | pycsou.abc.operator.Func
+            Squeezed operator.
 
-        Examples
-        --------
-
-        Consider the :py:class:`Median` operator defined in the :ref:`developer-notes`. The latter was declared as a  :py:class:`~pycsou.abc.operator.Map` subclass
-        but its co-domain has actually dimension 1. It would therefore be better indicated to see :py:class:`Median` objects as :py:class:`~pycsou.abc.operator.Func` objects.
-        This recasting can be performed at posteriori using the method :py:meth:`squeeze`:
+        Example
+        -------
+        Consider the :py:class:`Median` operator defined in the :ref:`developer-notes`.
+        The latter was declared as a :py:class:`~pycsou.abc.operator.Map` subclass, but its
+        co-domain has actually dimension 1.
+        It would therefore be better indicated to see :py:class:`Median` objects as
+        :py:class:`~pycsou.abc.operator.Func` objects.
+        This recasting can be performed a-posteriori using :py:meth:`squeeze`:
 
         >>> m = Median()
         >>> type(m)
         pycsou.abc.operator.Map
         >>> type(m.squeeze())
         pycsou.abc.operator.Func
-
         """
         return self._squeeze(out=Func)
 
-    def _squeeze(
-        self: MapLike,
-        out: typ.Type[typ.Union["Func", "DiffFunc", "LinFunc"]],
-    ) -> MapLike:
+    def _squeeze(self, out: typ.Type[FuncLike]) -> MapLike:
         if self.codim == 1:
-            obj = self.specialize(cast_to=out)
+            obj = self.astype(out)
         else:
             obj = self
         return obj
@@ -1212,19 +1210,6 @@ class DiffMap(Map, Differential):
         self._diff_lipschitz = np.inf
 
     def squeeze(self) -> typ.Union["DiffMap", "DiffFunc"]:
-        r"""
-        Cast a :py:class:`~pycsou.abc.operator.DiffMap` object to the right type (:py:class:`~pycsou.abc.operator.DiffFunc` or :py:class:`~pycsou.abc.operator.DiffMap`)
-        given its co-domain's dimension.
-
-        Returns
-        -------
-        pycsou.abc.operator.DiffMap | pycsou.abc.operator.DiffFunc
-            Output is a :py:class:`~pycsou.abc.operator.DiffFunc` object if ``self.codim==1`` and a :py:class:`~pycsou.abc.operator.DiffMap` object otherwise.
-
-        See Also
-        --------
-        :py:meth:`pycsou.abc.operator.Map.squeeze`
-        """
         return self._squeeze(out=DiffFunc)
 
     def diff_lipschitz(self, **kwargs) -> float:
@@ -1664,19 +1649,6 @@ class LinOp(DiffMap, Adjoint):
         self._diff_lipschitz = 0
 
     def squeeze(self) -> typ.Union["LinOp", "LinFunc"]:
-        r"""
-        Cast a :py:class:`~pycsou.abc.operator.LinOp` object to the right type (:py:class:`~pycsou.abc.operator.LinFunc` or :py:class:`~pycsou.abc.operator.LinOp`)
-        given its co-domain's dimension.
-
-        Returns
-        -------
-        pycsou.abc.operator.LinOp | pycsou.abc.operator.LinFunc
-            Output is a :py:class:`~pycsou.abc.operator.LinFunc` object if ``self.codim==1`` and a :py:class:`~pycsou.abc.operator.LinOp` object otherwise.
-
-        See Also
-        --------
-        :py:meth:`pycsou.abc.operator.Map.squeeze`, :py:meth:`pycsou.abc.operator.DiffMap.squeeze`
-        """
         return self._squeeze(out=LinFunc)
 
     def jacobian(self, arr: pyct.NDArray) -> "LinOp":
