@@ -2218,6 +2218,14 @@ class LinFunc(ProxDiffFunc, LinOp):
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         return arr * self.grad(arr)
 
+    def cogram(self) -> "HomothetyOp":
+        # Cannot auto-specialize LinFunc to SelfAdjointOp via .specialize() since SelfAdjointOp lies
+        # on a separate branch of the class hierarchy.
+        from pycsou.operator.linop.base import HomothetyOp
+
+        g = self.grad(np.zeros(self.dim))
+        return HomothetyOp(cst=(g @ g).item(), dim=1)
+
     @classmethod
     def from_array(cls, vec: pyct.NDArray, enable_warnings: bool = True) -> "LinFunc":
         r"""
