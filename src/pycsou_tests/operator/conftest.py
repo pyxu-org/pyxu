@@ -1519,6 +1519,7 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         self._check_has_interface(op.gram(), PosDefOpT)
 
+    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_math_gram(self, op):
         # op_g.apply == op_g.adjoint == adjoint \comp apply
         # op_g.svdmax == op.svdmax**2
@@ -1535,6 +1536,7 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         self._check_has_interface(op.cogram(), PosDefOpT)
 
+    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_math_cogram(self, op):
         # op_cg.apply == op_cg.adjoint == apply \comp adjoint
         # op_cg.svdmax == op.svdmax**2
