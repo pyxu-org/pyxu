@@ -1643,6 +1643,16 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
+    def data_grad(self, op) -> DataLike:
+        # We know for linfuncs that op.grad(x) = op.asarray()
+        x = self._random_array((op.dim,))
+        y = op.asarray()
+        return dict(
+            in_=dict(arr=x),
+            out=y,
+        )
+
+    @pytest.fixture
     def data_adjoint(self, data_grad) -> DataLike:
         # We know for linfuncs that op.adj(x) = op.grad(x) * x
         x = self._random_array((1,))

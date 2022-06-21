@@ -49,12 +49,3 @@ class TestScaledSum(conftest.LinFuncT):
             in_=dict(arr=x),
             out=y,
         )
-
-    @pytest.fixture
-    def data_grad(self, dim):
-        x = self._random_array((dim,))
-        y = np.arange(dim, 0, -1)
-        return dict(
-            in_=dict(arr=x),
-            out=y,
-        )
