@@ -18,28 +18,21 @@ if pycd.CUPY_ENABLED:
     import cupy as cp
 
 __all__ = [
-    "Property",
-    "Apply",
-    "Differential",
-    "Gradient",
-    "Adjoint",
-    "SingleValued",
-    "Proximal",
-    "Map",
+    "DiffFunc",
     "DiffMap",
     "Func",
-    "DiffFunc",
-    "ProxFunc",
-    "ProxDiffFunc",
     "LinFunc",
     "LinOp",
+    "Map",
     "NormalOp",
+    "OrthProjOp",
+    "PosDefOp",
+    "ProjOp",
+    "ProxDiffFunc",
+    "ProxFunc",
     "SelfAdjointOp",
     "SquareOp",
     "UnitOp",
-    "ProjOp",
-    "OrthProjOp",
-    "PosDefOp",
 ]
 
 FuncLike = typ.Union["Func", "DiffFunc", "ProxFunc", "ProxDiffFunc", "LinFunc"]
