@@ -21,7 +21,7 @@ class Width(enum.Enum):
     DOUBLE = np.dtype(np.double)
     QUAD = np.dtype(np.longdouble)
 
-    def eps(self) -> float:
+    def eps(self) -> pyct.Real:
         """
         Machine precision of a floating-point type.
 
@@ -199,11 +199,11 @@ def coerce(x):
 
     Parameters
     ----------
-    x: Real | NDArray
+    x: pyct.Real | pyct.NDArray
 
     Returns
     -------
-    y: Real | NDArray
+    y: pyct.Real | pyct.NDArray
         Input cast to the runtime FP-precision.
         Fails if operation is impossible or unsafe. (I.e. casting complex-valued data.)
 

@@ -3,10 +3,7 @@ import warnings
 import dask.array as da
 import numpy as np
 
-import pycsou.abc.operator as pyco
-import pycsou.operator.linop.base as pycb
-import pycsou.runtime as pycrt
-import pycsou.util as pycu
+import pycsou.abc as pyca
 import pycsou.util.ptype as pyct
 
 
@@ -36,33 +33,33 @@ def norm(x: pyct.NDArray, **kwargs):
 
 
 def hutchpp(
-    op: pyco.SquareOp,
-    m: int = 4002,
+    op: pyca.SquareOp,
+    m: pyct.Integer = 4002,
     xp: pyct.ArrayModule = np,
-    seed: float = 0,
+    seed: pyct.Integer = 0,
     enable_warnings: bool = True,
-) -> float:
+) -> pyct.Real:
     r"""
     Stochastic estimate of the trace of a linear operator based on the Hutch++ algorithm.
     (Specifically algorithm 3 of the paper https://arxiv.org/abs/2010.09649)
 
     Parameters
     ----------
-    op: :py:class:`~pycsou.abc.operator.SquareOp`
-    m: int
+    op: pyca.SquareOp
+    m: pyct.Integer
         Number of queries used to estimate the trace of the linear operator.
 
         ``m`` is set to 4002 by default based on the analysis of the variance described in theorem
         10. This default corresponds to having an estimation error smaller than 0.01 with a
         probability of 0.9.
-    xp: pycsou.util.ptype.ArrayModule
+    xp: pyct.ArrayModule
         Array module used for internal computations.
-    seed: int
+    seed: pyct.Integer
         Seed for the random number generator.
 
     Returns
     -------
-    tr: float
+    tr: pyct.Real
         Stochastic estimate of tr(op).
     """
     if m >= op.dim:

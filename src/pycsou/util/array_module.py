@@ -22,13 +22,13 @@ def get_array_module(x, fallback: pyct.ArrayModule = None) -> pyct.ArrayModule:
     ----------
     x: object
         Any object compatible with the interface of NumPy arrays.
-    fallback: pycsou.util.ptype.ArrayModule
+    fallback: pyct.ArrayModule
         Fallback module if `x` is not a NumPy-like array.
         Default behaviour: raise error if fallback used.
 
     Returns
     -------
-    namespace: pycsou.util.ptype.ArrayModule
+    namespace: pyct.ArrayModule
         The namespace to use to manipulate `x`, or `fallback` if provided.
     """
 
