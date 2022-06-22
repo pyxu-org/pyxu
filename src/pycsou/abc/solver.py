@@ -126,9 +126,11 @@ class Solver:
         * manual/automatic/background execution of solver iterations via parameters provided to
           ``Solver.fit``. (See below.)
         * automatic checkpointing of solver progress, providing a safe restore point in case of
-          faulty numerical code. Each solver instance backs its state and final output to a folder
-          on disk for post-analysis. In particular ``Solver.fit`` will never crash: detailed
-          exception information will always be available in a logfile for post-analysis.
+          faulty numerical code.
+          Each solver instance backs its state and final output to a folder on disk for
+          post-analysis.
+          In particular ``Solver.fit`` will never crash: detailed exception information will always
+          be available in a logfile for post-analysis.
         * arbitrary specification of complex stopping criteria via the ``StoppingCriterion`` class.
         * solve for multiple initial points in parallel.
 
@@ -174,37 +176,38 @@ class Solver:
     def __init__(
         self,
         *,
-        folder: typ.Optional[pyct.PathLike] = None,
+        folder: pyct.Path = None,
         exist_ok: bool = False,
-        stop_rate: int = 1,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: typ.Optional[int] = None,
+        stop_rate: pyct.Integer = 1,
+        writeback_rate: pyct.Integer = None,
+        verbosity: pyct.Integer = None,
         show_progress: bool = True,
         log_var: pyct.VarName = frozenset(),
     ):
         """
         Parameters
         ----------
-        folder: path-like
-            Directory on disk where instance data should be stored. A location will be automatically
-            chosen if unspecified. (Default: OS-dependent tempdir.)
+        folder: pyct.Path
+            Directory on disk where instance data should be stored.
+            A location will be automatically chosen if unspecified. (Default: OS-dependent tempdir.)
         exist_ok: bool
             If ``folder`` is specified and ``exist_ok`` is false (the default), FileExistsError is
             raised if the target directory already exists.
-        stop_rate: int
+        stop_rate: pyct.Integer
             Rate at which solver evaluates stopping criteria.
-        writeback_rate: int
-            Rate at which solver checkpoints are written to disk. No checkpointing is done if
-            unspecified: only the final solver output will be written back to disk.
+        writeback_rate: pyct.Integer
+            Rate at which solver checkpoints are written to disk.
+            No checkpointing is done if unspecified: only the final solver output will be written
+            back to disk.
             Must be a multiple of `stop_rate` if specified.
-        verbosity: int
+        verbosity: pyct.Integer
             Rate at which stopping criteria statistics are logged.
             Must be a multiple of `stop_rate`.
             Defaults to `stop_rate` if unspecified.
         show_progress: bool
             If True (default) and ``Solver.fit`` is run with mode=BLOCK, then statistics are also
             logged to stdout.
-        log_var: VarName
+        log_var: pyct.VarName
             Variables from the solver's math-state (slvr._mstate) to be logged per iteration.
             These are the variables made available when calling ``Solver.stats``.
         """
@@ -317,7 +320,7 @@ class Solver:
         """
         raise NotImplementedError
 
-    def steps(self, n: typ.Optional[int] = None) -> cabc.Generator:
+    def steps(self, n: pyct.Integer = None) -> cabc.Generator:
         """
         Generator of logged variables after each iteration.
 
@@ -328,14 +331,14 @@ class Solver:
         usage examples.
 
         There is no guarantee that a checkpoint on disk exists when the generator is exhausted.
-        (Reason: potential exceptions raised during solver's progress.) Users should invoke
-        ``Solver.writeback`` afterwards if needed.
+        (Reason: potential exceptions raised during solver's progress.)
+        Users should invoke ``Solver.writeback`` afterwards if needed.
 
         Parameters
         ----------
         n: int
-            Maximum number of next() calls allowed before exhausting the generator. Defaults to
-            infinity if unspecified.
+            Maximum number of next() calls allowed before exhausting the generator.
+            Defaults to infinity if unspecified.
 
         The generator will terminate prematurely if the solver naturally stops before `n` calls to
         next() are made.
@@ -377,31 +380,31 @@ class Solver:
         return data, history
 
     @property
-    def workdir(self) -> plib.Path:
+    def workdir(self) -> pyct.Path:
         """
         Returns
         -------
-        wd: plib.Path
+        wd: pyct.Path
             Absolute path to the directory on disk where instance data is stored.
         """
         return self._astate["workdir"]
 
     @property
-    def logfile(self) -> plib.Path:
+    def logfile(self) -> pyct.Path:
         """
         Returns
         -------
-        lf: plib.Path
+        lf: pyct.Path
             Absolute path to the log file on disk where stopping criteria statistics are logged.
         """
         return self.workdir / "solver.log"
 
     @property
-    def datafile(self) -> plib.Path:
+    def datafile(self) -> pyct.Path:
         """
         Returns
         -------
-        df: plib.Path
+        df: pyct.Path
             Absolute path to the file on disk where ``log_var``(s) are stored during checkpointing or
             after solver has stopped.
         """
@@ -426,8 +429,9 @@ class Solver:
         """
         Output the "solution" of the optimization problem.
 
-        This is a helper method intended for novice users. The return type is sub-class dependent,
-        so don't write an API using this: use ``Solver.stats`` instead.
+        This is a helper method intended for novice users.
+        The return type is sub-class dependent, so don't write an API using this: use
+        ``Solver.stats`` instead.
         """
         raise NotImplementedError
 
@@ -440,9 +444,9 @@ class Solver:
 
         This method will block until the solver has stopped.
 
-        There is no guarantee that a checkpoint on disk exists once halted. (Reason: potential
-        exceptions raised during solver's progress.) Users should invoke ``Solver.writeback``
-        afterwards if needed.
+        There is no guarantee that a checkpoint on disk exists once halted.
+        (Reason: potential exceptions raised during solver's progress.)
+        Users should invoke ``Solver.writeback`` afterwards if needed.
 
         Users must call this method to terminate an async-solver, even if ``Solver.busy`` is False.
         """
@@ -637,8 +641,8 @@ class Solver:
         """
         Default stopping criterion for solver if unspecified in ``Solver.fit()`` calls.
 
-        Sub-classes are expected to overwrite this method. If not overridden, then omitting the
-        `stop_crit` parameter in ``Solver.fit()`` is forbidden.
+        Sub-classes are expected to overwrite this method.
+        If not overridden, then omitting the `stop_crit` parameter in ``Solver.fit()`` is forbidden.
         """
         raise NotImplementedError("No default stopping criterion defined.")
 
@@ -650,8 +654,8 @@ class Solver:
         * (1,) if evaluated at 1 point,
         * (N, 1) if evaluated at N different points.
 
-        Sub-classes are expected to overwrite this method. If not overridden, then setting
-        `track_objective=True` in ``Solver.fit()`` is forbidden.
+        Sub-classes are expected to overwrite this method.
+        If not overridden, then setting `track_objective=True` in ``Solver.fit()`` is forbidden.
         """
         raise NotImplementedError("No objective function defined.")
 

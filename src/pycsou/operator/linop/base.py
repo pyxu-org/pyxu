@@ -125,7 +125,7 @@ class IdentityOp(pyco.PosDefOp, pyco.UnitOp):
     Identity operator :math:`\mathrm{Id}`.
     """
 
-    def __init__(self, shape: pyct.SquareShape):
+    def __init__(self, shape: pyct.Shape):
         pyco.PosDefOp.__init__(self, shape)
         pyco.UnitOp.__init__(self, shape)
 

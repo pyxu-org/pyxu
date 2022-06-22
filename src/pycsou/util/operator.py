@@ -45,7 +45,10 @@ def infer_composition_shape(sh1: pyct.Shape, sh2: pyct.Shape) -> pyct.Shape:
         raise ValueError(f"Composition of {sh1} and {sh2} operators forbidden.")
 
 
-def infer_stack_shape(*shapes, axis):
+def infer_stack_shape(
+    *shapes: cabc.Sequence[pyct.Shape],
+    axis: pyct.Integer,
+) -> pyct.Shape:
     dims = [shape[1] for shape in shapes]
     codims = [shape[0] for shape in shapes]
     if axis == 0:
