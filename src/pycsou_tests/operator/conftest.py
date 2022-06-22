@@ -106,7 +106,7 @@ class MapT:
             "__call__",
             "lipschitz",
             "squeeze",
-            "specialize",
+            "astype",
         }
     )
 
@@ -241,7 +241,7 @@ class MapT:
     )
     def _klass(self, request) -> pyco.Map:
         # Returns some operator in the pyco.Map hierarchy.
-        # Do not override in subclass: for internal use only to test `op.specialize()`.
+        # Do not override in subclass: for internal use only to test `op.astype()`.
         return request.param
 
     @pytest.fixture
@@ -461,22 +461,8 @@ class MapT:
             assert op.squeeze() is op
 
     @pytest.mark.skip(reason="Requires some scaffolding first.")
-    def test_specialize(self, op, _klass):
+    def test_astype(self, op, _klass):
         self._skip_if_disabled()
-        # def map_cmp(a, b):
-        #     if a above b:
-        #         return -1
-        #     elif a == b:
-        #         return 0
-        #     else:
-        #         return 1
-
-        #     test_specialize: needed fixture: op, klass
-        #         for every class lower in the hierarchy:
-        #             verify op.specialize(klass) has correct class interface
-        #         assert op.specialize(op.__class__) is op
-        #         for every class upper in the hierarchy:
-        #             verify op.specialize() fails
         pass
 
 
