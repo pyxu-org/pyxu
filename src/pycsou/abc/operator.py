@@ -587,7 +587,7 @@ class Map(Apply):
         If ``self`` does not implement all methods from ``cast_to``, then unimplemented methods will
         raise a ``NotImplementedError`` when called.
         """
-        pass
+        return self
 
     @classmethod
     def from_source(cls, shape: pyct.Shape, **kwargs) -> pyct.MapT:
