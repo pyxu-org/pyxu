@@ -174,7 +174,7 @@ class HomothetyOp(pyco.SelfAdjointOp):
         return self.apply(arr)
 
     def __mul__(self, other):
-        op = pyco.Property.__mul__(self, other)
+        op = super().__mul__(other)
         if isinstance(other, pyco.ProxFunc):
             op.specialize(cast_to=pyco.ProxFunc)
             post_composition_prox = lambda obj, arr, tau: other.prox(arr, self._cst * tau)
