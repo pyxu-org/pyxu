@@ -1837,6 +1837,31 @@ class SelfAdjointOpT(NormalOpT):
         self._skip_if_disabled()
         assert pycuc._is_real(_op_eig)
 
+    @pytest.mark.parametrize(
+        "width",  # local override of this fixture
+        [  # We revert back to real-valued types since .eigvals() should return real.
+            pytest.param(
+                pycrt.Width.HALF,
+                marks=pytest.mark.xfail(
+                    reason="Unsupported by ARPACK/PROPACK/LOBPCG.",
+                    strict=True,
+                ),
+            ),
+            pycrt.Width.SINGLE,
+            pycrt.Width.DOUBLE,
+            pytest.param(
+                pycrt.Width.QUAD,
+                marks=pytest.mark.xfail(
+                    reason="Unsupported by ARPACK/PROPACK/LOBPCG.",
+                    strict=True,
+                ),
+            ),
+        ],
+    )
+    @pytest.mark.filterwarnings("ignore::UserWarning")
+    def test_precCM_eigvals(self, op, _gpu, width):
+        super().test_precCM_eigvals(op, _gpu, width)
+
     def test_math_selfadjoint(self, op):
         # A = A^{*}
         self._skip_if_disabled()
