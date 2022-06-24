@@ -1140,7 +1140,7 @@ class LinOp(DiffMap, Adjoint):
             A = self.apply(E).T
         return A
 
-    def __array__(self, dtype: pyct.Dtype = None) -> pyct.NDArray:
+    def __array__(self, dtype: pyct.DType = None) -> pyct.NDArray:
         r"""
         Coerce linear operator to a :py:class:`numpy.ndarray`.
 
