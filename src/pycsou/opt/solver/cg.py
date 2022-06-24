@@ -7,6 +7,10 @@ import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
+__all__ = [
+    "CG",
+]
+
 
 class CG(pyca.Solver):
     r"""

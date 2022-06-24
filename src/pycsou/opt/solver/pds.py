@@ -11,6 +11,18 @@ import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
+__all__ = [
+    *("CondatVu", "CV"),
+    "PD3O",
+    *("ChambollePock", "CP"),
+    *("LorisVerhoeven", "LV"),
+    *("DavisYin", "DY"),
+    *("DouglasRachford", "DR"),
+    "ADMM",
+    *("ForwardBackward", "FB"),
+    *("ProximalPoint", "PP"),
+]
+
 
 class _PrimalDualSplitting(pycs.Solver):
     r"""
