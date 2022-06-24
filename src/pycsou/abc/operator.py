@@ -1433,8 +1433,8 @@ class LinFunc(ProxDiffFunc, LinOp):
 
     def lipschitz(self, **kwargs) -> pyct.Real:
         # 'fro' / 'svds' mode are identical for linfuncs.
-        g = self.grad(np.ones((1,)))
-        self._lipschitz = np.linalg.norm(g).item()
+        g = self.grad(np.ones(self.dim))
+        self._lipschitz = float(np.linalg.norm(g))
         return self._lipschitz
 
     @pycrt.enforce_precision(i=("arr", "tau"))
