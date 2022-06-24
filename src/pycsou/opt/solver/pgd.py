@@ -7,6 +7,10 @@ import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
+__all__ = [
+    "PGD",
+]
+
 
 class PGD(pyca.Solver):
     r"""
