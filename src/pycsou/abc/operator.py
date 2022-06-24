@@ -940,11 +940,10 @@ class LinOp(DiffMap, Adjoint):
         r"""
         Return the (M, N) adjoint of the linear operator.
         """
-        klass = self.__class__
-        adj = klass(shape=(self.dim, self.codim))
+        adj = copy.copy(self)
+        adj._shape = self.dim, self.codim
         adj.apply = self.adjoint
         adj.adjoint = self.apply
-        adj._lipschitz = self._lipschitz
         return adj
 
     def to_sciop(
