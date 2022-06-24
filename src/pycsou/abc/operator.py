@@ -1159,8 +1159,6 @@ class LinOp(DiffMap, Adjoint):
         Functions like ``np.array`` or  ``np.asarray`` will check for the existence of the
         ``__array__`` protocol to know how to coerce the custom object fed as input into an array.
         """
-        if dtype is None:
-            dtype = pycrt.getPrecision().value
         return self.asarray(xp=np, dtype=dtype)
 
     def gram(self) -> pyct.MapT:
