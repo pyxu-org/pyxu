@@ -11,10 +11,8 @@ This module provides various universal functions.
 
 Notes
 ------
-Every classes have its own functional interface in order to directly use apply method.
-Thus, there exists two implementation of each universal functions:
 
-* Instantiating an object of the class:
+* Implementation:
 
 Example
 -------
@@ -36,7 +34,7 @@ Example
     >>> np.allclose(jacob_res, np.cos(x))
     True
 
-* Using functional interface to directly use apply:
+* Every classes have its own functional interface in order to be able to combine with different maps:
 
 Example
 -------
@@ -47,10 +45,12 @@ Example
 .. doctest::
 
     >>> from pycsou.operator.map import sin
+    >>> from pycsou.operator.linop.base import ExplicitLinOp
     >>> x = np.random.randn(10)
-    >>> res = sin(x)
-    >>> np_res = np.sin(x)
-    >>> np.allclose(np_res, res)
+    >>> A = ExplicitLinOp(np.random.randn(10, 10))
+    >>> sin_A = sin(A)
+    >>> res = sin_A.apply(x)
+    >>> np.allclose(res, np.sin(A.apply(x)))
     True
 """
 
@@ -111,14 +111,14 @@ def sin(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Sin(op.shape).apply(op)
+    return Sin(op.shape) * op
 
 
 class Cos(pyca.DiffMap):
@@ -167,14 +167,14 @@ def cos(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Cos(op.shape).apply(op)
+    return Cos(op.shape) * op
 
 
 class Tan(pyca.DiffMap):
@@ -218,14 +218,14 @@ def tan(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Tan(op.shape).apply(op)
+    return Tan(op.shape) * op
 
 
 class Arcsin(pyca.DiffMap):
@@ -269,14 +269,14 @@ def arcsin(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Arcsin(op.shape).apply(op)
+    return Arcsin(op.shape) * op
 
 
 class Arccos(pyca.DiffMap):
@@ -320,14 +320,14 @@ def arccos(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Arccos(op.shape).apply(op)
+    return Arccos(op.shape) * op
 
 
 class Arctan(pyca.DiffMap):
@@ -376,14 +376,14 @@ def arctan(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Arctan(op.shape).apply(op)
+    return Arctan(op.shape) * op
 
 
 # Hyperbolic Functions
@@ -430,14 +430,14 @@ def sinh(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Sinh(op.shape).apply(op)
+    return Sinh(op.shape) * op
 
 
 class Cosh(pyca.DiffMap):
@@ -481,14 +481,14 @@ def cosh(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Cosh(op.shape).apply(op)
+    return Cosh(op.shape) * op
 
 
 class Tanh(pyca.DiffMap):
@@ -540,14 +540,14 @@ def tanh(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Tanh(op.shape).apply(op)
+    return Tanh(op.shape) * op
 
 
 class Arcsinh(pyca.DiffMap):
@@ -599,14 +599,14 @@ def arcsinh(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Arcsinh(op.shape).apply(op)
+    return Arcsinh(op.shape) * op
 
 
 class Arccosh(pyca.DiffMap):
@@ -650,14 +650,14 @@ def arccosh(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Arccosh(op.shape).apply(op)
+    return Arccosh(op.shape) * op
 
 
 class Arctanh(pyca.DiffMap):
@@ -700,14 +700,14 @@ def arctanh(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Arctanh(op.shape).apply(op)
+    return Arctanh(op.shape) * op
 
 
 # Exponentials and logarithms
@@ -770,16 +770,16 @@ def exp(op: pyca.Map, base: pyct.Real = None) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
     base: :py:class:`pyct.Real`
         Base parameter. Default is `None`, which results in base-E exponential.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Exp(op.shape, base).apply(op)
+    return Exp(op.shape, base) * op
 
 
 class Log(pyca.DiffMap):
@@ -838,16 +838,16 @@ def log(op: pyca.Map, base: pyct.Real = None) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
     base: :py:class:`pyct.Real`
         Base parameter. Default is`None`, which results in base-E logarithm.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Log(op.shape, base).apply(op)
+    return Log(op.shape, base) * op
 
 
 # Sums and Products
@@ -907,14 +907,14 @@ def prod(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Prod(op.shape[-1]).apply(op)
+    return Prod(op.shape[0]) * op
 
 
 class Sum(pyca.DiffFunc):
@@ -968,14 +968,14 @@ def sum(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Sum(op.shape[-1]).apply(op)
+    return Sum(op.shape[0]) * op
 
 
 class Cumprod(pyca.DiffMap):
@@ -1038,14 +1038,14 @@ def cumprod(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Cumprod(op.shape).apply(op)
+    return Cumprod(op.shape) * op
 
 
 class Cumsum(pyca.DiffMap):
@@ -1104,14 +1104,14 @@ def cumsum(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Cumsum(op.shape).apply(op)
+    return Cumsum(op.shape) * op
 
 
 # Miscellaneous
@@ -1191,7 +1191,7 @@ def clip(op: pyca.Map, a_min: pyct.Real = None, a_max: pyct.Real = None):
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
     a_min: :py:class:`pyct.Real`
         Minimum value. Default is None.
     a_max: :py:class:`pyct.Real`
@@ -1200,9 +1200,9 @@ def clip(op: pyca.Map, a_min: pyct.Real = None, a_max: pyct.Real = None):
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Clip(op.shape, a_min, a_max).apply(op)
+    return Clip(op.shape, a_min, a_max) * op
 
 
 class Sqrt(pyca.DiffMap):
@@ -1245,14 +1245,14 @@ def sqrt(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Sqrt(op.shape).apply(op)
+    return Sqrt(op.shape) * op
 
 
 class Cbrt(pyca.DiffMap):
@@ -1295,14 +1295,14 @@ def cbrt(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Cbrt(op.shape).apply(op)
+    return Cbrt(op.shape) * op
 
 
 class Square(pyca.DiffMap):
@@ -1346,14 +1346,14 @@ def square(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Square(op.shape).apply(op)
+    return Square(op.shape) * op
 
 
 class Abs(pyca.DiffMap):
@@ -1403,14 +1403,14 @@ def abs(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Abs(op.shape).apply(op)
+    return Abs(op.shape) * op
 
 
 class Sign(pyca.DiffMap):
@@ -1467,14 +1467,14 @@ def sign(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Sign(op.shape).apply(op)
+    return Sign(op.shape) * op
 
 
 # Activation Functions (Tanh already implemented)
@@ -1533,14 +1533,14 @@ def sigmoid(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Sigmoid(op.shape).apply(op)
+    return Sigmoid(op.shape) * op
 
 
 class ReLU(Clip):
@@ -1583,14 +1583,14 @@ def relu(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return ReLU(op.shape).apply(op)
+    return ReLU(op.shape) * op
 
 
 class GELU(pyca.DiffMap):
@@ -1671,14 +1671,14 @@ def gelu(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return GELU(op.shape).apply(op)
+    return GELU(op.shape) * op
 
 
 class Softplus(pyca.DiffMap):
@@ -1733,14 +1733,14 @@ def softplus(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Softplus(op.shape).apply(op)
+    return Softplus(op.shape) * op
 
 
 class ELU(pyca.DiffMap):
@@ -1811,16 +1811,16 @@ def elu(op: pyca.Map, alpha: pyct.Real) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
     alpha: :py:class`pyct.Real`
         ELU parameter. Default is None, which results in error.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return ELU(op.shape, alpha).apply(op)
+    return ELU(op.shape, alpha) * op
 
 
 class SELU(pyca.DiffMap):
@@ -1884,14 +1884,14 @@ def selu(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return SELU(op.shape).apply(op)
+    return SELU(op.shape) * op
 
 
 class LeakyReLU(pyca.DiffMap):
@@ -1963,16 +1963,16 @@ def leakyrelu(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
     alpha: :py:class:`pyct.Real`
         Leaky parameter. Default is `None`, which results in error.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return LeakyReLU(op.shape).apply(op)
+    return LeakyReLU(op.shape) * op
 
 
 class SiLU(pyca.DiffMap):
@@ -2028,14 +2028,14 @@ def silu(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return SiLU(op.shape).apply(op)
+    return SiLU(op.shape) * op
 
 
 class Gaussian(pyca.DiffMap):
@@ -2089,14 +2089,14 @@ def gaussian(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Gaussian(op.shape).apply(op)
+    return Gaussian(op.shape) * op
 
 
 class GCU(pyca.DiffMap):
@@ -2145,14 +2145,14 @@ def gcu(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return GCU(op.shape).apply(op)
+    return GCU(op.shape) * op
 
 
 class Softmax(pyca.DiffMap):
@@ -2215,14 +2215,14 @@ def softmax(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Softmax(op.shape).apply(op)
+    return Softmax(op.shape) * op
 
 
 class Maxout(pyca.DiffFunc):
@@ -2282,11 +2282,11 @@ def maxout(op: pyca.Map) -> pyca.Map:
     Parameters
     ----------
     op: :py:class:`pycsou.abc.operator.Map`
-        Input array.
+        Input map.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
-        Output array.
+        Output map.
     """
-    return Maxout(op.shape).apply(op)
+    return Maxout(op.shape) * op
