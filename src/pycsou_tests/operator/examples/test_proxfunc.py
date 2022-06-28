@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 import pycsou.abc.operator as pyco
+import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
@@ -51,10 +52,7 @@ class L1Norm(pyco.ProxFunc):
         return y
 
     def asloss(self, data=None):
-        if data is None:
-            return self
-        else:
-            return self.argshift(-data)
+        return pycof.shift_loss(self, data)
 
 
 class TestL1Norm(conftest.ProxFuncT):
@@ -69,16 +67,6 @@ class TestL1Norm(conftest.ProxFuncT):
     @pytest.fixture
     def data_shape(self, op, dim):
         return (1, dim)
-
-    @pytest.fixture
-    def data_lipschitz(self, dim):
-        return dict(
-            in_=dict(
-                M=dim,
-                warn=False,
-            ),
-            out=np.inf if (dim is None) else np.sqrt(dim),
-        )
 
     @pytest.fixture(
         params=[  # 2 evaluation points

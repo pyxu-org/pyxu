@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 import pycsou.abc.operator as pyco
+import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
@@ -27,10 +28,7 @@ class SquaredL2Norm(pyco.DiffFunc):
         return 2 * arr
 
     def asloss(self, data=None):
-        if data is None:
-            return self
-        else:
-            return self.argshift(-data)
+        return pycof.shift_loss(self, data)
 
 
 class TestSquaredL2Norm(conftest.DiffFuncT):

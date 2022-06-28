@@ -101,7 +101,7 @@ class QuadraticFunc(pyco.ProxDiffFunc):
         self._t = pycrt.coerce(t)
         self._enable_warnings = enable_warnings
 
-        self._lipschitz = np.infty
+        self._lipschitz = np.inf
         self._diff_lipschitz = self._Q._lipschitz
 
     @pycrt.enforce_precision(i="arr")
