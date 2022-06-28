@@ -567,17 +567,12 @@ class Property:
             if prop in ["lipschitz", "diff_lipschitz"]:
                 setattr(out_op, "_" + prop, getattr(self, "_" + prop))
             elif prop == "prox":
-
-                @pycrt.enforce_precision(i=("arr", "tau"))
-                def argshifted_prox(shift, _, arr, tau):
-                    shift = shift.astype(arr.dtype, copy=False)
-                    return self.prox(arr + shift, tau) - shift
-
-                setattr(out_op, "prox", types.MethodType(ft.partial(argshifted_prox, shift), out_op))
+                out_op.prox = types.MethodType(
+                    ft.partial(lambda shift, _, arr, tau: self.prox(arr + shift, tau) - shift, shift), out_op
+                )
             else:
 
                 def argshifted_method(prop, shift, _, arr: pyct.NDArray) -> typ.Union[pyct.NDArray, "LinOp"]:
-                    shift = shift.astype(arr.dtype, copy=False)
                     return getattr(self, prop)(arr + shift)
 
                 setattr(out_op, prop, types.MethodType(ft.partial(argshifted_method, prop, shift), out_op))

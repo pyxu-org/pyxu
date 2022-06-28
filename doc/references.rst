@@ -18,3 +18,5 @@ References
 .. [P2] Jain, Raj, and Imrich Chlamtac. "The P2 algorithm for dynamic calculation of quantiles and histograms without storing observations." Communications of the ACM 28.10 (1985): 1076-1085.
 .. [GaussProcesses] Rasmussen, Carl Edward, and C. K. Williams. "Gaussian processes for machine learning, vol. 1." (2006).
 .. [SubGauss] Aziznejad, Shayan, and Michael Unser. "An L1 representer theorem for multiple-kernel regression." arXiv preprint arXiv:1811.00836 (2018).
+.. [SAGA] Defazio, A., Bach, F., Lacoste-Julien, S. (2014). SAGA: A Fast Incremental Gradient Method With Support for Non-Strongly Convex Composite Objectives. Advances in Neural Information Processing Systems, 1646–1654. https://arxiv.org/abs/1407.0202v3
+.. [StocInv] Tang, J., Egiazarian, K., Golbabaee, M., Davies, M. (2019). The Practicality of Stochastic Optimization in Imaging Inverse Problems. IEEE Transactions on Computational Imaging, 1471–1485. https://doi.org/10.1109/TCI.2020.3032101
