@@ -12,6 +12,14 @@ pycsou.operator.linop.base module
    :undoc-members:
    :show-inheritance:
 
+pycsou.operator.linop.nufft module
+----------------------------------
+
+.. automodule:: pycsou.operator.linop.nufft
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 

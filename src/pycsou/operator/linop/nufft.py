@@ -30,10 +30,76 @@ def _wrap_if_dask(func: cabc.Callable) -> cabc.Callable:
 
 
 class NUFFT(pyco.LinOp):
-    """
-    Non-Uniform Fast Fourier Transform (Type 1/2/3).
+    r"""
+    Non-Uniform Fast Fourier Transform (NUFFT) of Type 1/2/3 (for :math:`d=1,2,3`).
 
-    Use custom class constructors to create the desired transform.
+    The *Non-Uniform Fast Fourier Transform (NUFFT)* generalizes the FFT to off-grid data. There are three main types of
+    NUFFTs proposed in the literature: Type 1 (*non-uniform to uniform*), Type 2 (*uniform to non-uniform*), or Type 3 (*non-uniform to non-uniform*).
+    The various transforms can be instantiated via the custom class constructors :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type1`, :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type2`, and :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`
+    respectively (see also :py:meth:`~pycsou.operator.linop.nufft.NUFFT.rtype1`, :py:meth:`~pycsou.operator.linop.nufft.NUFFT.rtype2` and :py:meth:`~pycsou.operator.linop.nufft.NUFFT.rtype3` for real inputs).
+    The dimension of the NUFFT transforms is inferred from the dimensions of the input arguments, with support for dimensions 1, 2 and 3.
+
+    Notes
+    -----
+    We adopt here the same notational conventions as in [FINUFFT]_.
+
+    *Mathematical Definition*
+
+    Let :math:`d\in\{1,2,3\}` and consider the Cartesian-product mesh
+
+    .. math::
+
+        \mathcal{I}_{N_1,\ldots, N_d}=\mathcal{I}_{N_1}\times \cdots\times  \mathcal{I}_{N_d}\subset\mathbb{Z}^d
+
+    of the hyperinterval :math:`\Pi_{i=1}^d [-N_i/2,N_i/2]\subset \mathbb{R}^d`, where the mesh indices :math:`\mathcal{I}_{N_i}\subset\mathbb{Z}` are given for each
+    dimension :math:`i=1,\dots, d` by:
+
+    .. math::
+
+        \mathcal{I}_{N_i}=\begin{cases}\{-N_i/2, \ldots, N_i/2-1\}, & N_i\in 2\mathbb{Z} \text{ (even)}, \\  \{-(N_i-1)/2, \ldots, (N_i-1)/2\}, & N_i\in 2\mathbb{Z}+1 \text{ (odd)}.\end{cases}
+
+
+    Then, the various NUFFT operators approximate, up to a requested relative accuracy :math:`\varepsilon>0`, the following exponential sums respectively:
+
+        - *NUFFT of Type 1 (non-uniform to uniform):*
+
+            .. math::
+
+                u_{\mathbf{n}} = \sum_{j=1}^{M} w_{j} e^{\sigma i\langle \mathbf{n}, \mathbf{x}_{j} \rangle}, \quad \mathbf{n}\in \mathcal{I}_{N_1,\ldots, N_d}, \tag{1}
+
+
+        - *NUFFT of Type 2 (uniform to non-uniform):*
+
+            .. math::
+
+                w_{j} = \sum_{\mathbf{n}\in\mathcal{I}_{N_1,\ldots, N_d}} u_{\mathbf{n}} e^{\sigma i\langle \mathbf{n}, \mathbf{x}_{j} \rangle }, \quad j=1,\ldots, M, \tag{2}
+
+
+        - *NUFFT of Type 3 (non-uniform to non-uniform):*
+
+            .. math::
+
+                v_{k} = \sum_{j=1}^{M} w_{j} e^{\sigma i\langle \mathbf{z}_k, \mathbf{x}_{j} \rangle }, \quad k=1,\ldots, N, \tag{3}
+
+    where :math:`\sigma \in \{+1, -1\}` defines the sign of the transforms, and where :math:`u_{\mathbf{n}}, v_{k}, w_{j}\in \mathbb{C}` are complex coefficients.
+    For the NUFFTs of Types 1 and 2, the non-uniform samples :math:`\mathbf{x}_{j}` are assumed to lie in :math:`[-\pi,\pi)^d`. For the NUFFT of Type 3, the non-uniform samples
+    :math:`\mathbf{x}_{j}` and :math:`\mathbf{z}_{k}` are arbitrary points in :math:`\mathbb{R}^d`.
+
+    *Adjoint NUFFTs*
+
+    The NUFFTs of Types 1 and 2 with opposite signs form an adjoint pair. The adjoint of the NUFFT of Type 3 is obtained by
+    flipping the transform's sign and switching the roles of   :math:`\mathbf{z}_k` and :math:`\mathbf{x}_{j}` in (3).
+
+    *Accuracy*
+
+    *Complexity*
+
+    *Backend*
+
+    The NUFFT tansforms are computed via the CPU-based and multithreaded C++ library `FINUFFT <https://github.com/flatironinstitute/finufft>`_ and its CUDA equivalent `cuFINUFFT <https://github.com/flatironinstitute/cufinufft>`_ (see also [FINUFFT]_ and [cuFINUFFT]_).
+    It uses minimal RAM, and performs the expensive spreading/interpolation between nonuniform points and the fine grid via the “exponential of semicircle” kernel in a cache-aware load-balanced multithreaded implementation.
+    This kernel is simpler and faster to evaluate than the Kaiser–Bessel, yet has essentially identical error (see [FINUFFT]_).
+
     """
 
     # The goal of this wrapper class is to sanitize __init__() inputs.
@@ -44,29 +110,29 @@ class NUFFT(pyco.LinOp):
     @staticmethod
     @pycrt.enforce_precision(i="t", o=False, allow_None=False)
     def type1(
-        t: pyct.NDArray,
-        M: typ.Union[int, tuple[int, ...]],
+        x: pyct.NDArray,
+        N: typ.Union[int, tuple[int, ...]],
         **kwargs,
     ) -> pyco.LinOp:
         r"""
-        Type-1 NUFFT.
+        Type 1 NUFFT (nonuniform to uniform).
 
-        Performs the following computation:
+        Approximates the following computation:
 
         .. math::
 
-           \alpha_{k}^{F} = \sum_{j=1}^{J} \alpha_{j} \exp^{i s \langle f_{k}, t_{j} \rangle },
+           \beta_{\mathbf{n}} = \sum_{j=1}^{M} \alpha_{j} e^{i s \langle \mathbf{n}, \mathbf{x}_{j} \rangle },
 
-        where :math:`s \in \{+1, -1\}`, :math:`\alpha_{j} \in \mathbb{C}`, :math:`t_{j} \in
-        \mathbb{R}^{D}`, and :math:`f_{k} \in [-M_{1}/2, \ldots, (M_{1}-1)/2] \times \cdots \times
-        [-M_{D}/2, \ldots, (M_{D}-1)/2]`.
+        where :math:`s \in \{+1, -1\}`, :math:`(\alpha_{j})_j \in \mathbb{C}^M`, :math:`\{\mathbf{x}_{j}\}_j \subset
+        \mathbb{R}^{D}`, and :math:`(\beta_{\mathbf{n}})_{\mathbf{n}\in\mathcal{I}} \in \mathbb{C}^{\mathcal{I}}` with
+        :math:`f_{k} \in [-M_{1}/2, \ldots, (M_{1}-1)/2] \times \cdots \times [-M_{D}/2, \ldots, (M_{D}-1)/2]`.
 
         Parameters
         ----------
         t: NDArray
             (J, [D]) D-dimensional spatial coordinates :math:`t_{j} \in \mathbb{R}^{D}`.
         M: int | tuple[int]
-            (D,) number of Fourier modes per dimension. An integer parameter applies to each
+            ([D],) number of Fourier modes per dimension. An integer parameter applies to each
             dimension.
         **kwargs
             Extra keyword parameters to :py:func:`finufft.Plan`. (Illegal keywords are dropped.)
