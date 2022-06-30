@@ -36,10 +36,10 @@ class NUFFT(pyco.LinOp):
     The *Non-Uniform Fast Fourier Transform (NUFFT)* generalizes the FFT to off-grid data. There are three main types of
     NUFFTs proposed in the literature: Type 1 (*non-uniform to uniform*), Type 2 (*uniform to non-uniform*), or Type 3 (*non-uniform to non-uniform*).
     These transforms are performed to a user-prescribed tolerance, at close-to-FFT speeds. Under the hood, this involves detailed kernel design, custom spreading/interpolation stages, and FFT calls.
-    See the notes below as well as [FINUFFT]_ for definitions of the various transform types and algorithmic details. The transforms can be instantiated via the custom class constructors :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type1`, :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type2`, and :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`
-    respectively.
+    See the notes below as well as [FINUFFT]_ for definitions of the various transform types and algorithmic details.
 
-    The dimension of the NUFFT transforms is inferred from the dimensions of the input arguments, with support for dimensions 1, 2 and 3.
+    The transforms can be instantiated via the custom class constructors :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type1`, :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type2`, and :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`
+    respectively. The dimension of the NUFFT transforms is inferred from the dimensions of the input arguments, with support for dimensions 1, 2 and 3.
 
     Notes
     -----
@@ -104,7 +104,7 @@ class NUFFT(pyco.LinOp):
 
     **Backend.** The NUFFT tansforms are computed via Python wrappers to the CPU-based and multithreaded C++ library `FINUFFT <https://github.com/flatironinstitute/finufft>`_
     or its CUDA equivalent `cuFINUFFT <https://github.com/flatironinstitute/cufinufft>`_ for GPU computing (see also [FINUFFT]_ and [cuFINUFFT]_).
-    It uses minimal RAM, and performs the expensive spreading/interpolation between nonuniform points and the fine grid via the “exponential of semicircle” kernel in a cache-aware and load-balanced multithreaded implementation.
+    It uses minimal RAM, and performs the expensive spreading/interpolation between nonuniform points and the fine grid via the “exponential of semicircle” kernel in a cache-aware and load-balanced multithreaded fashion.
     This kernel is simpler and faster to evaluate than other kernels used in NUFFT algorithms, such as the Kaiser–Bessel, yet has essentially identical error (see [FINUFFT]_).
 
     **Optional Parameters.**
@@ -118,8 +118,8 @@ class NUFFT(pyco.LinOp):
     Warnings
     --------
     The FINUFFT library exposes a ``dtype`` keyword to control the precision (single or double) at which the transforms are performed.
-    Do not rely on this optional parameter to set the precision as the latter is ignored. Instead, use the context manager :py:class:`~pycsou.runtime.Precision`
-    as is customary in Pycsou.
+    Do not rely on this optional parameter to set the precision as the latter is ignored by the :py:class:`~pycsou.operator.linop.nufft.NUFFT` class. Instead, use the context manager :py:class:`~pycsou.runtime.Precision`
+    to control the floating point precision.
 
     See Also
     --------
@@ -169,7 +169,7 @@ class NUFFT(pyco.LinOp):
         Returns
         -------
         op: LinOp
-            An NUFFT operator of the correct type with pre-computed plan.
+            An NUFFT operator of type 1 with pre-computed plan.
         """
         init_kwargs = _NUFFT1._sanitize_init_kwargs(
             x=x, N=N, isign=isign, eps=eps, real_input=real, real_output=False, **kwargs
@@ -209,7 +209,7 @@ class NUFFT(pyco.LinOp):
         Returns
         -------
         op: LinOp
-            An NUFFT operator of the correct type with pre-computed plan.
+            An NUFFT operator of type 2 with pre-computed plan.
         """
         init_kwargs = _NUFFT1._sanitize_init_kwargs(
             x=x, N=N, isign=-isign, eps=eps, real_input=False, real_output=real, **kwargs
@@ -217,77 +217,41 @@ class NUFFT(pyco.LinOp):
         return _NUFFT1(**init_kwargs).T
 
     @staticmethod
-    @pycrt.enforce_precision(i=("t", "f"), o=False, allow_None=False)
+    @pycrt.enforce_precision(i=("x", "z"), o=False, allow_None=False)
     def type3(
-        t: pyct.NDArray,
-        f: pyct.NDArray,
+        x: pyct.NDArray,
+        z: pyct.NDArray,
+        isign: typ.Literal[1, -1] = 1,
+        eps: float = 1e-6,
+        real: bool = False,
         **kwargs,
     ) -> pyco.LinOp:
         r"""
-        Type-3 NUFFT.
-
-        Performs the following computation:
-
-        .. math::
-
-           \alpha_{k}^{F} = \sum_{j=1}^{J} \alpha_{j} \exp^{i s \langle f_{k}, t_{j} \rangle },
-
-        where :math:`s \in \{+1, -1\}`, :math:`\alpha_{j} \in \mathbb{C}`, :math:`t_{j} \in
-        \mathbb{R}^{D}`, and :math:`f_{k} \in \mathbb{R}^{D}`.
+        Type 3 NUFFT (non-uniform to non-uniform).
 
         Parameters
         ----------
-        t: NDArray
-            (J, [D]) D-dimensional spatial coordinates :math:`t_{j} \in \mathbb{R}^{D}`.
-        f: NDArray
-            (K, [D]) D-dimensional spectral coordinates :math:`f_{k} \in \mathbb{R}^{D}`.
-        kwargs
-            Extra keyword-arguments to :py:func:`finufft.Plan`. (Illegal keywords are dropped.)
-            Most useful are `isign`, `n_trans` and `eps`.
+        x: NDArray
+            (M, [d]) d-dimensional sample points :math:`\mathbf{x}_{j} \in \mathbb{R}^{d}`.
+        z: NDArray
+            (N, [d]) d-dimensional query points :math:`\mathbf{z}_{k} \in \mathbb{R}^{d}`.
+        isign: 1 | -1
+            Sign :math:`\sigma` of the transform.
+        eps: float
+            Requested accuracy.
+        real: bool
+            If ``True``, assumes real inputs to the NUFFT.
+        **kwargs
+            Extra keyword parameters to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_. (Illegal keywords are silently dropped.)
+            Most useful is `n_trans`.
 
         Returns
         -------
         op: LinOp
+            An NUFFT operator of type 3 with pre-computed plan.
         """
-        init_kwargs = _NUFFT3._sanitize_init_kwargs(t=t, f=f, **kwargs)
+        init_kwargs = _NUFFT3._sanitize_init_kwargs(x=x, z=z, isign=isign, eps=eps, real=real, **kwargs)
         return _NUFFT3(**init_kwargs)
-
-    @staticmethod
-    @pycrt.enforce_precision(i=("t", "f"), o=False, allow_None=False)
-    def rtype3(
-        t: pyct.NDArray,
-        f: pyct.NDArray,
-        **kwargs,
-    ) -> pyco.LinOp:
-        r"""
-        Type-3 NUFFT for real-valued inputs. [Syntactic sugar for .type3(): no performance
-        advantage.]
-
-        Performs the following computation:
-
-        .. math::
-
-           \alpha_{k}^{F} = \sum_{j=1}^{J} \alpha_{j} \exp^{i s \langle f_{k}, t_{j} \rangle },
-
-        where :math:`s \in \{+1, -1\}`, :math:`\alpha_{j} \in \mathbb{R}`, :math:`t_{j} \in
-        \mathbb{R}^{D}`, and :math:`f_{k} \in \mathbb{R}^{D}`.
-
-        Parameters
-        ----------
-        t: NDArray
-            (J, [D]) D-dimensional spatial coordinates :math:`t_{j} \in \mathbb{R}^{D}`.
-        f: NDArray
-            (K, [D]) D-dimensional spectral coordinates :math:`f_{k} \in \mathbb{R}^{D}`.
-        kwargs
-            Extra keyword-arguments to :py:func:`finufft.Plan`. (Illegal keywords are dropped.)
-            Most useful are `isign`, `n_trans` and `eps`.
-
-        Returns
-        -------
-        op: LinOp
-        """
-        init_kwargs = _rNUFFT3._sanitize_init_kwargs(t=t, f=f, **kwargs)
-        return _rNUFFT3(**init_kwargs)
 
     @staticmethod
     def _as_canonical_coordinate(x: pyct.NDArray) -> pyct.NDArray:
@@ -485,13 +449,13 @@ class _NUFFT1(NUFFT):
         Parameters
         ----------
         arr: NDArray
-            ([n_trans], 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real vector (see :py:func:`~pycsou.util.complex.view_as_real`).
+            ([N_stack], 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
 
         Returns
         -------
         out: NDArray
-            ([n_trans], 2N1*...*Nd) output of NUFFT :math:`\mathbf{u} \in \mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}`
-            viewed as a real vector (see :py:func:`~pycsou.util.complex.view_as_real`).
+            ([N_stack], 2N1*...*Nd) output of NUFFT :math:`\mathbf{u} \in \mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}`
+            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
         """
         if self._real_input:
             r_width = pycrt.Width(arr.dtype)
@@ -509,13 +473,14 @@ class _NUFFT1(NUFFT):
         Parameters
         ----------
         arr: NDArray
-            ([n_trans], 2N1*...Nd) input :math:`\mathbf{u} \in \mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}`
-            viewed as a real vector (see :py:func:`~pycsou.util.complex.view_as_real`).
+            ([N_stack], 2N1*...Nd) input :math:`\mathbf{u} \in \mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}`
+            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
 
         Returns
         -------
         out: NDArray
-            ([n_trans], 2M) output of NUFFT :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real vector (see :py:func:`~pycsou.util.complex.view_as_real`).
+            ([N_stack], 2M) output of adjoint NUFFT :math:`\mathbf{w} \in \mathbb{C}^{M}`
+            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
         """
         if self._real_output:
             r_width = pycrt.Width(arr.dtype)
@@ -530,32 +495,33 @@ class _NUFFT1(NUFFT):
 
 class _NUFFT3(NUFFT):
     def __init__(self, **kwargs):
-        self._lipschitz = 0  # TODO: [Sepand -> Matthieu] Closed-form possible?
         self._plan = dict(
             fw=self._plan_fw(**kwargs),
             bw=self._plan_bw(**kwargs),
         )
-        self._J, self._D = kwargs["t"].shape  # Useful constants
-        self._K, _ = kwargs["f"].shape
-        self._N = self._plan["fw"].n_trans
-        super().__init__(shape=(2 * self._K, 2 * self._J))
+        self._M, self._D = kwargs["x"].shape  # Useful constants
+        self._N, _ = kwargs["z"].shape
+        self._n = self._plan["fw"].n_trans
+        self._real = kwargs["real"]
+        super().__init__(shape=(2 * self._N, self._M if self._real else 2 * self._M))
+        self._lipschitz = np.sqrt(self._N * self._M)  # Overestimation via Frobenius norm
 
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:
         kwargs = kwargs.copy()
         for k in ("nufft_type", "n_modes_or_dim", "dtype"):
             kwargs.pop(k, None)
-        t = kwargs["t"] = cls._as_canonical_coordinate(kwargs["t"])
-        f = kwargs["f"] = cls._as_canonical_coordinate(kwargs["f"])
-        assert t.shape[-1] == f.shape[-1], "Spatial/Spectral dimensionality mis-match."
-        assert pycu.get_array_module(t) == pycu.get_array_module(f)
+        x = kwargs["x"] = cls._as_canonical_coordinate(kwargs["x"])
+        z = kwargs["z"] = cls._as_canonical_coordinate(kwargs["z"])
+        kwargs["real"] = bool(kwargs["real"])
+        assert x.shape[-1] == z.shape[-1], "Dimensionality mis-match between sample and query points."
         return kwargs
 
     @staticmethod
     def _plan_fw(**kwargs) -> finufft.Plan:
         kwargs = kwargs.copy()
-        t, f = [kwargs.pop(_) for _ in ("t", "f")]
-        _, N_dim = t.shape
+        x, z = [kwargs.pop(_) for _ in ("x", "z")]
+        _, N_dim = x.shape
 
         plan = finufft.Plan(
             nufft_type=3,
@@ -570,7 +536,7 @@ class _NUFFT3(NUFFT):
             **dict(
                 zip(
                     "xyz"[:N_dim] + "stu"[:N_dim],
-                    pycu.compute(*t.T[:N_dim], *f.T[:N_dim]),
+                    pycu.compute(*x.T[:N_dim], *z.T[:N_dim]),
                 )
             ),
         )
@@ -578,16 +544,16 @@ class _NUFFT3(NUFFT):
 
     @_wrap_if_dask
     def _fw(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self._N == 1:  # finufft limitation: insists on having no
+        if self._n == 1:  # finufft limitation: insists on having no
             arr = arr[0]  # leading-dim if n_trans==1.
-        out = self._plan["fw"].execute(arr)  # ([N], J) -> ([N], K)
-        return out.reshape((self._N, self._K))
+        out = self._plan["fw"].execute(arr)  # ([n_trans], M) -> ([n_trans], N)
+        return out.reshape((self._n, self._N))
 
     @staticmethod
     def _plan_bw(**kwargs) -> finufft.Plan:
         kwargs = kwargs.copy()
-        t, f = [kwargs.pop(_) for _ in ("t", "f")]
-        _, N_dim = t.shape
+        x, z = [kwargs.pop(_) for _ in ("x", "z")]
+        _, N_dim = x.shape
 
         plan = finufft.Plan(
             nufft_type=3,
@@ -602,7 +568,7 @@ class _NUFFT3(NUFFT):
             **dict(
                 zip(
                     "xyz"[:N_dim] + "stu"[:N_dim],
-                    pycu.compute(*f.T[:N_dim], *t.T[:N_dim]),
+                    pycu.compute(*z.T[:N_dim], *x.T[:N_dim]),
                 )
             ),
         )
@@ -610,10 +576,10 @@ class _NUFFT3(NUFFT):
 
     @_wrap_if_dask
     def _bw(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self._N == 1:  # finufft limitation: insists on having no
+        if self._n == 1:  # finufft limitation: insists on having no
             arr = arr[0]  # leading-dim if n_trans==1.
-        out = self._plan["bw"].execute(arr)  # ([N,] K) -> ([N,] J)
-        return out.reshape((self._N, self._J))
+        out = self._plan["bw"].execute(arr)  # ([n_trans,] N) -> ([n_trans,] M)
+        return out.reshape((self._n, self._M))
 
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -621,17 +587,23 @@ class _NUFFT3(NUFFT):
         Parameters
         ----------
         arr: NDArray
-            ([N], 2J) spatial amplitudes :math:`\alpha_{j} \in \mathbb{C}^{J}`.
+            ([N_stack], 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}`
+            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
 
         Returns
         -------
         out: NDArray
-            ([N], 2K) spectral amplitudes :math:`\alpha_{k}^{F} \in \mathbb{C}^{K}`.
+            ([N_stack], 2N) output of NUFFT :math:`\mathbf{v} \in \mathbb{C}^{N}`
+            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
         """
-        arr = pycu.view_as_complex(arr)
-        data, N, sh = self._preprocess(arr, self._N, self._K)
+        if self._real:
+            r_width = pycrt.Width(arr.dtype)
+            arr = arr.astype(r_width.complex.value)
+        else:
+            arr = pycu.view_as_complex(arr)
+        data, N_stack, sh = self._preprocess(arr, self._n, self._N)
         blks = [self._fw(blk) for blk in data]
-        out = self._postprocess(blks, N, sh)
+        out = self._postprocess(blks, N_stack, sh)
         return pycu.view_as_real(out)
 
     @pycrt.enforce_precision("arr")
@@ -640,53 +612,17 @@ class _NUFFT3(NUFFT):
         Parameters
         ----------
         arr: NDArray
-            ([N], 2K) spectral amplitudes :math:`\alpha_{k}^{F} \in \mathbb{C}^{K}`.
+            ([N_stack], 2N) input :math:`\mathbf{v} \in \mathbb{C}^{N}`
+            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
 
         Returns
         -------
         out: NDArray
-            ([N], 2J) spatial amplitudes :math:`\alpha_{j} \in \mathbb{C}^{J}`.
+            ([N_stack], 2M) output of adjoint NUFFT :math:`\mathbf{w} \in \mathbb{C}^{M}`
+            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
         """
         arr = pycu.view_as_complex(arr)
-        data, N, sh = self._preprocess(arr, self._N, self._J)
+        data, N_stack, sh = self._preprocess(arr, self._n, self._M)
         blks = [self._bw(blk) for blk in data]
-        out = self._postprocess(blks, N, sh)
-        return pycu.view_as_real(out)
-
-
-class _rNUFFT3(_NUFFT3):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._shape = (2 * self._K, self._J)
-
-    @pycrt.enforce_precision("arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            ([N], J) spatial amplitudes :math:`\alpha_{j} \in \mathbb{R}^{J}`.
-
-        Returns
-        -------
-        out: NDArray
-            ([N], 2K) spectral amplitudes :math:`\alpha_{k}^{F} \in \mathbb{C}^{K}`.
-        """
-        r_width = pycrt.Width(arr.dtype)
-        arr = arr.astype(r_width.complex.value)
-        return super().apply(pycu.view_as_real(arr))
-
-    @pycrt.enforce_precision("arr")
-    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            ([N], 2K) spectral amplitudes :math:`\alpha_{k}^{F} \in \mathbb{C}^{K}`.
-
-        Returns
-        -------
-        out: NDArray
-            ([N], J) spatial amplitudes :math:`\alpha_{j} \in \mathbb{R}^{J}`.
-        """
-        return super().adjoint(arr)[..., ::2]
+        out = self._postprocess(blks, N_stack, sh)
+        return out.real if self._real else pycu.view_as_real(out)
