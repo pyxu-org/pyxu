@@ -1,5 +1,4 @@
 import collections.abc as cabc
-import math
 import typing as typ
 
 import dask.array as da
@@ -77,6 +76,21 @@ class NUFFT(pyco.LinOp):
     The NUFFTs of Types 1 and 2 with opposite signs form an *adjoint pair*. The adjoint of the NUFFT of Type 3 is obtained by
     flipping the transform's sign and switching the roles of   :math:`\mathbf{z}_k` and :math:`\mathbf{x}_{j}` in (3).
 
+    **Lipschitz Constants.** The NUFFT of Type 1 can be interpreted as a truncated Fourier Series  of a :math:`2\pi`-periodic
+    Dirac stream with innovations :math:`w_j, \mathbf{x}_j`. From Parseval's equality, we have hence
+
+    .. math::
+
+        \|u_{\mathbf{n}}\|^2= \frac{1}{2\pi} \left\|\sum_{j=1}^M w_j d_{N_1,\ldots,N_d}(\cdot-\mathbf{x}_j)\right\|_2^2 = \mathbf{w}^HG\mathbf{w}\leq \|G\|_2\|\mathbf{w}\|_2^2,
+
+    where :math:`d_{N_1,\ldots,N_d}:[-\pi, \pi)^d \to \mathbb{R}` is the :math:`d`-dimensional Dirichlet kernel with bandwidths :math:`N_1,\ldots,N_d` and
+    :math:`G\in\mathbb{R}^{M \times M}` is the Gram matrix with entries :math:`G_{ij}=d_{N_1,\ldots,N_d}(\mathbf{x}_i-\mathbf{x}_j)`.
+    The Lipschitz constant of the NUFFT of Type 1 is then proportional to the square root of the largest singular value of :math:`G`. Since the Gram is positive semi-definite,
+    its largest eigenvalue can be bounded by its trace, which yields :math:`L = \sqrt{\|G\|_2/2\pi}\leq \sqrt{M\Pi_{i=1}^d N_i/2\pi}`. We therefore set the Lipschitz constant of
+    the NUFFT of Type 1 (and Type 2 since the latter is the adjoint of Type 1) to this value. For the NUFFT of Type 3, we bound the Lipschitz constant by the Frobenius norm of the operator,
+    which yields :math:`L \leq \sqrt{NM}`. Not that these Lipschitz constants are cheap to compute but can be quite pessimistic. Tighter Lipschitz constants can be computed
+    by calling the method :py:meth:`~pycsou.abc.operator.LinOp.lipschitz`.
+
     **Error Analysis.**
     Let :math:`\tilde{\mathbf{u}}\in\mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` and :math:`\tilde{\mathbf{w}}\in\mathbb{C}^M`
     be the outputs of the NUFFT algorithms of Types 1 and 2,  which approximate the sequences :math:`{\mathbf{u}}\in\mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` and :math:`{\mathbf{w}}\in\mathbb{C}^M`
@@ -100,7 +114,7 @@ class NUFFT(pyco.LinOp):
     The two terms intervening in the complexities above correspond to the complexity of the FFT and spreading/interpolation steps respectively.
     The complexity of the NUFFT of Type 3 can be arbitrarily large for poorly-centered data. In certain cases however, an easy fix consists in
     translating the data before and after the NUFFT via pre/post-phasing operations with linear complexity, as described in equation (3.24) of [FINUFFT]_.
-    We perform this correction on every input to the NUFFT of Type 3 to improve its performances.
+    This fix can be activated on request via the optional argument ``center`` of the class constructor :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`.
 
     **Backend.** The NUFFT tansforms are computed via Python wrappers to the CPU-based and multithreaded C++ library `FINUFFT <https://github.com/flatironinstitute/finufft>`_
     or its CUDA equivalent `cuFINUFFT <https://github.com/flatironinstitute/cufinufft>`_ for GPU computing (see also [FINUFFT]_ and [cuFINUFFT]_).
@@ -224,6 +238,7 @@ class NUFFT(pyco.LinOp):
         isign: typ.Literal[1, -1] = 1,
         eps: float = 1e-6,
         real: bool = False,
+        center: typ.Tuple[bool] = (False, False),
         **kwargs,
     ) -> pyco.LinOp:
         r"""
@@ -241,6 +256,11 @@ class NUFFT(pyco.LinOp):
             Requested accuracy.
         real: bool
             If ``True``, assumes real inputs to the NUFFT.
+        center: tuple(bool)
+            (2,) boolean tuple. If the first (respectively second) entry is ``True``, an alternative but equivalent NUFFT algorithm performing on
+            translated  sample points ``x`` (respectively query points ``z``) is used (see eq. (3.24) of [FINUFFT]_ for a description).
+            This can make the inner FFTs less computationally/memory intensive, to the price of a small
+            computational overhead with linear complexity in N and/or M. This is especially effective for poorly centered data.
         **kwargs
             Extra keyword parameters to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_. (Illegal keywords are silently dropped.)
             Most useful is `n_trans`.
@@ -250,7 +270,7 @@ class NUFFT(pyco.LinOp):
         op: LinOp
             An NUFFT operator of type 3 with pre-computed plan.
         """
-        init_kwargs = _NUFFT3._sanitize_init_kwargs(x=x, z=z, isign=isign, eps=eps, real=real, **kwargs)
+        init_kwargs = _NUFFT3._sanitize_init_kwargs(x=x, z=z, isign=isign, eps=eps, real=real, center=center, **kwargs)
         return _NUFFT3(**init_kwargs)
 
     @staticmethod
@@ -370,7 +390,7 @@ class _NUFFT1(NUFFT):
             )
         )  # Complex valued inputs/outputs so dimension is doubled.
         self._lipschitz = np.sqrt(
-            np.prod(self._N) / 2 * np.pi
+            self._M * np.prod(self._N) / 2 * np.pi
         )  # Should be called after super().__init__. This is an overestimation.
 
     @classmethod
@@ -495,6 +515,7 @@ class _NUFFT1(NUFFT):
 
 class _NUFFT3(NUFFT):
     def __init__(self, **kwargs):
+        kwargs = kwargs.copy()
         self._plan = dict(
             fw=self._plan_fw(**kwargs),
             bw=self._plan_bw(**kwargs),
@@ -503,6 +524,18 @@ class _NUFFT3(NUFFT):
         self._N, _ = kwargs["z"].shape
         self._n = self._plan["fw"].n_trans
         self._real = kwargs["real"]
+        self._cx, self._cz = kwargs["center"]
+        isign = kwargs.pop("isign", 1)
+        if self._cx:  # Do not interchange this two if statements or incorrect
+            x_center = (kwargs["x"].min(axis=0) + kwargs["x"].max(axis=0)) / 2
+            kwargs["x"] -= x_center
+            xp = pycu.get_array_module(kwargs["x"])
+            self._postphasing = xp.exp(isign * 1j * (kwargs["z"] * x_center).sum(axis=-1))  # Shape (N,)
+        if self._cz:
+            z_center = (kwargs["z"].min(axis=0) + kwargs["z"].max(axis=0)) / 2
+            kwargs["z"] -= z_center
+            xp = pycu.get_array_module(kwargs["z"])
+            self._prephasing = xp.exp(isign * 1j * (kwargs["x"] * z_center).sum(axis=-1))  # Shape (M,)
         super().__init__(shape=(2 * self._N, self._M if self._real else 2 * self._M))
         self._lipschitz = np.sqrt(self._N * self._M)  # Overestimation via Frobenius norm
 
@@ -514,6 +547,7 @@ class _NUFFT3(NUFFT):
         x = kwargs["x"] = cls._as_canonical_coordinate(kwargs["x"])
         z = kwargs["z"] = cls._as_canonical_coordinate(kwargs["z"])
         kwargs["real"] = bool(kwargs["real"])
+        kwargs["center"] = [bool(_) for _ in kwargs["center"]]
         assert x.shape[-1] == z.shape[-1], "Dimensionality mis-match between sample and query points."
         return kwargs
 
@@ -601,9 +635,13 @@ class _NUFFT3(NUFFT):
             arr = arr.astype(r_width.complex.value)
         else:
             arr = pycu.view_as_complex(arr)
+        if self._cz:
+            arr *= self._prephasing  # Automatic casting to type of arr
         data, N_stack, sh = self._preprocess(arr, self._n, self._N)
         blks = [self._fw(blk) for blk in data]
         out = self._postprocess(blks, N_stack, sh)
+        if self._cx:
+            out *= self._postphasing  # Automatic casting to type of arr
         return pycu.view_as_real(out)
 
     @pycrt.enforce_precision("arr")
@@ -622,7 +660,11 @@ class _NUFFT3(NUFFT):
             viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
         """
         arr = pycu.view_as_complex(arr)
+        if self._cx:
+            arr *= self._postphasing.conj()
         data, N_stack, sh = self._preprocess(arr, self._n, self._M)
         blks = [self._bw(blk) for blk in data]
         out = self._postprocess(blks, N_stack, sh)
+        if self._cz:
+            out *= self._prephasing.conj()
         return out.real if self._real else pycu.view_as_real(out)
