@@ -18,9 +18,9 @@ import pycsou.util.operator as pycuo
 import pycsou.util.ptype as pyct
 
 __all__ = [
-    "Load",
-    "NpzLoad",
-    "BlockLoader",
+    "Dataset",
+    "NpzDataset",
+    "ChunkDataset",
     "ConvolveLoader",
     "Batch",
     "SGD",
@@ -28,7 +28,7 @@ __all__ = [
 ]
 
 
-class Load(cabc.Sequence):
+class Dataset(cabc.Sequence):
     r"""
     Base class for loading data.
 
@@ -77,7 +77,7 @@ class Load(cabc.Sequence):
         return self._size
 
 
-class NpzLoad(Load):
+class NpzDataset(Dataset):
     r"""
     NPZ file format loader.
 
@@ -98,13 +98,13 @@ class NpzLoad(Load):
         return data, data.shape, data.ndim, data.dtype
 
 
-class BlockLoader(cabc.Sequence):
+class ChunkDataset(cabc.Sequence):
     r"""
     Base class that batches data into blocks using dask as the backend.
 
     **Initialization parameters of the class:**
 
-    loader : Load-type
+    loader : Dataset-type
         Object that makes data available.
     data_shape: pyct.Shape
         how to reshape the data dimension
@@ -266,13 +266,13 @@ def slices_from_chunks_with_overlap(chunks: tuple[tuple[int]], depth: dict):
     return list(itertools.product(*slices))
 
 
-class ConvolveLoader(BlockLoader):
+class ConvolveLoader(ChunkDataset):
     r"""
     Batches data and a Convolution Operator.
 
     **Initialization parameters of the class:**
 
-    loader : Load-type
+    loader : Dataset-type
         Object that makes data available.
     data_shape: pyct.Shape
         how to reshape the data dimension
@@ -372,7 +372,7 @@ class Batch:
 
     **Initialization parameters of the class:**
 
-    loader : BlockLoader
+    loader : ChunkDataset
         loader to get data and batched operator from
     shuffle : bool
         if batches are shuffled
