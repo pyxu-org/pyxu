@@ -14,8 +14,12 @@ import toolz
 import pycsou._dev as dev
 import pycsou.abc.operator as pyco
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou.util.operator as pycuo
 import pycsou.util.ptype as pyct
+
+if pycd.CUPY_ENABLED:
+    import cupy as cp
 
 __all__ = [
     "Dataset",
@@ -40,8 +44,9 @@ class Dataset(cabc.Sequence):
         Filepath to load
     """
 
-    def __init__(self, path: pyct.PathLike):
+    def __init__(self, path: pyct.PathLike, gpu: bool):
         self.path = path
+        self.gpu = gpu
         self.data, self._shape, self._ndim, self._dtype = self._load(self.path)
         self._size = np.prod(self._shape)
 
@@ -94,7 +99,10 @@ class NpzDataset(Dataset):
         super().__init__(path)
 
     def _load(self, path):
-        data = np.load(path, mmap_mode="c")
+        if self.gpu:
+            data = cp.load(path, mmap_mode="c")
+        else:
+            data = np.load(path, mmap_mode="c")
         return data, data.shape, data.ndim, data.dtype
 
 
