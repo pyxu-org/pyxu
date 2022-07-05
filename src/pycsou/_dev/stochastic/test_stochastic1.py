@@ -17,13 +17,13 @@ if __name__ == "__main__":
     # define blur kernal and Convolution operator
     oof_blur = devs.out_of_focus_kernel(r=6)
     overlap = oof_blur.shape[0] // 2
-    Cop = dev.Convolve(data_shape=img_shape, filter=oof_blur, mode="reflect")
+    Cop = dev.Convolve(data_shape=img_shape, filter=oof_blur)
     Cop._lipschitz = np.array([0.99913936])
     # Gop.lipschitz() - Lipschitz has been precomputed
 
     # ==================================================================
 
-    load = pystoc.NpzLoad("tour_de_france.npy")
+    load = pystoc.NpzDataset("tour_de_france.npy")
     stacking_dim = load.shape[:-1]
     data_dim = load.shape[-1]
 
@@ -32,10 +32,10 @@ if __name__ == "__main__":
     # ==================================================================
 
     mini_batch = (100, 100)
-    loader = pystoc.ConvolveLoader(
-        load=load, blocks=mini_batch, data_shape=img_shape, operator=Cop, depth=(overlap, overlap), mode="reflect"
-    )
-    batch = pystoc.Batch(loader, shuffle=True)
+    Cop_batch = pystoc.ChunkOp(op=Cop, depth=(overlap, overlap), mode="reflect")
+    c_dataset = pystoc.ChunkDataset(load=load, chunk_op=Cop_batch, chunks=mini_batch)
+
+    batch = pystoc.Batch(c_dataset, shuffle=True)
 
     # ==================================================================
 
