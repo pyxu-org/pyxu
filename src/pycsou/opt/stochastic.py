@@ -147,7 +147,6 @@ class ChunkDataset(cabc.Sequence):
             da.from_array(self.load)
             .reshape(*self._stack_dims, *data_shape)
             .rechunk(chunks=(*self._stack_dims, *self.blocks))
-            .persist()
         )
 
         self.chunks = self.data.chunks
@@ -156,7 +155,6 @@ class ChunkDataset(cabc.Sequence):
             da.arange(self.load.size)
             .reshape(*self._stack_dims, *data_shape)
             .rechunk(chunks=(*self._stack_dims, *self.blocks))
-            .persist()
         )
 
     def __getitem__(self, b_index: int) -> tuple[pyct.NDArray, pyco.LinOp, np.array]:
