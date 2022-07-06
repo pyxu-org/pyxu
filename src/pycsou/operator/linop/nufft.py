@@ -620,7 +620,26 @@ class _NUFFT1(NUFFT):
 
 class _NUFFT3(NUFFT):
     def __init__(self, **kwargs):
-        kwargs = kwargs.copy()
+        # compute pre/post-phase terms ----------------------------------------
+        cx = "x" in kwargs.get("center")
+        cz = "z" in kwargs.pop("center")
+        isign = kwargs.get("isign")
+        x, z = kwargs["x"], kwargs["z"]
+        x_c = 0.5 * x.ptp(axis=0) if cx else 0
+        z_c = 0.5 * z.ptp(axis=0) if cz else 0
+        xp = pycu.get_array_module(x)
+        self._pre_phase = self._post_phase = None
+        if cz:
+            self._pre_phase = xp.exp(1j * isign * x.dot(z_c))  # (M,)
+        if cx:
+            self._post_phase = xp.exp(1j * isign * z.dot(x_c))  # (N,)
+        if cz and cx:
+            self._post_phase *= xp.exp(-1j * isign * (x_c @ z_c))
+        x -= x_c
+        z -= z_c
+        # ---------------------------------------------------------------------
+
+        self._real = kwargs.pop("real")
         self._plan = dict(
             fw=self._plan_fw(**kwargs),
             bw=self._plan_bw(**kwargs),
@@ -628,32 +647,25 @@ class _NUFFT3(NUFFT):
         self._M, self._D = kwargs["x"].shape  # Useful constants
         self._N, _ = kwargs["z"].shape
         self._n = self._plan["fw"].n_trans
-        self._real = kwargs["real"]
-        self._cx, self._cz = kwargs["center"]
-        isign = kwargs.pop("isign", 1)
-        if self._cx:  # Do not interchange this two if statements or incorrect
-            x_center = (kwargs["x"].min(axis=0) + kwargs["x"].max(axis=0)) / 2
-            kwargs["x"] -= x_center
-            xp = pycu.get_array_module(kwargs["x"])
-            self._postphasing = xp.exp(isign * 1j * (kwargs["z"] * x_center).sum(axis=-1))  # Shape (N,)
-        if self._cz:
-            z_center = (kwargs["z"].min(axis=0) + kwargs["z"].max(axis=0)) / 2
-            kwargs["z"] -= z_center
-            xp = pycu.get_array_module(kwargs["z"])
-            self._prephasing = xp.exp(isign * 1j * (kwargs["x"] * z_center).sum(axis=-1))  # Shape (M,)
-        super().__init__(shape=(2 * self._N, self._M if self._real else 2 * self._M))
-        self._lipschitz = np.sqrt(self._N * self._M)  # Overestimation via Frobenius norm
+
+        sh_op = [2 * self._N, 2 * self._M]
+        if self._real:
+            sh_op[1] //= 2
+        super().__init__(shape=sh_op)
+        self._lipschitz = np.sqrt(self._N * self._M)
 
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:
         kwargs = kwargs.copy()
-        for k in ("nufft_type", "n_modes_or_dim", "dtype"):
+        for k in ("nufft_type", "n_modes_or_dim", "dtype", "modeord"):
             kwargs.pop(k, None)
         x = kwargs["x"] = cls._as_canonical_coordinate(kwargs["x"])
         z = kwargs["z"] = cls._as_canonical_coordinate(kwargs["z"])
-        kwargs["real"] = bool(kwargs["real"])
-        kwargs["center"] = [bool(_) for _ in kwargs["center"]]
-        assert x.shape[-1] == z.shape[-1], "Dimensionality mis-match between sample and query points."
+        assert x.shape[-1] == z.shape[-1], "x vs. z: dimensionality mis-match."
+        assert pycu.get_array_module(x) == pycu.get_array_module(z)
+        c = kwargs["center"] = kwargs["center"].strip().lower()
+        assert c in {"", "x", "z", "xz"}, f"center: unexpected mode '{c}'."
+        kwargs["isign"] = int(np.sign(kwargs["isign"]))
         return kwargs
 
     @staticmethod
@@ -666,9 +678,9 @@ class _NUFFT3(NUFFT):
             nufft_type=3,
             n_modes_or_dim=N_dim,
             dtype=pycrt.getPrecision().value,
-            eps=kwargs.pop("eps", pycrt.getPrecision().eps() * 10),  # provide some slack
+            eps=kwargs.pop("eps"),
             n_trans=kwargs.pop("n_trans", 1),
-            isign=kwargs.pop("isign", 1),
+            isign=kwargs.pop("isign"),
             **kwargs,
         )
         plan.setpts(
@@ -698,9 +710,9 @@ class _NUFFT3(NUFFT):
             nufft_type=3,
             n_modes_or_dim=N_dim,
             dtype=pycrt.getPrecision().value,
-            eps=kwargs.pop("eps", pycrt.getPrecision().eps() * 10),  # provide some slack
+            eps=kwargs.pop("eps"),
             n_trans=kwargs.pop("n_trans", 1),
-            isign=-kwargs.pop("isign", 1),
+            isign=-kwargs.pop("isign"),
             **kwargs,
         )
         plan.setpts(
@@ -725,28 +737,34 @@ class _NUFFT3(NUFFT):
         r"""
         Parameters
         ----------
-        arr: NDArray
-            ([N_stack], 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}`
-            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
+        arr: pyct.NDArray (constructor-dependant)
+            (...,  M) input weights :math:`\mathbf{w} \in \mathbb{R}^{M}`.
+            (..., 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
+            (see :py:func:`~pycsou.util.complex.view_as_real`.)
 
         Returns
         -------
-        out: NDArray
-            ([N_stack], 2N) output of NUFFT :math:`\mathbf{v} \in \mathbb{C}^{N}`
-            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
+        out: pyct.NDArray
+            (..., 2N) output weights :math:`\mathbf{v} \in \mathbb{C}^{N}` viewed as a real array.
+            (see :py:func:`~pycsou.util.complex.view_as_real`.)
         """
         if self._real:
             r_width = pycrt.Width(arr.dtype)
             arr = arr.astype(r_width.complex.value)
         else:
             arr = pycu.view_as_complex(arr)
-        if self._cz:
-            arr *= self._prephasing  # Automatic casting to type of arr
-        data, N_stack, sh = self._preprocess(arr, self._n, self._N)
+
+        if self._pre_phase is not None:
+            arr = arr.copy()
+            arr *= self._pre_phase  # Automatic casting to type of arr
+
+        data, N, sh = self._preprocess(arr, self._n, self._N)
         blks = [self._fw(blk) for blk in data]
-        out = self._postprocess(blks, N_stack, sh)
-        if self._cx:
-            out *= self._postphasing  # Automatic casting to type of arr
+        out = self._postprocess(blks, N, sh)
+
+        if self._post_phase is not None:
+            out *= self._post_phase  # Automatic casting to type of arr
+
         return pycu.view_as_real(out)
 
     @pycrt.enforce_precision("arr")
@@ -754,22 +772,28 @@ class _NUFFT3(NUFFT):
         r"""
         Parameters
         ----------
-        arr: NDArray
-            ([N_stack], 2N) input :math:`\mathbf{v} \in \mathbb{C}^{N}`
-            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
+        arr: pyct.NDArray
+            (..., 2N) input weights :math:`\mathbf{v} \in \mathbb{C}^{N}` viewed as a real array.
+            (see :py:func:`~pycsou.util.complex.view_as_real`.)
 
         Returns
         -------
-        out: NDArray
-            ([N_stack], 2M) output of adjoint NUFFT :math:`\mathbf{w} \in \mathbb{C}^{M}`
-            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
+        out: pyct.NDArray (constructor-dependant)
+            (...,  M) output weights :math:`\mathbf{w} \in \mathbb{R}^{M}`.
+            (..., 2M) output weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
+            (see :py:func:`~pycsou.util.complex.view_as_real`.)
         """
         arr = pycu.view_as_complex(arr)
-        if self._cx:
-            arr *= self._postphasing.conj()
-        data, N_stack, sh = self._preprocess(arr, self._n, self._M)
+
+        if self._post_phase is not None:
+            arr = arr.copy()
+            arr *= self._post_phase.conj()
+
+        data, N, sh = self._preprocess(arr, self._n, self._M)
         blks = [self._bw(blk) for blk in data]
-        out = self._postprocess(blks, N_stack, sh)
-        if self._cz:
-            out *= self._prephasing.conj()
+        out = self._postprocess(blks, N, sh)
+
+        if self._pre_phase is not None:
+            out *= self._pre_phase.conj()
+
         return out.real if self._real else pycu.view_as_real(out)
