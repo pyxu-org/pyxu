@@ -939,7 +939,7 @@ class Map(Apply):
             )
         elif shape[0] is None:
             raise ValueError("Codomain agnostic maps are not supported.")
-        self._shape = shape
+        self._shape = tuple(shape)
         self._lipschitz = np.inf
 
     @property
