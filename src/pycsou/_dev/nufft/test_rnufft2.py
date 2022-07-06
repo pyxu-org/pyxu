@@ -33,23 +33,21 @@ if use_dask:
 
 with pycrt.Precision(pycrt.Width.DOUBLE):
     N_trans, isign = 5, -1
-    A = nufft.NUFFT.type2(x, N, n_trans=N_trans, isign=isign)
+    A = nufft.NUFFT.type2(x, N, n_trans=N_trans, isign=isign, real=True)
     B = NUFFT2_array(x, N, isign)
 
-    arr = rng.normal(size=(3, N_trans, *N_full))
-    arr = arr + 1j * rng.normal(size=arr.shape)
-    arr = arr.reshape(3, N_trans, -1)
+    arr = rng.normal(size=(3, N_trans, *N_full)).reshape(3, N_trans, -1)
     if use_dask:
         arr = da.array(arr)
 
-    A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
+    A_out_fw = pycu.view_as_complex(A.apply(arr))
     B_out_fw = np.tensordot(arr, B, axes=[[2], [1]])
 
-    A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
+    A_out_bw = A.adjoint(pycu.view_as_real(A_out_fw))
     B_out_bw = np.tensordot(B_out_fw, B.conj().T, axes=[[2], [1]])
 
     res_fw = (np.linalg.norm(A_out_fw - B_out_fw, axis=-1) / np.linalg.norm(B_out_fw, axis=-1)).max()
-    res_bw = (np.linalg.norm(A_out_bw - B_out_bw, axis=-1) / np.linalg.norm(B_out_bw, axis=-1)).max()
+    res_bw = (np.linalg.norm(A_out_bw - B_out_bw.real, axis=-1) / np.linalg.norm(B_out_bw.real, axis=-1)).max()
     if use_dask:
         res_fw, res_bw = pycu.compute(res_fw, res_bw)
     print(res_fw)
