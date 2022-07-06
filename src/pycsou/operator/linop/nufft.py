@@ -5,7 +5,7 @@ import dask.array as da
 import finufft
 import numpy as np
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
@@ -13,6 +13,9 @@ import pycsou.util.ptype as pyct
 __all__ = [
     "NUFFT",
 ]
+
+SignT = typ.Literal[1, -1]
+eps_default = 1e-4
 
 
 def _wrap_if_dask(func: cabc.Callable) -> cabc.Callable:
@@ -28,112 +31,163 @@ def _wrap_if_dask(func: cabc.Callable) -> cabc.Callable:
     return wrapper
 
 
-class NUFFT(pyco.LinOp):
+class NUFFT(pyca.LinOp):
     r"""
-    Non-Uniform Fast Fourier Transform (NUFFT) of Type 1/2/3 (for :math:`d=1,2,3`).
+    Non-Uniform Fast Fourier Transform (NUFFT) of Type 1/2/3 (for :math:`d=\{1,2,3\}`).
 
-    The *Non-Uniform Fast Fourier Transform (NUFFT)* generalizes the FFT to off-grid data. There are three main types of
-    NUFFTs proposed in the literature: Type 1 (*non-uniform to uniform*), Type 2 (*uniform to non-uniform*), or Type 3 (*non-uniform to non-uniform*).
-    These transforms are performed to a user-prescribed tolerance, at close-to-FFT speeds. Under the hood, this involves detailed kernel design, custom spreading/interpolation stages, and FFT calls.
-    See the notes below as well as [FINUFFT]_ for definitions of the various transform types and algorithmic details.
+    The *Non-Uniform Fast Fourier Transform (NUFFT)* generalizes the FFT to off-grid data.
+    There are three main types of NUFFTs proposed in the literature:
 
-    The transforms can be instantiated via the custom class constructors :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type1`, :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type2`, and :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`
-    respectively. The dimension of the NUFFT transforms is inferred from the dimensions of the input arguments, with support for dimensions 1, 2 and 3.
+    * Type 1 (*non-uniform to uniform*),
+    * Type 2 (*uniform to non-uniform*),
+    * Type 3 (*non-uniform to non-uniform*).
+
+    See the notes below as well as [FINUFFT]_ for definitions of the various transform types and
+    algorithmic details.
+
+    The transforms should be instantiated via
+    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type1`,
+    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type2`, and
+    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3` respectively.
+
+    The dimension of the NUFFT transforms is inferred from the dimensions of the input arguments,
+    with support for for :math:`d=\{1,2,3\}`.
 
     Notes
     -----
     We adopt here the same notational conventions as in [FINUFFT]_.
 
     **Mathematical Definition.**
-    Let :math:`d\in\{1,2,3\}` and consider the Cartesian-product mesh
+    Let :math:`d\in\{1,2,3\}` and consider the mesh
 
     .. math::
 
-        \mathcal{I}_{N_1,\ldots, N_d}=\mathcal{I}_{N_1}\times \cdots\times  \mathcal{I}_{N_d}\subset\mathbb{Z}^d
+       \mathcal{I}_{N_1,\ldots,N_d}
+       =
+       \mathcal{I}_{N_1} \times \cdots \times \mathcal{I}_{N_d}
+       \subset \mathbb{Z}^d,
 
-    of the hyperinterval :math:`\Pi_{i=1}^d [-N_i/2,N_i/2]\subset \mathbb{R}^d`, where the mesh indices :math:`\mathcal{I}_{N_i}\subset\mathbb{Z}` are given for each
-    dimension :math:`i=1,\dots, d` by:
-
-    .. math::
-
-        \mathcal{I}_{N_i}=\begin{cases}\{-N_i/2, \ldots, N_i/2-1\}, & N_i\in 2\mathbb{Z} \text{ (even)}, \\  \{-(N_i-1)/2, \ldots, (N_i-1)/2\}, & N_i\in 2\mathbb{Z}+1 \text{ (odd)}.\end{cases}
-
-
-    Then, the various NUFFT operators approximate, up to a requested relative accuracy :math:`\varepsilon>0`, the following exponential sums respectively:
+    where the mesh indices :math:`\mathcal{I}_{N_i}\subset\mathbb{Z}` are given for each dimension
+    :math:`i=1,\dots, d` by:
 
     .. math::
 
-        &u_{\mathbf{n}} = \sum_{j=1}^{M} w_{j} e^{\sigma i\langle \mathbf{n}, \mathbf{x}_{j} \rangle}, \quad &\mathbf{n}\in \mathcal{I}_{N_1,\ldots, N_d},\qquad &\text{Type 1 (non-uniform to uniform)}\\
-        &w_{j} = \sum_{\mathbf{n}\in\mathcal{I}_{N_1,\ldots, N_d}} u_{\mathbf{n}} e^{\sigma i\langle \mathbf{n}, \mathbf{x}_{j} \rangle }, \quad &j=1,\ldots, M,\qquad  &\text{Type 2 (uniform to non-uniform)}\\
-        &v_{k} = \sum_{j=1}^{M} w_{j} e^{\sigma i\langle \mathbf{z}_k, \mathbf{x}_{j} \rangle }, \quad &k=1,\ldots, N, \qquad &\text{Type 3 (non-uniform to non-uniform)}
+       \mathcal{I}_{N_i}
+       =
+       \begin{cases}
+           [[-N_i/2, N_i/2-1]], & N_i\in 2\mathbb{N} \text{ (even)}, \\
+           [[-(N_i-1)/2, (N_i-1)/2]], & N_i\in 2\mathbb{N}+1 \text{ (odd)}.
+       \end{cases}
 
 
-    where :math:`\sigma \in \{+1, -1\}` defines the sign of the transforms, and where :math:`u_{\mathbf{n}}, v_{k}, w_{j}\in \mathbb{C}` are complex coefficients.
-    For the NUFFTs of Types 1 and 2, the non-uniform samples :math:`\mathbf{x}_{j}` are assumed to lie in :math:`[-\pi,\pi)^d`. For the NUFFT of Type 3, the non-uniform samples
-    :math:`\mathbf{x}_{j}` and :math:`\mathbf{z}_{k}` are arbitrary points in :math:`\mathbb{R}^d`.
-
-    **Adjoint NUFFTs.**
-    The NUFFTs of Types 1 and 2 with opposite signs form an *adjoint pair*. The adjoint of the NUFFT of Type 3 is obtained by
-    flipping the transform's sign and switching the roles of   :math:`\mathbf{z}_k` and :math:`\mathbf{x}_{j}` in (3).
-
-    **Lipschitz Constants.** The NUFFT of Type 1 can be interpreted as a truncated Fourier Series  of a :math:`2\pi`-periodic
-    Dirac stream with innovations :math:`w_j, \mathbf{x}_j`. From Parseval's equality, we have hence
+    Then the NUFFT operators approximate, up to a requested relative accuracy
+    :math:`\varepsilon>0`, the following exponential sums:
 
     .. math::
 
-        \|u_{\mathbf{n}}\|^2= \frac{1}{2\pi} \left\|\sum_{j=1}^M w_j d_{N_1,\ldots,N_d}(\cdot-\mathbf{x}_j)\right\|_2^2 = \mathbf{w}^HG\mathbf{w}\leq \|G\|_2\|\mathbf{w}\|_2^2,
+       &u_{\mathbf{n}} = \sum_{j=1}^{M} w_{j} e^{\sigma i\langle \mathbf{n}, \mathbf{x}_{j} \rangle}, \quad &\mathbf{n}\in \mathcal{I}_{N_1,\ldots, N_d},\qquad &\text{Type 1 (non-uniform to uniform)}\\
+       &w_{j} = \sum_{\mathbf{n}\in\mathcal{I}_{N_1,\ldots, N_d}} u_{\mathbf{n}} e^{\sigma i\langle \mathbf{n}, \mathbf{x}_{j} \rangle }, \quad &j=1,\ldots, M,\qquad  &\text{Type 2 (uniform to non-uniform)}\\
+       &v_{k} = \sum_{j=1}^{M} w_{j} e^{\sigma i\langle \mathbf{z}_k, \mathbf{x}_{j} \rangle }, \quad &k=1,\ldots, N, \qquad &\text{Type 3 (non-uniform to non-uniform)}
 
-    where :math:`d_{N_1,\ldots,N_d}:[-\pi, \pi)^d \to \mathbb{R}` is the :math:`d`-dimensional Dirichlet kernel with bandwidths :math:`N_1,\ldots,N_d` and
-    :math:`G\in\mathbb{R}^{M \times M}` is the Gram matrix with entries :math:`G_{ij}=d_{N_1,\ldots,N_d}(\mathbf{x}_i-\mathbf{x}_j)`.
-    The Lipschitz constant of the NUFFT of Type 1 is then proportional to the square root of the largest singular value of :math:`G`. Since the Gram is positive semi-definite,
-    its largest eigenvalue can be bounded by its trace, which yields :math:`L = \sqrt{\|G\|_2/2\pi}\leq \sqrt{M\Pi_{i=1}^d N_i/2\pi}`. We therefore set the Lipschitz constant of
-    the NUFFT of Type 1 (and Type 2 since the latter is the adjoint of Type 1) to this value. For the NUFFT of Type 3, we bound the Lipschitz constant by the Frobenius norm of the operator,
-    which yields :math:`L \leq \sqrt{NM}`. Not that these Lipschitz constants are cheap to compute but can be quite pessimistic. Tighter Lipschitz constants can be computed
-    by calling the method :py:meth:`~pycsou.abc.operator.LinOp.lipschitz`.
+
+    where :math:`\sigma \in \{+1, -1\}` defines the sign of the transforms and
+    :math:`u_{\mathbf{n}}, v_{k}, w_{j}\in \mathbb{C}`.
+    For the type-1 and type-2 NUFFTs, the non-uniform samples :math:`\mathbf{x}_{j}` are assumed to
+    lie in :math:`[-\pi,\pi)^d`.
+    For the type-3 NUFFT, the non-uniform samples :math:`\mathbf{x}_{j}` and
+    :math:`\mathbf{z}_{k}` are arbitrary points in :math:`\mathbb{R}^d`.
+
+    **Lipschitz Constants.**
+    The type-1 NUFFT can be interpreted as the truncated Fourier Series of a :math:`2\pi`-periodic
+    Dirac stream with innovations :math:`(w_j, \mathbf{x}_j)`.
+
+    From Parseval's equality, we have hence
+
+    .. math::
+
+       \|u_{\mathbf{n}}\|^2
+       =
+       \frac{1}{2\pi} \left\|\sum_{j=1}^M w_j d_{N_1,\ldots,N_d}(\cdot-\mathbf{x}_j)\right\|_2^2
+       =
+       \frac{1}{2\pi}\mathbf{w}^HG\mathbf{w}
+       \leq
+       \frac{1}{2\pi} \|G\|_2\|\mathbf{w}\|_2^2,
+
+    where :math:`d_{N_1,\ldots,N_d}:[-\pi, \pi)^d \to \mathbb{R}` is the :math:`d`-dimensional
+    Dirichlet kernel of bandwidth :math:`(N_1,\ldots,N_d)` and :math:`G\in\mathbb{R}^{M \times M}`
+    is the Gram matrix with entries :math:`G_{ij}=d_{N_1,\ldots,N_d}(\mathbf{x}_i-\mathbf{x}_j)`.
+    The Lipschitz constant of the type-1 NUFFT is then proportional to the square root of the
+    largest singular value of :math:`G`.
+    Since the Gram is positive semi-definite, its largest eigenvalue can be bounded by its trace,
+    which yields :math:`L = \sqrt{\|G\|_2/2\pi}\leq \sqrt{M\Pi_{i=1}^d N_i/2\pi}`.
+    For the type-3 NUFFT, we bound the Lipschitz constant by the Frobenius norm of the operator,
+    which yields :math:`L \leq \sqrt{NM}`.
+    Note that these Lipschitz constants are cheap to compute but can be quite pessimistic. Tighter
+    Lipschitz constants can be computed by calling the method
+    :py:meth:`~pycsou.abc.operator.LinOp.lipschitz`.
 
     **Error Analysis.**
-    Let :math:`\tilde{\mathbf{u}}\in\mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` and :math:`\tilde{\mathbf{w}}\in\mathbb{C}^M`
-    be the outputs of the NUFFT algorithms of Types 1 and 2,  which approximate the sequences :math:`{\mathbf{u}}\in\mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` and :math:`{\mathbf{w}}\in\mathbb{C}^M`
-    defined in (1) and (2) respectively. Then, it is shown in [FINUFFT]_ that the relative errors :math:`\|\tilde{\mathbf{u}}-{\mathbf{u}}\|_2/\|{\mathbf{u}}\|_2`
-    and :math:`\|\tilde{\mathbf{w}}-{\mathbf{w}}\|_2/\|{\mathbf{w}}\|_2` are **almost always similar to the user-requested tolerance** :math:`\varepsilon`, except
-    when round-off error dominates (i.e. very small user-requested tolerances). The same holds approximately for the NUFFT of Type 3, the latter being a Type 2 NUFFT nested into a Type 1 NUFFT.
-    Note however that this is a *typical error analysis*: some degenerate (but rare) worst-case scenarios can result in much higher errors.
+    Let :math:`\tilde{\mathbf{u}}\in\mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` and
+    :math:`\tilde{\mathbf{w}}\in\mathbb{C}^M` be the outputs of the type-1 and type-2 NUFFT
+    algorithms which approximate the sequences
+    :math:`{\mathbf{u}}\in\mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` and
+    :math:`{\mathbf{w}}\in\mathbb{C}^M` defined in (1) and (2) respectively.
+    Then [FINUFFT]_ shows that the relative errors
+    :math:`\|\tilde{\mathbf{u}}-{\mathbf{u}}\|_2/\|{\mathbf{u}}\|_2` and
+    :math:`\|\tilde{\mathbf{w}}-{\mathbf{w}}\|_2/\|{\mathbf{w}}\|_2` are **almost always similar to
+    the user-requested tolerance** :math:`\varepsilon`, except when round-off error dominates
+    (i.e. very small user-requested tolerances).
+    The same holds approximately for the NUFFT of Type 3.
+    Note however that this is a *typical error analysis*: some degenerate (but rare) worst-case
+    scenarios can result in much higher errors.
 
 
     **Complexity.**
-    Evaluating naively the exponential sums in any of the three types of transform (1), (2) and (3) has *bilinear complexity* :math:`O(NM)`, where :math:`N=N_1\ldots N_d` for the NUFFTs of Types 1 and 2.
-    NUFFT algorithms compute these sums, to a user-specified relative tolerance :math:`\varepsilon`, in log-linear complexity in both :math:`N` and :math:`M`.
+    Naive evaluation of the exponential sums (1), (2) and (3) above costs :math:`O(NM)`, where
+    :math:`N=N_1\ldots N_d` for the type-1 and type-2 NUFFTs.
+    NUFFT algorithms approximate these sums to a user-specified relative tolerance
+    :math:`\varepsilon` in log-linear complexity in both :math:`N` and :math:`M`.
     More specifically, the complexity of the various NUFFTs are given by (see [FINUFFT]_):
 
     .. math::
 
-        &\mathcal{O}\left(N\log(N) + M|\log(\varepsilon)|^d\right)\qquad &\text{(Types 1 and 2)}\\
-        &\mathcal{O}\left(\Pi_{i=1}^dX_iZ_i\sum_{i=1}^d\log(X_iZ_i) + (M + N)|\log(\varepsilon)|^d\right)\qquad &\text{(Type 3)}
+       &\mathcal{O}\left(N\log(N) + M|\log(\varepsilon)|^d\right)\qquad &\text{(Types 1 and 2)}\\
+       &\mathcal{O}\left(\Pi_{i=1}^dX_iZ_i\sum_{i=1}^d\log(X_iZ_i) + (M + N)|\log(\varepsilon)|^d\right)\qquad &\text{(Type 3)}
 
-    where :math:`X_i = \max_{j=1,\ldots,M}|(\mathbf{x}_j)_i|` and :math:`Z_i = \max_{k=1,\ldots,N}|(\mathbf{z}_k)_i|` for :math:`i=1,\ldots,d`.
-    The two terms intervening in the complexities above correspond to the complexity of the FFT and spreading/interpolation steps respectively.
-    The complexity of the NUFFT of Type 3 can be arbitrarily large for poorly-centered data. In certain cases however, an easy fix consists in
-    translating the data before and after the NUFFT via pre/post-phasing operations with linear complexity, as described in equation (3.24) of [FINUFFT]_.
-    This fix can be activated on request via the optional argument ``center`` of the class constructor :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`.
+    where :math:`X_i = \max_{j=1,\ldots,M}|(\mathbf{x}_j)_i|` and :math:`Z_i =
+    \max_{k=1,\ldots,N}|(\mathbf{z}_k)_i|` for :math:`i=1,\ldots,d`.
+    The two terms intervening in the complexities above correspond to the complexity of the FFT and
+    spreading/interpolation steps respectively.
 
-    **Backend.** The NUFFT tansforms are computed via Python wrappers to the CPU-based and multithreaded C++ library `FINUFFT <https://github.com/flatironinstitute/finufft>`_
-    or its CUDA equivalent `cuFINUFFT <https://github.com/flatironinstitute/cufinufft>`_ for GPU computing (see also [FINUFFT]_ and [cuFINUFFT]_).
-    It uses minimal RAM, and performs the expensive spreading/interpolation between nonuniform points and the fine grid via the “exponential of semicircle” kernel in a cache-aware and load-balanced multithreaded fashion.
-    This kernel is simpler and faster to evaluate than other kernels used in NUFFT algorithms, such as the Kaiser–Bessel, yet has essentially identical error (see [FINUFFT]_).
+    The complexity of the type-3 NUFFT can be arbitrarily large for poorly-centered data. In certain
+    cases however, an easy fix consists in centering the data before/after the NUFFT via
+    pre/post-phasing operations, as described in equation (3.24) of [FINUFFT]_.
+    This fix can be enabled via the ``center`` parameter of
+    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`.
+
+    **Backend.** The NUFFT tansforms are computed via Python wrappers to `FINUFFT
+    <https://github.com/flatironinstitute/finufft>`_ and `cuFINUFFT
+    <https://github.com/flatironinstitute/cufinufft>`_ (see also [FINUFFT]_ and [cuFINUFFT]_).
 
     **Optional Parameters.**
-    Aside from the mandatory inputs the FINUFFT library on which this class builds
-    accepts multiple optional parameters. These adjust the performances of the algorithm, change the output format, or provide debug/timing text to stdout.
-    While the default options are sensible in most setups, advanced users may want finer control and change options from their defaults.
-    This can be done by passing a dictionary of keyword arguments ``kwargs`` to the constructors of the various transforms, which will then be passed to the
-    Python wrapper of the C++ FINUFFT library. See the `guru interface <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_ from FINUFFT and its `companion page <https://finufft.readthedocs.io/en/latest/opts.html#options-parameters>`_ detailing additional optional parameters for
-    a comprehensive list of optional parameters.
+    [cu]FINUFFT exposes many optional parameters to adjust the performance of the algorithms, change
+    the output format, or provide debug/timing information.
+    While the default options are sensible for most setups, advanced users may overwrite them via
+    the ``kwargs`` parameter of
+    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type1`,
+    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type2`, and
+    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`.
+    See the `guru interface <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_
+    from FINUFFT and its `companion page
+    <https://finufft.readthedocs.io/en/latest/opts.html#options-parameters>`_ for details.
 
     Warnings
     --------
-    The FINUFFT library exposes a ``dtype`` keyword to control the precision (single or double) at which the transforms are performed.
-    Do not rely on this optional parameter to set the precision as the latter is ignored by the :py:class:`~pycsou.operator.linop.nufft.NUFFT` class. Instead, use the context manager :py:class:`~pycsou.runtime.Precision`
-    to control the floating point precision.
+    FINUFFT exposes a ``dtype`` keyword to control the precision (single or double) at which
+    transforms are performed.
+    This parameter is ignored by :py:class:`~pycsou.operator.linop.nufft.NUFFT`.
+    Use the context manager :py:class:`~pycsou.runtime.Precision` to control the floating point
+    precision.
 
     See Also
     --------
@@ -142,51 +196,54 @@ class NUFFT(pyco.LinOp):
 
     # The goal of this wrapper class is to sanitize __init__() inputs.
 
-    def __init__(self, shape: pyct.NonAgnosticShape):
-        r"""
-        For internal purposes only. For instantiating a NUFFT transform, consider the custom class constructors
-        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type1`, :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type2`, and :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`
-        respectively.
-        """
-        super().__init__(shape)
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape=shape)
 
     @staticmethod
     @pycrt.enforce_precision(i="x", o=False, allow_None=False)
     def type1(
         x: pyct.NDArray,
-        N: typ.Union[int, tuple[int, ...]],
-        isign: typ.Literal[1, -1] = 1,
-        eps: float = 1e-6,
+        N: typ.Union[pyct.Integer, tuple[pyct.Integer, ...]],
+        isign: SignT = 1,
+        eps: pyct.Real = eps_default,
         real: bool = False,
         **kwargs,
-    ) -> pyco.LinOp:
+    ) -> pyca.LinOp:
         r"""
         Type 1 NUFFT (non-uniform to uniform).
 
         Parameters
         ----------
-        x: NDArray
+        x: pyct.NDArray
             (M, [d]) d-dimensional sample points :math:`\mathbf{x}_{j} \in \mathbb{R}^{d}`.
-        N: int | tuple[int]
-            ([d],) mesh size in each dimension :math:`(N_1, \ldots, N_d)`. If an integer is passed the mesh is assumed to
-            have the same size in each dimension.
+        N: pyct.Integer | tuple[pyct.Integer]
+            ([d],) mesh size in each dimension :math:`(N_1, \ldots, N_d)`.
+            If `N` is an integer, then the mesh is assumed to have the same size in each dimension.
         isign: 1 | -1
             Sign :math:`\sigma` of the transform.
-        eps: float
-            Requested accuracy.
+        eps: pyct.Real
+            Requested relative accuracy.
         real: bool
-            If ``True``, assumes real inputs to the NUFFT.
+            If ``True``, assumes ``.apply()`` takes (..., M) inputs.
+            If ``False``, then ``.apply()`` takes (..., 2M) inputs.
         **kwargs
-            Extra keyword parameters to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_. (Illegal keywords are dropped silently.)
+            Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
+            (Illegal keywords are dropped silently.)
             Most useful is `n_trans`.
 
         Returns
         -------
-        op: LinOp
-            An NUFFT operator of type 1 with pre-computed plan.
+        op: pyca.LinOp
+            (2N.prod(), M) or (2N.prod(), 2M) type-1 NUFFT.
         """
         init_kwargs = _NUFFT1._sanitize_init_kwargs(
-            x=x, N=N, isign=isign, eps=eps, real_input=real, real_output=False, **kwargs
+            x=x,
+            N=N,
+            isign=isign,
+            eps=eps,
+            real_input=real,
+            real_output=False,
+            **kwargs,
         )
         return _NUFFT1(**init_kwargs)
 
@@ -194,39 +251,47 @@ class NUFFT(pyco.LinOp):
     @pycrt.enforce_precision(i="x", o=False, allow_None=False)
     def type2(
         x: pyct.NDArray,
-        N: typ.Union[int, tuple[int, ...]],
-        isign: typ.Literal[1, -1] = 1,
-        eps: float = 1e-6,
+        N: typ.Union[pyct.Integer, tuple[pyct.Integer, ...]],
+        isign: SignT = 1,
+        eps: pyct.Real = eps_default,
         real: bool = False,
         **kwargs,
-    ) -> pyco.LinOp:
+    ) -> pyca.LinOp:
         r"""
-        Type 2 NUFFT (non-uniform to uniform).
+        Type 2 NUFFT (uniform to non-uniform).
 
         Parameters
         ----------
-        x: NDArray
+        x: pyct.NDArray
             (M, [d]) d-dimensional query points :math:`\mathbf{x}_{j} \in \mathbb{R}^{d}`.
-        N: int | tuple[int]
-            ([d],) mesh size in each dimension :math:`(N_1, \ldots, N_d)`. If an integer is passed the mesh is assumed to
-            have the same size in each dimension.
+        N: pyct.Integer | tuple[pyct.Integer]
+            ([d],) mesh size in each dimension :math:`(N_1, \ldots, N_d)`.
+            If `N` is an integer, then the mesh is assumed to have the same size in each dimension.
         isign: 1 | -1
             Sign :math:`\sigma` of the transform.
-        eps: float
-            Requested accuracy.
+        eps: pyct.Real
+            Requested relative accuracy.
         real: bool
-            If ``True``, assumes real inputs to the NUFFT.
+            If ``True``, assumes ``.apply()`` takes (..., N.prod()) inputs.
+            If ``False``, then ``.apply()`` takes (..., 2N.prod()) inputs.
         **kwargs
-            Extra keyword parameters to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_. (Illegal keywords are silently dropped.)
+            Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
+            (Illegal keywords are dropped silently.)
             Most useful is `n_trans`.
 
         Returns
         -------
-        op: LinOp
-            An NUFFT operator of type 2 with pre-computed plan.
+        op: pyca.LinOp
+            (2M, N.prod()) or (2M, 2N.prod()) type-2 NUFFT.
         """
         init_kwargs = _NUFFT1._sanitize_init_kwargs(
-            x=x, N=N, isign=-isign, eps=eps, real_input=False, real_output=real, **kwargs
+            x=x,
+            N=N,
+            isign=-isign,
+            eps=eps,
+            real_input=False,
+            real_output=real,
+            **kwargs,
         )
         return _NUFFT1(**init_kwargs).T
 
@@ -235,42 +300,57 @@ class NUFFT(pyco.LinOp):
     def type3(
         x: pyct.NDArray,
         z: pyct.NDArray,
-        isign: typ.Literal[1, -1] = 1,
-        eps: float = 1e-6,
+        isign: SignT = 1,
+        eps: pyct.Real = eps_default,
         real: bool = False,
-        center: typ.Tuple[bool] = (False, False),
+        center: str = "",
         **kwargs,
-    ) -> pyco.LinOp:
+    ) -> pyca.LinOp:
         r"""
         Type 3 NUFFT (non-uniform to non-uniform).
 
         Parameters
         ----------
-        x: NDArray
+        x: pyct.NDArray
             (M, [d]) d-dimensional sample points :math:`\mathbf{x}_{j} \in \mathbb{R}^{d}`.
-        z: NDArray
+        z: pyct.NDArray
             (N, [d]) d-dimensional query points :math:`\mathbf{z}_{k} \in \mathbb{R}^{d}`.
         isign: 1 | -1
             Sign :math:`\sigma` of the transform.
-        eps: float
-            Requested accuracy.
+        eps: pyct.Real
+            Requested relative accuracy.
         real: bool
-            If ``True``, assumes real inputs to the NUFFT.
-        center: tuple(bool)
-            (2,) boolean tuple. If the first (respectively second) entry is ``True``, an alternative but equivalent NUFFT algorithm performing on
-            translated  sample points ``x`` (respectively query points ``z``) is used (see eq. (3.24) of [FINUFFT]_ for a description).
-            This can make the inner FFTs less computationally/memory intensive, to the price of a small
-            computational overhead with linear complexity in N and/or M. This is especially effective for poorly centered data.
+            If ``True``, assumes ``.apply()`` takes (..., M) inputs.
+            If ``False``, then ``.apply()`` takes (..., 2M) inputs.
+        center: str ["", "x", "z", "xz"]
+            Use a translated NUFFT algorithm with potential compute/memory savings.
+            (See eq. (3.24) of [FINUFFT]_ for a description.)
+
+            * "": operate on `x` and `z` as-is. (default type3 NUFFT)
+            * "x": operate on centered `x` coordinates.
+            * "z": operate on centered `z` coordinates.
+            * "xz": operate on centered `x` and `z` coordinates.
+
+            This is especially effective for poorly centered data.
         **kwargs
-            Extra keyword parameters to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_. (Illegal keywords are silently dropped.)
+            Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
+            (Illegal keywords are dropped silently.)
             Most useful is `n_trans`.
 
         Returns
         -------
-        op: LinOp
-            An NUFFT operator of type 3 with pre-computed plan.
+        op: pyca.LinOp
+            (2N, M) or (2N, 2M) type-3 NUFFT.
         """
-        init_kwargs = _NUFFT3._sanitize_init_kwargs(x=x, z=z, isign=isign, eps=eps, real=real, center=center, **kwargs)
+        init_kwargs = _NUFFT3._sanitize_init_kwargs(
+            x=x,
+            z=z,
+            isign=isign,
+            eps=eps,
+            real=real,
+            center=center,
+            **kwargs,
+        )
         return _NUFFT3(**init_kwargs)
 
     @staticmethod
@@ -284,11 +364,11 @@ class NUFFT(pyco.LinOp):
         return x
 
     @staticmethod
-    def _as_canonical_mode(N) -> tuple[int]:
+    def _as_canonical_mode(N) -> tuple[pyct.Integer]:
         if not isinstance(N, cabc.Sequence):
             N = (N,)
         N = tuple(map(int, N))
-        assert all(_ > 0 for _ in N), f"The mesh size must be positive for every dimension, got: {N}."
+        assert all(_ > 0 for _ in N)
         assert 1 <= len(N) <= 3, "Only (1,2,3)-D transforms supported."
         return N
 
@@ -320,56 +400,70 @@ class NUFFT(pyco.LinOp):
         raise NotImplementedError
 
     @staticmethod
-    def _preprocess(arr: pyct.NDArray, n_trans: int, dim_out: int):
+    def _preprocess(
+        arr: pyct.NDArray,
+        n_trans: pyct.Integer,
+        dim_out: pyct.Integer,
+    ):
         # Internal method for apply/adjoint.
         #
         # Parameters
         # ----------
-        # arr: NDArray
-        #     ([n_trans,], N1) complex-valued input of [apply|adjoint]().
-        # n_trans: int
+        # arr: pyct.NDArray
+        #     (..., N1) complex-valued input of [apply|adjoint]().
+        # n_trans: pyct.Integer
         #     n_trans parameter given to finufft.Plan()
-        # dim_out: int
+        # dim_out: pyct.Integer
         #     Trailing dimension [apply|adjoint](arr) should have.
         #
         # Returns
         # -------
-        # x: NDArray
+        # x: pyct.NDArray
         #     (N_blk, n_trans, N1) complex-valued blocks to input to [_fw|_bw](), suitably augmented
         #     as needed.
-        # N_stack: int
+        # N: pyct.Integer
         #     Amount of "valid" data to extract from [_fw|_bw](). {For _postprocess()}
-        # sh_out: tuple[int]
+        # sh_out: tuple[pyct.Integer]
         #     Shape [apply|adjoint](arr) should have. {For _postprocess()}
         sh_out = arr.shape[:-1] + (dim_out,)
         if arr.ndim == 1:
             arr = arr.reshape((1, -1))
-        N_stack, dim_in = arr.shape
+        N, dim_in = np.prod(arr.shape[:-1]), arr.shape[-1]
 
-        N_blk, r = divmod(N_stack, n_trans)
+        N_blk, r = divmod(N, n_trans)
         N_blk += 1 if (r > 0) else 0
         if r == 0:
             x = arr
         else:
             xp = pycu.get_array_module(arr)
-            x = xp.concatenate([arr, xp.zeros((n_trans - r, dim_in), dtype=arr.dtype)], axis=0)
+            x = xp.concatenate(
+                [
+                    arr.reshape((N, dim_in)),
+                    xp.zeros((n_trans - r, dim_in), dtype=arr.dtype),
+                ],
+                axis=0,
+            )
         x = x.reshape((N_blk, n_trans, dim_in))
-        return x, N_stack, sh_out
+        return x, N, sh_out
 
     @staticmethod
-    def _postprocess(blks: list[pyct.NDArray], N_stack: int, sh_out: tuple[int]) -> pyct.NDArray:
+    def _postprocess(
+        blks: list[pyct.NDArray],
+        N: pyct.Integer,
+        sh_out: tuple[pyct.Integer],
+    ) -> pyct.NDArray:
         # Internal method for apply/adjoint.
         #
         # Parameters
         # ----------
         # blks: list[NDArray]
         #     (N_blk,) complex-valued outputs of [_fw|_bw]().
-        # N_stack: int
+        # N: pyct.Integer
         #     Amount of "valid" data to extract from [_fw|_bw]()
-        # sh_out: tuple[int]
+        # sh_out: tuple[pyct.Integer]
         #     Shape [apply|adjoint](arr) should have.
         xp = pycu.get_array_module(blks[0])
-        return xp.concatenate(blks, axis=0)[:N_stack].reshape(sh_out)
+        return xp.concatenate(blks, axis=0)[:N].reshape(sh_out)
 
 
 class _NUFFT1(NUFFT):
