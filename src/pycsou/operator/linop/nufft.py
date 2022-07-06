@@ -245,7 +245,7 @@ class NUFFT(pyca.LinOp):
             real_output=False,
             **kwargs,
         )
-        return _NUFFT1(**init_kwargs)
+        return _NUFFT1(**init_kwargs).squeeze()
 
     @staticmethod
     @pycrt.enforce_precision(i="x", o=False, allow_None=False)
@@ -293,7 +293,7 @@ class NUFFT(pyca.LinOp):
             real_output=real,
             **kwargs,
         )
-        return _NUFFT1(**init_kwargs).T
+        return _NUFFT1(**init_kwargs).squeeze().T
 
     @staticmethod
     @pycrt.enforce_precision(i=("x", "z"), o=False, allow_None=False)
@@ -351,7 +351,7 @@ class NUFFT(pyca.LinOp):
             center=center,
             **kwargs,
         )
-        return _NUFFT3(**init_kwargs)
+        return _NUFFT3(**init_kwargs).squeeze()
 
     @staticmethod
     def _as_canonical_coordinate(x: pyct.NDArray) -> pyct.NDArray:
