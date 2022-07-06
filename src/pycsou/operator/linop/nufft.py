@@ -468,6 +468,8 @@ class NUFFT(pyca.LinOp):
 
 class _NUFFT1(NUFFT):
     def __init__(self, **kwargs):
+        self._real_input = kwargs.pop("real_input")
+        self._real_output = kwargs.pop("real_output")
         self._plan = dict(
             fw=self._plan_fw(**kwargs),
             bw=self._plan_bw(**kwargs),
@@ -475,33 +477,29 @@ class _NUFFT1(NUFFT):
         self._M, self._D = kwargs["x"].shape  # Useful constants
         self._N = kwargs["N"]
         self._n = self._plan["fw"].n_trans
-        self._real_input = kwargs["real_input"]
-        self._real_output = kwargs["real_output"]
-        super().__init__(
-            shape=(
-                np.prod(self._N) if self._real_output else 2 * np.prod(self._N),
-                self._M if self._real_input else 2 * self._M,
-            )
-        )  # Complex valued inputs/outputs so dimension is doubled.
-        self._lipschitz = np.sqrt(
-            self._M * np.prod(self._N) / 2 * np.pi
-        )  # Should be called after super().__init__. This is an overestimation.
+
+        sh_op = [2 * np.prod(self._N), 2 * self._M]
+        if self._real_output:
+            sh_op[0] //= 2
+        if self._real_input:
+            sh_op[1] //= 2
+        super().__init__(shape=sh_op)
+        self._lipschitz = np.sqrt(self._M * np.prod(self._N) / 2 * np.pi)
 
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:
         kwargs = kwargs.copy()
-        for k in ("nufft_type", "n_modes_or_dim", "dtype"):
+        for k in ("nufft_type", "n_modes_or_dim", "dtype", "modeord"):
             kwargs.pop(k, None)
         x = kwargs["x"] = cls._as_canonical_coordinate(kwargs["x"])
         N = kwargs["N"] = cls._as_canonical_mode(kwargs["N"])
-        kwargs["real_input"] = bool(kwargs["real_input"])
-        kwargs["real_output"] = bool(kwargs["real_output"])
+        kwargs["isign"] = int(np.sign(kwargs["isign"]))
         if (D := x.shape[-1]) == len(N):
             pass
         elif len(N) == 1:
             kwargs["N"] = N * D
         else:
-            raise ValueError("N must have the same lenght as the dimension of the non-uniform samples x.")
+            raise ValueError("x vs. N: dimensionality mis-match.")
         return kwargs
 
     @staticmethod
@@ -514,10 +512,10 @@ class _NUFFT1(NUFFT):
             nufft_type=1,
             n_modes_or_dim=N,
             dtype=pycrt.getPrecision().value,
-            eps=kwargs.pop("eps", pycrt.getPrecision().eps() * 10),  # provide some slack
+            eps=kwargs.pop("eps"),
             n_trans=kwargs.pop("n_trans", 1),
-            isign=kwargs.pop("isign", 1),
-            modeord=kwargs.pop("modeord", 0),
+            isign=kwargs.pop("isign"),
+            modeord=0,
             **kwargs,
         )
         plan.setpts(**dict(zip("xyz"[:N_dim], pycu.compute(x.T[:N_dim]))))
@@ -540,10 +538,10 @@ class _NUFFT1(NUFFT):
             nufft_type=2,
             n_modes_or_dim=N,
             dtype=pycrt.getPrecision().value,
-            eps=kwargs.pop("eps", pycrt.getPrecision().eps() * 10),  # provide some slack
+            eps=kwargs.pop("eps"),
             n_trans=kwargs.pop("n_trans", 1),
-            isign=-kwargs.pop("isign", 1),
-            modeord=kwargs.pop("modeord", 0),
+            isign=-kwargs.pop("isign"),
+            modeord=0,
             **kwargs,
         )
         plan.setpts(**dict(zip("xyz"[:N_dim], pycu.compute(x.T[:N_dim]))))
@@ -562,23 +560,30 @@ class _NUFFT1(NUFFT):
         r"""
         Parameters
         ----------
-        arr: NDArray
-            ([N_stack], 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
+        arr: pyct.NDArray (constructor-dependant)
+            (...,  M) input weights :math:`\mathbf{w} \in \mathbb{R}^{M}`.
+            (..., 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
+            (see :py:func:`~pycsou.util.complex.view_as_real`.)
 
         Returns
         -------
-        out: NDArray
-            ([N_stack], 2N1*...*Nd) output of NUFFT :math:`\mathbf{u} \in \mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}`
-            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
+        out: pyct.NDArray (constructor-dependant)
+            (...,  N.prod()) output weights :math:`\mathbf{u} \in
+            \mathbb{R}^{\mathcal{I}_{N_1,\ldots, N_d}}`
+            (..., 2N.prod()) output weights :math:`\mathbf{u} \in
+            \mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` viewed as a real array.
+            (see :py:func:`~pycsou.util.complex.view_as_real`.)
         """
         if self._real_input:
             r_width = pycrt.Width(arr.dtype)
             arr = arr.astype(r_width.complex.value)
         else:
             arr = pycu.view_as_complex(arr)
-        data, N_stack, sh = self._preprocess(arr, self._n, np.prod(self._N))
+
+        data, N, sh = self._preprocess(arr, self._n, np.prod(self._N))
         blks = [self._fw(blk) for blk in data]
-        out = self._postprocess(blks, N_stack, sh)
+        out = self._postprocess(blks, N, sh)
+
         return out.real if self._real_output else pycu.view_as_real(out)
 
     @pycrt.enforce_precision("arr")
@@ -586,24 +591,30 @@ class _NUFFT1(NUFFT):
         r"""
         Parameters
         ----------
-        arr: NDArray
-            ([N_stack], 2N1*...Nd) input :math:`\mathbf{u} \in \mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}`
-            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
+        arr: pyct.NDArray (constructor-dependant)
+            (...,  N.prod()) input weights :math:`\mathbf{u} \in
+            \mathbb{R}^{\mathcal{I}_{N_1,\ldots, N_d}}`
+            (..., 2N.prod()) input weights :math:`\mathbf{u} \in
+            \mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` viewed as a real array.
+            (see :py:func:`~pycsou.util.complex.view_as_real`.)
 
         Returns
         -------
-        out: NDArray
-            ([N_stack], 2M) output of adjoint NUFFT :math:`\mathbf{w} \in \mathbb{C}^{M}`
-            viewed as a real array (see :py:func:`~pycsou.util.complex.view_as_real`).
+        out: pyct.NDArray (constructor-dependant)
+            (...,  M) output weights :math:`\mathbf{w} \in \mathbb{R}^{M}`.
+            (..., 2M) output weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
+            (see :py:func:`~pycsou.util.complex.view_as_real`.)
         """
         if self._real_output:
             r_width = pycrt.Width(arr.dtype)
             arr = arr.astype(r_width.complex.value)
         else:
             arr = pycu.view_as_complex(arr)
-        data, N_stack, sh = self._preprocess(arr, self._n, self._M)
+
+        data, N, sh = self._preprocess(arr, self._n, self._M)
         blks = [self._bw(blk) for blk in data]
-        out = self._postprocess(blks, N_stack, sh)
+        out = self._postprocess(blks, N, sh)
+
         return out.real if self._real_input else pycu.view_as_real(out)
 
 
