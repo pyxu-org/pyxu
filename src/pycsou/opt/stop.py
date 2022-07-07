@@ -286,7 +286,7 @@ class RelError(pycs.StoppingCriterion):
         if self._x_prev is None:
             self._x_prev = x.copy()
             # force 1st .info() call to have same format as further calls.
-            self._val = np.zeros(shape=(1,) if (x.dim == 1) else x.shape[:-1])
+            self._val = np.zeros(shape=(1,) if (x.ndim == 1) else x.shape[:-1])
             return False  # decision deferred: insufficient history to evaluate rel-err.
         else:
             norm = lambda _: xp.linalg.norm(_, ord=self._norm, axis=-1, keepdims=True)
