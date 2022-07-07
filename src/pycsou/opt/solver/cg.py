@@ -124,7 +124,7 @@ class CG(pycs.Solver):
 
         # Because CG can only generate n conjugate vectors in an n-dimensional space, it makes sense
         # to restart CG every n iterations.
-        if self._astate["idx"] == mst["restart_rate"]:
+        if self._astate["idx"] % mst["restart_rate"] == 0:
             beta = 0
         else:
             beta = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
