@@ -140,16 +140,10 @@ class CG(pycs.Solver):
         mst["x"], mst["residual"], mst["conjugate_dir"] = x, r, p
 
     def default_stop_crit(self) -> pycs.StoppingCriterion:
-        def explicit_residual(x):
-            mst = self._mstate  # shorthand
-            residual = mst["b"].copy()
-            residual -= self._A.apply(x)
-            return residual
-
         stop_crit = pycos.AbsError(
             eps=1e-4,
-            var="x",
-            f=explicit_residual,
+            var="residual",
+            f=None,
             norm=2,
             satisfy_all=True,
         )
