@@ -2030,6 +2030,7 @@ class LinOp(DiffMap, Adjoint):
         """
         from pycsou.operator.linop.base import IdentityOp
         from pycsou.opt.solver.cg import CG
+        from pycsou.opt.stop import MaxIter
 
         kwargs_fit = {} if kwargs_fit is None else kwargs_fit
         kwargs_init = {} if kwargs_init is None else kwargs_init
@@ -2041,6 +2042,11 @@ class LinOp(DiffMap, Adjoint):
         if "show_progress" not in kwargs_init.keys():
             kwargs_init.update(show_progress=False)
         cg = CG(A, **kwargs_init)
+        if "stop_crit" not in kwargs_fit:
+            # .pinv() may not have sufficiently converged given the default CG stopping criteria. To
+            # avoid infinite loops, CG iterations are thresholded.
+            sentinel = MaxIter(n=20 * A.dim)
+            kwargs_fit["stop_crit"] = cg.default_stop_crit() | sentinel
         cg.fit(b=b, **kwargs_fit)
         return cg.solution()
 
