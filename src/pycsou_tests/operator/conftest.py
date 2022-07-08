@@ -948,15 +948,6 @@ class LinOpT(DiffMapT):
             "to_sciop",
         }
     )
-    disable_test = frozenset(
-        DiffMapT.disable_test
-        | {
-            "test_prec_pinv",  # temporary
-            "test_prec_call_dagger",  # temporary
-            "test_prec_apply_dagger",  # temporary
-            "test_prec_adjoint_dagger",  # temporary
-        }
-    )
 
     # Internal helpers --------------------------------------------------------
     @staticmethod
