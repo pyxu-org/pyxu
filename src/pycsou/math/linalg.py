@@ -10,6 +10,31 @@ import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 
+def norm(x: pyct.NDArray, **kwargs):
+    """
+    Matrix or vector norm.
+
+    This function is identical to :py:func:`numpy.linalg.norm`.
+    It exists to correct bugs in Dask's implementation.
+
+    Parameters
+    ----------
+    x: pyct.NDArray
+        Input array.
+    **kwargs
+        Any kwarg accepted by :py:func:`numpy.linalg.norm`.
+
+    Returns
+    -------
+    nrm: pyct.NDArray
+        Norm of the matrix or vector(s).
+    """
+    xp = pycu.get_array_module(x)
+    nrm = xp.linalg.norm(x, **kwargs)
+    nrm = nrm.astype(x.dtype, copy=False)  # dask bug: linalg.norm() always returns float64
+    return nrm
+
+
 def hutchpp(
     op: pyco.SquareOp,
     m: int = 4002,

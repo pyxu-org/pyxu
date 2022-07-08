@@ -2,6 +2,7 @@ import typing as typ
 
 import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
+import pycsou.math.linalg as pylinalg
 import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
@@ -117,7 +118,7 @@ class CG(pycs.Solver):
         xp = pycu.get_array_module(x)
 
         Ap = self._A.apply(p)
-        rr = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2
+        rr = pylinalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2
         alpha = rr / (p * Ap).sum(axis=-1, keepdims=True)
         x += alpha * p
 
@@ -132,7 +133,7 @@ class CG(pycs.Solver):
             beta = 0
             r[:] = mst["b"] - self._A.apply(x)  # explicit eval to restart fully
         else:
-            beta = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
+            beta = pylinalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
         p *= beta
         p += r
 
