@@ -2423,6 +2423,7 @@ class UnitOp(NormalOp):
     def lipschitz(self, **kwargs) -> float:
         return self._lipschitz
 
+    @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = self.adjoint(arr)
         if (damp := kwargs.pop("damp")) is not None:
@@ -2479,6 +2480,7 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
     def lipschitz(self, **kwargs) -> float:
         return self._lipschitz
 
+    @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = arr.copy()
         if (damp := kwargs.pop("damp")) is not None:
