@@ -120,12 +120,17 @@ class CG(pycs.Solver):
         rr = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2
         alpha = rr / (p * Ap).sum(axis=-1, keepdims=True)
         x += alpha * p
-        r -= alpha * Ap
+
+        if pycu.compute(xp.any(rr <= pycrt.Width(rr.dtype).eps())):  # explicit eval
+            r[:] = mst["b"] - self._A.apply(x)
+        else:  # implicit eval
+            r -= alpha * Ap
 
         # Because CG can only generate n conjugate vectors in an n-dimensional space, it makes sense
         # to restart CG every n iterations.
         if self._astate["idx"] % mst["restart_rate"] == 0:
             beta = 0
+            r[:] = mst["b"] - self._A.apply(x)  # explicit eval to restart fully
         else:
             beta = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
         p *= beta
