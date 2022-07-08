@@ -19,6 +19,8 @@ import pycsou.util.complex as pycuc
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
+high_precision = frozenset(_ for _ in pycrt.Width if _ != pycrt.Width.HALF)
+
 
 def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
     """
@@ -177,7 +179,7 @@ class MapT:
     def _check_precCM(
         func,
         data,
-        widths: cabc.Collection[pycrt.Width] = frozenset(pycrt.Width),
+        widths: cabc.Collection[pycrt.Width] = high_precision,
     ):
         in_ = data["in_"]
         stats = []
@@ -212,9 +214,10 @@ class MapT:
         # override in subclass if numeric methods are to be tested on a subset of array backends.
         return request.param
 
-    @pytest.fixture(params=list(pycrt.Width))
+    @pytest.fixture(params=high_precision)
     def width(self, request) -> pycrt.Width:
         # override in subclass if numeric methods are to be tested on a subset of precisions.
+        # NOTE: we purposefully do not test at HALF-precision.
         return request.param
 
     @pytest.fixture(
@@ -1353,13 +1356,6 @@ class LinOpT(DiffMapT):
     @pytest.mark.parametrize(
         "width",  # local override of this fixture
         [
-            pytest.param(
-                pycrt.Width.HALF,
-                marks=pytest.mark.xfail(
-                    reason="Unsupported by ARPACK/PROPACK/LOBPCG.",
-                    strict=True,
-                ),
-            ),
             pycrt.Width.SINGLE,
             pycrt.Width.DOUBLE,
             pytest.param(
