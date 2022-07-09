@@ -2,8 +2,6 @@ import itertools
 import math
 
 import pycsou.abc as pyca
-import pycsou.operator.linop.base as pyclo
-import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
@@ -58,7 +56,7 @@ class PGD(pyca.Solver):
     The relative norm change of the primal variable is used as the default stopping criterion.
     By default, the algorithm stops when the norm of the difference between two consecutive PGD
     iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4.
-    Different stopping criteria can be used (see :py:mod:`~pycsou.opt.solver.stop`).
+    Different stopping criteria can be used. (see :py:mod:`~pycsou.opt.solver.stop`.)
 
     ``PGD.fit()`` **Parameterization**
 
@@ -82,13 +80,15 @@ class PGD(pyca.Solver):
         g: pyca.ProxFunc = None,
         **kwargs,
     ):
+        from pycsou.operator.func import NullFunc
+
         kwargs.update(
             log_var=kwargs.get("log_var", ("x",)),
         )
         super().__init__(**kwargs)
 
-        self._f = pyclo.NullFunc() if (f is None) else f
-        self._g = pyclo.NullFunc() if (g is None) else g
+        self._f = NullFunc() if (f is None) else f
+        self._g = NullFunc() if (g is None) else g
         if (f is None) and (g is None):
             msg = " ".join(
                 [
@@ -141,7 +141,9 @@ class PGD(pyca.Solver):
         mst["x_prev"], mst["x"] = mst["x"], self._g.prox(z, mst["tau"])
 
     def default_stop_crit(self) -> pyca.StoppingCriterion:
-        stop_crit = pycos.RelError(
+        from pycsou.opt.stop import RelError
+
+        stop_crit = RelError(
             eps=1e-4,
             var="x",
             f=None,

@@ -9,6 +9,16 @@ import pycsou.abc as pyca
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
+__all__ = [
+    "AbsError",
+    "ManualStop",
+    "MaxDuration",
+    "MaxIter",
+    "Memorize",
+    "RelError",
+]
+
+
 SVFunction = typ.Union[
     cabc.Callable[[pyct.Real], pyct.Real],
     cabc.Callable[[pyct.NDArray], pyct.NDArray],
@@ -174,7 +184,7 @@ class AbsError(pyca.StoppingCriterion):
             Optional function to pre-apply to `Solver._mstate[var]` before applying the norm.
             Defaults to the identity function. The callable should either:
             * accept a scalar input -> output a scalar, or
-            * accept an NDArray input -> output an NDArray, i.e same semantics as `Property.apply`.
+            * accept an NDArray input -> output an NDArray, i.e same semantics as `Operator.apply`.
         norm: pyct.Integer | pyct.Real
             Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool
@@ -251,7 +261,7 @@ class RelError(pyca.StoppingCriterion):
             Optional function to pre-apply to `Solver._mstate[var]` before applying the norm.
             Defaults to the identity function. The callable should either:
             * accept a scalar input -> output a scalar, or
-            * accept an NDArray input -> output an NDArray, i.e same semantics as `Property.apply`.
+            * accept an NDArray input -> output an NDArray, i.e same semantics as `Operator.apply`.
         norm: pyct.Integer | pyct.Real
             Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool
