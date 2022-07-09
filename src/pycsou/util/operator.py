@@ -9,9 +9,9 @@ import pycsou.util.inspect as pycui
 import pycsou.util.ptype as pyct
 
 __all__ = [
-    "infer_sum_shape",
     "infer_composition_shape",
     "infer_stack_shape",
+    "infer_sum_shape",
     "vectorize",
 ]
 
@@ -114,7 +114,7 @@ def vectorize(i: pyct.VarName) -> cabc.Callable:
             if is_1d := x.ndim == 1:
                 x = x.reshape((1, x.size))
             sh_x = x.shape  # (..., N)
-            sh_xf = (np.prod(sh_x[:-1]), sh_x[-1])  # (M, N): x flattened to 2D
+            sh_xf = (np.prod(sh_x[:-1]), sh_x[-1])  # (..., N) -> (M, N)
             x = x.reshape(sh_xf)
 
             # infer output dimensions + allocate

@@ -2,8 +2,8 @@ import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
 __all__ = [
-    "view_as_real",
     "view_as_complex",
+    "view_as_real",
 ]
 
 

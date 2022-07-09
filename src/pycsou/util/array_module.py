@@ -8,8 +8,8 @@ import pycsou.util.inspect as pycui
 import pycsou.util.ptype as pyct
 
 __all__ = [
-    "get_array_module",
     "compute",
+    "get_array_module",
     "redirect",
 ]
 
@@ -106,8 +106,8 @@ def redirect(
 
     Notes
     -----
-    Auto-dispatch via :py:func:`redirect` assumes the
-    dispatcher/dispatchee have the same parameterization, i.e.:
+    Auto-dispatch via :py:func:`redirect` assumes the dispatcher/dispatchee have the same
+    parameterization, i.e.:
 
     * if `f` is a function -> dispatch possible to another callable with identical signature (i.e.,
       function or staticmethod)
