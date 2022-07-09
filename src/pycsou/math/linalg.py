@@ -6,6 +6,11 @@ import numpy as np
 import pycsou.abc as pyca
 import pycsou.util.ptype as pyct
 
+__all__ = [
+    "hutchpp",
+    "norm",
+]
+
 
 def norm(x: pyct.NDArray, **kwargs):
     """
@@ -50,8 +55,9 @@ def hutchpp(
         Number of queries used to estimate the trace of the linear operator.
 
         ``m`` is set to 4002 by default based on the analysis of the variance described in theorem
-        10. This default corresponds to having an estimation error smaller than 0.01 with a
-        probability of 0.9.
+        10.
+        This default corresponds to having an estimation error smaller than 0.01 with probability
+        0.9.
     xp: pyct.ArrayModule
         Array module used for internal computations.
     seed: pyct.Integer
