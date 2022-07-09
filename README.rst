@@ -21,14 +21,12 @@ Features
 
 Pycsou makes it easy to construct and solve penalised optimisation problems:
 
-1. It offers a rich collection of linear operators, loss functionals and penalty functionals
-   commonly used in practice.
-2. It implements *arithmetic operations* for linear operators, loss functionals and penalty
-   functionals, hence allowing to *add*, *substract*, *scale*, *compose*, *exponentiate* or *stack*
-   those various objects with one another to quickly design *custom complex optimisation problems*.
+1. It offers a rich collection of operators and functionals commonly used in practice.
+2. It implements *operator arithmetic*: *add/scale/compose/stack* operators together to quickly
+   design *complex optimisation problems*.
 3. It implements a rich collection of **state-of-the-art iterative proximal algorithms**, including
-   **efficient primal-dual splitting methods** which involve only gradient steps, proximal steps and
-   simple linear evaluations.
+   **efficient primal-dual splitting methods** which involve only gradient, proximal and simple
+   linear evaluations.
 4. It supports *matrix-free linear operators*, making it easy to work with large scale linear
    operators that *may not fit in memory*.
    
