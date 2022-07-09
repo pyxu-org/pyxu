@@ -8,7 +8,6 @@ import shutil
 import sys
 import tempfile
 import threading
-import typing as typ
 
 import numpy as np
 
@@ -18,8 +17,8 @@ import pycsou.util.ptype as pyct
 
 __all__ = [
     "Mode",
-    "StoppingCriterion",
     "Solver",
+    "StoppingCriterion",
 ]
 
 
@@ -36,8 +35,8 @@ class Mode(enum.Enum):
 
 class StoppingCriterion:
     """
-    State(-less) machines (SM) which decide when to stop iterative solvers by examining their
-    mathematical state.
+    State machines (SM) which decide when to stop iterative solvers by examining their mathematical
+    state.
 
     SM decisions are always accompanied by at least one numerical statistic. These stats may be
     queried by solvers via ``StoppingCriterion.info`` to provide diagnostic information to users.
@@ -77,8 +76,8 @@ class StoppingCriterion:
         """
         Clear SM state (if any).
 
-        This method is useful when a ``StoppingCriterion`` instance must be reused in another call to
-        ``Solver.fit``.
+        This method is useful when a ``StoppingCriterion`` instance must be reused in another call
+        to ``Solver.fit``.
         """
         pass
 
@@ -327,8 +326,8 @@ class Solver:
         The i-th call to next() on this object returns the logged variables after the i-th solver
         iteration.
 
-        This method is only usable after calling ``Solver.fit`` with mode=MANUAL. See ``Solver`` for
-        usage examples.
+        This method is only usable after calling ``Solver.fit`` with mode=MANUAL.
+        See ``Solver`` for usage examples.
 
         There is no guarantee that a checkpoint on disk exists when the generator is exhausted.
         (Reason: potential exceptions raised during solver's progress.)
@@ -405,8 +404,8 @@ class Solver:
         Returns
         -------
         df: pyct.Path
-            Absolute path to the file on disk where ``log_var``(s) are stored during checkpointing or
-            after solver has stopped.
+            Absolute path to the file on disk where ``log_var``(s) are stored during checkpointing
+            or after solver has stopped.
         """
         return self.workdir / "data.npz"
 
@@ -414,8 +413,8 @@ class Solver:
         """
         Test if an async-running solver has stopped.
 
-        This method is only usable after calling ``Solver.fit`` with mode=ASYNC. See ``Solver`` for
-        usage examples.
+        This method is only usable after calling ``Solver.fit`` with mode=ASYNC.
+        See ``Solver`` for usage examples.
 
         Returns
         -------
@@ -439,8 +438,8 @@ class Solver:
         """
         Stop an async-running solver.
 
-        This method is only usable after calling ``Solver.fit`` with mode=ASYNC. See ``Solver`` for
-        usage examples.
+        This method is only usable after calling ``Solver.fit`` with mode=ASYNC.
+        See ``Solver`` for usage examples.
 
         This method will block until the solver has stopped.
 
