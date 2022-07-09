@@ -16,7 +16,6 @@ class Width(enum.Enum):
     Machine-dependent floating-point types.
     """
 
-    HALF = np.dtype(np.half)
     SINGLE = np.dtype(np.single)
     DOUBLE = np.dtype(np.double)
     QUAD = np.dtype(np.longdouble)
@@ -44,7 +43,6 @@ class _CWidth(enum.Enum):
     Machine-dependent complex-valued floating-point types.
     """
 
-    # HALF = np.dtype(np.chalf)  # unsupported by NumPy
     SINGLE = np.dtype(np.csingle)
     DOUBLE = np.dtype(np.cdouble)
     QUAD = np.dtype(np.clongdouble)
@@ -67,8 +65,8 @@ class Precision(contextlib.AbstractContextManager):
     -------
     >>> import pycsou.runtime as pycrt
     >>> pycrt.getPrecision()                      # Width.DOUBLE
-    ... with pycrt.Precision(pycrt.Width.HALF):
-    ...     pycrt.getPrecision()                  # Width.HALF
+    ... with pycrt.Precision(pycrt.Width.SINGLE):
+    ...     pycrt.getPrecision()                  # Width.SINGLE
     ... pycrt.getPrecision()                      # Width.DOUBLE
     """
 
