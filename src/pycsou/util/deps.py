@@ -1,10 +1,5 @@
 import importlib.util
 
-import dask.array as da
-import numpy as np
-import scipy.sparse as scisp
-import sparse as sp
-
 CUPY_ENABLED: bool = importlib.util.find_spec("cupy") is not None
 
 
@@ -14,10 +9,13 @@ def array_backend_info():
 
     This function is most useful for testing purposes.
     """
-    info = [
-        (np.ndarray, np, "NUMPY"),
-        (da.core.Array, da, "DASK"),
-    ]
+    import dask.array as da
+    import numpy as np
+
+    info = []
+    info.append((np.ndarray, np, "NUMPY"))
+    info.append((da.core.Array, da, "DASK"))
+
     if CUPY_ENABLED:
         import cupy as cp
 
@@ -35,22 +33,25 @@ def supported_array_modules():
 
 def sparse_backend_info():
     r"""
-    List of all (known) installed sparse array modules.
+    List of all (supported & installed) sparse (array, API, short-name) triplets.
     """
-    info = {
-        sp.SparseArray: sp,
-        scisp.spmatrix: scisp,
-    }
-    if CUPY_ENABLED:
-        import cupyx.scipy.sparse as cpxsp
+    import scipy.sparse as sp
+    import sparse
 
-        info[cpxsp.spmatrix] = cpxsp
+    info = []
+    info.append((sp.spmatrix, sp, "SCIPY_SPARSE"))
+    info.append((sparse.SparseArray, sparse, "PYDATA_SPARSE"))
+
+    if CUPY_ENABLED:
+        import cupyx.scipy.sparse as csp
+
+        info.append((csp.spmatrix, csp, "CUPY_SPARSE"))
     return info
 
 
 def supported_sparse_types():
-    return tuple(sparse_backend_info().keys())
+    return tuple(_[0] for _ in sparse_backend_info())
 
 
 def supported_sparse_modules():
-    return tuple(sparse_backend_info().values())
+    return tuple(_[1] for _ in sparse_backend_info())
