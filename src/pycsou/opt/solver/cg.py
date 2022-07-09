@@ -2,7 +2,6 @@ import typing as typ
 
 import pycsou.abc as pyca
 import pycsou.math.linalg as pylinalg
-import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
@@ -45,15 +44,12 @@ class CG(pyca.Solver):
         the linear operator :math:`\mathbf{A}`.
 
     **Remark 1:**
-    'x0' can be any array with the same shape as 'b' or with any other shape that is broadcastable
-    with the shape of 'b'.
-    In the latter case, the initial point(s) are broadcasted following the `numpy broadcasting rules
-    <https://numpy.org/doc/stable/user/basics.broadcasting.html.>`_.
+    If provided, 'x0' must be broadcastable with 'b'.
 
     **Remark 2:**
-    `Restarts <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ could slow down convergence,
-    but they might improve stability due to round-off error or ill-posedness of the linear operator.
-    If these issues are suspected, users can adjust the 'restart_rate' variable accordingly.
+    `Restarts <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ may slow down convergence,
+    but improve stability due to round-off error or ill-conditioning of the linear operator.
+    If these issues are suspected, adjust 'restart_rate' accordingly.
     """
 
     def __init__(self, A: pyca.PosDefOp, **kwargs):
@@ -121,7 +117,9 @@ class CG(pyca.Solver):
         mst["x"], mst["residual"], mst["conjugate_dir"] = x, r, p
 
     def default_stop_crit(self) -> pycs.StoppingCriterion:
-        stop_crit = pycos.AbsError(
+        from pycsou.opt.stop import AbsError
+
+        stop_crit = AbsError(
             eps=1e-4,
             var="residual",
             f=None,
