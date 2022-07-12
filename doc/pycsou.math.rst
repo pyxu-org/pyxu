@@ -5,7 +5,7 @@ Submodules
 ----------
 
 pycsou.math.linalg module
-------------------------
+-------------------------
 
 .. automodule:: pycsou.math.linalg
    :members:
