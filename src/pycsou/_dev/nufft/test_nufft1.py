@@ -2,8 +2,6 @@ import dask.array as da
 import numpy as np
 
 import pycsou.operator.linop.nufft as nufft
-
-importlib.reload(nufft)
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 

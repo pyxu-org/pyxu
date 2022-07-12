@@ -1,6 +1,7 @@
 import collections.abc as cabc
 import typing as typ
 
+import dask.array as da
 import finufft
 import numpy as np
 
@@ -18,8 +19,6 @@ eps_default = 1e-4
 
 
 def _wrap_if_dask(func: cabc.Callable) -> cabc.Callable:
-    import dask.array as da
-
     def wrapper(obj, arr):
         xp = pycu.get_array_module(arr)
         out = func(obj, pycu.compute(arr))
@@ -98,6 +97,10 @@ class NUFFT(pyca.LinOp):
     For the type-3 NUFFT, the non-uniform samples :math:`\mathbf{x}_{j}` and
     :math:`\mathbf{z}_{k}` are arbitrary points in :math:`\mathbb{R}^d`.
 
+    **Adjoint NUFFTs.**
+    The NUFFTs of Types 1 and 2 with opposite signs form an *adjoint pair*. The adjoint of the NUFFT of Type 3 is obtained by
+    flipping the transform's sign and switching the roles of   :math:`\mathbf{z}_k` and :math:`\mathbf{x}_{j}` in (3).
+
     **Lipschitz Constants.**
     The type-1 NUFFT can be interpreted as the truncated Fourier Series of a :math:`2\pi`-periodic
     Dirac stream with innovations :math:`(w_j, \mathbf{x}_j)`.
@@ -165,10 +168,10 @@ class NUFFT(pyca.LinOp):
     This fix can be enabled via the ``center`` parameter of
     :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`.
 
-    **Backend.** The NUFFT tansforms are computed via Python wrappers to
-    `FINUFFT <https://github.com/flatironinstitute/finufft>`_ and
-    `cuFINUFFT <https://github.com/flatironinstitute/cufinufft>`_.
-    (see also [FINUFFT]_ and [cuFINUFFT]_.)
+    **Backend.** The NUFFT tansforms are computed via Python wrappers to `FINUFFT
+    <https://github.com/flatironinstitute/finufft>`_ and `cuFINUFFT
+    <https://github.com/flatironinstitute/cufinufft>`_ (see also [FINUFFT]_ and [cuFINUFFT]_). These librairies perform
+    the expensive spreading/interpolation between nonuniform points and the fine grid via the “exponential of semicircle” kernel (see [FINUFFT]_).
 
     **Optional Parameters.**
     [cu]FINUFFT exposes many optional parameters to adjust the performance of the algorithms, change
@@ -621,25 +624,6 @@ class _NUFFT1(NUFFT):
 
 class _NUFFT3(NUFFT):
     def __init__(self, **kwargs):
-        # compute pre/post-phase terms ----------------------------------------
-        cx = "x" in kwargs.get("center")
-        cz = "z" in kwargs.pop("center")
-        isign = kwargs.get("isign")
-        x, z = kwargs["x"], kwargs["z"]
-        x_c = 0.5 * x.ptp(axis=0) if cx else 0
-        z_c = 0.5 * z.ptp(axis=0) if cz else 0
-        xp = pycu.get_array_module(x)
-        self._pre_phase = self._post_phase = None
-        if cz:
-            self._pre_phase = xp.exp(1j * isign * x.dot(z_c))  # (M,)
-        if cx:
-            self._post_phase = xp.exp(1j * isign * z.dot(x_c))  # (N,)
-        if cz and cx:
-            self._post_phase *= xp.exp(-1j * isign * (x_c @ z_c))
-        x -= x_c
-        z -= z_c
-        # ---------------------------------------------------------------------
-
         self._real = kwargs.pop("real")
         self._plan = dict(
             fw=self._plan_fw(**kwargs),

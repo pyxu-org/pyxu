@@ -2,8 +2,6 @@ import dask.array as da
 import numpy as np
 
 import pycsou.operator.linop.nufft as nufft
-
-importlib.reload(nufft)
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 
@@ -16,15 +14,15 @@ use_dask = False
 
 rng = np.random.default_rng(0)
 D, M, N = 3, 200, 50
-x = rng.normal(size=(M, D))
-z = rng.normal(size=(N, D))
+x = rng.normal(size=(M, D)) + 2
+z = rng.normal(size=(N, D)) - 3
 if use_dask:
     x = da.array(x)
     z = da.array(z)
 
 with pycrt.Precision(pycrt.Width.DOUBLE):
     N_trans, isign = 20, -1
-    A = nufft.NUFFT.type3(x, z, n_trans=N_trans, isign=isign, eps=1e-6, center="")
+    A = nufft.NUFFT.type3(x, z, n_trans=N_trans, isign=isign, eps=1e-6, center="x")
     B = NUFFT3_array(x, z, isign)
 
     arr = rng.normal(size=(3, N_trans, M))
