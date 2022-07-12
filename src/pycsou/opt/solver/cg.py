@@ -116,7 +116,7 @@ class CG(pyca.Solver):
         # for homogenity with other solver code. Optional in CG due to in-place computations.
         mst["x"], mst["residual"], mst["conjugate_dir"] = x, r, p
 
-    def default_stop_crit(self) -> pycs.StoppingCriterion:
+    def default_stop_crit(self) -> pyca.StoppingCriterion:
         from pycsou.opt.stop import AbsError
 
         stop_crit = AbsError(
