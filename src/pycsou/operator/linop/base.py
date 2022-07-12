@@ -1,3 +1,6 @@
+import collections.abc as cabc
+import functools as ft
+import types
 import typing as typ
 import warnings
 
@@ -15,8 +18,16 @@ class IdentityOp(pyca.PosDefOp, pyca.UnitOp):
     Identity operator :math:`\mathrm{Id}`.
     """
 
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set()
+        for klass in cls.__bases__:
+            p |= klass.properties()
+        return frozenset(p)
+
     def __init__(self, dim: pyct.Integer):
-        super().__init__(shape=(dim, dim))
+        pyca.PosDefOp.__init__(self, shape=(dim, dim))
+        pyca.UnitOp.__init__(self, shape=(dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -24,7 +35,7 @@ class IdentityOp(pyca.PosDefOp, pyca.UnitOp):
 
 
 class NullOp(pyca.LinOp):
-    r"""
+    """
     Null operator.
 
     This operator maps any input vector on the null vector.
@@ -52,11 +63,18 @@ class NullOp(pyca.LinOp):
 
 
 class NullFunc(NullOp, pyca.LinFunc):
-    r"""
+    """
     Null functional.
 
     This functional maps any input vector on the null scalar.
     """
+
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set()
+        for klass in cls.__bases__:
+            p |= klass.properties()
+        return frozenset(p)
 
     def __init__(self):
         super().__init__(shape=(1, None))
@@ -69,30 +87,41 @@ class NullFunc(NullOp, pyca.LinFunc):
         return arr
 
 
-class HomothetyOp(pyca.SelfAdjointOp):
-    r"""
-    Scaling operator.
+def HomothetyOp(cst: pyct.Real, dim: pyct.Integer):
     """
+    Scaling operator.
 
-    def __init__(self, cst: pyct.Real, dim: pyct.Integer):
-        r"""
-        Parameters
-        ----------
-        cst: pyct.Real
-            Scaling factor.
-        dim: pyct.Integer
-            Dimension of the domain.
-        """
-        super().__init__(shape=(dim, dim))
-        assert isinstance(cst, pyct.Real), f"cst: expected real, got {cst}."
-        self._cst = cst
-        self._lipschitz = abs(cst)
+    Parameters
+    ----------
+    cst: pyct.Real
+        Scaling factor.
+    dim: pyct.Integer
+        Dimension of the domain.
 
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        out = arr.copy()
-        out *= self._cst
-        return out
+    Returns
+    -------
+    op: pyct.OpT
+        (dim, dim) scaling operator.
+    """
+    assert isinstance(cst, pyct.Real), f"cst: expected real, got {cst}."
+
+    if np.isclose(cst, 0):
+        return NullFunc() if (dim == 1) else NullOp(shape=(dim, dim))
+    elif np.isclose(cst, 1):
+        return IdentityOp(dim=dim)
+    else:  # build PosDef or SelfAdjointOp
+
+        @pycrt.enforce_precision(i="arr")
+        def op_apply(cst, _, arr):
+            out = arr.copy()
+            out *= cst
+            return out
+
+        klass = pyca.PosDefOp if (cst > 0) else pyca.SelfAdjointOp
+        op = klass(shape=(dim, dim))
+        op._lipschitz = abs(cst)
+        op.apply = types.MethodType(ft.partial(op_apply, cst), op)
+        return op
 
 
 class ExplicitLinOp(pyca.LinOp):
@@ -138,7 +167,7 @@ class ExplicitLinOp(pyca.LinOp):
         Parameters
         ----------
         mat: pyct.NDArray | pyct.SparseArray
-            (M,N) matrix generator.
+            (M, N) matrix generator.
             The input array can be *dense* or *sparse*.
         enable_warnings: bool
             If ``True``, emit a warning in case of precision mis-match issues.
@@ -156,7 +185,7 @@ class ExplicitLinOp(pyca.LinOp):
         return self._matmat(self.mat.T, arr.T).T
 
     @property
-    def T(self) -> pyct.MapT:
+    def T(self) -> pyct.OpT:
         return ExplicitLinOp(self.mat.T)
 
     def asarray(
@@ -198,7 +227,10 @@ class ExplicitLinOp(pyca.LinOp):
         return A.dot(b)
 
 
-class ExplicitLinFunc(pyca.LinFunc):
+def ExplicitLinFunc(
+    vec: pyct.NDArray,
+    enable_warnings: bool = True,
+) -> pyca.LinFunc:
     r"""
     Build a linear functional from its vectorial representation.
 
@@ -230,39 +262,22 @@ class ExplicitLinFunc(pyca.LinFunc):
 
     Notes
     -----
-    :py:class:`~pycsou.operator.linop.base.ExplicitLinFunc` instances are **not arraymodule-agnostic**:
+    :py:func:`~pycsou.operator.linop.base.ExplicitLinFunc` instances are **not arraymodule-agnostic**:
     they will only work with NDArrays belonging to the same array module as ``vec``.
     Moreover, inner computations may cast input arrays when the precision of ``vec`` does not match
     the user-requested precision.
     If such a situation occurs, a warning is raised.
+
+    Parameters
+    ----------
+    vec: pyct.NDArray
+        (N,) generator.
+    enable_warnings: bool
+        If ``True``, emit a warning in case of precision mis-match issues.
     """
-
-    def __init__(
-        self,
-        vec: pyct.NDArray,
-        enable_warnings: bool = True,
-    ):
-        r"""
-        Parameters
-        ----------
-        vec: pyct.NDArray
-            (N,) generator.
-        enable_warnings: bool
-            If ``True``, emit a warning in case of precision mis-match issues.
-        """
-        assert vec.size == np.prod(vec.shape), f"vec: {vec.shape} is not a LinFunc generator."
-        self._op = ExplicitLinOp(
-            mat=vec.reshape((1, -1)),
-            enable_warnings=enable_warnings,
-        )
-        super().__init__(shape=self._op.shape)
-        self.apply = self._op.apply
-
-    @pycrt.enforce_precision(i="arr")
-    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
-        A = self._op.mat
-        if arr.ndim == 1:
-            A = A.squeeze(axis=0)
-
-        xp = pycu.get_array_module(arr)
-        return xp.broadcast_to(A, arr.shape)
+    assert len(vec) == np.prod(vec.shape), f"vec: {vec.shape} is not a LinFunc generator."
+    op = ExplicitLinOp(
+        mat=vec.reshape((1, -1)),
+        enable_warnings=enable_warnings,
+    )._squeeze()
+    return op
