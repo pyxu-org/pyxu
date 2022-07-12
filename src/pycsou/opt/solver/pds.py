@@ -3,10 +3,9 @@ import types
 import typing as typ
 import warnings
 
-import pycsou.abc.operator as pyco
-import pycsou.abc.solver as pycs
-import pycsou.operator.func.base as pycfb
-import pycsou.operator.linop.base as pyclo
+import pycsou.abc as pyca
+import pycsou.operator.func as pycf
+import pycsou.operator.linop as pyclo
 import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
@@ -24,17 +23,17 @@ __all__ = [
 ]
 
 
-class _PrimalDualSplitting(pycs.Solver):
+class _PrimalDualSplitting(pyca.Solver):
     r"""
     Base class for Primal Dual Splitting (PDS) solvers.
     """
 
     def __init__(
         self,
-        f: typ.Optional[pyco.DiffFunc] = None,
-        g: typ.Optional[pyco.ProxFunc] = None,
-        h: typ.Optional[pyco.ProxFunc] = None,
-        K: typ.Optional[pyco.DiffMap] = None,
+        f: typ.Optional[pyca.DiffFunc] = None,
+        g: typ.Optional[pyca.ProxFunc] = None,
+        h: typ.Optional[pyca.ProxFunc] = None,
+        K: typ.Optional[pyca.DiffMap] = None,
         beta: typ.Optional[pyct.Real] = None,
         **kwargs,
     ):
@@ -84,7 +83,7 @@ class _PrimalDualSplitting(pycs.Solver):
     def m_step(self):
         raise NotImplementedError
 
-    def default_stop_crit(self) -> pycs.StoppingCriterion:
+    def default_stop_crit(self) -> pyca.StoppingCriterion:
         stop_crit_x = pycos.RelError(
             eps=1e-4,
             var="x",
@@ -403,7 +402,7 @@ class CondatVu(_PrimalDualSplitting):
             Sensible primal/dual step sizes and value of the parameter :math:`delta`.
         """
 
-        if not issubclass(self._K.__class__, pyco.LinOp):
+        if not issubclass(self._K.__class__, pyca.LinOp):
             msg = (
                 f"Automatic selection of parameters is only supported in the case in which K is a linear operator. "
                 f"Got operator of type {self._K.__class__}."
@@ -458,7 +457,7 @@ class CondatVu(_PrimalDualSplitting):
                         raise ValueError(msg)
         delta = (
             2
-            if (self._beta == 0 or (isinstance(self._f, pycfb.QuadraticFunc) and gamma <= self._beta))
+            if (self._beta == 0 or (isinstance(self._f, pycf.QuadraticFunc) and gamma <= self._beta))
             else 2 - self._beta / (2 * gamma)
         )
         return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
@@ -683,7 +682,7 @@ class PD3O(_PrimalDualSplitting):
             Sensible primal/dual step sizes and value of :math:`\delta`.
         """
 
-        if not issubclass(self._K.__class__, pyco.LinOp):
+        if not issubclass(self._K.__class__, pyca.LinOp):
             msg = (
                 f"Automatic selection of parameters is only supported in the case in which K is a linear operator. "
                 f"Got operator of type {self._K.__class__}."
@@ -766,9 +765,9 @@ class PD3O(_PrimalDualSplitting):
 
 
 def ChambollePock(
-    g: typ.Optional[pyco.ProxFunc] = None,
-    h: typ.Optional[pyco.ProxFunc] = None,
-    K: typ.Optional[pyco.DiffMap] = None,
+    g: typ.Optional[pyca.ProxFunc] = None,
+    h: typ.Optional[pyca.ProxFunc] = None,
+    K: typ.Optional[pyca.DiffMap] = None,
     base: typ.Type[_PrimalDualSplitting] = CondatVu,
     **kwargs,
 ):
@@ -939,9 +938,9 @@ class LorisVerhoeven(PD3O):
 
     def __init__(
         self,
-        f: typ.Optional[pyco.DiffFunc] = None,
-        h: typ.Optional[pyco.ProxFunc] = None,
-        K: typ.Optional[pyco.DiffMap] = None,
+        f: typ.Optional[pyca.DiffFunc] = None,
+        h: typ.Optional[pyca.ProxFunc] = None,
+        K: typ.Optional[pyca.DiffMap] = None,
         beta: typ.Optional[pyct.Real] = None,
         **kwargs,
     ):
@@ -967,7 +966,7 @@ class LorisVerhoeven(PD3O):
             Sensible primal/dual step sizes and value of the parameter :math:`delta`.
         """
         tau, sigma, _ = super(LorisVerhoeven, self)._set_step_sizes(tau=tau, sigma=sigma, gamma=gamma)
-        delta = 2 if (self._beta == 0 or isinstance(self._f, pycfb.QuadraticFunc)) else 2 - self._beta / (2 * gamma)
+        delta = 2 if (self._beta == 0 or isinstance(self._f, pycf.QuadraticFunc)) else 2 - self._beta / (2 * gamma)
         return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
 
 
@@ -1037,9 +1036,9 @@ class DavisYin(PD3O):
 
     def __init__(
         self,
-        f: typ.Optional[pyco.DiffFunc] = None,
-        g: typ.Optional[pyco.ProxFunc] = None,
-        h: typ.Optional[pyco.ProxFunc] = None,
+        f: typ.Optional[pyca.DiffFunc] = None,
+        g: typ.Optional[pyca.ProxFunc] = None,
+        h: typ.Optional[pyca.ProxFunc] = None,
         beta: typ.Optional[pyct.Real] = None,
         **kwargs,
     ):
@@ -1078,8 +1077,8 @@ DY = DavisYin  #: Alias of :py:class:`~pycsou.opt.solver.pds.DavisYin`.
 
 
 def DouglasRachford(
-    g: typ.Optional[pyco.ProxFunc] = None,
-    h: typ.Optional[pyco.ProxFunc] = None,
+    g: typ.Optional[pyca.ProxFunc] = None,
+    h: typ.Optional[pyca.ProxFunc] = None,
     base: typ.Type[_PrimalDualSplitting] = CondatVu,
     **kwargs,
 ):
@@ -1206,8 +1205,8 @@ class ADMM(_PDS):
 
     def __init__(
         self,
-        g: typ.Optional[pyco.ProxFunc] = None,
-        h: typ.Optional[pyco.ProxFunc] = None,
+        g: typ.Optional[pyca.ProxFunc] = None,
+        h: typ.Optional[pyca.ProxFunc] = None,
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x", "u", "z")))
@@ -1331,8 +1330,8 @@ class ForwardBackward(CondatVu):
 
     def __init__(
         self,
-        f: typ.Optional[pyco.DiffFunc] = None,
-        g: typ.Optional[pyco.ProxFunc] = None,
+        f: typ.Optional[pyca.DiffFunc] = None,
+        g: typ.Optional[pyca.ProxFunc] = None,
         beta: typ.Optional[pyct.Real] = None,
         **kwargs,
     ):
@@ -1351,7 +1350,7 @@ FB = ForwardBackward  #: Alias of :py:class:`~pycsou.opt.solver.pds.ForwardBackw
 
 
 def ProximalPoint(
-    g: typ.Optional[pyco.ProxFunc] = None,
+    g: typ.Optional[pyca.ProxFunc] = None,
     base: typ.Optional[_PrimalDualSplitting] = CondatVu,
     **kwargs,
 ):
