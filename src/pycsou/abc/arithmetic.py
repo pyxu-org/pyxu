@@ -1,3 +1,9 @@
+"""
+Operator Arithmetic.
+"""
+
+import numpy as np
+
 import pycsou.abc.operator as pyco
 import pycsou.util.ptype as pyct
 
@@ -7,7 +13,15 @@ def add(lhs: pyct.OpT, rhs: pyct.OpT) -> pyct.OpT:
 
 
 def scale(op: pyct.OpT, cst: pyct.Real) -> pyct.OpT:
-    pass
+    from pycsou.operator.linop import HomothetyOp, NullFunc, NullOp
+
+    if np.isclose(cst, 0):
+        return NullOp(shape=op.shape) if (op.codim > 1) else NullFunc()
+    elif np.isclose(cst, 1):
+        return op
+    else:
+        h = HomothetyOp(cst, dim=op.codim)
+        return compose(h, op)
 
 
 def compose(lhs: pyct.OpT, rhs: pyct.OpT) -> pyct.OpT:
