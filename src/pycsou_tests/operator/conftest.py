@@ -266,48 +266,6 @@ class MapT:
         )
         return data
 
-    @pytest.fixture
-    def _data_apply_argshift(self, _data_apply) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argshift().apply()`.
-        in_ = copy.deepcopy(_data_apply["in_"])
-
-        xp = pycu.get_array_module(in_["arr"])
-        shift = self._random_array((in_["arr"].size,))
-        shift = xp.array(shift, dtype=in_["arr"].dtype)
-        in_.update(arr=in_["arr"] + shift)
-
-        data = dict(
-            in_=in_,
-            out=_data_apply["out"],
-            shift=shift,  # for _op_argshift()
-        )
-        return data
-
-    @pytest.fixture
-    def _op_argshift(self, op, _data_apply_argshift) -> pyca.Map:
-        shift = _data_apply_argshift["shift"]
-        return op.argshift(-shift)
-
-    @pytest.fixture
-    def _data_apply_argscale(self, _data_apply) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argscale().apply()`.
-        in_ = copy.deepcopy(_data_apply["in_"])
-
-        scale = self._random_array((1,)).item()
-        in_["arr"] *= scale
-
-        data = dict(
-            in_=in_,
-            out=_data_apply["out"],
-            scale=scale,  # for _op_argscale()
-        )
-        return data
-
-    @pytest.fixture
-    def _op_argscale(self, op, _data_apply_argscale) -> pyca.Map:
-        scale = _data_apply_argscale["scale"]
-        return op.argscale(1 / scale)
-
     # Tests -------------------------------------------------------------------
     def test_interface(self, op):
         self._skip_if_disabled()
@@ -372,61 +330,6 @@ class MapT:
     def test_precCM_call(self, op, _data_apply):
         self._skip_if_disabled()
         self._check_precCM(op.__call__, _data_apply)
-
-    def test_interface_argshift(self, op):
-        # Must be of same class (subclass if needed)
-        self._skip_if_disabled()
-        N_dim = self._sanitize(op.dim, 3)
-        shift = self._random_array((N_dim,))
-        op_s = op.argshift(shift)
-        self._check_has_interface(op_s, self.__class__)
-
-    def test_value1D_apply_argshift(self, _op_argshift, _data_apply_argshift):
-        self._skip_if_disabled()
-        self._check_value1D(_op_argshift.apply, _data_apply_argshift)
-
-    def test_valueND_apply_argshift(self, _op_argshift, _data_apply_argshift):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argshift.apply, _data_apply_argshift)
-
-    def test_backend_apply_argshift(self, _op_argshift, _data_apply_argshift):
-        self._skip_if_disabled()
-        self._check_backend(_op_argshift.apply, _data_apply_argshift)
-
-    def test_prec_apply_argshift(self, _op_argshift, _data_apply_argshift):
-        self._skip_if_disabled()
-        self._check_prec(_op_argshift.apply, _data_apply_argshift)
-
-    def test_precCM_apply_argshift(self, _op_argshift, _data_apply_argshift):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argshift.apply, _data_apply_argshift)
-
-    def test_interface_argscale(self, op):
-        # Must be of same class
-        self._skip_if_disabled()
-        scale = self._random_array((1,)).item()
-        op_s = op.argscale(scale)
-        self._check_has_interface(op_s, self.__class__)
-
-    def test_value1D_apply_argscale(self, _op_argscale, _data_apply_argscale):
-        self._skip_if_disabled()
-        self._check_value1D(_op_argscale.apply, _data_apply_argscale)
-
-    def test_valueND_apply_argscale(self, _op_argscale, _data_apply_argscale):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argscale.apply, _data_apply_argscale)
-
-    def test_backend_apply_argscale(self, _op_argscale, _data_apply_argscale):
-        self._skip_if_disabled()
-        self._check_backend(_op_argscale.apply, _data_apply_argscale)
-
-    def test_prec_apply_argscale(self, _op_argscale, _data_apply_argscale):
-        self._skip_if_disabled()
-        self._check_prec(_op_argscale.apply, _data_apply_argscale)
-
-    def test_precCM_apply_argscale(self, _op_argscale, _data_apply_argscale):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argscale.apply, _data_apply_argscale)
 
     def test_math_lipschitz(self, op, data_math_lipschitz):
         # \norm{f(x) - f(y)}{2} \le L * \norm{x - y}{2}
@@ -583,40 +486,6 @@ class DiffFuncT(FuncT, DiffMapT):
         )
         return data
 
-    @pytest.fixture
-    def _data_grad_argshift(self, _data_grad) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argshift().grad()`.
-        in_ = copy.deepcopy(_data_grad["in_"])
-
-        xp = pycu.get_array_module(in_["arr"])
-        shift = self._random_array((in_["arr"].size,))
-        shift = xp.array(shift, dtype=in_["arr"].dtype)
-        in_.update(arr=in_["arr"] + shift)
-
-        data = dict(
-            in_=in_,
-            out=_data_grad["out"],
-            shift=shift,  # for _op_argshift()
-        )
-        return data
-
-    @pytest.fixture
-    def _data_grad_argscale(self, _data_grad) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argscale().grad()`.
-        in_ = copy.deepcopy(_data_grad["in_"])
-        out = copy.deepcopy(_data_grad["out"])
-
-        scale = self._random_array((1,)).item()
-        in_["arr"] *= scale
-        out = out / scale  # potential dtype change doesn't matter: see _data_grad()
-
-        data = dict(
-            in_=in_,
-            out=out,
-            scale=scale,  # for _op_argscale()
-        )
-        return data
-
     # Tests -------------------------------------------------------------------
     def test_value1D_grad(self, op, _data_grad):
         self._skip_if_disabled()
@@ -637,46 +506,6 @@ class DiffFuncT(FuncT, DiffMapT):
     def test_precCM_grad(self, op, _data_grad):
         self._skip_if_disabled()
         self._check_precCM(op.grad, _data_grad)
-
-    def test_value1D_grad_argshift(self, _op_argshift, _data_grad_argshift):
-        self._skip_if_disabled()
-        self._check_value1D(_op_argshift.grad, _data_grad_argshift)
-
-    def test_valueND_grad_argshift(self, _op_argshift, _data_grad_argshift):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argshift.grad, _data_grad_argshift)
-
-    def test_backend_grad_argshift(self, _op_argshift, _data_grad_argshift):
-        self._skip_if_disabled()
-        self._check_backend(_op_argshift.grad, _data_grad_argshift)
-
-    def test_prec_grad_argshift(self, _op_argshift, _data_grad_argshift):
-        self._skip_if_disabled()
-        self._check_prec(_op_argshift.grad, _data_grad_argshift)
-
-    def test_precCM_grad_argshift(self, _op_argshift, _data_grad_argshift):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argshift.grad, _data_grad_argshift)
-
-    def test_value1D_grad_argscale(self, _op_argscale, _data_grad_argscale):
-        self._skip_if_disabled()
-        self._check_value1D(_op_argscale.grad, _data_grad_argscale)
-
-    def test_valueND_grad_argscale(self, _op_argscale, _data_grad_argscale):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argscale.grad, _data_grad_argscale)
-
-    def test_backend_grad_argscale(self, _op_argscale, _data_grad_argscale):
-        self._skip_if_disabled()
-        self._check_backend(_op_argscale.grad, _data_grad_argscale)
-
-    def test_prec_grad_argscale(self, _op_argscale, _data_grad_argscale):
-        self._skip_if_disabled()
-        self._check_prec(_op_argscale.grad, _data_grad_argscale)
-
-    def test_precCM_grad_argscale(self, _op_argscale, _data_grad_argscale):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argscale.grad, _data_grad_argscale)
 
     def test_math1_grad(self, op, data_grad):
         # .jacobian/.grad outputs are consistent.
@@ -739,42 +568,6 @@ class ProxFuncT(FuncT):
         return data
 
     @pytest.fixture
-    def _data_prox_argshift(self, _data_prox) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argshift().prox()`.
-        in_ = copy.deepcopy(_data_prox["in_"])
-
-        xp = pycu.get_array_module(in_["arr"])
-        shift = self._random_array((in_["arr"].size,))
-        shift = xp.array(shift, dtype=in_["arr"].dtype)
-        in_.update(arr=in_["arr"] + shift)
-        out = pycu.compute(_data_prox["out"] + shift)
-
-        data = dict(
-            in_=in_,
-            out=out,
-            shift=shift,  # for _op_argshift()
-        )
-        return data
-
-    @pytest.fixture
-    def _data_prox_argscale(self, _data_prox) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argscale().prox()`.
-        in_ = copy.deepcopy(_data_prox["in_"])
-        out = copy.deepcopy(_data_prox["out"])
-
-        scale = self._random_array((1,)).item()
-        in_["arr"] *= scale
-        in_["tau"] *= scale**2
-        out = out * scale
-
-        data = dict(
-            in_=in_,
-            out=out,
-            scale=scale,  # for _op_argscale()
-        )
-        return data
-
-    @pytest.fixture
     def _data_fenchel_prox(self, _data_prox) -> DataLike:
         # Generate fenchel_prox values from prox ground-truth. (All precision/backends.)
         # Do not override in subclass: for internal use only to test `op.fenchel_prox()`.
@@ -810,46 +603,6 @@ class ProxFuncT(FuncT):
     def test_precCM_prox(self, op, _data_prox):
         self._skip_if_disabled()
         self._check_precCM(op.prox, _data_prox)
-
-    def test_value1D_prox_argshift(self, _op_argshift, _data_prox_argshift):
-        self._skip_if_disabled()
-        self._check_value1D(_op_argshift.prox, _data_prox_argshift)
-
-    def test_valueND_prox_argshift(self, _op_argshift, _data_prox_argshift):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argshift.prox, _data_prox_argshift)
-
-    def test_backend_prox_argshift(self, _op_argshift, _data_prox_argshift):
-        self._skip_if_disabled()
-        self._check_backend(_op_argshift.prox, _data_prox_argshift)
-
-    def test_prec_prox_argshift(self, _op_argshift, _data_prox_argshift):
-        self._skip_if_disabled()
-        self._check_prec(_op_argshift.prox, _data_prox_argshift)
-
-    def test_precCM_prox_argshift(self, _op_argshift, _data_prox_argshift):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argshift.prox, _data_prox_argshift)
-
-    def test_value1D_prox_argscale(self, _op_argscale, _data_prox_argscale):
-        self._skip_if_disabled()
-        self._check_value1D(_op_argscale.prox, _data_prox_argscale)
-
-    def test_valueND_prox_argscale(self, _op_argscale, _data_prox_argscale):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argscale.prox, _data_prox_argscale)
-
-    def test_backend_prox_argscale(self, _op_argscale, _data_prox_argscale):
-        self._skip_if_disabled()
-        self._check_backend(_op_argscale.prox, _data_prox_argscale)
-
-    def test_prec_prox_argscale(self, _op_argscale, _data_prox_argscale):
-        self._skip_if_disabled()
-        self._check_prec(_op_argscale.prox, _data_prox_argscale)
-
-    def test_precCM_prox_argscale(self, _op_argscale, _data_prox_argscale):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argscale.prox, _data_prox_argscale)
 
     def test_math_prox(self, op, data_prox):
         # Ensure y = prox_{tau f}(x) minimizes:
@@ -996,25 +749,6 @@ class LinOpT(DiffMapT):
         data = dict(
             in_=in_,
             out=data_adjoint["out"],
-        )
-        return data
-
-    @pytest.fixture
-    def _data_adjoint_argscale(self, op, _data_apply_argscale) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argscale().adjoint()`.
-        N_test = 30
-        arr = self._random_array((N_test, op.codim))
-        out = op.adjoint(arr)
-        _data_adjoint = dict(in_=dict(arr=arr), out=out)
-
-        in_ = copy.deepcopy(_data_adjoint["in_"])
-        scale = _data_apply_argscale["scale"]
-        out /= scale
-
-        data = dict(
-            in_=in_,
-            out=out,
-            scale=scale,  # for _op_argscale()
         )
         return data
 
@@ -1269,32 +1003,6 @@ class LinOpT(DiffMapT):
         rhs = ip(x, op.apply(y))
 
         assert allclose(lhs, rhs, lhs.dtype)
-
-    def test_interface_argshift(self, op):
-        self._skip_if_disabled()
-        shift = self._random_array((op.dim,))
-        op_s = op.argshift(shift)
-        self._check_has_interface(op_s, DiffMapT)
-
-    def test_value1D_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
-        self._skip_if_disabled()
-        self._check_value1D(_op_argscale.adjoint, _data_adjoint_argscale)
-
-    def test_valueND_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argscale.adjoint, _data_adjoint_argscale)
-
-    def test_backend_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
-        self._skip_if_disabled()
-        self._check_backend(_op_argscale.adjoint, _data_adjoint_argscale)
-
-    def test_prec_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
-        self._skip_if_disabled()
-        self._check_prec(_op_argscale.adjoint, _data_adjoint_argscale)
-
-    def test_precCM_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argscale.adjoint, _data_adjoint_argscale)
 
     def test_math2_lipschitz(self, op):
         # op.lipschitz('fro') upper bounds op.lipschitz('svds')
@@ -1668,12 +1376,6 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
         )
 
     # Tests -------------------------------------------------------------------
-    def test_interface_argshift(self, op):
-        self._skip_if_disabled()
-        shift = self._random_array((op.dim,))
-        op_s = op.argshift(shift)
-        self._check_has_interface(op_s, DiffFuncT)
-
     @pytest.mark.parametrize("k", [1])
     @pytest.mark.parametrize("which", ["SM", "LM"])
     @pytest.mark.filterwarnings("ignore::UserWarning")
@@ -1824,16 +1526,6 @@ class UnitOpT(NormalOpT):
         assert allclose(lhs1, lhs2, as_dtype=x.dtype)
         assert allclose(lhs1, rhs, as_dtype=x.dtype)
 
-    @pytest.mark.parametrize("scale", (1, -1, 2))
-    def test_interface_argscale(self, op, scale):
-        self._skip_if_disabled()
-        op_s = op.argscale(scale)
-        if np.isclose(abs(scale), 1):
-            otype = self.__class__
-        else:
-            otype = NormalOpT
-        self._check_has_interface(op_s, otype)
-
 
 class SelfAdjointOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
@@ -1892,16 +1584,6 @@ class PosDefOpT(SelfAdjointOpT):
         ip = lambda a, b: (a * b).sum(axis=-1)  # (N, Q) * (N, Q) -> (N,)
         assert np.all(ip(op.apply(x), x) > 0)
 
-    @pytest.mark.parametrize("scale", (-1, 1))
-    def test_interface_argscale(self, op, scale):
-        self._skip_if_disabled()
-        op_s = op.argscale(scale)
-        if scale > 0:
-            otype = self.__class__
-        else:
-            otype = SelfAdjointOpT
-        self._check_has_interface(op_s, otype)
-
 
 class ProjOpT(SquareOpT):
     # Class Properties --------------------------------------------------------
@@ -1917,30 +1599,9 @@ class ProjOpT(SquareOpT):
 
         assert allclose(y, z, as_dtype=x.dtype)
 
-    @pytest.mark.parametrize("scale", (1, 2))
-    def test_interface_argscale(self, op, scale):
-        self._skip_if_disabled()
-        op_s = op.argscale(scale)
-        if np.isclose(scale, 1):
-            otype = self.__class__
-        else:
-            otype = SquareOpT
-        self._check_has_interface(op_s, otype)
-
 
 class OrthProjOpT(ProjOpT, SelfAdjointOpT):
     # Class Properties --------------------------------------------------------
     base = pyca.OrthProjOp
     interface = frozenset(ProjOpT.interface | SelfAdjointOpT.interface)
     disable_test = frozenset(ProjOpT.disable_test | SelfAdjointOpT.disable_test)
-
-    # Tests -------------------------------------------------------------------
-    @pytest.mark.parametrize("scale", (1, 2))
-    def test_interface_argscale(self, op, scale):
-        self._skip_if_disabled()
-        op_s = op.argscale(scale)
-        if np.isclose(scale, 1):
-            otype = self.__class__
-        else:
-            otype = SelfAdjointOpT
-        self._check_has_interface(op_s, otype)
