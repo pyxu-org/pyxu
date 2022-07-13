@@ -27,8 +27,9 @@ SparseModule = typ.TypeVar(
 )
 
 # Top-level operator exposed to users
-MapT = typ.Literal["Map"]  # Map instances
-MapC = typ.Type[MapT]  # Map classes
+OpT = typ.Literal["Operator"]  # Operator instances
+OpC = typ.Type[OpT]  # Operator classes
+Property = typ.Literal["Property"]
 
 # Other
 Integer = nb.Integral
@@ -37,4 +38,3 @@ DType = npt.DTypeLike
 Shape = tuple[Integer, typ.Union[Integer, None]]
 Path = typ.Union[str, plib.Path]
 VarName = typ.Union[str, cabc.Collection[str]]
-Name = VarName  # for list[str]
