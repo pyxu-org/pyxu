@@ -3,6 +3,7 @@ import collections.abc as cabc
 import copy
 import enum
 import functools as ft
+import inspect
 import types
 import typing as typ
 import warnings
@@ -14,30 +15,6 @@ import scipy.sparse.linalg as spsl
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
-
-_core_operators = (  # Operators which can be sub-classed by end-users.
-    "Map",
-    "DiffMap",
-    "Func",
-    "DiffFunc",
-    "ProxFunc",
-    "ProxDiffFunc",
-    "LinOp",
-    "LinFunc",
-    "SquareOp",
-    "ProjOp",
-    "NormalOp",
-    "UnitOp",
-    "SelfAdjointOp",
-    "PosDefOp",
-    "OrthProjOp",
-)
-
-__all__ = [
-    *_core_operators,
-    "Operator",
-    "Property",
-]
 
 
 class Property(enum.Enum):
@@ -384,9 +361,7 @@ class Operator:
     @staticmethod
     def _infer_operator_type(prop: cabc.Collection[pyct.Property]) -> pyct.OpC:
         prop = frozenset(prop)
-        state = globals()
-        registered_ops = {state[op_name] for op_name in state["_core_operators"]}
-        for op in registered_ops:
+        for op in _core_operators():
             if op.properties() == prop:
                 return op
         else:
@@ -1788,3 +1763,20 @@ class LinFunc(ProxDiffFunc, LinOp):
         from pycsou.operator.linop import HomothetyOp
 
         return HomothetyOp(cst=self.lipschitz() ** 2, dim=1)
+
+
+def _core_operators() -> cabc.Set[pyct.OpC]:
+    # Operators which can be sub-classed by end-users and participate in arithmetic rules.
+    ops = set()
+    for _ in globals().values():
+        if inspect.isclass(_) and issubclass(_, Operator):
+            ops.add(_)
+    ops.remove(Operator)
+    return ops
+
+
+__all__ = [
+    "Operator",
+    "Property",
+    *map(lambda _: _.__name__, _core_operators()),
+]
