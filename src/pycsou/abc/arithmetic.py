@@ -29,8 +29,19 @@ def compose(lhs: pyct.OpT, rhs: pyct.OpT) -> pyct.OpT:
 
 
 def pow(op: pyct.OpT, k: pyct.Integer) -> pyct.OpT:
-    # check square
-    pass
+    from pycsou.operator.linop import IdentityOp
+
+    assert op.codim == op.dim, f"pow: expected endomorphism, got {op}."
+    assert k >= 0, "pow: only non-negative exponents are supported."
+
+    if k == 0:
+        return IdentityOp(dim=op.codim)
+    else:
+        op_pow = op
+        if pyco.Property.LINEAR_IDEMPOTENT not in op.properties():
+            for _ in range(k - 1):
+                op_pow = compose(op, op_pow)
+        return op_pow
 
 
 def argscale(op: pyct.OpT, cst: pyct.Real) -> pyct.OpT:
