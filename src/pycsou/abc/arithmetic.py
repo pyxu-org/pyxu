@@ -45,7 +45,16 @@ def pow(op: pyct.OpT, k: pyct.Integer) -> pyct.OpT:
 
 
 def argscale(op: pyct.OpT, cst: pyct.Real) -> pyct.OpT:
-    pass
+    from pycsou.operator.linop import HomothetyOp
+
+    if np.isclose(cst, 1):
+        return op
+    else:
+        # Cannot instantiate HomothetyOp if op.dim == None.
+        # Trick: create it of size (1, 1), then modify ._shape manually.
+        h = HomothetyOp(cst, dim=1)
+        h._shape = (1, op.dim)
+        return compose(op, h)
 
 
 def argshift(op: pyct.OpT, cst: pyct.NDArray) -> pyct.OpT:
