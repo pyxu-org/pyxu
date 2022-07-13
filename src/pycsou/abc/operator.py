@@ -389,6 +389,9 @@ class Operator:
         if self.codim == 1:
             p = set(self.properties())
             p.add(Property.FUNCTIONAL)
+            if Property.LINEAR in self.properties():
+                p.add(Property.PROXIMABLE)
+                p.add(Property.DIFFERENTIABLE_FUNCTION)
             klass = self._infer_operator_type(p)
             return self.asop(klass)
         else:
