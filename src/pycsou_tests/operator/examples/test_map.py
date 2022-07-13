@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou_tests.operator.conftest as conftest
 
 
-class ReLU(pyco.Map):
+class ReLU(pyca.Map):
     # f: \bR^{M} -> \bR^{M}
     #      x     -> max(x, 0)
     def __init__(self, M: int):

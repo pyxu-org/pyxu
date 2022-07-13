@@ -1,13 +1,13 @@
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
 
 
-class ScaleDown(pyco.OrthProjOp):
+class ScaleDown(pyca.OrthProjOp):
     # Drop the last component of a vector
     def __init__(self, N: int):
         super().__init__(shape=(N, N))

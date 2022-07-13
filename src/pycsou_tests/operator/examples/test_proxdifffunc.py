@@ -1,14 +1,14 @@
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
 
 
-class SquaredL2Norm(pyco.ProxDiffFunc):
+class SquaredL2Norm(pyca.ProxDiffFunc):
     # f: \bR^{M} -> \bR
     #      x     -> \norm{x}{2}^{2}
     def __init__(self, M: int = None):
@@ -27,7 +27,7 @@ class SquaredL2Norm(pyco.ProxDiffFunc):
     def grad(self, arr):
         return 2 * arr
 
-    @pycrt.enforce_precision(i=["arr", "tau"])
+    @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr, tau):
         y = arr / (2 * tau + 1)
         return y

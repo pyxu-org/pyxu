@@ -1,14 +1,14 @@
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
 
 
-class SquaredL2Norm(pyco.DiffFunc):
+class SquaredL2Norm(pyca.DiffFunc):
     # f: \bR^{M} -> \bR
     #      x     -> \norm{x}{2}^{2}
     def __init__(self, M: int = None):

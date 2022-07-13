@@ -1,13 +1,13 @@
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
 
 
-class Tile(pyco.LinOp):
+class Tile(pyca.LinOp):
     # f: \bR^{N} -> \bR^{N \times M = NM}
     #      x     -> [x ... x] (M times)
     def __init__(self, N: int, M: int):

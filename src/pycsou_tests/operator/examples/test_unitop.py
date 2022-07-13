@@ -1,13 +1,13 @@
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
 
 
-class Rotation(pyco.UnitOp):
+class Rotation(pyca.UnitOp):
     # f: \bR^{N} -> \bR^{N}
     #      x     -> Rz(aZ) Ry(aY) Rx(aX) x
     #               Rk(aK) \in \bR^{N x N} = rotation of `ak[rad]` around axis `k`.

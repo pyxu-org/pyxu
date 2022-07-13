@@ -2,13 +2,13 @@ import dask.array as da
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
 
 
-class CDO4(pyco.PosDefOp):
+class CDO4(pyca.PosDefOp):
     # Central Difference of Order 4 (implemented as cascade of 2 CDO2)
     def __init__(self, N: int):
         super().__init__(shape=(N, N))

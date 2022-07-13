@@ -2,13 +2,13 @@ import dask.array as da
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
 
 
-class CDO2(pyco.SelfAdjointOp):
+class CDO2(pyca.SelfAdjointOp):
     # Central Difference of Order 2
     # f: \bR^{N} -> \bR^{N}
     #      x     -> [ -2x[0]+x[1]
