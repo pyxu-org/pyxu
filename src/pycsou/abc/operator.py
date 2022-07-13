@@ -127,7 +127,7 @@ class Operator:
 
         Users may call this method if the arithmetic API yields sub-optimal return types.
 
-        This method is a no-op if `cast_to` has the same properties as ``self``.
+        This method is a no-op if `cast_to` is a parent class of ``self``.
 
         Parameters
         ----------
@@ -138,6 +138,7 @@ class Operator:
         -------
         op: pyct.OpT
             Operator with the new interface.
+            Fails when cast is forbidden. (Ex: Map -> Func if codim > 1)
 
         Implementation Notes
         --------------------
@@ -145,20 +146,30 @@ class Operator:
         * If ``self`` does not implement all methods from ``cast_to``, then unimplemented methods
           will raise ``NotImplementedError`` when called.
         """
-        in_p = frozenset(self.properties())
-        out_p = frozenset(cast_to.properties())
-        if in_p == out_p:
+        if cast_to not in _core_operators():
+            raise ValueError(f"cast_to: expected a core base-class, got {cast_to}.")
+
+        p_core = frozenset(self.properties())
+        p_shell = frozenset(cast_to.properties())
+        if p_shell <= p_core:
+            # Trying to cast `self` to it's own class or a parent class.
+            # Inheritance rules mean the target object already satisfies the intended interface.
             return self
         else:
+            # (p_shell > p_core) -> specializing to a sub-class of ``self``
+            # OR
+            # len(p_shell ^ p_core) > 0 -> specializing to another branch of the class hierarchy.
             op = cast_to(shape=self.shape)
+            op._core = self  # for debugging
 
-            # find attributes/methods to forward
-            hidden = lambda _: _.startswith("__") and _.endswith("__")
-            forwarded = set(dir(self)) & set(dir(op))
-            forwarded -= {_ for _ in dir(self) if hidden(_)}
-
-            for f in forwarded:
-                setattr(op, f, getattr(self, f))
+            # Forward shared arithmetic fields from core to shell.
+            for p in p_shell & p_core:
+                for a in p.arithmetic_attributes():
+                    a_core = getattr(self, a)
+                    setattr(op, a, a_core)
+                for m in p.arithmetic_methods():
+                    m_core = getattr(self, m)
+                    setattr(op, m, m_core)
             return op
 
     # Operator Arithmetic -----------------------------------------------------
