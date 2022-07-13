@@ -1778,6 +1778,16 @@ class LinFunc(ProxDiffFunc, LinOp):
 
         return HomothetyOp(cst=self.lipschitz() ** 2, dim=1)
 
+    @classmethod
+    def from_array(
+        cls,
+        A: pyct.NDArray,
+        enable_warnings: bool = True,
+    ) -> pyct.OpT:
+        A = A.reshape((1, -1))
+        op = super().from_array(A, enable_warnings)
+        return op
+
 
 def _core_operators() -> cabc.Set[pyct.OpC]:
     # Operators which can be sub-classed by end-users and participate in arithmetic rules.
