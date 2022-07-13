@@ -1,9 +1,7 @@
-import warnings
-
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
@@ -11,33 +9,15 @@ import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
 
-class L1Norm(pyco.ProxFunc):
+class L1Norm(pyca.ProxFunc):
     # f: \bR^{M} -> \bR
     #      x     -> \norm{x}{1}
     def __init__(self, M: int = None):
         super().__init__(shape=(1, M))
-        self._lipschitz = self.lipschitz(M=M, warn=False)
-
-    def lipschitz(
-        self,
-        M: pyct.Real = None,
-        warn: bool = True,
-    ):
-        if self.dim is not None:
-            return np.sqrt(self.dim)
-        elif M is not None:
-            return np.sqrt(M)
+        if M is None:
+            self._lipschitz = np.inf
         else:
-            if warn:
-                msg = " ".join(
-                    [
-                        "Cannot infer tight Lipschitz constant for domain-agnostic function.",
-                        "Recommendation: instantiate L1Norm() with the known dimension,",
-                        "or provide a dimension hint to lipschitz() via Parameter[M].",
-                    ]
-                )
-                warnings.warn(msg)
-            return np.inf
+            self._lipschitz = np.sqrt(M)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):
@@ -45,7 +25,7 @@ class L1Norm(pyco.ProxFunc):
         y = xp.linalg.norm(arr, ord=1, axis=-1, keepdims=True).astype(arr.dtype)
         return y
 
-    @pycrt.enforce_precision(i=["arr", "tau"])
+    @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr, tau):
         xp = pycu.get_array_module(arr)
         y = xp.fmax(0, xp.fabs(arr) - tau) * xp.sign(arr)

@@ -1,13 +1,13 @@
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
 
 
-class ScaledSum(pyco.LinFunc):
+class ScaledSum(pyca.LinFunc):
     # f: \bR^{M} -> \bR
     #      x     -> cumsum(x).sum()
     def __init__(self, N: int):
@@ -19,15 +19,21 @@ class ScaledSum(pyco.LinFunc):
         return arr.cumsum(axis=-1).sum(axis=-1, keepdims=True)
 
     @pycrt.enforce_precision(i="arr")
-    def grad(self, arr):
+    def adjoint(self, arr):
         xp = pycu.get_array_module(arr)
-        g = xp.zeros((*arr.shape[:-1], self.dim), dtype=arr.dtype)
-        g[..., :] = xp.arange(self.dim, 0, -1, dtype=arr.dtype)
-        return g
+        out = xp.zeros((*arr.shape[:-1], self.dim), dtype=arr.dtype)
+        out[..., :] = xp.arange(self.dim, 0, -1, dtype=arr.dtype)
+        out *= arr
+        return out
 
 
 class TestScaledSum(conftest.LinFuncT):
-    disable_test = frozenset(conftest.LinFuncT.disable_test | {"test_interface_asloss"})
+    disable_test = frozenset(
+        conftest.LinFuncT.disable_test
+        | {
+            "test_interface_asloss",
+        }
+    )
 
     @pytest.fixture
     def dim(self):

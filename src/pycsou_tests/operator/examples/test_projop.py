@@ -1,13 +1,13 @@
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
 
 
-class CabinetProjection(pyco.ProjOp):
+class CabinetProjection(pyca.ProjOp):
     # https://en.wikipedia.org/wiki/Oblique_projection#Cabinet_projection
     def __init__(self, angle: float):
         super().__init__(shape=(3, 3))

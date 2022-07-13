@@ -1,13 +1,13 @@
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
 
 
-class CumSum(pyco.SquareOp):
+class CumSum(pyca.SquareOp):
     # f: \bR^{N} -> \bR^{N}
     #      x     -> [x1, x1+x2, ..., x1+...+xN]
     def __init__(self, N: int):

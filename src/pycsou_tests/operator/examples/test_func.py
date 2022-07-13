@@ -1,14 +1,14 @@
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
 
 
-class Median(pyco.Func):
+class Median(pyca.Func):
     # f: \bR^{M} -> \bR
     #      x     -> median(x)
     def __init__(self):

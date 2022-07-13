@@ -1,14 +1,14 @@
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
 
-class CircularConvolution(pyco.NormalOp):
+class CircularConvolution(pyca.NormalOp):
     # f_{h}: \bR^{N} -> \bR^{N}
     #          x     -> h \circ x, h \in \bR^{N}
     def __init__(self, h: pyct.NDArray):
