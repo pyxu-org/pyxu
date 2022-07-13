@@ -1756,6 +1756,9 @@ class LinFunc(ProxDiffFunc, LinOp):
         ProxDiffFunc.__init__(self, shape)
         LinOp.__init__(self, shape)
 
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
+        return LinOp.jacobian(self, arr)
+
     def lipschitz(self, **kwargs) -> pyct.Real:
         # 'fro' / 'svds' mode are identical for linfuncs.
         g = self.grad(np.ones(self.dim))
@@ -1777,6 +1780,26 @@ class LinFunc(ProxDiffFunc, LinOp):
         from pycsou.operator.linop import HomothetyOp
 
         return HomothetyOp(cst=self.lipschitz() ** 2, dim=1)
+
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        if kwargs.pop("gpu", False):
+            import cupy as xp
+        else:
+            xp = np
+        D = xp.array([self.lipschitz()], dtype=pycrt.getPrecision().value)
+        return D
+
+    def asarray(
+        self,
+        xp: pyct.ArrayModule = np,
+        dtype: pyct.DType = None,
+    ) -> pyct.NDArray:
+        if dtype is None:
+            dtype = pycrt.getPrecision().value
+        with pycrt.EnforcePrecision(False):
+            x = xp.ones((1, 1), dtype=dtype)
+            A = self.adjoint(x)
+        return A
 
     @classmethod
     def from_array(
