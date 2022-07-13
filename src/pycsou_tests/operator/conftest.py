@@ -12,14 +12,24 @@ import pytest
 import scipy.linalg as splinalg
 import scipy.sparse.linalg as spsl
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.complex as pycuc
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
+from pycsou.abc.operator import _core_operators
 
-high_precision = frozenset(_ for _ in pycrt.Width if _ != pycrt.Width.HALF)
+
+def get_test_class(cls: pyct.OpC) -> "MapT":
+    # Find the correct MapT subclass designed to test `cls`.
+    is_test = lambda _: hasattr(_, "base") and hasattr(_, "interface") and hasattr(_, "disable_test")
+    candidates = {_ for _ in globals().values() if is_test(_)}
+    for clsT in candidates:
+        if clsT.base == cls:
+            return clsT
+    else:
+        raise ValueError(f"No known test type for {cls}.")
 
 
 def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
@@ -27,7 +37,7 @@ def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
     Equivalent of `np.isclose`, but where atol is automatically chosen based on `as_dtype`.
     """
     atol = {
-        pycrt.Width.HALF.value: 3e-2,
+        np.half: 3e-2,  # former pycrt.Width.HALF
         pycrt.Width.SINGLE.value: 2e-4,
         pycrt.Width.DOUBLE.value: 1e-8,
         pycrt.Width.QUAD.value: 1e-16,
@@ -95,18 +105,19 @@ DataLike = cabc.Mapping[str, typ.Any]
 
 class MapT:
     # Class Properties --------------------------------------------------------
-    base = pyco.Map
+    base = pyca.Map
     disable_test: cabc.Set[str] = frozenset()
     interface: cabc.Set[str] = frozenset(
         {
             "shape",
             "dim",
             "codim",
+            "asop",
+            "argshift",
+            "argscale",
             "apply",
             "__call__",
             "lipschitz",
-            "squeeze",
-            "astype",
         }
     )
 
@@ -122,26 +133,24 @@ class MapT:
             pytest.skip("disabled test")
 
     @staticmethod
-    def _check_has_interface(op: pyco.Map, klass: "MapT"):
+    def _check_has_interface(op: pyca.Map, klass: "MapT"):
         # Verify `op` has the public interface of `klass`.
         assert klass.interface <= frozenset(dir(op))
 
     @staticmethod
-    def _check_value1D(func, data, precision: pycrt.Width = None):
+    def _check_value1D(func, data, dtype: pyct.DType = None):
         out_gt = data["out"]
 
         in_ = data["in_"]
         out = pycu.compute(func(**in_))
 
-        if precision is None:
+        if dtype is None:
             dtype = in_["arr"].dtype
-        else:
-            dtype = precision.value
         assert out.ndim == in_["arr"].ndim
         assert allclose(out, out_gt, as_dtype=dtype)
 
     @staticmethod
-    def _check_valueND(func, data, precision: pycrt.Width = None):
+    def _check_valueND(func, data, dtype: pyct.DType = None):
         sh_extra = (2, 1)  # prepend input/output shape by this amount.
 
         out_gt = data["out"]
@@ -154,10 +163,8 @@ class MapT:
         in_.update(arr=arr)
         out = pycu.compute(func(**in_))
 
-        if precision is None:
+        if dtype is None:
             dtype = in_["arr"].dtype
-        else:
-            dtype = precision.value
         assert out.ndim == in_["arr"].ndim
         assert allclose(out, out_gt, as_dtype=dtype)
 
@@ -179,7 +186,7 @@ class MapT:
     def _check_precCM(
         func,
         data,
-        widths: cabc.Collection[pycrt.Width] = high_precision,
+        widths: cabc.Collection[pycrt.Width] = frozenset(pycrt.Width),
     ):
         in_ = data["in_"]
         stats = []
@@ -205,7 +212,7 @@ class MapT:
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
-    def op(self) -> pyco.Map:
+    def op(self) -> pyca.Map:
         # override in subclass to instantiate the object to test.
         raise NotImplementedError
 
@@ -214,34 +221,16 @@ class MapT:
         # override in subclass if numeric methods are to be tested on a subset of array backends.
         return request.param
 
-    @pytest.fixture(params=high_precision)
+    @pytest.fixture(params=frozenset(pycrt.Width))
     def width(self, request) -> pycrt.Width:
         # override in subclass if numeric methods are to be tested on a subset of precisions.
         # NOTE: we purposefully do not test at HALF-precision.
         return request.param
 
-    @pytest.fixture(
-        params=[
-            pyco.Map,
-            pyco.DiffMap,
-            pyco.Func,
-            pyco.DiffFunc,
-            pyco.ProxFunc,
-            pyco.ProxDiffFunc,
-            pyco.LinOp,
-            pyco.LinFunc,
-            pyco.SquareOp,
-            pyco.NormalOp,
-            pyco.SelfAdjointOp,
-            pyco.PosDefOp,
-            pyco.UnitOp,
-            pyco.ProjOp,
-            pyco.OrthProjOp,
-        ]
-    )
-    def _klass(self, request) -> pyco.Map:
-        # Returns some operator in the pyco.Map hierarchy.
-        # Do not override in subclass: for internal use only to test `op.astype()`.
+    @pytest.fixture(params=_core_operators())
+    def _klass(self, request) -> pyca.Map:
+        # Returns some operator in the pyca.Map hierarchy.
+        # Do not override in subclass: for internal use only to test `op.asop()`.
         return request.param
 
     @pytest.fixture
@@ -295,7 +284,7 @@ class MapT:
         return data
 
     @pytest.fixture
-    def _op_argshift(self, op, _data_apply_argshift) -> pyco.Map:
+    def _op_argshift(self, op, _data_apply_argshift) -> pyca.Map:
         shift = _data_apply_argshift["shift"]
         return op.argshift(-shift)
 
@@ -315,7 +304,7 @@ class MapT:
         return data
 
     @pytest.fixture
-    def _op_argscale(self, op, _data_apply_argscale) -> pyco.Map:
+    def _op_argscale(self, op, _data_apply_argscale) -> pyca.Map:
         scale = _data_apply_argscale["scale"]
         return op.argscale(1 / scale)
 
@@ -452,33 +441,58 @@ class MapT:
 
         assert all(stats)
 
-    def test_squeeze(self, op):
-        # op.squeeze() sub-classes to Func for scalar outputs, and is transparent otherwise.
+    def test_interface_asop(self, op, _klass):
+        # * .asop() is no-op if same klass or parent
+        # * .asop() has correct interface otherwise.
+        # * Expect an exception if cast is illegal. (shape-issues)
         self._skip_if_disabled()
-        if op.codim == 1:
-            self._check_has_interface(op.squeeze(), FuncT)
+        p = pyca.Property
+        if _klass in op.__class__.__mro__:
+            op2 = op.asop(_klass)
+            assert op2 is op
+        elif (p.FUNCTIONAL in _klass.properties()) and (op.codim > 1):
+            # Casting to functionals when codim != 1.
+            with pytest.raises(Exception):
+                op2 = op.asop(_klass)
+        elif (p.LINEAR_SQUARE in _klass.properties()) and (op.codim != op.dim):
+            # Casting non-square operators to square linops.
+            # Includes domain-agnostic functionals.
+            with pytest.raises(Exception):
+                op2 = op.asop(_klass)
         else:
-            assert op.squeeze() is op
+            op2 = op.asop(_klass)
+            klassT = get_test_class(_klass)
+            self._check_has_interface(op2, klassT)
 
-    @pytest.mark.skip(reason="Requires some scaffolding first.")
-    def test_astype(self, op, _klass):
+    def test_value_asop(self, op, _klass):
+        # Ensure encapsulated arithmetic fields are forwarded.
+        # We only test fields known to belong to any Map subclass:
+        # * _lipschitz (attribute)
+        # * lipschitz (method)
+        # * apply (method)
+        # * __call__ (special method)
         self._skip_if_disabled()
-        pass
+        try:
+            op2 = op.asop(_klass)
+        except:
+            # nothing to test since `op.asop(_klass)` is illegal.
+            return
+        else:
+            assert op2._lipschitz == op._lipschitz
+            assert op2.lipschitz() == op.lipschitz()
+            assert op2.apply == op.apply
+            assert op2.__call__ == op.__call__
 
 
 class FuncT(MapT):
     # Class Properties --------------------------------------------------------
-    base = pyco.Func
+    base = pyca.Func
     interface = frozenset(MapT.interface | {"asloss"})
 
     # Tests -------------------------------------------------------------------
     def test_codim(self, op, data_shape):
         self._skip_if_disabled()
         assert op.codim == 1
-
-    def test_squeeze(self, op):
-        self._skip_if_disabled()
-        assert op.squeeze() is op
 
     def test_interface_asloss(self, op):
         # op.asloss() sub-classes Func if data provided, transparent otherwise.
@@ -493,7 +507,7 @@ class FuncT(MapT):
 
 class DiffMapT(MapT):
     # Class Properties --------------------------------------------------------
-    base = pyco.DiffMap
+    base = pyca.DiffMap
     interface = frozenset(
         MapT.interface
         | {
@@ -518,14 +532,6 @@ class DiffMapT(MapT):
         dL_computed = op.diff_lipschitz()
         dL_memoized = op._diff_lipschitz
         assert np.isclose(dL_computed, dL_memoized)
-
-    def test_squeeze(self, op):
-        # op.squeeze() sub-classes to DiffFunc for scalar outputs, and is transparent otherwise.
-        self._skip_if_disabled()
-        if op.codim == 1:
-            self._check_has_interface(op.squeeze(), DiffFuncT)
-        else:
-            assert op.squeeze() is op
 
     def test_interface_jacobian(self, op, _data_apply):
         self._skip_if_disabled()
@@ -552,7 +558,7 @@ class DiffMapT(MapT):
 
 class DiffFuncT(FuncT, DiffMapT):
     # Class Properties --------------------------------------------------------
-    base = pyco.DiffFunc
+    base = pyca.DiffFunc
     interface = frozenset(FuncT.interface | DiffMapT.interface | {"grad"})
     disable_test = frozenset(FuncT.disable_test | DiffMapT.disable_test)
 
@@ -696,7 +702,7 @@ class DiffFuncT(FuncT, DiffMapT):
 
 class ProxFuncT(FuncT):
     # Class Properties --------------------------------------------------------
-    base = pyco.ProxFunc
+    base = pyca.ProxFunc
     interface = frozenset(
         FuncT.interface
         | {
@@ -708,7 +714,7 @@ class ProxFuncT(FuncT):
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
-    def _op_m(self, op) -> tuple[float, pyco.DiffFunc]:
+    def _op_m(self, op) -> tuple[float, pyca.DiffFunc]:
         mu = 1.1
         return mu, op.moreau_envelope(mu)
 
@@ -910,13 +916,13 @@ class ProxFuncT(FuncT):
 
 class ProxDiffFuncT(ProxFuncT, DiffFuncT):
     # Class Properties --------------------------------------------------------
-    base = pyco.ProxDiffFunc
+    base = pyca.ProxDiffFunc
     interface = frozenset(ProxFuncT.interface | DiffFuncT.interface)
 
 
 class LinOpT(DiffMapT):
     # Class Properties --------------------------------------------------------
-    base = pyco.LinOp
+    base = pyca.LinOp
     interface = frozenset(
         DiffMapT.interface
         | {
@@ -1033,7 +1039,7 @@ class LinOpT(DiffMapT):
         return np.sort(D)
 
     @pytest.fixture
-    def _op_T(self, op) -> pyco.LinOp:
+    def _op_T(self, op) -> pyca.LinOp:
         op_T = op.T
         return op_T
 
@@ -1097,7 +1103,7 @@ class LinOpT(DiffMapT):
         return data
 
     @pytest.fixture
-    def _op_dagger(self, op, _damp) -> pyco.LinOp:
+    def _op_dagger(self, op, _damp) -> pyca.LinOp:
         op_d = op.dagger(damp=_damp)
         return op_d
 
@@ -1309,14 +1315,6 @@ class LinOpT(DiffMapT):
         J = op.jacobian(arr)
         assert J is op
 
-    def test_squeeze(self, op):
-        # op.squeeze() sub-classes to LinFunc for scalar outputs, and is transparent otherwise.
-        self._skip_if_disabled()
-        if op.codim == 1:
-            self._check_has_interface(op.squeeze(), LinFuncT)
-        else:
-            assert op.squeeze() is op
-
     @pytest.mark.parametrize("k", [1, 2])
     @pytest.mark.parametrize("which", ["SM", "LM"])
     @pytest.mark.filterwarnings("ignore::UserWarning")
@@ -1416,12 +1414,12 @@ class LinOpT(DiffMapT):
     def test_value1D_pinv(self, op, _data_pinv):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_value1D(op.pinv, _data_pinv, precision=pycrt.Width.HALF)
+        self._check_value1D(op.pinv, _data_pinv, dtype=np.half)
 
     def test_valueND_pinv(self, op, _data_pinv):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_valueND(op.pinv, _data_pinv, precision=pycrt.Width.HALF)
+        self._check_valueND(op.pinv, _data_pinv, dtype=np.half)
 
     def test_backend_pinv(self, op, _data_pinv):
         self._skip_if_disabled()
@@ -1442,12 +1440,12 @@ class LinOpT(DiffMapT):
     def test_value1D_call_dagger(self, _op_dagger, _data_apply_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_value1D(_op_dagger.__call__, _data_apply_dagger, precision=pycrt.Width.HALF)
+        self._check_value1D(_op_dagger.__call__, _data_apply_dagger, dtype=np.half)
 
     def test_valueND_call_dagger(self, _op_dagger, _data_apply_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_valueND(_op_dagger.__call__, _data_apply_dagger, precision=pycrt.Width.HALF)
+        self._check_valueND(_op_dagger.__call__, _data_apply_dagger, dtype=np.half)
 
     def test_backend_call_dagger(self, _op_dagger, _data_apply_dagger):
         self._skip_if_disabled()
@@ -1464,12 +1462,12 @@ class LinOpT(DiffMapT):
     def test_value1D_apply_dagger(self, _op_dagger, _data_apply_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_value1D(_op_dagger.apply, _data_apply_dagger, precision=pycrt.Width.HALF)
+        self._check_value1D(_op_dagger.apply, _data_apply_dagger, dtype=np.half)
 
     def test_valueND_apply_dagger(self, _op_dagger, _data_apply_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_valueND(_op_dagger.apply, _data_apply_dagger, precision=pycrt.Width.HALF)
+        self._check_valueND(_op_dagger.apply, _data_apply_dagger, dtype=np.half)
 
     def test_backend_apply_dagger(self, _op_dagger, _data_apply_dagger):
         self._skip_if_disabled()
@@ -1486,12 +1484,12 @@ class LinOpT(DiffMapT):
     def test_value1D_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_value1D(_op_dagger.adjoint, _data_adjoint_dagger, precision=pycrt.Width.HALF)
+        self._check_value1D(_op_dagger.adjoint, _data_adjoint_dagger, dtype=np.half)
 
     def test_valueND_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_valueND(_op_dagger.adjoint, _data_adjoint_dagger, precision=pycrt.Width.HALF)
+        self._check_valueND(_op_dagger.adjoint, _data_adjoint_dagger, dtype=np.half)
 
     def test_backend_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
         self._skip_if_disabled()
@@ -1629,7 +1627,7 @@ class LinOpT(DiffMapT):
 
 class LinFuncT(ProxDiffFuncT, LinOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.LinFunc
+    base = pyca.LinFunc
     interface = frozenset(ProxDiffFuncT.interface | LinOpT.interface)
     disable_test = frozenset(ProxDiffFuncT.disable_test | LinOpT.disable_test)
 
@@ -1680,12 +1678,21 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
     @pytest.mark.parametrize("which", ["SM", "LM"])
     @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_value1D_svdvals(self, op, _op_svd, k, which):
+        self._skip_if_disabled()
         super().test_value1D_svdvals(op, _op_svd, k, which)
+
+    @pytest.mark.parametrize(
+        "width",  # local override: no limitations since does not rely on LAPACK.
+        frozenset(pycrt.Width),
+    )
+    def test_precCM_svdvals(self, op, _gpu, width):
+        self._skip_if_disabled()
+        super().test_precCM_svdvals(op, _gpu, width)
 
 
 class SquareOpT(LinOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.SquareOp
+    base = pyca.SquareOp
     interface = frozenset(LinOpT.interface | {"trace"})
 
     # Fixtures ----------------------------------------------------------------
@@ -1716,7 +1723,7 @@ class SquareOpT(LinOpT):
 
 class NormalOpT(SquareOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.NormalOp
+    base = pyca.NormalOp
     interface = frozenset(SquareOpT.interface | {"eigvals"})
 
     # Fixtures ----------------------------------------------------------------
@@ -1774,7 +1781,7 @@ class NormalOpT(SquareOpT):
 
 class UnitOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.UnitOp
+    base = pyca.UnitOp
 
     # Internal helpers --------------------------------------------------------
     @classmethod
@@ -1830,7 +1837,7 @@ class UnitOpT(NormalOpT):
 
 class SelfAdjointOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.SelfAdjointOp
+    base = pyca.SelfAdjointOp
 
     # Tests -------------------------------------------------------------------
     def test_math_eig(self, _op_eig):
@@ -1840,13 +1847,6 @@ class SelfAdjointOpT(NormalOpT):
     @pytest.mark.parametrize(
         "width",  # local override of this fixture
         [  # We revert back to real-valued types since .eigvals() should return real.
-            pytest.param(
-                pycrt.Width.HALF,
-                marks=pytest.mark.xfail(
-                    reason="Unsupported by ARPACK/PROPACK/LOBPCG.",
-                    strict=True,
-                ),
-            ),
             pycrt.Width.SINGLE,
             pycrt.Width.DOUBLE,
             pytest.param(
@@ -1875,7 +1875,7 @@ class SelfAdjointOpT(NormalOpT):
 
 class PosDefOpT(SelfAdjointOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.PosDefOp
+    base = pyca.PosDefOp
 
     # Tests -------------------------------------------------------------------
     def test_math_eig(self, _op_eig):
@@ -1905,7 +1905,7 @@ class PosDefOpT(SelfAdjointOpT):
 
 class ProjOpT(SquareOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.ProjOp
+    base = pyca.ProjOp
 
     # Fixtures ----------------------------------------------------------------
     def test_math_idempotent(self, op):
@@ -1930,7 +1930,7 @@ class ProjOpT(SquareOpT):
 
 class OrthProjOpT(ProjOpT, SelfAdjointOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.OrthProjOp
+    base = pyca.OrthProjOp
     interface = frozenset(ProjOpT.interface | SelfAdjointOpT.interface)
     disable_test = frozenset(ProjOpT.disable_test | SelfAdjointOpT.disable_test)
 
