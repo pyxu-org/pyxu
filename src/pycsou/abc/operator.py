@@ -1,5 +1,7 @@
+import collections
 import collections.abc as cabc
 import copy
+import enum
 import functools as ft
 import types
 import typing as typ
@@ -9,156 +11,432 @@ import numpy as np
 import scipy.linalg as spl
 import scipy.sparse.linalg as spsl
 
-import pycsou.abc.arithmetic as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
-__all__ = [
-    "DiffFunc",
+_core_operators = (  # Operators which can be sub-classed by end-users.
+    "Map",
     "DiffMap",
     "Func",
-    "LinFunc",
-    "LinOp",
-    "Map",
-    "NormalOp",
-    "OrthProjOp",
-    "PosDefOp",
-    "ProjOp",
-    "ProxDiffFunc",
+    "DiffFunc",
     "ProxFunc",
-    "SelfAdjointOp",
+    "ProxDiffFunc",
+    "LinOp",
+    "LinFunc",
     "SquareOp",
+    "ProjOp",
+    "NormalOp",
     "UnitOp",
+    "SelfAdjointOp",
+    "PosDefOp",
+    "OrthProjOp",
+)
+
+__all__ = [
+    *_core_operators,
+    "Operator",
+    "Property",
 ]
 
-# Developer-Facing Types ------------------------------------------------------
-class Property:
-    r"""
-    Abstract base class for Pycsou operators.
+
+class Property(enum.Enum):
+    """
+    Mathematical properties.
     """
 
-    @classmethod
-    def _property_list(cls) -> cabc.Set[str]:
-        # List all possible properties of Pycsou's base operators.
-        return frozenset(
-            (
-                "apply",
-                "lipschitz",
-                "jacobian",
-                "diff_lipschitz",
-                "single_valued",
-                "grad",
-                "prox",
-                "adjoint",
-            )
-        )
+    CAN_EVAL = enum.auto()
+    FUNCTIONAL = enum.auto()
+    PROXIMABLE = enum.auto()
+    DIFFERENTIABLE = enum.auto()
+    DIFFERENTIABLE_FUNCTION = enum.auto()
+    LINEAR = enum.auto()
+    LINEAR_SQUARE = enum.auto()
+    LINEAR_NORMAL = enum.auto()
+    LINEAR_IDEMPOTENT = enum.auto()
+    LINEAR_SELF_ADJOINT = enum.auto()
+    LINEAR_POSITIVE_DEFINITE = enum.auto()
+    LINEAR_UNITARY = enum.auto()
+    QUADRATIC = enum.auto()
 
-    @classmethod
-    def properties(cls) -> cabc.MutableSet[str]:
+    def arithmetic_attributes(self) -> cabc.Set[str]:
+        "Attributes affected by arithmetic operations."
+        data = collections.defaultdict(list)
+        data[self.CAN_EVAL].append("_lipschitz")
+        data[self.DIFFERENTIABLE].append("_diff_lipschitz")
+
+        attr = frozenset(data[self])
+        return attr
+
+    def arithmetic_methods(self) -> cabc.Set[str]:
+        "Instance methods affected by arithmetic operations."
+        data = collections.defaultdict(list)
+        data[self.CAN_EVAL].extend(["apply", "__call__", "lipschitz"])
+        data[self.PROXIMABLE].append("prox")
+        data[self.DIFFERENTIABLE].extend(["jacobian", "diff_lipschitz"])
+        data[self.DIFFERENTIABLE_FUNCTION].append("grad")
+        data[self.LINEAR].append("adjoint")
+
+        meth = frozenset(data[self])
+        return meth
+
+
+class Operator:
+    """
+    Abstract Base Class for Pycsou operators.
+
+    Goals:
+
+    * enable operator arithmetic.
+    * cast operators to specialized forms.
+    * attach tags encoding certain mathematical properties.
+      Each core sub-class MUST have a unique set of :py:class:`~pycsou.abc.operator.Property`-ies to
+      be distinguishable from its peers.
+    """
+
+    def __init__(self, shape: pyct.Shape):
         r"""
-        List class properties.
+        Parameters
+        ----------
+        shape: pyct.Shape
+            (N, M) operator shape.
+            Shapes of the form (N, None) denote domain-agnostic maps.
         """
-        props = set(dir(cls))
-        return props & cls._property_list()
+        assert len(shape) == 2, f"shape: expected {pyct.Shape}, got {shape}."
+        assert shape[0] is not None, "shape: codomain-agnostic operators are not supported."
+        intify = lambda _: int(_) if (_ is not None) else _
+        self._shape = tuple(map(intify, shape))
+
+    # Public Interface --------------------------------------------------------
+    @property
+    def shape(self) -> pyct.Shape:
+        r"""
+        Return (N, M) operator shape.
+        """
+        return self._shape
+
+    @property
+    def dim(self) -> pyct.Integer:
+        r"""
+        Return dimension of operator's domain. (M)
+        """
+        return self.shape[1]
+
+    @property
+    def codim(self) -> pyct.Integer:
+        r"""
+        Return dimension of operator's co-domain. (N)
+        """
+        return self.shape[0]
 
     @classmethod
-    def has(cls, prop: pyct.Name) -> bool:
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        "Mathematical properties of the operator."
+        return frozenset()
+
+    @classmethod
+    def has(cls, prop: typ.Union[pyct.Property, cabc.Collection[pyct.Property]]) -> bool:
+        """
+        Verify if operator possesses supplied properties.
+        """
+        if isinstance(prop, Property):
+            prop = (prop,)
+        return frozenset(prop) <= self.properties()
+
+    def asop(self, cast_to: pyct.OpC) -> pyct.OpT:
         r"""
-        Query class for specific property.
+        Recast an :py:class:`~pycsou.abc.operator.Operator` (or subclass thereof) to another
+        :py:class:`~pycsou.abc.operator.Operator`.
+
+        Users may call this method if the arithmetic API yields sub-optimal return types.
+
+        This method is a no-op if `cast_to` has the same properties as ``self``.
 
         Parameters
         ----------
-        prop: pyct.Name
-            Queried properties.
+        cast_to: pyct.OpC
+            Target type for the recast.
 
-        Example
+        Returns
         -------
+        op: pyct.OpT
+            Operator with the new interface.
 
-        >>> import pycsou.abc as pyca
-        >>> pyca.LinOp.has(('adjoint', 'jacobian'))
-        True
-        >>> pyca.LinOp.has(('adjoint', 'prox'))
-        False
+        Implementation Notes
+        --------------------
+        * The interface of `cast_to` is provided via encapsulation + forwarding.
+        * If ``self`` does not implement all methods from ``cast_to``, then unimplemented methods
+          will raise ``NotImplementedError`` when called.
         """
-        if isinstance(prop, str):
-            prop = (prop,)
-        return frozenset(prop) <= cls.properties()
+        in_p = frozenset(self.properties())
+        out_p = frozenset(cast_to.properties())
+        if in_p == out_p:
+            return self
+        else:
+            op = cast_to(shape=self.shape)
 
-    def argscale(self, scalar: pyct.Real) -> pyct.MapT:
-        r"""
-        Scale the domain of a :py:class:`~pycsou.abc.operator.Map`.
+            # find attributes/methods to forward
+            hidden = lambda _: _.startswith("__") and _.endswith("__")
+            forwarded = set(dir(self)) & set(dir(op))
+            forwarded -= {_ for _ in dir(self) if hidden(_)}
+
+            for f in forwarded:
+                setattr(op, f, getattr(self, f))
+            return op
+
+    # Operator Arithmetic -----------------------------------------------------
+    def __add__(self, other: pyct.OpT) -> pyct.OpT:
+        """
+        Add two operators.
+
+        Parameters
+        ----------
+        self: pyct.OpT
+            (A, B) Left operand.
+        other: pyct.OpT
+            (C, D) Right operand.
+
+        Returns
+        -------
+        op: pyct.OpT
+            Composite operator ``self + other``
+
+        Notes
+        -----
+        Operand shapes must be `consistent`, i.e.:
+
+            * have `identical shape`, or
+            * be domain-agnostic, or
+            * be `range-broadcastable`, i.e. functional + map works.
+
+        .. todo::
+
+           Add dispatch table here once stabilized.
+        """
+        import pycsou.abc.arithmetic as arithmetic
+
+        if isinstance(other, Operator):
+            return arithmetic.add(self._squeeze(), other._squeeze())
+        else:
+            return NotImplemented
+
+    def __sub__(self, other: pyct.OpT) -> pyct.OpT:
+        """
+        Subtract two operators.
+
+        Parameters
+        ----------
+        self: pyct.OpT
+            (A, B) Left operand.
+        other: pyct.OpT
+            (C, D) Right operand.
+
+        Returns
+        -------
+        op: pyct.OpT
+            Composite operator ``self - other``
+        """
+        import pycsou.abc.arithmetic as arithmetic
+
+        if isinstance(other, Operator):
+            return arithmetic.add(self._squeeze(), -other._squeeze())
+        else:
+            return NotImplemented
+
+    def __neg__(self) -> pyct.OpT:
+        """
+        Negate an operator.
+
+        Returns
+        -------
+        op: pyct.OpT
+            Composite operator ``-1 * self``.
+        """
+        import pycsou.abc.arithmetic as arithmetic
+
+        return arithmetic.scale(other._squeeze(), cst=-1)
+
+    def __mul__(self, other: typ.Union[pyct.Real, pyct.OpT]) -> pyct.OpT:
+        """
+        Compose two operators, or scale an operator by a constant.
+
+        Parameters
+        ----------
+        self: pyct.OpT
+            (A, B) Left operand.
+        other: pyct.Real | pyct.OpT
+            (1,) scalar, or
+            (C, D) Right operand.
+
+        Returns
+        -------
+        op: pyct.OpT
+            (A, B) scaled operator, or
+            (A, D) composed operator ``self * other``.
+
+        Notes
+        -----
+        If called with two operators, their shapes must be `consistent`, i.e.:
+
+            * B == C, or
+            * B == None.
+
+        .. todo::
+
+           Add dispatch table here once stabilized.
+        """
+        import pycsou.abc.arithmetic as arithmetic
+
+        if isinstance(other, Operator):
+            return arithmetic.compose(self._squeeze(), other._squeeze())
+        elif isinstance(other, pyct.Real):
+            return arithmetic.scale(self._squeeze(), cst=other)
+        else:
+            return NotImplemented
+
+    def __rmul__(self, other: pyct.Real) -> pyct.OpT:
+        import pycsou.abc.arithmetic as arithmetic
+
+        if isinstance(other, pyct.Real):
+            return arithmetic.scale(self._squeeze(), cst=other)
+        else:
+            return NotImplemented
+
+    def __truediv__(self, other: pyct.Real) -> pyct.OpT:
+        import pycsou.abc.arithmetic as arithmetic
+
+        if isinstance(other, pyct.Real):
+            return arithmetic.scale(self._squeeze(), cst=1 / other)
+        else:
+            return NotImplemented
+
+    def __pow__(self, k: pyct.Integer) -> pyct.OpT:
+        """
+        Exponentiate an operator, i.e. compose it with itself.
+
+        Parameters
+        ----------
+        k: pyct.Integer
+            Number of times the operator is composed with itself.
+
+        Returns
+        -------
+        op: pyct.OpT
+            Exponentiated operator.
+
+        Notes
+        -----
+        Exponentiation is only allowed for endomorphisms, i.e. square operators.
+        Chaining domain-agnostic operators is moreover forbidden.
+        """
+        import pycsou.abc.arithmetic as arithmetic
+
+        if isinstance(k, pyct.Integer):
+            return arithmetic.pow(self._squeeze(), k)
+        else:
+            return NotImplemented
+
+    def __matmul__(self, other) -> pyct.OpT:
+        # (op @ NDArray) unsupported
+        return NotImplemented
+
+    def __rmatmul__(self, other) -> pyct.OpT:
+        # (NDArray @ op) unsupported
+        return NotImplemented
+
+    def argscale(self, scalar: pyct.Real) -> pyct.OpT:
+        """
+        Scale operator's domain.
 
         Parameters
         ----------
         scalar: pyct.Real
-            Scale factor
 
         Returns
         -------
-        op: pyct.MapT
-            Domain-rescaled operator.
-
-        Notes
-        -----
-        Calling ``self.argscale(scalar)`` is equivalent to precomposing ``self`` with
-        :py:class:`~pycsou.operator.linop.base.HomotethyOp`:
+        op: pyct.OpT
+            (N, M) domain-scaled operator.
         """
-        return pyca.argscale(self, scalar)
+        import pycsou.abc.arithmetic as arithmetic
 
-    @pycrt.enforce_precision(i="shift", o=False)
-    def argshift(self, shift: pyct.NDArray) -> pyct.MapT:
-        r"""
-        Shift the domain of a :py:class:`~pycsou.abc.operator.Map`.
+        assert isinstance(scalar, pyct.Real)
+        return arithmetic.argscale(self._squeeze(), cst=scalar)
+
+    def argshift(self, shift: pyct.NDArray) -> pyct.OpT:
+        """
+        Shift operator's domain.
 
         Parameters
         ----------
         shift: pyct.NDArray
-            (N,) shift
+            (M,) shift value
 
         Returns
         -------
-        op: pyct.MapT
-            Domain-shifted operator.
-
-        Notes
-        -----
-        The domain-shifted operator has the same type as ``self``, except if ``self`` is a
-        :py:class:`~pycsou.abc.operator.LinFunc` or
-        :py:class:`~pycsou.abc.operator.LinOp`
-        since shifts do not preserve linearity.
-
-        In the latter cases, the domain-shifted operator is of type
-        :py:class:`~pycsou.abc.operator.DiffFunc` and
-        :py:class:`~pycsou.abc.operator.DiffMap` respectively.
+        op: pyct.OpT
+            (N, M) domain-shifted operator.
         """
-        return pyca.argshift(self, shift)
+        import pycsou.abc.arithmetic as arithmetic
 
+        return arithmetic.argshift(self._squeeze(), cst=shift)
 
-class SingleValued(Property):
-    r"""
-    Mixin class defining the *single-valued* property.
-    """
+    # Internal Helpers --------------------------------------------------------
+    @staticmethod
+    def _infer_operator_type(prop: cabc.Collection[pyct.Property]) -> pyct.OpC:
+        prop = frozenset(prop)
+        state = globals()
+        registered_ops = {state[op_name] for op_name in state["_core_operators"]}
+        for op in registered_ops:
+            if op.properties() == prop:
+                return op
+        else:
+            raise ValueError(f"No operator found with properties {prop}.")
 
-    def single_valued(self) -> bool:
-        return True
-
-
-class Apply(Property):
-    r"""
-    Mixin class defining the *apply* property.
-    """
-
-    @pycrt.enforce_precision(i="arr")
-    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
+    def _squeeze(self) -> pyct.OpT:
         r"""
-        Alias for :py:meth:`~pycsou.abc.operator.Apply.apply`.
+        Cast an :py:class:`~pycsou.abc.operator.Operator` to the right sub-type given codomain
+        dimension.
+
+        This function is meant for internal use only.
+        If an end-user had to call it, then it is considered a bug.
         """
-        return self.apply(arr)
+        if self.codim == 1:
+            p = set(self.properties())
+            p.add(Property.FUNCTIONAL)
+            klass = self._infer_operator_type(p)
+            return self.asop(klass)
+        else:
+            return self
+
+    def __repr__(self) -> str:
+        klass = self.__class__.__name__
+        return f"{klass}{self.shape}"
+
+
+class Map(Operator):
+    r"""
+    Base class for real-valued maps :math:`\mathbf{M}:\mathbb{R}^M\to \mathbb{R}^N`.
+
+    Instances of this class must implement
+    :py:meth:`~pycsou.abc.operator.Map.apply`.
+
+    If the map is Lipschitz-continuous with known Lipschitz constant, the latter should be stored in
+    the private instance attribute
+    ``_lipschitz`` (initialized to :math:`+\infty` by default).
+    """
+
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set(super().properties())
+        p.add(Property.CAN_EVAL)
+        return frozenset(p)
+
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape=shape)
+        self._lipschitz = np.inf
 
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
+        """
         Evaluate operator at specified point(s).
 
         Parameters
@@ -178,6 +456,12 @@ class Apply(Property):
         """
         raise NotImplementedError
 
+    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
+        """
+        Alias for :py:meth:`~pycsou.abc.operator.Map.apply`.
+        """
+        return self.apply(arr)
+
     def lipschitz(self, **kwargs) -> pyct.Real:
         r"""
         Compute a Lipschitz constant of the operator.
@@ -187,15 +471,15 @@ class Apply(Property):
         * This method should always be callable without specifying any kwargs.
 
         * A constant :math:`L_\mathbf{h}>0` is said to be a *Lipschitz constant* for a map
-          :math:`\mathbf{h}:\mathbb{R}^N\to \mathbb{R}^M` if:
+          :math:`\mathbf{h}:\mathbb{R}^M\to \mathbb{R}^N` if:
 
           .. math::
 
-              \|\mathbf{h}(\mathbf{x})-\mathbf{h}(\mathbf{y})\|_{\mathbb{R}^M}
+              \|\mathbf{h}(\mathbf{x})-\mathbf{h}(\mathbf{y})\|_{\mathbb{R}^N}
               \leq
-              L_\mathbf{h} \|\mathbf{x}-\mathbf{y}\|_{\mathbb{R}^N},
+              L_\mathbf{h} \|\mathbf{x}-\mathbf{y}\|_{\mathbb{R}^M},
               \qquad
-              \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^N,
+              \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^M,
 
           where
           :math:`\|\cdot\|_{\mathbb{R}^M}` and
@@ -204,15 +488,74 @@ class Apply(Property):
 
           The smallest Lipschitz constant of a map is called the *optimal Lipschitz constant*.
         """
+        return self._lipschitz
+
+
+class Func(Map):
+    r"""
+    Base class for real-valued functionals :math:`f:\mathbb{R}^M \to \mathbb{R}\cup\{+\infty\}`.
+
+    Instances of this class must implement
+    :py:meth:`~pycsou.abc.operator.Map.apply`.
+
+    If the functional is Lipschitz-continuous with known Lipschitz constant, the latter should be
+    stored in the private instance attribute
+    ``_lipschitz`` (initialized to :math:`+\infty` by default).
+    """
+
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set(super().properties())
+        p.add(Property.FUNCTIONAL)
+        return frozenset(p)
+
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape=shape)
+        assert self.codim == 1, f"shape: expected (1, n), got {shape}."
+
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        """
+        Transform a functional into a loss functional.
+
+        Parameters
+        ----------
+        data: pyct.NDArray
+            (M,) input.
+
+        Returns
+        -------
+        op: pyct.OpT
+            (1, M) loss function.
+            If `data = None`, then return `self`.
+        """
         raise NotImplementedError
 
 
-class Differential(Property):
+class DiffMap(Map):
     r"""
-    Mixin class defining the *differentiability* properties.
+    Base class for real-valued differentiable maps :math:`\mathbf{M}:\mathbb{R}^M \to \mathbb{R}^N`.
+
+    Instances of this class must implement
+    :py:meth:`~pycsou.abc.operator.Map.apply` and
+    :py:meth:`~pycsou.abc.operator.DiffMap.jacobian`.
+
+    If the map and/or its Jacobian are Lipschitz-continuous with known Lipschitz constants, the
+    latter should be stored in the private instance attributes
+    ``_lipschitz`` (initialized to :math:`+\infty` by default),
+    ``_diff_lipschitz`` (initialized to :math:`+\infty` by default).
     """
 
-    def jacobian(self, arr: pyct.NDArray) -> pyct.MapT:
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set(super().properties())
+        p.add(Property.DIFFERENTIABLE)
+        return frozenset(p)
+
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape=shape)
+        self._diff_lipschitz = np.inf
+
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         r"""
         Evaluate the Jacobian of a vector-valued differentiable map at the specified point.
 
@@ -223,7 +566,7 @@ class Differential(Property):
 
         Returns
         -------
-        op: pyct.MapT
+        op: pyct.OpT
             (N, M) Jacobian operator at point ``arr``.
 
         Notes
@@ -256,7 +599,7 @@ class Differential(Property):
 
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
         r"""
-        Compute a Lipschitz constant of :py:meth:`~pycsou.abc.operator.Differential.jacobian`.
+        Compute a Lipschitz constant of :py:meth:`~pycsou.abc.operator.DiffMap.jacobian`.
 
         Notes
         -----
@@ -281,133 +624,37 @@ class Differential(Property):
           The smallest Lipschitz constant of the Jacobian is called the *optimal diff-Lipschitz
           constant*.
         """
-        raise NotImplementedError
+        return self._diff_lipschitz
 
 
-class Gradient(Differential):
+class ProxFunc(Func):
     r"""
-    Mixin class defining the *grad* property.
+    Base class for real-valued proximable functionals :math:`f:\mathbb{R}^M\to\mathbb{R}\cup\{+\infty\}`.
+
+    A functional :math:`f:\mathbb{R}^M\to\mathbb{R}\cup\{+\infty\}` is said *proximable* if its
+    **proximity operator** (see :py:meth:`~pycsou.abc.operator.ProxFunc.prox` for a definition)
+    admits
+    a *simple closed-form expression*
+    **or**
+    can be evaluated *efficiently* and with *high accuracy*.
+
+    Instances of this class must implement
+    :py:meth:`~pycsou.abc.operator.Map.apply` and
+    :py:meth:`~pycsou.abc.operator.ProxFunc.prox`.
+
+    If the functional is Lipschitz-continuous with known Lipschitz constant, the latter should be
+    stored in the private instance attribute
+    ``_lipschitz`` (initialized to :math:`+\infty` by default).
     """
 
-    @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyct.MapT:
-        r"""
-        Construct the Jacobian linear functional associated with the gradient.
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set(super().properties())
+        p.add(Property.PROXIMABLE)
+        return frozenset(p)
 
-        Parameters
-        ----------
-        arr: pyct.NDArray
-            (M,) evaluation point.
-
-        Returns
-        -------
-        op: pyct.MapT
-            (1, M) Jacobian linear functional.
-
-        Notes
-        -----
-        The Jacobian of a functional :math:`f:\mathbb{R}^M\to \mathbb{R}` is given, for every
-        :math:`\mathbf{x}\in\mathbb{R}^M`, by
-
-        .. math::
-
-           \mathbf{J}_f(\mathbf{x})(\mathbf{z})
-           =
-           \langle \mathbf{z}, \nabla f (\mathbf{x}) \rangle
-           =
-           \nabla f (\mathbf{x})^T\mathbf{z},
-           \qquad
-           \forall \mathbf{z}\in\mathbb{R}^M,
-
-        where :math:`\nabla f (\mathbf{x})` denotes the *gradient* of :math:`f`
-        (see :py:meth:`~pycsou.abc.operator.Gradient.grad`).
-
-        The Jacobian matrix is hence given by the transpose of the gradient:
-        :math:`\mathbf{J}_f(\mathbf{x})=\nabla f (\mathbf{x})^T`.
-        """
-        from pycsou.operator.linop.base import ExplicitLinFunc
-
-        return ExplicitLinFunc(self.grad(arr))
-
-    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Evaluate operator gradient at specified point(s).
-
-        Parameters
-        ----------
-        arr: pyct.NDArray
-            (..., M) input points.
-
-        Returns
-        -------
-        out: pyct.NDArray
-            (..., N) gradients.
-
-        Notes
-        -----
-        The gradient of a functional :math:`f:\mathbb{R}^M\to \mathbb{R}` is given, for every
-        :math:`\mathbf{x}\in\mathbb{R}^M`, by
-
-        .. math::
-
-           \nabla f(\mathbf{x})
-           :=
-           \left[\begin{array}{c}
-           \frac{\partial f}{\partial x_1}(\mathbf{x}) \\
-           \vdots \\
-           \frac{\partial f}{\partial x_M}(\mathbf{x})
-           \end{array}\right].
-
-        .. Important::
-
-           This method should abide by the rules described in :ref:`developer-notes`.
-        """
-        raise NotImplementedError
-
-
-class Adjoint(Property):
-    r"""
-    Mixin class defining the *adjoint* property.
-    """
-
-    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Evaluate operator adjoint at specified point(s).
-
-        Parameters
-        ----------
-        arr: pyct.NDArray
-            (..., N) input points.
-
-        Returns
-        -------
-        out: pyct.NDArray
-            (..., M) adjoint evaluations.
-
-        Notes
-        -----
-        The *adjoint* :math:`\mathbf{L}^\ast:\mathbb{R}^N\to \mathbb{R}^M` of a linear operator
-        :math:`\mathbf{L}:\mathbb{R}^M\to \mathbb{R}^N` is defined as:
-
-        .. math::
-
-           \langle \mathbf{x}, \mathbf{L}^\ast\mathbf{y}\rangle_{\mathbb{R}^M}
-           :=
-           \langle \mathbf{L}\mathbf{x}, \mathbf{y}\rangle_{\mathbb{R}^N},
-           \qquad
-           \forall (\mathbf{x},\mathbf{y})\in \mathbb{R}^M \times \mathbb{R}^N.
-
-        .. Important::
-
-           This method should abide by the rules described in :ref:`developer-notes`.
-        """
-        raise NotImplementedError
-
-
-class Proximal(Property):
-    r"""
-    Mixin class defining the *proximal* property.
-    """
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape=shape)
 
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         r"""
@@ -482,279 +729,8 @@ class Proximal(Property):
         """
         return arr - sigma * self.prox(arr=arr / sigma, tau=1 / sigma)
 
-
-# User-instantiable Types -----------------------------------------------------
-class Map(Apply):
-    r"""
-    Base class for real-valued maps :math:`\mathbf{M}:\mathbb{R}^M\to \mathbb{R}^N`.
-
-    Instances of this class must implement
-    :py:meth:`~pycsou.abc.operator.Apply.apply`.
-
-    If the map is Lipschitz-continuous with known Lipschitz constant, the latter should be stored in
-    the private instance attribute
-    ``_lipschitz`` (initialized to :math:`+\infty` by default).
-    """
-
-    def __init__(self, shape: pyct.Shape):
-        r"""
-        Parameters
-        ----------
-        shape: pyct.Shape
-            (N, M) operator shape.
-            Shapes of the form (N, None) denote domain-agnostic maps.
-        """
-        assert len(shape) == 2, f"shape: expected pyct.Shape, got {shape}."
-        assert shape[0] is not None, "shape: codomain-agnostic maps are not supported."
-        self._shape = tuple(shape)
-        self._lipschitz = np.inf
-
-    @property
-    def shape(self) -> pyct.Shape:
-        r"""
-        Return (N, M) operator shape.
-        """
-        return self._shape
-
-    @property
-    def dim(self) -> pyct.Integer:
-        r"""
-        Return dimension of map's domain. (M)
-        """
-        return self.shape[1]
-
-    @property
-    def codim(self) -> pyct.Integer:
-        r"""
-        Return dimension of map's co-domain. (N)
-        """
-        return self.shape[0]
-
-    def squeeze(self) -> pyct.MapT:
-        r"""
-        Cast a :py:class:`~pycsou.abc.operator.Map` to the right sub-type given codomain dimension.
-
-        Returns
-        -------
-        op : pycsou.abc.operator.Map | pycsou.abc.operator.Func
-            Squeezed operator.
-
-        Example
-        -------
-        Consider the :py:class:`Median` operator defined in the :ref:`developer-notes`.
-        The latter was declared as a :py:class:`~pycsou.abc.operator.Map` subclass, but its
-        co-domain has dimension 1.
-        It is therefore preferable to see :py:class:`Median` objects as
-        :py:class:`~pycsou.abc.operator.Func` objects.
-        This recasting can be performed a-posteriori using :py:meth:`squeeze`:
-
-        >>> m = Median()
-        >>> type(m)
-        pycsou.abc.operator.Map
-        >>> type(m.squeeze())
-        pycsou.abc.operator.Func
-        """
-        return self._squeeze(out=Func)
-
-    def _squeeze(self, out: pyct.MapC) -> pyct.MapT:
-        if self.codim == 1:
-            obj = self.astype(out)
-        else:
-            obj = self
-        return obj
-
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        return self._lipschitz
-
-    def astype(self, cast_to: pyct.MapC) -> pyct.MapT:
-        r"""
-        Recast a :py:class:`~pycsou.abc.operator.Map` (or subclass thereof) to another
-        :py:class:`~pycsou.abc.operator.Map` parent/subclass in the hierarchy.
-
-        Parameters
-        ----------
-        cast_to: pyct.MapC
-            Target type for the recast.
-
-        Returns
-        -------
-        op: pyct.MapT
-            Object with the new interface.
-            Raises ValueError if `cast_to` is not an ancestor/child-class of ``self``.
-
-        Notes
-        -----
-        If ``self`` does not implement all methods from ``cast_to``, then unimplemented methods will
-        raise a ``NotImplementedError`` when called.
-        """
-        return self
-
-    @classmethod
-    def from_source(cls, shape: pyct.Shape, **kwargs) -> pyct.MapT:
-        r"""
-        Instantiate a :py:class:`~pycsou.abc.operator.Map` by directly defining the appropriate
-        callables.
-
-        Parameters
-        ----------
-        shape: pyct.Shape
-            (N, M) operator shape.
-            Shapes of the form (N, None) denote domain-agnostic maps.
-        kwargs:
-            kwargs corresponding to class callables.
-
-        Returns
-        -------
-        op: pyct.MapT
-
-        Example (simplified)
-        --------------------
-        >>> from pycsou.abc.operator import LinFunc
-        >>> sh_map = (1, 5)
-        >>> map_properties = {
-        ...     "apply": lambda x: np.sum(x, axis=-1, keepdims=True),
-        ...     "adjoint": lambda x: x * np.ones(sh_map[-1]),
-        ...     "grad": lambda x: np.ones(shape=x.shape[:-1] + (sh_map[-1],)),
-        ...     "prox": lambda x, tau: x - tau * np.ones(sh_map[-1]),
-        ... }
-        >>> func = LinFunc.from_source(shape=sh_map, **map_properties)
-        >>> type(func)
-        <class 'pycsou.abc.operator.LinFunc'>
-        >>> func.apply(np.ones((1,5)))
-        array([[5.]])
-        >>> func.adjoint(1)
-        array([1., 1., 1., 1., 1.])
-        """
-        prop, prop_op = set(kwargs.keys()), set(cls.properties())
-        if cls in [LinOp, DiffFunc, ProxDiffFunc, LinFunc]:
-            prop_op.discard("jacobian")
-            prop_op.discard("single_valued")
-
-        if prop_op == prop:
-            out_op = cls(shape)
-        else:
-            raise ValueError(f"Cannot instantiate {cls.__name__} with provided properties.")
-
-        for p in prop:
-            if p in ("lipschitz", "diff_lipschitz"):
-                setattr(out_op, "_" + p, kwargs["_" + p])
-            elif p == "prox":
-                f = lambda key, _, arr, tau: kwargs[key](arr, tau)
-                method = types.MethodType(ft.partial(f, p), out_op)
-                setattr(out_op, p, method)
-            else:
-                f = lambda key, _, arr: kwargs[key](arr)
-                method = types.MethodType(ft.partial(f, p), out_op)
-                setattr(out_op, p, method)
-        return out_op
-
-    def __add__(self, other: pyct.MapT) -> pyct.MapT:
-        return pyca.add(self, other)
-
-    def __sub__(self, other: pyct.MapT) -> pyct.MapT:
-        return pyca.sub(self, other)
-
-    def __neg__(self) -> pyct.MapT:
-        return pyca.neg(self)
-
-    def __mul__(self, other: typ.Union[pyct.MapT, pyct.Real]) -> pyct.MapT:
-        return pyca.mul(self, other)
-
-    def __pow__(self, k: pyct.Integer) -> pyct.MapT:
-        return pyca.pow(self, k)
-
-    def __matmul__(self, other: pyct.MapT) -> pyct.MapT:
-        return NotImplemented
-
-    def __rmatmul__(self, other: pyct.MapT) -> pyct.MapT:
-        return NotImplemented
-
-
-class DiffMap(Map, Differential):
-    r"""
-    Base class for real-valued differentiable maps :math:`\mathbf{M}:\mathbb{R}^M \to \mathbb{R}^N`.
-
-    Instances of this class must implement
-    :py:meth:`~pycsou.abc.operator.Apply.apply` and
-    :py:meth:`~pycsou.abc.operator.Differential.jacobian`.
-
-    If the map and/or its Jacobian are Lipschitz-continuous with known Lipschitz constants, the
-    latter should be stored in the private instance attributes
-    ``_lipschitz`` (initialized to :math:`+\infty` by default),
-    ``_diff_lipschitz`` (initialized to :math:`+\infty` by default).
-    """
-
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape=shape)
-        self._diff_lipschitz = np.inf
-
-    def squeeze(self) -> pyct.MapT:
-        return self._squeeze(out=DiffFunc)
-
-    def diff_lipschitz(self, **kwargs) -> pyct.Real:
-        return self._diff_lipschitz
-
-
-class Func(Map, SingleValued):
-    r"""
-    Base class for real-valued functionals :math:`f:\mathbb{R}^M \to \mathbb{R}\cup\{+\infty\}`.
-
-    Instances of this class must implement
-    :py:meth:`~pycsou.abc.operator.Apply.apply`.
-
-    If the functional is Lipschitz-continuous with known Lipschitz constant, the latter should be
-    stored in the private instance attribute
-    ``_lipschitz`` (initialized to :math:`+\infty` by default).
-    """
-
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape=shape)
-        assert self.codim == 1, f"shape: expected (1, n), got {shape}."
-
-    def asloss(self, data: pyct.NDArray = None) -> pyct.MapT:
-        """
-        Transform a functional into a loss functional.
-
-        Parameters
-        ----------
-        data: pyct.NDArray
-            (M,) input.
-
-        Returns
-        -------
-        op: pyct.MapT
-            (1, M) loss function.
-            If `data = None`, then return `self`.
-        """
-        raise NotImplementedError
-
-
-class ProxFunc(Func, Proximal):
-    r"""
-    Base class for real-valued proximable functionals
-    :math:`f:\mathbb{R}^M\to\mathbb{R}\cup\{+\infty\}`.
-
-    A functional :math:`f:\mathbb{R}^M\to\mathbb{R}\cup\{+\infty\}` is said *proximable* if its
-    **proximity operator** (see :py:meth:`~pycsou.abc.operator.Proximal.prox` for a definition)
-    admits
-    a *simple closed-form expression*
-    **or**
-    can be evaluated *efficiently* and with *high accuracy*.
-
-    Instances of this class must implement
-    :py:meth:`~pycsou.abc.operator.Apply.apply` and
-    :py:meth:`~pycsou.abc.operator.Proximal.prox`.
-
-    If the functional is Lipschitz-continuous with known Lipschitz constant, the latter should be
-    stored in the private instance attribute
-    ``_lipschitz`` (initialized to :math:`+\infty` by default).
-    """
-
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape=shape)
-
     @pycrt.enforce_precision(i="mu", o=False)
-    def moreau_envelope(self, mu: pyct.Real) -> pyct.MapT:
+    def moreau_envelope(self, mu: pyct.Real) -> pyct.OpT:
         r"""
         Approximate proximable functional by its *Moreau envelope*.
 
@@ -765,7 +741,7 @@ class ProxFunc(Func, Proximal):
 
         Returns
         -------
-        op: pyct.MapT
+        op: pyct.OpT
             Differential Moreau envelope.
 
         Notes
@@ -817,39 +793,39 @@ class ProxFunc(Func, Proximal):
 
         .. plot::
 
-            import numpy as np
-            import matplotlib. pyplot as plt
-            from pycsou.abc import ProxFunc
+           import numpy as np
+           import matplotlib. pyplot as plt
+           from pycsou.abc import ProxFunc
 
-            class L1Norm(ProxFunc):
-                def __init__(self):
-                    super().__init__(shape=(1, None))
-                    self._lipschitz = 1
-                def apply(self, arr):
-                    return np.linalg.norm(arr, axis=-1, keepdims=True, ord=1)
-                def prox(self, arr, tau):
-                    return np.clip(np.abs(arr)-tau, a_min=0, a_max=None) * np.sign(arr)
+           class L1Norm(ProxFunc):
+               def __init__(self):
+                   super().__init__(shape=(1, None))
+                   self._lipschitz = 1
+               def apply(self, arr):
+                   return np.linalg.norm(arr, axis=-1, keepdims=True, ord=1)
+               def prox(self, arr, tau):
+                   return np.clip(np.abs(arr)-tau, a_min=0, a_max=None) * np.sign(arr)
 
-            l1_norm = L1Norm()
-            mus = [0.1, 0.5, 1]
-            smooth_l1_norms = [l1_norm.moreau_envelope(mu) for mu in mus]
+           l1_norm = L1Norm()
+           mus = [0.1, 0.5, 1]
+           smooth_l1_norms = [l1_norm.moreau_envelope(mu) for mu in mus]
 
-            x = np.linspace(-1,1, 512)[:, None]
-            labels=['mu=0']
-            labels.extend([f'mu={mu}' for mu in mus])
-            plt.figure()
-            plt.plot(x, l1_norm(x))
-            for f in smooth_l1_norms:
-                plt.plot(x, f(x))
-            plt.legend(labels)
-            plt.title('Moreau Envelope')
+           x = np.linspace(-1,1, 512)[:, None]
+           labels=['mu=0']
+           labels.extend([f'mu={mu}' for mu in mus])
+           plt.figure()
+           plt.plot(x, l1_norm(x))
+           for f in smooth_l1_norms:
+               plt.plot(x, f(x))
+           plt.legend(labels)
+           plt.title('Moreau Envelope')
 
-            labels=[f'mu={mu}' for mu in mus]
-            plt.figure()
-            for f in smooth_l1_norms:
-                plt.plot(x, f.grad(x))
-            plt.legend(labels)
-            plt.title('Derivative of Moreau Envelope')
+           labels=[f'mu={mu}' for mu in mus]
+           plt.figure()
+           for f in smooth_l1_norms:
+               plt.plot(x, f.grad(x))
+           plt.legend(labels)
+           plt.title('Derivative of Moreau Envelope')
         """
         assert mu > 0, f"mu: expected positive, got {mu}"
 
@@ -872,13 +848,13 @@ class ProxFunc(Func, Proximal):
         return op
 
 
-class DiffFunc(DiffMap, Func, Gradient):
+class DiffFunc(DiffMap, Func):
     r"""
     Base class for real-valued differentiable functionals :math:`f:\mathbb{R}^M\to\mathbb{R}`.
 
     Instances of this class must implement
-    :py:meth:`~pycsou.abc.operator.Apply.apply` and
-    :py:meth:`~pycsou.abc.operator.Gradient.grad`.
+    :py:meth:`~pycsou.abc.operator.Map.apply` and
+    :py:meth:`~pycsou.abc.operator.DiffFunc.grad`.
 
     If the functional and/or its derivative are Lipschitz-continuous with known Lipschitz constants,
     the latter should be stored in the private instance attributes
@@ -886,8 +862,56 @@ class DiffFunc(DiffMap, Func, Gradient):
     ``_diff_lipschitz`` (initialized to :math:`+\infty` by default).
     """
 
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set()
+        for klass in cls.__bases__:
+            p |= klass.properties()
+        p.add(Property.DIFFERENTIABLE_FUNCTION)
+        return frozenset(p)
+
     def __init__(self, shape: pyct.Shape):
-        super().__init__(shape=shape)
+        DiffMap.__init__(self, shape)
+        Func.__init__(self, shape)
+
+    @pycrt.enforce_precision(i="arr", o=False)
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
+        return LinFunc.from_array(self.grad(arr))
+
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Evaluate operator gradient at specified point(s).
+
+        Parameters
+        ----------
+        arr: pyct.NDArray
+            (..., M) input points.
+
+        Returns
+        -------
+        out: pyct.NDArray
+            (..., M) gradients.
+
+        Notes
+        -----
+        The gradient of a functional :math:`f:\mathbb{R}^M\to \mathbb{R}` is given, for every
+        :math:`\mathbf{x}\in\mathbb{R}^M`, by
+
+        .. math::
+
+           \nabla f(\mathbf{x})
+           :=
+           \left[\begin{array}{c}
+           \frac{\partial f}{\partial x_1}(\mathbf{x}) \\
+           \vdots \\
+           \frac{\partial f}{\partial x_M}(\mathbf{x})
+           \end{array}\right].
+
+        .. Important::
+
+           This method should abide by the rules described in :ref:`developer-notes`.
+        """
+        raise NotImplementedError
 
 
 class ProxDiffFunc(ProxFunc, DiffFunc):
@@ -896,9 +920,9 @@ class ProxDiffFunc(ProxFunc, DiffFunc):
     :math:`f:\mathbb{R}^M\to\mathbb{R}`.
 
     Instances of this class must implement
-    :py:meth:`~pycsou.abc.operator.Apply.apply`,
-    :py:meth:`~pycsou.abc.operator.Gradient.grad`, and
-    :py:meth:`~pycsou.abc.operator.Proximal.prox`.
+    :py:meth:`~pycsou.abc.operator.Map.apply`,
+    :py:meth:`~pycsou.abc.operator.DiffFunc.grad`, and
+    :py:meth:`~pycsou.abc.operator.ProxFunc.prox`.
 
     If the functional and/or its derivative are Lipschitz-continuous with known Lipschitz constants,
     the latter should be stored in the private instance attributes
@@ -906,37 +930,84 @@ class ProxDiffFunc(ProxFunc, DiffFunc):
     ``_diff_lipschitz`` (initialized to :math:`+\infty` by default).
     """
 
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set()
+        for klass in cls.__bases__:
+            p |= klass.properties()
+        return frozenset(p)
+
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        return frozenset(ProxFunc.properties() | DiffFunc.properties())
+
     def __init__(self, shape: pyct.Shape):
-        super().__init__(shape=shape)
+        ProxFunc.__init__(self, shape)
+        DiffFunc.__init__(self, shape)
 
 
-class LinOp(DiffMap, Adjoint):
+class LinOp(DiffMap):
     r"""
     Base class for real-valued linear operators :math:`L:\mathbb{R}^M\to\mathbb{R}^N`.
 
     Instances of this class must implement
-    :py:meth:`~pycsou.abc.operator.Apply.apply` and
-    :py:meth:`~pycsou.abc.operator.Adjoint.adjoint`.
+    :py:meth:`~pycsou.abc.operator.Map.apply` and
+    :py:meth:`~pycsou.abc.operator.LinOp.adjoint`.
 
-    If known, the Lipschitz constant of the linear map should be stored in the private instance
-    attribute
+    If known, the Lipschitz constant of the linear map should be stored in the attribute
     ``_lipschitz`` (initialized to :math:`+\infty` by default).
 
     The Jacobian of a linear map :math:`\mathbf{h}` is constant.
     """
 
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set(super().properties())
+        p.add(Property.LINEAR)
+        return frozenset(p)
+
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape=shape)
         self._diff_lipschitz = 0
 
-    def squeeze(self) -> pyct.MapT:
-        return self._squeeze(out=LinFunc)
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Evaluate operator adjoint at specified point(s).
 
-    def jacobian(self, arr: pyct.NDArray) -> pyct.MapT:
+        Parameters
+        ----------
+        arr: pyct.NDArray
+            (..., N) input points.
+
+        Returns
+        -------
+        out: pyct.NDArray
+            (..., M) adjoint evaluations.
+
+        Notes
+        -----
+        The *adjoint* :math:`\mathbf{L}^\ast:\mathbb{R}^N\to \mathbb{R}^M` of a linear operator
+        :math:`\mathbf{L}:\mathbb{R}^M\to \mathbb{R}^N` is defined as:
+
+        .. math::
+
+           \langle \mathbf{x}, \mathbf{L}^\ast\mathbf{y}\rangle_{\mathbb{R}^M}
+           :=
+           \langle \mathbf{L}\mathbf{x}, \mathbf{y}\rangle_{\mathbb{R}^N},
+           \qquad
+           \forall (\mathbf{x},\mathbf{y})\in \mathbb{R}^M \times \mathbb{R}^N.
+
+        .. Important::
+
+           This method should abide by the rules described in :ref:`developer-notes`.
+        """
+        raise NotImplementedError
+
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return self
 
     @property
-    def T(self) -> pyct.MapT:
+    def T(self) -> pyct.OpT:
         r"""
         Return the (M, N) adjoint of the linear operator.
         """
@@ -968,9 +1039,7 @@ class LinOp(DiffMap, Adjoint):
         op: [cupyx.]scipy.sparse.linalg.LinearOperator
             Linear operator object compliant with SciPy's interface.
         """
-
         matmat = lambda arr: self.apply(arr.T).T
-
         rmatmat = lambda arr: self.adjoint(arr.T).T
 
         if dtype is None:
@@ -1039,11 +1108,11 @@ class LinOp(DiffMap, Adjoint):
         """
         if recompute or (self._lipschitz == np.inf):
             if algo == "fro":
-                import pycsou.math.linalg as pycl
+                from pycsou.math.linalg import hutchpp
 
                 kwargs.update(m=kwargs.get("m", 126))
                 op = self.gram() if (self.codim >= self.dim) else self.cogram()
-                self._lipschitz = pycl.hutchpp(op, **kwargs)
+                self._lipschitz = hutchpp(op, **kwargs)
             elif algo == "svds":
                 kwargs.update(k=1, which="LM")
                 self._lipschitz = self.svdvals(**kwargs).item()
@@ -1160,13 +1229,13 @@ class LinOp(DiffMap, Adjoint):
         """
         return self.asarray(xp=np, dtype=dtype)
 
-    def gram(self) -> pyct.MapT:
+    def gram(self) -> pyct.OpT:
         r"""
         Gram operator :math:`L^\ast L:\mathbb{R}^M\to \mathbb{R}^M`.
 
         Returns
         -------
-        op: pyct.MapT
+        op: pyct.OpT
             (M, M) Gram operator.
 
         Notes
@@ -1176,15 +1245,15 @@ class LinOp(DiffMap, Adjoint):
         If the Gram can be computed more efficiently (e.g. with a convolution), the user should
         re-define this method.
         """
-        return (self.T * self).astype(SelfAdjointOp)
+        return (self.T * self).asop(SelfAdjointOp)
 
-    def cogram(self) -> pyct.MapT:
+    def cogram(self) -> pyct.OpT:
         r"""
         Co-Gram operator :math:`LL^\ast:\mathbb{R}^N\to \mathbb{R}^N`.
 
         Returns
         -------
-        op: pyct.MapT
+        op: pyct.OpT
             (N, N) Co-Gram operator.
 
         Notes
@@ -1194,9 +1263,9 @@ class LinOp(DiffMap, Adjoint):
         If the co-Gram can be computed more efficiently (e.g. with a convolution), the user should
         re-define this method.
         """
-        return (self * self.T).astype(SelfAdjointOp)
+        return (self * self.T).asop(SelfAdjointOp)
 
-    @pycrt.enforce_precision(i=["arr", "damp"], allow_None=True)
+    @pycrt.enforce_precision(i=("arr", "damp"), allow_None=True)
     def pinv(
         self,
         arr: pyct.NDArray,
@@ -1256,8 +1325,8 @@ class LinOp(DiffMap, Adjoint):
 
         where :math:`\tau>0` corresponds to the ``damp`` parameter.
         """
-        from pycsou.operator.linop.base import IdentityOp
-        from pycsou.opt.solver.cg import CG
+        from pycsou.operator.linop import IdentityOp
+        from pycsou.opt.solver import CG
         from pycsou.opt.stop import MaxIter
 
         kwargs_fit = dict() if kwargs_fit is None else kwargs_fit
@@ -1270,8 +1339,8 @@ class LinOp(DiffMap, Adjoint):
         kwargs_init.update(show_progress=kwargs_init.get("show_progress", False))
         cg = CG(A, **kwargs_init)
         if "stop_crit" not in kwargs_fit:
-            # .pinv() may not have sufficiently converged given the default CG stopping criteria. To
-            # avoid infinite loops, CG iterations are thresholded.
+            # .pinv() may not have sufficiently converged given the default CG stopping criteria.
+            # To avoid infinite loops, CG iterations are thresholded.
             sentinel = MaxIter(n=20 * A.dim)
             kwargs_fit["stop_crit"] = cg.default_stop_crit() | sentinel
         cg.fit(b=b, **kwargs_fit)
@@ -1282,7 +1351,7 @@ class LinOp(DiffMap, Adjoint):
         damp: pyct.Real = None,
         kwargs_init=None,
         kwargs_fit=None,
-    ) -> pyct.MapT:
+    ) -> pyct.OpT:
         r"""
         Return the Moore-Penrose pseudo-inverse operator :math:`L^\dagger`.
 
@@ -1297,7 +1366,7 @@ class LinOp(DiffMap, Adjoint):
 
         Returns
         -------
-        op: pyct.MapT
+        op: pyct.OpT
             (M, N) Moore-Penrose pseudo-inverse operator.
         """
         dagger = LinOp(shape=(self.dim, self.codim))
@@ -1332,7 +1401,7 @@ class LinOp(DiffMap, Adjoint):
         return dagger
 
     @classmethod
-    def from_sciop(cls, sp_op: spsl.LinearOperator) -> pyct.MapT:
+    def from_sciop(cls, sp_op: spsl.LinearOperator) -> pyct.OpT:
         r"""
         Cast a :py:class:`scipy.sparse.linalg.LinearOperator` to a
         :py:class:`~pycsou.abc.operator.LinOp`.
@@ -1344,12 +1413,11 @@ class LinOp(DiffMap, Adjoint):
 
         Returns
         -------
-        op: pyct.MapT
+        op: pyct.OpT
 
         See Also
         --------
         :py:meth:`~pycsou.abc.operator.LinOp.from_array`,
-        :py:meth:`~pycsou.abc.operator.Map.from_source`,
         :py:meth:`~pycsou.abc.operator.LinOp.to_sciop`.
         """
         if sp_op.dtype not in [_.value for _ in pycrt.Width]:
@@ -1385,7 +1453,7 @@ class LinOp(DiffMap, Adjoint):
         cls,
         A: pyct.NDArray,
         enable_warnings: bool = True,
-    ) -> pyct.MapT:
+    ) -> pyct.OpT:
         r"""
         Instantiate a :py:class:`~pycsou.abc.operator.LinOp` from its array representation.
 
@@ -1396,84 +1464,16 @@ class LinOp(DiffMap, Adjoint):
 
         Returns
         -------
-        op: pyct.MapT
+        op: pyct.OpT
             (N, M) linear operator
 
         See Also
         --------
         :py:meth:`~pycsou.abc.operator.LinOp.from_sciop`,
-        :py:meth:`~pycsou.abc.operator.Map.from_source`.
         """
-        from pycsou.operator.linop.base import ExplicitLinOp
+        from pycsou.operator.linop import ExplicitLinOp
 
-        return ExplicitLinOp(A, enable_warnings).astype(cls)
-
-
-class LinFunc(ProxDiffFunc, LinOp):
-    r"""
-    Base class for real-valued linear functionals :math:`f:\mathbb{R}^M\to\mathbb{R}`.
-
-    Instances of this class must implement
-    :py:meth:`~pycsou.abc.operator.Apply.apply`,
-    :py:meth:`~pycsou.abc.operator.Gradient.grad`,
-    :py:meth:`~pycsou.abc.operator.Proximal.prox`, and
-    :py:meth:`~pycsou.abc.operator.Adjoint.adjoint`.
-
-    The Lipschitz constant of linear functionals should be stored in the private instance attribute
-    ``_lipschitz`` (initialized to :math:`+\infty` by default).
-
-    The Lipschitz constant of the gradient is 0 since the latter is constant-valued.
-    """
-
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape=shape)
-        ProxDiffFunc.__init__(self, shape)
-        LinOp.__init__(self, shape)
-
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        # 'fro' / 'svds' mode are identical for linfuncs.
-        g = self.grad(np.ones(self.dim))
-        self._lipschitz = float(np.linalg.norm(g))
-        return self._lipschitz
-
-    @pycrt.enforce_precision(i=("arr", "tau"))
-    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        return arr - tau * self.grad(arr)
-
-    @pycrt.enforce_precision(i="arr")
-    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return arr * self.grad(arr)
-
-    def cogram(self) -> pyct.MapT:
-        # Cannot auto-specialize LinFunc to SelfAdjointOp via .astype() since SelfAdjointOp lies
-        # on a separate branch of the class hierarchy.
-        from pycsou.operator.linop.base import HomothetyOp
-
-        g = self.grad(np.zeros(self.dim))
-        return HomothetyOp(cst=(g @ g).item(), dim=1)
-
-    @classmethod
-    def from_array(
-        cls,
-        A: pyct.NDArray,
-        enable_warnings: bool = True,
-    ) -> pyct.MapT:
-        r"""
-        Instantiate a :py:class:`~pycsou.abc.operator.LinFunc` from its vectorial representation.
-
-        Parameters
-        ----------
-        A: pyct.NDArray
-            (M,) array
-
-        Returns
-        -------
-        op: pyct.MapT
-            (M,) linear functional
-        """
-        from pycsou.operator.linop.base import ExplicitLinFunc
-
-        return ExplicitLinFunc(A, enable_warnings).astype(cls)
+        return ExplicitLinOp(A, enable_warnings)._squeeze().asop(cls)
 
 
 class SquareOp(LinOp):
@@ -1482,8 +1482,13 @@ class SquareOp(LinOp):
     (endomorphsisms).
     """
 
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set(super().properties())
+        p.add(Property.LINEAR_SQUARE)
+        return frozenset(p)
+
     def __init__(self, shape: pyct.Shape):
-        shape = tuple(shape)
         super().__init__(shape=shape)
         assert self.dim == self.codim, f"shape: expected (M, M), got ({self.codim, self.dim})."
 
@@ -1501,9 +1506,10 @@ class SquareOp(LinOp):
         tr: pyct.Real
             Trace estimate.
         """
-        import pycsou.math.linalg as pycl
+        from pycsou.math.linalg import hutchpp
 
-        return pycl.hutchpp(self, **kwargs)
+        tr = hutchpp(self, **kwargs)
+        return tr
 
 
 class NormalOp(SquareOp):
@@ -1516,6 +1522,12 @@ class NormalOp(SquareOp):
     It is `possible to show <https://www.wikiwand.com/en/Spectral_theorem#/Normal_matrices>`_ that
     an operator is normal iff it is *unitarily diagonalizable*, i.e. :math:`L=UDU^\ast`.
     """
+
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set(super().properties())
+        p.add(Property.LINEAR_NORMAL)
+        return frozenset(p)
 
     def _eigvals(
         self,
@@ -1591,8 +1603,8 @@ class NormalOp(SquareOp):
         """
         return self._eigvals(k, which, gpu, symmetric=False, **kwargs)
 
-    def cogram(self) -> pyct.MapT:
-        return self.gram().astype(cast_to=SelfAdjointOp)
+    def cogram(self) -> pyct.OpT:
+        return self.gram()
 
 
 class SelfAdjointOp(NormalOp):
@@ -1600,11 +1612,17 @@ class SelfAdjointOp(NormalOp):
     Base class for *self-adjoint* operators, i.e. :math:`L^\ast=L`.
     """
 
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set(super().properties())
+        p.add(Property.LINEAR_SELF_ADJOINT)
+        return frozenset(p)
+
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         return self.apply(arr)
 
     @property
-    def T(self) -> pyct.MapT:
+    def T(self) -> pyct.OpT:
         return self
 
     def eigvals(
@@ -1622,6 +1640,12 @@ class UnitOp(NormalOp):
     Base class for *unitary* operators, i.e. :math:`LL^\ast=L^\ast L = I`.
     """
 
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set(super().properties())
+        p.add(Property.LINEAR_UNITARY)
+        return frozenset(p)
+
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape=shape)
         self._lipschitz = 1
@@ -1636,20 +1660,18 @@ class UnitOp(NormalOp):
             out /= 1 + damp
         return out
 
-    def dagger(self, **kwargs) -> pyct.MapT:
+    def dagger(self, **kwargs) -> pyct.OpT:
         op = self.T
         if (damp := kwargs.pop("damp")) is not None:
-            from pycsou.operator.linop.base import HomothetyOp
-
-            op = HomothetyOp(cst=1 / (1 + damp), dim=self.dim) * op
+            op = op / (1 + damp)
         return op
 
-    def gram(self) -> pyct.MapT:
-        from pycsou.operator.linop.base import IdentityOp
+    def gram(self) -> pyct.OpT:
+        from pycsou.operator.linop import IdentityOp
 
-        return IdentityOp(shape=self.shape)
+        return IdentityOp(dim=self.dim)
 
-    def cogram(self) -> pyct.MapT:
+    def cogram(self) -> pyct.OpT:
         return self.gram()
 
 
@@ -1659,7 +1681,12 @@ class ProjOp(SquareOp):
 
     Projection operators are *idempotent*, i.e. :math:`L^2=L`.
     """
-    pass
+
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set(super().properties())
+        p.add(Property.LINEAR_IDEMPOTENT)
+        return frozenset(p)
 
 
 class OrthProjOp(ProjOp, SelfAdjointOp):
@@ -1669,6 +1696,17 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
     Orthogonal projection operators are *idempotent* and *self-adjoint*, i.e.
     :math:`L^2=L` and :math:`L^\ast=L`.
     """
+
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set()
+        for klass in cls.__bases__:
+            p |= klass.properties()
+        return frozenset(p)
+
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        return frozenset(ProjOp.properties() | SelfAdjointOp.properties())
 
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape=shape)
@@ -1684,12 +1722,10 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
             out /= 1 + damp
         return out
 
-    def dagger(self, **kwargs) -> pyct.MapT:
+    def dagger(self, **kwargs) -> pyct.OpT:
         op = self
         if (damp := kwargs.pop("damp")) is not None:
-            from pycsou.operator.linop.base import HomothetyOp
-
-            op = HomothetyOp(cst=1 / (1 + damp), dim=self.dim) * op
+            op = op / (1 + damp)
         return op
 
 
@@ -1697,18 +1733,58 @@ class PosDefOp(SelfAdjointOp):
     r"""
     Base class for *positive-definite* operators.
     """
-    pass
+
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set(super().properties())
+        p.add(Property.LINEAR_POSITIVE_DEFINITE)
+        return frozenset(p)
 
 
-_base_operators = frozenset(
-    {
-        DiffFunc,
-        DiffMap,
-        Func,
-        LinFunc,
-        LinOp,
-        Map,
-        ProxDiffFunc,
-        ProxFunc,
-    }
-)
+class LinFunc(ProxDiffFunc, LinOp):
+    r"""
+    Base class for real-valued linear functionals :math:`f:\mathbb{R}^M\to\mathbb{R}`.
+
+    Instances of this class must implement
+    :py:meth:`~pycsou.abc.operator.Apply.apply`, and
+    :py:meth:`~pycsou.abc.operator.Adjoint.adjoint`.
+
+    If known, the Lipschitz constant of the linear functional should be stored in the attribute
+    ``_lipschitz`` (initialized to :math:`+\infty` by default).
+
+    The Lipschitz constant of the gradient is 0 since the latter is constant-valued.
+    """
+
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set()
+        for klass in cls.__bases__:
+            p |= klass.properties()
+        return frozenset(p)
+
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape=shape)
+        ProxDiffFunc.__init__(self, shape)
+        LinOp.__init__(self, shape)
+
+    def lipschitz(self, **kwargs) -> pyct.Real:
+        # 'fro' / 'svds' mode are identical for linfuncs.
+        g = self.grad(np.ones(self.dim))
+        self._lipschitz = float(np.linalg.norm(g))
+        return self._lipschitz
+
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        x = xp.ones((*arr.shape[:-1], 1), dtype=arr.dtype)
+        g = self.adjoint(x)
+        return g
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        return arr - tau * self.grad(arr)
+
+    def cogram(self) -> pyct.OpT:
+        from pycsou.operator.linop import HomothetyOp
+
+        return HomothetyOp(cst=self.lipschitz() ** 2, dim=1)
