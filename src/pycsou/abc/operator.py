@@ -380,8 +380,8 @@ class Operator:
 
     def _squeeze(self) -> pyct.OpT:
         r"""
-        Cast an :py:class:`~pycsou.abc.operator.Operator` to the right sub-type given codomain
-        dimension.
+        Cast an :py:class:`~pycsou.abc.operator.Operator` to the right core operator sub-type given
+        codomain dimension.
 
         This function is meant for internal use only.
         If an end-user had to call it, then it is considered a bug.
@@ -390,6 +390,9 @@ class Operator:
             p = set(self.properties())
             p.add(Property.FUNCTIONAL)
             if Property.LINEAR in self.properties():
+                for p_ in Property:
+                    if p_.name.startswith("LINEAR_"):
+                        p.discard(p_)
                 p.add(Property.PROXIMABLE)
                 p.add(Property.DIFFERENTIABLE_FUNCTION)
             klass = self._infer_operator_type(p)
