@@ -1758,6 +1758,8 @@ class LinFunc(ProxDiffFunc, LinOp):
         super().__init__(shape=shape)
         ProxDiffFunc.__init__(self, shape)
         LinOp.__init__(self, shape)
+        assert self.dim != None, "shape: domain-agnostic LinFuncs are not supported."
+        # Reason: `op.adjoint(arr).shape` cannot be inferred based on `arr.shape` and `op.dim`.
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return LinOp.jacobian(self, arr)
