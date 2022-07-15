@@ -929,10 +929,6 @@ class ProxDiffFunc(ProxFunc, DiffFunc):
             p |= klass.properties()
         return frozenset(p)
 
-    @classmethod
-    def properties(cls) -> cabc.Set[pyct.Property]:
-        return frozenset(ProxFunc.properties() | DiffFunc.properties())
-
     def __init__(self, shape: pyct.Shape):
         ProxFunc.__init__(self, shape)
         DiffFunc.__init__(self, shape)
@@ -1695,10 +1691,6 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
         for klass in cls.__bases__:
             p |= klass.properties()
         return frozenset(p)
-
-    @classmethod
-    def properties(cls) -> cabc.Set[pyct.Property]:
-        return frozenset(ProjOp.properties() | SelfAdjointOp.properties())
 
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape=shape)
