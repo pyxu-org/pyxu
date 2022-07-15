@@ -87,8 +87,16 @@ class PGD(pyca.Solver):
         )
         super().__init__(**kwargs)
 
-        self._f = NullFunc() if (f is None) else f
-        self._g = NullFunc() if (g is None) else g
+        # Problem
+        # -------
+        # If f/g is domain-agnostic and g/f is unspecified, cannot auto-infer NullFunc dimension.
+        #
+        # Solution
+        # --------
+        # Since PGD never calls NullFunc.adjoint(), we don't care if its output is wrong.
+        # Therefore we can safely set NullFunc.dim == 1.
+        self._f = NullFunc(dim=1) if (f is None) else f
+        self._g = NullFunc(dim=1) if (g is None) else g
         if (f is None) and (g is None):
             msg = " ".join(
                 [
