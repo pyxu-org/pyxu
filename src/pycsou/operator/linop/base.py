@@ -142,6 +142,75 @@ def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
     return op._squeeze() if (op.codim == 1) else op
 
 
+def DiagonalOp(
+    vec: pyct.NDArray,
+    enable_warnings: bool = True,
+) -> pyct.OpT:
+    r"""
+    Diagonal linear operator :math:`L: \mathbf{x} \to \text{diag}(\mathbf{v}) \mathbf{x}`.
+
+    Notes
+    -----
+    :py:func:`~pycsou.operator.linop.base.DiagonalOp` instances are **not arraymodule-agnostic**:
+    they will only work with NDArrays belonging to the same array module as ``vec``.
+    Moreover, inner computations may cast input arrays when the precision of ``vec`` does not match
+    the user-requested precision.
+    If such a situation occurs, a warning is raised.
+
+    Parameters
+    ----------
+    vec: pyct.NDArray
+        (N,) diagonal scale factors.
+    enable_warnings: bool
+        If ``True``, emit a warning in case of precision mis-match issues.
+    """
+    assert len(vec) == np.prod(vec.shape), f"vec: {vec.shape} is not a DiagonalOp generator."
+    if (dim := vec.size) == 1:  # Module-agnostic
+        return HomothetyOp(cst=vec.item(), dim=1)
+    else:
+        xp = pycu.get_array_module(vec)
+        if pycu.compute(xp.allclose(vec, 0)):
+            op = NullOp(shape=(dim, dim))
+        elif pycu.compute(xp.allclose(vec, 1)):
+            op = IdentityOp(dim=dim)
+        else:  # build PosDef or SelfAdjointOp
+            enable_warnings = bool(enable_warnings)
+
+            @pycrt.enforce_precision(i="arr")
+            def op_apply(vec, _, arr):
+                if (vec.dtype != arr.dtype) and enable_warnings:
+                    msg = "Computation may not be performed at the requested precision."
+                    warnings.warn(msg, UserWarning)
+                out = arr.copy()
+                out *= vec
+                return out
+
+            def op_asarray(vec, _, **kwargs) -> pyct.NDArray:
+                dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
+                xp = kwargs.pop("xp", np)
+                A = xp.diag(vec).astype(dtype, copy=False)
+                return A
+
+            def op_gram(vec, _):
+                return DiagonalOp(vec=vec**2, enable_warnings=enable_warnings)
+
+            def op_trace(vec, _, **kwargs):
+                return vec.sum().item()
+
+            klass = pyca.PosDefOp if pycu.compute(xp.all(vec > 0)) else pyca.SelfAdjointOp
+            op = klass(shape=(dim, dim))
+            op._lipschitz = pycu.compute(xp.abs(vec).max())
+            op.apply = ft.partial(op_apply, vec, op)
+            op.asarray = ft.partial(op_asarray, vec, op)
+            op.gram = ft.partial(op_gram, vec, op)
+            op.cogram = op.gram
+            op.trace = ft.partial(op_trace, vec, op)
+
+        # IdentityOp(dim>1) cannot be squeezed since it doesn't fall into a single core-operator
+        # category.
+        return op._squeeze() if (op.codim == 1) else op
+
+
 class ExplicitLinOp(pyca.LinOp):
     r"""
     Build a linear operator from its matrix representation.
