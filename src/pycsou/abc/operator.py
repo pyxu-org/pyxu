@@ -15,6 +15,7 @@ import scipy.sparse.linalg as spsl
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
 
 
 class Property(enum.Enum):
@@ -1410,7 +1411,7 @@ class LinOp(DiffMap):
         :py:meth:`~pycsou.abc.operator.LinOp.to_sciop`.
         """
         if sp_op.dtype not in [_.value for _ in pycrt.Width]:
-            warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
+            warnings.warn("Computation may not be performed at the requested precision.", pycuw.PrecisionWarning)
 
         # [r]matmat only accepts 2D inputs -> reshape apply|adjoint inputs as needed.
 
@@ -1551,7 +1552,7 @@ class NormalOp(SquareOp):
             raise NotImplementedError
         if k >= self.dim - 1:
             msg = "Too many eigvals wanted: performing via matrix-based ops."
-            warnings.warn(msg, UserWarning)
+            warnings.warn(msg, pycuw.DenseWarning)
             D = _dense_eval()
         else:
             D = _sparse_eval()
