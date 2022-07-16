@@ -13,11 +13,7 @@ import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
 
-class IdentityOp(pyca.PosDefOp, pyca.UnitOp):
-    r"""
-    Identity operator :math:`\mathrm{Id}`.
-    """
-
+class IdentityOp(pyca.PosDefOp, pyca.UnitOp, pyca.OrthProjOp):
     @classmethod
     def properties(cls) -> cabc.Set[pyct.Property]:
         p = set()
@@ -28,10 +24,36 @@ class IdentityOp(pyca.PosDefOp, pyca.UnitOp):
     def __init__(self, dim: pyct.Integer):
         pyca.PosDefOp.__init__(self, shape=(dim, dim))
         pyca.UnitOp.__init__(self, shape=(dim, dim))
+        pyca.OrthProjOp.__init__(self, shape=(dim, dim))
+
+        # Use methods from UnitOp/OrthProjOp as needed.
+        # Others are delegated to PosDefOp automatically.
+        self.pinv = ft.partial(pyca.UnitOp.pinv, self)
+        self.dagger = ft.partial(pyca.UnitOp.dagger, self)
+        self.lipschitz = ft.partial(pyca.OrthProjOp.lipschitz, self)
+        self.gram = ft.partial(pyca.OrthProjOp.gram, self)
+        self.cogram = ft.partial(pyca.OrthProjOp.cogram, self)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         return arr
+
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        if kwargs.pop("gpu", False):
+            import cupy as xp
+        else:
+            xp = np
+        D = xp.ones(kwargs.pop("k"), dtype=pycrt.getPrecision().value)
+        return D
+
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
+        xp = kwargs.pop("xp", np)
+        A = xp.eye(N=self.dim, dtype=dtype)
+        return A
+
+    def trace(self, **kwargs) -> pyct.Real:
+        return self.dim
 
 
 class NullOp(pyca.LinOp):
