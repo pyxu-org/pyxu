@@ -1029,13 +1029,11 @@ class LinOpT(DiffMapT):
 
     @pytest.mark.parametrize("k", [1, 2])
     @pytest.mark.parametrize("which", ["SM", "LM"])
-    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_value1D_svdvals(self, op, _op_svd, k, which):
         self._skip_if_disabled()
         data = dict(k=k, which=which)
         self._check_value1D_vals(op.svdvals, data, _op_svd)
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_backend_svdvals(self, op, _gpu):
         self._skip_if_disabled()
         self._check_backend_vals(op.svdvals, _gpu)
@@ -1054,7 +1052,6 @@ class LinOpT(DiffMapT):
             ),
         ],
     )
-    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_precCM_svdvals(self, op, _gpu, width):
         self._skip_if_disabled()
         data = dict(in_=dict(k=1, gpu=_gpu))
@@ -1219,7 +1216,6 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         self._check_has_interface(op.gram(), PosDefOpT)
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_math_gram(self, op):
         # op_g.apply == op_g.adjoint == adjoint \comp apply
         # op_g.svdmax == op.svdmax**2
@@ -1236,7 +1232,6 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         self._check_has_interface(op.cogram(), PosDefOpT)
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_math_cogram(self, op):
         # op_cg.apply == op_cg.adjoint == apply \comp adjoint
         # op_cg.svdmax == op.svdmax**2
@@ -1382,7 +1377,6 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
     # Tests -------------------------------------------------------------------
     @pytest.mark.parametrize("k", [1])
     @pytest.mark.parametrize("which", ["SM", "LM"])
-    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_value1D_svdvals(self, op, _op_svd, k, which):
         self._skip_if_disabled()
         super().test_value1D_svdvals(op, _op_svd, k, which)
@@ -1413,11 +1407,11 @@ class SquareOpT(LinOpT):
         self._skip_if_disabled()
         assert op.dim == op.codim
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
+    @pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
     def test_interface_trace(self, op):
         assert isinstance(op.trace(), float)
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
+    @pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
     def test_value_trace(self, op, _op_trace):
         # Ensure computed trace (w/ default parameter values) satisfies statistical property stated
         # in hutchpp() docstring, i.e.: estimation error smaller than 1e-2 w/ probability 0.9
@@ -1443,13 +1437,12 @@ class NormalOpT(SquareOpT):
     # Tests -------------------------------------------------------------------
     @pytest.mark.parametrize("k", [1, 2])
     @pytest.mark.parametrize("which", ["SM", "LM"])
-    @pytest.mark.filterwarnings("ignore::UserWarning")
+    @pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
     def test_value1D_eigvals(self, op, _op_eig, k, which):
         self._skip_if_disabled()
         data = dict(k=k, which=which)
         self._check_value1D_vals(op.eigvals, data, _op_eig)
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_backend_eigvals(self, op, _gpu):
         self._skip_if_disabled()
         self._check_backend_vals(op.eigvals, _gpu)
@@ -1468,7 +1461,6 @@ class NormalOpT(SquareOpT):
             ),
         ],
     )
-    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_precCM_eigvals(self, op, _gpu, width):
         self._skip_if_disabled()
         data = dict(in_=dict(k=1, gpu=_gpu))
@@ -1554,7 +1546,6 @@ class SelfAdjointOpT(NormalOpT):
             ),
         ],
     )
-    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_precCM_eigvals(self, op, _gpu, width):
         super().test_precCM_eigvals(op, _gpu, width)
 
