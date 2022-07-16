@@ -84,6 +84,29 @@ class NullOp(pyca.LinOp):
             (*arr.shape[:-1], self.dim),
         )
 
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        if kwargs.pop("gpu", False):
+            import cupy as xp
+        else:
+            xp = np
+        D = xp.zeros(kwargs.pop("k"), dtype=pycrt.getPrecision().value)
+        return D
+
+    def gram(self) -> pyct.OpT:
+        return NullOp(shape=(self.dim, self.dim))._squeeze()
+
+    def cogram(self) -> pyct.OpT:
+        return NullOp(shape=(self.codim, self.codim))._squeeze()
+
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
+        xp = kwargs.pop("xp", np)
+        A = xp.zeros(self.shape, dtype=dtype)
+        return A
+
+    def trace(self, **kwargs) -> pyct.Real:
+        return float(0)
+
 
 def NullFunc(dim: pyct.Integer) -> pyct.OpT:
     """
