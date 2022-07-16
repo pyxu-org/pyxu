@@ -84,29 +84,14 @@ class NullOp(pyca.LinOp):
         )
 
 
-class NullFunc(NullOp, pyca.LinFunc):
+def NullFunc(dim: pyct.Integer) -> pyct.OpT:
     """
     Null functional.
 
     This functional maps any input vector on the null scalar.
     """
-
-    @classmethod
-    def properties(cls) -> cabc.Set[pyct.Property]:
-        p = set()
-        for klass in cls.__bases__:
-            p |= klass.properties()
-        return frozenset(p)
-
-    def __init__(self):
-        super().__init__(shape=(1, None))
-
-    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self.apply(arr)
-
-    @pycrt.enforce_precision(i="arr")
-    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        return arr
+    op = NullOp(shape=(1, dim))._squeeze()
+    return op
 
 
 def HomothetyOp(cst: pyct.Real, dim: pyct.Integer):
