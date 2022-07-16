@@ -386,8 +386,8 @@ class Operator:
         This function is meant for internal use only.
         If an end-user had to call it, then it is considered a bug.
         """
+        p = set(self.properties())
         if self.codim == 1:
-            p = set(self.properties())
             p.add(Property.FUNCTIONAL)
             if Property.LINEAR in self.properties():
                 for p_ in Property:
@@ -395,10 +395,11 @@ class Operator:
                         p.discard(p_)
                 p.add(Property.PROXIMABLE)
                 p.add(Property.DIFFERENTIABLE_FUNCTION)
-            klass = self._infer_operator_type(p)
-            return self.asop(klass)
-        else:
-            return self
+        elif self.codim == self.dim:
+            if Property.LINEAR in self.properties():
+                p.add(Property.LINEAR_SQUARE)
+        klass = self._infer_operator_type(p)
+        return self.asop(klass)
 
     def __repr__(self) -> str:
         klass = self.__class__.__name__
