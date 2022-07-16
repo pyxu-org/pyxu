@@ -1700,6 +1700,12 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
     def lipschitz(self, **kwargs) -> pyct.Real:
         return self._lipschitz
 
+    def gram(self) -> pyct.OpT:
+        return self
+
+    def cogram(self) -> pyct.OpT:
+        return self
+
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = arr.copy()
