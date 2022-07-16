@@ -347,7 +347,7 @@ class MapT:
     def test_interface_asop(self, op, _klass):
         # * .asop() is no-op if same klass or parent
         # * .asop() has correct interface otherwise.
-        # * Expect an exception if cast is illegal. (shape-issues)
+        # * Expect an exception if cast is illegal. (shape-issues, domain-agnostic linfuncs)
         self._skip_if_disabled()
         p = pyca.Property
         if _klass in op.__class__.__mro__:
@@ -355,6 +355,10 @@ class MapT:
             assert op2 is op
         elif (p.FUNCTIONAL in _klass.properties()) and (op.codim > 1):
             # Casting to functionals when codim != 1.
+            with pytest.raises(Exception):
+                op2 = op.asop(_klass)
+        elif ({p.FUNCTIONAL, p.LINEAR} <= _klass.properties()) and (op.dim is None):
+            # Casting to domain-agnostic linear functionals.
             with pytest.raises(Exception):
                 op2 = op.asop(_klass)
         elif (p.LINEAR_SQUARE in _klass.properties()) and (op.codim != op.dim):
