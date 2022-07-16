@@ -1478,7 +1478,7 @@ class SquareOp(LinOp):
 
     def __init__(self, shape: pyct.Shape):
         super().__init__(shape=shape)
-        assert self.dim == self.codim, f"shape: expected (M, M), got ({self.codim, self.dim})."
+        assert self.dim == self.codim, f"shape: expected (M, M), got {self.shape}."
 
     def trace(self, **kwargs) -> pyct.Real:
         """
