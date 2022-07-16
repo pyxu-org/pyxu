@@ -44,6 +44,9 @@ class IdentityOp(pyca.PosDefOp, pyca.UnitOp, pyca.OrthProjOp):
         D = xp.ones(kwargs.pop("k"), dtype=pycrt.getPrecision().value)
         return D
 
+    def eigvals(self, **kwargs) -> pyct.NDArray:
+        return self.svdvals(**kwargs)
+
     def asarray(self, **kwargs) -> pyct.NDArray:
         dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
         xp = kwargs.pop("xp", np)
@@ -51,7 +54,7 @@ class IdentityOp(pyca.PosDefOp, pyca.UnitOp, pyca.OrthProjOp):
         return A
 
     def trace(self, **kwargs) -> pyct.Real:
-        return self.dim
+        return float(self.dim)
 
 
 class NullOp(pyca.LinOp):
