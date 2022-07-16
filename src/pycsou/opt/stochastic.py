@@ -162,6 +162,7 @@ class ChunkDataset(cabc.Sequence):
             .reshape(*self.stack_dims, *self.data_shape)
             .rechunk(chunks=(*self.stack_dims, *self.chunks))
         )
+        self.op._on_startup(self.blocks, self.stack_dims)
 
     def __getitem__(self, b_index: int) -> tuple[pyct.NDArray, pyco.LinOp, np.array]:
         r"""
@@ -182,11 +183,10 @@ class ChunkDataset(cabc.Sequence):
         i = np.unravel_index(b_index, self.block_dim)
 
         batch = self.data.blocks[i]
-        # TODO check this does what I want
         batch_shape = batch.shape[-self.data_ndim :]
         ind = self.indices.blocks[i]
 
-        self.op._populate(batch_shape, self.blocks, self.stack_dims, b_index)
+        self.op._populate(b_index, batch_shape)
 
         return (
             batch.compute().reshape(*self.stack_dims, -1),
@@ -289,13 +289,13 @@ class ChunkOp(pyco.LinOp):
         self.mode = mode
         self._diff_lipschitz = self.op.diff_lipschitz()
         self._lipschitz = self.op.lipschitz()
-        self.startup = True
 
         # TODO create Stochasitc operator subclass to check against...
         if not isinstance(op, dev.Convolve):
             raise ValueError("Operator must be a Convolve operator.")
 
-    def _startup(self, blocks, stack_dims):
+    def _on_startup(self, blocks, stack_dims):
+        self.stack_dims = stack_dims
         self.cdepth = da.overlap.coerce_depth(
             len(self.depth) + len(stack_dims), (*[(0)] * len(stack_dims), *self.depth)
         )
@@ -303,9 +303,8 @@ class ChunkOp(pyco.LinOp):
         self.pad_data_shape = tuple(
             [d + 2 * self.cdepth.get(i, 0) for i, d in enumerate((*stack_dims, *self.data_shape))]
         )
-        self.startup = False
 
-    def _populate(self, batch_shape, blocks, stack_dims, b_index):
+    def _populate(self, b_index, batch_shape):
         """
         Treating as a secondary constructor that populates the information required to build batched operators.
         Without executing this function the Chunk will not work.
@@ -323,21 +322,15 @@ class ChunkOp(pyco.LinOp):
 
         """
         self.batch_shape = batch_shape
-
-        if self.startup:
-            self._startup(blocks, stack_dims)
-
         self.overlap_slice = self.overlap_ind[b_index]
-        self.overlap_shape = tuple([s.stop - s.start for s in self.overlap_slice[len(stack_dims) :]])
+        self.overlap_shape = tuple([s.stop - s.start for s in self.overlap_slice[len(self.stack_dims) :]])
 
-        super().__init__(shape=(np.product(self.overlap_shape), np.product(self.overlap_shape)))
-
-        # TODO Convolve specific, but will have to make abstract to cover other cases, using *args/**kwargs
-        # create local operator
-        kernel = self.op.filter
         # for dev.Convolve would prefer mode='valid' to save computation as we are handling padding ourselves
         # https://github.com/scipy/scipy/issues/12997
-        self.convolve = dev.Convolve(data_shape=self.overlap_shape, filter=kernel, mode="constant")
+        # each operator will need a data_shape argument...
+        # could this potentially be a default argument?
+        self.op.data_shape = self.overlap_shape
+        self.batch_op = self.op
 
     # @classmethod
     # def _batch_create(cls, global_shape, operator, depth, mode, data_shape, chunks, stack_dims, b_index):
@@ -361,7 +354,7 @@ class ChunkOp(pyco.LinOp):
         # grab indices with overlap
         sub_arr = p_arr[tuple([Ellipsis, *self.overlap_slice])]
 
-        out = self.convolve.apply(sub_arr.reshape(*input_shape[:-1], -1))
+        out = self.batch_op.apply(sub_arr.reshape(*input_shape[:-1], -1))
 
         # trim overlap
         out = out.reshape(*input_shape[:-1], *self.overlap_shape)
@@ -376,7 +369,7 @@ class ChunkOp(pyco.LinOp):
         # pad with zeros, we need to keep information in padded region when the region is shared inside an image
         arr = xp.pad(arr.reshape(*self.batch_shape), padding)
 
-        out = self.convolve.adjoint(arr.reshape(*input_shape[:-1], -1))
+        out = self.batch_op.adjoint(arr.reshape(*input_shape[:-1], -1))
         out = out.reshape(*input_shape[:-1], *self.overlap_shape)
 
         # create array size of gradient to place our block gradient into (plus padding to then trim edges, this
