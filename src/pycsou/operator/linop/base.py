@@ -94,7 +94,7 @@ def NullFunc(dim: pyct.Integer) -> pyct.OpT:
     return op
 
 
-def HomothetyOp(cst: pyct.Real, dim: pyct.Integer):
+def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
     """
     Scaling operator.
 
@@ -109,13 +109,18 @@ def HomothetyOp(cst: pyct.Real, dim: pyct.Integer):
     -------
     op: pyct.OpT
         (dim, dim) scaling operator.
+
+    Notes
+    -----
+    This operator is not defined in terms of :py:func:`~pycsou.operator.linop.DiagonalOp` since it
+    is array-backend-agnostic.
     """
     assert isinstance(cst, pyct.Real), f"cst: expected real, got {cst}."
 
     if np.isclose(cst, 0):
-        return NullFunc() if (dim == 1) else NullOp(shape=(dim, dim))
+        op = NullOp(shape=(dim, dim))
     elif np.isclose(cst, 1):
-        return IdentityOp(dim=dim)
+        op = IdentityOp(dim=dim)
     else:  # build PosDef or SelfAdjointOp
 
         @pycrt.enforce_precision(i="arr")
@@ -124,11 +129,19 @@ def HomothetyOp(cst: pyct.Real, dim: pyct.Integer):
             out *= cst
             return out
 
+        def op_trace(cst, _, **kwargs):
+            out = cst * _.codim
+            return out
+
         klass = pyca.PosDefOp if (cst > 0) else pyca.SelfAdjointOp
         op = klass(shape=(dim, dim))
         op._lipschitz = abs(cst)
-        op.apply = types.MethodType(ft.partial(op_apply, cst), op)
-        return op
+        op.apply = ft.partial(op_apply, cst, op)
+        op.trace = ft.partial(op_trace, cst, op)
+
+    # IdentityOp(dim>1) cannot be squeezed since it doesn't fall into a single core-operator
+    # category.
+    return op._squeeze() if (op.codim == 1) else op
 
 
 class ExplicitLinOp(pyca.LinOp):
