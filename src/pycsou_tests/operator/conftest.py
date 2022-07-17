@@ -39,8 +39,11 @@ def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
     atol = {
         np.half: 3e-2,  # former pycrt.Width.HALF
         pycrt.Width.SINGLE.value: 2e-4,
+        pycrt._CWidth.SINGLE.value: 2e-4,
         pycrt.Width.DOUBLE.value: 1e-8,
+        pycrt._CWidth.DOUBLE.value: 1e-8,
         pycrt.Width.QUAD.value: 1e-16,
+        pycrt._CWidth.QUAD.value: 1e-16,
     }
     # Numbers obtained by:
     # * \sum_{k >= (p+1)//2} 2^{-k}, where p=<number of mantissa bits>; then
