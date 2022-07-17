@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 import pycsou.abc.operator as pyco
-import pycsou.operator.linop.base as pyclb
+import pycsou.operator.linop as pycl
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
@@ -24,8 +24,8 @@ class Sin(pyco.DiffMap):
 
     def jacobian(self, arr):
         xp = pycu.get_array_module(arr)
-        J = xp.diag(xp.cos(arr))
-        return pyclb.ExplicitLinOp(J)
+        J = xp.cos(arr)
+        return pycl.DiagonalOp(J)
 
 
 class TestSin(conftest.DiffMapT):
