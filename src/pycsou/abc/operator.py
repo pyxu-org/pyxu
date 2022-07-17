@@ -1463,7 +1463,7 @@ class LinOp(DiffMap):
         """
         from pycsou.operator.linop import ExplicitLinOp
 
-        return ExplicitLinOp(A, enable_warnings)._squeeze().asop(cls)
+        return ExplicitLinOp(cls, A, enable_warnings)
 
 
 class SquareOp(LinOp):
