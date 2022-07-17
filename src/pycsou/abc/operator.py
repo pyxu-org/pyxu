@@ -1156,7 +1156,12 @@ class LinOp(DiffMap):
             else:
                 spx = spsl
             op = self.to_sciop(gpu=gpu, dtype=pycrt.getPrecision().value)
-            kwargs.update(k=k, which=which, return_singular_vectors=False)
+            kwargs.update(
+                k=k,
+                which=which,
+                return_singular_vectors=False,
+                random_state=0,
+            )
             return spx.svds(op, **kwargs)
 
         if k >= min(self.shape):
