@@ -76,9 +76,8 @@ def hutchpp(
                 pycuw.DenseWarning,
             )
         tr = 0
-        e = xp.zeros(op.dim)
         for i in range(op.dim):
-            e[:] = 0
+            e = xp.zeros(op.dim)
             e[i] = 1
             tr += op.apply(e)[i]
     else:
