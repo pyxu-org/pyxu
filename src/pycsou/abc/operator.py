@@ -320,7 +320,7 @@ class Operator:
         """
         import pycsou.abc.arithmetic as arithmetic
 
-        if isinstance(k, pyct.Integer):
+        if isinstance(k, pyct.Integer) and (k >= 0):
             return arithmetic.pow(self._squeeze(), k)
         else:
             return NotImplemented
