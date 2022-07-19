@@ -932,19 +932,19 @@ class LinOpT(DiffMapT):
         mode = request.param
         if mode == "matvec":
             arr = f(self._random_array((op.dim,)))
-            out_gt = op.apply(arr)
+            out_gt = pycu.compute(op.apply(arr))
             var = "x"
         elif mode == "matmat":
             arr = f(self._random_array((op.dim, N_test)))
-            out_gt = op.apply(arr.T).T
+            out_gt = pycu.compute(op.apply(arr.T).T)
             var = "X"
         elif mode == "rmatvec":
             arr = f(self._random_array((op.codim,)))
-            out_gt = op.adjoint(arr)
+            out_gt = pycu.compute(op.adjoint(arr))
             var = "x"
         elif mode == "rmatmat":
             arr = f(self._random_array((op.codim, N_test)))
-            out_gt = op.adjoint(arr.T).T
+            out_gt = pycu.compute(op.adjoint(arr.T).T)
             var = "X"
         return dict(
             in_={var: arr},
