@@ -198,14 +198,14 @@ class Operator:
             * be domain-agnostic, or
             * be `range-broadcastable`, i.e. functional + map works.
 
-        .. todo::
-
-           Add dispatch table here once stabilized.
+        See Also
+        --------
+        :py:class:`~pycsou.abc.arithmetic.AddRule`
         """
         import pycsou.abc.arithmetic as arithmetic
 
         if isinstance(other, Operator):
-            return arithmetic.add(self._squeeze(), other._squeeze())
+            return arithmetic.AddRule(lhs=self, rhs=other).op()
         else:
             return NotImplemented
 
@@ -228,7 +228,7 @@ class Operator:
         import pycsou.abc.arithmetic as arithmetic
 
         if isinstance(other, Operator):
-            return arithmetic.add(self._squeeze(), -other._squeeze())
+            return arithmetic.AddRule(lhs=self, rhs=-other).op()
         else:
             return NotImplemented
 
@@ -243,7 +243,7 @@ class Operator:
         """
         import pycsou.abc.arithmetic as arithmetic
 
-        return arithmetic.scale(other._squeeze(), cst=-1)
+        return arithmetic.ScaleRule(op=self, cst=-1).op()
 
     def __mul__(self, other: typ.Union[pyct.Real, pyct.OpT]) -> pyct.OpT:
         """
@@ -270,16 +270,17 @@ class Operator:
             * B == C, or
             * B == None.
 
-        .. todo::
-
-           Add dispatch table here once stabilized.
+        See Also
+        --------
+        :py:class:`~pycsou.abc.arithmetic.ScaleRule`,
+        :py:class:`~pycsou.abc.arithmetic.ChainRule`
         """
         import pycsou.abc.arithmetic as arithmetic
 
         if isinstance(other, Operator):
-            return arithmetic.compose(self._squeeze(), other._squeeze())
+            return arithmetic.ChainRule(lhs=self, rhs=other).op()
         elif isinstance(other, pyct.Real):
-            return arithmetic.scale(self._squeeze(), cst=other)
+            return arithmetic.ScaleRule(op=self, cst=other).op()
         else:
             return NotImplemented
 
@@ -287,7 +288,7 @@ class Operator:
         import pycsou.abc.arithmetic as arithmetic
 
         if isinstance(other, pyct.Real):
-            return arithmetic.scale(self._squeeze(), cst=other)
+            return arithmetic.ScaleRule(op=self, cst=other).op()
         else:
             return NotImplemented
 
@@ -295,7 +296,8 @@ class Operator:
         import pycsou.abc.arithmetic as arithmetic
 
         if isinstance(other, pyct.Real):
-            return arithmetic.scale(self._squeeze(), cst=1 / other)
+            return arithmetic.ScaleRule(op=self, cst=1 / other).op()
+
         else:
             return NotImplemented
 
@@ -317,11 +319,15 @@ class Operator:
         -----
         Exponentiation is only allowed for endomorphisms, i.e. square operators.
         Chaining domain-agnostic operators is moreover forbidden.
+
+        See Also
+        --------
+        :py:class:`~pycsou.abc.arithmetic.PowerRule`
         """
         import pycsou.abc.arithmetic as arithmetic
 
         if isinstance(k, pyct.Integer) and (k >= 0):
-            return arithmetic.pow(self._squeeze(), k)
+            return arithmetic.PowerRule(op=self, k=k).op()
         else:
             return NotImplemented
 
@@ -345,11 +351,15 @@ class Operator:
         -------
         op: pyct.OpT
             (N, M) domain-scaled operator.
+
+        See Also
+        --------
+        :py:class:`~pycsou.abc.arithmetic.ArgScaleRule`
         """
         import pycsou.abc.arithmetic as arithmetic
 
         assert isinstance(scalar, pyct.Real)
-        return arithmetic.argscale(self._squeeze(), cst=scalar)
+        return arithmetic.ArgScaleRule(op=self, cst=scalar).op()
 
     def argshift(self, shift: pyct.NDArray) -> pyct.OpT:
         """
@@ -364,10 +374,14 @@ class Operator:
         -------
         op: pyct.OpT
             (N, M) domain-shifted operator.
+
+        See Also
+        --------
+        :py:class:`~pycsou.abc.arithmetic.ArgShiftRule`
         """
         import pycsou.abc.arithmetic as arithmetic
 
-        return arithmetic.argshift(self._squeeze(), cst=shift)
+        return arithmetic.ArgShiftRule(op=self, cst=shift).op()
 
     # Internal Helpers --------------------------------------------------------
     @staticmethod
