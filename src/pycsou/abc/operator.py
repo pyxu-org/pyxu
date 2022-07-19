@@ -119,7 +119,7 @@ class Operator:
         """
         if isinstance(prop, Property):
             prop = (prop,)
-        return frozenset(prop) <= self.properties()
+        return frozenset(prop) <= cls.properties()
 
     def asop(self, cast_to: pyct.OpC) -> pyct.OpT:
         r"""
