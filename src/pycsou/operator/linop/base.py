@@ -9,6 +9,7 @@ import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
 
 
 class IdentityOp(pyca.PosDefOp, pyca.UnitOp, pyca.OrthProjOp):
@@ -225,37 +226,66 @@ def DiagonalOp(
         elif pycu.compute(xp.allclose(vec, 1)):
             op = IdentityOp(dim=dim)
         else:  # build PosDef or SelfAdjointOp
-            enable_warnings = bool(enable_warnings)
 
             @pycrt.enforce_precision(i="arr")
-            def op_apply(vec, _, arr):
-                if (vec.dtype != arr.dtype) and enable_warnings:
+            def op_apply(_, arr):
+                if (_._vec.dtype != arr.dtype) and _._enable_warnings:
                     msg = "Computation may not be performed at the requested precision."
-                    warnings.warn(msg, UserWarning)
+                    warnings.warn(msg, pycuw.PrecisionWarning)
                 out = arr.copy()
-                out *= vec
+                out *= _._vec
                 return out
 
-            def op_asarray(vec, _, **kwargs) -> pyct.NDArray:
+            def op_asarray(_, **kwargs) -> pyct.NDArray:
                 dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
                 xp = kwargs.pop("xp", np)
-                A = xp.diag(vec).astype(dtype, copy=False)
+                A = xp.diag(_._vec).astype(dtype, copy=False)
                 return A
 
-            def op_gram(vec, _):
-                return DiagonalOp(vec=vec**2, enable_warnings=enable_warnings)
+            def op_gram(_):
+                return DiagonalOp(
+                    vec=_._vec**2,
+                    enable_warnings=_._enable_warnings,
+                )
 
-            def op_trace(vec, _, **kwargs):
-                return vec.sum().item()
+            def op_svdvals(_, **kwargs):
+                k = kwargs.pop("k")
+                which = kwargs.pop("which", "LM")
+                if kwargs.pop("gpu", False):
+                    import cupy as xp
+                else:
+                    xp = np
+                D = xp.abs(_._vec)
+                D = D[xp.argsort(D)]
+                D = D.astype(pycrt.getPrecision().value, copy=False)
+                return D[:k] if (which == "SM") else D[-k:]
+
+            def op_eigvals(_, **kwargs):
+                k = kwargs.pop("k")
+                which = kwargs.pop("which", "LM")
+                if kwargs.pop("gpu", False):
+                    import cupy as xp
+                else:
+                    xp = np
+                D = _._vec[xp.argsort(xp.abs(_._vec))]
+                D = D.astype(pycrt.getPrecision().value, copy=False)
+                return D[:k] if (which == "SM") else D[-k:]
+
+            def op_trace(_, **kwargs):
+                return _._vec.sum().item()
 
             klass = pyca.PosDefOp if pycu.compute(xp.all(vec > 0)) else pyca.SelfAdjointOp
             op = klass(shape=(dim, dim))
+            op._vec = vec
+            op._enable_warnings = bool(enable_warnings)
             op._lipschitz = pycu.compute(xp.abs(vec).max())
-            op.apply = ft.partial(op_apply, vec, op)
-            op.asarray = ft.partial(op_asarray, vec, op)
-            op.gram = ft.partial(op_gram, vec, op)
+            op.apply = types.MethodType(op_apply, op)
+            op.asarray = types.MethodType(op_asarray, op)
+            op.gram = types.MethodType(op_gram, op)
             op.cogram = op.gram
-            op.trace = ft.partial(op_trace, vec, op)
+            op.svdvals = types.MethodType(op_svdvals, op)
+            op.eigvals = types.MethodType(op_eigvals, op)
+            op.trace = types.MethodType(op_trace, op)
 
         # IdentityOp(dim>1) cannot be squeezed since it doesn't fall into a single core-operator
         # category.
