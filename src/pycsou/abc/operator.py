@@ -821,24 +821,24 @@ class ProxFunc(Func):
            plt.legend(labels)
            plt.title('Derivative of Moreau Envelope')
         """
-        assert mu > 0, f"mu: expected positive, got {mu}"
-
-        op = DiffFunc(self.shape)
 
         @pycrt.enforce_precision(i="arr")
-        def op_apply(mu, self, _, arr):
+        def op_apply(_, arr):
             xp = pycu.get_array_module(arr)
-            x = self.prox(arr, tau=mu)
-            return self.apply(x) + (1 / (2 * mu)) * xp.linalg.norm(arr - x, axis=-1, keepdims=True) ** 2
+            x = self.prox(arr, tau=_._mu)
+            return self.apply(x) + (1 / (2 * _._mu)) * xp.linalg.norm(arr - x, axis=-1, keepdims=True) ** 2
 
         @pycrt.enforce_precision(i="arr")
-        def op_grad(mu, self, _, arr):
-            x = self.prox(arr, tau=mu)
-            return (arr - x) / mu
+        def op_grad(_, arr):
+            x = self.prox(arr, tau=_._mu)
+            return (arr - x) / _._mu
 
-        op.apply = types.MethodType(ft.partial(op_apply, mu, self), op)
-        op.grad = types.MethodType(ft.partial(op_grad, mu, self), op)
+        assert mu > 0, f"mu: expected positive, got {mu}"
+        op = DiffFunc(self.shape)
+        op._mu = mu
         op._diff_lipschitz = 1 / mu
+        op.apply = types.MethodType(op_apply, op)
+        op.grad = types.MethodType(op_grad, op)
         return op
 
 
@@ -1421,7 +1421,7 @@ class LinOp(DiffMap):
         # [r]matmat only accepts 2D inputs -> reshape apply|adjoint inputs as needed.
 
         @pycrt.enforce_precision(i="arr")
-        def apply(self, arr):
+        def apply(_, arr):
             if _1d := arr.ndim == 1:
                 arr = arr.reshape((1, arr.size))
             out = sp_op.matmat(arr.T).T
@@ -1430,7 +1430,7 @@ class LinOp(DiffMap):
             return out
 
         @pycrt.enforce_precision(i="arr")
-        def adjoint(self, arr):
+        def adjoint(_, arr):
             if _1d := arr.ndim == 1:
                 arr = arr.reshape((1, arr.size))
             out = sp_op.rmatmat(arr.T).T
