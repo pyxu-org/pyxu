@@ -1334,7 +1334,7 @@ class LinOp(DiffMap):
 
         where :math:`\tau>0` corresponds to the ``damp`` parameter.
         """
-        from pycsou.operator.linop import IdentityOp
+        from pycsou.operator.linop import HomothetyOp
         from pycsou.opt.solver import CG
         from pycsou.opt.stop import MaxIter
 
@@ -1342,7 +1342,7 @@ class LinOp(DiffMap):
         kwargs_init = dict() if kwargs_init is None else kwargs_init
         b = self.adjoint(arr)
         if damp is not None:
-            A = self.gram() + (IdentityOp(shape=(self.dim, self.dim)) * damp)
+            A = self.gram() + HomothetyOp(cst=damp, dim=self.dim)
         else:
             A = self.gram()
         kwargs_init.update(show_progress=kwargs_init.get("show_progress", False))
