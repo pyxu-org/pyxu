@@ -1446,7 +1446,7 @@ class LinOp(DiffMap):
     @classmethod
     def from_array(
         cls,
-        A: pyct.NDArray,
+        A: typ.Union[pyct.NDArray, pyct.SparseArray],
         enable_warnings: bool = True,
     ) -> pyct.OpT:
         r"""
@@ -1814,10 +1814,11 @@ class LinFunc(ProxDiffFunc, LinOp):
     @classmethod
     def from_array(
         cls,
-        A: pyct.NDArray,
+        A: typ.Union[pyct.NDArray, pyct.SparseArray],
         enable_warnings: bool = True,
     ) -> pyct.OpT:
-        A = A.reshape((1, -1))
+        if A.ndim == 1:
+            A = A.reshape((1, -1))
         op = super().from_array(A, enable_warnings)
         return op
 
