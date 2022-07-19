@@ -2,10 +2,24 @@
 Operator Arithmetic.
 """
 
+import types
+
 import numpy as np
 
 import pycsou.abc.operator as pyco
+import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
+
+
+class Rule:
+    def op(self) -> pyct.OpT:
+        """
+        Returns
+        -------
+        op: pyct.OpT
+            Synthesized operator given inputs to :py:meth:`~pycsou.abc.arithmetic.Rule.__init__`.
+        """
+        raise NotImplementedError
 
 
 def add(lhs: pyct.OpT, rhs: pyct.OpT) -> pyct.OpT:
