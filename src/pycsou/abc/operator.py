@@ -1029,8 +1029,8 @@ class LinOp(DiffMap):
         op: [cupyx.]scipy.sparse.linalg.LinearOperator
             Linear operator object compliant with SciPy's interface.
         """
-        matmat = lambda arr: self.apply(arr.T).T
-        rmatmat = lambda arr: self.adjoint(arr.T).T
+        matmat = lambda arr: pycu.compute(self.apply(arr.T).T)
+        rmatmat = lambda arr: pycu.compute(self.adjoint(arr.T).T)
 
         if dtype is None:
             dtype = pycrt.getPrecision().value
