@@ -148,20 +148,45 @@ def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
     else:  # build PosDef or SelfAdjointOp
 
         @pycrt.enforce_precision(i="arr")
-        def op_apply(cst, _, arr):
+        def op_apply(_, arr):
             out = arr.copy()
-            out *= cst
+            out *= _._cst
             return out
 
-        def op_trace(cst, _, **kwargs):
-            out = cst * _.codim
-            return out
+        def op_svdvals(_, **kwargs):
+            if kwargs.pop("gpu", False):
+                import cupy as xp
+            else:
+                xp = np
+            D = xp.full(
+                shape=kwargs.pop("k"),
+                fill_value=abs(_._cst),
+                dtype=pycrt.getPrecision().value,
+            )
+            return D
+
+        def op_eigvals(_, **kwargs):
+            D = _.svdvals(**kwargs)
+            D *= np.sign(_._cst)
+            return D
+
+        def op_gram(_):
+            return HomothetyOp(cst=_._cst**2, dim=_.dim)
+
+        def op_trace(_, **kwargs):
+            out = _._cst * _.codim
+            return float(out)
 
         klass = pyca.PosDefOp if (cst > 0) else pyca.SelfAdjointOp
         op = klass(shape=(dim, dim))
+        op._cst = cst
         op._lipschitz = abs(cst)
-        op.apply = ft.partial(op_apply, cst, op)
-        op.trace = ft.partial(op_trace, cst, op)
+        op.apply = types.MethodType(op_apply, op)
+        op.svdvals = types.MethodType(op_svdvals, op)
+        op.eigvals = types.MethodType(op_eigvals, op)
+        op.gram = types.MethodType(op_gram, op)
+        op.cogram = op.gram
+        op.trace = types.MethodType(op_trace, op)
 
     # IdentityOp(dim>1) cannot be squeezed since it doesn't fall into a single core-operator
     # category.
