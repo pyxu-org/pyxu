@@ -251,201 +251,122 @@ def slices_from_chunks_with_overlap(chunks: tuple[tuple[int]], depth: dict):
 
 
 class ChunkOp(pyco.LinOp):
-    def __init__(self, op: pyco.LinOp, depth, mode):
+    def __init__(self, op: pyco.LinOp, depth=None, boundary=None):
+        # TODO check that depth is not larger than any chunk (otherwise is rechunked which is not good)
         self.op = op
         self.data_shape = self.op.data_shape
+        self.data_ndim = len(self.data_shape)
         super().__init__(shape=self.op.shape)
+        # how to deal with depth and boundary. Should they include the stacking dimension
+        # or should they not include it?
+        # gut feeling is because for data shope they don't include it, then it shouldn't be included for these
+        # and I should have to deal with them in the function...
         self.depth = depth
-        self.mode = mode
+        self.boundary = boundary
         self._diff_lipschitz = self.op.diff_lipschitz()
         self._lipschitz = self.op.lipschitz()
 
         # TODO create Stochasitc operator subclass to check against...
-        if not isinstance(op, dev.Convolve):
-            raise ValueError("Operator must be a Convolve operator.")
+        # if not isinstance(op, dev.Convolve):
+        #     raise ValueError("Operator must be a Convolve operator.")
 
-    def _on_startup(self, blocks, stack_dims):
-        self.stack_dims = stack_dims
-        self.cdepth = da.overlap.coerce_depth(
-            len(self.depth) + len(stack_dims), (*[(0)] * len(stack_dims), *self.depth)
-        )
-        self.overlap_ind = slices_from_chunks_with_overlap(blocks, self.cdepth)
-        self.pad_data_shape = tuple(
-            [d + 2 * self.cdepth.get(i, 0) for i, d in enumerate((*stack_dims, *self.data_shape))]
-        )
+    def startup(self, blocks, block_dim, *args, **kwargs):
+        self.blocks = blocks
+        self.block_dim = block_dim
+        self.slices = da.core.slices_from_chunks(self.blocks)
 
-    def _populate(self, b_index, batch_shape):
-        """
-        Treating as a secondary constructor that populates the information required to build batched operators.
-        Without executing this function the Chunk will not work.
-        The purpose is to hide the private interface that is taken care of inside the BatchOp away from the user.
-
-        Parameters
-        ----------
-        data_shape
-        chunks
-        stack_dims
-        b_index
-
-        Returns
-        -------
-
-        """
-        self.batch_shape = batch_shape
-        self.overlap_slice = self.overlap_ind[b_index]
-        self.overlap_shape = tuple([s.stop - s.start for s in self.overlap_slice[len(self.stack_dims) :]])
-
-        # for dev.Convolve would prefer mode='valid' to save computation as we are handling padding ourselves
-        # https://github.com/scipy/scipy/issues/12997
-        # each operator will need a data_shape argument...
-        # could this potentially be a default argument?
+    def __getitem__(self, b_index):
+        """ """
+        self.b_index = b_index
+        self.index = np.unravel_index(self.b_index, self.block_dim)
+        self.batch_slice = self.slices[self.b_index]
+        self.overlap_shape = [s.stop - s.start + 2 * self.depth[i] for i, s in enumerate(self.batch_slice)][
+            -self.data_ndim :
+        ]
+        self.batch_shape = [s.stop - s.start for s in self.batch_slice[-self.data_ndim :]]
         self.op.data_shape = self.overlap_shape
-        self.batch_op = self.op
+        return self
 
-    # @classmethod
-    # def _batch_create(cls, global_shape, operator, depth, mode, data_shape, chunks, stack_dims, b_index):
-    #     chunkop = cls(global_shape, operator, depth, mode)
-    #     chunkop._populate(data_shape, chunks, stack_dims, b_index)
-    #     return chunkop
-
-    # TODO attempt with args / kwargs
-    # @classmethod
-    # def _batch_create(cls, *args, **kwargs):
-    #     pass
-
+    # will have to use redirect = for compute portion of it. Need to compute for ones not using dask...
     def apply(self, arr):
         xp = pycu.get_array_module(arr)
         input_shape = arr.shape
-        padding = depth_to_pad(self.cdepth)
 
-        arr = arr.reshape(*input_shape[:-1], *self.data_shape)
-        p_arr = xp.pad(arr, padding, mode=self.mode)
+        if xp != da:
+            arr = da.from_array(arr)
 
-        # grab indices with overlap
-        sub_arr = p_arr[tuple([Ellipsis, *self.overlap_slice])]
+        arr = arr.reshape(*input_shape[:-1], *self.data_shape).rechunk(self.blocks)
 
-        out = self.batch_op.apply(sub_arr.reshape(*input_shape[:-1], -1))
+        # TODO technically array does not follow Pycsou protocol,need to write my own function to reshape each batch
+        # it works as is because of how my Convolve is written, but maybe wouldn't work for something else.
+        out = da.map_overlap(
+            self.op.apply,
+            arr,
+            depth=self.depth,
+            boundary=self.boundary,
+            # allow_rechunk=True, - released 2022.6.1 DASK
+            meta=xp.array(()),
+            dtype=arr.dtype,
+        )
 
-        # trim overlap
-        out = out.reshape(*input_shape[:-1], *self.overlap_shape)
-        out = pycuo.unpad(out, padding)
-        return out.reshape(*input_shape[:-1], -1)
+        out = out[self.batch_slice]
+
+        if xp != da:
+            return out.reshape(*input_shape[:-1], -1).compute()
+        else:
+            return out.reshape(*input_shape[:-1], -1)
 
     def adjoint(self, arr):
         input_shape = arr.shape
         xp = pycu.get_array_module(arr)
-        padding = depth_to_pad(self.cdepth)
 
-        # pad with zeros, we need to keep information in padded region when the region is shared inside an image
-        arr = xp.pad(arr.reshape(*self.batch_shape), padding)
+        if xp != da:
+            out = da.from_array(xp.zeros((*input_shape[:-1], *self.data_shape)), chunks=self.blocks)
+        else:
+            out = xp.zeros(*input_shape[:-1], *self.data_shape, chunks=self.blocks)
 
-        out = self.batch_op.adjoint(arr.reshape(*input_shape[:-1], -1))
-        out = out.reshape(*input_shape[:-1], *self.overlap_shape)
+        out[self.batch_slice] = arr.reshape(*input_shape[:-1], *self.batch_shape)
 
-        # create array size of gradient to place our block gradient into (plus padding to then trim edges, this
-        # also trims the edges of our block)
-        new_arr = xp.zeros(self.pad_data_shape)
-        new_arr[tuple([Ellipsis, *self.overlap_slice])] = out
-        new_arr = pycuo.unpad(new_arr, padding)
-
-        return new_arr.reshape(*input_shape[:-1], -1)
-
-
-class ConvolveLoader(ChunkDataset):
-    r"""
-    Batches data and a Convolution Operator.
-
-    **Initialization parameters of the class:**
-
-    loader : Dataset-type
-        Object that makes data available.
-    data_shape: pyct.Shape
-        how to reshape the data dimension
-    blocks : int, tuple
-        Shape of 1 batch of data.
-    operator : pyco.LinOp
-        Global operator that will be used to create batched operators.
-    depth : dict
-        dictionary with the size of padding for each dimension. Padding is symmetric.
-    mode : str
-        how to pad the edges of the data, see np.pad - https://numpy.org/doc/stable/reference/generated/numpy.pad.html
-    """
-
-    def __init__(
-        self,
-        load,
-        data_shape: pyct.Shape,
-        blocks: pyct.Shape,
-        operator: pyco.LinOp,
-        depth: tuple[int, int],
-        mode: str = "reflect",
-    ):
-        super().__init__(load, data_shape, blocks, operator)
-        if not isinstance(operator, dev.Convolve):
-            raise ValueError("Operator must be a Convolve operator.")
-        self.depth = da.overlap.coerce_depth(
-            len(depth) + len(self._stack_dims), (*[(0)] * len(self._stack_dims), *depth)
+        n_map_overlap = functools.partial(
+            neighbors_map_overlap,
+            op=self.op.adjoint,
+            ind=self.index,
+            stack_dims=input_shape[:-1],
+            overlap=bool(self.depth),
         )
-        self.overlap_ind = slices_from_chunks_with_overlap(self.chunks, self.depth)
-        self.mode = mode
-        self.stacking_shape = self.global_shape[:-1]
-        self.pad_data_shape = tuple(
-            [d + 2 * self.depth.get(i, 0) for i, d in enumerate((*self.stacking_shape, *self.data_shape))]
+        da.map_overlap(
+            n_map_overlap,
+            out,
+            depth=self.depth,
+            boundary=None,
+            # allow_rechunk=False,- released 2022.6.1 DASK
+            meta=xp.array(()),
+            dtype=arr.dtype,
         )
 
-    def create_op(self, b_index: int, batch_shape: pyct.Shape) -> pyco.LinOp:
-        overlap_slice = self.overlap_ind[b_index]
-        overlap_shape = tuple([s.stop - s.start for s in overlap_slice[len(self._stack_dims) :]])
-
-        # TODO how to copy global convolve into local convolve, this is a cheat but
-        kernel = self.global_op.filter
-
-        # for dev.Convolve would prefer mode='valid' to save computation as we are handling padding ourselves
-        # https://github.com/scipy/scipy/issues/12997
-        convolve = dev.Convolve(data_shape=overlap_shape, filter=kernel, mode="constant")
-
-        def apply(arr):
-            xp = pycu.get_array_module(arr)
-            input_shape = arr.shape
-            padding = depth_to_pad(self.depth)
-
-            arr = arr.reshape(*input_shape[:-1], *self.data_shape)
-            p_arr = xp.pad(arr, padding, mode=self.mode)
-
-            # grab indices with overlap
-            sub_arr = p_arr[tuple([Ellipsis, *overlap_slice])]
-
-            out = convolve.apply(sub_arr.reshape(*input_shape[:-1], -1))
-
-            # trim overlap
-            out = out.reshape(*input_shape[:-1], *overlap_shape)
-            out = pycuo.unpad(out, padding)
+        if xp != da:
+            return out.reshape(*input_shape[:-1], -1).compute()
+        else:
             return out.reshape(*input_shape[:-1], -1)
 
-        def adjoint(arr):
-            input_shape = arr.shape
-            xp = pycu.get_array_module(arr)
-            padding = depth_to_pad(self.depth)
 
-            # pad with zeros, we need to keep information in padded region when the region is shared inside an image
-            arr = xp.pad(arr.reshape(*batch_shape), padding)
+def neighbors_map_overlap(x, op, ind, overlap, stack_dims, block_info=None):
+    save_shape = x.shape
+    block_id = block_info[0]["chunk-location"]
+    array_location = block_info[0]["array-location"]
 
-            out = convolve.adjoint(arr.reshape(*input_shape[:-1], -1))
-            out = out.reshape(*input_shape[:-1], *overlap_shape)
+    if block_id:
+        # subset to only be dimensions of interest (not stacking dimensions)
+        block_id = block_id[len(stack_dims) :]
+        array_location = array_location[len(stack_dims) :]
 
-            # create array size of gradient to place our block gradient into (plus padding to then trim edges, this
-            # also trims the edges of our block)
-            new_arr = xp.zeros(self.pad_data_shape)
-            new_arr[tuple([Ellipsis, *overlap_slice])] = out
-            new_arr = pycuo.unpad(new_arr, padding)
-
-            return new_arr.reshape(*input_shape[:-1], -1)
-
-        op = pyco.LinOp(shape=(np.prod(overlap_shape), np.prod(overlap_shape)))
-        op.apply = types.MethodType(lambda _, arr: apply(arr), op)
-        op.adjoint = types.MethodType(lambda _, arr: adjoint(arr), op)
-
-        return op
+        # if dimensions of interest within +/-1, apply function
+        # assuming overlap < size of chunk
+        if all([i - int(overlap) <= j <= i + int(overlap) for i, j in zip(ind, block_id)]):
+            shape_overload = [s[1] - s[0] for s in array_location]
+            op.data_shape = tuple(shape_overload)
+            return op.adjoint(x.reshape(*stack_dims, -1)).reshape(save_shape)
+    return x
 
 
 class Batch:
