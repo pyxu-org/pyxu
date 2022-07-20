@@ -138,10 +138,9 @@ class ChunkDataset(cabc.Sequence):
 
     """
 
-    def __init__(self, load, chunk_op, chunks: pyct.Shape):
+    def __init__(self, load, data_shape, chunks: pyct.Shape):
         self.load = load
-        self.op = chunk_op
-        self.data_shape = self.op.data_shape
+        self.data_shape = data_shape
         self.data_ndim = len(self.data_shape)
 
         self.chunks = chunks
@@ -162,9 +161,8 @@ class ChunkDataset(cabc.Sequence):
             .reshape(*self.stack_dims, *self.data_shape)
             .rechunk(chunks=(*self.stack_dims, *self.chunks))
         )
-        self.op._on_startup(self.blocks, self.stack_dims)
 
-    def __getitem__(self, b_index: int) -> tuple[pyct.NDArray, pyco.LinOp, np.array]:
+    def __getitem__(self, b_index: int) -> tuple[pyct.NDArray, pyct.NDArray]:
         r"""
         Parameters
         ----------
@@ -183,43 +181,15 @@ class ChunkDataset(cabc.Sequence):
         i = np.unravel_index(b_index, self.block_dim)
 
         batch = self.data.blocks[i]
-        batch_shape = batch.shape[-self.data_ndim :]
         ind = self.indices.blocks[i]
 
-        self.op._populate(b_index, batch_shape)
-
-        return (
-            batch.compute().reshape(*self.stack_dims, -1),
-            self.op,
-            ind.compute().flatten(),
-        )
+        return (batch.compute().reshape(*self.stack_dims, -1), ind.compute().flatten())
 
     def __len__(self):
         return self.data.npartitions
 
-    # @abc.abstractmethod
-    # def create_op(self, b_index: int, batch_shape: pyct.Shape) -> pyco.LinOp:
-    #     r"""
-    #     Create an operator that works on a batch of data.
-    #
-    #     Parameters
-    #     ----------
-    #     b_index : int
-    #         index for 1 batch of data
-    #     batch_shape : pyct.Shape
-    #         shape of this batch of data
-    #
-    #     Returns
-    #     -------
-    #     LinOp
-    #         batched operator
-    #
-    #
-    #     .. Important:
-    #
-    #         This method should abide by the rules described in :ref:`developer-notes`.
-    #     """
-    #     raise NotImplementedError
+    def communicate(self):
+        return {"blocks": self.blocks, "block_dim": self.block_dim}
 
 
 def depth_to_pad(depth: dict, ndims: int = 0) -> list[tuple]:
