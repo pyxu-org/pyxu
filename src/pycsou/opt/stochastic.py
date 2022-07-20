@@ -1,5 +1,6 @@
 import abc
 import collections.abc as cabc
+import functools
 import itertools
 import operator
 import types
@@ -389,12 +390,16 @@ class Batch:
         * int - shuffle according to seed, and keep this shuffle order every epoch
     """
 
-    def __init__(self, loader, shuffle: bool = False, seed: int = None):
-        self.loader = loader
+    def __init__(self, batch_dataset, batch_op, shuffle: bool = False, seed: int = None):
+        self.batch_dataset = batch_dataset
+        self.batch_op = batch_op
+        self._communicate()
+
         self._epochs = 0
         self.counter = 0
         self.batch_counter = 0
-        self.num_batches = len(self.loader)
+        # TODO is this the right way to set num_batches if we have a stacking dimension?
+        self.num_batches = len(self.batch_dataset)
         self.shuffle = shuffle
         self.seed = seed
         if self.shuffle:
@@ -408,6 +413,10 @@ class Batch:
         int
         """
         return self._epochs
+
+    def _communicate(self):
+        kwargs = self.batch_dataset.communicate()
+        self.batch_op.startup(**kwargs)
 
     def _bookkeeping(self):
         if self.shuffle:
@@ -426,7 +435,8 @@ class Batch:
         return rng.permutation(np.arange(self.num_batches))
 
     def batches(self) -> typ.Tuple[pyct.NDArray, pyco.LinOp, np.array]:
-        y, op, ind = self.loader[self.batch_counter]
+        y, ind = self.batch_dataset[self.batch_counter]
+        op = self.batch_op[self.batch_counter]
         self._bookkeeping()
         yield y, op, ind
 
@@ -557,7 +567,7 @@ class Stochastic(pyco.DiffFunc):
         else:
             self.strategy = SGD()
         self.batch = batch
-        self.global_op = self.batch.loader.op
+        self.global_op = self.batch.batch_op.op
         n = self.global_op.shape[0]
         self._diff_lipschitz = (1 / n * self._f * self.global_op).diff_lipschitz()
 
