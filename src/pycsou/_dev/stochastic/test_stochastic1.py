@@ -32,10 +32,10 @@ if __name__ == "__main__":
     # ==================================================================
 
     mini_batch = (100, 100)
-    Cop_batch = pystoc.ChunkOp(op=Cop, depth=(overlap, overlap), mode="reflect")
-    c_dataset = pystoc.ChunkDataset(load=load, chunk_op=Cop_batch, chunks=mini_batch)
+    Cop_batch = pystoc.ChunkOp(op=Cop, depth={0: overlap, 1: overlap}, boundary={0: "reflect", 1: "reflect"})
+    c_dataset = pystoc.ChunkDataset(load=load, data_shape=img_shape, chunks=mini_batch)
 
-    batch = pystoc.Batch(c_dataset, shuffle=True)
+    batch = pystoc.Batch(c_dataset, Cop_batch, shuffle=True)
 
     # ==================================================================
 
