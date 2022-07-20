@@ -1392,6 +1392,10 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
         self._skip_if_disabled()
         super().test_precCM_svdvals(op, _gpu, width)
 
+    def test_interface_cogram(self, op):
+        self._skip_if_disabled()
+        self._check_has_interface(op.cogram(), LinFuncT)
+
 
 class SquareOpT(LinOpT):
     # Class Properties --------------------------------------------------------

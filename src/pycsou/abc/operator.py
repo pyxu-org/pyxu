@@ -1800,6 +1800,24 @@ class LinFunc(ProxDiffFunc, LinOp):
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         return arr - tau * self.grad(arr)
 
+    @property
+    def T(self) -> pyct.OpT:
+        # Keeping LinFunc core class not possible contrary to super-class implementation since no
+        # longer a functional. Moreover .asop() won't do anything since LinFunc inherits from LinOp.
+        # Therefore we need to manually wrap the LinFunc into a LinOp and forward all exposed
+        # arithmetic methods.
+        op = LinOp(shape=(self.dim, 1))
+        for p in op.properties():
+            for name in p.arithmetic_attributes():
+                attr = getattr(self, name)
+                setattr(op, name, attr)
+            for name in p.arithmetic_methods():
+                func = getattr(self.__class__, name)
+                setattr(op, name, types.MethodType(func, op))
+        op.apply = self.adjoint
+        op.adjoint = self.apply
+        return op
+
     def cogram(self) -> pyct.OpT:
         from pycsou.operator.linop import HomothetyOp
 
