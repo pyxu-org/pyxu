@@ -147,12 +147,12 @@ class ChunkDataset(cabc.Sequence):
 
         self.chunks = chunks
         self.global_shape = self.load.shape
-        self.stack_dims = self.global_shape[:-1]
+        self.stack_shape = self.global_shape[:-1]
 
         self.data = (
             da.from_array(self.load)
-            .reshape(*self.stack_dims, *self.data_shape)
-            .rechunk(chunks=(*self.stack_dims, *self.chunks))
+            .reshape(*self.stack_shape, *self.data_shape)
+            .rechunk(chunks=(*self.stack_shape, *self.chunks))
         )
 
         # Went with name chunkLoader, but it doesn't correspond to what dask calls chunks. Changed name to blocks.
@@ -160,8 +160,8 @@ class ChunkDataset(cabc.Sequence):
         self.block_dim = [len(c) for c in self.blocks]
         self.indices = (
             da.arange(self.load.size)
-            .reshape(*self.stack_dims, *self.data_shape)
-            .rechunk(chunks=(*self.stack_dims, *self.chunks))
+            .reshape(*self.stack_shape, *self.data_shape)
+            .rechunk(chunks=(*self.stack_shape, *self.chunks))
         )
 
     def __getitem__(self, b_index: int) -> tuple[pyct.NDArray, pyct.NDArray]:
@@ -185,13 +185,13 @@ class ChunkDataset(cabc.Sequence):
         batch = self.data.blocks[i]
         ind = self.indices.blocks[i]
 
-        return (batch.compute().reshape(*self.stack_dims, -1), ind.compute().flatten())
+        return (batch.compute().reshape(*self.stack_shape, -1), ind.compute().flatten())
 
     def __len__(self):
         return self.data.npartitions
 
     def communicate(self):
-        return {"blocks": self.blocks, "block_dim": self.block_dim}
+        return {"blocks": self.blocks, "block_dim": self.block_dim, "stack_shape": self.stack_shape}
 
 
 def depth_to_pad(depth: dict, ndims: int = 0) -> list[tuple]:
@@ -273,10 +273,16 @@ class ChunkOp(pyco.LinOp):
         #     raise ValueError("Operator must be a Convolve operator.")
 
     # TODO need to check that the block sizes are all individually > depth, because could be case where it auto calculates end chunks and they are too small....
-    def startup(self, blocks, block_dim, *args, **kwargs):
+    def startup(self, blocks, block_dim, stack_shape, *args, **kwargs):
         self.blocks = blocks
         self.block_dim = block_dim
         self.slices = da.core.slices_from_chunks(self.blocks)
+        # need stack dims here is
+        self.stack_shape = stack_shape
+        stack_ndim = len(self.stack_shape)
+
+        self.depth = self._coerce_condition(self.depth, self.data_ndim + stack_ndim, stack_ndim, "depth")
+        self.boundary = self._coerce_condition(self.boundary, self.data_ndim + stack_ndim, stack_ndim, "boundary")
 
     def __getitem__(self, b_index):
         """ """
@@ -289,6 +295,16 @@ class ChunkOp(pyco.LinOp):
         self.batch_shape = [s.stop - s.start for s in self.batch_slice[-self.data_ndim :]]
         self.op.data_shape = self.overlap_shape
         return self
+
+    def _coerce_condition(self, condition, ndim, num_stack, which):
+        if which == "depth":
+            default = 0
+        elif which == "boundary":
+            default = None
+        else:
+            raise ValueError
+
+        return dict(((i, default) if i < num_stack else (i, condition[i - num_stack]) for i in range(ndim)))
 
     def apply(self, arr):
         xp = pycu.get_array_module(arr)
