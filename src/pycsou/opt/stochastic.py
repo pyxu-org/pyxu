@@ -139,6 +139,7 @@ class ChunkDataset(cabc.Sequence):
 
     """
 
+    # TODO what if load is already a dask array -> redirect or if statement
     def __init__(self, load, data_shape, chunks: pyct.Shape):
         self.load = load
         self.data_shape = data_shape
@@ -271,6 +272,7 @@ class ChunkOp(pyco.LinOp):
         # if not isinstance(op, dev.Convolve):
         #     raise ValueError("Operator must be a Convolve operator.")
 
+    # TODO need to check that the block sizes are all individually > depth, because could be case where it auto calculates end chunks and they are too small....
     def startup(self, blocks, block_dim, *args, **kwargs):
         self.blocks = blocks
         self.block_dim = block_dim
@@ -288,7 +290,6 @@ class ChunkOp(pyco.LinOp):
         self.op.data_shape = self.overlap_shape
         return self
 
-    # will have to use redirect = for compute portion of it. Need to compute for ones not using dask...
     def apply(self, arr):
         xp = pycu.get_array_module(arr)
         input_shape = arr.shape
@@ -324,18 +325,20 @@ class ChunkOp(pyco.LinOp):
         if xp != da:
             out = da.from_array(xp.zeros((*input_shape[:-1], *self.data_shape)), chunks=self.blocks)
         else:
-            out = xp.zeros(*input_shape[:-1], *self.data_shape, chunks=self.blocks)
+            out = da.zeros((*input_shape[:-1], *self.data_shape), chunks=self.blocks)
 
-        out[self.batch_slice] = arr.reshape(*input_shape[:-1], *self.batch_shape)
+        out[self.batch_slice] = arr.reshape((*input_shape[:-1], *self.batch_shape))
 
+        # TODO there is some problem in the smaller regions, that aren't the same size.
+        # potentially has to do with
         n_map_overlap = functools.partial(
             neighbors_map_overlap,
-            op=self.op.adjoint,
+            op=self.op,
             ind=self.index,
             stack_dims=input_shape[:-1],
             overlap=bool(self.depth),
         )
-        da.map_overlap(
+        out = da.map_overlap(
             n_map_overlap,
             out,
             depth=self.depth,
@@ -360,10 +363,11 @@ def neighbors_map_overlap(x, op, ind, overlap, stack_dims, block_info=None):
         # subset to only be dimensions of interest (not stacking dimensions)
         block_id = block_id[len(stack_dims) :]
         array_location = array_location[len(stack_dims) :]
+        ind = ind[len(stack_dims) :]
 
         # if dimensions of interest within +/-1, apply function
-        # assuming overlap < size of chunk
         if all([i - int(overlap) <= j <= i + int(overlap) for i, j in zip(ind, block_id)]):
+            print(f"block_id: {block_id} array_location: {array_location} shape: {x.shape}")
             shape_overload = [s[1] - s[0] for s in array_location]
             op.data_shape = tuple(shape_overload)
             return op.adjoint(x.reshape(*stack_dims, -1)).reshape(save_shape)
