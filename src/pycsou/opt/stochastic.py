@@ -259,10 +259,6 @@ class ChunkOp(pyco.LinOp):
         self.data_shape = self.op.data_shape
         self.data_ndim = len(self.data_shape)
         super().__init__(shape=self.op.shape)
-        # how to deal with depth and boundary. Should they include the stacking dimension
-        # or should they not include it?
-        # gut feeling is because for data shope they don't include it, then it shouldn't be included for these
-        # and I should have to deal with them in the function...
         self.depth = depth
         self.boundary = boundary
         self._diff_lipschitz = self.op.diff_lipschitz()
@@ -272,17 +268,21 @@ class ChunkOp(pyco.LinOp):
         # if not isinstance(op, dev.Convolve):
         #     raise ValueError("Operator must be a Convolve operator.")
 
-    # TODO need to check that the block sizes are all individually > depth, because could be case where it auto calculates end chunks and they are too small....
     def startup(self, blocks, block_dim, stack_shape, *args, **kwargs):
         self.blocks = blocks
         self.block_dim = block_dim
         self.slices = da.core.slices_from_chunks(self.blocks)
-        # need stack dims here is
         self.stack_shape = stack_shape
         stack_ndim = len(self.stack_shape)
 
-        self.depth = self._coerce_condition(self.depth, self.data_ndim + stack_ndim, stack_ndim, "depth")
-        self.boundary = self._coerce_condition(self.boundary, self.data_ndim + stack_ndim, stack_ndim, "boundary")
+        self.depth = self._coerce_condition(self.depth, self.data_ndim + stack_ndim, stack_ndim)
+        self.boundary = self._coerce_condition(self.boundary, self.data_ndim + stack_ndim, stack_ndim, default=None)
+        for i, (k, v) in enumerate(self.depth.items()):
+            if v > 0:
+                if not all([b >= v for b in self.blocks[i]]):
+                    raise ValueError(
+                        f"{self.blocks[i]} has a chunk/chunks smaller than depth: {v}. Provide a different chunking size."
+                    )
 
     def __getitem__(self, b_index):
         """ """
