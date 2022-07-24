@@ -296,14 +296,7 @@ class ChunkOp(pyco.LinOp):
         self.op.data_shape = self.overlap_shape
         return self
 
-    def _coerce_condition(self, condition, ndim, num_stack, which):
-        if which == "depth":
-            default = 0
-        elif which == "boundary":
-            default = None
-        else:
-            raise ValueError
-
+    def _coerce_condition(self, condition, ndim, num_stack, default=0):
         return dict(((i, default) if i < num_stack else (i, condition[i - num_stack]) for i in range(ndim)))
 
     def apply(self, arr):
