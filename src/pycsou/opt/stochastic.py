@@ -349,7 +349,7 @@ class ChunkOp(pyco.LinOp):
             n_map_overlap,
             out,
             depth=self.depth,
-            boundary=None,
+            boundary=0,
             # allow_rechunk=False,- released 2022.6.1 DASK
             meta=xp.array(()),
             dtype=arr.dtype,
@@ -374,7 +374,6 @@ def neighbors_map_overlap(x, op, ind, overlap, stack_dims, block_info=None):
 
         # if dimensions of interest within +/-1, apply function
         if all([i - int(overlap) <= j <= i + int(overlap) for i, j in zip(ind, block_id)]):
-            print(f"block_id: {block_id} array_location: {array_location} shape: {x.shape}")
             shape_overload = [s[1] - s[0] for s in array_location]
             op.data_shape = tuple(shape_overload)
             return op.adjoint(x.reshape(*stack_dims, -1)).reshape(save_shape)
