@@ -308,10 +308,8 @@ class ChunkOp(pyco.LinOp):
 
         arr = arr.reshape(*input_shape[:-1], *self.data_shape).rechunk(self.blocks)
 
-        # TODO technically array does not follow Pycsou protocol,need to write my own function to reshape each batch
-        # it works as is because of how my Convolve is written, but maybe wouldn't work for something else.
         out = da.map_overlap(
-            self.op.apply,
+            lambda x: self.op.apply(x.reshape(*input_shape[:-1], -1)).reshape(x.shape),
             arr,
             depth=self.depth,
             boundary=self.boundary,
