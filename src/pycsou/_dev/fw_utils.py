@@ -23,22 +23,22 @@ class SquaredL2Norm(pyco.ProxDiffFunc):
         self._diff_lipschitz = 2
 
     @pycrt.enforce_precision(i="arr")
-    def apply(self, arr):
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         y = xp.linalg.norm(arr, axis=-1, keepdims=True)
         y2 = xp.power(y, 2, dtype=arr.dtype)
         return y2
 
     @pycrt.enforce_precision(i="arr")
-    def grad(self, arr):
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         return 2 * arr
 
     @pycrt.enforce_precision(i=["arr", "tau"])
-    def prox(self, arr, tau):
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         y = arr / (2 * tau + 1)
         return y
 
-    @pycrt.enforce_precision(i="data")
+    @pycrt.enforce_precision(i="data", allow_None=True)
     def asloss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.ProxFunc:
         if data is None:
             return self
@@ -52,7 +52,7 @@ class L1Norm(pyco.ProxFunc):
         self._lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.Real:
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         y = xp.linalg.norm(arr, ord=1, axis=-1, keepdims=True).astype(arr.dtype)
         return y
@@ -63,7 +63,7 @@ class L1Norm(pyco.ProxFunc):
         y = xp.fmax(0, xp.fabs(arr) - tau) * xp.sign(arr)
         return y
 
-    @pycrt.enforce_precision(i="data")
+    @pycrt.enforce_precision(i="data", allow_None=True)
     def asloss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.ProxFunc:
         if data is None:
             return self
