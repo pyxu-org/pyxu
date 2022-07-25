@@ -1378,35 +1378,28 @@ class LinOp(DiffMap):
         op: pyct.OpT
             (M, N) Moore-Penrose pseudo-inverse operator.
         """
+        kwargs_fit = dict() if kwargs_fit is None else kwargs_fit
+        kwargs_init = dict() if kwargs_init is None else kwargs_init
+
+        def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
+            return self.pinv(
+                arr,
+                damp=damp,
+                kwargs_init=copy.copy(kwargs_init),
+                kwargs_fit=copy.copy(kwargs_fit),
+            )
+
+        def op_adjoint(_, arr: pyct.NDArray) -> pyct.NDArray:
+            return self.T.pinv(
+                arr,
+                damp=damp,
+                kwargs_init=copy.copy(kwargs_init),
+                kwargs_fit=copy.copy(kwargs_fit),
+            )
+
         dagger = LinOp(shape=(self.dim, self.codim))
-        dagger.apply = types.MethodType(
-            ft.partial(
-                lambda damp, kwargs_init, kwargs_fit, _, arr: self.pinv(
-                    arr,
-                    damp,
-                    kwargs_init,
-                    kwargs_fit,
-                ),
-                damp,
-                kwargs_init,
-                kwargs_fit,
-            ),
-            dagger,
-        )
-        dagger.adjoint = types.MethodType(
-            ft.partial(
-                lambda damp, kwargs_init, kwargs_fit, _, arr: self.T.pinv(
-                    arr,
-                    damp,
-                    kwargs_init,
-                    kwargs_fit,
-                ),
-                damp,
-                kwargs_init,
-                kwargs_fit,
-            ),
-            dagger,
-        )
+        dagger.apply = types.MethodType(op_apply, dagger)
+        dagger.adjoint = types.MethodType(op_adjoint, dagger)
         return dagger
 
     @classmethod
