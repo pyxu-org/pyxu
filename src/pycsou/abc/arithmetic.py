@@ -651,8 +651,170 @@ class AddRule(Rule):
         return out
 
 
-def compose(lhs: pyct.OpT, rhs: pyct.OpT) -> pyct.OpT:
-    pass
+class ChainRule(Rule):
+    def __init__(self, lhs: pyct.OpT, rhs: pyct.OpT):
+        self._lhs = lhs._squeeze()
+        self._rhs = rhs._squeeze()
+
+        # Arithmetic Attributes
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
+
+    def op(self) -> pyct.OpT:
+        identity_p = {  # identity matrix properties
+            pyco.Property.LINEAR_POSITIVE_DEFINITE,
+            pyco.Property.LINEAR_UNITARY,
+        }
+        if self._lhs.has(identity_p):
+            op = self._rhs
+        elif self._rhs.has(identity_p):
+            op = self._lhs
+        else:
+            klass = self._infer_op_klass()
+            sh_op = pycu.infer_composition_shape(self._lhs.shape, self._rhs.shape)
+            op = klass(shape=sh_op)
+            op._lhs = self._lhs  # embed for introspection
+            op._rhs = self._rhs  # embed for introspection
+            for p in op.properties():
+                for name in p.arithmetic_attributes():
+                    attr = getattr(self, name)
+                    setattr(op, name, attr)
+                for name in p.arithmetic_methods():
+                    func = getattr(self.__class__, name)
+                    setattr(op, name, types.MethodType(func, op))
+        return op
+
+    def _infer_op_klass(self) -> pyct.OpC:
+        base = set(self._lhs.properties())
+        if self._lhs.has(pyco.Map.properties()):
+            pass
+        elif self._lhs.has(pyco.Func.properties()):
+            pass
+        elif self._lhs.has(pyco.DiffMap.properties()):
+            if not self._rhs.has(pyco.Property.DIFFERENTIABLE):
+                base.discard(pyco.Property.DIFFERENTIABLE)
+        elif self._lhs.has(pyco.DiffFunc.properties()):
+            if not self._rhs.has(pyco.Property.DIFFERENTIABLE):
+                base.discard(pyco.Property.DIFFERENTIABLE)
+                base.discard(pyco.Property.DIFFERENTIABLE_FUNCTION)
+        elif self._lhs.has(pyco.ProxFunc.properties()):
+            if not self._rhs.has(pyco.Property.LINEAR_UNITARY):
+                base.discard(pyco.Property.PROXIMABLE)
+        elif self._lhs.has(pyco.ProxDiffFunc.properties()):
+            if self._rhs.has(pyco.Property.LINEAR_UNITARY):
+                pass
+            elif self._rhs.has(pyco.Property.DIFFERENTIABLE):
+                base.discard(pyco.Property.PROXIMABLE)
+            else:
+                base = {
+                    pyco.Property.CAN_EVAL,
+                    pyco.Property.FUNCTIONAL,
+                }
+        elif self._lhs.has(pyco.QuadraticFunc.properties()):
+            if self._rhs.has(pyco.Property.LINEAR):
+                pass
+            elif self._rhs.has(pyco.Property.DIFFERENTIABLE):
+                base.discard(pyco.Property.PROXIMABLE)
+                base.discard(pyco.Property.QUADRATIC)
+            else:
+                base = {
+                    pyco.Property.CAN_EVAL,
+                    pyco.Property.FUNCTIONAL,
+                }
+        elif self._lhs.has(pyco.LinOp.properties()):
+            if self._rhs.has(pyco.LinOp.LINEAR):
+                pass
+            elif self._rhs.has(pyco.Property.DIFFERENTIABLE):
+                base.discard(pyco.Property.LINEAR)
+            else:
+                base = {
+                    pyco.Property.CAN_EVAL,
+                }
+        elif self._lhs.has(pyco.LinFunc.properties()):
+            if self._rhs.has(pyco.Property.LINEAR):
+                pass
+            elif self._rhs.has(pyco.Property.QUADRATIC):
+                base.discard(pyco.Property.LINEAR)
+                base.add(pyco.Property.QUADRATIC)
+            else:
+                base.discard(pyco.Property.PROXIMABLE)
+                base.discard(pyco.Property.LINEAR)
+                base &= self._rhs.properties()
+            base.add(pyco.Property.FUNCTIONAL)
+        else:  # Necessarily a SquareOp sub-class
+            if not self._rhs.has(pyco.Property.SQUARE):
+                base &= self._rhs.properties()
+            elif self._lhs.has(pyco.Property.LINEAR_UNITARY) and self._rhs.has(pyco.Property.LINEAR_UNITARY):
+                base = pyco.UnitOp.properties()
+            else:
+                base = pyco.SquareOp.properties()
+
+        klass = pyco.Operator._infer_operator_type(base)
+        return klass
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        x = self._rhs.apply(arr)
+        out = self._lhs.apply(x)
+        return out
+
+    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return self.apply(arr)
+
+    def lipschitz(self, **kwargs) -> pyct.Real:
+        self._lipschitz = self._lhs.lipschitz(**kwargs)
+        self._lipschitz *= self._rhs.lipschitz(**kwargs)
+        return self._lipschitz
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        if all(
+            [
+                self._lhs.has(pyco.Property.PROXIMABLE),
+                self._rhs.has(pyco.Property.LINEAR_UNITARY),
+            ]
+        ):
+            x = self._rhs.apply(arr)
+            y = self._lhs.prox(x, tau)
+            out = self._rhs.adjoint(y)
+            return out
+        else:
+            raise NotImplementedError
+
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
+        x = self._rhs.apply(arr)
+        J_lhs = self._lhs.jacobian(x)
+        J_rhs = self._rhs.jacobian(arr)
+        J = J_lhs * J_rhs
+        return J
+
+    def diff_lipschitz(self, **kwargs) -> pyct.Real:
+        if self._lhs.has(pyco.Property.LINEAR) and self._rhs.has(pyco.Property.LINEAR):
+            self._diff_lipschitz = 0
+        elif self._lhs.has(pyco.Property.LINEAR) and self._rhs.has(pyco.Property.DIFFERENTIABLE):
+            self._diff_lipschitz = self._lhs.lipschitz(**kwargs)
+            self._diff_lipschitz *= self._rhs.diff_lipschitz(**kwargs)
+        elif self._lhs.has(pyco.Property.DIFFERENTIABLE) and self._rhs.has(pyco.Property.LINEAR):
+            self._diff_lipschitz = self._lhs.diff_lipschitz(**kwargs)
+            self._diff_lipschitz *= self._rhs.lipschitz(**kwargs) ** 2
+        else:
+            # @Matthieu: is this correct?
+            self._diff_lipschitz = np.inf
+        return self._diff_lipschitz
+
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        x = self._rhs.apply(arr)
+        y = self._lhs.grad(x)
+        J_rhs = self._rhs.jacobian(arr)
+        out = J_rhs.adjoint(y)
+        return out
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        x = self._lhs.adjoint(arr)
+        out = self._rhs.adjoint(x)
+        return out
 
 
 class PowerRule(Rule):
