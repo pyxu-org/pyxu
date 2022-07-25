@@ -507,17 +507,28 @@ def compose(lhs: pyct.OpT, rhs: pyct.OpT) -> pyct.OpT:
     pass
 
 
-def pow(op: pyct.OpT, k: pyct.Integer) -> pyct.OpT:
-    from pycsou.operator.linop import IdentityOp
+class PowerRule(Rule):
+    r"""
+    Special Cases:
+        k = 0  => IdentityOp
+    Else:
+        B = A \circ ... \circ A  (k-1 compositions)
+    """
 
-    assert op.codim == op.dim, f"pow: expected endomorphism, got {op}."
-    assert k >= 0, "pow: only non-negative exponents are supported."
+    def __init__(self, op: pyct.OpT, k: pyct.Integer):
+        assert op.codim == op.dim, f"PowerRule: expected endomorphism, got {op}."
+        assert int(k) >= 0, "PowerRule: only non-negative exponents are supported."
+        self._op = op._squeeze()
+        self._k = int(k)
 
-    if k == 0:
-        return IdentityOp(dim=op.codim)
-    else:
-        op_pow = op
-        if pyco.Property.LINEAR_IDEMPOTENT not in op.properties():
-            for _ in range(k - 1):
-                op_pow = compose(op, op_pow)
-        return op_pow
+    def op(self) -> pyct.OpT:
+        if self._k == 0:
+            from pycsou.operator.linop import IdentityOp
+
+            op = IdentityOp(dim=self._op.codim)
+        else:
+            op = self._op
+            if pyco.Property.LINEAR_IDEMPOTENT not in self._op.properties():
+                for _ in range(self._k - 1):
+                    op = ChainRule(self._op, op).op()
+        return op
