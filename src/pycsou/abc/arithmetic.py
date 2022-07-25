@@ -13,6 +13,11 @@ import pycsou.util.ptype as pyct
 
 
 class Rule:
+    def __init__(self):
+        # Arithmetic Attributes
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
+
     def op(self) -> pyct.OpT:
         """
         Returns
@@ -71,12 +76,9 @@ class ScaleRule(Rule):
     """
 
     def __init__(self, op: pyct.OpT, cst: pyct.Real):
+        super().__init__()
         self._op = op._squeeze()
         self._cst = float(cst)
-
-        # Arithmetic Attributes
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
 
     def op(self) -> pyct.OpT:
         if np.isclose(self._cst, 0):
@@ -220,12 +222,9 @@ class ArgScaleRule(Rule):
     """
 
     def __init__(self, op: pyct.OpT, cst: pyct.Real):
+        super().__init__()
         self._op = op._squeeze()
         self._cst = float(cst)
-
-        # Arithmetic Attributes
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
 
     def op(self) -> pyct.OpT:
         if np.isclose(self._cst, 0):
@@ -375,13 +374,10 @@ class ArgShiftRule(Rule):
     """
 
     def __init__(self, op: pyct.OpT, cst: pyct.NDArray):
+        super().__init__()
         self._op = op._squeeze()
         assert cst.size == len(cst), f"cst: expected 1D array, got {cst.shape}."
         self._cst = cst
-
-        # Arithmetic Attributes
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
 
     def op(self) -> pyct.OpT:
         xp = pycu.get_array_module(self._cst)
@@ -542,12 +538,9 @@ class AddRule(Rule):
     """
 
     def __init__(self, lhs: pyct.OpT, rhs: pyct.OpT):
+        super().__init__()
         self._lhs = lhs._squeeze()
         self._rhs = rhs._squeeze()
-
-        # Arithmetic Attributes
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
 
     def op(self) -> pyct.OpT:
         klass = self._infer_op_klass()
@@ -653,12 +646,9 @@ class AddRule(Rule):
 
 class ChainRule(Rule):
     def __init__(self, lhs: pyct.OpT, rhs: pyct.OpT):
+        super().__init__()
         self._lhs = lhs._squeeze()
         self._rhs = rhs._squeeze()
-
-        # Arithmetic Attributes
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
 
     def op(self) -> pyct.OpT:
         identity_p = {  # identity matrix properties
@@ -826,6 +816,7 @@ class PowerRule(Rule):
     """
 
     def __init__(self, op: pyct.OpT, k: pyct.Integer):
+        super().__init__()
         assert op.codim == op.dim, f"PowerRule: expected endomorphism, got {op}."
         assert int(k) >= 0, "PowerRule: only non-negative exponents are supported."
         self._op = op._squeeze()
