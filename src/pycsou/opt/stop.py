@@ -27,9 +27,9 @@ class MaxIter(pycs.StoppingCriterion):
     Example
     -------
 
-    >>> sc = MaxIter(n=5) & AbsErr(eps=0.1)
+    >>> sc = MaxIter(n=5) & AbsError(eps=0.1)
     # If N_iter < 5 -> never stop.
-    # If N_iter >= 5 -> stop if AbsErr() decides to.
+    # If N_iter >= 5 -> stop if AbsError() decides to.
     """
 
     def __init__(self, n: int):
@@ -110,6 +110,46 @@ class MaxDuration(pycs.StoppingCriterion):
         self._t_now = self._t_start
 
 
+class Memorize(pycs.StoppingCriterion):
+    """
+    Memorize a variable. (Special StoppingCriterion mostly useful for tracking objective functions
+    in Solver.)
+    """
+
+    def __init__(self, var: str):
+        """
+        Parameters
+        ----------
+        var: str
+            Variable in `Solver._mstate` to query.
+            Must be a scalar or NDArray (1D).
+        """
+        self._var = var
+        self._val = np.r_[0]  # last memorized value in stop().
+
+    def stop(self, state: cabc.Mapping) -> bool:
+        x = state[self._var]
+        if isinstance(x, pyct.Real):
+            x = np.r_[x]
+        assert x.ndim == 1
+
+        self._val = pycu.compute(x)
+        return False
+
+    def info(self) -> cabc.Mapping[str, float]:
+        if self._val.size == 1:
+            data = {f"Memorize[{self._var}]": float(self._val.max())}  # takes the only element available.
+        else:
+            data = {
+                f"Memorize[{self._var}]_min": float(self._val.min()),
+                f"Memorize[{self._var}]_max": float(self._val.max()),
+            }
+        return data
+
+    def clear(self):
+        self._val = np.r_[0]
+
+
 class AbsError(pycs.StoppingCriterion):
     """
     Stop iterative solver after absolute norm of a variable (or function thereof) reaches threshold.
@@ -118,7 +158,7 @@ class AbsError(pycs.StoppingCriterion):
     def __init__(
         self,
         eps: float,
-        var: str = "primal",
+        var: str = "x",
         f: typ.Optional[SVFunction] = None,
         norm: float = 2,
         satisfy_all: bool = True,
@@ -195,7 +235,7 @@ class RelError(pycs.StoppingCriterion):
     def __init__(
         self,
         eps: float,
-        var: str = "primal",
+        var: str = "x",
         f: typ.Optional[SVFunction] = None,
         norm: float = 2,
         satisfy_all: bool = True,
@@ -245,6 +285,8 @@ class RelError(pycs.StoppingCriterion):
 
         if self._x_prev is None:
             self._x_prev = x.copy()
+            # force 1st .info() call to have same format as further calls.
+            self._val = np.zeros(shape=(1,) if (x.ndim == 1) else x.shape[:-1])
             return False  # decision deferred: insufficient history to evaluate rel-err.
         else:
             norm = lambda _: xp.linalg.norm(_, ord=self._norm, axis=-1, keepdims=True)

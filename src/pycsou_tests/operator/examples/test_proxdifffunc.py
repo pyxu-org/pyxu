@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 import pycsou.abc.operator as pyco
+import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
@@ -31,6 +32,9 @@ class SquaredL2Norm(pyco.ProxDiffFunc):
         y = arr / (2 * tau + 1)
         return y
 
+    def asloss(self, data=None):
+        return pycof.shift_loss(self, data)
+
 
 class TestSquaredL2Norm(conftest.ProxDiffFuncT):
     @pytest.fixture(params=[7, None])
@@ -48,12 +52,12 @@ class TestSquaredL2Norm(conftest.ProxDiffFuncT):
     @pytest.fixture(
         params=[  # 2 evaluation points
             dict(
-                in_=dict(arr=np.zeros((3,))),
+                in_=dict(arr=np.zeros((7,))),
                 out=np.zeros((1,)),
             ),
             dict(
-                in_=dict(arr=np.arange(-3, 3)),
-                out=np.array([19]),
+                in_=dict(arr=np.arange(-3, 4)),
+                out=np.array([28]),
             ),
         ]
     )
@@ -62,23 +66,23 @@ class TestSquaredL2Norm(conftest.ProxDiffFuncT):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        N_test, dim = 5, dim if (dim is not None) else 3
+        N_test, dim = 5, self._sanitize(dim, 3)
         return self._random_array((N_test, dim), seed=5)
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, dim):
-        N_test, dim = 5, dim if (dim is not None) else 3
+        N_test, dim = 5, self._sanitize(dim, 3)
         return self._random_array((N_test, dim), seed=6)
 
     @pytest.fixture(
         params=[  # 2 evaluation points
             dict(
-                in_=dict(arr=np.zeros((3,))),
-                out=np.zeros((3,)),
+                in_=dict(arr=np.zeros((7,))),
+                out=np.zeros((7,)),
             ),
             dict(
-                in_=dict(arr=np.arange(-3, 3)),
-                out=2 * np.arange(-3, 3),
+                in_=dict(arr=np.arange(-3, 4)),
+                out=2 * np.arange(-3, 4),
             ),
         ]
     )
@@ -89,17 +93,17 @@ class TestSquaredL2Norm(conftest.ProxDiffFuncT):
         params=[  # 2 evaluation points
             dict(
                 in_=dict(
-                    arr=np.zeros((3,)),
+                    arr=np.zeros((7,)),
                     tau=1,
                 ),
-                out=np.zeros((3,)),
+                out=np.zeros((7,)),
             ),
             dict(
                 in_=dict(
-                    arr=np.arange(-3, 3),
+                    arr=np.arange(-3, 4),
                     tau=1,
                 ),
-                out=np.arange(-3, 3) / 3,
+                out=np.arange(-3, 4) / 3,
             ),
         ]
     )

@@ -1,96 +1,96 @@
 import warnings
 
+import dask.array as da
 import numpy as np
 
 import pycsou.abc.operator as pyco
-import pycsou.linop.base as pycb
+import pycsou.operator.linop.base as pycb
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 
-@pycrt.enforce_precision(o=True)
-def hutchpp(linop: pyco.LinOp, m: int = 4002, xp: pyct.ArrayModule = np, seed: float = 0):
-    r"""
-    Computes a stochastic estimate of the trace for linear operators based on the Hutch++ algorithm (specifically,
-    algorithm 3 of the paper https://arxiv.org/abs/2010.09649).
+def norm(x: pyct.NDArray, **kwargs):
+    """
+    Matrix or vector norm.
+
+    This function is identical to :py:func:`numpy.linalg.norm`.
+    It exists to correct bugs in Dask's implementation.
 
     Parameters
     ----------
-    linop: :py:class:`~pycsou.abc.operator.LinOp`
-        Linear operator object compliant with Pycsou's interface with square shape.
-    m: int
-        The number of queries desired to estimate the trace of the linear operator. ``m`` is set to 4002 by default,
-        based on the analysis of variance described in theorem 10 of the Hutch++ paper. This default number of queries
-        corresponds to having an estimation error smaller than 0.01 with a probability of 0.9.
-    xp:  pycsou.util.ptype.ArrayModule
-         Which array module to use to represent the output.
-    seed: int
-        Seed for the random number generator.
-
+    x: pyct.NDArray
+        Input array.
+    **kwargs
+        Any kwarg accepted by :py:func:`numpy.linalg.norm`.
 
     Returns
     -------
-    float
-        Hutch++ stochastic estimate of the trace.
-
-    Notes
-    -----
-    This function calls Numpy’s function: :py:func:`numpy.linalg.qr`. See the documentation of this function
-    for more information on its behaviour and the underlying LAPACK routines it relies on.
-
-    Examples
-     --------
-     >>> import numpy as np
-     >>> from pycsou.abc import LinOp
-     >>> # Create a square PSD linear operator
-     >>> rng = np.random.default_rng(seed=0)
-     >>> mat = rng.normal(size=(100, 100))
-     >>> A = LinOp.from_array(mat).gram()
-     >>> trace_stoch = hutchpp(A, m=10)
-     >>> trace = np.trace(A.apply(np.eye(100)))
-     >>> print(trace)
-     9961.972635463775
-     >>> print(trace_stoch)
-     10398.448002578634
+    nrm: pyct.NDArray
+        Norm of the matrix or vector(s).
     """
+    xp = pycu.get_array_module(x)
+    nrm = xp.linalg.norm(x, **kwargs)
+    nrm = nrm.astype(x.dtype, copy=False)  # dask bug: linalg.norm() always returns float64
+    return nrm
 
-    if linop.shape[0] != linop.shape[1]:
-        raise NotImplementedError
 
-    import dask.array as da
+def hutchpp(
+    op: pyco.SquareOp,
+    m: int = 4002,
+    xp: pyct.ArrayModule = np,
+    seed: float = 0,
+    enable_warnings: bool = True,
+) -> float:
+    r"""
+    Stochastic estimate of the trace of a linear operator based on the Hutch++ algorithm.
+    (Specifically algorithm 3 of the paper https://arxiv.org/abs/2010.09649)
 
-    xlin = xp.linalg
-    if xp == da:
-        kwargs = {}
-    else:
-        kwargs = {"mode": "reduced"}
+    Parameters
+    ----------
+    op: :py:class:`~pycsou.abc.operator.SquareOp`
+    m: int
+        Number of queries used to estimate the trace of the linear operator.
 
-    d = linop.shape[1]
-    if m >= d:
-        warnings.warn(
-            "Full trace computation performed. Stochastic trace estimation not performed because the number "
-            "of queries is larger or equal to the dimension of the linear operator.",
-            UserWarning,
-        )
-        return xp.sum(xp.array([linop.apply(e)[i] for i, e in enumerate(xp.eye(d))]))
+        ``m`` is set to 4002 by default based on the analysis of the variance described in theorem
+        10. This default corresponds to having an estimation error smaller than 0.01 with a
+        probability of 0.9.
+    xp: pycsou.util.ptype.ArrayModule
+        Array module used for internal computations.
+    seed: int
+        Seed for the random number generator.
 
-    if isinstance(linop, pycb.ExplicitLinOp):
-        if xp != pycu.get_array_module(linop.mat):
+    Returns
+    -------
+    tr: float
+        Stochastic estimate of tr(op).
+    """
+    if m >= op.dim:
+        if enable_warnings:
             warnings.warn(
-                f"The array module of the :py:class:`~pycsou.linop.base.ExplicitLinOp` "
-                f"({pycu.get_array_module(linop.mat)}) and the requested array module "
-                f"({xp}) are different.",
+                "Number of queries >= dim(op): fallback to deterministic trace eval.",
                 UserWarning,
             )
-
-    rng = np.random.default_rng(seed=seed)
-    s = xp.asarray(rng.standard_normal(size=(d, (m + 2) // 4)))
-    g = xp.asarray(rng.binomial(n=1, p=0.5, size=(d, (m - 2) // 2)) * 2 - 1)
-    if xp == da:
-        q, _ = xlin.qr(linop.apply(s.T).T.rechunk({0: "auto", 1: -1}), **kwargs)
+        tr = 0
+        e = xp.zeros(op.dim)
+        for i in range(op.dim):
+            e[:] = 0
+            e[i] = 1
+            tr += op.apply(e)[i]
     else:
-        q, _ = xlin.qr(linop.apply(s.T).T, **kwargs)
+        rng = np.random.default_rng(seed=seed)
+        s = xp.asarray(rng.standard_normal(size=(op.dim, (m + 2) // 4)))
+        g = xp.asarray(rng.choice((1, -1), size=(op.dim, (m - 2) // 2)))
 
-    proj = g - q @ (q.T @ g)
-    return xp.trace(q.T @ linop.apply(q.T).T) + (2.0 / (m - 2)) * xp.trace(proj.T @ linop.apply(proj.T).T)
+        data = op.apply(s.T).T
+        kwargs = dict(mode="reduced")
+        if xp == da:
+            data = data.rechunk({0: "auto", 1: -1})
+            kwargs.pop("mode")
+
+        q, _ = xp.linalg.qr(data, **kwargs)
+        proj = g - q @ (q.T @ g)
+
+        tr = (op.apply(q.T) @ q).trace()
+        tr += (2 / (m - 2)) * (op.apply(proj.T) @ proj).trace()
+    return float(tr)

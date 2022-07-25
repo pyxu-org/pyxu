@@ -1,13 +1,16 @@
+import copy
 import functools as ft
 import types
 import typing as typ
 import warnings
 
 import numpy as np
-import scipy.sparse.linalg as splin
+import scipy.linalg as spl
+import scipy.sparse.linalg as spsl
 
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.complex as pycuc
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
@@ -308,10 +311,10 @@ class Property:
             elif isinstance(other, LinOp):
                 prod._diff_lipschitz = self._diff_lipschitz * (other._lipschitz) ** 2
             else:
-                prod._diff_lipschitz = np.infty
+                prod._diff_lipschitz = np.inf
 
         Unlike the other properties listed above, automatic update of the :py:attr:`~pycsou.abc.operator.DiffMap._diff_lipschitz` attribute is
-        hence only possible when either ``self`` or ``other`` is a :py:class:`~pycsou.abc.operator.LinOp` (otherwise it is set to its default value ``np.infty``).
+        hence only possible when either ``self`` or ``other`` is a :py:class:`~pycsou.abc.operator.LinOp` (otherwise it is set to its default value ``np.inf``).
 
         .. Hint::
 
@@ -327,7 +330,7 @@ class Property:
         if isinstance(other, pyct.Real):
             from pycsou.operator.linop.base import HomothetyOp
 
-            hmap = HomothetyOp(other, dim=self.shape[0])
+            hmap = HomothetyOp(other, dim=self.codim)
             if hmap.shape[0] == 1:
                 hmap.grad = types.MethodType(lambda _, arr: hmap._cst, hmap)
             return hmap.__mul__(self)
@@ -339,7 +342,7 @@ class Property:
             raise ValueError(f"Cannot compose two maps with inconsistent shapes {self.shape} and {other.shape}.")
         shared_props = self.properties() & other.properties()
         shared_props.discard("prox")
-        if self.shape[0] == 1 and "jacobian" in shared_props:
+        if self.codim == 1 and "jacobian" in shared_props:
             shared_props.update({"grad", "single_valued"})
         for Op in _base_operators:
             if Op.properties() == shared_props:
@@ -359,7 +362,7 @@ class Property:
                 elif isinstance(other, LinOp):
                     out_op._diff_lipschitz = self._diff_lipschitz * (other._lipschitz) ** 2
                 else:
-                    out_op._diff_lipschitz = np.infty
+                    out_op._diff_lipschitz = np.inf
             elif prop == "grad":
 
                 @pycrt.enforce_precision(i="arr")
@@ -484,25 +487,28 @@ class Property:
 
             # The two statements below are functionally equivalent
             out1 = self.argscale(scalar)
-            out2 = self * HomotethyOp(scalar, dim=self.shape[1])
+            out2 = self * HomotethyOp(scalar, dim=self.dim)
 
         """
         if isinstance(scalar, pyct.Real):
             from pycsou.operator.linop.base import HomothetyOp
 
-            hmap = HomothetyOp(scalar, dim=self.shape[1])
+            # If op's dim is agnostic (None), then operator arithmetic with a Homothety will fail.
+            # Trick: since (self * Homothety).shape == self.shape, faking the Homothety's dim is OK.
+            h_dim = 1 if (self.dim is None) else self.dim
+            hmap = HomothetyOp(scalar, dim=h_dim)
             return self.__mul__(hmap)
         else:
             raise NotImplementedError
 
-    @pycrt.enforce_precision(i="arr", o=False)
-    def argshift(self: MapLike, arr: pyct.NDArray) -> MapLike:
+    @pycrt.enforce_precision(i="shift", o=False)
+    def argshift(self: MapLike, shift: pyct.NDArray) -> MapLike:
         r"""
-        Domain-shift an instance of :py:class:`~pycsou.abc.operator.Map` subclasses by ``arr``.
+        Domain-shift an instance of :py:class:`~pycsou.abc.operator.Map` subclasses by ``shift``.
 
         Parameters
         ----------
-        arr: NDArray
+        shift: NDArray
             Shift vector with size (N,).
 
         Returns
@@ -513,7 +519,7 @@ class Property:
         Raises
         ------
         ValueError
-            If ``arr`` is not of type NDArray or has incorrect size, i.e. ``N != self.shape[1]``.
+            If ``shift`` is not of type NDArray or has incorrect size, i.e. ``N != self.dim``.
 
         Notes
         -----
@@ -528,29 +534,31 @@ class Property:
 
             out._lipschitz = self._lipschitz
             out._diff_lipschitz = self._diff_lipschitz
-            out.apply = lambda x: self.apply(x + arr)
-            out.jacobian = lambda x: self.jacobian(x + arr)
-            out.grad = lambda x: self.grad(x + arr)
-            out.prox = lambda x, tau: self.prox(x + arr, tau) - arr
+            out.apply = lambda x: self.apply(x + shift)
+            out.jacobian = lambda x: self.jacobian(x + shift)
+            out.grad = lambda x: self.grad(x + shift)
+            out.prox = lambda x, tau: self.prox(x + shift, tau) - shift
 
-        where ``out = self.argshift(arr)`` denotes the domain-shifted output.
+        where ``out = self.argshift(shift)`` denotes the domain-shifted output.
 
 
         """
         try:
-            arr = arr.copy().squeeze()
+            pycu.get_array_module(shift)
         except:
-            raise ValueError("Argument [arr] must be of type NDArray.")
-        if (self.shape[-1] is None) or (self.shape[-1] == arr.shape[-1]):
-            out_shape = (self.shape[0], arr.shape[-1])
+            raise ValueError("Argument [shift] must be of type NDArray.")
+        if shift.ndim != 1:
+            raise ValueError("Lag must be 1D.")
+        if (self.dim is None) or (self.dim == shift.shape[-1]):
+            out_shape = (self.codim, shift.shape[-1])
         else:
-            raise ValueError(f"Invalid lag shape: {arr.shape[-1]} != {self.shape[-1]}")
+            raise ValueError(f"Invalid lag shape: {shift.shape[-1]} != {self.dim}")
         if isinstance(self, LinFunc):  # Shifting a linear map makes it an affine map.
             out_op = DiffFunc(shape=out_shape)
         elif isinstance(self, LinOp):  # Shifting a linear map makes it an affine map.
             out_op = DiffMap(shape=out_shape)
         else:
-            out_op = self.__class__(shape=out_shape)
+            out_op = copy.copy(self)
         props = out_op.properties()
         if out_op == DiffFunc:
             props.discard("jacobian")
@@ -559,15 +567,20 @@ class Property:
             if prop in ["lipschitz", "diff_lipschitz"]:
                 setattr(out_op, "_" + prop, getattr(self, "_" + prop))
             elif prop == "prox":
-                out_op.prox = types.MethodType(
-                    ft.partial(lambda arr, _, x, tau: self.prox(x + arr, tau) - arr, arr), out_op
-                )
+
+                @pycrt.enforce_precision(i=("arr", "tau"))
+                def argshifted_prox(shift, _, arr, tau):
+                    shift = shift.astype(arr.dtype, copy=False)
+                    return self.prox(arr + shift, tau) - shift
+
+                setattr(out_op, "prox", types.MethodType(ft.partial(argshifted_prox, shift), out_op))
             else:
 
-                def argshifted_method(prop, arr, _, x: pyct.NDArray) -> typ.Union[pyct.NDArray, "LinOp"]:
-                    return getattr(self, prop)(x + arr)
+                def argshifted_method(prop, shift, _, arr: pyct.NDArray) -> typ.Union[pyct.NDArray, "LinOp"]:
+                    shift = shift.astype(arr.dtype, copy=False)
+                    return getattr(self, prop)(arr + shift)
 
-                setattr(out_op, prop, types.MethodType(ft.partial(argshifted_method, prop, arr), out_op))
+                setattr(out_op, prop, types.MethodType(ft.partial(argshifted_method, prop, shift), out_op))
         return out_op.squeeze()
 
 
@@ -632,14 +645,18 @@ class Apply(Property):
 
         Notes
         -----
-        A constant :math:`L_\mathbf{h}>0` is said to be a *Lipschitz constant* for a map :math:`\mathbf{h}:\mathbb{R}^N\to \mathbb{R}^M` if:
+        * This method should always be callable without specifying any kwargs.
 
-        .. math::
+        * A constant :math:`L_\mathbf{h}>0` is said to be a *Lipschitz constant* for a map
+          :math:`\mathbf{h}:\mathbb{R}^N\to \mathbb{R}^M` if:
 
-            \|\mathbf{h}(\mathbf{x})-\mathbf{h}(\mathbf{y})\|_{\mathbb{R}^M} \leq L_\mathbf{h} \|\mathbf{x}-\mathbf{y}\|_{\mathbb{R}^N}, \qquad \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^N,
+          .. math::
 
-        where :math:`\|\cdot\|_{\mathbb{R}^M}`$` and :math:`\|\cdot\|_{\mathbb{R}^N}`$` are the canonical norms on their respective spaces. The smallest of all Lipschitz constants for a given map
-        is called the *optimal Lipschitz constant*.
+              \|\mathbf{h}(\mathbf{x})-\mathbf{h}(\mathbf{y})\|_{\mathbb{R}^M} \leq L_\mathbf{h} \|\mathbf{x}-\mathbf{y}\|_{\mathbb{R}^N}, \qquad \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^N,
+
+          where :math:`\|\cdot\|_{\mathbb{R}^M}`$` and :math:`\|\cdot\|_{\mathbb{R}^N}`$` are the
+          canonical norms on their respective spaces. The smallest of all Lipschitz constants for a
+          given map is called the *optimal Lipschitz constant*.
         """
         raise NotImplementedError
 
@@ -831,7 +848,7 @@ class Proximal(Property):
         """
         raise NotImplementedError
 
-    @pycrt.enforce_precision(i=("arr", "sigma"), o=True)
+    @pycrt.enforce_precision(i=("arr", "sigma"))
     def fenchel_prox(self, arr: pyct.NDArray, sigma: pyct.Real) -> pyct.NDArray:
         r"""
         Evaluate the proximity operator of the ``sigma``-scaled Fenchel conjugate of a functional at a point ``arr``.
@@ -922,8 +939,8 @@ class Map(Apply):
             )
         elif shape[0] is None:
             raise ValueError("Codomain agnostic maps are not supported.")
-        self._shape = shape
-        self._lipschitz = np.infty
+        self._shape = tuple(shape)
+        self._lipschitz = np.inf
 
     @property
     def shape(self) -> typ.Tuple[int, typ.Union[int, None]]:
@@ -985,21 +1002,13 @@ class Map(Apply):
         self: MapLike,
         out: typ.Type[typ.Union["Func", "DiffFunc", "LinFunc"]],
     ) -> MapLike:
-        if self.shape[0] == 1:
+        if self.codim == 1:
             obj = self.specialize(cast_to=out)
         else:
             obj = self
         return obj
 
     def lipschitz(self, **kwargs) -> float:
-        r"""
-        Return the map's Lipschitz constant.
-
-        Returns
-        -------
-        float
-            The map's Lipschitz constant.
-        """
         return self._lipschitz
 
     def specialize(
@@ -1044,7 +1053,7 @@ class Map(Apply):
                     return np.sum(arr, axis=-1, keepdims=True)
 
                 def adjoint(self, arr):
-                    return arr * np.ones(self.shape[-1])
+                    return arr * np.ones(self.dim)
 
 
 
@@ -1200,7 +1209,7 @@ class DiffMap(Map, Differential):
             Shape of the map (N,M). Shapes of the form (N, None) can be used to denote domain-agnostic maps.
         """
         super(DiffMap, self).__init__(shape)
-        self._diff_lipschitz = np.infty
+        self._diff_lipschitz = np.inf
 
     def squeeze(self) -> typ.Union["DiffMap", "DiffFunc"]:
         r"""
@@ -1373,7 +1382,9 @@ class ProxFunc(Func, Proximal):
         f = Property.__add__(self, other)
         if isinstance(other, LinFunc):
             f = f.specialize(cast_to=self.__class__)
-            f.prox = types.MethodType(lambda _, x, tau: self.prox(x - tau * other.asarray(), tau), f)
+            f.prox = types.MethodType(
+                lambda _, x, tau: self.prox(x - tau * other.asarray(xp=pycu.get_array_module(x)), tau), f
+            )
         return f.squeeze()
 
     def __mul__(self: "ProxFunc", other: MapLike) -> MapLike:
@@ -1422,11 +1433,13 @@ class ProxFunc(Func, Proximal):
 
         f = Property.__mul__(self, other)
         if isinstance(other, pyct.Real):
-            other = HomothetyOp(other, dim=self.shape[0])
+            other = HomothetyOp(other, dim=self.codim)
 
         if isinstance(self, LinFunc) and isinstance(other, LinOp):
             f = f.specialize(cast_to=self.__class__)
-            f.prox = types.MethodType(lambda _, arr, tau: arr - tau * other.adjoint(self.asarray()), f)
+            f.prox = types.MethodType(
+                lambda _, arr, tau: arr - tau * other.adjoint(self.asarray(xp=pycu.get_array_module(arr))), f
+            )
         elif isinstance(other, UnitOp):
             f = f.specialize(cast_to=self.__class__)
             f.prox = types.MethodType(lambda _, arr, tau: other.adjoint(self.prox(other.apply(arr), tau)), f)
@@ -1435,6 +1448,7 @@ class ProxFunc(Func, Proximal):
             f.prox = types.MethodType(
                 lambda _, arr, tau: (1 / other._cst) * self.prox(other._cst * arr, tau * (other._cst) ** 2), f
             )
+
         return f.squeeze()
 
     @pycrt.enforce_precision(i="mu", o=False)
@@ -1708,71 +1722,74 @@ class LinOp(DiffMap, Adjoint):
         adj._lipschitz = self._lipschitz
         return adj
 
-    def to_sciop(self, dtype: typ.Optional[type] = None, cupyx: bool = False) -> splin.LinearOperator:
+    def to_sciop(self, dtype: typ.Optional[type] = None, gpu: bool = False) -> spsl.LinearOperator:
         r"""
-        Cast a :py:class:`~pycsou.abc.operator.LinOp` instance into a :py:class:`scipy.sparse.linalg.LinearOperator` instance,
-        compatible with the matrix-free linear algebra routines of `scipy.sparse.linalg <https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html>`_.
+        Cast a :py:class:`~pycsou.abc.operator.LinOp` to a
+        :py:class:`scipy.sparse.linalg.LinearOperator`, compatible with the matrix-free linear
+        algebra routines of `scipy.sparse.linalg <https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html>`_.
 
         Parameters
         ----------
         dtype: type | None
             Optional data type (i.e. working precision of the linear operator).
-        cupyx: bool
-            If ``True`` the returned object is of type  :py:class:`cupyx.scipy.sparse.linalg.LinearOperator` which accepts
-            CuPy arrays as input (for GPU accelerated computations).
+        gpu: bool
+            If ``True`` the returned object expects CuPy arrays as inputs.
 
         Returns
         -------
-        scipy.sparse.linalg.LinearOperator | cupyx.scipy.sparse.linalg.LinearOperator
+        [cupyx.]scipy.sparse.linalg.LinearOperator
             Linear operator object compliant with SciPy's interface.
-
-        Notes
-        -----
-        This method defines the optional methods ``matmat`` and ``rmatmat`` of the output Scipy's linear operator by evaluating the
-        methods :py:meth:`~pycsou.abc.operator.Apply.apply` and :py:meth:`~pycsou.abc.operator.Adjoint.adjoint` on well-chosen N-D arrays
-        (see :ref:`developer-notes`). This can be more efficient (and is at the very least equally efficient)
-        than the naive parallelization performed by Scipy when the two methods are not provided by the user.
         """
 
         def matmat(arr: pyct.NDArray) -> pyct.NDArray:
-            return self.apply(arr.transpose())
+            return self.apply(arr.T).T
 
         def rmatmat(arr: pyct.NDArray) -> pyct.NDArray:
-            return self.adjoint(arr.transpose())
+            return self.adjoint(arr.T).T
 
         if dtype is None:
             dtype = pycrt.getPrecision().value
 
-        if (
-            pycu.deps.CUPY_ENABLED and cupyx
-        ):  # Scipy casts any input to the LinOp as a Numpy array so the cupyx version is needed.
+        if gpu:
+            assert pycd.CUPY_ENABLED
             import cupyx.scipy.sparse.linalg as spx
         else:
-            spx = splin
+            spx = spsl
         return spx.LinearOperator(
-            shape=self.shape, matvec=self.apply, rmatvec=self.adjoint, matmat=matmat, rmatmat=rmatmat, dtype=dtype
+            shape=self.shape,
+            matvec=self.apply,
+            rmatvec=self.adjoint,
+            matmat=matmat,
+            rmatmat=rmatmat,
+            dtype=dtype,
         )
 
-    def lipschitz(self, recompute: bool = False, algo: str = "svds", gpu: bool = False, **kwargs) -> float:
+    def lipschitz(
+        self,
+        recompute: bool = False,
+        algo: str = "svds",
+        **kwargs,
+    ) -> float:
         r"""
-        Return the (not necessarily optimal) Lipschitz constant of the operator.
+        Return a (not necessarily optimal) Lipschitz constant of the operator.
 
         Parameters
         ----------
         recompute: bool
-            If ``True`` forces the recomputation of the Lipschitz constant. If ``False`` the value contained in the private
-            instance attribute ``_lipschitz`` is used.
-        gpu: bool
-            If ``True`` the computation of the Lipschitz constant is performed on the GPU. Has no effect if ``recompute==False``.
+            If ``True``, forces re-estimation of the Lipschitz constant.
+            If ``False``, use the last-computed Lipschitz constant.
         algo: 'svds', 'fro'
-            Algorithm used for computing the Lipschitz constant. If ``algo==svds`` the Lipschitz constant is estimated as the
-            spectral norm of :math:`L`, computed via Scipy's :py:func:`scipy.sparse.linalg.svds` routine (more accurate but more compute intensive).  If ``algo==fro`` the Lipschitz constant is estimated as the
-            Froebenius norm of :math:`L`, computed via the matrix-free `Hutch++ stochastic trace estimation algorithm <https://arxiv.org/abs/2010.09649>`_ (less accurate but less compute intensive).
+            Algorithm used for computing the Lipschitz constant.
+
+            If ``algo==svds``, the Lipschitz constant is estimated as the spectral norm of :math:`L`
+            via :py:func:`scipy.sparse.linalg.svds`. (Accurate, but compute-intensive.)
+
+            If ``algo==fro``, the Lipschitz constant is estimated as the Froebenius norm of
+            :math:`L` via :py:func:`pycsou.math.linalg.hutchpp`. (Cheaper & less accurate than
+            SVD-based method.)
         kwargs:
-            Optional arguments to be passed to the algorithm used for computing the Lipschitz constant.
-            If ``algo==svds``, the parameter ``tol`` of Scipy's :py:func:`scipy.sparse.linalg.svds` routine can be particularly interesting to reduce
-            the compute time of the Lipschitz constant. If ``algo==fro``, the parameter ``m`` of :py:func:`pycsou.abc.operator.SquareOp.trace` can be interesting to control the number of queries used for the stochastic estimation.
-            If ``algo==fro`` the parameter ``xp`` can be used to select the desired array module backend for computation (Numpy, Cupy or Dask).
+            Optional kwargs passed on to :py:func:`scipy.sparse.linalg.svds` or
+            :py:func:`pycsou.math.linalg.hutchpp`.
 
         Returns
         -------
@@ -1781,109 +1798,104 @@ class LinOp(DiffMap, Adjoint):
 
         Notes
         -----
-        The tightest Lipschitz constant is given by the spectral norm of the operator :math:`L`: :math:`\beta=\|L\|_2`.
-        It can be computed by means of truncated matrix-free SVD, which can be a compute-intensive task for large-scale
-        operators. In which case, it can be advantageous to overestimate the Lipschtiz constant via the Frobenius norm of :math:`L`
-        (we have indeed :math:`\|L\|_F \geq \|L\|_2`). The Frobenius norm of  :math:`L` can indeed be approximated efficiently by
-        computing the trace of :math:`L^\ast L` (or  :math:`LL^\ast`) depending on which is most advantageous) via the
-        `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_. The Frobenius norm of  :math:`L` is upper
-        bounded by :math:`\|L\|_F \leq \sqrt{n} \|L\|_2`, where the equality is reached (worst-case scenario) in those cases in which the
-        eigenspectrum of the linear operator is flat.
+        * The tightest Lipschitz constant is given by the spectral norm of the operator :math:`L`:
+          :math:`\|L\|_2`.
+          It can be computed via the SVD, which is compute-intensive task for large operators.
+          In this setting, it may be advantageous to overestimate the Lipschitz constant with the
+          Frobenius norm of :math:`L` since :math:`\|L\|_F \geq \|L\|_2`.
 
-        Examples
-        --------
-        >>> import numpy as np
-        >>> from pycsou.abc import LinOp
-        >>> # Create a square PSD linear operator
-        >>> rng = np.random.default_rng(seed=0)
-        >>> mat = rng.normal(size=(100, 100))
-        >>> A = LinOp.from_array(mat).gram()
-        >>> # Compute Stochastic upper bound of Lipschitz (using Hutch++)
-        >>> stochastic_upper_bound = A.lipschitz(algo="fro", xp=np, m=10)
-        >>> # Compute Deterministic upper bound of Lipschitz (by setting
-        >>> # the number of queries equal to the size of the operator)
-        >>> deterministic_upper_bound = A.lipschitz(algo="fro", xp=np, m=100, recompute=True)
-        >>> # Compute Lipschitz
-        >>> lipschitz = A.lipschitz(algo="svds", recompute=True)
-        >>> print(stochastic_upper_bound)
-        [1411.78659953]
-        >>> print(deterministic_upper_bound)
-        [1411.44955295]
-        >>> print(lipschitz)
-        [384.29239583]
+          :math:`\|L\|_F` can be efficiently approximated by computing the trace of :math:`L^\ast L`
+          (or :math:`LL^\ast`) via the `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_.
 
+        * :math:`\|L\|_F` is upper bounded by :math:`\|L\|_F \leq \sqrt{n} \|L\|_2`, where the
+          equality is reached (worst-case scenario) when the eigenspectrum of the linear operator is
+          flat.
         """
-
-        if recompute or (self._lipschitz == np.infty):
+        if recompute or (self._lipschitz == np.inf):
             if algo == "fro":
-                if "gpu" in kwargs.keys():
-                    if "xp" not in kwargs.keys():
-                        if kwargs["gpu"]:
-                            import cupy as xp
-                        else:
-                            import numpy as xp
-                        kwargs.update(dict(xp=xp))
-                    kwargs.pop("gpu", None)
-                else:
-                    if "xp" not in kwargs.keys():
-                        import numpy as xp
+                import pycsou.math.linalg as pycl
 
-                        kwargs.update(dict(xp=xp))
-                if "m" not in kwargs.keys():
-                    kwargs.update(dict(m=126))
-                if np.diff(self.shape) > 0:
-                    self._lipschitz = kwargs["xp"].array(np.sqrt(self.cogram().trace(**kwargs))).reshape(-1)
-                else:
-                    self._lipschitz = kwargs["xp"].array(np.sqrt(self.gram().trace(**kwargs))).reshape(-1)
+                if "m" not in kwargs:
+                    kwargs.update(m=126)
+                op = self.gram() if (self.codim >= self.dim) else self.cogram()
+                self._lipschitz = pycl.hutchpp(op, **kwargs)
             elif algo == "svds":
-                kwargs.update(dict(k=1, which="LM", gpu=gpu))
-                self._lipschitz = self.svdvals(**kwargs)
+                kwargs.update(k=1, which="LM")
+                self._lipschitz = self.svdvals(**kwargs).item()
             else:
                 raise NotImplementedError
 
         return self._lipschitz
 
-    @pycrt.enforce_precision(o=True)
-    def svdvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
+    # @pycrt.enforce_precision()
+    def svdvals(
+        self,
+        k: int,
+        which: str = "LM",
+        gpu: bool = False,
+        **kwargs,
+    ) -> pyct.NDArray:
         r"""
-        Compute the ``k`` largest or smallest singular values of the linear operator. The order of the singular values is not guaranteed.
+        Compute the ``k`` largest or smallest singular values of the linear operator.
 
         Parameters
         ----------
         k: int
-            Number of singular values to compute. Must be ``1 <= k < min(self.shape)``.
-        which: 'LM'|'SM'
+            Number of singular values to compute.
+        which: 'LM' | 'SM'
             Which k singular values to find:
 
                 * ‘LM’ : largest magnitude
                 * ‘SM’ : smallest magnitude
-
         gpu: bool
             If ``True`` the singular value decomposition is performed on the GPU.
         kwargs:
-            Additional keyword arguments values accepted by Scipy’s function :py:func:`scipy.sparse.linalg.svds`.
+            Additional kwargs accepted by :py:func:`scipy.sparse.linalg.svds`.
 
         Returns
         -------
         NDArray
-            Array containing the ``k`` requested singular values.
-
-        Notes
-        -----
-        This function calls Scipy’s function: :py:func:`scipy.sparse.linalg.svds`. See the documentation of this function
-        for more information on its behaviour and the underlying ARPACK/LOBPCG functions it relies on.
+            Array containing the ``k`` requested singular values in ascending order.
         """
-        kwargs.update(dict(k=k, which=which, return_singular_vectors=False))
-        SciOp = self.to_sciop(pycrt.getPrecision().value, cupyx=gpu)
-        if pycu.deps.CUPY_ENABLED and gpu:
-            import cupyx.scipy.sparse.linalg as spx
-        else:
-            spx = splin
-        return spx.svds(SciOp, **kwargs)
 
-    def asarray(self, xp: pyct.ArrayModule = np, dtype: typ.Optional[type] = None) -> pyct.NDArray:
+        def _dense_eval():
+            if gpu:
+                import cupy as xp
+                import cupyx.scipy.linalg as spx
+            else:
+                xp, spx = np, spl
+            op = self.asarray(xp=xp, dtype=pycrt.getPrecision().value)
+            return spx.svdvals(op)
+
+        def _sparse_eval():
+            if gpu:
+                assert pycd.CUPY_ENABLED
+                import cupyx.scipy.sparse.linalg as spx
+            else:
+                spx = spsl
+            op = self.to_sciop(pycrt.getPrecision().value, gpu)
+            kwargs.update(k=k, which=which, return_singular_vectors=False)
+            return spx.svds(op, **kwargs)
+
+        if k >= min(self.shape):
+            msg = "Too many svdvals wanted: performing via matrix-based ops."
+            warnings.warn(msg, UserWarning)
+            D = _dense_eval()
+        else:
+            D = _sparse_eval()
+
+        # Filter to k largest/smallest magnitude + sorted
+        xp = pycu.get_array_module(D)
+        D = D[xp.argsort(D)]
+        return D[:k] if (which == "SM") else D[-k:]
+
+    def asarray(
+        self,
+        xp: pyct.ArrayModule = np,
+        dtype: typ.Optional[type] = None,
+    ) -> pyct.NDArray:
         r"""
-        Return the matrix representation of the linear operator.
+        Matrix representation of the linear operator.
 
         Parameters
         ----------
@@ -1894,35 +1906,34 @@ class LinOp(DiffMap, Adjoint):
 
         Returns
         -------
-        NDArray
-            Matrix representation stored as an array with shape (N,M).
-
-        Notes
-        -----
-        The matrix representation is computed by evaluating the linear operator on the canonical basis vectors, which can
-        be time consuming in large dimensions (and also require a lot of memory). Use this method with caution.
+        A: NDArray
+            (codim, dim) array-representation of the operator.
         """
         if dtype is None:
             dtype = pycrt.getPrecision().value
-        return self.apply(xp.eye(self.shape[1], dtype=dtype)).transpose()
+        with pycrt.EnforcePrecision(False):
+            E = xp.eye(self.dim, dtype=dtype)
+            A = self.apply(E).T
+        return A
 
     def __array__(self, dtype: typ.Optional[type] = None) -> np.ndarray:
         r"""
-        Numpy protocol allowing to coerce the linear operator into a :py:class:`numpy.ndarray` object.
+        Coerce linear operator to a :py:class:`numpy.ndarray`.
 
         Parameters
         ----------
         dtype: type | None
             Optional ``dtype`` of the array.
+
         Returns
         -------
-        numpy.ndarray
-            Matrix representation of the linear operator stored as a Numpy array.
+        A : numpy.ndarray
+            (codim, dim) representation of the linear operator, stored as a NumPy array.
 
         Notes
         -----
-        Functions like ``np.array`` or  ``np.asarray`` will check for the existence of the ``__array__`` protocol to know how to coerce the
-        custom object fed as input into an array.
+        Functions like ``np.array`` or  ``np.asarray`` will check for the existence of the
+        ``__array__`` protocol to know how to coerce the custom object fed as input into an array.
         """
         if dtype is None:
             dtype = pycrt.getPrecision().value
@@ -1978,9 +1989,9 @@ class LinOp(DiffMap, Adjoint):
         damp: float | None
             Dampening factor for regularizing the pseudo-inverse in case of ill-conditioning.
         kwargs_init: dict | None
-            Optional keywords arguments to be passed to :py:func:`pycsou.abc.solver.Solver.__init__`.
+            Optional kwargs to be passed to :py:meth:`pycsou.opt.solver.cg.CG.__init__`.
         kwargs_fit: dict | None
-            Optional keywords arguments to be passed to ``fit()`` method of :py:class:`pycsou.opt.solver.cg.CG`.
+            Optional kwargs to be passed to :py:meth:`pycsou.opt.solver.cg.CG.fit`.
 
         Returns
         -------
@@ -1989,54 +2000,53 @@ class LinOp(DiffMap, Adjoint):
 
         Notes
         -----
-        The Moore-Penrose pseudo-inverse of an operator :math:`L:\mathbb{R}^N\to \mathbb{R}^M` is defined as the operator
-        :math:`L^\dagger:\mathbb{R}^M\to \mathbb{R}^N` verifying the Moore-Penrose conditions:
+        The Moore-Penrose pseudo-inverse of an operator :math:`L:\mathbb{R}^N\to \mathbb{R}^M` is
+        defined as the operator :math:`L^\dagger:\mathbb{R}^M\to \mathbb{R}^N` verifying the
+        Moore-Penrose conditions:
 
             1. :math:`LL^\dagger L =L`,
             2. :math:`L^\dagger LL^\dagger =L^\dagger`,
             3. :math:`(L^\dagger L)^\ast=L^\dagger L`,
             4. :math:`(LL^\dagger)^\ast=LL^\dagger`.
 
-        This operator exists and is unique for any finite-dimensional linear operator. The action of the pseudo-inverse
-        :math:`L^\dagger \mathbf{y}` for every :math:`\mathbf{y}\in\mathbb{R}^M` can be computed in matrix-free fashion by
-        solving the so-called *normal equations*:
+        This operator exists and is unique for any finite-dimensional linear operator. The action of
+        the pseudo-inverse :math:`L^\dagger \mathbf{y}` for every :math:`\mathbf{y}\in\mathbb{R}^M`
+        can be computed in matrix-free fashion by solving the so-called *normal equations*:
 
         .. math::
 
-            L^\ast L \mathbf{x}= L^\ast \mathbf{y} \quad\Leftrightarrow\quad \mathbf{x}=L^\dagger \mathbf{y}, \quad \forall (\mathbf{x},\mathbf{y})\in\mathbb{R}^N\times\mathbb{R}^M.
+            L^\ast L \mathbf{x}= L^\ast \mathbf{y}
+            \quad\Leftrightarrow\quad
+            \mathbf{x}=L^\dagger \mathbf{y}, \quad \forall (\mathbf{x},\mathbf{y})\in\mathbb{R}^N\times\mathbb{R}^M.
 
-        In case of severe ill-conditioning, it is also possible to consider the dampened normal equations for a numerically stabler approximation of :math:`L^\dagger \mathbf{y}`:
+        In the case of severe ill-conditioning, it is also possible to consider the dampened normal
+        equations for a numerically-stabler approximation of :math:`L^\dagger \mathbf{y}`:
 
         .. math::
 
             (L^\ast L + \tau I) \mathbf{x}= L^\ast \mathbf{y},
 
-        where :math:`\tau>0` is the ``damp`` parameter from this routine, controlling the amount of regularization (the more the stabler/the less accurate).
-
-        The normal equations can be solved via the conjugate gradient method (:py:class:`pycsou.opt.solver.cg`) or the `LSQR <https://web.stanford.edu/group/SOL/software/lsqr/>`_ /`LSMR <https://web.stanford.edu/group/SOL/software/lsmr/>`_
-        algorithms (see :py:func:`scipy.sparse.linalg.lsqr` and :py:func:`scipy.sparse.linalg.lsmr` respectively). The
-        latter may converge faster when the operator is ill-conditioned and/or when there is no fast algorithm for ``self.gram()``
-        (i.e. when ``self.gram()`` is trivially evaluated as the composition ``self.T * self``). The GPU implementation of LSQR
-        (:py:func:`cupyx.scipy.sparse.linalg.lsqr`) seems however not matrix-free compatible. Currently, only the conjugate gradient
-        method is supported.
-
-        .. todo::
-
-            Add support for LSQR/LSMR. **Add support for N-D inputs** (will require re-implementing cg ourselves).
+        where :math:`\tau>0` corresponds to the ``damp`` parameter.
         """
         from pycsou.operator.linop.base import IdentityOp
         from pycsou.opt.solver.cg import CG
+        from pycsou.opt.stop import MaxIter
 
         kwargs_fit = {} if kwargs_fit is None else kwargs_fit
         kwargs_init = {} if kwargs_init is None else kwargs_init
         b = self.adjoint(arr)
         if damp is not None:
-            A = self.gram() + damp * IdentityOp(shape=(self.shape[1], self.shape[1]))
+            A = self.gram() + (IdentityOp(shape=(self.dim, self.dim)) * damp)
         else:
             A = self.gram()
         if "show_progress" not in kwargs_init.keys():
-            kwargs_init["show_progress"] = False  # Algorithm is silent by default.
+            kwargs_init.update(show_progress=False)
         cg = CG(A, **kwargs_init)
+        if "stop_crit" not in kwargs_fit:
+            # .pinv() may not have sufficiently converged given the default CG stopping criteria. To
+            # avoid infinite loops, CG iterations are thresholded.
+            sentinel = MaxIter(n=20 * A.dim)
+            kwargs_fit["stop_crit"] = cg.default_stop_crit() | sentinel
         cg.fit(b=b, **kwargs_fit)
         return cg.solution()
 
@@ -2066,7 +2076,7 @@ class LinOp(DiffMap, Adjoint):
         dagger = LinOp(self.shape[::-1])
         dagger.apply = types.MethodType(
             ft.partial(
-                lambda damp, kwargs_init, kwargs_fit, _, x: self.pinv(x, damp, kwargs_init, kwargs_fit),
+                lambda damp, kwargs_init, kwargs_fit, _, arr: self.pinv(arr, damp, kwargs_init, kwargs_fit),
                 damp,
                 kwargs_init,
                 kwargs_fit,
@@ -2075,7 +2085,7 @@ class LinOp(DiffMap, Adjoint):
         )
         dagger.adjoint = types.MethodType(
             ft.partial(
-                lambda damp, kwargs_init, kwargs_fit, _, x: self.T.pinv(x, damp, kwargs_init, kwargs_fit),
+                lambda damp, kwargs_init, kwargs_fit, _, arr: self.T.pinv(arr, damp, kwargs_init, kwargs_fit),
                 damp,
                 kwargs_init,
                 kwargs_fit,
@@ -2087,77 +2097,66 @@ class LinOp(DiffMap, Adjoint):
     @classmethod
     def from_sciop(cls, scipy_operator) -> "LinOp":
         r"""
-        Cast a :py:class:`scipy.sparse.linalg.LinearOperator` instance into a :py:class:`~pycsou.abc.operator.LinOp`
-        instance.
+        Cast a :py:class:`scipy.sparse.linalg.LinearOperator` to a
+        :py:class:`~pycsou.abc.operator.LinOp`.
 
         Parameters
         ----------
-        scipy_operator:  scipy.sparse.linalg.LinearOperator | cupyx.scipy.sparse.linalg.LinearOperator
+        scipy_operator: [scipy|cupyx].sparse.linalg.LinearOperator
             Linear operator object compliant with SciPy's interface.
 
         Returns
         -------
-        pycsou.abc.operator.LinOp
-           Output is a :py:class:`~pycsou.abc.operator.LinOp` object.
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> from pycsou.abc.operator import LinOp
-        >>> from scipy.sparse.linalg import aslinearoperator
-        >>> mat = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32)
-        >>> sciop = aslinearoperator(mat)
-        >>> linop = LinOp.from_sciop(sciop)
-        >>> x = np.arange(15, dtype=np.float32).reshape(5, 3)
-        >>> np.allclose(linop(x), sciop.matmat(x.T).T) # transpose to satisfy numpy n-dim convention
-        True
-
-
-        .. Warning::
-        This  is a simplified example for illustration puposes only. It may not abide by all the rules listed in the
-        :ref:`developer-notes`.
-
-        Notes
-        -----
-        Scipy linear operators by default only accept 2D inputs only. In order to use N-D arrays,
-        :py:meth:`~pycsou.abc.operator.Map.from_sciop` reshapes the first N-1 stacking dimensions of the input array
-        into a single stacking dimension. The output shape is matched to the input's stacking dimensions.
+        op: pycsou.abc.operator.LinOp
 
         See Also
         --------
-        :py:meth:`~pycsou.abc.operator.LinOp.from_array`, :py:meth:`~pycsou.abc.operator.Map.from_source` and
+        :py:meth:`~pycsou.abc.operator.LinOp.from_array`,
+        :py:meth:`~pycsou.abc.operator.Map.from_source`,
         :py:meth:`~pycsou.abc.operator.LinOp.to_sciop`.
         """
-
         if scipy_operator.dtype not in [elem.value for elem in pycrt.Width]:
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
 
+        # [r]matmat only accepts 2D inputs -> reshape apply|adjoint inputs as needed.
+
         @pycrt.enforce_precision(i="arr")
         def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-            out_shape = arr.shape[:-1] + (-1,) if arr.ndim > 1 else (-1,)
-            return scipy_operator.matmat(arr.reshape(-1, arr.shape[-1]).transpose()).transpose().reshape(*out_shape)
+            if _1d := arr.ndim == 1:
+                arr = arr.reshape((1, arr.size))
+            out = scipy_operator.matmat(arr.T).T
+            if _1d:
+                out = out.squeeze(axis=0)
+            return out
 
         @pycrt.enforce_precision(i="arr")
         def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-            out_shape = arr.shape[:-1] + (-1,) if arr.ndim > 1 else (-1,)
-            return scipy_operator.rmatmat(arr.reshape(-1, arr.shape[-1]).transpose()).transpose().reshape(*out_shape)
+            if _1d := arr.ndim == 1:
+                arr = arr.reshape((1, arr.size))
+            out = scipy_operator.rmatmat(arr.T).T
+            if _1d:
+                out = out.squeeze(axis=0)
+            return out
 
-        out_op = cls(scipy_operator.shape)
-        setattr(out_op, "apply", types.MethodType(apply, out_op))
-        setattr(out_op, "adjoint", types.MethodType(adjoint, out_op))
-        return out_op
+        op = cls(scipy_operator.shape)
+        setattr(op, "apply", types.MethodType(apply, op))
+        setattr(op, "adjoint", types.MethodType(adjoint, op))
+        return op
 
     @classmethod
-    def from_array(cls, mat: typ.Union[pyct.NDArray, pyct.SparseArray], enable_warnings: bool = True) -> "LinOp":
+    def from_array(
+        cls,
+        mat: typ.Union[pyct.NDArray, pyct.SparseArray],
+        enable_warnings: bool = True,
+    ) -> "LinOp":
         r"""
-        Create an instance of a :py:class:`~pycsou.abc.operator.LinOp` from its matrix representation (see
-        :py:class:`pycsou.operator.linop.base.ExplicitLinOp`).
+        Instantiate a :py:class:`~pycsou.abc.operator.LinOp` from its array representation.
 
         See Also
         --------
-        :py:meth:`~pycsou.abc.operator.LinOp.from_sciop`, :py:meth:`~pycsou.abc.operator.Map.from_source`,
-        :py:class:`pycsou.operator.linop.base.ExplicitLinOp`, :py:meth:`~pycsou.abc.operator.LinFunc.from_array`.
-
+        :py:meth:`~pycsou.abc.operator.LinOp.from_sciop`,
+        :py:meth:`~pycsou.abc.operator.Map.from_source`,
+        :py:class:`pycsou.operator.linop.base.ExplicitLinOp`.
         """
         from pycsou.operator.linop.base import ExplicitLinOp
 
@@ -2189,11 +2188,11 @@ class LinFunc(ProxDiffFunc, LinOp):
     ...     def apply(self, arr):
     ...        return np.sum(arr, axis=-1, keepdims=True)
     ...     def adjoint(self, arr):
-    ...        return arr * np.ones(self.shape[-1])
+    ...        return arr * np.ones(self.dim)
     ...     def grad(self, arr):
     ...        return np.ones(shape=arr.shape[:-1] + (self.dim,))
     ...     def prox(self, arr, tau):
-    ...        return arr - tau * np.ones(self.shape[-1])
+    ...        return arr - tau * np.ones(self.dim)
 
     >>> sum = Sum(10)
 
@@ -2210,6 +2209,28 @@ class LinFunc(ProxDiffFunc, LinOp):
         LinOp.__init__(self, shape)
 
     __init__.__doc__ = DiffFunc.__init__.__doc__
+
+    def lipschitz(self, **kwargs) -> float:
+        # 'fro' / 'svds' mode are identical for linfuncs.
+        g = self.grad(np.ones((1,)))
+        self._lipschitz = np.linalg.norm(g).item()
+        return self._lipschitz
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        return arr - tau * self.grad(arr)
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return arr * self.grad(arr)
+
+    def cogram(self) -> "HomothetyOp":
+        # Cannot auto-specialize LinFunc to SelfAdjointOp via .specialize() since SelfAdjointOp lies
+        # on a separate branch of the class hierarchy.
+        from pycsou.operator.linop.base import HomothetyOp
+
+        g = self.grad(np.zeros(self.dim))
+        return HomothetyOp(cst=(g @ g).item(), dim=1)
 
     @classmethod
     def from_array(cls, vec: pyct.NDArray, enable_warnings: bool = True) -> "LinFunc":
@@ -2249,23 +2270,19 @@ class SquareOp(LinOp):
             raise ValueError(f"Inconsistent shape {shape} for operator of type {SquareOp}")
         super(SquareOp, self).__init__(shape=(shape[0], shape[0]))
 
-    @pycrt.enforce_precision(o=True)
-    def trace(self, **kwargs):
+    def trace(self, **kwargs) -> float:
         """
         Approximate the trace of a squared linear operator.
 
         Parameters
         ----------
         kwargs: dict
-            Optional arguments to be passed to the algorithm used for computing the trace. The parameter ``m``
-            of :py:func:`~pycsou.math.linalg.hutchpp` routine can be particularly interesting to reduce the compute time
-            of the trace (at the cost of accuracy).
+            Optional kwargs passed to the algorithm used for computing the trace.
 
         Returns
         -------
-        float
-            Hutch++ stochastic estimate of the trace.
-
+        tr: float
+            Stochastic trace estimate.
         """
         import pycsou.math.linalg as pycl
 
@@ -2278,55 +2295,85 @@ class NormalOp(SquareOp):
 
     Notes
     -----
-    Normal operators commute with their adjoint, i.e. :math:`LL^\ast=L^\ast L`. It is `possible to show <https://www.wikiwand.com/en/Spectral_theorem#/Normal_matrices>`_
-    that an operator is normal iff it is *unitarily diagonalizable* :math:`L=UDU^\ast`.
+    Normal operators commute with their adjoint, i.e. :math:`LL^\ast=L^\ast L`.
+    It is `possible to show <https://www.wikiwand.com/en/Spectral_theorem#/Normal_matrices>`_ that
+    an operator is normal iff it is *unitarily diagonalizable*, i.e. :math:`L=UDU^\ast`.
     """
 
-    @pycrt.enforce_precision(o=True)
-    def eigvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
+    def _eigvals(
+        self,
+        k: int,
+        which: str,
+        gpu: bool,
+        symmetric: bool,
+        **kwargs,
+    ) -> pyct.NDArray:
+        def _dense_eval():
+            if gpu:
+                import cupy as xp
+                import cupyx.scipy.linalg as spx
+            else:
+                xp, spx = np, spl
+            op = self.asarray(xp=xp, dtype=pycrt.getPrecision().value)
+            f = getattr(spx, "eigvalsh" if symmetric else "eigvals")
+            return f(op)
+
+        def _sparse_eval():
+            if gpu:
+                assert pycd.CUPY_ENABLED
+                import cupyx.scipy.sparse.linalg as spx
+            else:
+                spx = spsl
+            op = self.to_sciop(pycrt.getPrecision().value, gpu)
+            kwargs.update(k=k, which=which, return_eigenvectors=False)
+            f = getattr(spx, "eigsh" if symmetric else "eigs")
+            return f(op, **kwargs)
+
+        if which not in ("LM", "SM"):
+            raise NotImplementedError
+        if k >= self.dim - 1:
+            msg = "Too many eigvals wanted: performing via matrix-based ops."
+            warnings.warn(msg, UserWarning)
+            D = _dense_eval()
+        else:
+            D = _sparse_eval()
+
+        # Filter to k largest/smallest magnitude + sorted
+        xp = pycu.get_array_module(D)
+        D = D[xp.argsort(xp.abs(D))]
+        return D[:k] if (which == "SM") else D[-k:]
+
+    # @pycrt.enforce_precision()
+    def eigvals(
+        self,
+        k: int,
+        which: str = "LM",
+        gpu: bool = False,
+        **kwargs,
+    ) -> pyct.NDArray:
         r"""
         Find ``k`` eigenvalues of a normal operator.
 
         Parameters
         ----------
         k: int
-            The number of eigenvalues and eigenvectors desired. ``k`` must be strictly smaller than the dimension of the operator.
-            It is not possible to compute all eigenvectors of an operator.
-        which: str, [‘LM’ | ‘SM’ | ‘LR’ | ‘SR’ | ‘LI’ | ‘SI’]
+            Number of eigenvalues to compute.
+        which: ‘LM’ | ‘SM’
             Which ``k`` eigenvalues to find:
 
                 * ‘LM’ : largest magnitude
                 * ‘SM’ : smallest magnitude
-                * ‘LR’ : largest real part
-                * ‘SR’ : smallest real part
-                * ‘LI’ : largest imaginary part
-                * ‘SI’ : smallest imaginary part
-
         gpu: bool
-            If ``True`` the singular value decomposition is performed on the GPU.
+            If ``True`` the eigenvalue decomposition is performed on the GPU.
         kwargs: dict
-            A dict of additional keyword arguments values accepted by Scipy's functions :py:func:`scipy.sparse.linalg.eigs`.
+            Additional kwargs by :py:func:`scipy.sparse.linalg.eigs`.
 
         Returns
         -------
-        NDArray
-            Array containing the ``k`` requested eigenvalues.
-
-        Notes
-        -----
-        This function calls Scipy's function :py:func:`scipy.sparse.linalg.eigs`.
-        See the documentation of this function for more information on its behaviour and the underlying ARPACK function it relies on.
-
-        See Also
-        --------
-        :py:meth:`~pycsou.abc.operator.LinOp.svds`
+        D: NDArray
+            (k,) requested eigenvalues in ascending magnitude order.
         """
-        kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
-        if pycu.deps.CUPY_ENABLED and gpu:
-            import cupyx.scipy.sparse.linalg as spx
-        else:
-            spx = splin
-        return spx.eigs(self.to_sciop(pycrt.getPrecision().value, cupyx=gpu), **kwargs)
+        return self._eigvals(k, which, gpu, symmetric=False, **kwargs)
 
     def cogram(self) -> "NormalOp":
         r"""
@@ -2353,18 +2400,15 @@ class SelfAdjointOp(NormalOp):
         r"""Return ``self``."""
         return self
 
-    @pycrt.enforce_precision(o=True)
-    def eigvals(self, k: int, which="LM", gpu: bool = False, **kwargs) -> pyct.NDArray:
-        r"""
-        Same as :py:meth:`~pycsou.abc.operator.NormalOp.eigvals`, but calls :py:func:`scipy.sparse.linalg.eigsh`
-        in the background to leverage the self-adjointness and speed up the computation.
-        """
-        kwargs.update(dict(k=k, which=which, return_eigenvectors=False))
-        if pycu.deps.CUPY_ENABLED and gpu:
-            import cupyx.scipy.sparse.linalg as spx
-        else:
-            spx = splin
-        return spx.eigsh(self.to_sciop(pycrt.getPrecision().value, cupyx=gpu), **kwargs)
+    @pycrt.enforce_precision()
+    def eigvals(
+        self,
+        k: int,
+        which: str = "LM",
+        gpu: bool = False,
+        **kwargs,
+    ) -> pyct.NDArray:
+        return self._eigvals(k, which, gpu, symmetric=True, **kwargs)
 
 
 class UnitOp(NormalOp):
@@ -2377,18 +2421,30 @@ class UnitOp(NormalOp):
         self._lipschitz = 1
 
     def lipschitz(self, **kwargs) -> float:
-        r"""
-        Always return 1, since the spectral norm of unitary operators is equal to 1.
-        """
         return self._lipschitz
 
+    @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-        r"""Call ``self.adjoint(arr)``, since the inverse (and hence pseudo-inverse) of a unitary operator is given by its adjoint."""
-        return self.adjoint(arr)
+        out = self.adjoint(arr)
+        if (damp := kwargs.pop("damp")) is not None:
+            out /= 1 + damp
+        return out
 
     def dagger(self, **kwargs) -> "UnitOp":
-        r"""Return ``self.T``, since the inverse (and hence pseudo-inverse) of a unitary operator is given by its adjoint."""
-        return self.T
+        op = self.T
+        if (damp := kwargs.pop("damp")) is not None:
+            from pycsou.operator.linop.base import HomothetyOp
+
+            op = HomothetyOp(cst=1 / (1 + damp), dim=self.dim) * op
+        return op
+
+    def gram(self) -> "UnitOp":
+        from pycsou.operator.linop.base import IdentityOp
+
+        return IdentityOp(shape=self.shape)
+
+    def cogram(self) -> "UnitOp":
+        return self.gram()
 
 
 class ProjOp(SquareOp):
@@ -2422,26 +2478,22 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
         self._lipschitz = 1
 
     def lipschitz(self, **kwargs) -> float:
-        r"""
-        Always return 1, since the spectral norm of orthogonal projection operators is equal to 1.
-        """
         return self._lipschitz
 
+    @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-        r"""
-        Return ``self.apply(arr)`` since the pseudo-inverse of an orthogonal projection operator is itself:
+        out = arr.copy()
+        if (damp := kwargs.pop("damp")) is not None:
+            out /= 1 + damp
+        return out
 
-            1. :math:`LLL=L`,
-            2. :math:`(LL)^\ast=L^\ast L^\ast=LL`.
+    def dagger(self, **kwargs) -> "UnitOp":
+        op = self
+        if (damp := kwargs.pop("damp")) is not None:
+            from pycsou.operator.linop.base import HomothetyOp
 
-        """
-        return self.apply(arr)
-
-    def dagger(self, **kwargs) -> "OrthProjOp":
-        r"""
-        Return ``self`` since the pseudo-inverse of an orthogonal projection operator is itself.
-        """
-        return self
+            op = HomothetyOp(cst=1 / (1 + damp), dim=self.dim) * op
+        return op
 
 
 class PosDefOp(SelfAdjointOp):

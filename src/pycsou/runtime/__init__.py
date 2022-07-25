@@ -21,6 +21,41 @@ class Width(enum.Enum):
     DOUBLE = np.dtype(np.double)
     QUAD = np.dtype(np.longdouble)
 
+    def eps(self) -> float:
+        """
+        Machine precision of a floating-point type.
+
+        Returns the difference between 1 and the next smallest representable float larger than 1.
+        """
+        eps = np.finfo(self.value).eps
+        return float(eps)
+
+    @property
+    def complex(self) -> "_CWidth":
+        """
+        Returns precision-equivalent complex-valued type.
+        """
+        return _CWidth[self.name]
+
+
+@enum.unique
+class _CWidth(enum.Enum):
+    """
+    Machine-dependent complex-valued floating-point types.
+    """
+
+    # HALF = np.dtype(np.chalf)  # unsupported by NumPy
+    SINGLE = np.dtype(np.csingle)
+    DOUBLE = np.dtype(np.cdouble)
+    QUAD = np.dtype(np.clongdouble)
+
+    @property
+    def real(self) -> "Width":
+        """
+        Returns precision-equivalent real-valued type.
+        """
+        return Width[self.name]
+
 
 class Precision(contextlib.AbstractContextManager):
     """
