@@ -170,6 +170,169 @@ class ScaleRule(Rule):
         return out
 
 
+class ArgScaleRule(Rule):
+    r"""
+    Special Cases:
+        \alpha = 0  => ConstantValued (w/ potential vector-valued output)
+        \alpha = 1  => self
+    Else:
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        |         Property         |  Preserved? |                          Arithmetic Update Rule(s)                          |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        | CAN_EVAL                 | yes         | op_new.apply(arr) = op_old.apply(arr * \alpha)                              |
+        |                          |             | op_new._lipschitz = op_old._lipschitz * abs(\alpha)                         |
+        |                          |             |                                                                             |
+        |                          |             | op_new.lipschitz()                                                          |
+        |                          |             | = op_old.lipschitz() * abs(\alpha)                                          |
+        |                          |             | + update op_new._lipschitz                                                  |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        | FUNCTIONAL               | yes         |                                                                             |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        | PROXIMABLE               | yes         | op_new.prox(arr, tau) = op_old.prox(\alpha * arr, \alpha**2 * tau) / \alpha |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        | DIFFERENTIABLE           | yes         | _diff_lipschitz = op_old._diff_lipschitz * abs(\alpha)                      |
+        |                          |             |                                                                             |
+        |                          |             | diff_lipschitz()                                                            |
+        |                          |             | = op_old.diff_lipschitz() * abs(\alpha)                                     |
+        |                          |             | + update op_new._diff_lipschitz                                             |
+        |                          |             |                                                                             |
+        |                          |             | op_new.jacobian(arr) = op_old.jacobian(arr * \alpha) * \alpha               |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        | DIFFERENTIABLE_FUNCTION  | yes         | op_new.grad(arr) = op_old.grad(\alpha * arr) * \alpha                       |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        | QUADRATIC                | yes         |                                                                             |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        | LINEAR                   | yes         | op_new.adjoint(arr) = op_old.adjoint(arr) * \alpha                          |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        | LINEAR_SQUARE            | yes         |                                                                             |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        | LINEAR_NORMAL            | yes         |                                                                             |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        | LINEAR_UNITARY           | \alpha = -1 |                                                                             |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        | LINEAR_SELF_ADJOINT      | yes         |                                                                             |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        | LINEAR_POSITIVE_DEFINITE | \alpha > 0  |                                                                             |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+        | LINEAR_IDEMPOTENT        | no          |                                                                             |
+        |--------------------------|-------------|-----------------------------------------------------------------------------|
+    """
+
+    def __init__(self, op: pyct.OpT, cst: pyct.Real):
+        self._op = op._squeeze()
+        self._cst = float(cst)
+
+        # Arithmetic Attributes
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
+
+    def op(self) -> pyct.OpT:
+        if np.isclose(self._cst, 0):
+            # ConstantVECTOR output: modify ConstantValued to work.
+            from pycsou.operator.map import ConstantValued
+
+            @pycrt.enforce_precision(i="arr")
+            def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
+                xp = pycu.get_array_module(arr)
+                arr = xp.zeros(
+                    (*arr.shape[:-1], self._op.dim),
+                    dtype=arr.dtype,
+                )
+                out = self._op.apply(arr)
+                return out
+
+            op = ConstantValued(
+                shape=self._op.shape,
+                cst=self._cst,
+            )
+            op.apply = types.MethodType(op_apply, op)
+        elif np.isclose(self._cst, 1):
+            op = self._op
+        else:
+            klass = self._infer_op_klass()
+            op = klass(shape=self._op.shape)
+            op._op = self._op  # embed for introspection
+            op._cst = self._cst  # embed for introspection
+            for p in op.properties():
+                for name in p.arithmetic_attributes():
+                    attr = getattr(self, name)
+                    setattr(op, name, attr)
+                for name in p.arithmetic_methods():
+                    func = getattr(self.__class__, name)
+                    setattr(op, name, types.MethodType(func, op))
+        return op
+
+    def _infer_op_klass(self) -> pyct.OpC:
+        preserved = {
+            pyco.Property.CAN_EVAL,
+            pyco.Property.FUNCTIONAL,
+            pyco.Property.PROXIMABLE,
+            pyco.Property.DIFFERENTIABLE,
+            pyco.Property.DIFFERENTIABLE_FUNCTION,
+            pyco.Property.LINEAR,
+            pyco.Property.LINEAR_SQUARE,
+            pyco.Property.LINEAR_NORMAL,
+            pyco.Property.LINEAR_SELF_ADJOINT,
+            pyco.Property.QUADRATIC,
+        }
+        if self._cst > 0:
+            preserved.add(pyco.Property.LINEAR_POSITIVE_DEFINITE)
+        if np.isclose(self._cst, -1):
+            preserved.add(pyco.Property.LINEAR_UNITARY)
+
+        properties = self._op.properties() & preserved
+        klass = pyco.Operator._infer_operator_type(properties)
+        return klass
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        x = arr.copy()
+        x *= self._cst
+        out = self._op.apply(x)
+        return out
+
+    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return self.apply(arr)
+
+    def lipschitz(self, **kwargs) -> pyct.Real:
+        self._lipschitz = self._op.lipschitz(**kwargs)
+        self._lipschitz *= abs(self._cst)
+        return self._lipschitz
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        x = arr.copy()
+        x *= self._cst
+        out = self._op.prox(x, (self._cst**2) * tau)
+        out /= self._cst
+        return out
+
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
+        x = arr.copy()
+        x *= self._cst
+        op = self._op.jacobian(x) * self._cst
+        return op
+
+    def diff_lipschitz(self, **kwargs) -> pyct.Real:
+        self._diff_lipschitz = self._op.diff_lipschitz(**kwargs)
+        self._diff_lipschitz *= abs(self._cst)
+        return self._diff_lipschitz
+
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        x = arr.copy()
+        x *= self._cst
+        out = self._op.grad(x)
+        out *= self._cst
+        return out
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        out = self._op.adjoint(arr)
+        out *= self._cst
+        return out
+
+
 def add(lhs: pyct.OpT, rhs: pyct.OpT) -> pyct.OpT:
     # special case values
     #     _lhs || _rhs = Null[Op|Func] -> _rhs/_lhs
@@ -235,49 +398,6 @@ def pow(op: pyct.OpT, k: pyct.Integer) -> pyct.OpT:
             for _ in range(k - 1):
                 op_pow = compose(op, op_pow)
         return op_pow
-
-
-def argscale(op: pyct.OpT, cst: pyct.Real) -> pyct.OpT:
-    # special case values
-    #     0: constant-valued function [looks like NullOp/Func, but with different .apply(), and not linear]
-    #         op_new.apply(arr) = op_old.apply(0) [cast to right array type]
-    #         op_new._lipschitz = 0
-    #         op_new.lipschitz() = op_new._lipschitz alias
-    #         op_new.prox(arr, tau) = arr
-    #         op_new.jacobian(arr) = NullOp/Func
-    #         op_new._diff_lipschitz = 0
-    #         op_new.diff_lipschitz() = op_new._diff_lipschitz alias
-    #         op_new.grad(arr) = zeros [cast to right array type]
-    #     1: self
-    # else
-    #     Store _orig and _scale
-    #     Preserve during argscale by \alpha != {0, 1}
-    #         CAN_EVAL
-    #             op_new.apply(arr) = op_old.apply(arr * \alpha)
-    #             op_new._lipschitz = op_old._lipschitz * abs(\alpha)
-    #             op_new.lipschitz()
-    #                 = op_old.lipschitz() * abs(\alpha)
-    #                 + update op_new._lipschitz
-    #         FUNCTIONAL
-    #         PROXIMABLE
-    #             op_new.prox(arr, tau) = op_old.prox(\alpha * arr, \alpha**2 * tau) / \alpha
-    #         DIFFERENTIABLE
-    #             _diff_lipschitz = op_old._diff_lipschitz * abs(\alpha)
-    #             diff_lipschitz()
-    #                 = op_old.diff_lipschitz() * abs(\alpha)
-    #                 + update op_new._diff_lipschitz
-    #             op_new.jacobian(arr) = op_old.jacobian(op_old.apply(arr)) * \alpha
-    #         DIFFERENTIABLE_FUNCTION
-    #             op_new.grad(arr) = op_old.grad(\alpha * arr) * \alpha
-    #         LINEAR
-    #             op_new.adjoint(arr) = op_old.adjoint(y) * \alpha
-    #         LINEAR_SQUARE
-    #         LINEAR_NORMAL
-    #         LINEAR_SELF_ADJOINT
-    #         LINEAR_POSITIVE_DEFINITE (if \alpha > 0)
-    #         LINEAR_UNITARY (only if \alpha = -1)
-    #         QUADRATIC
-    pass
 
 
 def argshift(op: pyct.OpT, cst: pyct.NDArray) -> pyct.OpT:
