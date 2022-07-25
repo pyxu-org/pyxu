@@ -25,7 +25,6 @@ from pycsou.opt.solver.pgd import PGD
 #   visible for the end-user. Should we store these values as NDArray of shape (1,) or as float ? The concerned
 #   variables are: (also tagged in the code with # todo [0])
 #     * mst["dcv"]
-#     * mst["ofv"]
 #     * mst["lift_variable"]
 
 # QfR: In the computation of gamma in the optimal reweighting strategy of VFW and in the computation of the 1-sparse
@@ -50,6 +49,7 @@ class GenericFWforLasso(pycs.Solver):
         *,
         folder: typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
+        stop_rate: int = 1,
         writeback_rate: typ.Optional[int] = None,
         verbosity: int = 1,
         show_progress: bool = True,
@@ -61,6 +61,7 @@ class GenericFWforLasso(pycs.Solver):
         super().__init__(
             folder=folder,
             exist_ok=exist_ok,
+            stop_rate=stop_rate,
             writeback_rate=writeback_rate,
             verbosity=verbosity,
             show_progress=show_progress,
@@ -73,8 +74,6 @@ class GenericFWforLasso(pycs.Solver):
         self._data_fidelity = 0.5 * pycdevu.SquaredL2Norm().asloss(data=self.data) * self.forwardOp
         self._penalty = self.lambda_ * pycdevu.L1Norm()
         # QfR: Vocabulary question: penalty or regul ?
-        self.objective = self._data_fidelity + self._penalty
-        self._compute_ofv = True  # by default, the "objective function value" (ofv) is computed
 
         self._bound = 0.5 * pycdevu.SquaredL2Norm()(data)[0] / self.lambda_  # todo [0]
 
@@ -84,15 +83,11 @@ class GenericFWforLasso(pycs.Solver):
 
         mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
         mst["dcv"] = np.inf  # "dual certificate value"
-        self._compute_ofv = kwargs.pop("compute_ofv", True)  # check if the user decides not to compute the ofv
-        if self._compute_ofv:
-            mst["ofv"] = self.objective(mst["x"])[0]  # todo : [0]
-            self._astate["log_var"] = frozenset(("ofv",)).union(self._astate["log_var"])
 
     def default_stop_crit(self) -> pycs.StoppingCriterion:
         stop_crit = pycos.RelError(
             eps=1e-4,
-            var="ofv",
+            var="objective_func",
             f=None,
             norm=2,
             satisfy_all=True,
@@ -108,6 +103,17 @@ class GenericFWforLasso(pycs.Solver):
         """
         data, _ = self.stats()
         return data.get("x")
+
+    def objective_func(self) -> pyct.NDArray:
+        return self._data_fidelity(self._mstate["x"]) + self._penalty(self._mstate["x"])
+
+    def fit(self, **kwargs):
+        """
+        Set the default value of ``track_objective`` as True, as opposed to the behavior defined in the base class
+        ``Solver``.
+        """
+        track_objective = kwargs.pop("track_objective", True)
+        super().fit(track_objective=track_objective, **kwargs)
 
 
 class VanillaFWforLasso(GenericFWforLasso):
@@ -129,16 +135,17 @@ class VanillaFWforLasso(GenericFWforLasso):
     The FW algorithms ensure convergence of the iterates in terms of the value of the objective function with a
     convergence rate of :math:`\mathcal{O}(1/k)`[RevFW]_. Consequently, the default stopping criterion is set as a
     threshold over the relative improvement of the value of the objective function. The algorithm stops if the relative
-    improvement is below 1e-4. If this default stopping criterion is used, you must not run the algorithm with argument
-    ``compute_ofv=False``.
+    improvement is below 1e-4. If this default stopping criterion is used, you must not fit the algorithm with argument
+    ``track_objective=False``.
 
     **Remark:** The array module used in the algorithm iterations is inferred from the module of the input measurements.
 
     ``VanillaFWforLasso.fit()`` **Parametrisation**
 
-    compute_ofv: Bool
-        Indicator to keep track of the value of the objective function along the iterations, default is True.
-        This value is optional for running the Vanilla FW iterations, but can be used to determine a stopping criterion.
+    track_objective: Bool
+        Indicator to keep track of the value of the objective function along the iterations.
+        This value is optional for Polyatomic FW, but can be used to determine a stopping criterion.
+        Default is True, can be set to False to accelerate the solving time.
     """
 
     def __init__(
@@ -150,6 +157,7 @@ class VanillaFWforLasso(GenericFWforLasso):
         *,
         folder: typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
+        stop_rate: int = 1,
         writeback_rate: typ.Optional[int] = None,
         verbosity: int = 50,
         show_progress: bool = True,
@@ -182,6 +190,7 @@ class VanillaFWforLasso(GenericFWforLasso):
             lambda_=lambda_,
             folder=folder,
             exist_ok=exist_ok,
+            stop_rate=stop_rate,
             writeback_rate=writeback_rate,
             verbosity=verbosity,
             show_progress=show_progress,
@@ -234,8 +243,6 @@ class VanillaFWforLasso(GenericFWforLasso):
         if abs(dcv) > 1.0:
             mst["x"][new_ind] += pycrt.coerce(gamma * np.sign(dcv) * self._bound)
             mst["lift_variable"] += gamma * self._bound
-        if self._compute_ofv:
-            mst["ofv"] = self.objective(mst["x"])[0]
 
 
 class PolyatomicFWforLasso(GenericFWforLasso):
@@ -261,8 +268,8 @@ class PolyatomicFWforLasso(GenericFWforLasso):
     The FW algorithms ensure convergence of the iterates in terms of the value of the objective function with a
     convergence rate of :math:`\mathcal{O}(1/k)` [RevFW]_. Consequently, the default stopping criterion is set as a
     threshold over the relative improvement of the value of the objective function. The algorithm stops if the relative
-    improvement is below 1e-4. If this default stopping criterion is used, you must not run the algorithm with argument
-    ``compute_ofv=False``.
+    improvement is below 1e-4. If this default stopping criterion is used, you must not fit the algorithm with argument
+    ``track_objective=False``.
 
     **Remark 1:** The array module used in the algorithm iterations is inferred from the module of the input
         measurements.
@@ -277,9 +284,10 @@ class PolyatomicFWforLasso(GenericFWforLasso):
 
     ``PolyatomicFWforLasso.fit()`` **Parametrisation**
 
-    compute_ofv: Bool
-        Indicator to keep track of the value of the objective function along the iteration.
-        This value is optional for Vanilla FW, but can be used to determine a stopping criterion.
+    track_objective: Bool
+        Indicator to keep track of the value of the objective function along the iterations.
+        This value is optional for Polyatomic FW, but can be used to determine a stopping criterion.
+        Default is True, can be set to False to accelerate the solving time.
     """
 
     def __init__(
@@ -294,6 +302,7 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         *,
         folder: typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
+        stop_rate: int = 1,
         writeback_rate: typ.Optional[int] = None,
         verbosity: int = 10,
         show_progress: bool = True,
@@ -338,6 +347,7 @@ class PolyatomicFWforLasso(GenericFWforLasso):
             lambda_=lambda_,
             folder=folder,
             exist_ok=exist_ok,
+            stop_rate=stop_rate,
             writeback_rate=writeback_rate,
             verbosity=verbosity,
             show_progress=show_progress,
@@ -392,8 +402,6 @@ class PolyatomicFWforLasso(GenericFWforLasso):
                 mst["x"] = ((corr + self.lambda_) / pycdevu.SquaredL2Norm()(column)[0]) * tmp
         else:
             mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
-        if self._compute_ofv:
-            mst["ofv"] = self.objective(mst["x"])[0]
 
     def rs_correction(self, support_indices: pyct.NDArray) -> pyct.NDArray:
         r"""
