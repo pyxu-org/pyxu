@@ -30,6 +30,7 @@ SparseModule = typ.TypeVar(
 
 # non-complex numbers
 Real = nb.Real
+Integer = nb.Integral
 
 # map shapes
 Shape = typ.Tuple[int, typ.Union[int, None]]

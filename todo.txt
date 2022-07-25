@@ -33,26 +33,6 @@ Joan
 * [linop/base] Implement diagonal operator
 * [opt] Implement LSQR LSMR
 * Add SVG drawing of class diagrams in documentation
-* [tox] Verify tests run correctly in py38 environment.
-
-  Assigned by Sepand KASHANI
-
-  We use `tox` to run pycsou's test suite and ensure the package is useable under multiple Python
-  versions. Since pycsou depends on numerical libraries, we rely on `tox-conda` to create the
-  necessary virtual environments via `conda`.
-
-  Problem: it is unclear if tests actually are executing in testenvs py38 and minReq using
-  Python3.8. I'm sure the interpreter in {py38,minReq} are Python3.8, but for some reason L13 in
-  tox.ini calls Python3.9 on my system.
-
-  My hunch is that since `pytest` is listed as external command in tox.ini, it is allowed to
-  execute the test suite. However, since pycsou is installed in non-dev mode in the virtual
-  environments, `pytest` does not exist there -> default to outer pytest command for execution.
-
-  Goal: investigate how to get pytest to run the tests in each virtual environment using the right
-  interpreter. I expect some tests to fail in Python3.8 since we may be using language constructs
-  which were introduced in Python3.9+.
-
 * create benchmark suite for all operators.
 
   We must track the runtime of operator methods across commits to identify performance regressions and fix them. A comprehensive benchmark suite is therefore required.

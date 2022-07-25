@@ -3,37 +3,23 @@ import typing as typ
 import numpy as np
 
 import pycsou.abc.operator as pyco
-import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 
-class SquaredL2Norm(pyco.ProxDiffFunc):
-    # f: \bR^{M} -> \bR
-    #      x     -> \norm{x}{2}^{2}
-    def __init__(self, shape=None):
-        super().__init__(shape=(1, None))
-        self._lipschitz = np.inf
+class SquaredL2Norm(pyco.DiffFunc):
+    def __init__(self, shape: pyct.ShapeOrDim = None):
+        super(SquaredL2Norm, self).__init__(shape=(1, None))
         self._diff_lipschitz = 2
 
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr):
+    def apply(self, arr: pyct.NDArray) -> pyct.Real:
         xp = pycu.get_array_module(arr)
-        y = xp.linalg.norm(arr, axis=-1, keepdims=True)
-        y2 = xp.power(y, 2, dtype=arr.dtype)
-        return y2
+        return xp.linalg.norm(arr, axis=-1, keepdims=True) ** 2
 
-    @pycrt.enforce_precision(i="arr")
-    def grad(self, arr):
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         return 2 * arr
 
-    @pycrt.enforce_precision(i=["arr", "tau"])
-    def prox(self, arr, tau):
-        y = arr / (2 * tau + 1)
-        return y
-
-    #    @pycrt.enforce_precision(i=["data"])
-    def asloss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.ProxFunc:
+    def asloss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.DiffFunc:
         if data is None:
             return self
         else:
@@ -47,11 +33,11 @@ class L1Norm(pyco.ProxFunc):
 
     def apply(self, arr: pyct.NDArray) -> pyct.Real:
         xp = pycu.get_array_module(arr)
-        return xp.linalg.norm(arr, ord=1, keepdims=True)
+        return xp.linalg.norm(arr, ord=1, axis=-1, keepdims=True)
 
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.clip(xp.abs(arr) - tau, a_min=0, a_max=None) * xp.sign(arr)
+        return (abs(arr) - tau).clip(0, None) * xp.sign(arr)
 
     def asloss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.ProxFunc:
         if data is None:
@@ -61,7 +47,7 @@ class L1Norm(pyco.ProxFunc):
 
 
 class FirstDerivative(pyco.LinOp):
-    def __init__(self, size: int, axis: int = 0, sampling: float = 1.0, edge: bool = True, kind: str = "forward"):
+    def __init__(self, size: int, axis: int = -1, sampling: float = 1.0, edge: bool = True, kind: str = "forward"):
         super(FirstDerivative, self).__init__((size, size))
         self.axis = axis
         self.sampling = sampling

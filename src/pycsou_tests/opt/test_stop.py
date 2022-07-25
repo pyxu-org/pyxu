@@ -24,7 +24,7 @@ class TestAbsError:
     )
     def test_scalar_in(self, eps, f, state, stop_val):
         sc = stop.AbsError(eps=eps, f=f)
-        state = dict(primal=state)
+        state = dict(x=state)
         assert sc.stop(state) == stop_val
         sc.info()  # just to make sure it doesn't crash
 
@@ -43,7 +43,7 @@ class TestAbsError:
     )
     def test_array_in(self, eps, f, satisfy_all, state, stop_val, xp):
         sc = stop.AbsError(eps=eps, f=f, satisfy_all=satisfy_all)
-        state = dict(primal=xp.array(state))  # test all possible array backends.
+        state = dict(x=xp.array(state))  # test all possible array backends.
         assert sc.stop(state) == stop_val
         sc.info()  # just to make sure it doesn't crash
 
@@ -62,9 +62,9 @@ class TestRelError:
     )
     def test_scalar_in(self, eps, f, state, stop_val):
         sc = stop.RelError(eps=eps, f=f)
-        state0 = dict(primal=state[0])
+        state0 = dict(x=state[0])
         assert sc.stop(state0) == False
-        state1 = dict(primal=state[1])
+        state1 = dict(x=state[1])
         assert sc.stop(state1) == stop_val
         sc.info()  # just to make sure it doesn't crash
 
@@ -119,9 +119,9 @@ class TestRelError:
     )
     def test_array_in(self, eps, f, satisfy_all, state, stop_val, xp):
         sc = stop.RelError(eps=eps, f=f, satisfy_all=satisfy_all)
-        state0 = dict(primal=xp.array(state[0]))  # test all possible array backends.
+        state0 = dict(x=xp.array(state[0]))  # test all possible array backends.
         assert sc.stop(state0) == False
-        state1 = dict(primal=xp.array(state[1]))  # test all possible array backends.
+        state1 = dict(x=xp.array(state[1]))  # test all possible array backends.
         assert sc.stop(state1) == stop_val
         sc.info()  # just to make sure it doesn't crash
 
@@ -132,8 +132,8 @@ class TestRelError:
         [stop.MaxIter(n=10), [{}] * 12],  # state meaningless
         [stop.ManualStop(), [{}] * 12],  # state meaningless
         # [stop.MaxDuration(), [{}] * 10],  # MaxDuration is never 100% reproducible
-        [stop.AbsError(eps=3), [dict(primal=_) for _ in np.arange(10, 0, -1)]],
-        [stop.RelError(eps=1 / 6), [dict(primal=_) for _ in np.arange(10)]],
+        [stop.AbsError(eps=3), [dict(x=_) for _ in np.arange(10, 0, -1)]],
+        [stop.RelError(eps=1 / 6), [dict(x=_) for _ in np.arange(10)]],
     ],
 )
 def test_clear(

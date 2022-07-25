@@ -120,25 +120,13 @@ class ExplicitLinFunc(pyco.LinFunc):
         return arr - tau * self.vec
 
 
-class IdentityOp(pyco.PosDefOp, pyco.SelfAdjointOp, pyco.UnitOp):
+class IdentityOp(pyco.PosDefOp, pyco.UnitOp):
     r"""
     Identity operator :math:`\mathrm{Id}`.
-
-    Examples
-    --------
-    >>> from pycsou.operator.linop.base import IdentityOp
-    >>> import pycsou.runtime as pycrt
-    >>> import numpy as np
-    >>> id = IdentityOp(10)
-    >>> id.shape
-    (10, 10)
-    >>> np.allclose(id(np.arange(10)), np.arange(10).astype(np.float64))
-    True
     """
 
     def __init__(self, shape: pyct.SquareShape):
         pyco.PosDefOp.__init__(self, shape)
-        pyco.SelfAdjointOp.__init__(self, shape)
         pyco.UnitOp.__init__(self, shape)
 
     @pycrt.enforce_precision(i="arr")
@@ -364,7 +352,7 @@ class ExplicitLinOp(pyco.LinOp):
         """
         kwargs.pop("gpu", None)
         gpu = True if self._module_name in ["cupy", "cupyx"] else False
-        if recompute or (self._lipschitz == np.infty):
+        if recompute or (self._lipschitz == np.inf):
             if algo == "fro":
                 if self._module_name in ["sparse", "cupyx"]:
                     data = self.mat.asformat("coo").data.squeeze()
@@ -404,3 +392,6 @@ class ExplicitLinOp(pyco.LinOp):
         else:
             array_module = pycu.get_array_module(arr, fallback=sp)
             return array_module.__name__
+
+    def trace(self, **kwargs) -> float:
+        return self.mat.trace().item()

@@ -1,7 +1,9 @@
+import dask.array as da
 import numpy as np
 import pytest
 
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 
 
 class TestGetArrayModule:
@@ -25,3 +27,144 @@ class TestGetArrayModule:
         else:
             with pytest.raises(ValueError):
                 assert pycu.get_array_module(obj, fallback)
+
+
+class TestCompute:
+    @pytest.fixture(
+        params=[
+            1,
+            [1, 2, 3],
+            np.arange(5),
+            da.arange(5),
+        ]
+    )
+    def single_input(self, request):
+        return request.param
+
+    def equal(self, x, y):
+        if any(type(_) in pycd.supported_array_types() for _ in [x, y]):
+            return np.allclose(x, y)
+        else:
+            return x == y
+
+    @pytest.fixture(params=["compute", "persist"])
+    def mode(self, request):
+        return request.param
+
+    def test_single_inputs(self, single_input, mode):
+        cargs = pycu.compute(single_input, mode=mode)
+        assert self.equal(cargs, single_input)
+
+    def test_multi_inputs(self, mode):
+        x = da.arange(5)
+        y = x + 1
+        i_args = (1, [1, 2, 3], np.arange(5), x, y)
+        o_args = (1, [1, 2, 3], np.arange(5), np.arange(5), np.arange(1, 6))
+        cargs = pycu.compute(*i_args, mode=mode)
+
+        assert len(cargs) == len(o_args)
+        for c, o in zip(cargs, o_args):
+            assert self.equal(c, o)
+
+    def test_invalid_mode(self):
+        with pytest.raises(ValueError):
+            pycu.compute(1, mode="test")
+
+    def test_kwargs_does_not_fail(self):
+        x = 1
+        pycu.compute(x, optimize_graph=False)
+
+
+class TestRedirect:
+    def function_function():
+        def f(x, y):
+            return "f"
+
+        def g(x, y):
+            return "g"
+
+        f = pycu.redirect("x", NUMPY=g)(f)
+        return f, g
+
+    def function_staticmethod():
+        def f(x, y):
+            return "f"
+
+        class Klass:
+            @staticmethod
+            def g(x, y):
+                return "g"
+
+        f = pycu.redirect("x", NUMPY=Klass.g)(f)
+        return f, Klass.g
+
+    def staticmethod_function():
+        class Klass:
+            @staticmethod
+            def f(x, y):
+                return "f"
+
+        def g(x, y):
+            return "g"
+
+        Klass.f = pycu.redirect("x", NUMPY=g)(Klass.f)
+        return Klass.f, g
+
+    def staticmethod_staticmethod():
+        class Klass:
+            @staticmethod
+            def f(x, y):
+                return "f"
+
+            @staticmethod
+            def g(x, y):
+                return "g"
+
+        Klass.f = pycu.redirect("x", NUMPY=Klass.g)(Klass.f)
+        return Klass.f, Klass.g
+
+    def method_method():
+        class Klass:
+            def f(self, x, y):
+                return "f"
+
+            def g(self, x, y):
+                return "g"
+
+        klass = Klass()
+        klass.f = pycu.redirect("x", NUMPY=klass.g)(klass.f)
+        return klass.f, klass.g
+
+    @pytest.fixture(
+        params=[
+            function_function(),  # function -> function
+            function_staticmethod(),  # function -> staticmethod
+            staticmethod_function(),  # staticmethod -> function
+            staticmethod_staticmethod(),  # staticmethod -> staticmethod
+            method_method(),  # method -> method
+        ]
+    )
+    def callables(self, request):
+        return request.param
+
+    def test_invalid_signature(self, callables):
+        f_decorated, f_target = callables
+        with pytest.raises(ValueError):
+            f_decorated(z=1)
+
+    def test_nonArray_input(self, callables):
+        f_decorated, f_target = callables
+        with pytest.raises(ValueError):
+            f_decorated(x=1, y=1)
+
+    def test_dispatch_to_default(self, callables):
+        f_decorated, f_target = callables
+
+        kwargs = dict(x=da.array([1]), y=1)
+        assert f_decorated(**kwargs) == "f"
+
+    def test_dispatch_to_custom(self, callables):
+        f_decorated, f_target = callables
+
+        kwargs = dict(x=np.array([1]), y=1)
+        assert f_decorated(**kwargs) == f_target(**kwargs)

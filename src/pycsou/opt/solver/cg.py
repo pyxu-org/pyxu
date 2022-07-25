@@ -1,9 +1,8 @@
 import typing as typ
 
-import numpy as np
-
 import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
+import pycsou.math.linalg as pylinalg
 import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
@@ -25,7 +24,7 @@ class CG(pycs.Solver):
 
      The norm of the `explicit residual <https://www.wikiwand.com/en/Conjugate_gradient_method>`_
      :math:`\mathbf {r}_{k+1}:=\mathbf{b}-\mathbf{Ax}_{k+1}` is used as the default stopping criterion. This provides a
-     guaranteed level of accuracy both in exact arithmetic and in the presence of the round-off errors. By default, the
+     guaranteed level of accuracy both in exact arithmetic and in the presence of round-off errors. By default, the
      iterations stop when the norm of the explicit residual is smaller than 1e-4.
 
 
@@ -49,7 +48,7 @@ class CG(pycs.Solver):
 
     **Remark 3:** `Restarts <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ could slow down convergence, but
     they might improve stability due to round-off error or ill-posedness of the linear operator. If these issues are
-    suspected, the user can adjust 'restart_rate' variable accordingly.
+    suspected, users can adjust the 'restart_rate' variable accordingly.
 
 
      Examples
@@ -77,32 +76,29 @@ class CG(pycs.Solver):
 
     """
 
-    def __init__(
-        self,
-        A: pyco.PosDefOp,
-        *,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
-        show_progress: bool = True,
-        log_var: pyct.VarName = ("x",),
-    ):
-        super().__init__(
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
-            show_progress=show_progress,
-            log_var=log_var,
+    def __init__(self, A: pyco.PosDefOp, **kwargs):
+        kwargs.update(
+            log_var=kwargs.get("log_var", ("x",)),
         )
+        super().__init__(**kwargs)
 
         self._A = A
 
-    @pycrt.enforce_precision(i=["b", "x0"], allow_None=True)
-    def m_init(self, b: pyct.NDArray, x0: typ.Optional[pyct.NDArray] = None, restart_rate: typ.Optional[int] = None):
+    @pycrt.enforce_precision(i=["b", "x0"])
+    def m_init(
+        self,
+        b: pyct.NDArray,
+        x0: typ.Optional[pyct.NDArray] = None,
+        restart_rate: typ.Optional[int] = None,
+    ):
         mst = self._mstate  # shorthand
-        mst["restart_rate"] = self._A.shape[0] if restart_rate is None else restart_rate
+
+        if restart_rate is not None:
+            assert restart_rate >= 1
+            mst["restart_rate"] = int(restart_rate)
+        else:
+            mst["restart_rate"] = self._A.dim
+
         mst["b"] = b
         xp = pycu.get_array_module(b)
         if x0 is None:
@@ -122,16 +118,22 @@ class CG(pycs.Solver):
         xp = pycu.get_array_module(x)
 
         Ap = self._A.apply(p)
-        rr = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2
+        rr = pylinalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2
         alpha = rr / (p * Ap).sum(axis=-1, keepdims=True)
         x += alpha * p
-        r -= alpha * Ap
-        # Because CG can only generate n conjugate vectors in an n-dimensional space, it makes sense to restart
-        # CG every n iterations.
-        if self._astate["idx"] == mst["restart_rate"]:
+
+        if pycu.compute(xp.any(rr <= pycrt.Width(rr.dtype).eps())):  # explicit eval
+            r[:] = mst["b"] - self._A.apply(x)
+        else:  # implicit eval
+            r -= alpha * Ap
+
+        # Because CG can only generate n conjugate vectors in an n-dimensional space, it makes sense
+        # to restart CG every n iterations.
+        if self._astate["idx"] % mst["restart_rate"] == 0:
             beta = 0
+            r[:] = mst["b"] - self._A.apply(x)  # explicit eval to restart fully
         else:
-            beta = xp.linalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
+            beta = pylinalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
         p *= beta
         p += r
 
@@ -139,26 +141,31 @@ class CG(pycs.Solver):
         mst["x"], mst["residual"], mst["conjugate_dir"] = x, r, p
 
     def default_stop_crit(self) -> pycs.StoppingCriterion:
-        def explicit_residual(x):
-            mst = self._mstate  # shorthand
-            residual = mst["b"].copy()
-            residual -= self._A.apply(x)
-            return residual
-
         stop_crit = pycos.AbsError(
             eps=1e-4,
-            var="x",
-            f=explicit_residual,
+            var="residual",
+            f=None,
             norm=2,
             satisfy_all=True,
         )
         return stop_crit
 
+    def objective_func(self) -> pyct.NDArray:
+        x = self._mstate["x"]
+        b = self._mstate["b"]
+
+        f = self._A.apply(x)
+        f /= 2
+        f -= b
+        f = (x * f).sum(axis=-1, keepdims=True)
+
+        return f
+
     def solution(self) -> pyct.NDArray:
         """
         Returns
         -------
-        p: NDArray
+        x: NDArray
             (..., N) solution.
         """
         data, _ = self.stats()
