@@ -351,6 +351,7 @@ class Solver:
                 i += 1
             else:
                 self._astate["mode"] = None  # force steps() to be call-once when exhausted.
+                self._cleanup_logger()
                 return
 
     def stats(self):
@@ -457,6 +458,7 @@ class Solver:
             active=None,
             worker=None,
         )
+        self._cleanup_logger()
 
     def _fit_init(
         self,
@@ -635,6 +637,13 @@ class Solver:
         # [Sepand] Note:
         # The above evaluation strategy with `traverse=False` chosen since _mstate can hold any type
         # of object.
+
+    def _cleanup_logger(self):
+        # Close file-handlers
+        log_name = str(self.workdir)
+        logger = logging.getLogger(log_name)
+        for l in logger.handlers:
+            l.close()
 
     def default_stop_crit(self) -> StoppingCriterion:
         """
