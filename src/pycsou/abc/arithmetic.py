@@ -190,10 +190,10 @@ class ArgScaleRule(Rule):
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | PROXIMABLE               | yes         | op_new.prox(arr, tau) = op_old.prox(\alpha * arr, \alpha**2 * tau) / \alpha |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
-        | DIFFERENTIABLE           | yes         | _diff_lipschitz = op_old._diff_lipschitz * abs(\alpha)                      |
+        | DIFFERENTIABLE           | yes         | _diff_lipschitz = op_old._diff_lipschitz * (\alpha**2)                      |
         |                          |             |                                                                             |
         |                          |             | diff_lipschitz()                                                            |
-        |                          |             | = op_old.diff_lipschitz() * abs(\alpha)                                     |
+        |                          |             | = op_old.diff_lipschitz() * (\alpha**2)                                     |
         |                          |             | + update op_new._diff_lipschitz                                             |
         |                          |             |                                                                             |
         |                          |             | op_new.jacobian(arr) = op_old.jacobian(arr * \alpha) * \alpha               |
@@ -312,7 +312,7 @@ class ArgScaleRule(Rule):
 
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
         self._diff_lipschitz = self._op.diff_lipschitz(**kwargs)
-        self._diff_lipschitz *= abs(self._cst)
+        self._diff_lipschitz *= self._cst**2
         return self._diff_lipschitz
 
     @pycrt.enforce_precision(i="arr")
