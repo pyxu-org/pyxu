@@ -337,14 +337,15 @@ class StopCriterion_LSQMR(pycs.StoppingCriterion):
 
     def stop(self, state: cabc.Mapping) -> bool:
 
-        # Check if trivial solution is found
-        if state["trivial"]:
+        # Check if there's a trivial solution
+        if state["trivial"].all():
             return True
 
         # Update parameters here to update info:
         self._x0, self._test1, self._test2 = state["x"][0], state["test1"], state["test2"]
         self._normA = state["normA"]
         self._condA = state["condA"]
+
         # Parameters specific to lsqr/lsmr
         if self._method == "lsqr":
             self._normr1, self._normr2 = state["normr1"], state["normr2"]
@@ -365,26 +366,30 @@ class StopCriterion_LSQMR(pycs.StoppingCriterion):
         test1, test2, test3 = state["test1"], state["test2"], state["test3"]
         t1, rtol = state["t1"], state["rtol"]
 
+        # Update self._istop
+        self._istop = -np.ones_like(test1)
+
         # Applying tests:
         if self._itn >= self._iter_lim:
-            self._istop = 7
-        if 1 + test3 <= 1:
-            self._istop = 6
-        if test3 <= self._ctol:
-            self._istop = 3
-        if 1 + test2 <= 1:
-            self._istop = 5
-        if test2 <= self._atol:
-            self._istop = 2
-        if test1 <= rtol:
-            self._istop = 1
-        if 1 + t1 <= 1:
-            self._istop = 4
+            self._istop[:] = 7
+        self._istop[1 + test3 <= 1] = 6
+        self._istop[test3 <= self._ctol] = 3
+        self._istop[1 + test2 <= 1] = 5
+        self._istop[test2 <= self._atol] = 2
+        self._istop[test1 <= rtol] = 1
+        self._istop[1 + t1 <= 1] = 4
 
         self._itn += 1
 
         # Getting and returning decision:
-        decision = self._istop is not None
+        decision = True if (self._istop != -1).all() else False
+        if decision:
+            # If there's any trivial solution, add the trivial solution to the solution
+            if state["trivial"].any():
+                xp = pycu.get_array_module(state["x"])
+                temp_x = state["x"]
+                state["x"] = xp.zeros((*state["trivial"].squeeze().shape, state["x"].shape[-1]))
+                state["x"][xp.invert(state["trivial"].squeeze())] = temp_x
         return decision
 
     def info(self) -> cabc.Mapping[str, float]:
@@ -404,25 +409,33 @@ class StopCriterion_LSQMR(pycs.StoppingCriterion):
         * **Norm A:** Estimate of `norm(A)`.
 
         * **Cond A:** Estimate of `cond(A)`.
+
+        Notes
+        -----
+
+        * In case of multiple inputs in parallel, information of only the first input is given for the clear visualization purpose.
+
         """
+
         if self._method == "lsqr":
             data = {
-                f"x[0] (for first data)": self._x0,
-                f"norm r1": self._normr1,
-                f"norm r2": self._normr2,
-                f"Compatible": self._test1,
-                f"LS": self._test2,
-                f"Norm A": self._normA,
-                f"Cond A": self._condA,
+                f"x[0]": self._x0.ravel()[0],
+                f"norm r1": self._normr1.ravel()[0],
+                f"norm r2": self._normr2.ravel()[0],
+                f"Compatible": self._test1.ravel()[0],
+                f"LS": self._test2.ravel()[0],
+                f"Norm A": self._normA.ravel()[0],
+                f"Cond A": self._condA.ravel()[0],
             }
-        else:
+        elif self._method == "lsmr":
             data = {
-                f"x[0] (for first data)": self._x0,
-                f"norm r": self._normr,
-                f"norm Ar": self._normar,
-                f"Compatible": self._test1,
-                f"LS": self._test2,
-                f"Norm A": self._normA,
-                f"Cond A": self._condA,
+                f"x[0]": self._x0.ravel()[0],
+                f"norm r": self._normr.ravel()[0],
+                f"norm Ar": self._normar.ravel()[0],
+                f"Compatible": self._test1.ravel()[0],
+                f"LS": self._test2.ravel()[0],
+                f"Norm A": self._normA.ravel()[0],
+                f"Cond A": self._condA.ravel()[0],
             }
+
         return data
