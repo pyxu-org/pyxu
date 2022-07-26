@@ -52,9 +52,6 @@ class LSQR(pycs.Solver):
          (..., N) 'b' terms in the LSQR cost function. All problems are solved in parallel.
     x0: NDArray
         (..., N) initial point(s). Defaults to 0 if unspecified.
-    restart_rate: int
-        Number of iterations after which restart is applied. By default, restart is done after 'n' iterations, where 'n'
-        corresponds to the dimension of the linear operator :math:`\mathbf{A}`.
 
     **Remark:** :py:class:`pycsou.opt.solver.stop.StopCriterion_LSQR` is developed for the stopping criterion of LSQR. For
     computational speed, explicit norms were not computated. Instead, their estimation was used, which is referred from
@@ -96,20 +93,12 @@ class LSQR(pycs.Solver):
         conlim: float = 1e08,
         iter_lim: typ.Optional[int] = None,
         eps: float = np.finfo(np.float64).eps,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
-        show_progress: bool = True,
         log_var: pyct.VarName = ("x",),
+        **kwargs,
     ):
         super().__init__(
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
-            show_progress=show_progress,
             log_var=log_var,
+            **kwargs,
         )
 
         self._A = A
@@ -131,53 +120,58 @@ class LSQR(pycs.Solver):
         b = xp.atleast_1d(b)
         if b.ndim > 1:
             b = b.squeeze()
-        m, n = self._A.shape
 
         mst = self._mstate
-        mst["normA"] = mst["condA"] = mst["res2"] = mst["xnorm"] = mst["xxnorm"] = 0.0
-        mst["ddnorm"] = mst["z"] = mst["sn2"] = 0.0
-        mst["cs2"] = -1.0
+
+        bnorm = xp.linalg.norm(b, axis=-1, keepdims=True)
+
+        # Determine whether there's any trivial solution or not
+        mst["trivial"] = bnorm == 0
+        if mst["trivial"].all():
+            mst["x"] = xp.zeros_like(self._A.T.apply(b))
+            return
+        elif mst["trivial"].any():
+            # If some of them has trivial solution,
+            # then remove them for the solving process
+            # and add the trivial solution at the end of the process
+            mst["b"] = b.copy()  # To remember the original one
+            mask = xp.invert(mst["trivial"]).squeeze()
+            b = b[mask]
 
         u = b
-        bnorm = xp.linalg.norm(b)
+        bnorm = xp.linalg.norm(b, axis=-1, keepdims=True)
 
         if x0 is None:
-            x = xp.zeros(n)
+            x = xp.zeros_like(self._A.T.apply(b))
             beta = bnorm.copy()
         else:
             x = xp.asarray(x0)
-            u = u - self._A.apply(x)
-            beta = xp.linalg.norm(u)
+            u -= self._A.apply(x)
+            beta = xp.linalg.norm(u, axis=-1, keepdims=True)
 
-        if beta > 0:
-            u = (1 / beta) * u
-            v = self._A.T.apply(u)
-            alpha = xp.linalg.norm(v)
-        else:
-            v = x.copy()
-            alpha = 0
+        beta_cp, beta_gt0, beta_eq0 = beta.copy(), beta > 0, beta == 0
+        beta_cp[beta_eq0] = 1
+        u /= beta_cp
+        v = beta_gt0 * self._A.T.apply(u) + beta_eq0 * x
+        alpha = beta_gt0 * xp.linalg.norm(v, axis=-1, keepdims=True)
 
-        if alpha > 0:
-            v = (1 / alpha) * v
+        alpha_cp = alpha.copy()
+        alpha_cp[alpha_cp <= 0] = 1
+        v /= alpha_cp
 
-        arnorm = alpha * beta
-        if arnorm == 0:
-            mst["trivial"] = True
-            if b.ndim == 1:
-                mst["x"] = xp.zeros(n)
-            elif b.ndim == 2:
-                mst["x"] = xp.zeros((b.shape[0], n))
-            return
-
-        mst["x"] = x
-        mst["u"], mst["v"] = u, v
-        mst["w"] = v.copy()
+        # Initialize state variables:
+        mst["x"], mst["u"], mst["v"], mst["w"] = x, u, v, v.copy()
+        mst["normA"] = mst["condA"] = mst["res2"] = mst["xnorm"] = mst["xxnorm"] = xp.zeros_like(beta)
+        mst["ddnorm"] = mst["z"] = mst["sn2"] = xp.zeros_like(beta)
+        mst["cs2"] = -xp.ones_like(beta)
         mst["rhobar"] = mst["alpha"] = alpha
         mst["phibar"] = mst["rnorm"] = mst["normr1"] = mst["normr2"] = beta
         mst["bnorm"] = bnorm
-        mst["trivial"] = False
-        mst["test1"], mst["test2"] = 1.0, alpha / beta
+        mst["test1"], mst["test2"] = xp.ones_like(beta), alpha / beta
         mst["test3"] = mst["t1"] = mst["rtol"] = None
+
+        # Vectorize the function of Givens rotation
+        self._sym_ortho_func = xp.vectorize(self._sym_ortho)
 
     @staticmethod
     def _sym_ortho(a, b, xp):
@@ -203,8 +197,7 @@ class LSQR(pycs.Solver):
     def m_step(self):
 
         mst = self._mstate  # shorthand
-        if mst["trivial"]:
-            return
+
         xp = pycu.get_array_module(mst["x"])
 
         x, u, v, w = mst["x"], mst["u"], mst["v"], mst["w"]
@@ -214,14 +207,14 @@ class LSQR(pycs.Solver):
 
         # Bidiagonalizaion to obtain next beta, u, alpha, v
         u = self._A.apply(v) - alpha * u
-        beta = xp.linalg.norm(u)
+        beta = xp.linalg.norm(u, axis=-1, keepdims=True)
 
-        if beta > 0:
-            u = (1 / beta) * u
+        if (beta > 0).all():
+            u *= 1 / beta
             normA = xp.sqrt(normA**2 + alpha**2 + beta**2 + self._dampsq)
             v = self._A.T.apply(u) - beta * v
-            alpha = xp.linalg.norm(v)
-            if alpha > 0:
+            alpha = xp.linalg.norm(v, axis=-1, keepdims=True)
+            if (alpha > 0).all():
                 v = (1 / alpha) * v
 
         # Plane rotation to eliminate the damping parameter
@@ -233,10 +226,10 @@ class LSQR(pycs.Solver):
             phibar = cs1 * phibar
         else:
             rhobar1 = rhobar
-            psi = 0
+            psi = xp.zeros_like(beta)
 
         # Plane rotation to eliminate the subdiagonal element of lower-bidiagonal matrix
-        cs, sn, rho = self._sym_ortho(rhobar1, beta, xp)
+        cs, sn, rho = self._sym_ortho_func(rhobar1, beta, xp)
 
         theta = sn * alpha
         rhobar = -cs * alpha
@@ -277,8 +270,7 @@ class LSQR(pycs.Solver):
         if self._damp > 0:
             r1sq = rnorm**2 - self._dampsq * xxnorm
             normr1 = xp.sqrt(xp.abs(r1sq))
-            if r1sq < 0:
-                normr1 = -normr1
+            normr1[r1sq < 0] *= -1
         else:
             normr1 = rnorm
         normr2 = rnorm
