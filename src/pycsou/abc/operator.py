@@ -1731,7 +1731,7 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
 
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-        out = arr.copy()
+        out = self.apply(arr)
         if (damp := kwargs.pop("damp", None)) is not None:
             out /= 1 + damp
         return out
