@@ -146,7 +146,11 @@ class ScaleRule(Rule):
         return self._op.prox(arr, tau * self._cst)
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        return self._op.jacobian(arr) * self._cst
+        if self.has(pyco.Property.LINEAR):
+            op = self
+        else:
+            op = self._op.jacobian(arr) * self._cst
+        return op
 
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
         self._diff_lipschitz = self._op.diff_lipschitz(**kwargs)
