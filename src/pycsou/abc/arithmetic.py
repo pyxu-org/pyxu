@@ -111,18 +111,15 @@ class ScaleRule(Rule):
             pyco.Property.LINEAR_SQUARE,
             pyco.Property.LINEAR_NORMAL,
             pyco.Property.LINEAR_SELF_ADJOINT,
-            pyco.Property.PROXIMABLE,
-            # PROXIMABLE should only be preserved if `cst > 0`.
-            # (Reason: (\alpha f)(x) is no longer convex otherwise.)
-            # However since prox property should be preserved for LinFuncs (i.e., the
-            # borderline-convex case), we keep PROXIMABLE regardless and disallow calling .prox().
-            # [See .prox() override.]
         }
         if self._cst > 0:
             preserved |= {
                 pyco.Property.LINEAR_POSITIVE_DEFINITE,
                 pyco.Property.QUADRATIC,
+                pyco.Property.PROXIMABLE,
             }
+        if self._op.has(pyco.Property.LINEAR):
+            preserved.add(pyco.Property.PROXIMABLE)
         if np.isclose(self._cst, -1):
             preserved.add(pyco.Property.LINEAR_UNITARY)
 
@@ -146,11 +143,7 @@ class ScaleRule(Rule):
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        if self._cst > 0:
-            return self._op.prox(arr, tau * self._cst)
-        else:
-            # See comment in _infer_op_klass()
-            raise NotImplementedError
+        return self._op.prox(arr, tau * self._cst)
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return self._op.jacobian(arr) * self._cst
