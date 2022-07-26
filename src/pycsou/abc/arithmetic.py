@@ -305,9 +305,12 @@ class ArgScaleRule(Rule):
         return out
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        x = arr.copy()
-        x *= self._cst
-        op = self._op.jacobian(x) * self._cst
+        if self.has(pyco.Property.LINEAR):
+            op = self
+        else:
+            x = arr.copy()
+            x *= self._cst
+            op = self._op.jacobian(x) * self._cst
         return op
 
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
