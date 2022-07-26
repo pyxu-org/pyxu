@@ -45,9 +45,6 @@ class LSMR(pycs.Solver):
          (..., N) 'b' terms in the LSMR cost function. All problems are solved in parallel.
     x0: NDArray
         (..., N) initial point(s). Defaults to 0 if unspecified.
-    restart_rate: int
-        Number of iterations after which restart is applied. By default, restart is done after 'n' iterations, where 'n'
-        corresponds to the dimension of the linear operator :math:`\mathbf{A}`.
 
     **Remark:** :py:class:`pycsou.opt.solver.stop.StopCriterion_LSMR` is developed for the stopping criterion of LSMR. For
     computational speed, explicit norms were not computated. Instead, their estimation was used, which is referred from
@@ -62,7 +59,7 @@ class LSMR(pycs.Solver):
     >>> mat = rng.normal(size=(10, 10))
     >>> A = LinOp.from_array(mat).gram()
     >>> # Create the ground truth 'x_star'
-    >>> x_star = rng.normal(size=(2, 2, 10))
+    >>> x_star = rng.normal(size=(3, 3, 10))
     >>> # Generate the corresponding data vector 'b'
     >>> b = A.apply(x_star)
     >>> # Solve 'Ax=b' for 'x' with the conjugate gradient method
@@ -88,29 +85,20 @@ class LSMR(pycs.Solver):
         btol: float = 1e-06,
         conlim: float = 1e08,
         iter_lim: typ.Optional[int] = None,
-        folder: typ.Optional[pyct.PathLike] = None,
-        exist_ok: bool = False,
-        writeback_rate: typ.Optional[int] = None,
-        verbosity: int = 1,
-        show_progress: bool = True,
         log_var: pyct.VarName = ("x",),
+        **kwargs,
     ):
         super().__init__(
-            folder=folder,
-            exist_ok=exist_ok,
-            writeback_rate=writeback_rate,
-            verbosity=verbosity,
-            show_progress=show_progress,
             log_var=log_var,
+            **kwargs,
         )
 
         self._A = A
         self._atol = atol
         self._btol = btol
         self._ctol = (1.0 / conlim) if (conlim > 0) else 0.0
-        self._iter_lim = (min(A.shape[0], A.shape[1])) if (iter_lim is None) else iter_lim
+        self._iter_lim = (min(A.shape[0], A.shape[1])) * 2 if (iter_lim is None) else iter_lim
         self._damp = damp
-        self._itn = 0
         self._normb = None
 
     @pycrt.enforce_precision(i=["b", "x0"], allow_None=True)
@@ -126,8 +114,25 @@ class LSMR(pycs.Solver):
             b = b.squeeze()
         m, n = self._A.shape
 
+        mst = self._mstate
+
+        normb = xp.linalg.norm(b, axis=-1, keepdims=True)
+
+        # Determine whether there's any trivial solution or not
+        mst["trivial"] = normb == 0
+        if mst["trivial"].all():
+            mst["x"] = xp.zeros_like(self._A.T.apply(b))
+            return
+        elif mst["trivial"].any():
+            # If some of them has trivial solution,
+            # then remove them for the solving process
+            # and add the trivial solution at the end of the process
+            mst["b"] = b.copy()  # To remember the original one
+            mask = xp.invert(mst["trivial"]).squeeze()
+            b = b[mask]
+
         u = b
-        normb = xp.linalg.norm(b)
+        normb = xp.linalg.norm(b, axis=-1, keepdims=True)
 
         if x0 is None:
             x = xp.zeros(n)
@@ -135,52 +140,46 @@ class LSMR(pycs.Solver):
         else:
             x = x0.copy()
             u -= self._A.apply(x)
-            beta = xp.linalg.norm(u)
+            beta = xp.linalg.norm(u, axis=-1, keepdims=True)
 
-        if beta > 0:
-            u *= 1 / beta
-            v = self._A.T.apply(u)
-            alpha = xp.linalg.norm(v)
-        else:
-            v = xp.zeros_like(x)
-            alpha = 0
+        beta_cp, beta_gt0, beta_eq0 = beta.copy(), beta > 0, beta == 0
+        beta_cp[beta_eq0] = 1
+        u /= beta_cp
+        v = beta_gt0 * self._A.T.apply(u)
+        alpha = beta_gt0 * xp.linalg.norm(v, axis=-1, keepdims=True)
 
-        if alpha > 0:
-            v *= 1 / alpha
-
-        mst = self._mstate
+        alpha_cp = alpha.copy()
+        alpha_cp[alpha_cp <= 0] = 1
+        v /= alpha_cp
 
         normar = alpha * beta
-        if normar == 0:
-            mst["trivial"] = True
-            if b.ndim == 1:
-                mst["x"] = xp.zeros(n)
-            elif b.ndim == 2:
-                mst["x"] = xp.zeros((b.shape[0], n))
-            return
 
-        mst["x"], mst["u"], mst["v"], mst["alpha"], mst["trivial"] = x, u, v, alpha, False
+        # Initialize state variables
+        mst["x"], mst["u"], mst["v"], mst["alpha"] = x, u, v, alpha
 
         # Initialize variables for 1st iteration:
         mst["zetabar"], mst["alphabar"] = alpha * beta, alpha
-        mst["rho"] = mst["rhobar"] = mst["cbar"] = 1
-        mst["sbar"] = 0
+        mst["rho"] = mst["rhobar"] = mst["cbar"] = xp.ones_like(beta)
+        mst["sbar"] = xp.zeros_like(beta)
         mst["h"], mst["hbar"] = v.copy(), xp.zeros_like(x)
 
         # Initialize variables for estimation of ||r||:
         mst["betadd"] = beta
-        mst["rhodold"] = 1
-        mst["betad"] = mst["tautildeold"] = mst["thetatilde"] = mst["zeta"] = mst["d"] = 0
+        mst["rhodold"] = xp.ones_like(beta)
+        mst["betad"] = mst["tautildeold"] = mst["thetatilde"] = mst["zeta"] = mst["d"] = xp.zeros_like(beta)
 
         # Initialize variables for estimation of ||A|| and cond(A):
         mst["normA2"] = alpha**2
-        mst["maxrbar"], mst["minrbar"] = 0, 1e100
-        mst["normA"], mst["condA"] = xp.sqrt(mst["normA2"]), 1
-        mst["normx"], mst["normr"], mst["normar"] = 0, beta, normar
+        mst["maxrbar"], mst["minrbar"] = xp.zeros_like(beta), 1e100 * xp.ones_like(beta)
+        mst["normA"], mst["condA"] = xp.sqrt(mst["normA2"]), xp.zeros_like(beta)
+        mst["normx"], mst["normr"], mst["normar"] = xp.zeros_like(beta), beta, normar
         self._normb = normb
 
         # Initialize variables for testing stopping rules:
-        mst["test1"], mst["test2"], mst["test3"] = 1, alpha / beta, None
+        mst["test1"], mst["test2"], mst["test3"] = xp.ones_like(beta), alpha / beta, None
+
+        # Vectorize the function of Givens rotation
+        self._sym_ortho_func = xp.vectorize(self._sym_ortho)
 
     @staticmethod
     def _sym_ortho(a, b, xp):
@@ -206,8 +205,7 @@ class LSMR(pycs.Solver):
     def m_step(self):
 
         mst = self._mstate
-        if mst["trivial"]:
-            return
+
         xp = pycu.get_array_module(mst["x"])
 
         x, u, v, alpha = mst["x"], mst["u"], mst["v"], mst["alpha"]
@@ -218,25 +216,23 @@ class LSMR(pycs.Solver):
         rhodold, zeta, d = mst["rhodold"], mst["zeta"], mst["d"]
         normA2, minrbar, maxrbar = mst["normA2"], mst["minrbar"], mst["maxrbar"]
 
-        self._itn += 1
-
         # Bidiagonalizaion to obtain next beta, u, alpha, v:
         u = self._A.apply(v) - alpha * u
-        beta = xp.linalg.norm(u)
+        beta = xp.linalg.norm(u, axis=-1, keepdims=True)
 
-        if beta > 0:
+        if (beta > 0).all():
             u *= 1 / beta
             v = self._A.T.apply(u) - beta * v
-            alpha = xp.linalg.norm(v)
-            if alpha > 0:
+            alpha = xp.linalg.norm(v, axis=-1, keepdims=True)
+            if (alpha > 0).all():
                 v *= 1 / alpha
 
         # Construct rotation:
-        chat, shat, alphahat = self._sym_ortho(alphabar, self._damp, xp)
+        chat, shat, alphahat = self._sym_ortho_func(alphabar, self._damp, xp)
 
         # Use a plane rotation to turn B_i to R_i:
         rhoold = rho
-        c, s, rho = self._sym_ortho(alphahat, beta, xp)
+        c, s, rho = self._sym_ortho_func(alphahat, beta, xp)
         thetanew = s * alpha
         alphabar = c * alpha
 
@@ -245,7 +241,7 @@ class LSMR(pycs.Solver):
         zetaold = zeta
         thetabar = sbar * rho
         rhotemp = cbar * rho
-        cbar, sbar, rhobar = self._sym_ortho(cbar * rho, thetanew, xp)
+        cbar, sbar, rhobar = self._sym_ortho_func(cbar * rho, thetanew, xp)
         zeta = cbar * zetabar
         zetabar = -sbar * zetabar
 
@@ -263,7 +259,7 @@ class LSMR(pycs.Solver):
         betadd = -s * betaacute
 
         thetatildeold = thetatilde
-        ctildeold, stildeold, rhotildeold = self._sym_ortho(rhodold, thetabar, xp)
+        ctildeold, stildeold, rhotildeold = self._sym_ortho_func(rhodold, thetabar, xp)
         thetatilde = stildeold * rhobar
         rhodold = ctildeold * rhobar
         betad = -stildeold * betad + ctildeold * betahat
@@ -279,21 +275,22 @@ class LSMR(pycs.Solver):
         normA2 = normA2 + alpha**2
 
         # Estimation of cond(A):
-        maxrbar = max(maxrbar, rhobarold)
-        if self._itn > 1:
-            minrbar = min(minrbar, rhobarold)
-        condA = max(maxrbar, rhotemp) / min(minrbar, rhotemp)
+        maxrbar = xp.fmax(maxrbar, rhobarold)
+        if self._astate["idx"] > 1:
+            minrbar = xp.fmin(minrbar, rhobarold)
+        condA = xp.fmax(maxrbar, rhotemp) / xp.fmin(minrbar, rhotemp)
 
         # Compute norms for convergence testing:
-        normar = abs(zetabar)
-        normx = xp.linalg.norm(x)
+        normar = xp.abs(zetabar)
+        normx = xp.linalg.norm(x, axis=-1, keepdims=True)
 
         # Compute testing parameters:
         test1 = normr / self._normb
-        if (normA * normr) != 0:
-            test2 = normar / (normA * normr)
-        else:
-            test2 = np.infty
+        temp_mtx = normA * normr.copy()
+        temp_mtx[temp_mtx == 0] = 1
+        temp_mtx = 1 / temp_mtx
+        temp_mtx[normA * normr == 0] = np.inf
+        test2 = normar * temp_mtx
         test3 = 1 / condA
         t1 = test1 / (1 + normA * normx / self._normb)
         rtol = self._btol + self._atol * normA * normx / self._normb
