@@ -22,6 +22,154 @@ class Rule:
         raise NotImplementedError
 
 
+class ScaleRule(Rule):
+    r"""
+    Special Cases:
+        \alpha = 0  => NullOp/NullFunc
+        \alpha = 1  => self
+    Else:
+        |--------------------------|-------------|---------------------------------------------------------------|
+        |         Property         |  Preserved? |                   Arithmetic Update Rule(s)                   |
+        |--------------------------|-------------|---------------------------------------------------------------|
+        | CAN_EVAL                 | yes         | op_new.apply(arr) = op_old.apply(arr) * \alpha                |
+        |                          |             | op_new._lipschitz = op_old._lipschitz * abs(\alpha)           |
+        |                          |             |                                                               |
+        |                          |             | op_new.lipschitz()                                            |
+        |                          |             | = op_old.lipschitz() * abs(\alpha)                            |
+        |                          |             | + update op_new._lipschitz                                    |
+        |--------------------------|-------------|---------------------------------------------------------------|
+        | FUNCTIONAL               | yes         |                                                               |
+        |--------------------------|-------------|---------------------------------------------------------------|
+        | PROXIMABLE               | \alpha > 0  | op_new.prox(arr, tau) = op_old.prox(arr, tau * \alpha)        |
+        |--------------------------|-------------|---------------------------------------------------------------|
+        | DIFFERENTIABLE           | yes         | op_new.jacobian(arr) = op_old.jacobian(arr) * \alpha          |
+        |                          |             | op_new._diff_lipschitz = op_old._diff_lipschitz * abs(\alpha) |
+        |                          |             |                                                               |
+        |                          |             | diff_lipschitz()                                              |
+        |                          |             | = op_old.diff_lipschitz() * abs(\alpha)                       |
+        |                          |             | + update op_new._diff_lipschitz                               |
+        |--------------------------|-------------|---------------------------------------------------------------|
+        | DIFFERENTIABLE_FUNCTION  | yes         | op_new.grad(arr) = op_old.grad(arr) * \alpha                  |
+        |--------------------------|-------------|---------------------------------------------------------------|
+        | QUADRATIC                | \alpha > 0  |                                                               |
+        |--------------------------|-------------|---------------------------------------------------------------|
+        | LINEAR                   | yes         | op_new.adjoint(arr) = op_old.adjoint(arr) * \alpha            |
+        |--------------------------|-------------|---------------------------------------------------------------|
+        | LINEAR_SQUARE            | yes         |                                                               |
+        |--------------------------|-------------|---------------------------------------------------------------|
+        | LINEAR_NORMAL            | yes         |                                                               |
+        |--------------------------|-------------|---------------------------------------------------------------|
+        | LINEAR_UNITARY           | \alpha = -1 |                                                               |
+        |--------------------------|-------------|---------------------------------------------------------------|
+        | LINEAR_SELF_ADJOINT      | yes         |                                                               |
+        |--------------------------|-------------|---------------------------------------------------------------|
+        | LINEAR_POSITIVE_DEFINITE | \alpha > 0  |                                                               |
+        |--------------------------|-------------|---------------------------------------------------------------|
+        | LINEAR_IDEMPOTENT        | no          |                                                               |
+        |--------------------------|-------------|---------------------------------------------------------------|
+    """
+
+    def __init__(self, op: pyct.OpT, cst: pyct.Real):
+        self._op = op._squeeze()
+        self._cst = float(cst)
+
+        # Arithmetic Attributes
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
+
+    def op(self) -> pyct.OpT:
+        if np.isclose(self._cst, 0):
+            from pycsou.operator.linop import NullOp
+
+            op = NullOp(shape=self._op.shape)._squeeze()
+        elif np.isclose(self._cst, 1):
+            op = self._op
+        else:
+            klass = self._infer_op_klass()
+            op = klass(shape=self._op.shape)
+            op._op = self._op  # embed for introspection
+            op._cst = self._cst  # embed for introspection
+            for p in op.properties():
+                for name in p.arithmetic_attributes():
+                    attr = getattr(self, name)
+                    setattr(op, name, attr)
+                for name in p.arithmetic_methods():
+                    func = getattr(self.__class__, name)
+                    setattr(op, name, types.MethodType(func, op))
+        return op
+
+    def _infer_op_klass(self) -> pyct.OpC:
+        preserved = {
+            pyco.Property.CAN_EVAL,
+            pyco.Property.FUNCTIONAL,
+            pyco.Property.DIFFERENTIABLE,
+            pyco.Property.DIFFERENTIABLE_FUNCTION,
+            pyco.Property.LINEAR,
+            pyco.Property.LINEAR_SQUARE,
+            pyco.Property.LINEAR_NORMAL,
+            pyco.Property.LINEAR_SELF_ADJOINT,
+            pyco.Property.PROXIMABLE,
+            # PROXIMABLE should only be preserved if `cst > 0`.
+            # (Reason: (\alpha f)(x) is no longer convex otherwise.)
+            # However since prox property should be preserved for LinFuncs (i.e., the
+            # borderline-convex case), we keep PROXIMABLE regardless and disallow calling .prox().
+            # [See .prox() override.]
+        }
+        if self._cst > 0:
+            preserved |= {
+                pyco.Property.LINEAR_POSITIVE_DEFINITE,
+                pyco.Property.QUADRATIC,
+            }
+        if np.isclose(self._cst, -1):
+            preserved.add(pyco.Property.LINEAR_UNITARY)
+
+        properties = self._op.properties() & preserved
+        klass = pyco.Operator._infer_operator_type(properties)
+        return klass
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        out = self._op.apply(arr)
+        out *= self._cst
+        return out
+
+    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return self.apply(arr)
+
+    def lipschitz(self, **kwargs) -> pyct.Real:
+        self._lipschitz = self._op.lipschitz(**kwargs)
+        self._lipschitz *= abs(self._cst)
+        return self._lipschitz
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        if self._cst > 0:
+            return self._op.prox(arr, tau * self._cst)
+        else:
+            # See comment in _infer_op_klass()
+            raise NotImplementedError
+
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
+        return self._op.jacobian(arr) * self._cst
+
+    def diff_lipschitz(self, **kwargs) -> pyct.Real:
+        self._diff_lipschitz = self._op.diff_lipschitz(**kwargs)
+        self._diff_lipschitz *= abs(self._cst)
+        return self._diff_lipschitz
+
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        out = self._op.grad(arr)
+        out *= self._cst
+        return out
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        out = self._op.adjoint(arr)
+        out *= self._cst
+        return out
+
+
 def add(lhs: pyct.OpT, rhs: pyct.OpT) -> pyct.OpT:
     # special case values
     #     _lhs || _rhs = Null[Op|Func] -> _rhs/_lhs
@@ -66,41 +214,6 @@ def add(lhs: pyct.OpT, rhs: pyct.OpT) -> pyct.OpT:
     #             op.grad(arr) = _lhs.grad(arr) + _rhs.grad(arr)
     #         LINEAR
     #             op.adjoint(arr) = _lhs.adjoint(arr) + _rhs.adjoint(arr)
-    pass
-
-
-def scale(op: pyct.OpT, cst: pyct.Real) -> pyct.OpT:
-    # special scale values
-    #     0: NullOp/NullFunc
-    #     1: self
-    # else
-    #     Store _orig and _scale
-    #     Preserve during scale by \alpha != {0, 1}
-    #         CAN_EVAL
-    #             op_new.apply(arr) = op_old.apply(arr) * \alpha
-    #             op_new._lipschitz = op_old._lipschitz * abs(\alpha)
-    #             op_new.lipschitz()
-    #                 = op_old.lipschitz() * abs(\alpha)
-    #                 + update op_new._lipschitz
-    #         FUNCTIONAL
-    #         PROXIMABLE (if \alpha > 0)
-    #             op_new.prox(arr, tau) = op_old.prox(arr, tau * \alpha)
-    #         DIFFERENTIABLE
-    #             op_new.jacobian(arr) = op_old.jacobian(arr) * \alpha
-    #             op_new._diff_lipschitz = op_old._diff_lipschitz * abs(\alpha)
-    #             diff_lipschitz()
-    #                 = op_old.diff_lipschitz() * abs(\alpha)
-    #                 + update op_new._diff_lipschitz
-    #         DIFFERENTIABLE_FUNCTION
-    #             op_new.grad(arr) = op_old.grad(arr) * \alpha
-    #         LINEAR
-    #             op_new.adjoint(arr) = op_old.adjoint(arr) * \alpha
-    #         LINEAR_SQUARE
-    #         LINEAR_NORMAL
-    #         LINEAR_SELF_ADJOINT
-    #         LINEAR_POSITIVE_DEFINITE (if \alpha > 0)
-    #         LINEAR_UNITARY (only if \alpha = -1)
-    #         QUADRATIC (only if \alpha > 0)
     pass
 
 
