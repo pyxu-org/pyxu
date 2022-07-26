@@ -680,6 +680,11 @@ class ProxDiffFuncT(ProxFuncT, DiffFuncT):
     interface = frozenset(ProxFuncT.interface | DiffFuncT.interface)
 
 
+class _QuadraticFuncT(ProxDiffFuncT):
+    # Class Properties --------------------------------------------------------
+    base = pyca._QuadraticFunc
+
+
 class LinOpT(DiffMapT):
     # Class Properties --------------------------------------------------------
     base = pyca.LinOp

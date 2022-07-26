@@ -950,6 +950,15 @@ class ProxDiffFunc(ProxFunc, DiffFunc):
         DiffFunc.__init__(self, shape)
 
 
+class _QuadraticFunc(ProxDiffFunc):
+    # Hidden alias of pycsou.operator.func.quadratic.QuadraticFunc to enable operator arithmetic.
+    @classmethod
+    def properties(cls) -> cabc.Set[pyct.Property]:
+        p = set(super().properties())
+        p.add(Property.QUADRATIC)
+        return frozenset(p)
+
+
 class LinOp(DiffMap):
     r"""
     Base class for real-valued linear operators :math:`L:\mathbb{R}^M\to\mathbb{R}^N`.

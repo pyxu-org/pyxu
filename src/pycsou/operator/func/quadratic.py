@@ -11,7 +11,7 @@ __all__ = [
 ]
 
 
-class QuadraticFunc(pyca.ProxDiffFunc):
+class QuadraticFunc(pyca._QuadraticFunc):
     r"""
     Quadratic functional.
 
@@ -68,12 +68,6 @@ class QuadraticFunc(pyca.ProxDiffFunc):
     * ``QF(Q, c, t).argscale(a) = QF(a**2 * Q, a*c, t)``, :math:`a \in \mathbb{R}`.
     * ``QF(Q, c, t).argshift(y) = QF(Q, c + Q*y, QF(Q, c, t).apply(y))``, :math:`y \in \mathbb{R}^{N}`.
     """
-
-    @classmethod
-    def properties(cls) -> cabc.Set[pyct.Property]:
-        p = set(super().properties())
-        p.add(pyca.Property.QUADRATIC)
-        return frozenset(p)
 
     def __init__(
         self,
