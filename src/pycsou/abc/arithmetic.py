@@ -8,6 +8,7 @@ import numpy as np
 
 import pycsou.abc.operator as pyco
 import pycsou.runtime as pycrt
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 
@@ -333,6 +334,128 @@ class ArgScaleRule(Rule):
         return out
 
 
+class ArgShiftRule(Rule):
+    r"""
+    Special Cases:
+        \shift = 0  => self
+    Else:
+        |--------------------------|------------|-----------------------------------------------------------------|
+        |         Property         | Preserved? |                    Arithmetic Update Rule(s)                    |
+        |--------------------------|------------|-----------------------------------------------------------------|
+        | CAN_EVAL                 | yes        | op_new.apply(arr) = op_old.apply(arr + \shift)                  |
+        |                          |            | op_new._lipschitz = op_old._lipschitz                           |
+        |                          |            | op_new.lipschitz() = op_new._lipschitz alias                    |
+        |--------------------------|------------|-----------------------------------------------------------------|
+        | FUNCTIONAL               | yes        |                                                                 |
+        |--------------------------|------------|-----------------------------------------------------------------|
+        | PROXIMABLE               | yes        | op_new.prox(arr, tau) = op_old.prox(arr + \shift, tau) - \shift |
+        |--------------------------|------------|-----------------------------------------------------------------|
+        | DIFFERENTIABLE           | yes        | op_new._diff_lipschitz = op_old._diff_lipschitz                 |
+        |                          |            | op_new.diff_lipschitz() = op_new._diff_lipschitz alias          |
+        |                          |            | op_new.jacobian(arr) = op_old.jacobian(arr + \shift)            |
+        |--------------------------|------------|-----------------------------------------------------------------|
+        | DIFFERENTIABLE_FUNCTION  | yes        | op_new.grad(arr) = op_old.grad(arr + \shift)                    |
+        |--------------------------|------------|-----------------------------------------------------------------|
+        | QUADRATIC                | yes        |                                                                 |
+        |--------------------------|------------|-----------------------------------------------------------------|
+        | LINEAR                   | no         |                                                                 |
+        |--------------------------|------------|-----------------------------------------------------------------|
+        | LINEAR_SQUARE            | no         |                                                                 |
+        |--------------------------|------------|-----------------------------------------------------------------|
+        | LINEAR_NORMAL            | no         |                                                                 |
+        |--------------------------|------------|-----------------------------------------------------------------|
+        | LINEAR_UNITARY           | no         |                                                                 |
+        |--------------------------|------------|-----------------------------------------------------------------|
+        | LINEAR_SELF_ADJOINT      | no         |                                                                 |
+        |--------------------------|------------|-----------------------------------------------------------------|
+        | LINEAR_POSITIVE_DEFINITE | no         |                                                                 |
+        |--------------------------|------------|-----------------------------------------------------------------|
+        | LINEAR_IDEMPOTENT        | no         |                                                                 |
+        |--------------------------|------------|-----------------------------------------------------------------|
+    """
+
+    def __init__(self, op: pyct.OpT, cst: pyct.NDArray):
+        self._op = op._squeeze()
+        assert cst.size == len(cst), f"cst: expected 1D array, got {cst.shape}."
+        self._cst = cst
+
+        # Arithmetic Attributes
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
+
+    def op(self) -> pyct.OpT:
+        xp = pycu.get_array_module(self._cst)
+        norm = pycu.compute(xp.linalg.norm(self._cst))
+        if np.isclose(float(norm), 0):
+            op = self._op
+        else:
+            klass = self._infer_op_klass()
+            op = klass(shape=self._op.shape)
+            op._op = self._op  # embed for introspection
+            op._cst = self._cst  # embed for introspection
+            for p in op.properties():
+                for name in p.arithmetic_attributes():
+                    attr = getattr(self, name)
+                    setattr(op, name, attr)
+                for name in p.arithmetic_methods():
+                    func = getattr(self.__class__, name)
+                    setattr(op, name, types.MethodType(func, op))
+        return op
+
+    def _infer_op_klass(self) -> pyct.OpC:
+        preserved = {
+            pyco.Property.CAN_EVAL,
+            pyco.Property.FUNCTIONAL,
+            pyco.Property.PROXIMABLE,
+            pyco.Property.DIFFERENTIABLE,
+            pyco.Property.DIFFERENTIABLE_FUNCTION,
+            pyco.Property.QUADRATIC,
+        }
+
+        properties = self._op.properties() & preserved
+        klass = pyco.Operator._infer_operator_type(properties)
+        return klass
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        x = arr.copy()
+        x += self._cst
+        out = self._op.apply(x)
+        return out
+
+    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return self.apply(arr)
+
+    def lipschitz(self, **kwargs) -> pyct.Real:
+        self._lipschitz = self._op.lipschitz(**kwargs)
+        return self._lipschitz
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        x = arr.copy()
+        x += self._cst
+        out = self._op.prox(x, tau)
+        out -= self._cst
+        return out
+
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
+        x = arr.copy()
+        x += self._cst
+        op = self._op.jacobian(x)
+        return op
+
+    def diff_lipschitz(self, **kwargs) -> pyct.Real:
+        self._diff_lipschitz = self._op.diff_lipschitz(**kwargs)
+        return self._diff_lipschitz
+
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        x = arr.copy()
+        x += self._cst
+        out = self._op.grad(x)
+        return out
+
+
 def add(lhs: pyct.OpT, rhs: pyct.OpT) -> pyct.OpT:
     # special case values
     #     _lhs || _rhs = Null[Op|Func] -> _rhs/_lhs
@@ -398,27 +521,3 @@ def pow(op: pyct.OpT, k: pyct.Integer) -> pyct.OpT:
             for _ in range(k - 1):
                 op_pow = compose(op, op_pow)
         return op_pow
-
-
-def argshift(op: pyct.OpT, cst: pyct.NDArray) -> pyct.OpT:
-    # cst must have right dimensions
-    # special case values
-    #     0: self
-    # else
-    #     Store _orig and _shift
-    #     Preserve during argshift by \shift != 0
-    #         CAN_EVAL
-    #             op_new.apply(arr) = op_old.apply(arr + \shift)
-    #             op_new._lipschitz = op_old._lipschitz
-    #             op_new.lipschitz() = op_new._lipschitz alias
-    #         FUNCTIONAL
-    #         PROXIMABLE
-    #             op_new.prox(arr, tau) = op_old.prox(arr + \shift, tau) - \shift
-    #         DIFFERENTIABLE
-    #             op_new._diff_lipschitz = op_old._diff_lipschitz
-    #             op_new.diff_lipschitz() = op_new._diff_lipschitz alias
-    #             op_new.jacobian(arr) = op_old.jacobian(arr + \shift)
-    #         DIFFERENTIABLE_FUNCTION
-    #             op_new.grad(arr) = op_old.grad(arr + \shift)
-    #         QUADRATIC
-    pass
