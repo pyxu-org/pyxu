@@ -456,51 +456,199 @@ class ArgShiftRule(Rule):
         return out
 
 
-def add(lhs: pyct.OpT, rhs: pyct.OpT) -> pyct.OpT:
-    # special case values
-    #     _lhs || _rhs = Null[Op|Func] -> _rhs/_lhs
-    #     _lhs && _rhs = Null[Op|Func] -> Null[Op|Func]
-    #     _lhs == _rhs -> scale(_lhs, cst=2)
-    # else
-    #     Store _lhs and _rhs
-    #     Properties to Keep
-    #         Keep (base = _lhs.properties() & _rhs.properties())
-    #         Then post-process as such:
-    #             Always drop
-    #                 LINEAR_UNITARY
-    #                 LINEAR_IDEMPOTENT
-    #             if (SELF-ADJOINT in base) and ([vice-versa] _lhs/_rhs is POS-DEF/IDEMPOTENT)
-    #                 # Case OrthProj + Pos-Def -> Pos-Def
-    #                 Add back LINEAR_POSITIVE_DEFINITE
-    #             if (PROXIMAL in base)
-    #                 if LINEAR not in _lhs or _rhs:
-    #                     # prox preserved only for prox + linear
-    #                     drop PROXIMAL
-    #                 elif QUADRATIC in _lhs or _rhs:
-    #                     # quadratic preserved during quad + linear
-    #                     add back QUADRATIC
-    #     Arithmetic Rule
-    #         CAN_EVAL
-    #             op.apply(arr) = _lhs.apply(arr) + _rhs.apply(arr)
-    #             op._lipschitz = _lhs._lipschitz + _rhs._lipschitz
-    #             op.lipschitz()
-    #                 = _lhs.lipschitz() + _rhs.lipschitz()
-    #                 + update op._lipschitz
-    #         PROXIMABLE
-    #             op.prox(arr, tau) = _lhs.prox(arr - tau * _rhs.grad(arr), tau)
-    #                           OR  = _rhs.prox(arr - tau * _lhs.grad(arr), tau)
-    #                 IMPORTANT: the one calling .grad() should be either (lhs, rhs) which has LINEAR property
-    #         DIFFERENTIABLE
-    #             op._diff_lipschitz = _lhs._diff_lipschitz + _rhs._diff_lipschitz
-    #             op.diff_lipschitz()
-    #                 = _lhs.diff_lipschitz() + _rhs.diff_lipschitz()
-    #                 + update op._diff_lipschitz
-    #             op.jacobian(arr) = _lhs.jacobian(arr) + _rhs.jacobian(arr)
-    #         DIFFERENTIABLE_FUNCTION
-    #             op.grad(arr) = _lhs.grad(arr) + _rhs.grad(arr)
-    #         LINEAR
-    #             op.adjoint(arr) = _lhs.adjoint(arr) + _rhs.adjoint(arr)
-    pass
+class AddRule(Rule):
+    r"""
+    The output type of AddRule(A._squeeze(), B._squeeze()) is summarized in the table below (LHS/RHS
+    commute):
+
+        |---------------|-----|------|---------|----------|----------|--------------|-----------|---------|--------------|------------|------------|------------|---------------|---------------|------------|---------------|
+        |   LHS / RHS   | Map | Func | DiffMap | DiffFunc | ProxFunc | ProxDiffFunc | Quadratic |  LinOp  |   LinFunc    |  SquareOp  |  NormalOp  |   UnitOp   | SelfAdjointOp |    PosDefOp   |   ProjOp   |   OrthProjOp  |
+        |---------------|-----|------|---------|----------|----------|--------------|-----------|---------|--------------|------------|------------|------------|---------------|---------------|------------|---------------|
+        | Map           | Map | Map  | Map     | Map      | Map      | Map          | Map       | Map     | Map          | Map        | Map        | Map        | Map           | Map           | Map        | Map           |
+        | Func          |     | Func | Map     | Func     | Func     | Func         | Func      | Map     | Func         | Map        | Map        | Map        | Map           | Map           | Map        | Map           |
+        | DiffMap       |     |      | DiffMap | DiffMap  | Map      | DiffMap      | DiffMap   | DiffMap | DiffMap      | DiffMap    | DiffMap    | DiffMap    | DiffMap       | DiffMap       | DiffMap    | DiffMap       |
+        | DiffFunc      |     |      |         | DiffFunc | Func     | DiffFunc     | DiffFunc  | DiffMap | DiffFunc     | DiffMap    | DiffMap    | DiffMap    | DiffMap       | DiffMap       | DiffMap    | DiffMap       |
+        | ProxFunc      |     |      |         |          | Func     | Func         | Func      | Map     | ProxFunc     | Map        | Map        | Map        | Map           | Map           | Map        | Map           |
+        | ProxDiffFunc  |     |      |         |          |          | DiffFunc     | DiffFunc  | DiffMap | ProxDiffFunc | DiffMap    | DiffMap    | DiffMap    | DiffMap       | DiffMap       | DiffMap    | DiffMap       |
+        | Quadratic     |     |      |         |          |          |              | Quadratic | DiffMap | Quadratic    | DiffMap    | DiffMap    | DiffMap    | DiffMap       | DiffMap       | DiffMap    | DiffMap       |
+        | LinOp         |     |      |         |          |          |              |           | LinOp   | LinOp        | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE    | IMPOSSIBLE    | IMPOSSIBLE | IMPOSSIBLE    |
+        | LinFunc       |     |      |         |          |          |              |           |         | LinFunc      | SquareOp   | SquareOp   | SquareOp   | SquareOp      | SquareOp      | SquareOp   | SquareOp      |
+        | SquareOp      |     |      |         |          |          |              |           |         |              | SquareOp   | SquareOp   | SquareOp   | SquareOp      | SquareOp      | SquareOp   | SquareOp      |
+        | NormalOp      |     |      |         |          |          |              |           |         |              |            | NormalOp   | NormalOp   | NormalOp      | NormalOp      | SquareOp   | NormalOp      |
+        | UnitOp        |     |      |         |          |          |              |           |         |              |            |            | NormalOp   | NormalOp      | NormalOp      | SquareOp   | NormalOp      |
+        | SelfAdjointOp |     |      |         |          |          |              |           |         |              |            |            |            | SelfAdjointOp | SelfAdjointOp | SquareOp   | SelfAdjointOp |
+        | PosDefOp      |     |      |         |          |          |              |           |         |              |            |            |            |               | PosDefOp      | SquareOp   | PosDefOp      |
+        | ProjOp        |     |      |         |          |          |              |           |         |              |            |            |            |               |               | SquareOp   | SquareOp      |
+        | OrthProjOp    |     |      |         |          |          |              |           |         |              |            |            |            |               |               |            | SelfAdjointOp |
+        |---------------|-----|------|---------|----------|----------|--------------|-----------|---------|--------------|------------|------------|------------|---------------|---------------|------------|---------------|
+
+
+    The output properties however can be inferred based on the following simplified dispatch table:
+
+        |--------------------------|---------------------|-------------------------------------|
+        |      LHS Properties      |    RHS Properties   |          Output Properties          |
+        |--------------------------|---------------------|-------------------------------------|
+        | LHS                      | RHS                 | LHS.properties() & RHS.properties() |
+        |--------------------------|---------------------|-------------------------------------|
+        | PROXIMABLE               | PROXIMABLE &        | - PROXIMABLE                        |
+        |                          | NOT LINEAR          |                                     |
+        |--------------------------|---------------------|-------------------------------------|
+        | QUADRATIC                | LINEAR &            | + QUADRATIC                         |
+        |                          | FUNCTIONAL          |                                     |
+        |--------------------------|---------------------|-------------------------------------|
+        | LINEAR_UNITARY           | LINEAR_UNITARY      | - LINEAR_UNITARY                    |
+        |                          |                     |                                     |
+        |--------------------------|---------------------|-------------------------------------|
+        | LINEAR_IDEMPOTENT        | LINEAR_IDEMPOTENT   | - LINEAR_IDEMPOTENT                 |
+        |                          |                     |                                     |
+        |--------------------------|---------------------|-------------------------------------|
+        | LINEAR_POSITIVE_DEFINITE | LINEAR_IDEMPOTENT & | + LINEAR_POSITIVE_DEFINITE          |
+        |                          | LINEAR_SELF_ADJOINT |                                     |
+        |--------------------------|---------------------|-------------------------------------|
+
+
+    Caution: the dispatch table should be read top-down and all rows must be executed.
+    Ex: if LHS/RHS satisfy last row, then the rule is:
+
+        (LHS.properties() & RHS.properties()) + LINEAR_POSITIVE_DEFINITE
+
+
+    Arithmetic Update Rule(s)
+    -------------------------
+    * CAN_EVAL
+        op.apply(arr) = _lhs.apply(arr) + _rhs.apply(arr)
+        op._lipschitz = _lhs._lipschitz + _rhs._lipschitz
+        op.lipschitz()
+            = _lhs.lipschitz() + _rhs.lipschitz()
+            + update op._lipschitz
+
+    * PROXIMABLE
+        op.prox(arr, tau) = _lhs.prox(arr - tau * _rhs.grad(arr), tau)
+                      OR  = _rhs.prox(arr - tau * _lhs.grad(arr), tau)
+            IMPORTANT: the one calling .grad() should be either (lhs, rhs) which has LINEAR property
+
+    * DIFFERENTIABLE
+        op._diff_lipschitz = _lhs._diff_lipschitz + _rhs._diff_lipschitz
+        op.diff_lipschitz()
+            = _lhs.diff_lipschitz() + _rhs.diff_lipschitz()
+            + update op._diff_lipschitz
+        op.jacobian(arr) = _lhs.jacobian(arr) + _rhs.jacobian(arr)
+
+    * DIFFERENTIABLE_FUNCTION
+        op.grad(arr) = _lhs.grad(arr) + _rhs.grad(arr)
+
+    * LINEAR
+        op.adjoint(arr) = _lhs.adjoint(arr) + _rhs.adjoint(arr)
+    """
+
+    def __init__(self, lhs: pyct.OpT, rhs: pyct.OpT):
+        self._lhs = lhs._squeeze()
+        self._rhs = rhs._squeeze()
+
+        # Arithmetic Attributes
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
+
+    def op(self) -> pyct.OpT:
+        klass = self._infer_op_klass()
+        sh_op = pycu.infer_sum_shape(self._lhs.shape, self._rhs.shape)
+        op = klass(shape=sh_op)
+        op._lhs = self._lhs  # embed for introspection
+        op._rhs = self._rhs  # embed for introspection
+        for p in op.properties():
+            for name in p.arithmetic_attributes():
+                attr = getattr(self, name)
+                setattr(op, name, attr)
+            for name in p.arithmetic_methods():
+                func = getattr(self.__class__, name)
+                setattr(op, name, types.MethodType(func, op))
+        return op
+
+    def _infer_op_klass(self) -> pyct.OpC:
+        lhs_p = self._lhs.properties()
+        rhs_p = self._rhs.properties()
+        base = set(lhs_p & rhs_p)
+        base.discard(pyco.Property.LINEAR_UNITARY)
+        base.discard(pyco.Property.LINEAR_IDEMPOTENT)
+        if pyco.Property.LINEAR_SELF_ADJOINT in base:
+            # orth-proj + pos-def => pos-def
+            posd = pyco.Property.LINEAR_POSITIVE_DEFINITE
+            idem = pyco.Property.LINEAR_IDEMPOTENT
+            if any(
+                [
+                    (posd in lhs_p) and (idem in rhs_p),
+                    (idem in lhs_p) and (posd in rhs_p),
+                ]
+            ):
+                base.add(posd)
+        if pyco.Property.PROXIMABLE in base:
+            if pyco.Property.LINEAR not in (lhs_p | rhs_p):
+                # .prox() only preserved when doing (prox + linfunc)
+                base.discard(pyco.Property.PROXIMABLE)
+            elif pyco.Property.QUADRATIC in (lhs_p | rhs_p):
+                # quadraticity preserved when doing (quadratic + linear)
+                base.add(pyco.Property.QUADRATIC)
+
+        klass = pyco.Operator._infer_operator_type(base)
+        return klass
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        # ranges may broadcast, so can't do in-place updates.
+        out_lhs = self._lhs.apply(arr)
+        out_rhs = self._rhs.apply(arr)
+        out = out_lhs + out_rhs
+        return out
+
+    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return self.apply(arr)
+
+    def lipschitz(self, **kwargs) -> pyct.Real:
+        self._lipschitz = self._lhs.lipschitz(**kwargs)
+        self._lipschitz += self._rhs.lipschitz(**kwargs)
+        return self._lipschitz
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        if pyco.Property.LINEAR in self._lhs.properties():
+            P, G = self._rhs, self._lhs
+        elif pyco.Property.LINEAR in self._rhs.properties():
+            P, G = self._lhs, self._rhs
+        else:
+            raise NotImplementedError
+
+        x = G.grad(arr)
+        x *= -tau
+        x += arr
+        out = P.prox(x, tau)
+        return out
+
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
+        op_lhs = self._lhs.jacobian(arr)
+        op_rhs = self._rhs.jacobian(arr)
+        op = op_lhs + op_rhs
+        return op
+
+    def diff_lipschitz(self, **kwargs) -> pyct.Real:
+        self._diff_lipschitz = self._lhs.diff_lipschitz(**kwargs)
+        self._diff_lipschitz += self._rhs.diff_lipschitz(**kwargs)
+        return self._diff_lipschitz
+
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        # ranges may broadcast, so can't do in-place updates.
+        out_lhs = self._lhs.grad(arr)
+        out_rhs = self._rhs.grad(arr)
+        out = out_lhs + out_rhs
+        return out
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        # ranges may broadcast, so can't do in-place updates.
+        out_lhs = self._lhs.adjoint(arr)
+        out_rhs = self._rhs.adjoint(arr)
+        out = out_lhs + out_rhs
+        return out
 
 
 def compose(lhs: pyct.OpT, rhs: pyct.OpT) -> pyct.OpT:
