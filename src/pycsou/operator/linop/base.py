@@ -15,7 +15,7 @@ import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 
 
-class IdentityOp(pyca.PosDefOp, pyca.UnitOp, pyca.OrthProjOp):
+class IdentityOp(pyca.UnitOp):
     @classmethod
     def properties(cls) -> cabc.Set[pyct.Property]:
         p = set()
@@ -24,20 +24,14 @@ class IdentityOp(pyca.PosDefOp, pyca.UnitOp, pyca.OrthProjOp):
         return frozenset(p)
 
     def __init__(self, dim: pyct.Integer):
-        pyca.PosDefOp.__init__(self, shape=(dim, dim))
-        pyca.UnitOp.__init__(self, shape=(dim, dim))
-        pyca.OrthProjOp.__init__(self, shape=(dim, dim))
-
-        # Use methods from UnitOp/OrthProjOp as needed.
-        # Others are delegated to PosDefOp automatically.
-        self.pinv = ft.partial(pyca.UnitOp.pinv, self)
-        self.dagger = ft.partial(pyca.UnitOp.dagger, self)
-        self.lipschitz = ft.partial(pyca.OrthProjOp.lipschitz, self)
-        self.gram = ft.partial(pyca.OrthProjOp.gram, self)
-        self.cogram = ft.partial(pyca.OrthProjOp.cogram, self)
+        super().__init__(shape=(dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return arr
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         return arr
 
     def svdvals(self, **kwargs) -> pyct.NDArray:
