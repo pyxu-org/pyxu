@@ -4,6 +4,7 @@ import numpy as np
 
 import pycsou.abc as pyca
 import pycsou.runtime as pycrt
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 __all__ = [
@@ -103,7 +104,7 @@ class QuadraticFunc(pyca._QuadraticFunc):
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
-        out = self._Q.apply(arr)
+        out = pycu.copy_if_unsafe(self._Q.apply(arr))
         out += self._c.grad(arr)
         return out
 
