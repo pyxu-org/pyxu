@@ -28,11 +28,11 @@ class IdentityOp(pyca.UnitOp):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return arr
+        return pycu.read_only(arr)
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return arr
+        return pycu.read_only(arr)
 
     def svdvals(self, **kwargs) -> pyct.NDArray:
         if kwargs.pop("gpu", False):

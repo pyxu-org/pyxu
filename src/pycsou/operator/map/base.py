@@ -4,6 +4,7 @@ import numpy as np
 
 import pycsou.abc.operator as pyco
 import pycsou.runtime as pycrt
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 __all__ = [
@@ -45,7 +46,7 @@ def ConstantValued(
 
         @pycrt.enforce_precision(i=("arr", "tau"))
         def op_prox(_, arr: pyct.NDArray, tau: pyct.NDArray) -> pyct.NDArray:
-            return arr
+            return pycu.read_only(arr)
 
         klass = pyco.ProxDiffFunc if (shape[0] == 1) else pyco.DiffMap
         op = klass(shape=shape)

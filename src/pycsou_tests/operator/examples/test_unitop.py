@@ -8,16 +8,18 @@ import pycsou_tests.operator.conftest as conftest
 
 
 class Permutation(pyca.UnitOp):
+    # f: \bR^{N} -> \bR^{N}
+    #      x     -> x[::-1] (reverse-ordering)
     def __init__(self, dim: int):
         super().__init__(shape=(dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):
-        return arr[..., ::-1]
+        return pycu.read_only(arr[..., ::-1])
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr):
-        return arr[..., ::-1]
+        return pycu.read_only(arr[..., ::-1])
 
 
 class TestPermutation(conftest.UnitOpT):
