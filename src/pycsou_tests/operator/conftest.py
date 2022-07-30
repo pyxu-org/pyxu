@@ -869,6 +869,7 @@ class LinOpT(DiffMapT):
         # Default implementation: auto-computes pinv() at output points specified to test op.apply().
         A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
         if _damp is not None:
+            A = pycu.copy_if_unsafe(A)
             for i in range(op.dim):
                 A[i, i] += _damp
 
@@ -921,6 +922,7 @@ class LinOpT(DiffMapT):
         # Default implementation: auto-computes .adjoint() at input points specified to test op.apply().
         A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
         if _damp is not None:
+            A = pycu.copy_if_unsafe(A)
             for i in range(op.dim):
                 A[i, i] += _damp
 
