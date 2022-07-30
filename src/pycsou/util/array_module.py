@@ -12,6 +12,7 @@ __all__ = [
     "compute",
     "copy_if_unsafe",
     "get_array_module",
+    "read_only",
     "redirect",
 ]
 
@@ -182,4 +183,26 @@ def copy_if_unsafe(x: pyct.NDArray) -> pyct.NDArray:
         read_only = not x.flags.writeable
         reference = not x.flags.owndata
         y = x.copy() if (read_only or reference) else x
+    return y
+
+
+def read_only(x: pyct.NDArray) -> pyct.NDArray:
+    """
+    Make an array read-only.
+
+    Parameters
+    ----------
+    x: pyct.NDArray
+
+    Returns
+    -------
+    y: pyct.NDArray
+    """
+    xp = get_array_module(x)
+    if xp == da:
+        # Dask operations are read-only since graph-backed.
+        y = x
+    else:
+        y = x.view()
+        y.flags.writeable = False
     return y
