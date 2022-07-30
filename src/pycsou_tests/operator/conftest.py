@@ -6,6 +6,7 @@ import math
 import types
 import typing as typ
 
+import dask.array as da
 import numpy as np
 import numpy.random as npr
 import pytest
@@ -88,12 +89,13 @@ def less_equal(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
 #         * in_ are kwargs to `op.<method>()`;
 #         * out denotes the output of `op.method(**data[in_])`.
 #
-# * test_[value,backend,prec,precCM]_<method>(op, ...)
+# * test_[value,backend,prec,precCM,transparent]_<method>(op, ...)
 #       Verify that <method>, returns
 #       * value: right output values
 #       * backend: right output type
 #       * prec: input/output have same precision
 #       * precCM: output respects context-manager choice
+#       * transparent: referential-transparency, i.e. no side-effects.
 #
 # * data_math_<method>()
 #       Special test data for mathematical identities.
@@ -199,6 +201,38 @@ class MapT:
             stats.append(out.dtype == width.value)
 
         assert all(stats)
+
+    @staticmethod
+    def _check_no_side_effect(func, data):
+        # idea:
+        # * eval func() once [out_1]
+        # * scale out_1 by a constant [scale]
+        # * re-eval func() [out_2]
+        # * assert out_1 == out_2, i.e. input was not modified
+        data = copy.deepcopy(data)
+        in_, out_gt = data["in_"], data["out"]
+        dtype = in_["arr"].dtype
+        scale = 10
+        out_gt *= scale
+
+        if pycu.get_array_module(in_["arr"]) == da:
+            pytest.skip("Dask arrays side-effect free by design.")
+        else:
+            is_readonly = lambda _: not _.flags.writeable
+            with pycrt.EnforcePrecision(False):
+                out_1 = pycu.compute(func(**in_))
+                if is_readonly(out_1):
+                    return  # safe by default
+                else:
+                    out_1 *= scale
+                    out_2 = pycu.compute(func(**in_))
+                    out_2 *= scale
+
+                    # The large scale introduced to assess transparency may give rise to
+                    # operator-dependant round-off errors. We therefore assess transparency at
+                    # FP32-precision to avoid false negatives.
+                    assert allclose(out_1, out_gt, as_dtype=pycrt.Width.SINGLE.value)
+                    assert allclose(out_2, out_gt, as_dtype=pycrt.Width.SINGLE.value)
 
     @staticmethod
     def _random_array(shape: tuple[int], seed: int = 0):
@@ -314,6 +348,10 @@ class MapT:
         self._skip_if_disabled()
         self._check_precCM(op.apply, _data_apply)
 
+    def test_transparent_apply(self, op, _data_apply):
+        self._skip_if_disabled()
+        self._check_no_side_effect(op.apply, _data_apply)
+
     def test_value1D_call(self, op, _data_apply):
         self._skip_if_disabled()
         self._check_value1D(op.__call__, _data_apply)
@@ -333,6 +371,10 @@ class MapT:
     def test_precCM_call(self, op, _data_apply):
         self._skip_if_disabled()
         self._check_precCM(op.__call__, _data_apply)
+
+    def test_transparent_call(self, op, _data_apply):
+        self._skip_if_disabled()
+        self._check_no_side_effect(op.__call__, _data_apply)
 
     def test_math_lipschitz(self, op, data_math_lipschitz):
         # \norm{f(x) - f(y)}{2} \le L * \norm{x - y}{2}
@@ -514,6 +556,10 @@ class DiffFuncT(FuncT, DiffMapT):
         self._skip_if_disabled()
         self._check_precCM(op.grad, _data_grad)
 
+    def test_transparent_grad(self, op, _data_grad):
+        self._skip_if_disabled()
+        self._check_no_side_effect(op.grad, _data_grad)
+
     def test_math1_grad(self, op, data_grad):
         # .jacobian/.grad outputs are consistent.
         self._skip_if_disabled()
@@ -610,6 +656,10 @@ class ProxFuncT(FuncT):
     def test_precCM_prox(self, op, _data_prox):
         self._skip_if_disabled()
         self._check_precCM(op.prox, _data_prox)
+
+    def test_transparent_prox(self, op, _data_prox):
+        self._skip_if_disabled()
+        self._check_no_side_effect(op.prox, _data_prox)
 
     def test_math_prox(self, op, data_prox):
         # Ensure y = prox_{tau f}(x) minimizes:
@@ -1002,6 +1052,10 @@ class LinOpT(DiffMapT):
     def test_precCM_adjoint(self, op, _data_adjoint):
         self._skip_if_disabled()
         self._check_precCM(op.adjoint, _data_adjoint)
+
+    def test_transparent_adjoint(self, op, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_no_side_effect(op.adjoint, _data_adjoint)
 
     def test_math_adjoint(self, op):
         # <op.adjoint(x), y> = <x, op.apply(y)>
