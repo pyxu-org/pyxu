@@ -200,3 +200,31 @@ class TestCopyIfUnsafe:
         assert y.flags.owndata
         assert y.shape == x.shape
         assert xp.allclose(y, x)
+
+
+class TestReadOnly:
+    @pytest.fixture(
+        params=[
+            np.ones((1,)),  # contiguous
+            np.ones((5,)),  # contiguous
+            np.ones((5, 3, 4)),  # multi-dim, contiguous
+            np.ones((5, 3, 4))[:, ::-1],  # multi-dim, view
+        ]
+    )
+    def x(self, request):
+        return request.param
+
+    def test_transparent(self, x):
+        x = da.array(x)
+        y = pycu.read_only(x)
+        assert y is x
+
+    @pytest.mark.parametrize("xp", set(pycd.supported_array_modules()) - {da})
+    def test_readonly(self, xp, x):
+        x = xp.array(x)
+        y = pycu.read_only(x)
+
+        assert not y.flags.writeable
+        assert not y.flags.owndata
+        assert y.shape == x.shape
+        assert xp.allclose(y, x)
