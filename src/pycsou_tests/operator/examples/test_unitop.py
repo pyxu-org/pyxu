@@ -10,8 +10,8 @@ import pycsou_tests.operator.conftest as conftest
 class Permutation(pyca.UnitOp):
     # f: \bR^{N} -> \bR^{N}
     #      x     -> x[::-1] (reverse-ordering)
-    def __init__(self, dim: int):
-        super().__init__(shape=(dim, dim))
+    def __init__(self, N: int):
+        super().__init__(shape=(N, N))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):
@@ -29,7 +29,7 @@ class TestPermutation(conftest.UnitOpT):
 
     @pytest.fixture
     def op(self, dim):
-        return Permutation(dim=dim)
+        return Permutation(N=dim)
 
     @pytest.fixture
     def data_shape(self, dim):
