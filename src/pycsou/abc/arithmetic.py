@@ -517,6 +517,8 @@ class AddRule(Rule):
         op.lipschitz()
             = _lhs.lipschitz() + _rhs.lipschitz()
             + update op._lipschitz
+        IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
+                   operand's Lipschitz constant must be magnified by \sqrt{M}.
 
     * PROXIMABLE
         op.prox(arr, tau) = _lhs.prox(arr - tau * _rhs.grad(arr), tau)
@@ -597,8 +599,16 @@ class AddRule(Rule):
         return self.apply(arr)
 
     def lipschitz(self, **kwargs) -> pyct.Real:
-        self._lipschitz = self._lhs.lipschitz(**kwargs)
-        self._lipschitz += self._rhs.lipschitz(**kwargs)
+        L_lhs = self._lhs.lipschitz(**kwargs)
+        L_rhs = self._rhs.lipschitz(**kwargs)
+        if self._lhs.codim < self._rhs.codim:
+            # LHS broadcasts
+            L_lhs *= np.sqrt(self._rhs.codim)
+        elif self._lhs.codim > self._rhs.codim:
+            # RHS broadcasts
+            L_rhs *= np.sqrt(self._lhs.codim)
+
+        self._lipschitz = L_lhs + L_rhs
         return self._lipschitz
 
     @pycrt.enforce_precision(i=("arr", "tau"))
