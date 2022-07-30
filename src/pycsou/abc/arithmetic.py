@@ -129,7 +129,7 @@ class ScaleRule(Rule):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        out = self._op.apply(arr)
+        out = pycu.copy_if_unsafe(self._op.apply(arr))
         out *= self._cst
         return out
 
@@ -159,13 +159,13 @@ class ScaleRule(Rule):
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
-        out = self._op.grad(arr)
+        out = pycu.copy_if_unsafe(self._op.grad(arr))
         out *= self._cst
         return out
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        out = self._op.adjoint(arr)
+        out = pycu.copy_if_unsafe(self._op.adjoint(arr))
         out *= self._cst
         return out
 
@@ -328,7 +328,7 @@ class ArgScaleRule(Rule):
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        out = self._op.adjoint(arr)
+        out = pycu.copy_if_unsafe(self._op.adjoint(arr))
         out *= self._cst
         return out
 
@@ -620,7 +620,7 @@ class AddRule(Rule):
         else:
             raise NotImplementedError
 
-        x = G.grad(arr)
+        x = pycu.copy_if_unsafe(G.grad(arr))
         x *= -tau
         x += arr
         out = P.prox(x, tau)

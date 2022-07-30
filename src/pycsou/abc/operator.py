@@ -1669,6 +1669,7 @@ class UnitOp(NormalOp):
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = self.adjoint(arr)
         if (damp := kwargs.pop("damp", None)) is not None:
+            out = pycu.copy_if_unsafe(out)
             out /= 1 + damp
         return out
 
@@ -1733,6 +1734,7 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = self.apply(arr)
         if (damp := kwargs.pop("damp", None)) is not None:
+            out = pycu.copy_if_unsafe(out)
             out /= 1 + damp
         return out
 
