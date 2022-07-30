@@ -2,6 +2,7 @@ import collections.abc as cabc
 import functools
 
 import dask
+import dask.array as da
 
 import pycsou.util.deps as pycd
 import pycsou.util.inspect as pycui
@@ -9,6 +10,7 @@ import pycsou.util.ptype as pyct
 
 __all__ = [
     "compute",
+    "copy_if_unsafe",
     "get_array_module",
     "redirect",
 ]
@@ -155,3 +157,29 @@ def redirect(
         return wrapper
 
     return decorator
+
+
+def copy_if_unsafe(x: pyct.NDArray) -> pyct.NDArray:
+    """
+    Copy array if it is unsafe to do in-place updates on it, i.e.
+
+    * if the array is read-only, OR
+    * if the array is a view onto another array.
+
+    Parameters
+    ----------
+    x: pyct.NDArray
+
+    Returns
+    -------
+    y: pyct.NDArray
+    """
+    xp = get_array_module(x)
+    if xp == da:
+        # Dask operations span a graph -> always safe.
+        y = x
+    else:
+        read_only = not x.flags.writeable
+        reference = not x.flags.owndata
+        y = x.copy() if (read_only or reference) else x
+    return y
