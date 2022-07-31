@@ -186,7 +186,7 @@ class ArgScaleRuleUnitOp(ArgScaleRuleMixin):
     def op_orig(self):
         import pycsou_tests.operator.examples.test_unitop as tc
 
-        return tc.Rotation(ax=0, ay=0, az=np.pi / 3)
+        return tc.Permutation(N=7)
 
 
 @pytest.mark.parametrize("op_scale", op_scale_unit)
@@ -237,7 +237,7 @@ class ArgScaleRuleProjOp(ArgScaleRuleMixin):
     def op_orig(self):
         import pycsou_tests.operator.examples.test_projop as tc
 
-        return tc.CabinetProjection(angle=np.pi / 4)
+        return tc.Oblique(N=7, alpha=np.pi / 4)
 
 
 @pytest.mark.parametrize("op_scale", [1])
