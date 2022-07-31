@@ -102,7 +102,7 @@ class TestExplicitProjOp(ExplicitOpMixin, conftest.ProjOpT):
     def matrix(self):
         import pycsou_tests.operator.examples.test_projop as tc
 
-        return tc.CabinetProjection(angle=np.pi / 4).asarray()
+        return tc.Oblique(N=5, alpha=np.pi / 4).asarray()
 
 
 class TestExplicitOrthProjOp(ExplicitOpMixin, conftest.OrthProjOpT):
@@ -126,7 +126,7 @@ class TestExplicitUnitOp(ExplicitOpMixin, conftest.UnitOpT):
     def matrix(self):
         import pycsou_tests.operator.examples.test_unitop as tc
 
-        return tc.Rotation(ax=0, ay=0, az=np.pi / 3).asarray()
+        return tc.Permutation(N=5).asarray()
 
 
 class TestExplicitSelfAdjointOp(ExplicitOpMixin, conftest.SelfAdjointOpT):

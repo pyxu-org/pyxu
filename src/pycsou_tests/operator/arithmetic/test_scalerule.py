@@ -189,7 +189,7 @@ class ScaleRuleUnitOp(ScaleRuleMixin):
     def op_orig(self):
         import pycsou_tests.operator.examples.test_unitop as tc
 
-        return tc.Rotation(ax=0, ay=0, az=np.pi / 3)
+        return tc.Permutation(N=7)
 
 
 @pytest.mark.parametrize("op_scale", op_scale_unit)
@@ -240,7 +240,7 @@ class ScaleRuleProjOp(ScaleRuleMixin):
     def op_orig(self):
         import pycsou_tests.operator.examples.test_projop as tc
 
-        return tc.CabinetProjection(angle=np.pi / 4)
+        return tc.Oblique(N=7, alpha=0.3)
 
 
 @pytest.mark.parametrize("op_scale", [1])
