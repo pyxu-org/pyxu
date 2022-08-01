@@ -2,6 +2,7 @@
 Operator Arithmetic.
 """
 
+import copy
 import types
 
 import numpy as np
@@ -496,17 +497,21 @@ class AddRule(Rule):
             IMPORTANT: the one calling .grad() should be either (lhs, rhs) which has LINEAR property
 
     * DIFFERENTIABLE
+        op.jacobian(arr) = _lhs.jacobian(arr) + _rhs.jacobian(arr)
         op._diff_lipschitz = _lhs._diff_lipschitz + _rhs._diff_lipschitz
         op.diff_lipschitz()
             = _lhs.diff_lipschitz() + _rhs.diff_lipschitz()
             + update op._diff_lipschitz
-        op.jacobian(arr) = _lhs.jacobian(arr) + _rhs.jacobian(arr)
+        IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
+                   operand's diff-Lipschitz constant must be magnified by \sqrt{M}.
 
     * DIFFERENTIABLE_FUNCTION
         op.grad(arr) = _lhs.grad(arr) + _rhs.grad(arr)
 
     * LINEAR
         op.adjoint(arr) = _lhs.adjoint(arr) + _rhs.adjoint(arr)
+        IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
+                   operand's adjoint-input must be averaged.
     """
 
     def __init__(self, lhs: pyct.OpT, rhs: pyct.OpT):
@@ -591,16 +596,23 @@ class AddRule(Rule):
         return self.apply(arr)
 
     def lipschitz(self, **kwargs) -> pyct.Real:
-        L_lhs = self._lhs.lipschitz(**kwargs)
-        L_rhs = self._rhs.lipschitz(**kwargs)
-        if self._lhs.codim < self._rhs.codim:
-            # LHS broadcasts
-            L_lhs *= np.sqrt(self._rhs.codim)
-        elif self._lhs.codim > self._rhs.codim:
-            # RHS broadcasts
-            L_rhs *= np.sqrt(self._lhs.codim)
-
-        self._lipschitz = L_lhs + L_rhs
+        if self.has(pyco.Property.LINEAR):
+            if self.has(pyco.Property.FUNCTIONAL):
+                self._lipschitz = pyco.LinFunc.lipschitz(self, **kwargs)
+            else:
+                kwargs = copy.deepcopy(kwargs)
+                kwargs.update(recompute=True)
+                self._lipschitz = pyco.LinOp.lipschitz(self, **kwargs)
+        else:
+            L_lhs = self._lhs.lipschitz(**kwargs)
+            L_rhs = self._rhs.lipschitz(**kwargs)
+            if self._lhs.codim < self._rhs.codim:
+                # LHS broadcasts
+                L_lhs *= np.sqrt(self._rhs.codim)
+            elif self._lhs.codim > self._rhs.codim:
+                # RHS broadcasts
+                L_rhs *= np.sqrt(self._lhs.codim)
+            self._lipschitz = L_lhs + L_rhs
         return self._lipschitz
 
     @pycrt.enforce_precision(i=("arr", "tau"))
@@ -628,24 +640,38 @@ class AddRule(Rule):
         return op
 
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
-        self._diff_lipschitz = self._lhs.diff_lipschitz(**kwargs)
-        self._diff_lipschitz += self._rhs.diff_lipschitz(**kwargs)
+        L_lhs = self._lhs.diff_lipschitz(**kwargs)
+        L_rhs = self._rhs.diff_lipschitz(**kwargs)
+        if self._lhs.codim < self._rhs.codim:
+            # LHS broadcasts
+            L_lhs *= np.sqrt(self._rhs.codim)
+        elif self._lhs.codim > self._rhs.codim:
+            # RHS broadcasts
+            L_rhs *= np.sqrt(self._lhs.codim)
+
+        self._diff_lipschitz = L_lhs + L_rhs
         return self._diff_lipschitz
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
-        # ranges may broadcast, so can't do in-place updates.
-        out_lhs = self._lhs.grad(arr)
-        out_rhs = self._rhs.grad(arr)
-        out = out_lhs + out_rhs
+        out = self._lhs.grad(arr)
+        out = pycu.copy_if_unsafe(out)
+        out += self._rhs.grad(arr)
         return out
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        # ranges may broadcast, so can't do in-place updates.
-        out_lhs = self._lhs.adjoint(arr)
-        out_rhs = self._rhs.adjoint(arr)
-        out = out_lhs + out_rhs
+        arr_lhs = arr_rhs = arr
+        if self._lhs.codim < self._rhs.codim:
+            # LHS broadcasts
+            arr_lhs = arr.sum(axis=-1, keepdims=True)
+        elif self._lhs.codim > self._rhs.codim:
+            # RHS broadcasts
+            arr_rhs = arr.sum(axis=-1, keepdims=True)
+
+        out = self._lhs.adjoint(arr_lhs)
+        out = pycu.copy_if_unsafe(out)
+        out += self._rhs.adjoint(arr_rhs)
         return out
 
 
