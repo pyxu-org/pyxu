@@ -1027,6 +1027,7 @@ class LinOp(DiffMap):
         adj = copy.copy(self)
         adj._shape = self.dim, self.codim
         adj.apply = self.adjoint
+        adj.__call__ = self.adjoint
         adj.adjoint = self.apply
         return adj
 
@@ -1817,6 +1818,7 @@ class LinFunc(ProxDiffFunc, LinOp):
                 func = getattr(self.__class__, name)
                 setattr(op, name, types.MethodType(func, op))
         op.apply = self.adjoint
+        op.__call__ = self.adjoint
         op.adjoint = self.apply
         return op
 
