@@ -774,7 +774,15 @@ class LinOpT(DiffMapT):
         else:  # LM
             out = out[idx][-k:]
             gt = ground_truth[idx_gt][-k:]
-        assert allclose(np.abs(out), np.abs(gt), out.dtype)
+
+        # When seeking the smallest-magnitude singular values via svdvals(), the iterative algorithm
+        # used converges to values close to the ground-truth (GT).
+        # However, for 0-valued singular vectors, the relative error between converged solution and
+        # GT is sometimes slightly higher than the relative tolerance set for FP32/FP64 to consider
+        # them identical.
+        # We therefore assess [svd,eig]vals() outputs at FP32-precision only.
+        # This precision is enough to query an operator's spectrum for further diagnostics.
+        assert allclose(np.abs(out), np.abs(gt), pycrt.Width.SINGLE.value)
 
     @staticmethod
     def _check_backend_vals(func, _gpu):

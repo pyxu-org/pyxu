@@ -272,13 +272,6 @@ class TestScaleRuleOrthProjOp_IdentityScale(ScaleRuleOrthProjOp, conftest.OrthPr
 
 @pytest.mark.parametrize("op_scale", op_scale_nonidentity)
 class TestScaleRuleOrthProjOp_NonIdentityScale(ScaleRuleOrthProjOp, conftest.SelfAdjointOpT):
-    disable_test = frozenset(
-        conftest.SelfAdjointOpT.disable_test
-        | {
-            # Correct, but slightly out-of-range to pass the test. (ScaleDown-specific, not a problem.)
-            "test_value1D_svdvals",
-        }
-    )
     pass
 
 

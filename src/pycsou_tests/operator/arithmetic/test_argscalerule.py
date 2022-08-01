@@ -247,13 +247,7 @@ class TestArgScaleRuleProjOp_IdentityScale(ArgScaleRuleProjOp, conftest.ProjOpT)
 
 @pytest.mark.parametrize("op_scale", op_scale_nonidentity)
 class TestArgScaleRuleProjOp_NonIdentityScale(ArgScaleRuleProjOp, conftest.SquareOpT):
-    disable_test = frozenset(
-        conftest.SquareOpT.disable_test
-        | {
-            # Correct, but slightly out-of-range to pass the test. (Not a problem.)
-            "test_value1D_svdvals",
-        }
-    )
+    pass
 
 
 # END ProjOp ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -275,13 +269,7 @@ class TestArgScaleRuleOrthProjOp_IdentityScale(ArgScaleRuleOrthProjOp, conftest.
 
 @pytest.mark.parametrize("op_scale", op_scale_nonidentity)
 class TestArgScaleRuleOrthProjOp_NonIdentityScale(ArgScaleRuleOrthProjOp, conftest.SelfAdjointOpT):
-    disable_test = frozenset(
-        conftest.SelfAdjointOpT.disable_test
-        | {
-            # Correct, but slightly out-of-range to pass the test. (ScaleDown-specific, not a problem.)
-            "test_value1D_svdvals",
-        }
-    )
+    pass
 
 
 # END OrthProjOp ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
