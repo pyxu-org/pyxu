@@ -619,9 +619,12 @@ class AddRule(Rule):
         return out
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        op_lhs = self._lhs.jacobian(arr)
-        op_rhs = self._rhs.jacobian(arr)
-        op = op_lhs + op_rhs
+        if self.has(pyco.Property.LINEAR):
+            op = self
+        else:
+            op_lhs = self._lhs.jacobian(arr)
+            op_rhs = self._rhs.jacobian(arr)
+            op = op_lhs + op_rhs
         return op
 
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
