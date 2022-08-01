@@ -520,8 +520,8 @@ class AddRule(Rule):
         self._rhs = rhs._squeeze()
 
     def op(self) -> pyct.OpT:
-        klass = self._infer_op_klass()
         sh_op = pycu.infer_sum_shape(self._lhs.shape, self._rhs.shape)
+        klass = self._infer_op_klass()
         op = klass(shape=sh_op)
         op._lhs = self._lhs  # embed for introspection
         op._rhs = self._rhs  # embed for introspection
