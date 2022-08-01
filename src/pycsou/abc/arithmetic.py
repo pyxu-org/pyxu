@@ -470,43 +470,13 @@ class AddRule(Rule):
         | LinOp         |     |      |         |          |          |              |           | LinOp   | LinOp        | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE    | IMPOSSIBLE    | IMPOSSIBLE | IMPOSSIBLE    |
         | LinFunc       |     |      |         |          |          |              |           |         | LinFunc      | SquareOp   | SquareOp   | SquareOp   | SquareOp      | SquareOp      | SquareOp   | SquareOp      |
         | SquareOp      |     |      |         |          |          |              |           |         |              | SquareOp   | SquareOp   | SquareOp   | SquareOp      | SquareOp      | SquareOp   | SquareOp      |
-        | NormalOp      |     |      |         |          |          |              |           |         |              |            | NormalOp   | NormalOp   | NormalOp      | NormalOp      | SquareOp   | NormalOp      |
-        | UnitOp        |     |      |         |          |          |              |           |         |              |            |            | NormalOp   | NormalOp      | NormalOp      | SquareOp   | NormalOp      |
+        | NormalOp      |     |      |         |          |          |              |           |         |              |            | SquareOp   | SquareOp   | SquareOp      | SquareOp      | SquareOp   | SquareOp      |
+        | UnitOp        |     |      |         |          |          |              |           |         |              |            |            | SquareOp   | SquareOp      | SquareOp      | SquareOp   | SquareOp      |
         | SelfAdjointOp |     |      |         |          |          |              |           |         |              |            |            |            | SelfAdjointOp | SelfAdjointOp | SquareOp   | SelfAdjointOp |
         | PosDefOp      |     |      |         |          |          |              |           |         |              |            |            |            |               | PosDefOp      | SquareOp   | PosDefOp      |
         | ProjOp        |     |      |         |          |          |              |           |         |              |            |            |            |               |               | SquareOp   | SquareOp      |
         | OrthProjOp    |     |      |         |          |          |              |           |         |              |            |            |            |               |               |            | SelfAdjointOp |
         |---------------|-----|------|---------|----------|----------|--------------|-----------|---------|--------------|------------|------------|------------|---------------|---------------|------------|---------------|
-
-
-    The output properties however can be inferred based on the following simplified dispatch table:
-
-        |--------------------------|---------------------|-------------------------------------|
-        |      LHS Properties      |    RHS Properties   |          Output Properties          |
-        |--------------------------|---------------------|-------------------------------------|
-        | LHS                      | RHS                 | LHS.properties() & RHS.properties() |
-        |--------------------------|---------------------|-------------------------------------|
-        | PROXIMABLE               | PROXIMABLE &        | - PROXIMABLE                        |
-        |                          | NOT LINEAR          |                                     |
-        |--------------------------|---------------------|-------------------------------------|
-        | QUADRATIC                | LINEAR &            | + QUADRATIC                         |
-        |                          | FUNCTIONAL          |                                     |
-        |--------------------------|---------------------|-------------------------------------|
-        | LINEAR_UNITARY           | LINEAR_UNITARY      | - LINEAR_UNITARY                    |
-        |                          |                     |                                     |
-        |--------------------------|---------------------|-------------------------------------|
-        | LINEAR_IDEMPOTENT        | LINEAR_IDEMPOTENT   | - LINEAR_IDEMPOTENT                 |
-        |                          |                     |                                     |
-        |--------------------------|---------------------|-------------------------------------|
-        | LINEAR_POSITIVE_DEFINITE | LINEAR_IDEMPOTENT & | + LINEAR_POSITIVE_DEFINITE          |
-        |                          | LINEAR_SELF_ADJOINT |                                     |
-        |--------------------------|---------------------|-------------------------------------|
-
-
-    Caution: the dispatch table should be read top-down and all rows must be executed.
-    Ex: if LHS/RHS satisfy last row, then the rule is:
-
-        (LHS.properties() & RHS.properties()) + LINEAR_POSITIVE_DEFINITE
 
 
     Arithmetic Update Rule(s)
@@ -563,26 +533,48 @@ class AddRule(Rule):
         lhs_p = self._lhs.properties()
         rhs_p = self._rhs.properties()
         base = set(lhs_p & rhs_p)
+        base.discard(pyco.Property.LINEAR_NORMAL)
         base.discard(pyco.Property.LINEAR_UNITARY)
         base.discard(pyco.Property.LINEAR_IDEMPOTENT)
+        base.discard(pyco.Property.PROXIMABLE)
+
+        # Exceptions ----------------------------------------------------------
+        # normality preserved for self-adjoint addition
         if pyco.Property.LINEAR_SELF_ADJOINT in base:
-            # orth-proj + pos-def => pos-def
-            posd = pyco.Property.LINEAR_POSITIVE_DEFINITE
-            idem = pyco.Property.LINEAR_IDEMPOTENT
-            if any(
-                [
-                    (posd in lhs_p) and (idem in rhs_p),
-                    (idem in lhs_p) and (posd in rhs_p),
-                ]
-            ):
-                base.add(posd)
-        if pyco.Property.PROXIMABLE in base:
-            if pyco.Property.LINEAR not in (lhs_p | rhs_p):
-                # .prox() only preserved when doing (prox + linfunc)
-                base.discard(pyco.Property.PROXIMABLE)
-            elif pyco.Property.QUADRATIC in (lhs_p | rhs_p):
-                # quadraticity preserved when doing (quadratic + linear)
-                base.add(pyco.Property.QUADRATIC)
+            base.add(pyco.Property.LINEAR_NORMAL)
+
+        # orth-proj + pos-def => pos-def
+        if (
+            ({pyco.Property.LINEAR_IDEMPOTENT, pyco.Property.LINEAR_SELF_ADJOINT} < lhs_p)
+            and (pyco.Property.LINEAR_POSITIVE_DEFINITE in rhs_p)
+        ) or (
+            ({pyco.Property.LINEAR_IDEMPOTENT, pyco.Property.LINEAR_SELF_ADJOINT} < rhs_p)
+            and (pyco.Property.LINEAR_POSITIVE_DEFINITE in lhs_p)
+        ):
+            base.add(pyco.Property.LINEAR_SQUARE)
+            base.add(pyco.Property.LINEAR_NORMAL)
+            base.add(pyco.Property.LINEAR_SELF_ADJOINT)
+            base.add(pyco.Property.LINEAR_POSITIVE_DEFINITE)
+
+        # linfunc + (square-shape) => square
+        if pyco.Property.LINEAR in base:
+            sh = pycu.infer_sum_shape(self._lhs.shape, self._rhs.shape)
+            if (sh[0] == sh[1]) and (sh[0] > 1):
+                base.add(pyco.Property.LINEAR_SQUARE)
+
+        # quadratic + quadratic => quadratic
+        if pyco.Property.QUADRATIC in base:
+            base.add(pyco.Property.PROXIMABLE)
+
+        # quadratic + linfunc => quadratic
+        if (pyco.Property.PROXIMABLE in (lhs_p & rhs_p)) and (
+            {pyco.Property.QUADRATIC, pyco.Property.LINEAR} < (lhs_p | rhs_p)
+        ):
+            base.add(pyco.Property.QUADRATIC)
+
+        # prox(-diff) + linfunc => prox(-diff)
+        if (pyco.Property.PROXIMABLE in (lhs_p & rhs_p)) and (pyco.Property.LINEAR in (lhs_p | rhs_p)):
+            base.add(pyco.Property.PROXIMABLE)
 
         klass = pyco.Operator._infer_operator_type(base)
         return klass
