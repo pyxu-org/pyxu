@@ -822,8 +822,16 @@ class ChainRule(Rule):
         return self.apply(arr)
 
     def lipschitz(self, **kwargs) -> pyct.Real:
-        self._lipschitz = self._lhs.lipschitz(**kwargs)
-        self._lipschitz *= self._rhs.lipschitz(**kwargs)
+        if self.has(pyco.Property.LINEAR):
+            if self.has(pyco.Property.FUNCTIONAL):
+                self._lipschitz = pyco.LinFunc.lipschitz(self, **kwargs)
+            else:
+                kwargs = copy.deepcopy(kwargs)
+                kwargs.update(recompute=True)
+                self._lipschitz = pyco.LinOp.lipschitz(self, **kwargs)
+        else:
+            self._lipschitz = self._lhs.lipschitz(**kwargs)
+            self._lipschitz *= self._rhs.lipschitz(**kwargs)
         return self._lipschitz
 
     @pycrt.enforce_precision(i=("arr", "tau"))
