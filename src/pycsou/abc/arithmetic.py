@@ -878,8 +878,14 @@ class ChainRule(Rule):
                 [
                     self._rhs.jacobian(a).adjoint(b)
                     for (a, b) in zip(
-                        arr.reshape((-1, self._rhs.dim)),
-                        x.reshape((-1, self._lhs.dim)),
+                        arr.reshape((np.prod(arr.shape[:-1]), -1)),
+                        x.reshape((np.prod(x.shape[:-1]), -1)),
+                        # zip() above safer than
+                        #       zip(
+                        #         arr.reshape((-1, self._rhs.dim)),
+                        #         x.reshape((-1, self._lhs.dim)),
+                        #       )
+                        # Due to potential _lhs/_rhs domain-agnosticity, i.e. `[lhs|rhs].dim=None`.
                     )
                 ],
                 axis=0,
