@@ -797,6 +797,7 @@ class ChainRule(Rule):
         if ((P.QUADRATIC in lhs_p) and (P.LINEAR in rhs_p)) or (
             ({P.LINEAR, P.FUNCTIONAL} < lhs_p) and (P.QUADRATIC in rhs_p)
         ):
+            properties.add(P.PROXIMABLE)
             properties.add(P.QUADRATIC)
         if P.LINEAR in (lhs_p & rhs_p):
             properties.add(P.LINEAR)
