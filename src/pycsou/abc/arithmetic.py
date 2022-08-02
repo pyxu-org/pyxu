@@ -801,8 +801,10 @@ class ChainRule(Rule):
             properties.add(P.QUADRATIC)
         if P.LINEAR in (lhs_p & rhs_p):
             properties.add(P.LINEAR)
-        if (self._lhs.codim == self._rhs.dim) and (self._lhs.codim > 1):
-            properties.add(P.LINEAR_SQUARE)
+            if self._lhs.codim == 1:
+                properties.add(P.PROXIMABLE)
+            if self._lhs.codim == self._rhs.dim > 1:
+                properties.add(P.LINEAR_SQUARE)
         if P.LINEAR_UNITARY in (lhs_p & rhs_p):
             properties.add(P.LINEAR_NORMAL)
             properties.add(P.LINEAR_UNITARY)
