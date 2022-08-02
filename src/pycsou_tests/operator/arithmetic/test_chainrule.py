@@ -61,14 +61,18 @@ def op_proxdifffunc(dim: int = 7):
 
 
 def op_quadraticfunc(dim: int = 7):
+    # QuadraticFunc may be defined for dim=1.
+    # In this case we cannot use CD04 (examples/test_posdefop.py) due to minimal domain-size restrictions.
+    # We therefore use HomothetyOp without loss of generality.
+
     from pycsou.operator.func import QuadraticFunc
+    from pycsou.operator.linop import HomothetyOp
     from pycsou_tests.operator.examples.test_linfunc import ScaledSum
-    from pycsou_tests.operator.examples.test_posdefop import CDO4
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", pycuw.DenseWarning)
         return QuadraticFunc(
-            Q=CDO4(N=dim),
+            Q=HomothetyOp(dim=dim, cst=3),
             c=ScaledSum(N=dim),
             t=1,
         )
