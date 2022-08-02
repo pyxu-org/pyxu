@@ -404,12 +404,13 @@ class Operator:
         p = set(self.properties())
         if self.codim == 1:
             p.add(Property.FUNCTIONAL)
+            if Property.DIFFERENTIABLE in self.properties():
+                p.add(Property.DIFFERENTIABLE_FUNCTION)
             if Property.LINEAR in self.properties():
                 for p_ in Property:
                     if p_.name.startswith("LINEAR_"):
                         p.discard(p_)
                 p.add(Property.PROXIMABLE)
-                p.add(Property.DIFFERENTIABLE_FUNCTION)
         elif self.codim == self.dim:
             if Property.LINEAR in self.properties():
                 p.add(Property.LINEAR_SQUARE)
