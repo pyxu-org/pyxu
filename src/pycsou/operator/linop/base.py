@@ -215,7 +215,7 @@ def DiagonalOp(
     """
     assert len(vec) == np.prod(vec.shape), f"vec: {vec.shape} is not a DiagonalOp generator."
     if (dim := vec.size) == 1:  # Module-agnostic
-        return HomothetyOp(cst=vec.item(), dim=1)
+        return HomothetyOp(cst=float(vec), dim=1)
     else:
         xp = pycu.get_array_module(vec)
         if pycu.compute(xp.allclose(vec, 0)):
