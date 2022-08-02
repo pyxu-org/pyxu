@@ -107,9 +107,6 @@ class NpzDataset(Dataset):
         return data, data.shape, data.ndim, data.dtype
 
 
-# Reason to pass chunck_op in here is that I only want to have the ChunkDataset/ChunkOp to be
-# specific to them. If I do it in BatchOp I have to write code specific to this chuncking that it makes
-# batch op not general anymore.
 class ChunkDataset(cabc.Sequence):
     r"""
     Base class that batches data into chunks using dask as the backend.
@@ -194,64 +191,6 @@ class ChunkDataset(cabc.Sequence):
         return {"blocks": self.blocks, "block_dim": self.block_dim, "stack_shape": self.stack_shape}
 
 
-def depth_to_pad(depth: dict, ndims: int = 0) -> list[tuple]:
-    r"""
-    Converts from dask depth to numpy pad inputs.
-
-    **Note**
-    Depth is assumed to be coerced using dask.array.overlap.coerce_depth. This means every dimension will have a depth
-    key, even if that key is zero.
-
-    Examples:
-    -------
-    >>> depth_to_pad({0:1, 1:2, 2:0})
-    [(1,1), (2,2), (0,0)]
-    """
-    initial = [(0, 0)] * ndims
-    initial.extend([(v, v) for _, v in depth.items()])
-    return initial
-
-
-def _cumsum(seq, initial):
-    r"""
-    Modified from dask.utils._cumsum - https://github.com/dask/dask/blob/main/dask/utils.py
-    Can take an initial value other than zero.
-    """
-    return tuple(toolz.accumulate(operator.add, seq, initial=initial))
-
-
-def slices_from_chunks_with_overlap(chunks: tuple[tuple[int]], depth: dict):
-    r"""
-    Translates dask chunks tuples into a set of slices in product order. Takes into account padding and block overlaps.
-
-    Modified from dask.array.core.slices_from_chunks - https://github.com/dask/dask/blob/main/dask/array/core.py
-
-    **Remark 1:**
-    The depth padding is assumed to be symmetric around each dimension. This is the convention dask uses, and we follow
-    it.
-
-    **Remark 2:**
-    Depth is assumed to be coerced using dask.array.overlap.coerce_depth. This means every dimension will have a depth
-    key, even if that key is zero.
-
-    Examples:
-    -------
-    >>> slices_from_chunks_with_overlap(chunks=((2, 2), (3, 3, 3)), depth={0:1, 1:2})
-     [(slice(0, 4, None), slice(0, 7, None)),
-      (slice(0, 4, None), slice(3, 10, None)),
-      (slice(0, 4, None), slice(6, 13, None)),
-      (slice(2, 6, None), slice(0, 7, None)),
-      (slice(2, 6, None), slice(3, 10, None)),
-      (slice(2, 6, None), slice(6, 13, None))]
-    """
-    cumdims = [_cumsum(bds, initial=depth[i]) for i, bds in enumerate(chunks)]
-    slices = [
-        [slice(s - depth[i], s + dim + depth[i]) for s, dim in zip(starts, shapes)]
-        for i, (starts, shapes) in enumerate(zip(cumdims, chunks))
-    ]
-    return list(itertools.product(*slices))
-
-
 class ChunkOp(pyco.LinOp):
     def __init__(self, op: pyco.LinOp, depth=None, boundary=None):
         # TODO check that depth is not larger than any chunk (otherwise is rechunked which is not good)
@@ -275,7 +214,7 @@ class ChunkOp(pyco.LinOp):
         self.stack_shape = stack_shape
         stack_ndim = len(self.stack_shape)
 
-        self.depth = self._coerce_condition(self.depth, self.data_ndim + stack_ndim, stack_ndim)
+        self.depth = self._coerce_condition(self.depth, self.data_ndim + stack_ndim, stack_ndim, default=0)
         self.boundary = self._coerce_condition(self.boundary, self.data_ndim + stack_ndim, stack_ndim, default=None)
         for i, (k, v) in enumerate(self.depth.items()):
             if v > 0:
@@ -296,7 +235,8 @@ class ChunkOp(pyco.LinOp):
         self.op.data_shape = self.overlap_shape
         return self
 
-    def _coerce_condition(self, condition, ndim, num_stack, default=0):
+    @staticmethod
+    def _coerce_condition(condition, ndim, num_stack, default=0):
         return dict(((i, default) if i < num_stack else (i, condition[i - num_stack]) for i in range(ndim)))
 
     def apply(self, arr):
@@ -336,8 +276,6 @@ class ChunkOp(pyco.LinOp):
 
         out[self.batch_slice] = arr.reshape((*input_shape[:-1], *self.batch_shape))
 
-        # TODO there is some problem in the smaller regions, that aren't the same size.
-        # potentially has to do with
         n_map_overlap = functools.partial(
             neighbors_map_overlap,
             op=self.op,
