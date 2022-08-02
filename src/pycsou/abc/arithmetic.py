@@ -719,7 +719,7 @@ class ChainRule(Rule):
             linear \comp linear  => 0
             linear \comp diff    => _lhs._lipschitz * _rhs.diff_lipschitz
             diff   \comp linear  => _lhs._diff_lipschitz * (_rhs.lipschitz ** 2)
-            diff   \comp diff    => _lhs._diff_lipschitz * _rhs._diff_lipschitz
+            diff   \comp diff    => \infty
         op.diff_lipschitz()
             = COMPLEX; see above.
             + update op._diff_lipschitz
@@ -863,8 +863,7 @@ class ChainRule(Rule):
             self._diff_lipschitz = self._lhs.diff_lipschitz(**kwargs)
             self._diff_lipschitz *= self._rhs.lipschitz(**kwargs) ** 2
         else:
-            self._diff_lipschitz = self._lhs.diff_lipschitz(**kwargs)
-            self._diff_lipschitz *= self._rhs.diff_lipschitz(**kwargs)
+            self._diff_lipschitz = np.inf
         return self._diff_lipschitz
 
     @pycrt.enforce_precision(i="arr")
