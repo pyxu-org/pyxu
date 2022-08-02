@@ -35,12 +35,20 @@ class ScaleRuleMixin:
         # Scaling factors applied to op_orig()
         return request.param
 
-    @pytest.fixture(params=["scale_left", "scale_right"])
+    @pytest.fixture(
+        params=[
+            "scale_left",
+            "scale_right",
+            "divide_right",
+        ]
+    )
     def op(self, op_orig, op_scale, request) -> pyct.OpT:
         if request.param == "scale_left":
             return op_scale * op_orig
-        else:
+        elif request.param == "scale_right":
             return op_orig * op_scale
+        else:
+            return op_orig / (1 / op_scale)
 
     @pytest.fixture
     def data_shape(self, op_orig) -> pyct.Shape:
