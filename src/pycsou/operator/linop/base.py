@@ -90,7 +90,8 @@ class ExplicitLinFunc(pyco.LinFunc):
         """
         super(ExplicitLinFunc, self).__init__(shape=(1, vec.size))
         xp = pycu.get_array_module(vec)
-        self.vec = vec.copy().reshape(-1)
+        # TODO monkey fix to make stacking work in my case
+        self.vec = vec  # .copy() # .reshape(-1)
         self._lipschitz = xp.linalg.norm(vec)
         self._enable_warnings = bool(enable_warnings)
 

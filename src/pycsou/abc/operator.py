@@ -547,8 +547,9 @@ class Property:
             pycu.get_array_module(shift)
         except:
             raise ValueError("Argument [shift] must be of type NDArray.")
-        if shift.ndim != 1:
-            raise ValueError("Lag must be 1D.")
+        # TODO monkey fix to make stacking work
+        # if shift.ndim != 1:
+        #     raise ValueError("Lag must be 1D.")
         if (self.dim is None) or (self.dim == shift.shape[-1]):
             out_shape = (self.codim, shift.shape[-1])
         else:
