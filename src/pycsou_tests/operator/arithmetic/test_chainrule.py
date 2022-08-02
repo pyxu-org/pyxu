@@ -9,13 +9,18 @@
 
 
 import collections.abc as cabc
+import warnings
 
 import numpy as np
 import pytest
 
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
 import pycsou_tests.operator.conftest as conftest
+
+# It is expected for DenseWarning to be raised when creating some operators, or fallback matrix ops.
+pytestmark = pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
 
 
 # LHS/RHS test operators ------------------------------------------------------
@@ -60,11 +65,13 @@ def op_quadraticfunc(dim: int = 7):
     from pycsou_tests.operator.examples.test_linfunc import ScaledSum
     from pycsou_tests.operator.examples.test_posdefop import CDO4
 
-    return QuadraticFunc(
-        Q=CDO4(N=dim),
-        c=ScaledSum(N=dim),
-        t=1,
-    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", pycuw.DenseWarning)
+        return QuadraticFunc(
+            Q=CDO4(N=dim),
+            c=ScaledSum(N=dim),
+            t=1,
+        )
 
 
 def op_linop(dim: int = 7, codim_scale: int = 1):
