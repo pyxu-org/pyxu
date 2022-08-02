@@ -803,6 +803,7 @@ class ChainRule(Rule):
         if (self._lhs.codim == self._rhs.dim) and (self._lhs.codim > 1):
             properties.add(P.LINEAR_SQUARE)
         if P.LINEAR_UNITARY in (lhs_p & rhs_p):
+            properties.add(P.LINEAR_NORMAL)
             properties.add(P.LINEAR_UNITARY)
 
         klass = pyco.Operator._infer_operator_type(properties)
