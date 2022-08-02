@@ -1191,7 +1191,7 @@ class LinOp(DiffMap):
 
         if k >= min(self.shape):
             msg = "Too many svdvals wanted: using matrix-based ops."
-            warnings.warn(msg, UserWarning)
+            warnings.warn(msg, pycuw.DenseWarning)
             D = _dense_eval()
         else:
             D = _sparse_eval()
