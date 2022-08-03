@@ -1127,7 +1127,7 @@ class LinOp(DiffMap):
 
                 kwargs.update(m=kwargs.get("m", 126))
                 op = self.gram() if (self.codim >= self.dim) else self.cogram()
-                self._lipschitz = hutchpp(op, **kwargs)
+                self._lipschitz = np.sqrt(hutchpp(op, **kwargs)).item()
             elif algo == "svds":
                 kwargs.update(k=1, which="LM")
                 self._lipschitz = self.svdvals(**kwargs).item()
