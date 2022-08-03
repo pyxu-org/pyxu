@@ -23,14 +23,11 @@ remove = True
 eps = 1e-6
 min_iterations = 100
 
-# quick fix to keep track of the objective function value
-track_ofv = pycos.AbsError(var="ofv", eps=1e-16)
-
 # alternative stopping criteria
 dcv = pycfw.dcvStoppingCrit(1e-4)
 stop_crit = pycos.RelError(
     eps=eps,
-    var="ofv",
+    var="objective_func",
     f=None,
     norm=2,
     satisfy_all=True,
@@ -67,16 +64,16 @@ if __name__ == "__main__":
 
     print("\nVanilla FW: Solving ...")
     start = time.time()
-    # vfw.fit(compute_ofv=True, stop_crit=min_iter & (vfw.default_stop_crit() | track_ofv))
-    vfw.fit(compute_ofv=True, stop_crit=min_iter & (stop_crit | track_ofv))
+    # vfw.fit(stop_crit=min_iter & vfw.default_stop_crit())
+    vfw.fit(stop_crit=min_iter & stop_crit)
     data_v, hist_v = vfw.stats()
     time_v = time.time() - start
     print("\tSolved in {:.3f} seconds".format(time_v))
 
     print("Polyatomic FW: Solving ...")
     start = time.time()
-    # pfw.fit(compute_ofv=True, stop_crit=min_iter & (pfw.default_stop_crit() | track_ofv))
-    pfw.fit(compute_ofv=True, stop_crit=min_iter & (stop_crit | track_ofv))
+    # pfw.fit(stop_crit=min_iter & pfw.default_stop_crit())
+    pfw.fit(stop_crit=min_iter & stop_crit)
     data_p, hist_p = pfw.stats()
     time_p = time.time() - start
     print("\tSolved in {:.3f} seconds".format(time_p))
@@ -88,10 +85,7 @@ if __name__ == "__main__":
     print("Solving with APGD: ...")
     pgd = PGD(data_fid, regul, show_progress=False)
     start = time.time()
-    pgd.fit(
-        x0=np.zeros(N, dtype="float64"),
-        stop_crit=min_iter & (pgd.default_stop_crit() | pycos.AbsError(var="x", eps=1e-16, f=data_fid + regul)),
-    )
+    pgd.fit(x0=np.zeros(N, dtype="float64"), stop_crit=min_iter & pgd.default_stop_crit(), track_objective=True)
     data_apgd, hist_apgd = pgd.stats()
     time_pgd = time.time() - start
     print("\tSolved in {:.3f} seconds".format(time_pgd))
@@ -104,10 +98,10 @@ if __name__ == "__main__":
     )
 
     # Solving the same problems with another stopping criterion: DCV
-    vfw.fit(compute_ofv=True, stop_crit=min_iter & (dcv | track_ofv))
+    vfw.fit(stop_crit=min_iter & dcv)
     data_v_dcv, hist_v_dcv = vfw.stats()
 
-    pfw.fit(compute_ofv=True, stop_crit=min_iter & (dcv | track_ofv))
+    pfw.fit(stop_crit=min_iter & dcv)
     data_p_dcv, hist_p_dcv = pfw.stats()
 
     plt.figure(figsize=(10, 8))

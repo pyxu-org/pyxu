@@ -38,7 +38,7 @@ class SquaredL2Norm(pyco.ProxDiffFunc):
         y = arr / (2 * tau + 1)
         return y
 
-    @pycrt.enforce_precision(i="data", allow_None=True)
+    @pycrt.enforce_precision(i="data", allow_None=True, o=False)
     def asloss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.ProxFunc:
         if data is None:
             return self

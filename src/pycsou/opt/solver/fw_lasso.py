@@ -15,8 +15,6 @@ from pycsou.opt.solver.pgd import PGD
 # [todo] from src/pycsou/fw_utils, which is supposed to be a temporary dev file. In the final version, the imports
 # [todo] should come from the Pycsou sub-module in which they will be implemented.
 
-# [TODO] II. When the feature will be available, FW algorithms should integrate the possibility to keep track of the
-# [todo] value of the objective function along the iterations.
 
 # Question for reviewers (QfR): During the computations, we need to compute the squared L2 norm of some vectors.
 #   Should we use an instance of "SquaredL2Norm" operator or should we simply use some "xp.linalg.norm(...)" method ?
@@ -71,7 +69,7 @@ class GenericFWforLasso(pycs.Solver):
         self.forwardOp = forwardOp
         self.data = pycrt.coerce(data)
 
-        self._data_fidelity = 0.5 * pycdevu.SquaredL2Norm().asloss(data=self.data) * self.forwardOp
+        self._data_fidelity = 0.5 * pycdevu.SquaredL2Norm().argshift(-self.data) * self.forwardOp
         self._penalty = self.lambda_ * pycdevu.L1Norm()
         # QfR: Vocabulary question: penalty or regul ?
 
