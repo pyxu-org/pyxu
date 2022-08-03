@@ -1085,7 +1085,11 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         L_svds = op.lipschitz(recompute=True, algo="svds")
         L_fro = op.lipschitz(recompute=True, algo="fro", enable_warnings=False)
-        assert L_svds <= L_fro
+        assert less_equal(  # i.e., L_svds <= L_fro
+            np.r_[L_svds],
+            np.r_[L_fro],
+            as_dtype=pycrt.Width.SINGLE.value,
+        ).item()
 
     def test_math3_lipschitz(self, op, _op_svd):
         # op.lipschitz('svds') computes the optimal Lipschitz constant.
