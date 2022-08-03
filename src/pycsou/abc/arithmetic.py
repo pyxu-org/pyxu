@@ -679,26 +679,26 @@ class ChainRule(Rule):
     r"""
     The output type of ChainRule(A._squeeze(), B._squeeze()) is summarized in the table below:
 
-        |---------------|------|------------|----------|------------|------------|--------------|--------------|------------------|------------|-----------|-----------|--------------|---------------|-----------|-----------|------------|
-        |   LHS / RHS   | Map  |    Func    | DiffMap  |  DiffFunc  |  ProxFunc  | ProxDiffFunc |  Quadratic   |      LinOp       |  LinFunc   |  SquareOp |  NormalOp |    UnitOp    | SelfAdjointOp |  PosDefOp |   ProjOp  | OrthProjOp |
-        |---------------|------|------------|----------|------------|------------|--------------|--------------|------------------|------------|-----------|-----------|--------------|---------------|-----------|-----------|------------|
-        | Map           | Map  | Map        | Map      | Map        | Map        | Map          | Map          | Map              | Map        | Map       | Map       | Map          | Map           | Map       | Map       | Map        |
-        | Func          | Func | Func       | Func     | Func       | Func       | Func         | Func         | Func             | Func       | Func      | Func      | Func         | Func          | Func      | Func      | Func       |
-        | DiffMap       | Map  | Map        | DiffMap  | DiffMap    | Map        | DiffMap      | DiffMap      | DiffMap          | DiffMap    | DiffMap   | DiffMap   | DiffMap      | DiffMap       | DiffMap   | DiffMap   | DiffMap    |
-        | DiffFunc      | Func | Func       | DiffFunc | DiffFunc   | Func       | DiffFunc     | DiffFunc     | DiffFunc         | DiffFunc   | DiffFunc  | DiffFunc  | DiffFunc     | DiffFunc      | DiffFunc  | DiffFunc  | DiffFunc   |
-        | ProxFunc      | Func | Func       | Func     | Func       | Func       | Func         | Func         | Func             | Func       | Func      | Func      | ProxFunc     | Func          | Func      | Func      | Func       |
-        | ProxDiffFunc  | Func | Func       | DiffFunc | DiffFunc   | Func       | DiffFunc     | DiffFunc     | DiffFunc         | DiffFunc   | DiffFunc  | DiffFunc  | ProxDiffFunc | DiffFunc      | DiffFunc  | DiffFunc  | DiffFunc   |
-        | Quadratic     | Func | Func       | DiffFunc | DiffFunc   | Func       | DiffFunc     | DiffFunc     | Quadratic        | Quadratic  | Quadratic | Quadratic | Quadratic    | Quadratic     | Quadratic | Quadratic | Quadratic  |
-        | LinOp         | Map  | Func       | DiffMap  | DiffMap    | Map        | DiffMap      | DiffMap      | LinOp / SquareOp | LinOp      | LinOp     | LinOp     | LinOp        | LinOp         | LinOp     | LinOp     | LinOp      |
-        | LinFunc       | Func | Func       | DiffFunc | DiffFunc   | Func       | ProxDiffFunc | ProxDiffFunc | LinFunc          | LinFunc    | LinFunc   | LinFunc   | LinFunc      | LinFunc       | LinFunc   | LinFunc   | LinFunc    |
-        | SquareOp      | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE   | IMPOSSIBLE   | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | SquareOp     | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
-        | NormalOp      | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE   | IMPOSSIBLE   | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | SquareOp     | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
-        | UnitOp        | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE   | IMPOSSIBLE   | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | UnitOp       | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
-        | SelfAdjointOp | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE   | IMPOSSIBLE   | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | SquareOp     | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
-        | PosDefOp      | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE   | IMPOSSIBLE   | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | SquareOp     | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
-        | ProjOp        | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE   | IMPOSSIBLE   | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | SquareOp     | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
-        | OrthProjOp    | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE   | IMPOSSIBLE   | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | SquareOp     | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
-        |---------------|------|------------|----------|------------|------------|--------------|--------------|------------------|------------|-----------|-----------|--------------|---------------|-----------|-----------|------------|
+        |---------------|------|------------|----------|------------|------------|----------------|----------------------|------------------|------------|-----------|-----------|--------------|---------------|-----------|-----------|------------|
+        |   LHS / RHS   | Map  |    Func    | DiffMap  |  DiffFunc  |  ProxFunc  |  ProxDiffFunc  |      Quadratic       |      LinOp       |  LinFunc   |  SquareOp |  NormalOp |    UnitOp    | SelfAdjointOp |  PosDefOp |   ProjOp  | OrthProjOp |
+        |---------------|------|------------|----------|------------|------------|----------------|----------------------|------------------|------------|-----------|-----------|--------------|---------------|-----------|-----------|------------|
+        | Map           | Map  | Map        | Map      | Map        | Map        | Map            | Map                  | Map              | Map        | Map       | Map       | Map          | Map           | Map       | Map       | Map        |
+        | Func          | Func | Func       | Func     | Func       | Func       | Func           | Func                 | Func             | Func       | Func      | Func      | Func         | Func          | Func      | Func      | Func       |
+        | DiffMap       | Map  | Map        | DiffMap  | DiffMap    | Map        | DiffMap        | DiffMap              | DiffMap          | DiffMap    | DiffMap   | DiffMap   | DiffMap      | DiffMap       | DiffMap   | DiffMap   | DiffMap    |
+        | DiffFunc      | Func | Func       | DiffFunc | DiffFunc   | Func       | DiffFunc       | DiffFunc             | DiffFunc         | DiffFunc   | DiffFunc  | DiffFunc  | DiffFunc     | DiffFunc      | DiffFunc  | DiffFunc  | DiffFunc   |
+        | ProxFunc      | Func | Func       | Func     | Func       | Func       | Func           | Func                 | Func             | Func       | Func      | Func      | ProxFunc     | Func          | Func      | Func      | Func       |
+        | ProxDiffFunc  | Func | Func       | DiffFunc | DiffFunc   | Func       | DiffFunc       | DiffFunc             | DiffFunc         | DiffFunc   | DiffFunc  | DiffFunc  | ProxDiffFunc | DiffFunc      | DiffFunc  | DiffFunc  | DiffFunc   |
+        | Quadratic     | Func | Func       | DiffFunc | DiffFunc   | Func       | DiffFunc       | DiffFunc             | Quadratic        | Quadratic  | Quadratic | Quadratic | Quadratic    | Quadratic     | Quadratic | Quadratic | Quadratic  |
+        | LinOp         | Map  | Func       | DiffMap  | DiffMap    | Map        | DiffMap        | DiffMap              | LinOp / SquareOp | LinOp      | LinOp     | LinOp     | LinOp        | LinOp         | LinOp     | LinOp     | LinOp      |
+        | LinFunc       | Func | Func       | DiffFunc | DiffFunc   | [Prox]Func | [Prox]DiffFunc | DiffFunc / Quadratic | LinFunc          | LinFunc    | LinFunc   | LinFunc   | LinFunc      | LinFunc       | LinFunc   | LinFunc   | LinFunc    |
+        | SquareOp      | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE     | IMPOSSIBLE           | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | SquareOp     | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
+        | NormalOp      | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE     | IMPOSSIBLE           | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | SquareOp     | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
+        | UnitOp        | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE     | IMPOSSIBLE           | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | UnitOp       | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
+        | SelfAdjointOp | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE     | IMPOSSIBLE           | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | SquareOp     | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
+        | PosDefOp      | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE     | IMPOSSIBLE           | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | SquareOp     | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
+        | ProjOp        | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE     | IMPOSSIBLE           | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | SquareOp     | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
+        | OrthProjOp    | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE     | IMPOSSIBLE           | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | SquareOp     | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
+        |---------------|------|------------|----------|------------|------------|----------------|----------------------|------------------|------------|-----------|-----------|--------------|---------------|-----------|-----------|------------|
 
 
     Arithmetic Update Rule(s)
@@ -759,14 +759,16 @@ class ChainRule(Rule):
         # |--------------------------|------------------------------------------------------|
         # | FUNCTIONAL               | LHS FUNCTIONAL                                       |
         # |--------------------------|------------------------------------------------------|
-        # | PROXIMABLE               | (LHS PROXIMABLE) & (RHS LINEAR_UNITARY)              |
+        # | PROXIMABLE               | * (LHS PROXIMABLE) & (RHS LINEAR_UNITARY)            |
+        # |                          | * (LHS LINEAR) & (RHS LINEAR)                        |
+        # |                          | * (LHS LINEAR FUNCTIONAL [> 0]) & (RHS PROXIMABLE)   |
         # |--------------------------|------------------------------------------------------|
         # | DIFFERENTIABLE           | (LHS DIFFERENTIABLE) & (RHS DIFFERENTIABLE)          |
         # |--------------------------|------------------------------------------------------|
         # | DIFFERENTIABLE_FUNCTION  | (LHS DIFFERENTIABLE_FUNCTION) & (RHS DIFFERENTIABLE) |
         # |--------------------------|------------------------------------------------------|
         # | QUADRATIC                | * (LHS QUADRATIC) & (RHS LINEAR)                     |
-        # |                          | * (LHS LINEAR FUNCTIONAL) & (RHS QUADRATIC)          |
+        # |                          | * (LHS LINEAR FUNCTIONAL [> 0]) & (RHS QUADRATIC)    |
         # |--------------------------|------------------------------------------------------|
         # | LINEAR                   | (LHS LINEAR) & (RHS LINEAR)                          |
         # |--------------------------|------------------------------------------------------|
@@ -788,8 +790,16 @@ class ChainRule(Rule):
         properties = {P.CAN_EVAL}
         if P.FUNCTIONAL in lhs_p:
             properties.add(P.FUNCTIONAL)
+        # Proximal ------------------------------
         if (P.PROXIMABLE in lhs_p) and (P.LINEAR_UNITARY in rhs_p):
             properties.add(P.PROXIMABLE)
+        elif ({P.LINEAR, P.FUNCTIONAL} < lhs_p) and (P.PROXIMABLE in rhs_p):
+            cst = self._lhs.asarray().item()
+            if cst > 0:
+                properties.add(P.PROXIMABLE)
+                if P.QUADRATIC in rhs_p:
+                    properties.add(P.QUADRATIC)
+        # ---------------------------------------
         if P.DIFFERENTIABLE in (lhs_p & rhs_p):
             properties.add(P.DIFFERENTIABLE)
         if (P.DIFFERENTIABLE_FUNCTION in lhs_p) and (P.DIFFERENTIABLE in rhs_p):
@@ -836,13 +846,25 @@ class ChainRule(Rule):
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        if self._lhs.has(pyco.Property.PROXIMABLE) and self._rhs.has(pyco.Property.LINEAR_UNITARY):
-            x = self._rhs.apply(arr)
-            y = self._lhs.prox(x, tau)
-            out = self._rhs.adjoint(y)
-            return out
-        else:
-            raise NotImplementedError
+        if self.has(pyco.Property.PROXIMABLE):
+            out = None
+            if self._lhs.has(pyco.Property.PROXIMABLE) and self._rhs.has(pyco.Property.LINEAR_UNITARY):
+                # prox[diff]func() \comp unitop() => prox[diff]func()
+                x = self._rhs.apply(arr)
+                y = self._lhs.prox(x, tau)
+                out = self._rhs.adjoint(y)
+            elif self._lhs.has(pyco.Property.LINEAR) and self._rhs.has(pyco.Property.PROXIMABLE):
+                # linfunc() \comp prox[diff]func() => prox[diff]func()
+                #                                  = (\alpha * prox[diff]func())
+                op = ScaleRule(op=self._rhs, cst=self._lhs.asarray().item())
+                out = op.prox(arr, tau)
+            elif pyco.Property.LINEAR in (self._lhs.properties() & self._rhs.properties()):
+                # linfunc() \comp linop() => linfunc()
+                out = pyco.LinFunc.prox(self, arr, tau)
+
+            if out is not None:
+                return out
+        raise NotImplementedError
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         if self.has(pyco.Property.LINEAR):
