@@ -1,4 +1,11 @@
-# TODO
+# How AddRule tests work:
+#
+# * AddRuleMixin auto-defines all arithmetic method (input,output) pairs.
+#   [Caveat: we assume all tested examples are defined on \bR.] (This is not a problem in practice.)
+#   [Caveat: we assume the base operators (op_lhs, op_rhs) are correctly implemented.] (True if choosing test operators from examples/.)
+#
+# * To test a compound operator (via +), inherit from AddRuleMixin and the suitable conftest.MapT
+#   subclass which the compound operator should abide by.
 
 
 import collections.abc as cabc
@@ -90,7 +97,7 @@ def op_normalop():
 def op_unitop():
     import pycsou_tests.operator.examples.test_unitop as tc
 
-    return tc.Rotation(ax=0, ay=0, az=np.pi / 3)
+    return tc.Permutation(N=7)
 
 
 def op_selfadjointop():
@@ -108,7 +115,7 @@ def op_posdefop():
 def op_projop():
     import pycsou_tests.operator.examples.test_projop as tc
 
-    return tc.CabinetProjection(angle=np.pi / 4)
+    return tc.Oblique(N=7, alpha=np.pi / 4)
 
 
 def op_orthprojop():
@@ -132,16 +139,18 @@ class AddRuleMixin:
     def op_rhs(self, op_lrhs) -> pyct.OpT:
         return op_lrhs[1]
 
-    @pytest.fixture(params=[False, True])
-    def swap_lhs_rhs(self, request) -> bool:
+    @pytest.fixture(params=["lhs + rhs", "rhs + lhs"])
+    def lrhs_options(self, request) -> bool:
         return request.param
 
     @pytest.fixture
-    def op(self, op_lhs, op_rhs, swap_lhs_rhs) -> pyct.OpT:
-        if swap_lhs_rhs:
+    def op(self, op_lhs, op_rhs, lrhs_options) -> pyct.OpT:
+        if lrhs_options == "lhs + rhs":
+            return op_lhs + op_rhs
+        elif lrhs_options == "rhs + lhs":
             return op_rhs + op_lhs
         else:
-            return op_lhs + op_rhs
+            raise NotImplementedError
 
     @pytest.fixture
     def data_shape(self, op_lhs, op_rhs) -> pyct.Shape:
@@ -161,7 +170,19 @@ class AddRuleMixin:
     @pytest.fixture
     def data_adjoint(self, op, op_lhs, op_rhs) -> conftest.DataLike:
         arr = self._random_array((op.codim,), seed=20)  # random seed for reproducibility
-        out = op_lhs.adjoint(arr) + op_rhs.adjoint(arr)
+        if op_lhs.has(pyca.Property.FUNCTIONAL) and (not op_rhs.has(pyca.Property.FUNCTIONAL)):
+            # LHS broadcasts
+            out_lhs = op_lhs.adjoint(arr.sum(keepdims=True))
+            out_rhs = op_rhs.adjoint(arr)
+        elif (not op_lhs.has(pyca.Property.FUNCTIONAL)) and op_rhs.has(pyca.Property.FUNCTIONAL):
+            # RHS broadcasts
+            out_lhs = op_lhs.adjoint(arr)
+            out_rhs = op_rhs.adjoint(arr.sum(keepdims=True))
+        else:
+            out_lhs = op_lhs.adjoint(arr)
+            out_rhs = op_rhs.adjoint(arr)
+
+        out = out_lhs + out_rhs
         return dict(
             in_=dict(arr=arr),
             out=out,
@@ -223,10 +244,10 @@ class TestAddRuleMap(AddRuleMixin, conftest.MapT):
             (op_map(), op_linfunc()),
             (op_map(), op_squareop()),
             (op_map(), op_normalop()),
-            # (op_map(), op_unitop()),
+            (op_map(), op_unitop()),
             (op_map(), op_selfadjointop()),
             (op_map(), op_posdefop()),
-            # (op_map(), op_projop()),
+            (op_map(), op_projop()),
             (op_map(), op_orthprojop()),
             (op_func(), op_diffmap()),
             (op_func(), op_linop()),
@@ -241,10 +262,10 @@ class TestAddRuleMap(AddRuleMixin, conftest.MapT):
             (op_proxfunc(), op_linop()),
             (op_proxfunc(), op_squareop()),
             (op_proxfunc(), op_normalop()),
-            # (op_proxfunc(), op_unitop()),
+            (op_proxfunc(), op_unitop()),
             (op_proxfunc(), op_selfadjointop()),
             (op_proxfunc(), op_posdefop()),
-            # (op_proxfunc(), op_projop()),
+            (op_proxfunc(), op_projop()),
             (op_proxfunc(), op_orthprojop()),
         ]
     )
@@ -252,4 +273,220 @@ class TestAddRuleMap(AddRuleMixin, conftest.MapT):
         return request.param
 
 
+class TestAddRuleDiffMap(AddRuleMixin, conftest.DiffMapT):
+    @pytest.fixture(
+        params=[
+            (op_diffmap(), op_diffmap()),
+            (op_diffmap(), op_difffunc()),
+            (op_diffmap(), op_proxdifffunc()),
+            (op_diffmap(), op_quadraticfunc()),
+            (op_diffmap(), op_linop()),
+            (op_diffmap(), op_linfunc()),
+            (op_diffmap(), op_squareop()),
+            (op_diffmap(), op_normalop()),
+            (op_diffmap(), op_unitop()),
+            (op_diffmap(), op_selfadjointop()),
+            (op_diffmap(), op_posdefop()),
+            (op_diffmap(), op_projop()),
+            (op_diffmap(), op_orthprojop()),
+            (op_difffunc(), op_linop()),
+            (op_difffunc(), op_squareop()),
+            (op_difffunc(), op_normalop()),
+            (op_difffunc(), op_unitop()),
+            (op_difffunc(), op_selfadjointop()),
+            (op_difffunc(), op_posdefop()),
+            (op_difffunc(), op_projop()),
+            (op_difffunc(), op_orthprojop()),
+            (op_quadraticfunc(), op_linop()),
+            (op_quadraticfunc(), op_squareop()),
+            (op_quadraticfunc(), op_normalop()),
+            (op_quadraticfunc(), op_unitop()),
+            (op_quadraticfunc(), op_selfadjointop()),
+            (op_quadraticfunc(), op_posdefop()),
+            (op_quadraticfunc(), op_projop()),
+            (op_quadraticfunc(), op_orthprojop()),
+            (op_quadraticfunc(), op_linop()),
+            (op_quadraticfunc(), op_squareop()),
+            (op_quadraticfunc(), op_normalop()),
+            (op_quadraticfunc(), op_unitop()),
+            (op_quadraticfunc(), op_selfadjointop()),
+            (op_quadraticfunc(), op_posdefop()),
+            (op_quadraticfunc(), op_projop()),
+            (op_quadraticfunc(), op_orthprojop()),
+        ]
+    )
+    def op_lrhs(self, request):
+        return request.param
+
+
+class TestAddRuleLinOp(AddRuleMixin, conftest.LinOpT):
+    @pytest.fixture(
+        params=[
+            (op_linop(), op_linop()),
+            (op_linop(), op_linfunc()),
+        ]
+    )
+    def op_lrhs(self, request):
+        return request.param
+
+
+class TestAddRuleSquareOp(AddRuleMixin, conftest.SquareOpT):
+    @pytest.fixture(
+        params=[
+            (op_linfunc(), op_squareop()),
+            (op_linfunc(), op_normalop()),
+            (op_linfunc(), op_unitop()),
+            (op_linfunc(), op_selfadjointop()),
+            (op_linfunc(), op_posdefop()),
+            (op_linfunc(), op_projop()),
+            (op_linfunc(), op_orthprojop()),
+            (op_squareop(), op_squareop()),
+            (op_squareop(), op_normalop()),
+            (op_squareop(), op_unitop()),
+            (op_squareop(), op_selfadjointop()),
+            (op_squareop(), op_posdefop()),
+            (op_squareop(), op_projop()),
+            (op_squareop(), op_orthprojop()),
+            (op_normalop(), op_normalop()),
+            (op_normalop(), op_unitop()),
+            (op_normalop(), op_selfadjointop()),
+            (op_normalop(), op_posdefop()),
+            (op_normalop(), op_projop()),
+            (op_normalop(), op_orthprojop()),
+            (op_unitop(), op_unitop()),
+            (op_unitop(), op_selfadjointop()),
+            (op_unitop(), op_posdefop()),
+            (op_unitop(), op_projop()),
+            (op_unitop(), op_orthprojop()),
+            (op_selfadjointop(), op_projop()),
+            (op_posdefop(), op_projop()),
+            (op_projop(), op_projop()),
+            (op_projop(), op_orthprojop()),
+        ]
+    )
+    def op_lrhs(self, request):
+        return request.param
+
+
+class TestAddRuleNormalOp(AddRuleMixin, conftest.NormalOpT):
+    @pytest.fixture(params=[])
+    def op_lrhs(self, request):
+        return request.param
+
+
+class TestAddRuleUnitOp(AddRuleMixin, conftest.UnitOpT):
+    @pytest.fixture(params=[])
+    def op_lrhs(self, request):
+        return request.param
+
+
+class TestAddRuleSelfAdjointOp(AddRuleMixin, conftest.SelfAdjointOpT):
+    @pytest.fixture(
+        params=[
+            (op_selfadjointop(), op_selfadjointop()),
+            (op_selfadjointop(), op_posdefop()),
+            (op_selfadjointop(), op_orthprojop()),
+            (op_orthprojop(), op_orthprojop()),
+        ]
+    )
+    def op_lrhs(self, request):
+        return request.param
+
+
+class TestAddRulePosDefOp(AddRuleMixin, conftest.PosDefOpT):
+    @pytest.fixture(
+        params=[
+            (op_posdefop(), op_posdefop()),
+            (op_posdefop(), op_orthprojop()),
+        ]
+    )
+    def op_lrhs(self, request):
+        return request.param
+
+
+class TestAddRuleProjOp(AddRuleMixin, conftest.ProjOpT):
+    @pytest.fixture(params=[])
+    def op_lrhs(self, request):
+        return request.param
+
+
+class TestAddRuleOrthProjOp(AddRuleMixin, conftest.OrthProjOpT):
+    @pytest.fixture(params=[])
+    def op_lrhs(self, request):
+        return request.param
+
+
 # Test classes (Funcs) --------------------------------------------------------
+class TestAddRuleFunc(AddRuleMixin, conftest.FuncT):
+    @pytest.fixture(
+        params=[
+            (op_func(), op_func()),
+            (op_func(), op_difffunc()),
+            (op_func(), op_proxfunc()),
+            (op_func(), op_proxdifffunc()),
+            (op_func(), op_quadraticfunc()),
+            (op_func(), op_linfunc()),
+            (op_difffunc(), op_proxfunc()),
+            (op_proxfunc(), op_proxfunc()),
+            (op_proxfunc(), op_proxdifffunc()),
+            (op_proxfunc(), op_quadraticfunc()),
+        ]
+    )
+    def op_lrhs(self, request):
+        return request.param
+
+
+class TestAddRuleDiffFunc(AddRuleMixin, conftest.DiffFuncT):
+    @pytest.fixture(
+        params=[
+            (op_difffunc(), op_difffunc()),
+            (op_difffunc(), op_proxdifffunc()),
+            (op_difffunc(), op_quadraticfunc()),
+            (op_difffunc(), op_linfunc()),
+            (op_proxdifffunc(), op_proxdifffunc()),
+            (op_proxdifffunc(), op_quadraticfunc()),
+        ]
+    )
+    def op_lrhs(self, request):
+        return request.param
+
+
+class TestAddRuleProxFunc(AddRuleMixin, conftest.ProxFuncT):
+    @pytest.fixture(
+        params=[
+            (op_proxfunc(), op_linfunc()),
+        ]
+    )
+    def op_lrhs(self, request):
+        return request.param
+
+
+class TestAddRuleProxDiffFunc(AddRuleMixin, conftest.ProxDiffFuncT):
+    @pytest.fixture(
+        params=[
+            (op_proxdifffunc(), op_linfunc()),
+        ]
+    )
+    def op_lrhs(self, request):
+        return request.param
+
+
+class TestAddRuleQuadraticFunc(AddRuleMixin, conftest._QuadraticFuncT):
+    @pytest.fixture(
+        params=[
+            (op_quadraticfunc(), op_quadraticfunc()),
+            (op_quadraticfunc(), op_linfunc()),
+        ]
+    )
+    def op_lrhs(self, request):
+        return request.param
+
+
+class TestAddRuleLinFunc(AddRuleMixin, conftest.LinFuncT):
+    @pytest.fixture(
+        params=[
+            (op_linfunc(), op_linfunc()),
+        ]
+    )
+    def op_lrhs(self, request):
+        return request.param
