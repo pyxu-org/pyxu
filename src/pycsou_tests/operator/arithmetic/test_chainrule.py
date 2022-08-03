@@ -14,6 +14,7 @@ import warnings
 import numpy as np
 import pytest
 
+import pycsou.abc as pyca
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
@@ -84,10 +85,13 @@ def op_linop(dim: int = 7, codim_scale: int = 1):
     return tc.Tile(N=dim, M=codim_scale)
 
 
-def op_linfunc(dim: int = 7):
+def op_linfunc(dim: int = 7, positive: bool = False):
     import pycsou_tests.operator.examples.test_linfunc as tc
 
-    return tc.ScaledSum(N=dim)
+    op = tc.ScaledSum(N=dim)
+    if not positive:
+        op = -op
+    return op
 
 
 def op_squareop():
@@ -192,14 +196,29 @@ class ChainRuleMixin:
         dim = self._sanitize(op.dim, 7)
         arr = self._random_array((dim,), seed=20)  # random seed for reproducibility
         tau = np.abs(self._random_array((1,), seed=21))[0]  # random seed for reproducibility
-        out = op_rhs.adjoint(op_lhs.prox(op_rhs.apply(arr), tau))  # only for case (prox \comp unitary)
-        return dict(
-            in_=dict(
-                arr=arr,
-                tau=tau,
-            ),
-            out=out,
-        )
+
+        if op.has(pyca.Property.PROXIMABLE):
+            out = None
+            if op_lhs.has(pyca.Property.PROXIMABLE) and op_rhs.has(pyca.Property.LINEAR_UNITARY):
+                # prox \comp unitary
+                out = op_rhs.adjoint(op_lhs.prox(op_rhs.apply(arr), tau))
+            elif op.has(pyca.Property.LINEAR):
+                # linfunc \comp lin[op|func]
+                out = arr - tau * (op_lhs.asarray() @ op_rhs.asarray()).flatten()
+            elif op_lhs.has(pyca.Property.LINEAR) and op_rhs.has(pyca.Property.PROXIMABLE):
+                # linfunc \comp [prox, proxdiff, quadratic]
+                cst = op_lhs.asarray().item()
+                out = op_rhs.prox(arr, cst * tau)
+
+            if out is not None:
+                return dict(
+                    in_=dict(
+                        arr=arr,
+                        tau=tau,
+                    ),
+                    out=out,
+                )
+        raise NotImplementedError
 
     @pytest.fixture
     def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
@@ -453,6 +472,7 @@ class TestChainRuleFunc(ChainRuleMixin, conftest.FuncT):
             (op_linop(dim=1, codim_scale=1), op_func()),
             (op_linfunc(), op_map()),
             (op_linfunc(dim=1), op_func()),
+            (op_linfunc(dim=1, positive=False), op_proxfunc()),
         ]
     )
     def op_lrhs(self, request):
@@ -493,6 +513,8 @@ class TestChainRuleDiffFunc(ChainRuleMixin, conftest.DiffFuncT):
             (op_quadraticfunc(dim=1), op_quadraticfunc()),
             (op_linfunc(), op_diffmap()),
             (op_linfunc(dim=1), op_difffunc()),
+            (op_linfunc(dim=1), op_proxdifffunc()),
+            (op_linfunc(dim=1), op_quadraticfunc()),
         ]
     )
     def op_lrhs(self, request):
@@ -503,6 +525,7 @@ class TestChainRuleProxFunc(ChainRuleMixin, conftest.ProxFuncT):
     @pytest.fixture(
         params=[
             (op_proxfunc(), op_unitop()),
+            (op_linfunc(dim=1, positive=True), op_proxfunc()),
         ]
     )
     def op_lrhs(self, request):
@@ -513,8 +536,7 @@ class TestChainRuleProxDiffFunc(ChainRuleMixin, conftest.ProxDiffFuncT):
     @pytest.fixture(
         params=[
             (op_proxdifffunc(), op_unitop()),
-            (op_linfunc(dim=1), op_proxdifffunc()),
-            (op_linfunc(dim=1), op_quadraticfunc()),
+            (op_linfunc(dim=1, positive=True), op_proxdifffunc()),
         ]
     )
     def op_lrhs(self, request):
@@ -533,6 +555,7 @@ class TestChainRuleQuadraticFunc(ChainRuleMixin, conftest._QuadraticFuncT):
             (op_quadraticfunc(), op_posdefop()),
             (op_quadraticfunc(), op_projop()),
             (op_quadraticfunc(), op_orthprojop()),
+            (op_linfunc(dim=1, positive=True), op_quadraticfunc()),
         ]
     )
     def op_lrhs(self, request):
