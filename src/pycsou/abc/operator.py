@@ -720,7 +720,11 @@ class ProxFunc(Func):
            =
            \mathbf{z} - \sigma \mathbf{\text{prox}}_{f/\sigma}(\mathbf{z}/\sigma).
         """
-        return arr - sigma * self.prox(arr=arr / sigma, tau=1 / sigma)
+        out = self.prox(arr=arr / sigma, tau=1 / sigma)
+        out = pycu.copy_if_unsafe(out)
+        out *= -sigma
+        out += arr
+        return out
 
     @pycrt.enforce_precision(i="mu", o=False)
     def moreau_envelope(self, mu: pyct.Real) -> pyct.OpT:
@@ -1795,6 +1799,10 @@ class LinFunc(ProxDiffFunc, LinOp):
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         return arr - tau * self.grad(arr)
+
+    @pycrt.enforce_precision(i=("arr", "sigma"))
+    def fenchel_prox(self, arr: pyct.NDArray, sigma: pyct.Real) -> pyct.NDArray:
+        return self.grad(arr)
 
     @property
     def T(self) -> pyct.OpT:
