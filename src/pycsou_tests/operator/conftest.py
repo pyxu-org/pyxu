@@ -38,7 +38,7 @@ def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
     Equivalent of `np.isclose`, but where atol is automatically chosen based on `as_dtype`.
     """
     atol = {
-        np.half: 3e-2,  # former pycrt.Width.HALF
+        np.dtype(np.half): 3e-2,  # former pycrt.Width.HALF
         pycrt.Width.SINGLE.value: 2e-4,
         pycrt._CWidth.SINGLE.value: 2e-4,
         pycrt.Width.DOUBLE.value: 1e-8,
@@ -740,19 +740,19 @@ class _QuadraticFuncT(ProxDiffFuncT):
     # To avoid CG convergence issues, correctness is assesed at lowest precision only.
     def test_value1D_prox(self, op, _data_prox):
         self._skip_if_disabled()
-        self._check_value1D(op.prox, _data_prox, dtype=np.half)
+        self._check_value1D(op.prox, _data_prox, dtype=np.dtype(np.half))
 
     def test_valueND_prox(self, op, _data_prox):
         self._skip_if_disabled()
-        self._check_valueND(op.prox, _data_prox, dtype=np.half)
+        self._check_valueND(op.prox, _data_prox, dtype=np.dtype(np.half))
 
     def test_value1D_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
-        self._check_value1D(op.fenchel_prox, _data_fenchel_prox, dtype=np.half)
+        self._check_value1D(op.fenchel_prox, _data_fenchel_prox, dtype=np.dtype(np.half))
 
     def test_valueND_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
-        self._check_valueND(op.fenchel_prox, _data_fenchel_prox, dtype=np.half)
+        self._check_valueND(op.fenchel_prox, _data_fenchel_prox, dtype=np.dtype(np.half))
 
 
 class LinOpT(DiffMapT):
@@ -1219,12 +1219,12 @@ class LinOpT(DiffMapT):
     def test_value1D_pinv(self, op, _data_pinv):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_value1D(op.pinv, _data_pinv, dtype=np.half)
+        self._check_value1D(op.pinv, _data_pinv, dtype=np.dtype(np.half))
 
     def test_valueND_pinv(self, op, _data_pinv):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_valueND(op.pinv, _data_pinv, dtype=np.half)
+        self._check_valueND(op.pinv, _data_pinv, dtype=np.dtype(np.half))
 
     def test_backend_pinv(self, op, _data_pinv):
         self._skip_if_disabled()
@@ -1245,12 +1245,12 @@ class LinOpT(DiffMapT):
     def test_value1D_call_dagger(self, _op_dagger, _data_apply_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_value1D(_op_dagger.__call__, _data_apply_dagger, dtype=np.half)
+        self._check_value1D(_op_dagger.__call__, _data_apply_dagger, dtype=np.dtype(np.half))
 
     def test_valueND_call_dagger(self, _op_dagger, _data_apply_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_valueND(_op_dagger.__call__, _data_apply_dagger, dtype=np.half)
+        self._check_valueND(_op_dagger.__call__, _data_apply_dagger, dtype=np.dtype(np.half))
 
     def test_backend_call_dagger(self, _op_dagger, _data_apply_dagger):
         self._skip_if_disabled()
@@ -1267,12 +1267,12 @@ class LinOpT(DiffMapT):
     def test_value1D_apply_dagger(self, _op_dagger, _data_apply_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_value1D(_op_dagger.apply, _data_apply_dagger, dtype=np.half)
+        self._check_value1D(_op_dagger.apply, _data_apply_dagger, dtype=np.dtype(np.half))
 
     def test_valueND_apply_dagger(self, _op_dagger, _data_apply_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_valueND(_op_dagger.apply, _data_apply_dagger, dtype=np.half)
+        self._check_valueND(_op_dagger.apply, _data_apply_dagger, dtype=np.dtype(np.half))
 
     def test_backend_apply_dagger(self, _op_dagger, _data_apply_dagger):
         self._skip_if_disabled()
@@ -1289,12 +1289,12 @@ class LinOpT(DiffMapT):
     def test_value1D_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_value1D(_op_dagger.adjoint, _data_adjoint_dagger, dtype=np.half)
+        self._check_value1D(_op_dagger.adjoint, _data_adjoint_dagger, dtype=np.dtype(np.half))
 
     def test_valueND_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_valueND(_op_dagger.adjoint, _data_adjoint_dagger, dtype=np.half)
+        self._check_valueND(_op_dagger.adjoint, _data_adjoint_dagger, dtype=np.dtype(np.half))
 
     def test_backend_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
         self._skip_if_disabled()
