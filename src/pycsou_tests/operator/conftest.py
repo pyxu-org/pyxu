@@ -439,22 +439,12 @@ class MapT:
 class FuncT(MapT):
     # Class Properties --------------------------------------------------------
     base = pyca.Func
-    interface = frozenset(MapT.interface | {"asloss"})
+    interface = MapT.interface
 
     # Tests -------------------------------------------------------------------
     def test_codim(self, op, data_shape):
         self._skip_if_disabled()
         assert op.codim == 1
-
-    def test_interface_asloss(self, op):
-        # op.asloss() sub-classes Func if data provided, transparent otherwise.
-        # Disable this test if asloss() not defined.
-        self._skip_if_disabled()
-        assert op.asloss() is op
-
-        N_dim = self._sanitize(op.dim, default=3)
-        data = self._random_array((N_dim,))
-        self._check_has_interface(op.asloss(data), self.__class__)
 
 
 class DiffMapT(MapT):

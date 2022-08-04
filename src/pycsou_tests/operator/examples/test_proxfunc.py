@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 
 import pycsou.abc as pyca
-import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
@@ -30,9 +29,6 @@ class L1Norm(pyca.ProxFunc):
         xp = pycu.get_array_module(arr)
         y = xp.fmax(0, xp.fabs(arr) - tau) * xp.sign(arr)
         return y
-
-    def asloss(self, data=None):
-        return pycof.shift_loss(self, data)
 
 
 class TestL1Norm(conftest.ProxFuncT):

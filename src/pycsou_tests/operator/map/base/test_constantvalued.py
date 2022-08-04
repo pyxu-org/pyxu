@@ -70,10 +70,12 @@ class TestConstantValuedMap(ConstantValueMixin, conftest.DiffMapT):
 
 
 class TestConstantValuedFunc(ConstantValueMixin, conftest.ProxDiffFuncT):
-    disable_test = conftest.ProxDiffFuncT.disable_test | {
-        "test_interface_asloss",  # undefined for ConstantValue
-        "test_math2_grad",  # trivially correct, but raises warning since L=0
-    }
+    disable_test = frozenset(
+        conftest.ProxDiffFuncT.disable_test
+        | {
+            "test_math2_grad",  # trivially correct, but raises warning since L=0
+        }
+    )
 
     @pytest.fixture
     def op(self, data_shape, cst):

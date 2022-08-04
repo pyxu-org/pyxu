@@ -127,8 +127,3 @@ class QuadraticFunc(pyca._QuadraticFunc):
 
     def _hessian(self) -> pyct.OpT:
         return self._Q
-
-    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
-        from pycsou.operator.func.loss import shift_loss
-
-        return shift_loss(self, data)

@@ -28,13 +28,6 @@ class ScaledSum(pyca.LinFunc):
 
 
 class TestScaledSum(conftest.LinFuncT):
-    disable_test = frozenset(
-        conftest.LinFuncT.disable_test
-        | {
-            "test_interface_asloss",
-        }
-    )
-
     @pytest.fixture
     def dim(self):
         return 5

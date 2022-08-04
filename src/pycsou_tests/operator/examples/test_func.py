@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 
 import pycsou.abc as pyca
-import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
@@ -20,9 +19,6 @@ class Median(pyca.Func):
         xp = pycu.get_array_module(arr)
         y = xp.median(arr, axis=-1, keepdims=True)
         return y
-
-    def asloss(self, data=None):
-        return pycof.shift_loss(self, data)
 
 
 class TestMedian(conftest.FuncT):

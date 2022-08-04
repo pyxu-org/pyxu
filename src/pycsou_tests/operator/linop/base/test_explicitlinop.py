@@ -146,13 +146,6 @@ class TestExplicitPosDefOp(ExplicitOpMixin, conftest.PosDefOpT):
 
 
 class TestExplicitLinFunc(ExplicitOpMixin, conftest.LinFuncT):
-    disable_test = frozenset(
-        conftest.LinFuncT.disable_test
-        | {
-            "test_interface_asloss",  # unsupported for LinFuncs
-        }
-    )
-
     @pytest.fixture
     def matrix(self):
         import pycsou_tests.operator.examples.test_linfunc as tc
