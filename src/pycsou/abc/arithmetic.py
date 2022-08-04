@@ -629,17 +629,30 @@ class AddRule(Rule):
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        if pyco.Property.LINEAR in self._lhs.properties():
-            P, G = self._rhs, self._lhs
-        elif pyco.Property.LINEAR in self._rhs.properties():
-            P, G = self._lhs, self._rhs
+        P_LHS = self._lhs.properties()
+        P_RHS = self._rhs.properties()
+        if pyco.Property.LINEAR in (P_LHS | P_RHS):
+            # linear + proximable
+            if pyco.Property.LINEAR in P_LHS:
+                P, G = self._rhs, self._lhs
+            elif pyco.Property.LINEAR in P_RHS:
+                P, G = self._lhs, self._rhs
+            x = pycu.copy_if_unsafe(G.grad(arr))
+            x *= -tau
+            x += arr
+            out = P.prox(x, tau)
+        elif pyco.Property.QUADRATIC in (P_LHS & P_RHS):
+            # quadratic + quadratic
+            from pycsou.operator.func import QuadraticFunc
+
+            x = np.zeros(shape=(self.dim), dtype=arr.dtype, like=arr)
+            out = QuadraticFunc(
+                Q=self._hessian(),
+                c=self.jacobian(x),
+                init_lipschitz=False,
+            ).prox(arr, tau)
         else:
             raise NotImplementedError
-
-        x = pycu.copy_if_unsafe(G.grad(arr))
-        x *= -tau
-        x += arr
-        out = P.prox(x, tau)
         return out
 
     def _hessian(self) -> pyct.OpT:

@@ -12,6 +12,7 @@ import collections.abc as cabc
 
 import numpy as np
 import pytest
+import scipy.linalg as splinalg
 
 import pycsou.abc as pyca
 import pycsou.util as pycu
@@ -204,19 +205,32 @@ class AddRuleMixin:
         arr = self._random_array((dim,), seed=20)  # random seed for reproducibility
         tau = np.abs(self._random_array((1,), seed=21))[0]  # random seed for reproducibility
 
-        if op_lhs.has(pyca.Property.LINEAR):
-            P, G = op_rhs, op_lhs
-        else:
-            P, G = op_lhs, op_rhs
-        out = P.prox(arr - tau * G.grad(arr), tau)
+        if op.has(pyca.Property.PROXIMABLE):
+            out = None
+            if op_lhs.has(pyca.Property.LINEAR):
+                P, G = op_rhs, op_lhs
+                out = P.prox(arr - tau * G.grad(arr), tau)
+            elif op_rhs.has(pyca.Property.LINEAR):
+                P, G = op_lhs, op_rhs
+                out = P.prox(arr - tau * G.grad(arr), tau)
+            elif op_lhs.has(pyca.Property.QUADRATIC) and op_rhs.has(pyca.Property.QUADRATIC):
+                A = op_lhs._hessian().asarray()
+                B = op_rhs._hessian().asarray()
+                C = op_lhs.grad(np.zeros(op.dim))
+                D = op_rhs.grad(np.zeros(op.dim))
+                Q = tau * (A + B) + np.eye(op.dim)
+                b = arr - tau * (C + D)
+                out, *_ = splinalg.lstsq(Q, b)
 
-        return dict(
-            in_=dict(
-                arr=arr,
-                tau=tau,
-            ),
-            out=out,
-        )
+            if out is not None:
+                return dict(
+                    in_=dict(
+                        arr=arr,
+                        tau=tau,
+                    ),
+                    out=out,
+                )
+        raise NotImplementedError
 
     @pytest.fixture
     def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
