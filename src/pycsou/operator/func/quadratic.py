@@ -75,6 +75,7 @@ class QuadraticFunc(pyca._QuadraticFunc):
         Q: pyca.PosDefOp,
         c: pyca.LinFunc,
         t: pyct.Real = 0,
+        init_lipschitz: bool = True,
     ):
         r"""
         Parameters
@@ -85,6 +86,8 @@ class QuadraticFunc(pyca._QuadraticFunc):
             (1, N) linear functional
         t: pyct.Real
             offset
+        init_lipschitz: bool
+            Explicitly evaluate the Lipschitz constants.
         """
         super().__init__(shape=c.shape)
         self._Q = Q
@@ -92,7 +95,7 @@ class QuadraticFunc(pyca._QuadraticFunc):
         self._t = pycrt.coerce(t)
 
         self._lipschitz = np.inf
-        self._diff_lipschitz = self._Q.lipschitz()
+        self._diff_lipschitz = self._Q.lipschitz() if init_lipschitz else np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
