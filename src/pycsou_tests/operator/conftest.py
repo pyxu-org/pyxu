@@ -735,6 +735,25 @@ class _QuadraticFuncT(ProxDiffFuncT):
     base = pyca._QuadraticFunc
     interface = frozenset(ProxDiffFuncT.interface | {"_hessian"})
 
+    # Tests -------------------------------------------------------------------
+    # [fenchel_]prox() use CG internally.
+    # To avoid CG convergence issues, correctness is assesed at lowest precision only.
+    def test_value1D_prox(self, op, _data_prox):
+        self._skip_if_disabled()
+        self._check_value1D(op.prox, _data_prox, dtype=np.half)
+
+    def test_valueND_prox(self, op, _data_prox):
+        self._skip_if_disabled()
+        self._check_valueND(op.prox, _data_prox, dtype=np.half)
+
+    def test_value1D_fenchel_prox(self, op, _data_fenchel_prox):
+        self._skip_if_disabled()
+        self._check_value1D(op.fenchel_prox, _data_fenchel_prox, dtype=np.half)
+
+    def test_valueND_fenchel_prox(self, op, _data_fenchel_prox):
+        self._skip_if_disabled()
+        self._check_valueND(op.fenchel_prox, _data_fenchel_prox, dtype=np.half)
+
 
 class LinOpT(DiffMapT):
     # Class Properties --------------------------------------------------------
