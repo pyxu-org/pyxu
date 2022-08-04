@@ -58,7 +58,7 @@ class ScaleRule(Rule):
         |--------------------------|-------------|---------------------------------------------------------------|
         | DIFFERENTIABLE_FUNCTION  | yes         | op_new.grad(arr) = op_old.grad(arr) * \alpha                  |
         |--------------------------|-------------|---------------------------------------------------------------|
-        | QUADRATIC                | \alpha > 0  |                                                               |
+        | QUADRATIC                | \alpha > 0  | op_new._hessian() = op_old._hessian() * \alpha                |
         |--------------------------|-------------|---------------------------------------------------------------|
         | LINEAR                   | yes         | op_new.adjoint(arr) = op_old.adjoint(arr) * \alpha            |
         |--------------------------|-------------|---------------------------------------------------------------|
@@ -146,6 +146,9 @@ class ScaleRule(Rule):
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         return self._op.prox(arr, tau * self._cst)
 
+    def _hessian(self) -> pyct.OpT:
+        return ScaleRule(op=self._op._hessian(), cst=self._cst).op()
+
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         if self.has(pyco.Property.LINEAR):
             op = self
@@ -201,7 +204,7 @@ class ArgScaleRule(Rule):
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | DIFFERENTIABLE_FUNCTION  | yes         | op_new.grad(arr) = op_old.grad(\alpha * arr) * \alpha                       |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
-        | QUADRATIC                | yes         |                                                                             |
+        | QUADRATIC                | yes         | op_new._hessian() = op_old._hessian() * (\alpha**2)                         |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | LINEAR                   | yes         | op_new.adjoint(arr) = op_old.adjoint(arr) * \alpha                          |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
@@ -305,6 +308,9 @@ class ArgScaleRule(Rule):
         out /= self._cst
         return out
 
+    def _hessian(self) -> pyct.OpT:
+        return ScaleRule(op=self._op._hessian(), cst=self._cst**2).op()
+
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         if self.has(pyco.Property.LINEAR):
             op = self
@@ -356,7 +362,7 @@ class ArgShiftRule(Rule):
         |--------------------------|------------|-----------------------------------------------------------------|
         | DIFFERENTIABLE_FUNCTION  | yes        | op_new.grad(arr) = op_old.grad(arr + \shift)                    |
         |--------------------------|------------|-----------------------------------------------------------------|
-        | QUADRATIC                | yes        |                                                                 |
+        | QUADRATIC                | yes        | op_new._hessian() = op_old._hessian()                           |
         |--------------------------|------------|-----------------------------------------------------------------|
         | LINEAR                   | no         |                                                                 |
         |--------------------------|------------|-----------------------------------------------------------------|
@@ -435,6 +441,9 @@ class ArgShiftRule(Rule):
         out -= self._cst
         return out
 
+    def _hessian(self) -> pyct.OpT:
+        return self._op._hessian()
+
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         x = arr.copy()
         x += self._cst
@@ -512,6 +521,9 @@ class AddRule(Rule):
         op.adjoint(arr) = _lhs.adjoint(arr) + _rhs.adjoint(arr)
         IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
                    operand's adjoint-input must be averaged.
+
+    * QUADRATIC
+        op._hessian() = _lhs._hessian() + _rhs.hessian()
     """
 
     def __init__(self, lhs: pyct.OpT, rhs: pyct.OpT):
@@ -630,6 +642,20 @@ class AddRule(Rule):
         out = P.prox(x, tau)
         return out
 
+    def _hessian(self) -> pyct.OpT:
+        if self.has(pyco.Property.QUADRATIC):
+            from pycsou.operator.linop import NullOp
+
+            op_lhs = op_rhs = NullOp(shape=(self.dim, self.dim))
+            if self._lhs.has(pyco.Property.QUADRATIC):
+                op_lhs = self._lhs._hessian()
+            if self._rhs.has(pyco.Property.QUADRATIC):
+                op_rhs = self._rhs._hessian()
+            op = op_lhs + op_rhs
+            return op
+        else:
+            raise NotImplementedError
+
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         if self.has(pyco.Property.LINEAR):
             op = self
@@ -729,6 +755,9 @@ class ChainRule(Rule):
 
     * LINEAR
         op.adjoint(arr) = _rhs.adjoint(_lhs.adjoint(arr))
+
+    * QUADRATIC
+        op._hessian() = _rhs.T \comp _lhs._hessian() \comp _rhs [Positive-Definite]
     """
 
     def __init__(self, lhs: pyct.OpT, rhs: pyct.OpT):
@@ -853,6 +882,14 @@ class ChainRule(Rule):
                 x = self._rhs.apply(arr)
                 y = self._lhs.prox(x, tau)
                 out = self._rhs.adjoint(y)
+            elif self._lhs.has(pyco.Property.QUADRATIC) and self._rhs.has(pyco.Property.LINEAR):
+                # quadratic \comp linop => quadratic
+                from pycsou.operator.func import QuadraticFunc
+
+                out = QuadraticFunc(
+                    Q=self._hessian(),
+                    c=self._lhs.jacobian(0) * self._rhs,
+                ).prox(arr, tau)
             elif self._lhs.has(pyco.Property.LINEAR) and self._rhs.has(pyco.Property.PROXIMABLE):
                 # linfunc() \comp prox[diff]func() => prox[diff]func()
                 #                                  = (\alpha * prox[diff]func())
@@ -865,6 +902,18 @@ class ChainRule(Rule):
             if out is not None:
                 return out
         raise NotImplementedError
+
+    def _hessian(self) -> pyct.OpT:
+        if self.has(pyco.Property.QUADRATIC):
+            if self._lhs.has(pyco.Property.LINEAR):
+                # linfunc (scalar) \comp quadratic
+                op = ScaleRule(op=self._rhs._hessian(), cst=self._lhs.asarray().item()).op()
+            elif self._rhs.has(pyco.Property.LINEAR):
+                # quadratic \comp linop
+                op = (self._rhs.T * self._lhs._hessian() * self._rhs).asop(pyco.PosDefOp)
+            return op
+        else:
+            raise NotImplementedError
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         if self.has(pyco.Property.LINEAR):

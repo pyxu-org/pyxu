@@ -733,6 +733,7 @@ class ProxDiffFuncT(ProxFuncT, DiffFuncT):
 class _QuadraticFuncT(ProxDiffFuncT):
     # Class Properties --------------------------------------------------------
     base = pyca._QuadraticFunc
+    interface = frozenset(ProxDiffFuncT.interface | {"_hessian"})
 
 
 class LinOpT(DiffMapT):

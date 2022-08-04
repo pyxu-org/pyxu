@@ -54,6 +54,7 @@ class Property(enum.Enum):
         data[self.DIFFERENTIABLE].extend(["jacobian", "diff_lipschitz"])
         data[self.DIFFERENTIABLE_FUNCTION].append("grad")
         data[self.LINEAR].append("adjoint")
+        data[self.QUADRATIC].append("_hessian")
 
         meth = frozenset(data[self])
         return meth
@@ -958,6 +959,12 @@ class _QuadraticFunc(ProxDiffFunc):
         p = set(super().properties())
         p.add(Property.QUADRATIC)
         return frozenset(p)
+
+    def _hessian(self) -> pyct.OpT:
+        # (M, M) Hessian matrix which may be useful for some arithmetic methods.
+        # This function is NOT EXPOSED to the user on purpose: it is bad practice to try to compute
+        # the Hessian in large-scale inverse problems due to its size.
+        raise NotImplementedError
 
 
 class LinOp(DiffMap):

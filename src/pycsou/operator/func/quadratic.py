@@ -122,6 +122,9 @@ class QuadraticFunc(pyca._QuadraticFunc):
         slvr.fit(b=b)
         return slvr.solution()
 
+    def _hessian(self) -> pyct.OpT:
+        return self._Q
+
     def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
         from pycsou.operator.func.loss import shift_loss
 
