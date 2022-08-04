@@ -830,12 +830,16 @@ class ProxFunc(Func):
             from pycsou.math.linalg import norm
 
             x = self.prox(arr, tau=_._mu)
-            return self.apply(x) + (1 / (2 * _._mu)) * norm(arr - x, axis=-1, keepdims=True) ** 2
+            out = self.apply(x)
+            out += (0.5 / _._mu) * norm(arr - x, axis=-1, keepdims=True) ** 2
+            return out
 
         @pycrt.enforce_precision(i="arr")
         def op_grad(_, arr):
-            x = self.prox(arr, tau=_._mu)
-            return (arr - x) / _._mu
+            x = arr.copy()
+            x -= self.prox(arr, tau=_._mu)
+            x /= _._mu
+            return x
 
         assert mu > 0, f"mu: expected positive, got {mu}"
         op = DiffFunc(self.shape)
