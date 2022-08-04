@@ -84,3 +84,56 @@ class TestL1Norm(conftest.ProxFuncT):
     def data_math_lipschitz(self, dim):
         N_test, dim = 5, self._sanitize(dim, 3)
         return self._random_array((N_test, dim))
+
+
+class TestL1NormMoreau(conftest.DiffFuncT):
+    @pytest.fixture(params=[4, None])
+    def dim(self, request):
+        return request.param
+
+    @pytest.fixture
+    def mu(self) -> int:
+        return 2
+
+    @pytest.fixture
+    def op_orig(self, dim):
+        return L1Norm(M=dim)
+
+    @pytest.fixture
+    def op(self, op_orig, mu):
+        return op_orig.moreau_envelope(mu=mu)
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (1, dim)
+
+    @pytest.fixture
+    def data_apply(self, op_orig, mu):
+        dim = self._sanitize(op_orig.dim, 3)
+        x = self._random_array((dim,), seed=7)
+        y = op_orig.prox(x, mu)
+        z = op_orig.apply(y) + (0.5 / mu) * (np.linalg.norm(y - x) ** 2)
+        return dict(
+            in_=dict(arr=x),
+            out=z,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, dim):
+        N_test, dim = 6, self._sanitize(dim, 3)
+        return self._random_array((N_test, dim), seed=5)
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, dim):
+        N_test, dim = 6, self._sanitize(dim, 3)
+        return self._random_array((N_test, dim), seed=6)
+
+    @pytest.fixture
+    def data_grad(self, op_orig, mu):
+        dim = self._sanitize(op_orig.dim, 3)
+        x = self._random_array((dim,), seed=7)
+        y = (x - op_orig.prox(x, mu)) / mu
+        return dict(
+            in_=dict(arr=x),
+            out=y,
+        )

@@ -827,9 +827,10 @@ class ProxFunc(Func):
 
         @pycrt.enforce_precision(i="arr")
         def op_apply(_, arr):
-            xp = pycu.get_array_module(arr)
+            from pycsou.math.linalg import norm
+
             x = self.prox(arr, tau=_._mu)
-            return self.apply(x) + (1 / (2 * _._mu)) * xp.linalg.norm(arr - x, axis=-1, keepdims=True) ** 2
+            return self.apply(x) + (1 / (2 * _._mu)) * norm(arr - x, axis=-1, keepdims=True) ** 2
 
         @pycrt.enforce_precision(i="arr")
         def op_grad(_, arr):
