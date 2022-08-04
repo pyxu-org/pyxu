@@ -9,7 +9,6 @@ class TestNullFunc(conftest.LinFuncT):
     disable_test = frozenset(
         conftest.LinFuncT.disable_test
         | {
-            "test_interface_asloss",  # undefined for NullFunc
             "test_math2_grad",  # trivially correct, but raises warning since L=0
         }
     )

@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 
 import pycsou.abc as pyca
-import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
@@ -26,9 +25,6 @@ class SquaredL2Norm(pyca.DiffFunc):
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr):
         return 2 * arr
-
-    def asloss(self, data=None):
-        return pycof.shift_loss(self, data)
 
 
 class TestSquaredL2Norm(conftest.DiffFuncT):

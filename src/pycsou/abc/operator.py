@@ -523,23 +523,6 @@ class Func(Map):
         super().__init__(shape=shape)
         assert self.codim == 1, f"shape: expected (1, n), got {shape}."
 
-    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
-        """
-        Transform a functional into a loss functional.
-
-        Parameters
-        ----------
-        data: pyct.NDArray
-            (M,) input.
-
-        Returns
-        -------
-        op: pyct.OpT
-            (1, M) loss function.
-            If `data = None`, then return `self`.
-        """
-        raise NotImplementedError
-
 
 class DiffMap(Map):
     r"""

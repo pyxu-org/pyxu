@@ -19,12 +19,6 @@ class SquaredL2Norm(pyco.DiffFunc):
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         return 2 * arr
 
-    def asloss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.DiffFunc:
-        if data is None:
-            return self
-        else:
-            return self.argshift(-data)
-
 
 class L1Norm(pyco.ProxFunc):
     def __init__(self, shape=None):
@@ -38,12 +32,6 @@ class L1Norm(pyco.ProxFunc):
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         return (abs(arr) - tau).clip(0, None) * xp.sign(arr)
-
-    def asloss(self, data: typ.Optional[pyct.NDArray] = None) -> pyco.ProxFunc:
-        if data is None:
-            return self
-        else:
-            return self.argshift(-data)
 
 
 class FirstDerivative(pyco.LinOp):
