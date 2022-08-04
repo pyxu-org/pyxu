@@ -886,14 +886,16 @@ class ChainRule(Rule):
                 # quadratic \comp linop => quadratic
                 from pycsou.operator.func import QuadraticFunc
 
+                x = np.zeros(shape=(self._lhs.dim), dtype=arr.dtype, like=arr)
                 out = QuadraticFunc(
                     Q=self._hessian(),
-                    c=self._lhs.jacobian(0) * self._rhs,
+                    c=self._lhs.jacobian(x) * self._rhs,
+                    init_lipschitz=False,
                 ).prox(arr, tau)
             elif self._lhs.has(pyco.Property.LINEAR) and self._rhs.has(pyco.Property.PROXIMABLE):
                 # linfunc() \comp prox[diff]func() => prox[diff]func()
                 #                                  = (\alpha * prox[diff]func())
-                op = ScaleRule(op=self._rhs, cst=self._lhs.asarray().item())
+                op = ScaleRule(op=self._rhs, cst=self._lhs.asarray().item()).op()
                 out = op.prox(arr, tau)
             elif pyco.Property.LINEAR in (self._lhs.properties() & self._rhs.properties()):
                 # linfunc() \comp linop() => linfunc()

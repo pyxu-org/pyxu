@@ -13,6 +13,7 @@ import warnings
 
 import numpy as np
 import pytest
+import scipy.linalg as splinalg
 
 import pycsou.abc as pyca
 import pycsou.util as pycu
@@ -209,6 +210,13 @@ class ChainRuleMixin:
                 # linfunc \comp [prox, proxdiff, quadratic]
                 cst = op_lhs.asarray().item()
                 out = op_rhs.prox(arr, cst * tau)
+            elif op_lhs.has(pyca.Property.QUADRATIC) and op_rhs.has(pyca.Property.LINEAR):
+                # quadratic \comp linop
+                A = op_rhs.asarray()
+                B = op_lhs._hessian().asarray()
+                Q = tau * (A.T @ B @ A) + np.eye(op_rhs.dim)
+                b = arr - tau * (A.T @ op_lhs.grad(np.zeros(op_lhs.dim)))
+                out, *_ = splinalg.lstsq(Q, b)
 
             if out is not None:
                 return dict(
@@ -546,7 +554,7 @@ class TestChainRuleProxDiffFunc(ChainRuleMixin, conftest.ProxDiffFuncT):
 class TestChainRuleQuadraticFunc(ChainRuleMixin, conftest._QuadraticFuncT):
     @pytest.fixture(
         params=[
-            (op_quadraticfunc(), op_linop()),
+            (op_quadraticfunc(dim=6), op_linop(dim=2, codim_scale=3)),
             (op_quadraticfunc(dim=1), op_linfunc()),
             (op_quadraticfunc(), op_squareop()),
             (op_quadraticfunc(), op_normalop()),
