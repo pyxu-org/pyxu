@@ -36,10 +36,16 @@ Developper Install
 
 .. code-block:: bash
 
-   $ git clone https://github.com/matthieumeo/pycsou && cd pycsou
-   $ conda create -n pycsou --channel=conda-forge --file=conda/requirements.txt
-   $ conda activate pycsou
-   $ python3 -m pip install -e ".[dev]"
+   $ my_env=<CONDA ENVIRONMENT NAME>
+   $ my_branch=<PYCSOU BRANCH NAME>
+   $ git clone https://github.com/matthieumeo/pycsou && cd pycsou/
+   $ git checkout "${my_branch}"
+   $ conda create --name "${my_env}"            \
+                  --strict-channel-priority     \
+                  --channel=conda-forge         \
+                  --file=conda/requirements.txt
+   $ conda activate "${my_env}"
+   $ python3 -m pip install -e ".[dev,complete_gpu]"  # 'complete_no_gpu' also available
    $ pre-commit install
    $ tox  # to run tests
 
