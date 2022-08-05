@@ -1,6 +1,12 @@
 import importlib.util
 
 CUPY_ENABLED: bool = importlib.util.find_spec("cupy") is not None
+if CUPY_ENABLED:
+    try:
+        import cupy
+    except ImportError:
+        # CuPy is installed, but GPU drivers probably missing.
+        CUPY_ENABLED = False
 
 
 def array_backend_info():
