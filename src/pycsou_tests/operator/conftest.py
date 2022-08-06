@@ -906,9 +906,11 @@ class LinOpT(DiffMapT):
         # Do not override in subclass: for use only to test methods taking a `gpu` parameter.
         return request.param
 
-    @pytest.fixture(params=[None, 1])
-    def _damp(self, request) -> typ.Optional[float]:
+    @pytest.fixture(params=[1, 2])
+    def _damp(self, request) -> float:
         # candidate dampening factors for .pinv() & .dagger()
+        # We do not test damp=0 since ill-conditioning of some operators would require a lot of
+        # manual _damp-correcting to work.
         return request.param
 
     @pytest.fixture
@@ -919,10 +921,9 @@ class LinOpT(DiffMapT):
         #
         # Default implementation: auto-computes pinv() at output points specified to test op.apply().
         A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
-        if _damp is not None:
-            A = pycu.copy_if_unsafe(A)
-            for i in range(op.dim):
-                A[i, i] += _damp
+        A = pycu.copy_if_unsafe(A)
+        for i in range(op.dim):
+            A[i, i] += _damp
 
         arr = data_apply["out"]
         out, *_ = splinalg.lstsq(A, op.adjoint(arr))
@@ -972,10 +973,9 @@ class LinOpT(DiffMapT):
         #
         # Default implementation: auto-computes .adjoint() at input points specified to test op.apply().
         A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
-        if _damp is not None:
-            A = pycu.copy_if_unsafe(A)
-            for i in range(op.dim):
-                A[i, i] += _damp
+        A = pycu.copy_if_unsafe(A)
+        for i in range(op.dim):
+            A[i, i] += _damp
 
         arr = data_apply["in_"]["arr"]
         out, *_ = splinalg.lstsq(A, arr)

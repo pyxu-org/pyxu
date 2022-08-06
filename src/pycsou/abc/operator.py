@@ -1289,7 +1289,7 @@ class LinOp(DiffMap):
     def pinv(
         self,
         arr: pyct.NDArray,
-        damp: pyct.Real = None,
+        damp: pyct.Real = 0,
         kwargs_init=None,
         kwargs_fit=None,
     ) -> pyct.NDArray:
@@ -1352,10 +1352,10 @@ class LinOp(DiffMap):
         kwargs_fit = dict() if kwargs_fit is None else kwargs_fit
         kwargs_init = dict() if kwargs_init is None else kwargs_init
         b = self.adjoint(arr)
-        if damp is not None:
-            A = self.gram() + HomothetyOp(cst=damp, dim=self.dim)
-        else:
+        if np.isclose(damp, 0):
             A = self.gram()
+        else:
+            A = self.gram() + HomothetyOp(cst=damp, dim=self.dim)
         kwargs_init.update(show_progress=kwargs_init.get("show_progress", False))
         cg = CG(A, **kwargs_init)
         if "stop_crit" not in kwargs_fit:
@@ -1368,7 +1368,7 @@ class LinOp(DiffMap):
 
     def dagger(
         self,
-        damp: pyct.Real = None,
+        damp: pyct.Real = 0,
         kwargs_init=None,
         kwargs_fit=None,
     ) -> pyct.OpT:
@@ -1669,14 +1669,14 @@ class UnitOp(NormalOp):
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = self.adjoint(arr)
-        if (damp := kwargs.pop("damp", None)) is not None:
+        if not np.isclose(damp := kwargs.pop("damp", 0), 0):
             out = pycu.copy_if_unsafe(out)
             out /= 1 + damp
         return out
 
     def dagger(self, **kwargs) -> pyct.OpT:
         op = self.T
-        if (damp := kwargs.pop("damp", None)) is not None:
+        if not np.isclose(damp := kwargs.pop("damp", 0), 0):
             op = op / (1 + damp)
         return op
 
@@ -1734,14 +1734,14 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = self.apply(arr)
-        if (damp := kwargs.pop("damp", None)) is not None:
+        if not np.isclose(damp := kwargs.pop("damp", 0), 0):
             out = pycu.copy_if_unsafe(out)
             out /= 1 + damp
         return out
 
     def dagger(self, **kwargs) -> pyct.OpT:
         op = self
-        if (damp := kwargs.pop("damp", None)) is not None:
+        if not np.isclose(damp := kwargs.pop("damp", 0), 0):
             op = op / (1 + damp)
         return op
 
