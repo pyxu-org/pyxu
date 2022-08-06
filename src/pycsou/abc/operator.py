@@ -1185,7 +1185,7 @@ class LinOp(DiffMap):
                 k=k,
                 which=which,
                 return_singular_vectors=False,
-                random_state=0,
+                # random_state=0,  # unsupported by CuPy
             )
             return spx.svds(op, **kwargs)
 
