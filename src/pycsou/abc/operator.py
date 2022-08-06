@@ -14,6 +14,7 @@ import scipy.sparse.linalg as spsl
 
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 
