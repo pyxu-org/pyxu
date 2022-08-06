@@ -97,46 +97,6 @@ class ArgScaleRuleMixin:
         N_test, dim = 5, self._sanitize(op.dim, 7)
         return self._random_array((N_test, dim))
 
-    @pytest.fixture
-    def data_pinv(self, op_orig, op_scale, _damp) -> conftest.DataLike:
-        arr = self._random_array((op_orig.codim,), seed=20)  # random seed for reproducibility
-        if _damp is None:
-            out = op_orig.pinv(arr, damp=_damp)
-        else:
-            out = op_orig.pinv(arr, damp=_damp / (op_scale**2))
-        out /= op_scale
-
-        data = dict(
-            in_=dict(
-                arr=arr,
-                damp=_damp,
-                kwargs_init=dict(),
-                kwargs_fit=dict(),
-            ),
-            out=out,
-        )
-        return data
-
-    @pytest.fixture
-    def data_pinvT(self, op_orig, op_scale, _damp) -> conftest.DataLike:
-        arr = self._random_array((op_orig.dim,), seed=20)  # random seed for reproducibility
-        if _damp is None:
-            out = op_orig.dagger(damp=_damp).adjoint(arr)
-        else:
-            out = op_orig.dagger(damp=_damp / (op_scale**2)).adjoint(arr)
-        out /= op_scale
-
-        data = dict(
-            in_=dict(
-                arr=arr,
-                damp=_damp,
-                kwargs_init=dict(),
-                kwargs_fit=dict(),
-            ),
-            out=out,
-        )
-        return data
-
 
 # Test classes (Maps) ---------------------------------------------------------
 class TestArgScaleRuleMap(ArgScaleRuleMixin, conftest.MapT):
