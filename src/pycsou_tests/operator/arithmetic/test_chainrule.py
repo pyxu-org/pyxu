@@ -392,6 +392,10 @@ class TestChainRuleSquareOp(ChainRuleMixin, conftest.SquareOpT):
     def op_lrhs(self, request):
         return request.param
 
+    @pytest.fixture
+    def _damp(self) -> float:
+        return 1
+
 
 class TestChainRuleNormalOp(ChainRuleMixin, conftest.NormalOpT):
     @pytest.fixture(params=[])
