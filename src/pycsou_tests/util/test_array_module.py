@@ -224,7 +224,8 @@ class TestReadOnly:
         x = xp.array(x)
         y = pycu.read_only(x)
 
-        assert not y.flags.writeable
+        if hasattr(y.flags, "writeable"):
+            assert not y.flags.writeable
         assert not y.flags.owndata
         assert y.shape == x.shape
         assert xp.allclose(y, x)

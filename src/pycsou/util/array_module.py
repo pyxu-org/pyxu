@@ -3,6 +3,7 @@ import functools
 
 import dask
 import dask.array as da
+import numpy as np
 
 import pycsou.util.deps as pycd
 import pycsou.util.inspect as pycui
@@ -179,8 +180,12 @@ def copy_if_unsafe(x: pyct.NDArray) -> pyct.NDArray:
     if xp == da:
         # Dask operations span a graph -> always safe.
         y = x
-    else:
+    elif xp == np:
         read_only = not x.flags.writeable
+        reference = not x.flags.owndata
+        y = x.copy() if (read_only or reference) else x
+    else:  # CuPy
+        read_only = False  # https://github.com/cupy/cupy/issues/2616
         reference = not x.flags.owndata
         y = x.copy() if (read_only or reference) else x
     return y
@@ -202,7 +207,10 @@ def read_only(x: pyct.NDArray) -> pyct.NDArray:
     if xp == da:
         # Dask operations are read-only since graph-backed.
         y = x
-    else:
+    elif xp == np:
         y = x.view()
         y.flags.writeable = False
+    else:  # CuPy
+        y = x.view()
+        # y.flags.writeable = False  # https://github.com/cupy/cupy/issues/2616
     return y
