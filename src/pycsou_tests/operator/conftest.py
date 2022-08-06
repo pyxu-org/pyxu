@@ -216,7 +216,7 @@ class MapT:
         if pycu.get_array_module(in_["arr"]) == da:
             pytest.skip("Dask arrays side-effect free by design.")
         else:
-            is_readonly = lambda _: not _.flags.writeable
+            is_readonly = lambda _: not getattr(_.flags, "writeable", True)
             with pycrt.EnforcePrecision(False):
                 out_1 = pycu.compute(func(**in_))
                 if is_readonly(out_1):
