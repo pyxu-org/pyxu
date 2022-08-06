@@ -830,7 +830,7 @@ class ProxFunc(Func):
             from pycsou.math.linalg import norm
 
             x = self.prox(arr, tau=_._mu)
-            out = self.apply(x)
+            out = pycu.copy_if_unsafe(self.apply(x))
             out += (0.5 / _._mu) * norm(arr - x, axis=-1, keepdims=True) ** 2
             return out
 
