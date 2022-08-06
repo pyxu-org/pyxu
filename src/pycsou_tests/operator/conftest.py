@@ -596,6 +596,21 @@ class ProxFuncT(FuncT):
         raise NotImplementedError
 
     @pytest.fixture
+    def data_fenchel_prox(self, data_prox) -> DataLike:
+        # override in subclass with 1D input/outptus of op.fenchel_prox().
+        # Default value: inferred from data_prox().
+        p_arr = data_prox["in_"]["arr"]
+        p_tau = data_prox["in_"]["tau"]
+        p_out = data_prox["out"]
+        return dict(
+            in_=dict(
+                arr=p_arr / p_tau,
+                sigma=1 / p_tau,
+            ),
+            out=(p_arr - p_out) / p_tau,
+        )
+
+    @pytest.fixture
     def _data_prox(self, data_prox, xp, width) -> DataLike:
         # Generate Cartesian product of inputs.
         # Do not override in subclass: for internal use only to test `op.prox()`.
@@ -609,18 +624,15 @@ class ProxFuncT(FuncT):
         return data
 
     @pytest.fixture
-    def _data_fenchel_prox(self, _data_prox) -> DataLike:
-        # Generate fenchel_prox values from prox ground-truth. (All precision/backends.)
+    def _data_fenchel_prox(self, data_fenchel_prox, xp, width) -> DataLike:
+        # Generate Cartesian product of inputs.
         # Do not override in subclass: for internal use only to test `op.fenchel_prox()`.
-        p_arr = _data_prox["in_"]["arr"]
-        p_tau = _data_prox["in_"]["tau"]
-        p_out = _data_prox["out"]
+        # Outputs are left unchanged: different tests should transform them as required.
+        in_ = copy.deepcopy(data_fenchel_prox["in_"])
+        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
         data = dict(
-            in_=dict(
-                arr=p_arr / p_tau,
-                sigma=1 / p_tau,
-            ),
-            out=(p_arr - p_out) / p_tau,
+            in_=in_,
+            out=data_fenchel_prox["out"],
         )
         return data
 
