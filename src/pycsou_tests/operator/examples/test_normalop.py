@@ -29,9 +29,10 @@ class CircularConvolution(pyca.NormalOp):
 
     @staticmethod
     def _circ_convolve(h, x):
-        xp = pycu.get_array_module(h)
+        xp = pycu.get_array_module(x)
         fw = lambda _: xp.fft.fft(_, axis=-1)
         bw = lambda _: xp.fft.ifft(_, axis=-1)
+        h = xp.array(h, dtype=x.dtype)
         out = bw(fw(h) * fw(x)).real
         return out.astype(x.dtype, copy=False)
 
