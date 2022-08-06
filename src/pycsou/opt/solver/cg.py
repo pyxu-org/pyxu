@@ -82,10 +82,8 @@ class CG(pyca.Solver):
         else:
             mst["x"] = x0
 
-        # 2-stage res-computation guarantees RT-precision in case apply() not
-        # enforce_precision()-ed.
-        mst["residual"] = xp.zeros_like(b)
-        mst["residual"][:] = b - self._A.apply(mst["x"])
+        mst["residual"] = b.copy()
+        mst["residual"] -= self._A.apply(mst["x"])
         mst["conjugate_dir"] = mst["residual"].copy()
 
     def m_step(self):
