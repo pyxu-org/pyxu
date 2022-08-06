@@ -28,12 +28,10 @@ def ConstantValued(
 
         @pycrt.enforce_precision(i="arr")
         def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
-            return np.full(
-                (*arr.shape[:-1], _.codim),
-                fill_value=_._cst,
-                dtype=arr.dtype,
-                like=arr,
-            )
+            xp = pycu.get_array_module(arr)
+            x = xp.full((1,), fill_value=_._cst, dtype=arr.dtype)
+            out = xp.broadcast_to(x, (*arr.shape[:-1], _.codim))
+            return out
 
         def op_jacobian(_, arr: pyct.NDArray) -> pyct.OpT:
             from pycsou.operator.linop import NullOp
@@ -42,7 +40,10 @@ def ConstantValued(
 
         @pycrt.enforce_precision(i="arr")
         def op_grad(_, arr: pyct.NDArray) -> pyct.NDArray:
-            return np.zeros_like(arr)
+            xp = pycu.get_array_module(arr)
+            x = xp.zeros((1,), dtype=arr.dtype)
+            out = xp.broadcast_to(x, arr.shape)
+            return out
 
         @pycrt.enforce_precision(i=("arr", "tau"))
         def op_prox(_, arr: pyct.NDArray, tau: pyct.NDArray) -> pyct.NDArray:
