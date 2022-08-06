@@ -5,6 +5,7 @@ import itertools
 import math
 import types
 import typing as typ
+import warnings
 
 import dask.array as da
 import numpy as np
@@ -19,6 +20,7 @@ import pycsou.util as pycu
 import pycsou.util.complex as pycuc
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
 from pycsou.abc.operator import _core_operators
 
 
@@ -226,11 +228,32 @@ class MapT:
                     out_2 = pycu.compute(func(**in_))
                     out_2 *= scale
 
-                    # The large scale introduced to assess transparency may give rise to
-                    # operator-dependant round-off errors. We therefore assess transparency at
-                    # FP32-precision to avoid false negatives.
-                    assert allclose(out_1, out_gt, as_dtype=pycrt.Width.SINGLE.value)
-                    assert allclose(out_2, out_gt, as_dtype=pycrt.Width.SINGLE.value)
+                    try:
+                        # The large scale introduced to assess transparency may give rise to
+                        # operator-dependant round-off errors. We therefore assess transparency at
+                        # FP32-precision to avoid false negatives.
+                        assert allclose(out_1, out_gt, as_dtype=pycrt.Width.SINGLE.value)
+                        assert allclose(out_2, out_gt, as_dtype=pycrt.Width.SINGLE.value)
+                    except AssertionError as exc:
+                        # CuPy is the only backend allowed to be non-transparent.
+                        # See pycsou.util.read_only() for details.
+                        if not pycd.CUPY_ENABLED:
+                            raise
+                        else:
+                            import cupy as cp
+
+                            if pycu.get_array_module(out_1) == cp:
+                                # warn about CuPy-only non-transparency.
+                                msg = "\n".join(
+                                    [
+                                        f"{func} is not transparent when applied to CuPy inputs.",
+                                        f"If the same test fails for non-CuPy inputs, then {func}'s implementation is at fault -> user fix required.",
+                                        f"If the same test passes for non-CuPy inputs, then this warning can be safely ignored.",
+                                    ]
+                                )
+                                warnings.warn(msg, pycuw.NonTransparentWarning)
+                            else:
+                                raise
 
     @staticmethod
     def _random_array(shape: tuple[int], seed: int = 0):
