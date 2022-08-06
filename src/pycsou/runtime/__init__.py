@@ -18,7 +18,6 @@ class Width(enum.Enum):
 
     SINGLE = np.dtype(np.single)
     DOUBLE = np.dtype(np.double)
-    QUAD = np.dtype(np.longdouble)
 
     def eps(self) -> pyct.Real:
         """
@@ -45,7 +44,6 @@ class _CWidth(enum.Enum):
 
     SINGLE = np.dtype(np.csingle)
     DOUBLE = np.dtype(np.cdouble)
-    QUAD = np.dtype(np.clongdouble)
 
     @property
     def real(self) -> "Width":

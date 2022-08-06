@@ -43,8 +43,6 @@ def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
         pycrt._CWidth.SINGLE.value: 2e-4,
         pycrt.Width.DOUBLE.value: 1e-8,
         pycrt._CWidth.DOUBLE.value: 1e-8,
-        pycrt.Width.QUAD.value: 1e-16,
-        pycrt._CWidth.QUAD.value: 1e-16,
     }
     # Numbers obtained by:
     # * \sum_{k >= (p+1)//2} 2^{-k}, where p=<number of mantissa bits>; then
@@ -53,7 +51,7 @@ def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
 
     if (prec := atol.get(as_dtype)) is None:
         # should occur for integer types only
-        prec = atol[pycrt.Width.QUAD.value]
+        prec = atol[pycrt.Width.DOUBLE.value]
     cast = lambda x: x.astype(as_dtype)
     eq = np.isclose(cast(a), cast(b), atol=prec)
     return eq
@@ -1124,20 +1122,6 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         self._check_backend_vals(op.svdvals, _gpu)
 
-    @pytest.mark.parametrize(
-        "width",  # local override of this fixture
-        [
-            pycrt.Width.SINGLE,
-            pycrt.Width.DOUBLE,
-            pytest.param(
-                pycrt.Width.QUAD,
-                marks=pytest.mark.xfail(
-                    reason="Unsupported by ARPACK/PROPACK/LOBPCG.",
-                    strict=True,
-                ),
-            ),
-        ],
-    )
     def test_precCM_svdvals(self, op, _gpu, width):
         self._skip_if_disabled()
         data = dict(in_=dict(k=1, gpu=_gpu))
@@ -1542,13 +1526,6 @@ class NormalOpT(SquareOpT):
         [  # We use the complex-valued types since .eigvals() should return complex. (Exception: SelfAdjointOp)
             pycrt._CWidth.SINGLE,
             pycrt._CWidth.DOUBLE,
-            pytest.param(
-                pycrt._CWidth.QUAD,
-                marks=pytest.mark.xfail(
-                    reason="Unsupported by ARPACK/PROPACK/LOBPCG.",
-                    strict=True,
-                ),
-            ),
         ],
     )
     def test_precCM_eigvals(self, op, _gpu, width):
@@ -1627,13 +1604,6 @@ class SelfAdjointOpT(NormalOpT):
         [  # We revert back to real-valued types since .eigvals() should return real.
             pycrt.Width.SINGLE,
             pycrt.Width.DOUBLE,
-            pytest.param(
-                pycrt.Width.QUAD,
-                marks=pytest.mark.xfail(
-                    reason="Unsupported by ARPACK/PROPACK/LOBPCG.",
-                    strict=True,
-                ),
-            ),
         ],
     )
     def test_precCM_eigvals(self, op, _gpu, width):
