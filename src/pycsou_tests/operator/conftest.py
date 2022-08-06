@@ -428,8 +428,8 @@ class MapT:
             # nothing to test since `op.asop(_klass)` is illegal.
             return
         else:
-            assert op2._lipschitz == op._lipschitz
-            assert op2.lipschitz() == op.lipschitz()
+            assert np.isclose(op2._lipschitz, op._lipschitz)
+            assert np.isclose(op2.lipschitz(), op.lipschitz())
             assert op2.apply == op.apply
             assert op2.__call__ == op.__call__
 
