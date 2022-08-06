@@ -116,7 +116,7 @@ def op_posdefop():
 def op_projop():
     import pycsou_tests.operator.examples.test_projop as tc
 
-    return tc.Oblique(N=7, alpha=np.pi / 4)
+    return tc.Oblique(N=7, alpha=0.1)
 
 
 def op_orthprojop():
