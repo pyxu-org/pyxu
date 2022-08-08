@@ -405,11 +405,11 @@ def ExplicitLinOp(
 
     @pycrt.enforce_precision(i="arr")
     def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
-        return _matmat(_.mat, arr, warn=_._enable_warnings)
+        return _matmat(_._mat, arr, warn=_._enable_warnings)
 
     @pycrt.enforce_precision(i="arr")
     def op_adjoint(_, arr: pyct.NDArray) -> pyct.NDArray:
-        return _matmat(_.mat.T, arr, warn=_._enable_warnings)
+        return _matmat(_._mat.T, arr, warn=_._enable_warnings)
 
     def op_asarray(
         _,
@@ -420,11 +420,11 @@ def ExplicitLinOp(
             dtype = pycrt.getPrecision().value
         try:
             # dense arrays
-            pycu.get_array_module(_.mat)
-            A = _.mat
+            pycu.get_array_module(_._mat)
+            A = _._mat
         except:
             # sparse arrays
-            A = _.mat.toarray()
+            A = _._mat.toarray()
         return xp.array(A, dtype=dtype)
 
     def op_trace(_, **kwargs) -> pyct.Real:
@@ -433,14 +433,14 @@ def ExplicitLinOp(
         else:
             try:
                 # dense arrays
-                pycu.get_array_module(_.mat)
-                return float(_.mat.trace())
+                pycu.get_array_module(_._mat)
+                return float(_._mat.trace())
             except:
                 # sparse arrays
                 return pyca.SquareOp.trace(_, **kwargs)
 
     op = cls(shape=mat.shape)
-    op.mat = _standard_form(mat)
+    op._mat = _standard_form(mat)
     op._enable_warnings = bool(enable_warnings)
     op.apply = types.MethodType(op_apply, op)
     op.adjoint = types.MethodType(op_adjoint, op)
