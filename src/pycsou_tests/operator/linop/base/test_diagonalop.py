@@ -4,6 +4,7 @@ import pytest
 
 import pycsou.operator.linop as pycl
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
@@ -16,6 +17,22 @@ class TestDiagonalOp(conftest.PosDefOpT):
         xp = pycu.get_array_module(op._vec)
         if xp != np:
             pytest.skip("Mathematical test designed for backend-agnostic operators -> safe to disable.")
+
+    @staticmethod
+    def skip_if_state_mismatch(op, _gpu):
+        xp = pycu.get_array_module(op._vec)
+        skip = False
+        if _gpu and pycd.CUPY_ENABLED:
+            import cupy as cp
+
+            if xp != cp:
+                skip = True
+        else:
+            if xp not in {np, da}:
+                skip = True
+        if skip:
+            msg = f"Got incompatible test configuration (type(vec), _gpu) = {type(op._vec), _gpu} -> safe to skip."
+            pytest.skip(msg)
 
     @pytest.fixture
     def dim(self):
@@ -110,6 +127,22 @@ class TestDiagonalOp(conftest.PosDefOpT):
     def test_value_from_sciop(self, op, _op_sciop, _data_from_sciop):
         self.skip_if_dask(op)
         super().test_value_from_sciop(_op_sciop, _data_from_sciop)
+
+    def test_backend_svdvals(self, op, _gpu):
+        self.skip_if_state_mismatch(op, _gpu)
+        super().test_backend_svdvals(op, _gpu)
+
+    def test_precCM_svdvals(self, op, _gpu, width):
+        self.skip_if_state_mismatch(op, _gpu)
+        super().test_precCM_svdvals(op, _gpu, width)
+
+    def test_backend_eigvals(self, op, _gpu):
+        self.skip_if_state_mismatch(op, _gpu)
+        super().test_backend_eigvals(op, _gpu)
+
+    def test_precCM_eigvals(self, op, _gpu, width):
+        self.skip_if_state_mismatch(op, _gpu)
+        super().test_precCM_eigvals(op, _gpu, width)
 
     def test_backend_from_sciop(self, op, _op_sciop, _data_from_sciop):
         self.skip_if_dask(op)
