@@ -1,8 +1,9 @@
+import dask.array as da
 import numpy as np
 import pytest
 
 import pycsou.operator.linop as pycl
-import pycsou.runtime as pycrt
+import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
 
 
@@ -10,19 +11,30 @@ import pycsou_tests.operator.conftest as conftest
 # computed must still be valid.
 @pytest.mark.filterwarnings("ignore::pycsou.util.warning.PrecisionWarning")
 class TestDiagonalOp(conftest.PosDefOpT):
+    @staticmethod
+    def skip_unless_numpy(op):
+        xp = pycu.get_array_module(op._vec)
+        if xp != np:
+            pytest.skip("Mathematical test designed for backend-agnostic operators -> safe to disable.")
+
     @pytest.fixture
     def dim(self):
-        return 5
+        return 20
 
     @pytest.fixture(params=[True, False])
-    def vec(self, dim, request):
-        v = self._random_array((dim,))
-        if request.param:  # positive-definite
-            v[v <= 0] = 1
-        return np.array(v, dtype=pycrt.Width.SINGLE.value)
+    def is_posdef(self, request) -> bool:
+        return request.param
 
     @pytest.fixture
-    def op(self, vec):
+    def vec(self, dim, is_posdef):
+        v = self._random_array((dim,))
+        if is_posdef:
+            v[v <= 0] *= -1
+        return v
+
+    @pytest.fixture
+    def op(self, vec, xp, width):
+        vec = xp.array(vec, dtype=width.value)
         return pycl.DiagonalOp(vec=vec)
 
     @pytest.fixture
@@ -45,7 +57,64 @@ class TestDiagonalOp(conftest.PosDefOpT):
             super().test_math_eig(_op_eig)
 
     def test_math_posdef(self, op, vec):
+        self.skip_unless_numpy(op)
         if np.any(vec <= 0):
             pytest.skip("disabled since operator is not positive-definite.")
         else:
             super().test_math_posdef(op)
+
+    def test_math_lipschitz(self, op, data_math_lipschitz):
+        self.skip_unless_numpy(op)
+        super().test_math_lipschitz(op, data_math_lipschitz)
+
+    def test_math2_lipschitz(self, op):
+        self.skip_unless_numpy(op)
+        super().test_math2_lipschitz(op)
+
+    def test_math_diff_lipschitz(self, op, data_math_diff_lipschitz):
+        self.skip_unless_numpy(op)
+        super().test_math_diff_lipschitz(op, data_math_diff_lipschitz)
+
+    def test_math_adjoint(self, op):
+        self.skip_unless_numpy(op)
+        super().test_math_adjoint(op)
+
+    def test_math_gram(self, op):
+        self.skip_unless_numpy(op)
+        super().test_math_gram(op)
+
+    def test_math_cogram(self, op):
+        self.skip_unless_numpy(op)
+        super().test_math_cogram(op)
+
+    def test_math_normality(self, op):
+        self.skip_unless_numpy(op)
+        super().test_math_normality(op)
+
+    def test_math_selfadjoint(self, op):
+        self.skip_unless_numpy(op)
+        super().test_math_selfadjoint(op)
+
+    def test_value_to_sciop(self, op, _op_sciop, _data_to_sciop):
+        self.skip_if_dask(op)
+        super().test_value_to_sciop(_op_sciop, _data_to_sciop)
+
+    def test_backend_to_sciop(self, op, _op_sciop, _data_to_sciop):
+        self.skip_if_dask(op)
+        super().test_backend_to_sciop(_op_sciop, _data_to_sciop)
+
+    def test_prec_to_sciop(self, op, _op_sciop, _data_to_sciop):
+        self.skip_if_dask(op)
+        super().test_prec_to_sciop(_op_sciop, _data_to_sciop)
+
+    def test_value_from_sciop(self, op, _op_sciop, _data_from_sciop):
+        self.skip_if_dask(op)
+        super().test_value_from_sciop(_op_sciop, _data_from_sciop)
+
+    def test_backend_from_sciop(self, op, _op_sciop, _data_from_sciop):
+        self.skip_if_dask(op)
+        super().test_backend_from_sciop(_op_sciop, _data_from_sciop)
+
+    def test_prec_from_sciop(self, op, _op_sciop, _data_from_sciop):
+        self.skip_if_dask(op)
+        super().test_prec_from_sciop(_op_sciop, _data_from_sciop)
