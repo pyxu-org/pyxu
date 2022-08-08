@@ -926,7 +926,7 @@ class LinOpT(DiffMapT):
             A[i, i] += _damp
 
         arr = data_apply["out"]
-        out, *_ = splinalg.lstsq(A, op.adjoint(arr))
+        out, *_ = splinalg.lstsq(A, op.asarray().T @ arr)
         data = dict(
             in_=dict(
                 arr=arr,
@@ -979,7 +979,7 @@ class LinOpT(DiffMapT):
 
         arr = data_apply["in_"]["arr"]
         out, *_ = splinalg.lstsq(A, arr)
-        out = op.apply(out)
+        out = op.asarray() @ out
         data = dict(
             in_=dict(
                 arr=arr,
@@ -1037,22 +1037,23 @@ class LinOpT(DiffMapT):
 
         N_test = 5
         f = lambda _: xp.array(_, dtype=width.value)
+        g = lambda _: _.asarray(xp=xp, dtype=width.value)
         mode = request.param
         if mode == "matvec":
             arr = f(self._random_array((op.dim,)))
-            out_gt = pycu.compute(op.apply(arr))
+            out_gt = g(op) @ arr
             var = "x"
         elif mode == "matmat":
             arr = f(self._random_array((op.dim, N_test)))
-            out_gt = pycu.compute(op.apply(arr.T).T)
+            out_gt = g(op) @ arr
             var = "X"
         elif mode == "rmatvec":
             arr = f(self._random_array((op.codim,)))
-            out_gt = pycu.compute(op.adjoint(arr))
+            out_gt = g(op).T @ arr
             var = "x"
         elif mode == "rmatmat":
             arr = f(self._random_array((op.codim, N_test)))
-            out_gt = pycu.compute(op.adjoint(arr.T).T)
+            out_gt = g(op).T @ arr
             var = "X"
         return dict(
             in_={var: arr},
