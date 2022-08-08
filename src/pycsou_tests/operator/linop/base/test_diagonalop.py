@@ -38,16 +38,6 @@ class TestDiagonalOp(conftest.PosDefOpT):
             out=out,
         )
 
-    # No QUAD-precision limitations
-    def test_precCM_svdvals(self, op, _gpu, width):
-        self._skip_if_disabled()
-        super().test_precCM_svdvals(op, _gpu, width)
-
-    # No QUAD-precision limitations
-    def test_precCM_eigvals(self, op, _gpu, width):
-        self._skip_if_disabled()
-        super().test_precCM_eigvals(op, _gpu, width)
-
     def test_math_eig(self, _op_eig, vec):
         if np.any(vec <= 0):
             pytest.skip("disabled since operator is not positive-definite.")

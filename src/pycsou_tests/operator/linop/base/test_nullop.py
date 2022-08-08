@@ -22,8 +22,3 @@ class TestNullOp(conftest.LinOpT):
             in_=dict(arr=arr),
             out=out,
         )
-
-    # No QUAD-precision limitations
-    def test_precCM_svdvals(self, op, _gpu, width):
-        self._skip_if_disabled()
-        super().test_precCM_svdvals(op, _gpu, width)
