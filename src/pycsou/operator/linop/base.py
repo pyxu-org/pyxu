@@ -273,6 +273,28 @@ def DiagonalOp(
                 D = D.astype(pycrt.getPrecision().value, copy=False)
                 return D[:k] if (which == "SM") else D[-k:]
 
+            @pycrt.enforce_precision(i="arr")
+            def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+                damp = kwargs.pop("damp", 0)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    scale = _._vec / (_._vec**2 + damp)
+                    scale[xp.isnan(scale)] = 0
+                out = arr.copy()
+                out *= scale
+                return out
+
+            def dagger(self, **kwargs) -> pyct.OpT:
+                damp = kwargs.pop("damp", 0)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    scale = _._vec / (_._vec**2 + damp)
+                    scale[xp.isnan(scale)] = 0
+                return DiagonalOp(
+                    vec=scale,
+                    enable_warnings=_._enable_warnings,
+                )
+
             def op_trace(_, **kwargs):
                 return float(_._vec.sum())
 
@@ -287,6 +309,7 @@ def DiagonalOp(
             op.cogram = op.gram
             op.svdvals = types.MethodType(op_svdvals, op)
             op.eigvals = types.MethodType(op_eigvals, op)
+            op.pinv = types.MethodType(op_pinv, op)
             op.trace = types.MethodType(op_trace, op)
 
         # IdentityOp(dim>1) cannot be squeezed since it doesn't fall into a single core-operator
