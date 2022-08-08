@@ -236,7 +236,11 @@ def DiagonalOp(
             def op_asarray(_, **kwargs) -> pyct.NDArray:
                 dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
                 xp = kwargs.pop("xp", np)
-                A = xp.diag(pycu.compute(_._vec).astype(dtype=dtype, copy=False))
+                try:  # NumPy/Dask
+                    v = xp.array(_._vec, dtype=dtype)
+                except TypeError:  # CuPy
+                    v = _._vec.get()
+                A = xp.diag(v.astype(dtype=dtype, copy=False))
                 return A
 
             def op_gram(_):
