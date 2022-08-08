@@ -1054,8 +1054,14 @@ class LinOp(DiffMap):
         op: [cupyx.]scipy.sparse.linalg.LinearOperator
             Linear operator object compliant with SciPy's interface.
         """
-        matmat = lambda arr: pycu.compute(self.apply(arr.T).T)
-        rmatmat = lambda arr: pycu.compute(self.adjoint(arr.T).T)
+
+        def matmat(arr):
+            with pycrt.EnforcePrecision(False):
+                return pycu.compute(self.apply(arr.T).T)
+
+        def rmatmat(arr):
+            with pycrt.EnforcePrecision(False):
+                return pycu.compute(self.adjoint(arr.T).T)
 
         if dtype is None:
             dtype = pycrt.getPrecision().value
@@ -1067,8 +1073,8 @@ class LinOp(DiffMap):
             spx = spsl
         return spx.LinearOperator(
             shape=self.shape,
-            matvec=self.apply,
-            rmatvec=self.adjoint,
+            matvec=matmat,
+            rmatvec=rmatmat,
             matmat=matmat,
             rmatmat=rmatmat,
             dtype=dtype,
@@ -1428,6 +1434,13 @@ class LinOp(DiffMap):
         -------
         op: pyct.OpT
 
+        Notes
+        -----
+        A :py:class:`~pycsou.abc.operator.LinOp` constructed via
+        :py:meth:`~pycsou.abc.operator.LinOp.from_sciop` does not respect precision hints from
+        pycsou's runtime environment. (Reason: this is just a thin layer around a SciOp to make it
+        interoperable with Pycsou operators.)
+
         See Also
         --------
         :py:meth:`~pycsou.abc.operator.LinOp.from_array`,
@@ -1438,7 +1451,6 @@ class LinOp(DiffMap):
 
         # [r]matmat only accepts 2D inputs -> reshape apply|adjoint inputs as needed.
 
-        @pycrt.enforce_precision(i="arr")
         def apply(_, arr):
             if _1d := arr.ndim == 1:
                 arr = arr.reshape((1, arr.size))
@@ -1447,7 +1459,6 @@ class LinOp(DiffMap):
                 out = out.squeeze(axis=0)
             return out
 
-        @pycrt.enforce_precision(i="arr")
         def adjoint(_, arr):
             if _1d := arr.ndim == 1:
                 arr = arr.reshape((1, arr.size))
