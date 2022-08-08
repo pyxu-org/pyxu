@@ -25,17 +25,17 @@ def array_initializers() -> list[callable]:
         ssp.DOK.from_numpy,
         ssp.GCXS.from_numpy,
     ]
-    # if pycd.CUPY_ENABLED:
-    #     import cupy as cp
-    #     import cupyx.scipy.sparse as csp
+    if pycd.CUPY_ENABLED:
+        import cupy as cp
+        import cupyx.scipy.sparse as csp
 
-    #     init += [
-    #         cp.array,
-    #         csp.coo_matrix,
-    #         csp.csc_matrix,
-    #         csp.csr_matrix,
-    #         csp.dia_matrix,
-    #     ]
+        init += [
+            # cp.array,
+            # csp.coo_matrix,
+            # csp.csc_matrix,
+            # csp.csr_matrix,
+            # csp.dia_matrix,
+        ]
     return init
 
 
@@ -88,10 +88,10 @@ class ExplicitOpMixin:
         return _matrix.shape
 
     @pytest.fixture
-    def data_apply(self, matrix, xp):
-        N = matrix.shape[1]
+    def data_apply(self, _matrix, xp):
+        N = _matrix.shape[1]
         arr = xp.array(self._random_array((N,)))
-        out = matrix.dot(arr)
+        out = _matrix.dot(arr)
         return dict(
             in_=dict(arr=arr),
             out=out,
