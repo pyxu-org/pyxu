@@ -1557,13 +1557,9 @@ class NormalOpT(SquareOpT):
         self._skip_if_disabled()
         self._check_backend_vals(op.eigvals, _gpu)
 
-    @pytest.mark.parametrize(
-        "width",  # local override of this fixture
-        [  # We use the complex-valued types since .eigvals() should return complex. (Exception: SelfAdjointOp)
-            pycrt._CWidth.SINGLE,
-            pycrt._CWidth.DOUBLE,
-        ],
-    )
+    # local override of this fixture
+    # We use the complex-valued types since .eigvals() should return complex. (Exception: SelfAdjointOp)
+    @pytest.mark.parametrize("width", list(pycrt._CWidth))
     def test_precCM_eigvals(self, op, _gpu, width):
         self._skip_if_disabled()
         data = dict(in_=dict(k=1, gpu=_gpu))
@@ -1635,13 +1631,9 @@ class SelfAdjointOpT(NormalOpT):
         self._skip_if_disabled()
         assert pycuc._is_real(_op_eig)
 
-    @pytest.mark.parametrize(
-        "width",  # local override of this fixture
-        [  # We revert back to real-valued types since .eigvals() should return real.
-            pycrt.Width.SINGLE,
-            pycrt.Width.DOUBLE,
-        ],
-    )
+    # local override of this fixture
+    # We revert back to real-valued types since .eigvals() should return real.
+    @pytest.mark.parametrize("width", list(pycrt.Width))
     def test_precCM_eigvals(self, op, _gpu, width):
         super().test_precCM_eigvals(op, _gpu, width)
 
