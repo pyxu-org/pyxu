@@ -45,6 +45,7 @@ def hutchpp(
     xp: pyct.ArrayModule = np,
     seed: pyct.Integer = 0,
     enable_warnings: bool = True,
+    **kwargs,
 ) -> pyct.Real:
     r"""
     Stochastic estimate of the trace of a linear operator based on the Hutch++ algorithm.
@@ -64,6 +65,8 @@ def hutchpp(
         Array module used for internal computations.
     seed: pyct.Integer
         Seed for the random number generator.
+    kwargs: dict
+        Extra keyword arguments for (future) extensibility.
 
     Returns
     -------

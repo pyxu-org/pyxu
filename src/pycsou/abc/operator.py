@@ -1132,10 +1132,12 @@ class LinOp(DiffMap):
                 from pycsou.math.linalg import hutchpp
 
                 kwargs.update(m=kwargs.get("m", 126))
+                kwargs.pop("gpu", None)
                 op = self.gram() if (self.codim >= self.dim) else self.cogram()
                 self._lipschitz = np.sqrt(hutchpp(op, **kwargs)).item()
             elif algo == "svds":
                 kwargs.update(k=1, which="LM")
+                kwargs.pop("xp", None)  # unsupported (if present) in svdvals()
                 self._lipschitz = self.svdvals(**kwargs).item()
             else:
                 raise NotImplementedError
@@ -1802,7 +1804,8 @@ class LinFunc(ProxDiffFunc, LinOp):
 
     def lipschitz(self, **kwargs) -> pyct.Real:
         # 'fro' / 'svds' mode are identical for linfuncs.
-        g = self.grad(np.ones(self.dim))
+        xp = kwargs.get("xp", np)
+        g = self.grad(xp.ones(self.dim))
         self._lipschitz = float(np.linalg.norm(g))
         return self._lipschitz
 
