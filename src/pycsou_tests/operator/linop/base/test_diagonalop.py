@@ -12,6 +12,19 @@ import pycsou_tests.operator.conftest as conftest
 # computed must still be valid.
 @pytest.mark.filterwarnings("ignore::pycsou.util.warning.PrecisionWarning")
 class TestDiagonalOp(conftest.PosDefOpT):
+    disable_test = frozenset(
+        conftest.PosDefOpT.disable_test
+        | {
+            "test_value_to_sciop",
+            "test_backend_to_sciop",
+            "test_prec_to_sciop",
+            "test_interface_from_sciop",
+            "test_value_from_sciop",
+            "test_backend_from_sciop",
+            "test_prec_from_sciop",
+        }
+    )
+
     @staticmethod
     def skip_unless_numpy(op):
         xp = pycu.get_array_module(op._vec)
@@ -112,22 +125,6 @@ class TestDiagonalOp(conftest.PosDefOpT):
         self.skip_unless_numpy(op)
         super().test_math_selfadjoint(op)
 
-    def test_value_to_sciop(self, op, _op_sciop, _data_to_sciop):
-        self.skip_if_dask(op)
-        super().test_value_to_sciop(_op_sciop, _data_to_sciop)
-
-    def test_backend_to_sciop(self, op, _op_sciop, _data_to_sciop):
-        self.skip_if_dask(op)
-        super().test_backend_to_sciop(_op_sciop, _data_to_sciop)
-
-    def test_prec_to_sciop(self, op, _op_sciop, _data_to_sciop):
-        self.skip_if_dask(op)
-        super().test_prec_to_sciop(_op_sciop, _data_to_sciop)
-
-    def test_value_from_sciop(self, op, _op_sciop, _data_from_sciop):
-        self.skip_if_dask(op)
-        super().test_value_from_sciop(_op_sciop, _data_from_sciop)
-
     def test_backend_svdvals(self, op, _gpu):
         self.skip_if_state_mismatch(op, _gpu)
         super().test_backend_svdvals(op, _gpu)
@@ -143,11 +140,3 @@ class TestDiagonalOp(conftest.PosDefOpT):
     def test_precCM_eigvals(self, op, _gpu, width):
         self.skip_if_state_mismatch(op, _gpu)
         super().test_precCM_eigvals(op, _gpu, width)
-
-    def test_backend_from_sciop(self, op, _op_sciop, _data_from_sciop):
-        self.skip_if_dask(op)
-        super().test_backend_from_sciop(_op_sciop, _data_from_sciop)
-
-    def test_prec_from_sciop(self, op, _op_sciop, _data_from_sciop):
-        self.skip_if_dask(op)
-        super().test_prec_from_sciop(_op_sciop, _data_from_sciop)
