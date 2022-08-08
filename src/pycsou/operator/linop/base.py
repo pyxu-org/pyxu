@@ -11,6 +11,7 @@ import sparse as ssp
 import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 
@@ -439,11 +440,33 @@ def ExplicitLinOp(
                 # sparse arrays
                 return pyca.SquareOp.trace(_, **kwargs)
 
+    def op_lipschitz(_, **kwargs) -> pyct.Real:
+        # We want to piggy-back onto Lin[Op,Func].lipschitz() to compute the Lipschitz constant L.
+        # Problem: LinOp.lipschitz() relies on svdvals() or hutchpp() to compute L, and they take
+        # different parameters to do computations on the GPU.
+        # Solution:
+        # * we add the relevant kwargs before calling the LinOp.lipschitz() + drop all unrecognized
+        #   kwargs there as needed.
+        # * similarly for LinFunc.lipschitz().
+        xp = pycu.get_array_module(_._mat)
+        kwargs.update(xp=xp)
+        if pycd.CUPY_ENABLED:
+            import cupy as cp
+
+            if xp == cp:
+                kwargs.update(gpu=True)
+        if _.codim == 1:
+            L = pyca.LinFunc.lipschitz(_, xp=xp)
+        else:
+            L = _.__class__.lipschitz(_, **kwargs)
+        return L
+
     op = cls(shape=mat.shape)
     op._mat = _standard_form(mat)
     op._enable_warnings = bool(enable_warnings)
     op.apply = types.MethodType(op_apply, op)
     op.adjoint = types.MethodType(op_adjoint, op)
     op.asarray = types.MethodType(op_asarray, op)
+    op.lipschitz = types.MethodType(op_lipschitz, op)
     op.trace = types.MethodType(op_trace, op)
     return op
