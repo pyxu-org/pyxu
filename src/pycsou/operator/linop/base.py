@@ -422,7 +422,10 @@ def ExplicitLinOp(
         try:
             # dense arrays
             pycu.get_array_module(_._mat)
-            A = _._mat
+            try:  # CuPy
+                A = _._mat.get()
+            except AttributeError:  # NumPy/Dask
+                A = _._mat
         except:
             # sparse arrays
             A = _._mat.toarray()
