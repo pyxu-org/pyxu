@@ -435,13 +435,7 @@ def ExplicitLinOp(
         if _.dim != _.codim:
             raise NotImplementedError
         else:
-            try:
-                # dense arrays
-                pycu.get_array_module(_._mat)
-                return float(_._mat.trace())
-            except:
-                # sparse arrays
-                return pyca.SquareOp.trace(_, **kwargs)
+            return float(_._mat.trace())
 
     def op_lipschitz(_, **kwargs) -> pyct.Real:
         # We want to piggy-back onto Lin[Op,Func].lipschitz() to compute the Lipschitz constant L.
