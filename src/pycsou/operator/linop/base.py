@@ -236,7 +236,7 @@ def DiagonalOp(
             def op_asarray(_, **kwargs) -> pyct.NDArray:
                 dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
                 xp = kwargs.pop("xp", np)
-                A = xp.diag(_._vec).astype(dtype, copy=False)
+                A = xp.diag(pycu.compute(_._vec).astype(dtype=dtype, copy=False))
                 return A
 
             def op_gram(_):
@@ -252,7 +252,7 @@ def DiagonalOp(
                     import cupy as xp
                 else:
                     xp = np
-                D = xp.abs(_._vec)
+                D = xp.abs(pycu.compute(_._vec))
                 D = D[xp.argsort(D)]
                 D = D.astype(pycrt.getPrecision().value, copy=False)
                 return D[:k] if (which == "SM") else D[-k:]
@@ -264,12 +264,13 @@ def DiagonalOp(
                     import cupy as xp
                 else:
                     xp = np
-                D = _._vec[xp.argsort(xp.abs(_._vec))]
+                D = pycu.compute(_._vec)
+                D = D[xp.argsort(xp.abs(D))]
                 D = D.astype(pycrt.getPrecision().value, copy=False)
                 return D[:k] if (which == "SM") else D[-k:]
 
             def op_trace(_, **kwargs):
-                return _._vec.sum().item()
+                return float(_._vec.sum())
 
             klass = pyca.PosDefOp if pycu.compute(xp.all(vec > 0)) else pyca.SelfAdjointOp
             op = klass(shape=(dim, dim))
