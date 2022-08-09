@@ -1701,6 +1701,14 @@ class UnitOp(NormalOp):
     def cogram(self) -> pyct.OpT:
         return self.gram()
 
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        if kwargs.pop("gpu", False):
+            import cupy as xp
+        else:
+            xp = np
+        D = xp.ones(kwargs.pop("k"), dtype=pycrt.getPrecision().value)
+        return D
+
 
 class ProjOp(SquareOp):
     r"""

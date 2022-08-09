@@ -43,14 +43,6 @@ class IdentityOp(pyca.UnitOp):
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         return pycu.read_only(arr)
 
-    def svdvals(self, **kwargs) -> pyct.NDArray:
-        if kwargs.pop("gpu", False):
-            import cupy as xp
-        else:
-            xp = np
-        D = xp.ones(kwargs.pop("k"), dtype=pycrt.getPrecision().value)
-        return D
-
     def eigvals(self, **kwargs) -> pyct.NDArray:
         return self.svdvals(**kwargs)
 
