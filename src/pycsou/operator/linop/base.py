@@ -432,11 +432,11 @@ def _ExplicitLinOp(
             dtype = pycrt.getPrecision().value
         try:
             # dense arrays
-            pycu.get_array_module(_.mat)
-            try:  # CuPy
-                A = _.mat.get()
-            except AttributeError:  # NumPy/Dask
-                A = _.mat
+            _xp = pycu.get_array_module(_.mat)
+            if (xp == _xp) or (not hasattr(_.mat, "get")):
+                A = _.mat  # NumPy/Dask
+            else:
+                A = _.mat.get()  # CuPy
         except:
             # sparse arrays
             A = _.mat.toarray()
