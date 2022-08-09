@@ -359,11 +359,14 @@ def ExplicitLinOp(
 
     Notes
     -----
-    :py:class:`~pycsou.operator.linop.base.ExplicitLinOp` instances are **not arraymodule-agnostic**:
-    they will only work with NDArrays belonging to the same array module as ``mat``.
-    Moreover, inner computations may cast input arrays when the precision of ``mat`` does not match
-    the user-requested precision.
-    If such a situation occurs, a warning is raised.
+    * :py:class:`~pycsou.operator.linop.base.ExplicitLinOp` instances are **not
+      arraymodule-agnostic**: they will only work with NDArrays belonging to the same array module
+      as ``mat``.
+      Moreover, inner computations may cast input arrays when the precision of ``mat`` does not
+      match the user-requested precision.
+      If such a situation occurs, a warning is raised.
+
+    * The internal matrix can be accessed via ``.mat``.
     """
 
     def _standard_form(A):
@@ -406,11 +409,11 @@ def ExplicitLinOp(
 
     @pycrt.enforce_precision(i="arr")
     def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
-        return _matmat(_._mat, arr, warn=_._enable_warnings)
+        return _matmat(_.mat, arr, warn=_._enable_warnings)
 
     @pycrt.enforce_precision(i="arr")
     def op_adjoint(_, arr: pyct.NDArray) -> pyct.NDArray:
-        return _matmat(_._mat.T, arr, warn=_._enable_warnings)
+        return _matmat(_.mat.T, arr, warn=_._enable_warnings)
 
     def op_asarray(
         _,
@@ -421,21 +424,21 @@ def ExplicitLinOp(
             dtype = pycrt.getPrecision().value
         try:
             # dense arrays
-            pycu.get_array_module(_._mat)
+            pycu.get_array_module(_.mat)
             try:  # CuPy
-                A = _._mat.get()
+                A = _.mat.get()
             except AttributeError:  # NumPy/Dask
-                A = _._mat
+                A = _.mat
         except:
             # sparse arrays
-            A = _._mat.toarray()
+            A = _.mat.toarray()
         return xp.array(A, dtype=dtype)
 
     def op_trace(_, **kwargs) -> pyct.Real:
         if _.dim != _.codim:
             raise NotImplementedError
         else:
-            return float(_._mat.trace())
+            return float(_.mat.trace())
 
     def op_lipschitz(_, **kwargs) -> pyct.Real:
         # We want to piggy-back onto Lin[Op,Func].lipschitz() to compute the Lipschitz constant L.
@@ -445,7 +448,7 @@ def ExplicitLinOp(
         # * we add the relevant kwargs before calling the LinOp.lipschitz() + drop all unrecognized
         #   kwargs there as needed.
         # * similarly for LinFunc.lipschitz().
-        xp = pycu.get_array_module(_._mat)
+        xp = pycu.get_array_module(_.mat)
         kwargs.update(xp=xp)
         if pycd.CUPY_ENABLED:
             import cupy as cp
@@ -459,7 +462,7 @@ def ExplicitLinOp(
         return L
 
     op = cls(shape=mat.shape)
-    op._mat = _standard_form(mat)
+    op.mat = _standard_form(mat)
     op._enable_warnings = bool(enable_warnings)
     op.apply = types.MethodType(op_apply, op)
     op.adjoint = types.MethodType(op_adjoint, op)
