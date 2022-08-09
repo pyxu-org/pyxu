@@ -15,6 +15,14 @@ import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 
+__all__ = [
+    "IdentityOp",
+    "NullOp",
+    "NullFunc",
+    "HomothetyOp",
+    "DiagonalOp",
+]
+
 
 class IdentityOp(pyca.UnitOp):
     @classmethod
@@ -318,7 +326,7 @@ def DiagonalOp(
         return op._squeeze() if (op.codim == 1) else op
 
 
-def ExplicitLinOp(
+def _ExplicitLinOp(
     cls: pyct.OpC,
     mat: typ.Union[pyct.NDArray, pyct.SparseArray],
     enable_warnings: bool = True,
@@ -359,7 +367,7 @@ def ExplicitLinOp(
 
     Notes
     -----
-    * :py:class:`~pycsou.operator.linop.base.ExplicitLinOp` instances are **not
+    * :py:class:`~pycsou.operator.linop.base._ExplicitLinOp` instances are **not
       arraymodule-agnostic**: they will only work with NDArrays belonging to the same array module
       as ``mat``.
       Moreover, inner computations may cast input arrays when the precision of ``mat`` does not

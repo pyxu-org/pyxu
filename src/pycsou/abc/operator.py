@@ -1497,9 +1497,9 @@ class LinOp(DiffMap):
         --------
         :py:meth:`~pycsou.abc.operator.LinOp.from_sciop`,
         """
-        from pycsou.operator.linop import ExplicitLinOp
+        from pycsou.operator.linop.base import _ExplicitLinOp
 
-        return ExplicitLinOp(cls, A, enable_warnings)
+        return _ExplicitLinOp(cls, A, enable_warnings)
 
 
 class SquareOp(LinOp):
