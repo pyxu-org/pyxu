@@ -18,11 +18,7 @@ def array_initializers() -> list[callable]:
         sp.coo_array,
         sp.csc_array,
         sp.csr_array,
-        sp.dia_array,
-        sp.dok_array,
-        sp.lil_array,
         ssp.COO.from_numpy,
-        ssp.DOK.from_numpy,
         ssp.GCXS.from_numpy,
     ]
     if pycd.CUPY_ENABLED:
@@ -30,11 +26,10 @@ def array_initializers() -> list[callable]:
         import cupyx.scipy.sparse as csp
 
         init += [
-            # cp.array,
-            # csp.coo_matrix,
-            # csp.csc_matrix,
-            # csp.csr_matrix,
-            # csp.dia_matrix,
+            cp.array,
+            csp.coo_matrix,
+            csp.csc_matrix,
+            csp.csr_matrix,
         ]
     return init
 
