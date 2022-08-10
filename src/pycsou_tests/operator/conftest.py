@@ -1,4 +1,5 @@
 import collections.abc as cabc
+import contextlib
 import copy
 import inspect
 import itertools
@@ -1536,6 +1537,17 @@ class NormalOpT(SquareOpT):
     base = pyca.NormalOp
     interface = frozenset(SquareOpT.interface | {"eigvals"})
 
+    # Internal Helpers --------------------------------------------------------
+    def _fail_eigvals_if_gpu(self, _gpu):
+        # Problem [2022.08]: cupyx.scipy.sparse.linalg.eigs does not exist.
+        # Solution: expect an exception when importing it. Once CuPy add eigs(), then the test will
+        # fail and we will know that NormalOp.eigvals() now works on GPUs.
+        if _gpu:
+            context = pytest.raises(AttributeError)
+        else:
+            context = contextlib.nullcontext()
+        return context
+
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
     def _op_eig(self, op) -> np.ndarray:
@@ -1555,15 +1567,17 @@ class NormalOpT(SquareOpT):
 
     def test_backend_eigvals(self, op, _gpu):
         self._skip_if_disabled()
-        self._check_backend_vals(op.eigvals, _gpu)
+        with self._fail_eigvals_if_gpu(_gpu):
+            self._check_backend_vals(op.eigvals, _gpu)
 
     # local override of this fixture
     # We use the complex-valued types since .eigvals() should return complex. (Exception: SelfAdjointOp)
     @pytest.mark.parametrize("width", list(pycrt._CWidth))
     def test_precCM_eigvals(self, op, _gpu, width):
         self._skip_if_disabled()
-        data = dict(in_=dict(k=1, gpu=_gpu))
-        self._check_precCM(op.eigvals, data, (width,))
+        with self._fail_eigvals_if_gpu(_gpu):
+            data = dict(in_=dict(k=1, gpu=_gpu))
+            self._check_precCM(op.eigvals, data, (width,))
 
     def test_math_normality(self, op):
         # AA^{*} = A^{*}A
@@ -1625,6 +1639,11 @@ class UnitOpT(NormalOpT):
 class SelfAdjointOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
     base = pyca.SelfAdjointOp
+
+    # Internal Helpers --------------------------------------------------------
+    def _fail_eigvals_if_gpu(self, _gpu):
+        context = contextlib.nullcontext()
+        return context
 
     # Tests -------------------------------------------------------------------
     def test_math_eig(self, _op_eig):
