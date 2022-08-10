@@ -779,6 +779,7 @@ class _QuadraticFuncT(ProxDiffFuncT):
         self._check_valueND(op.fenchel_prox, _data_fenchel_prox, dtype=np.dtype(np.half))
 
 
+@pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
 class LinOpT(DiffMapT):
     # Class Properties --------------------------------------------------------
     base = pyca.LinOp
@@ -1518,11 +1519,9 @@ class SquareOpT(LinOpT):
         self._skip_if_disabled()
         assert op.dim == op.codim
 
-    @pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
     def test_interface_trace(self, op):
         assert isinstance(op.trace(), float)
 
-    @pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
     def test_value_trace(self, op, _op_trace):
         # Ensure computed trace (w/ default parameter values) satisfies statistical property stated
         # in hutchpp() docstring, i.e.: estimation error smaller than 1e-2 w/ probability 0.9
@@ -1559,7 +1558,6 @@ class NormalOpT(SquareOpT):
     # Tests -------------------------------------------------------------------
     @pytest.mark.parametrize("k", [1, 2])
     @pytest.mark.parametrize("which", ["SM", "LM"])
-    @pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
     def test_value1D_eigvals(self, op, _op_eig, k, which):
         self._skip_if_disabled()
         data = dict(k=k, which=which)
