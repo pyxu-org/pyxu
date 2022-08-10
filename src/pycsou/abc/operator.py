@@ -1176,7 +1176,7 @@ class LinOp(DiffMap):
         def _dense_eval():
             if gpu:
                 import cupy as xp
-                import cupyx.scipy.linalg as spx
+                import cupy.linalg as spx
             else:
                 xp, spx = np, spl
             op = self.asarray(xp=xp, dtype=pycrt.getPrecision().value)
@@ -1566,7 +1566,7 @@ class NormalOp(SquareOp):
         def _dense_eval():
             if gpu:
                 import cupy as xp
-                import cupyx.scipy.linalg as spx
+                import cupy.linalg as spx
             else:
                 xp, spx = np, spl
             op = self.asarray(xp=xp, dtype=pycrt.getPrecision().value)
