@@ -1197,7 +1197,7 @@ class LinOp(DiffMap):
             )
             return spx.svds(op, **kwargs)
 
-        if k >= min(self.shape):
+        if k >= min(self.shape) // 2:
             msg = "Too many svdvals wanted: using matrix-based ops."
             warnings.warn(msg, pycuw.DenseWarning)
             D = _dense_eval()
@@ -1586,7 +1586,7 @@ class NormalOp(SquareOp):
 
         if which not in ("LM", "SM"):
             raise NotImplementedError
-        if k >= self.dim - 1:
+        if k >= self.dim // 2:
             msg = "Too many eigvals wanted: performing via matrix-based ops."
             warnings.warn(msg, pycuw.DenseWarning)
             D = _dense_eval()
