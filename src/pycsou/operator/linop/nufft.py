@@ -165,8 +165,7 @@ class NUFFT(pyca.LinOp):
     The complexity of the type-3 NUFFT can be arbitrarily large for poorly-centered data. In certain
     cases however, an easy fix consists in centering the data before/after the NUFFT via
     pre/post-phasing operations, as described in equation (3.24) of [FINUFFT]_.
-    This fix can be enabled via the ``center`` parameter of
-    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`.
+    This fix is automatically performed by the FINUFFT library if the computational/memory gain is significant enough. [#]_
 
     **Backend.** The NUFFT tansforms are computed via Python wrappers to `FINUFFT
     <https://github.com/flatironinstitute/finufft>`_ and `cuFINUFFT
@@ -184,6 +183,9 @@ class NUFFT(pyca.LinOp):
     See the `guru interface <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_
     from FINUFFT and its `companion page
     <https://finufft.readthedocs.io/en/latest/opts.html#options-parameters>`_ for details.
+
+    .. [#] FINUFFT uses the following rule of thumb: for a given dimension, if the magnitude of the center is less than
+            10% of half the peak-to-peak distance then the data is considered well centered and no fix is performed.
 
     Warnings
     --------
@@ -218,27 +220,51 @@ class NUFFT(pyca.LinOp):
 
         Parameters
         ----------
-        x: pyct.NDArray
+        x: NDArray
             (M, [d]) d-dimensional sample points :math:`\mathbf{x}_{j} \in \mathbb{R}^{d}`.
-        N: pyct.Integer | tuple[pyct.Integer]
+        N: int | tuple[int]
             ([d],) mesh size in each dimension :math:`(N_1, \ldots, N_d)`.
             If `N` is an integer, then the mesh is assumed to have the same size in each dimension.
         isign: 1 | -1
             Sign :math:`\sigma` of the transform.
-        eps: pyct.Real
-            Requested relative accuracy.
+        eps: float
+            Requested relative accuracy (defaults to 1e-4).
         real: bool
             If ``True``, assumes ``.apply()`` takes (..., M) inputs.
             If ``False``, then ``.apply()`` takes (..., 2M) inputs.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
-            Most useful is `n_trans`.
+            Most useful is ``n_trans`` and (for debugging or diagnostics) ``debug``.
 
         Returns
         -------
-        op: pyca.LinOp
+        op: :py:class:`~pycsou.abc.operator.LinOp`
             (2N.prod(), M) or (2N.prod(), 2M) type-1 NUFFT.
+
+        Examples
+        --------
+
+        .. code-block:: python3
+
+            import numpy as np
+            import pycsou.operator.linop.nufft as nufft
+            import pycsou.runtime as pycrt
+            import pycsou.util as pycu
+
+            rng = np.random.default_rng(0)
+            D, M, N = 2, 200, 5 # D denotes the dimension of the data
+            x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+
+            with pycrt.Precision(pycrt.Width.DOUBLE):
+                N_trans, isign = 5, -1
+                A = nufft.NUFFT.type1(x, N, n_trans=N_trans, isign=isign, eps=1e-3)
+                #The dimension of the NUFFT is inferred from tailing dimension of x and its precision is controlled by the context manager.
+                arr = rng.normal(size=(3, N_trans, M)) + 1j * rng.normal(size=(3, N_trans, M))
+                #Pycsou operators only support real inputs/outputs so we use the functions pycu.view_as_[complex/real]
+                #to interpret complex arrays as real arrays (and vice et versa).
+                A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
+                A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
         """
         init_kwargs = _NUFFT1._sanitize_init_kwargs(
             x=x,
@@ -266,27 +292,54 @@ class NUFFT(pyca.LinOp):
 
         Parameters
         ----------
-        x: pyct.NDArray
+        x: NDArray
             (M, [d]) d-dimensional query points :math:`\mathbf{x}_{j} \in \mathbb{R}^{d}`.
-        N: pyct.Integer | tuple[pyct.Integer]
+        N: int | tuple[int]
             ([d],) mesh size in each dimension :math:`(N_1, \ldots, N_d)`.
             If `N` is an integer, then the mesh is assumed to have the same size in each dimension.
         isign: 1 | -1
             Sign :math:`\sigma` of the transform.
-        eps: pyct.Real
-            Requested relative accuracy.
+        eps: float
+            Requested relative accuracy (defaults to 1e-4).
         real: bool
             If ``True``, assumes ``.apply()`` takes (..., N.prod()) inputs.
             If ``False``, then ``.apply()`` takes (..., 2N.prod()) inputs.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
-            Most useful is `n_trans`.
+            Most useful is ``n_trans`` and (for debugging or diagnostics) ``debug``.
 
         Returns
         -------
-        op: pyca.LinOp
+        op: :py:class:`~pycsou.abc.operator.LinOp`
             (2M, N.prod()) or (2M, 2N.prod()) type-2 NUFFT.
+
+        Examples
+        --------
+
+        .. code-block:: python3
+
+            import numpy as np
+            import pycsou.operator.linop.nufft as nufft
+            import pycsou.runtime as pycrt
+            import pycsou.util as pycu
+
+            rng = np.random.default_rng(0)
+            D, M, N = 2, 200, 5 # D denotes the dimension of the data
+            N_full = (N,) * D
+            x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+
+            with pycrt.Precision(pycrt.Width.DOUBLE):
+                N_trans, isign = 5, -1
+                A = nufft.NUFFT.type2(x, N, n_trans=N_trans, isign=isign, eps=1e-3)
+                #The dimension of the NUFFT is inferred from tailing dimension of x and its precision is controlled by the context manager.
+                arr = rng.normal(size=(3, N_trans, *N_full))
+                arr = arr + 1j * rng.normal(size=arr.shape)
+                arr = arr.reshape(3, N_trans, -1)
+                #Pycsou operators only support real inputs/outputs so we use the functions pycu.view_as_[complex/real]
+                #to interpret complex arrays as real arrays (and vice et versa).
+                A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
+                A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
         """
         init_kwargs = _NUFFT1._sanitize_init_kwargs(
             x=x,
@@ -307,7 +360,6 @@ class NUFFT(pyca.LinOp):
         isign: SignT = 1,
         eps: pyct.Real = eps_default,
         real: bool = False,
-        center: str = "",
         **kwargs,
     ) -> pyca.LinOp:
         r"""
@@ -315,36 +367,51 @@ class NUFFT(pyca.LinOp):
 
         Parameters
         ----------
-        x: pyct.NDArray
+        x: NDArray
             (M, [d]) d-dimensional sample points :math:`\mathbf{x}_{j} \in \mathbb{R}^{d}`.
-        z: pyct.NDArray
+        z: NDArray
             (N, [d]) d-dimensional query points :math:`\mathbf{z}_{k} \in \mathbb{R}^{d}`.
         isign: 1 | -1
             Sign :math:`\sigma` of the transform.
-        eps: pyct.Real
-            Requested relative accuracy.
+        eps: float
+            Requested relative accuracy (defaults to 1e-4).
         real: bool
             If ``True``, assumes ``.apply()`` takes (..., M) inputs.
             If ``False``, then ``.apply()`` takes (..., 2M) inputs.
-        center: str ["", "x", "z", "xz"]
-            Use a translated NUFFT algorithm with potential compute/memory savings.
-            (See eq. (3.24) of [FINUFFT]_ for a description.)
-
-            * "": operate on `x` and `z` as-is. (default type3 NUFFT)
-            * "x": operate on centered `x` coordinates.
-            * "z": operate on centered `z` coordinates.
-            * "xz": operate on centered `x` and `z` coordinates.
-
-            This is especially effective for poorly centered data.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
-            Most useful is `n_trans`.
+            Most useful is ``n_trans`` and (for debugging or diagnostics) ``debug``.
 
         Returns
         -------
-        op: pyca.LinOp
+        op: :py:class:`~pycsou.abc.operator.LinOp`
             (2N, M) or (2N, 2M) type-3 NUFFT.
+
+        Examples
+        --------
+
+        .. code-block:: python3
+
+            import numpy as np
+            import pycsou.operator.linop.nufft as nufft
+            import pycsou.runtime as pycrt
+            import pycsou.util as pycu
+
+            rng = np.random.default_rng(0)
+            D, M, N = 3, 200, 5 # D denotes the dimension of the data
+            x = rng.normal(size=(M, D)) + 2000 #Poorly-centered data
+            z = rng.normal(size=(N, D))
+            with pycrt.Precision(pycrt.Width.DOUBLE):
+                N_trans, isign = 20, -1
+                A = nufft.NUFFT.type3(x, z, n_trans=N_trans, isign=isign, eps=1e-6)
+                #The dimension of the NUFFT is inferred from tailing dimension of x and its precision is controlled by the context manager.
+                arr = rng.normal(size=(3, N_trans, M))
+                arr = arr + 1j * rng.normal(size=arr.shape)
+                #Pycsou operators only support real inputs/outputs so we use the functions pycu.view_as_[complex/real]
+                #to interpret complex arrays as real arrays (and vice et versa).
+                A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
+                A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
         """
         init_kwargs = _NUFFT3._sanitize_init_kwargs(
             x=x,
@@ -352,7 +419,6 @@ class NUFFT(pyca.LinOp):
             isign=isign,
             eps=eps,
             real=real,
-            center=center,
             **kwargs,
         )
         return _NUFFT3(**init_kwargs).squeeze()
@@ -648,8 +714,6 @@ class _NUFFT3(NUFFT):
         z = kwargs["z"] = cls._as_canonical_coordinate(kwargs["z"])
         assert x.shape[-1] == z.shape[-1], "x vs. z: dimensionality mis-match."
         assert pycu.get_array_module(x) == pycu.get_array_module(z)
-        c = kwargs["center"] = kwargs["center"].strip().lower()
-        assert c in {"", "x", "z", "xz"}, f"center: unexpected mode '{c}'."
         kwargs["isign"] = int(np.sign(kwargs["isign"]))
         return kwargs
 
@@ -738,18 +802,9 @@ class _NUFFT3(NUFFT):
             arr = arr.astype(r_width.complex.value)
         else:
             arr = pycu.view_as_complex(arr)
-
-        if self._pre_phase is not None:
-            arr = arr.copy()
-            arr *= self._pre_phase  # Automatic casting to type of arr
-
         data, N, sh = self._preprocess(arr, self._n, self._N)
         blks = [self._fw(blk) for blk in data]
         out = self._postprocess(blks, N, sh)
-
-        if self._post_phase is not None:
-            out *= self._post_phase  # Automatic casting to type of arr
-
         return pycu.view_as_real(out)
 
     @pycrt.enforce_precision("arr")
@@ -769,16 +824,7 @@ class _NUFFT3(NUFFT):
             (see :py:func:`~pycsou.util.complex.view_as_real`.)
         """
         arr = pycu.view_as_complex(arr)
-
-        if self._post_phase is not None:
-            arr = arr.copy()
-            arr *= self._post_phase.conj()
-
         data, N, sh = self._preprocess(arr, self._n, self._M)
         blks = [self._bw(blk) for blk in data]
         out = self._postprocess(blks, N, sh)
-
-        if self._pre_phase is not None:
-            out *= self._pre_phase.conj()
-
         return out.real if self._real else pycu.view_as_real(out)

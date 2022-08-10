@@ -14,15 +14,15 @@ use_dask = False
 
 rng = np.random.default_rng(0)
 D, M, N = 3, 200, 50
-x = rng.normal(size=(M, D)) + 2
-z = rng.normal(size=(N, D)) - 3
+x = rng.normal(size=(M, D)) + 2000
+z = rng.normal(size=(N, D))
 if use_dask:
-    x = da.array(x)
-    z = da.array(z)
+    x = da.from_array(x)
+    z = da.from_array(z)
 
 with pycrt.Precision(pycrt.Width.DOUBLE):
     N_trans, isign = 20, -1
-    A = nufft.NUFFT.type3(x, z, n_trans=N_trans, isign=isign, eps=1e-6, center="x")
+    A = nufft.NUFFT.type3(x, z, n_trans=N_trans, isign=isign, eps=1e-6)
     B = NUFFT3_array(x, z, isign)
 
     arr = rng.normal(size=(3, N_trans, M))
