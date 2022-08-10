@@ -1180,7 +1180,7 @@ class LinOp(DiffMap):
             else:
                 xp, spx = np, spl
             op = self.asarray(xp=xp, dtype=pycrt.getPrecision().value)
-            return spx.svdvals(op)
+            return spx.svd(op, compute_uv=False)
 
         def _sparse_eval():
             if gpu:
