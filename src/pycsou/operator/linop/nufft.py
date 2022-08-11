@@ -98,8 +98,9 @@ class NUFFT(pyca.LinOp):
     :math:`\mathbf{z}_{k}` are arbitrary points in :math:`\mathbb{R}^d`.
 
     **Adjoint NUFFTs.**
-    The NUFFTs of Types 1 and 2 with opposite signs form an *adjoint pair*. The adjoint of the NUFFT of Type 3 is obtained by
-    flipping the transform's sign and switching the roles of   :math:`\mathbf{z}_k` and :math:`\mathbf{x}_{j}` in (3).
+    The type-1 and type-2 NUFFTs with opposite signs form an *adjoint pair*.
+    The adjoint of the type-3 NUFFT is obtained by flipping the transform's sign and switching the
+    roles of :math:`\mathbf{z}_k` and :math:`\mathbf{x}_{j}` in (3).
 
     **Lipschitz Constants.**
     The type-1 NUFFT can be interpreted as the truncated Fourier Series of a :math:`2\pi`-periodic
@@ -165,12 +166,14 @@ class NUFFT(pyca.LinOp):
     The complexity of the type-3 NUFFT can be arbitrarily large for poorly-centered data. In certain
     cases however, an easy fix consists in centering the data before/after the NUFFT via
     pre/post-phasing operations, as described in equation (3.24) of [FINUFFT]_.
-    This fix is automatically performed by the FINUFFT library if the computational/memory gain is significant enough. [#]_
+    This optimization is automatically by FINUFFT if the compute/memory gains are significant
+    enough. [#]_
 
     **Backend.** The NUFFT tansforms are computed via Python wrappers to `FINUFFT
     <https://github.com/flatironinstitute/finufft>`_ and `cuFINUFFT
-    <https://github.com/flatironinstitute/cufinufft>`_ (see also [FINUFFT]_ and [cuFINUFFT]_). These librairies perform
-    the expensive spreading/interpolation between nonuniform points and the fine grid via the “exponential of semicircle” kernel (see [FINUFFT]_).
+    <https://github.com/flatironinstitute/cufinufft>`_ (see also [FINUFFT]_ and [cuFINUFFT]_).
+    These librairies perform the expensive spreading/interpolation between nonuniform points and the
+    fine grid via the "exponential of semicircle" kernel (see [FINUFFT]_).
 
     **Optional Parameters.**
     [cu]FINUFFT exposes many optional parameters to adjust the performance of the algorithms, change
@@ -184,8 +187,9 @@ class NUFFT(pyca.LinOp):
     from FINUFFT and its `companion page
     <https://finufft.readthedocs.io/en/latest/opts.html#options-parameters>`_ for details.
 
-    .. [#] FINUFFT uses the following rule of thumb: for a given dimension, if the magnitude of the center is less than
-            10% of half the peak-to-peak distance then the data is considered well centered and no fix is performed.
+    .. [#] FINUFFT uses the following rule of thumb:
+           for a given dimension, if the magnitude of the center is less than 10% of half the
+           peak-to-peak distance, then the data is considered well-centered and no fix is performed.
 
     Warnings
     --------
@@ -235,7 +239,7 @@ class NUFFT(pyca.LinOp):
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
-            Most useful is ``n_trans`` and (for debugging or diagnostics) ``debug``.
+            Most useful is ``n_trans`` and ``debug`` (for debugging or diagnostics).
 
         Returns
         -------
@@ -307,7 +311,7 @@ class NUFFT(pyca.LinOp):
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
-            Most useful is ``n_trans`` and (for debugging or diagnostics) ``debug``.
+            Most useful is ``n_trans`` and ``debug`` (for debugging or diagnostics).
 
         Returns
         -------
@@ -381,7 +385,7 @@ class NUFFT(pyca.LinOp):
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
-            Most useful is ``n_trans`` and (for debugging or diagnostics) ``debug``.
+            Most useful is ``n_trans`` and ``debug`` (for debugging or diagnostics).
 
         Returns
         -------
