@@ -251,24 +251,34 @@ class NUFFT(pyca.LinOp):
 
         .. code-block:: python3
 
-            import numpy as np
-            import pycsou.operator.linop.nufft as nufft
-            import pycsou.runtime as pycrt
-            import pycsou.util as pycu
+           import numpy as np
+           import pycsou.operator.linop as pycl
+           import pycsou.runtime as pycrt
+           import pycsou.util as pycu
 
-            rng = np.random.default_rng(0)
-            D, M, N = 2, 200, 5 # D denotes the dimension of the data
-            x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+           rng = np.random.default_rng(0)
+           D, M, N = 2, 200, 5  # D denotes the dimension of the data
+           x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
 
-            with pycrt.Precision(pycrt.Width.DOUBLE):
-                N_trans, isign = 5, -1
-                A = nufft.NUFFT.type1(x, N, n_trans=N_trans, isign=isign, eps=1e-3)
-                #The dimension of the NUFFT is inferred from tailing dimension of x and its precision is controlled by the context manager.
-                arr = rng.normal(size=(3, N_trans, M)) + 1j * rng.normal(size=(3, N_trans, M))
-                #Pycsou operators only support real inputs/outputs so we use the functions pycu.view_as_[complex/real]
-                #to interpret complex arrays as real arrays (and vice et versa).
-                A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
-                A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
+           with pycrt.Precision(pycrt.Width.SINGLE):
+               # The NUFFT dimension (1/2/3) is inferred from the trailing dimension of x.
+               # Its precision is controlled by the context manager.
+               N_trans = 5
+               A = pycl.NUFFT.type1(
+                       x,
+                       N,
+                       n_trans=N_trans,
+                       isign=-1,
+                       eps=1e-3,
+                   )
+
+               # Pycsou operators only support real inputs/outputs, so we use the functions
+               # pycu.view_as_[complex/real] to interpret complex arrays as real arrays (and
+               # vice-versa).
+               arr =        rng.normal(size=(3, N_trans, M)) \
+                     + 1j * rng.normal(size=(3, N_trans, M))
+               A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
+               A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
         """
         init_kwargs = _NUFFT1._sanitize_init_kwargs(
             x=x,
@@ -323,27 +333,38 @@ class NUFFT(pyca.LinOp):
 
         .. code-block:: python3
 
-            import numpy as np
-            import pycsou.operator.linop.nufft as nufft
-            import pycsou.runtime as pycrt
-            import pycsou.util as pycu
+           import numpy as np
+           import pycsou.operator.linop as pycl
+           import pycsou.runtime as pycrt
+           import pycsou.util as pycu
 
-            rng = np.random.default_rng(0)
-            D, M, N = 2, 200, 5 # D denotes the dimension of the data
-            N_full = (N,) * D
-            x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+           rng = np.random.default_rng(0)
+           D, M, N = 2, 200, 5  # D denotes the dimension of the data
+           N_full = (N,) * D
+           x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
 
-            with pycrt.Precision(pycrt.Width.DOUBLE):
-                N_trans, isign = 5, -1
-                A = nufft.NUFFT.type2(x, N, n_trans=N_trans, isign=isign, eps=1e-3)
-                #The dimension of the NUFFT is inferred from tailing dimension of x and its precision is controlled by the context manager.
-                arr = rng.normal(size=(3, N_trans, *N_full))
-                arr = arr + 1j * rng.normal(size=arr.shape)
-                arr = arr.reshape(3, N_trans, -1)
-                #Pycsou operators only support real inputs/outputs so we use the functions pycu.view_as_[complex/real]
-                #to interpret complex arrays as real arrays (and vice et versa).
-                A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
-                A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
+           with pycrt.Precision(pycrt.Width.SINGLE):
+               # The NUFFT dimension (1/2/3) is inferred from the trailing dimension of x.
+               # Its precision is controlled by the context manager.
+               N_trans = 5
+               A = pycl.NUFFT.type2(
+                       x,
+                       N,
+                       n_trans=N_trans,
+                       isign=-1,
+                       eps=1e-3,
+                   )
+
+               # Pycsou operators only support real inputs/outputs, so we use the functions
+               # pycu.view_as_[complex/real] to interpret complex arrays as real arrays (and
+               # vice-versa).
+               arr = np.reshape(
+                          rng.normal(size=(3, N_trans, *N_full))
+                   + 1j * rng.normal(size=(3, N_trans, *N_full)),
+                   (3, N_trans, -1),
+               )
+               A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
+               A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
         """
         init_kwargs = _NUFFT1._sanitize_init_kwargs(
             x=x,
@@ -397,25 +418,33 @@ class NUFFT(pyca.LinOp):
 
         .. code-block:: python3
 
-            import numpy as np
-            import pycsou.operator.linop.nufft as nufft
-            import pycsou.runtime as pycrt
-            import pycsou.util as pycu
+           import numpy as np
+           import pycsou.operator.linop as pycl
+           import pycsou.runtime as pycrt
+           import pycsou.util as pycu
 
-            rng = np.random.default_rng(0)
-            D, M, N = 3, 200, 5 # D denotes the dimension of the data
-            x = rng.normal(size=(M, D)) + 2000 #Poorly-centered data
-            z = rng.normal(size=(N, D))
-            with pycrt.Precision(pycrt.Width.DOUBLE):
-                N_trans, isign = 20, -1
-                A = nufft.NUFFT.type3(x, z, n_trans=N_trans, isign=isign, eps=1e-6)
-                #The dimension of the NUFFT is inferred from tailing dimension of x and its precision is controlled by the context manager.
-                arr = rng.normal(size=(3, N_trans, M))
-                arr = arr + 1j * rng.normal(size=arr.shape)
-                #Pycsou operators only support real inputs/outputs so we use the functions pycu.view_as_[complex/real]
-                #to interpret complex arrays as real arrays (and vice et versa).
-                A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
-                A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
+           rng = np.random.default_rng(0)
+           D, M, N = 3, 200, 5  # D denotes the dimension of the data
+           x = rng.normal(size=(M, D)) + 2000  # Poorly-centered data
+           z = rng.normal(size=(N, D))
+           with pycrt.Precision(pycrt.Width.SINGLE):
+               # The NUFFT dimension (1/2/3) is inferred from the trailing dimension of x/z.
+               # Its precision is controlled by the context manager.
+               N_trans = 20
+               A = pycl.NUFFT.type3(
+                       x, z,
+                       n_trans=N_trans,
+                       isign=-1,
+                       eps=1e-6,
+                    )
+
+               # Pycsou operators only support real inputs/outputs, so we use the functions
+               # pycu.view_as_[complex/real] to interpret complex arrays as real arrays (and
+               # vice-versa).
+               arr =        rng.normal(size=(3, N_trans, M)) \
+                     + 1j * rng.normal(size=(3, N_trans, M))
+               A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
+               A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
         """
         init_kwargs = _NUFFT3._sanitize_init_kwargs(
             x=x,
