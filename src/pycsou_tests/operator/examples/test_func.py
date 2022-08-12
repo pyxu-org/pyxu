@@ -1,9 +1,12 @@
+import itertools
+
 import numpy as np
 import pytest
 
 import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
@@ -22,9 +25,15 @@ class Median(pyca.Func):
 
 
 class TestMedian(conftest.FuncT):
-    @pytest.fixture
-    def op(self):
-        return Median()
+    @pytest.fixture(
+        params=itertools.product(
+            (Median(),),
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def spec(self, request):
+        return request.param
 
     @pytest.fixture
     def data_shape(self):

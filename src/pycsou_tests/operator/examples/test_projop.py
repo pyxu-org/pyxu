@@ -1,9 +1,11 @@
+import itertools
+
 import numpy as np
 import pytest
 
 import pycsou.abc as pyca
 import pycsou.runtime as pycrt
-import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
@@ -29,17 +31,27 @@ class Oblique(pyca.ProjOp):
 
 
 class TestOblique(conftest.ProjOpT):
-    @pytest.fixture
-    def dim(self):
-        return 5
+    @pytest.fixture(
+        params=itertools.product(
+            ((10, 3.1, Oblique(N=10, alpha=3.1)),),  # dim, alpha, op
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def _spec(self, request):
+        return request.param
 
     @pytest.fixture
-    def alpha(self):
-        return 3.1
+    def spec(self, _spec):
+        return _spec[0][2], _spec[1], _spec[2]
 
     @pytest.fixture
-    def op(self, dim, alpha):
-        return Oblique(N=dim, alpha=alpha)
+    def dim(self, _spec):
+        return _spec[0][0]
+
+    @pytest.fixture
+    def alpha(self, _spec):
+        return _spec[0][1]
 
     @pytest.fixture
     def data_shape(self, dim):
