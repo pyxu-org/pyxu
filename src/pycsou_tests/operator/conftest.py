@@ -27,7 +27,13 @@ from pycsou.abc.operator import _core_operators
 
 def get_test_class(cls: pyct.OpC) -> "MapT":
     # Find the correct MapT subclass designed to test `cls`.
-    is_test = lambda _: hasattr(_, "base") and hasattr(_, "interface") and hasattr(_, "disable_test")
+    is_test = lambda _: all(
+        [
+            hasattr(_, "base"),
+            hasattr(_, "interface"),
+            hasattr(_, "disable_test"),
+        ]
+    )
     candidates = {_ for _ in globals().values() if is_test(_)}
     for clsT in candidates:
         if clsT.base == cls:
@@ -144,6 +150,19 @@ class MapT:
     )
 
     # Internal helpers --------------------------------------------------------
+    @staticmethod
+    def _random_array(shape: tuple[int], seed: int = 0):
+        rng = npr.default_rng(seed)
+        x = rng.normal(size=shape)
+        return x
+
+    @staticmethod
+    def _sanitize(x, default):
+        if x is not None:
+            return x
+        else:
+            return default
+
     def _skip_if_disabled(self):
         # Get name of function which invoked me.
         my_frame = inspect.currentframe()
@@ -271,19 +290,6 @@ class MapT:
                                 warnings.warn(msg, pycuw.NonTransparentWarning)
                             else:
                                 raise
-
-    @staticmethod
-    def _random_array(shape: tuple[int], seed: int = 0):
-        rng = npr.default_rng(seed)
-        x = rng.normal(size=shape)
-        return x
-
-    @staticmethod
-    def _sanitize(x, default):
-        if x is not None:
-            return x
-        else:
-            return default
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
