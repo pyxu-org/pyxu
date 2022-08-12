@@ -1,10 +1,6 @@
 import collections.abc as cabc
 import functools
 
-import dask
-import dask.array as da
-import numpy as np
-
 import pycsou.util.deps as pycd
 import pycsou.util.inspect as pycui
 import pycsou.util.ptype as pyct
@@ -37,10 +33,10 @@ def get_array_module(x, fallback: pyct.ArrayModule = None) -> pyct.ArrayModule:
     """
 
     def infer_api(y):
-        for array_t, api, _ in pycd.array_backend_info():
-            if isinstance(y, array_t):
-                return api
-        return None
+        try:
+            return pycd.NDArrayInfo.from_obj(y).module()
+        except ValueError:
+            return None
 
     if (xp := infer_api(x)) is not None:
         return xp
@@ -72,6 +68,8 @@ def compute(*args, mode: str = "compute", **kwargs):
     *cargs: object | sequence(object)
         Evaluated objects. Non-dask arguments are passed through unchanged.
     """
+    import dask
+
     try:
         func = dict(compute=dask.compute, persist=dask.persist)[mode.lower()]
     except:
@@ -146,10 +144,8 @@ def redirect(
                 error_msg = f"Parameter[{i}] not part of {func.__qualname__}() parameter list."
                 raise ValueError(error_msg)
 
-            xp = get_array_module(func_args[i])
-            short_name = {xp_: short_name for (_, xp_, short_name) in pycd.array_backend_info()}.get(xp)
-
-            if (alt_func := kwargs.get(short_name)) is not None:
+            ndi = pycd.NDArrayInfo.from_obj(func_args[i])
+            if (alt_func := kwargs.get(ndi.name)) is not None:
                 out = alt_func(**func_args)
             else:
                 out = func(**func_args)
@@ -176,18 +172,22 @@ def copy_if_unsafe(x: pyct.NDArray) -> pyct.NDArray:
     -------
     y: pyct.NDArray
     """
-    xp = get_array_module(x)
-    if xp == da:
+    N = pycd.NDArrayInfo
+    ndi = N.from_obj(x)
+    if ndi == N.DASK:
         # Dask operations span a graph -> always safe.
         y = x
-    elif xp == np:
+    elif ndi == N.NUMPY:
         read_only = not x.flags.writeable
         reference = not x.flags.owndata
         y = x.copy() if (read_only or reference) else x
-    else:  # CuPy
+    elif ndi == N.CUPY:
         read_only = False  # https://github.com/cupy/cupy/issues/2616
         reference = not x.flags.owndata
         y = x.copy() if (read_only or reference) else x
+    else:
+        msg = f"copy_if_unsafe() not yet defined for {ndi}."
+        raise NotImplementedError(msg)
     return y
 
 
@@ -203,14 +203,18 @@ def read_only(x: pyct.NDArray) -> pyct.NDArray:
     -------
     y: pyct.NDArray
     """
-    xp = get_array_module(x)
-    if xp == da:
+    N = pycd.NDArrayInfo
+    ndi = N.from_obj(x)
+    if ndi == N.DASK:
         # Dask operations are read-only since graph-backed.
         y = x
-    elif xp == np:
+    elif ndi == N.NUMPY:
         y = x.view()
         y.flags.writeable = False
-    else:  # CuPy
+    elif ndi == N.CUPY:
         y = x.view()
         # y.flags.writeable = False  # https://github.com/cupy/cupy/issues/2616
+    else:
+        msg = f"read_only() not yet defined for {ndi}."
+        raise NotImplementedError(msg)
     return y
