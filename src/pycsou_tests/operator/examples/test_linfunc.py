@@ -1,9 +1,12 @@
+import itertools
+
 import numpy as np
 import pytest
 
 import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
@@ -28,13 +31,23 @@ class ScaledSum(pyca.LinFunc):
 
 
 class TestScaledSum(conftest.LinFuncT):
-    @pytest.fixture
-    def dim(self):
-        return 5
+    @pytest.fixture(
+        params=itertools.product(
+            ((5, ScaledSum(N=5)),),  # dim, op
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def _spec(self, request):
+        return request.param
 
     @pytest.fixture
-    def op(self, dim):
-        return ScaledSum(N=dim)
+    def spec(self, _spec):
+        return _spec[0][1], _spec[1], _spec[2]
+
+    @pytest.fixture
+    def dim(self, _spec):
+        return _spec[0][0]
 
     @pytest.fixture
     def data_shape(self, dim):

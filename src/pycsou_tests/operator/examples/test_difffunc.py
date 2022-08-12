@@ -1,9 +1,13 @@
+import itertools
+
 import numpy as np
 import pytest
 
 import pycsou.abc as pyca
+import pycsou.math.linalg as pylinalg
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
@@ -17,10 +21,9 @@ class SquaredL2Norm(pyca.DiffFunc):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):
-        xp = pycu.get_array_module(arr)
-        y = xp.linalg.norm(arr, axis=-1, keepdims=True)
-        y2 = xp.power(y, 2, dtype=arr.dtype)
-        return y2
+        y = pylinalg.norm(arr, axis=-1, keepdims=True)
+        y **= 2
+        return y
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr):
@@ -28,13 +31,26 @@ class SquaredL2Norm(pyca.DiffFunc):
 
 
 class TestSquaredL2Norm(conftest.DiffFuncT):
-    @pytest.fixture(params=[4, None])
-    def dim(self, request):
+    @pytest.fixture(
+        params=itertools.product(
+            (  # dim, op
+                (4, SquaredL2Norm(M=4)),
+                (None, SquaredL2Norm(M=None)),
+            ),
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def _spec(self, request):
         return request.param
 
     @pytest.fixture
-    def op(self, dim):
-        return SquaredL2Norm(M=dim)
+    def spec(self, _spec):
+        return _spec[0][1], _spec[1], _spec[2]
+
+    @pytest.fixture
+    def dim(self, _spec):
+        return _spec[0][0]
 
     @pytest.fixture
     def data_shape(self, dim):
