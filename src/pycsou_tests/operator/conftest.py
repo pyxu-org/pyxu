@@ -36,9 +36,15 @@ def get_test_class(cls: pyct.OpC) -> "MapT":
         raise ValueError(f"No known test type for {cls}.")
 
 
-def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
+def isclose(
+    a: typ.Union[pyct.Real, pyct.NDArray],
+    b: typ.Union[pyct.Real, pyct.NDArray],
+    as_dtype: pyct.DType,
+) -> pyct.NDArray:
     """
-    Equivalent of `np.isclose`, but where atol is automatically chosen based on `as_dtype`.
+    Equivalent of `xp.isclose`, but where atol is automatically chosen based on `as_dtype`.
+
+    This function always returns a computed array, i.e. NumPy/CuPy output.
     """
     atol = {
         np.dtype(np.half): 3e-2,  # former pycrt.Width.HALF
@@ -55,23 +61,33 @@ def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
     if (prec := atol.get(as_dtype)) is None:
         # should occur for integer types only
         prec = atol[pycrt.Width.DOUBLE.value]
-    cast = lambda x: x.astype(as_dtype)
+    cast = lambda x: pycu.compute(x)
     eq = np.isclose(cast(a), cast(b), atol=prec)
     return eq
 
 
-def allclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> bool:
+def allclose(
+    a: pyct.NDArray,
+    b: pyct.NDArray,
+    as_dtype: pyct.DType,
+) -> bool:
     """
-    Equivalent of `all.isclose`, but where atol is automatically chosen based on `as_dtype`.
+    Equivalent of `all(isclose)`, but where atol is automatically chosen based on `as_dtype`.
     """
-    return np.all(isclose(a, b, as_dtype))
+    return bool(np.all(isclose(a, b, as_dtype)))
 
 
-def less_equal(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
+def less_equal(
+    a: pyct.NDArray,
+    b: pyct.NDArray,
+    as_dtype: pyct.DType,
+) -> pyct.NDArray:
     """
     Equivalent of `a <= b`, but where equality tests are done at a chosen numerical precision.
+
+    This function always returns a computed array, i.e. NumPy/CuPy output.
     """
-    x = a <= b
+    x = pycu.compute(a <= b)
     y = isclose(a, b, as_dtype)
     return x | y
 
