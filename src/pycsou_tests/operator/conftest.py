@@ -895,7 +895,7 @@ class LinOpT(DiffMapT):
                 marks=pytest.mark.xfail(
                     True,
                     reason="`which=SM` unsupported by CuPy",
-                    strict=True,
+                    strict=False,
                 ),
             ),
         ],
@@ -1628,6 +1628,22 @@ class NormalOpT(SquareOpT):
     base = pyca.NormalOp
     interface = frozenset(SquareOpT.interface | {"eigvals"})
 
+    # Internal Helpers --------------------------------------------------------
+    eigvals_unsupported_on_gpu = pytest.mark.parametrize(
+        "_gpu",
+        [
+            False,
+            pytest.param(
+                True,
+                marks=pytest.mark.xfail(
+                    True,
+                    reason="eigvals unsupported by CuPy.",
+                    strict=True,
+                ),
+            ),
+        ],
+    )
+
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
     def _op_eig(self, op) -> np.ndarray:
@@ -1639,17 +1655,20 @@ class NormalOpT(SquareOpT):
     # Tests -------------------------------------------------------------------
     @pytest.mark.parametrize("k", [1, 2])
     @pytest.mark.parametrize("which", ["SM", "LM"])
+    @eigvals_unsupported_on_gpu
     def test_value1D_eigvals(self, op, xp, _gpu, _op_eig, k, which):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(xp, _gpu)
         data = dict(k=k, which=which, gpu=_gpu)
         self._check_value1D_vals(op.eigvals, data, _op_eig)
 
+    @eigvals_unsupported_on_gpu
     def test_backend_eigvals(self, op, xp, _gpu):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(xp, _gpu)
         self._check_backend_vals(op.eigvals, _gpu)
 
+    @eigvals_unsupported_on_gpu
     def test_precCM_eigvals(self, op, xp, _gpu, width):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(xp, _gpu)
@@ -1730,6 +1749,18 @@ class SelfAdjointOpT(NormalOpT):
     def test_math_eig(self, _op_eig):
         self._skip_if_disabled()
         assert pycuc._is_real(_op_eig)
+
+    # local override of this fixture: back to standard _gpu rules
+    @pytest.mark.parametrize("k", [1, 2])
+    @LinOpT.coupled_gpu_which
+    def test_value1D_eigvals(self, op, xp, _gpu, _op_eig, k, which):
+        self._skip_if_disabled()
+        super().test_value1D_eigvals(op, xp, _gpu, _op_eig, k, which)
+
+    # local override of this fixture: back to standard _gpu rules
+    def test_backend_eigvals(self, op, xp, _gpu):
+        self._skip_if_disabled()
+        super().test_backend_eigvals(op, xp, _gpu)
 
     def test_precCM_eigvals(self, op, xp, _gpu, width):
         self._skip_if_disabled()
