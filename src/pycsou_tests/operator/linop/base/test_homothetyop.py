@@ -1,7 +1,11 @@
+import itertools
+
 import numpy as np
 import pytest
 
-import pycsou.operator.linop as pycl
+import pycsou.operator as pyco
+import pycsou.runtime as pycrt
+import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
@@ -15,12 +19,18 @@ class TestHomothetyOp(conftest.PosDefOpT):
         return 5
 
     @pytest.fixture
-    def op(self, cst, dim):
-        return pycl.HomothetyOp(cst=cst, dim=dim)
-
-    @pytest.fixture
     def data_shape(self, dim):
         return (dim, dim)
+
+    @pytest.fixture(
+        params=itertools.product(
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def spec(self, cst, dim, request):
+        op = pyco.HomothetyOp(cst=cst, dim=dim)
+        return op, *request.param
 
     @pytest.fixture
     def data_apply(self, cst, dim):
@@ -37,8 +47,8 @@ class TestHomothetyOp(conftest.PosDefOpT):
         else:
             super().test_math_eig(_op_eig)
 
-    def test_math_posdef(self, op, cst):
+    def test_math_posdef(self, op, xp, width, cst):
         if cst < 0:
             pytest.skip("disabled since operator is not positive-definite.")
         else:
-            super().test_math_posdef(op)
+            super().test_math_posdef(op, xp, width)

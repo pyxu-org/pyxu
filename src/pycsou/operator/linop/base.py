@@ -1,5 +1,3 @@
-import collections.abc as cabc
-import functools as ft
 import types
 import typing as typ
 import warnings
@@ -138,16 +136,14 @@ def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
     else:  # build PosDef or SelfAdjointOp
 
         @pycrt.enforce_precision(i="arr")
-        def op_apply(_, arr):
+        def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
             out = arr.copy()
             out *= _._cst
             return out
 
-        def op_svdvals(_, **kwargs):
-            if kwargs.pop("gpu", False):
-                import cupy as xp
-            else:
-                xp = np
+        def op_svdvals(_, **kwargs) -> pyct.NDArray:
+            N = pycd.NDArrayInfo
+            xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
             D = xp.full(
                 shape=kwargs.pop("k"),
                 fill_value=abs(_._cst),
@@ -155,10 +151,22 @@ def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
             )
             return D
 
-        def op_eigvals(_, **kwargs):
+        def op_eigvals(_, **kwargs) -> pyct.NDArray:
             D = _.svdvals(**kwargs)
             D *= np.sign(_._cst)
             return D
+
+        @pycrt.enforce_precision(i="arr")
+        def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+            out = arr.copy()
+            scale = _._cst / (_._cst**2 + kwargs.pop("damp", 0))
+            out *= scale
+            return out
+
+        def op_dagger(_, **kwargs) -> pyct.OpT:
+            scale = _._cst / (_._cst**2 + kwargs.pop("damp", 0))
+            op = HomothetyOp(cst=scale, dim=_.dim)
+            return op
 
         def op_gram(_):
             return HomothetyOp(cst=_._cst**2, dim=_.dim)
@@ -174,13 +182,13 @@ def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
         op.apply = types.MethodType(op_apply, op)
         op.svdvals = types.MethodType(op_svdvals, op)
         op.eigvals = types.MethodType(op_eigvals, op)
+        op.pinv = types.MethodType(op_pinv, op)
+        op.dagger = types.MethodType(op_dagger, op)
         op.gram = types.MethodType(op_gram, op)
         op.cogram = op.gram
         op.trace = types.MethodType(op_trace, op)
 
-    # IdentityOp(dim>1) cannot be squeezed since it doesn't fall into a single core-operator
-    # category.
-    return op._squeeze() if (op.codim == 1) else op
+    return op._squeeze()
 
 
 def DiagonalOp(
