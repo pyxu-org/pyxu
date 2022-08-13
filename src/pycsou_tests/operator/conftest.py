@@ -878,6 +878,29 @@ class LinOpT(DiffMapT):
         if xp != xp_:
             pytest.skip("Only NUMPY/CUPY backends supported.")
 
+    coupled_gpu_which = pytest.mark.parametrize(
+        ["_gpu", "which"],
+        [
+            (False, "LM"),
+            (False, "SM"),
+            pytest.param(
+                *(True, "LM"),
+                marks=pytest.mark.xfail(
+                    reason="`which=LM` sparse-evaled via CuPy flaky.",
+                    strict=False,  # fails based on matrix structure.
+                ),
+            ),
+            pytest.param(
+                *(True, "SM"),
+                marks=pytest.mark.xfail(
+                    True,
+                    reason="`which=SM` unsupported by CuPy",
+                    strict=True,
+                ),
+            ),
+        ],
+    )
+
     @staticmethod
     def _check_value1D_vals(func, kwargs, ground_truth):
         N = pycd.NDArrayInfo
@@ -1224,7 +1247,7 @@ class LinOpT(DiffMapT):
         assert J is op
 
     @pytest.mark.parametrize("k", [1, 2])
-    @pytest.mark.parametrize("which", ["SM", "LM"])
+    @coupled_gpu_which
     def test_value1D_svdvals(self, op, xp, _gpu, _op_svd, k, which):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(xp, _gpu)
@@ -1690,6 +1713,13 @@ class UnitOpT(NormalOpT):
 
         assert allclose(lhs1, lhs2, as_dtype=width.value)
         assert allclose(lhs1, rhs, as_dtype=width.value)
+
+    # local override of this fixture: no GPU limitations
+    @pytest.mark.parametrize("k", [1, 2])
+    @pytest.mark.parametrize("which", ["SM", "LM"])
+    def test_value1D_svdvals(self, op, xp, _gpu, _op_svd, k, which):
+        self._skip_if_disabled()
+        super().test_value1D_svdvals(op, xp, _gpu, _op_svd, k, which)
 
 
 class SelfAdjointOpT(NormalOpT):
