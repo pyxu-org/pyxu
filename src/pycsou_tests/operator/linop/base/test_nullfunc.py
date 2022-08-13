@@ -1,29 +1,32 @@
+import itertools
+
 import numpy as np
 import pytest
 
-import pycsou.operator.linop as pycl
+import pycsou.operator as pyco
+import pycsou.runtime as pycrt
+import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
 class TestNullFunc(conftest.LinFuncT):
-    disable_test = frozenset(
-        conftest.LinFuncT.disable_test
-        | {
-            "test_math2_grad",  # trivially correct, but raises warning since L=0
-        }
-    )
-
-    @pytest.fixture
-    def dim(self):
-        return 5
-
-    @pytest.fixture
-    def op(self, dim):
-        return pycl.NullFunc(dim=dim)
+    @pytest.fixture(params=[1, 10])
+    def dim(self, request):
+        return request.param
 
     @pytest.fixture
     def data_shape(self, dim):
         return (1, dim)
+
+    @pytest.fixture(
+        params=itertools.product(
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def spec(self, dim, request):
+        op = pyco.NullFunc(dim=dim)
+        return op, *request.param
 
     @pytest.fixture
     def data_apply(self, dim):

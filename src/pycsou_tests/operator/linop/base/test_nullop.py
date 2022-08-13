@@ -1,18 +1,28 @@
+import itertools
+
 import numpy as np
 import pytest
 
-import pycsou.operator.linop as pycl
+import pycsou.operator as pyco
+import pycsou.runtime as pycrt
+import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
 class TestNullOp(conftest.LinOpT):
     @pytest.fixture
-    def op(self, data_shape):
-        return pycl.NullOp(shape=data_shape)
-
-    @pytest.fixture
     def data_shape(self):
         return (3, 4)
+
+    @pytest.fixture(
+        params=itertools.product(
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def spec(self, data_shape, request):
+        op = pyco.NullOp(shape=data_shape)
+        return op, *request.param
 
     @pytest.fixture
     def data_apply(self, data_shape):
