@@ -1,15 +1,34 @@
+import itertools
+
 import numpy as np
 import pytest
 
-import pycsou.operator.linop as pycl
-import pycsou.operator.map as pycm
+import pycsou.operator as pyco
+import pycsou.runtime as pycrt
+import pycsou.util.deps as pycd
+import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
 
 class ConstantValueMixin:
-    @pytest.fixture(params=[-3.14, 0, 2])
-    def cst(self, request) -> float:
-        return request.param
+    @pytest.fixture
+    def _spec(self, request):
+        # (cst, shape, backend, width) config
+        raise NotImplementedError
+
+    @pytest.fixture
+    def spec(self, _spec):
+        op = pyco.ConstantValued(shape=_spec[1], cst=_spec[0])
+        ndi, width = _spec[2:]
+        return op, ndi, width
+
+    @pytest.fixture
+    def cst(self, _spec) -> float:
+        return _spec[0]
+
+    @pytest.fixture
+    def data_shape(self, _spec) -> pyct.Shape:
+        return _spec[1]
 
     @pytest.fixture
     def data_apply(self, data_shape, cst):
@@ -52,38 +71,26 @@ class ConstantValueMixin:
 
 
 class TestConstantValuedMap(ConstantValueMixin, conftest.DiffMapT):
-    @pytest.fixture
-    def op(self, data_shape, cst):
-        return pycm.ConstantValued(
-            shape=data_shape,
-            cst=cst,
+    @pytest.fixture(
+        params=itertools.product(
+            [-3.14, 0, 2],  # cst
+            [(2, 4), (3, 1)],  # shape
+            pycd.NDArrayInfo,
+            pycrt.Width,
         )
-
-    @pytest.fixture
-    def data_shape(self):
-        return (3, 4)
-
-    def test_interface_nullfunc(self, op, cst):
-        self._skip_if_disabled()
-        if np.isclose(cst, 0):
-            assert isinstance(op, pycl.NullOp)
+    )
+    def _spec(self, request):
+        return request.param
 
 
 class TestConstantValuedFunc(ConstantValueMixin, conftest.ProxDiffFuncT):
-    disable_test = frozenset(
-        conftest.ProxDiffFuncT.disable_test
-        | {
-            "test_math2_grad",  # trivially correct, but raises warning since L=0
-        }
-    )
-
-    @pytest.fixture
-    def op(self, data_shape, cst):
-        return pycm.ConstantValued(
-            shape=data_shape,
-            cst=cst,
+    @pytest.fixture(
+        params=itertools.product(
+            [-3.14, 0, 2],  # cst
+            [(1, 4), (1, 1)],  # shape
+            pycd.NDArrayInfo,
+            pycrt.Width,
         )
-
-    @pytest.fixture
-    def data_shape(self):
-        return (1, 4)
+    )
+    def _spec(self, request):
+        return request.param

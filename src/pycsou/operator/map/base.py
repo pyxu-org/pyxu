@@ -2,7 +2,7 @@ import types
 
 import numpy as np
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
@@ -49,7 +49,7 @@ def ConstantValued(
         def op_prox(_, arr: pyct.NDArray, tau: pyct.NDArray) -> pyct.NDArray:
             return pycu.read_only(arr)
 
-        klass = pyco.ProxDiffFunc if (shape[0] == 1) else pyco.DiffMap
+        klass = pyca.ProxDiffFunc if (shape[0] == 1) else pyca.DiffMap
         op = klass(shape=shape)
         op._cst = cst
         op._lipschitz = 0
