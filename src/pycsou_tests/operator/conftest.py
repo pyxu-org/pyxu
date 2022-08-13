@@ -1236,11 +1236,11 @@ class LinOpT(DiffMapT):
 
         assert allclose(lhs, rhs, as_dtype=width.value)
 
-    def test_math2_lipschitz(self, op, width):
+    def test_math2_lipschitz(self, op, xp, width):
         # op.lipschitz('fro') upper bounds op.lipschitz('svds')
         self._skip_if_disabled()
         L_svds = op.lipschitz(recompute=True, algo="svds")
-        L_fro = op.lipschitz(recompute=True, algo="fro", enable_warnings=False)
+        L_fro = op.lipschitz(recompute=True, algo="fro", xp=xp, enable_warnings=False)
         assert less_equal(
             L_svds,
             L_fro,
