@@ -1106,15 +1106,29 @@ class LinOpT(DiffMapT):
         )
         return data
 
-    @pytest.fixture
-    def _op_array(self, op, xp, width) -> pyct.NDArray:
+    @pytest.fixture(
+        params=itertools.product(
+            pycd.supported_array_modules(),
+            pycrt.Width,
+        )
+    )
+    def _op_array(self, op, xp, width, request) -> pyct.NDArray:
         # Ground-truth array which should be returned by .asarray()
+
+        # op() only defined for specifid xp/width combos.
+        # Idea: compute .asarray() using backend/precision supported by op(), then cast to
+        # user-desired backend/precision.
         A_gt = xp.zeros((op.codim, op.dim), dtype=width.value)
         for i in range(op.dim):
             e = xp.zeros((op.dim,), dtype=width.value)
             e[i] = 1
             A_gt[:, i] = op.apply(e)
-        return A_gt
+
+        N = pycd.NDArrayInfo
+        xp_, width_ = request.param
+        if N.from_obj(A_gt) == N.CUPY:
+            A_gt = A_gt.get()
+        return xp_.array(A_gt, dtype=width_.value)
 
     @pytest.fixture
     def _op_sciop(self, op, _gpu, width) -> spsl.LinearOperator:
@@ -1446,46 +1460,49 @@ class LinOpT(DiffMapT):
         assert allclose(op_cg.apply(x), op_cg.adjoint(x), as_dtype=width.value)
         assert allclose(op_cg.apply(x), op.apply(op.adjoint(x)), as_dtype=width.value)
 
-    @pytest.mark.parametrize("xp", pycd.supported_array_modules())
-    @pytest.mark.parametrize("width", pycrt.Width)
-    def test_value_asarray(self, op, xp, width, _op_array):
+    def test_value_asarray(self, op, _op_array):
         self._skip_if_disabled()
-        A = op.asarray(xp=xp, dtype=width.value)
-        assert A.shape == _op_array.shape
-        assert allclose(_op_array, A, as_dtype=width.value)
+        xp = pycu.get_array_module(_op_array)
+        dtype = _op_array.dtype
 
-    @pytest.mark.parametrize("xp", pycd.supported_array_modules())
-    @pytest.mark.parametrize("width", pycrt.Width)
-    def test_backend_asarray(self, op, xp, width):
+        A = op.asarray(xp=xp, dtype=dtype)
+        assert A.shape == _op_array.shape
+        assert allclose(_op_array, A, as_dtype=dtype)
+
+    def test_backend_asarray(self, op, _op_array):
         self._skip_if_disabled()
-        A = op.asarray(xp=xp, dtype=width.value)
+        xp = pycu.get_array_module(_op_array)
+        dtype = _op_array.dtype
+
+        A = op.asarray(xp=xp, dtype=dtype)
         assert pycu.get_array_module(A) == xp
 
-    @pytest.mark.parametrize("xp", pycd.supported_array_modules())
-    @pytest.mark.parametrize("width", pycrt.Width)
-    def test_prec_asarray(self, op, xp, width):
+    def test_prec_asarray(self, op, _op_array):
         self._skip_if_disabled()
-        A = op.asarray(xp=xp, dtype=width.value)
-        assert A.dtype == width.value
+        xp = pycu.get_array_module(_op_array)
+        dtype = _op_array.dtype
 
-    @pytest.mark.parametrize("width", pycrt.Width)
-    def test_value_array(self, op, width, _op_array):
+        A = op.asarray(xp=xp, dtype=dtype)
+        assert A.dtype == dtype
+
+    def test_value_array(self, op, _op_array):
         self._skip_if_disabled()
-        A = np.array(op, dtype=width.value)
+        dtype = _op_array.dtype
+        A = np.array(op, dtype=dtype)
         assert A.shape == _op_array.shape
-        assert allclose(_op_array, A, as_dtype=width.value)
+        assert allclose(_op_array, A, as_dtype=dtype)
 
-    @pytest.mark.parametrize("width", pycrt.Width)
-    def test_backend_array(self, op, width):
+    def test_backend_array(self, op, _op_array):
         self._skip_if_disabled()
-        A = np.array(op, dtype=width.value)
+        dtype = _op_array.dtype
+        A = np.array(op, dtype=dtype)
         assert pycu.get_array_module(A) == np
 
-    @pytest.mark.parametrize("width", pycrt.Width)
-    def test_prec_array(self, op, width):
+    def test_prec_array(self, op, _op_array):
         self._skip_if_disabled()
-        A = np.array(op, dtype=width.value)
-        assert A.dtype == width.value
+        dtype = _op_array.dtype
+        A = np.array(op, dtype=dtype)
+        assert A.dtype == dtype
 
     def test_value_to_sciop(self, _op_sciop, _data_to_sciop):
         self._skip_if_disabled()

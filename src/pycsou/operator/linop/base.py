@@ -234,13 +234,14 @@ def DiagonalOp(
                 return out
 
             def op_asarray(_, **kwargs) -> pyct.NDArray:
+                N = pycd.NDArrayInfo
                 dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
                 xp = kwargs.pop("xp", np)
-                try:  # NumPy/Dask
-                    v = xp.array(_._vec, dtype=dtype)
-                except TypeError:  # CuPy
-                    v = _._vec.get()
-                A = xp.diag(v.astype(dtype=dtype, copy=False))
+
+                v = pycu.compute(_._vec.astype(dtype=dtype, copy=False))
+                if (ndi := N.from_obj(v)) == N.CUPY:
+                    v = v.get()
+                A = xp.diag(v)
                 return A
 
             def op_gram(_):
@@ -252,10 +253,8 @@ def DiagonalOp(
             def op_svdvals(_, **kwargs):
                 k = kwargs.pop("k")
                 which = kwargs.pop("which", "LM")
-                if kwargs.pop("gpu", False):
-                    import cupy as xp
-                else:
-                    xp = np
+                N = pycd.NDArrayInfo
+                xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
                 D = xp.abs(pycu.compute(_._vec))
                 D = D[xp.argsort(D)]
                 D = D.astype(pycrt.getPrecision().value, copy=False)
@@ -264,10 +263,8 @@ def DiagonalOp(
             def op_eigvals(_, **kwargs):
                 k = kwargs.pop("k")
                 which = kwargs.pop("which", "LM")
-                if kwargs.pop("gpu", False):
-                    import cupy as xp
-                else:
-                    xp = np
+                N = pycd.NDArrayInfo
+                xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
                 D = pycu.compute(_._vec)
                 D = D[xp.argsort(xp.abs(D))]
                 D = D.astype(pycrt.getPrecision().value, copy=False)
@@ -284,7 +281,7 @@ def DiagonalOp(
                 out *= scale
                 return out
 
-            def dagger(self, **kwargs) -> pyct.OpT:
+            def op_dagger(_, **kwargs) -> pyct.OpT:
                 damp = kwargs.pop("damp", 0)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
@@ -310,11 +307,10 @@ def DiagonalOp(
             op.svdvals = types.MethodType(op_svdvals, op)
             op.eigvals = types.MethodType(op_eigvals, op)
             op.pinv = types.MethodType(op_pinv, op)
+            op.dagger = types.MethodType(op_dagger, op)
             op.trace = types.MethodType(op_trace, op)
 
-        # IdentityOp(dim>1) cannot be squeezed since it doesn't fall into a single core-operator
-        # category.
-        return op._squeeze() if (op.codim == 1) else op
+        return op._squeeze()
 
 
 def _ExplicitLinOp(
