@@ -2,6 +2,7 @@ import collections.abc as cabc
 import typing as typ
 
 import dask.array as da
+import dask.distributed as dad
 import finufft
 import numpy as np
 
@@ -16,19 +17,6 @@ __all__ = [
 
 SignT = typ.Literal[1, -1]
 eps_default = 1e-4
-
-
-def _wrap_if_dask(func: cabc.Callable) -> cabc.Callable:
-    def wrapper(obj, arr):
-        xp = pycu.get_array_module(arr)
-        out = func(obj, pycu.compute(arr))
-
-        if xp == da:
-            return xp.array(out)
-        else:
-            return xp.array(out, copy=False)
-
-    return wrapper
 
 
 class NUFFT(pyca.LinOp):
@@ -588,15 +576,24 @@ class _NUFFT1(NUFFT):
             modeord=0,
             **kwargs,
         )
-        plan.setpts(**dict(zip("xyz"[:N_dim], pycu.compute(x.T[:N_dim]))))
+        plan.setpts(
+            **dict(zip("xyz"[:N_dim], pycu.compute(x.T[:N_dim]).astype(pycrt.getPrecision().value)))
+        )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('float64') (== passes but not "is" which FINUFFT uses)
         return plan
 
-    @_wrap_if_dask
-    def _fw(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self._n == 1:  # finufft limitation: insists on having no
-            arr = arr[0]  # leading-dim if n_trans==1.
-        out = self._plan["fw"].execute(arr)  # ([n_trans], M) -> ([n_trans], N1,..., Nd)
+    def _fw(self, arr: np.ndarray) -> np.ndarray:
+        out = self._plan["fw"].execute(arr.squeeze())  # ([n_trans], M) -> ([n_trans], N1,..., Nd)
         return out.reshape((self._n, np.prod(self._N)))
+
+    def _fw_locked(self, arr: np.ndarray, lock: dad.Lock = None) -> np.ndarray:
+        arr = arr.astype(
+            pycrt.getPrecision().complex.value
+        )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('complex128') (== passes but not "is" which FINUFFT uses)
+        with lock:
+            out = self._plan["fw"].execute(arr.squeeze())  # ([n_trans], M) -> ([n_trans], N1,..., Nd)
+        return out.reshape((self._n, np.prod(self._N)))[
+            None, ...
+        ]  # with map_blocks we can skip _postprocess by simply recreating the stacking axis after processing each chunk
 
     @staticmethod
     def _plan_bw(**kwargs) -> finufft.Plan:
@@ -614,16 +611,26 @@ class _NUFFT1(NUFFT):
             modeord=0,
             **kwargs,
         )
-        plan.setpts(**dict(zip("xyz"[:N_dim], pycu.compute(x.T[:N_dim]))))
+        plan.setpts(
+            **dict(zip("xyz"[:N_dim], pycu.compute(x.T[:N_dim]).astype(pycrt.getPrecision().value)))
+        )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('float64') (== passes but not "is" which FINUFFT uses)
         return plan
 
-    @_wrap_if_dask
-    def _bw(self, arr: pyct.NDArray) -> pyct.NDArray:
-        arr = arr.reshape((self._n, *self._N))
-        if self._n == 1:  # finufft limitation: insists on having no
-            arr = arr[0]  # leading-dim if n_trans==1.
+    def _bw(self, arr: np.ndarray) -> np.ndarray:
+        arr = arr.reshape((self._n, *self._N)).squeeze()
         out = self._plan["bw"].execute(arr)  # ([n_trans], N1, ..., Nd) -> ([n_trans], M)
         return out.reshape((self._n, self._M))  # req. if squeeze-like behaviour above kicked in.
+
+    def _bw_locked(self, arr: np.ndarray, lock: dad.Lock = None) -> np.ndarray:
+        arr = arr.reshape((self._n, *self._N)).squeeze()
+        arr = arr.astype(
+            pycrt.getPrecision().complex.value
+        )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('complex128') (== passes but not "is" which FINUFFT uses)
+        with lock:
+            out = self._plan["bw"].execute(arr)  # ([n_trans], N1, ..., Nd) -> ([n_trans], M)
+        return out.reshape((self._n, self._M))[
+            None, ...
+        ]  # with map_blocks we can skip _postprocess by simply recreating the stacking axis after processing each chunk
 
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -651,8 +658,20 @@ class _NUFFT1(NUFFT):
             arr = pycu.view_as_complex(arr)
 
         data, N, sh = self._preprocess(arr, self._n, np.prod(self._N))
-        blks = [self._fw(blk) for blk in data]
-        out = self._postprocess(blks, N, sh)
+
+        if isinstance(data, da.Array):
+            lock = dad.Lock("fw_lock")  # Use lock to avoid race condition because of the shared FFTW resources.
+            out = data.rechunk(chunks=(1, -1, -1)).map_blocks(
+                func=self._fw_locked,
+                dtype=data.dtype,
+                chunks=(1, self._n, np.prod(self._N)),
+                name="_fw",
+                meta=data._meta,
+                lock=lock,
+            )
+        else:
+            blks = [self._fw(blk) for blk in data]
+            out = self._postprocess(blks, N, sh)
 
         return out.real if self._real_output else pycu.view_as_real(out)
 
@@ -682,8 +701,20 @@ class _NUFFT1(NUFFT):
             arr = pycu.view_as_complex(arr)
 
         data, N, sh = self._preprocess(arr, self._n, self._M)
-        blks = [self._bw(blk) for blk in data]
-        out = self._postprocess(blks, N, sh)
+
+        if isinstance(data, da.Array):
+            lock = dad.Lock("bw_lock")  # Use lock to avoid race condition because of the shared FFTW resources.
+            out = data.rechunk(chunks=(1, -1, -1)).map_blocks(
+                func=self._bw_locked,
+                dtype=data.dtype,
+                chunks=(1, self._n, self._M),
+                name="_bw",
+                meta=data._meta,
+                lock=lock,
+            )
+        else:
+            blks = [self._bw(blk) for blk in data]
+            out = self._postprocess(blks, N, sh)
 
         return out.real if self._real_input else pycu.view_as_real(out)
 
@@ -736,18 +767,27 @@ class _NUFFT3(NUFFT):
             **dict(
                 zip(
                     "xyz"[:N_dim] + "stu"[:N_dim],
-                    pycu.compute(*x.T[:N_dim], *z.T[:N_dim]),
+                    tuple(
+                        _.astype(pycrt.getPrecision().value) for _ in pycu.compute(*x.T[:N_dim], *z.T[:N_dim])
+                    ),  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('float64') (== passes but not "is" which FINUFFT uses)
                 )
             ),
         )
         return plan
 
-    @_wrap_if_dask
-    def _fw(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self._n == 1:  # finufft limitation: insists on having no
-            arr = arr[0]  # leading-dim if n_trans==1.
-        out = self._plan["fw"].execute(arr)  # ([n_trans], M) -> ([n_trans], N)
+    def _fw(self, arr: np.ndarray) -> np.ndarray:
+        out = self._plan["fw"].execute(arr.squeeze())  # ([n_trans], M) -> ([n_trans], N)
         return out.reshape((self._n, self._N))
+
+    def _fw_locked(self, arr: np.ndarray, lock: dad.Lock = None) -> np.ndarray:
+        arr = arr.astype(
+            pycrt.getPrecision().complex.value
+        )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('complex128') (== passes but not "is" which FINUFFT uses)
+        with lock:
+            out = self._plan["fw"].execute(arr.squeeze())  # ([n_trans], M) -> ([n_trans], N)
+        return out.reshape((self._n, self._N))[
+            None, ...
+        ]  # with map_blocks we can skip _postprocess by simply recreating the stacking axis after processing each chunk
 
     @staticmethod
     def _plan_bw(**kwargs) -> finufft.Plan:
@@ -768,18 +808,27 @@ class _NUFFT3(NUFFT):
             **dict(
                 zip(
                     "xyz"[:N_dim] + "stu"[:N_dim],
-                    pycu.compute(*z.T[:N_dim], *x.T[:N_dim]),
+                    tuple(
+                        _.astype(pycrt.getPrecision().value) for _ in pycu.compute(*z.T[:N_dim], *x.T[:N_dim])
+                    ),  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('float64') (== passes but not "is" which FINUFFT uses)
                 )
             ),
         )
         return plan
 
-    @_wrap_if_dask
-    def _bw(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self._n == 1:  # finufft limitation: insists on having no
-            arr = arr[0]  # leading-dim if n_trans==1.
-        out = self._plan["bw"].execute(arr)  # ([n_trans,] N) -> ([n_trans,] M)
+    def _bw(self, arr: np.ndarray) -> np.ndarray:
+        out = self._plan["bw"].execute(arr.squeeze())  # ([n_trans,] N) -> ([n_trans,] M)
         return out.reshape((self._n, self._M))
+
+    def _bw_locked(self, arr: np.ndarray, lock: dad.Lock = None) -> np.ndarray:
+        arr = arr.astype(
+            pycrt.getPrecision().complex.value
+        )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('complex128') (== passes but not "is" which FINUFFT uses)
+        with lock:
+            out = self._plan["bw"].execute(arr.squeeze())  # ([n_trans], N) -> ([n_trans], M)
+        return out.reshape((self._n, self._M))[
+            None, ...
+        ]  # with map_blocks we can skip _postprocess by simply recreating the stacking axis after processing each chunk
 
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -803,8 +852,20 @@ class _NUFFT3(NUFFT):
         else:
             arr = pycu.view_as_complex(arr)
         data, N, sh = self._preprocess(arr, self._n, self._N)
-        blks = [self._fw(blk) for blk in data]
-        out = self._postprocess(blks, N, sh)
+
+        if isinstance(data, da.Array):
+            lock = dad.Lock("fw_lock")  # Use lock to avoid race condition because of the shared FFTW resources.
+            out = data.rechunk(chunks=(1, -1, -1)).map_blocks(
+                func=self._fw_locked,
+                dtype=data.dtype,
+                chunks=(1, self._n, self._N),
+                name="_fw",
+                meta=data._meta,
+                lock=lock,
+            )
+        else:
+            blks = [self._fw(blk) for blk in data]
+            out = self._postprocess(blks, N, sh)
         return pycu.view_as_real(out)
 
     @pycrt.enforce_precision("arr")
@@ -825,6 +886,17 @@ class _NUFFT3(NUFFT):
         """
         arr = pycu.view_as_complex(arr)
         data, N, sh = self._preprocess(arr, self._n, self._M)
-        blks = [self._bw(blk) for blk in data]
-        out = self._postprocess(blks, N, sh)
+        if isinstance(data, da.Array):
+            lock = dad.Lock("bw_lock")  # Use lock to avoid race condition because of the shared FFTW resources.
+            out = data.rechunk(chunks=(1, -1, -1)).map_blocks(
+                func=self._bw_locked,
+                dtype=data.dtype,
+                chunks=(1, self._n, self._M),
+                name="_bw",
+                meta=data._meta,
+                lock=lock,
+            )
+        else:
+            blks = [self._bw(blk) for blk in data]
+            out = self._postprocess(blks, N, sh)
         return out.real if self._real else pycu.view_as_real(out)
