@@ -25,13 +25,6 @@ __all__ = [
 
 
 class IdentityOp(pyca.UnitOp):
-    @classmethod
-    def properties(cls) -> cabc.Set[pyct.Property]:
-        p = set()
-        for klass in cls.__bases__:
-            p |= klass.properties()
-        return frozenset(p)
-
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
 
