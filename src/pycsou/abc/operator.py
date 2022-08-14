@@ -1737,10 +1737,8 @@ class UnitOp(NormalOp):
         return self.gram()
 
     def svdvals(self, **kwargs) -> pyct.NDArray:
-        if kwargs.pop("gpu", False):
-            import cupy as xp
-        else:
-            xp = np
+        N = pycd.NDArrayInfo
+        xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
         D = xp.ones(kwargs.pop("k"), dtype=pycrt.getPrecision().value)
         return D
 
@@ -1893,10 +1891,8 @@ class LinFunc(ProxDiffFunc, LinOp):
         return HomothetyOp(cst=self.lipschitz() ** 2, dim=1)
 
     def svdvals(self, **kwargs) -> pyct.NDArray:
-        if kwargs.pop("gpu", False):
-            import cupy as xp
-        else:
-            xp = np
+        N = pycd.NDArrayInfo
+        xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
         D = xp.array([self.lipschitz()], dtype=pycrt.getPrecision().value)
         return D
 
