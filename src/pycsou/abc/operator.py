@@ -1228,6 +1228,12 @@ class LinOp(DiffMap):
         -------
         A: NDArray
             (codim, dim) array-representation of the operator.
+
+        Note
+        ----
+        This generic implementation assumes the operator is backend-agnostic.
+        Thus, when defining a new backend-specific operator, ``.asarray()`` may need to be
+        overriden.
         """
         if dtype is None:
             dtype = pycrt.getPrecision().value
