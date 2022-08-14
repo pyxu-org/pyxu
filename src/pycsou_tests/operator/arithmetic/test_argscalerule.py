@@ -9,10 +9,13 @@
 
 
 import collections.abc as cabc
+import itertools
 
 import numpy as np
 import pytest
 
+import pycsou.runtime as pycrt
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
@@ -35,9 +38,16 @@ class ArgScaleRuleMixin:
         # Arg-scale factors applied to op_orig()
         return request.param
 
-    @pytest.fixture
-    def op(self, op_orig, op_scale) -> pyct.OpT:
-        return op_orig.argscale(op_scale)
+    @pytest.fixture(
+        params=itertools.product(
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def spec(self, op_orig, op_scale, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
+        ndi, width = request.param
+        op = op_orig.argscale(op_scale)
+        return op, ndi, width
 
     @pytest.fixture
     def data_shape(self, op_orig) -> pyct.Shape:

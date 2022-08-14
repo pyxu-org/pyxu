@@ -9,10 +9,13 @@
 
 
 import collections.abc as cabc
+import itertools
 
 import numpy as np
 import pytest
 
+import pycsou.runtime as pycrt
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
@@ -36,19 +39,25 @@ class ScaleRuleMixin:
         return request.param
 
     @pytest.fixture(
-        params=[
-            "scale_left",
-            "scale_right",
-            "divide_right",
-        ]
+        params=itertools.product(
+            [
+                "scale_left",
+                "scale_right",
+                "divide_right",
+            ],
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
     )
-    def op(self, op_orig, op_scale, request) -> pyct.OpT:
-        if request.param == "scale_left":
-            return op_scale * op_orig
-        elif request.param == "scale_right":
-            return op_orig * op_scale
-        else:
-            return op_orig / (1 / op_scale)
+    def spec(self, op_orig, op_scale, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
+        mode, ndi, width = request.param
+        if mode == "scale_left":
+            op = op_scale * op_orig
+        elif mode == "scale_right":
+            op = op_orig * op_scale
+        else:  # divide_right
+            op = op_orig / (1 / op_scale)
+        return op, ndi, width
 
     @pytest.fixture
     def data_shape(self, op_orig) -> pyct.Shape:

@@ -9,6 +9,7 @@
 
 
 import collections.abc as cabc
+import itertools
 import warnings
 
 import numpy as np
@@ -16,7 +17,9 @@ import pytest
 import scipy.linalg as splinalg
 
 import pycsou.abc as pyca
+import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 import pycsou_tests.operator.conftest as conftest
@@ -154,9 +157,16 @@ class ChainRuleMixin:
     def op_rhs(self, op_lrhs) -> pyct.OpT:
         return op_lrhs[1]
 
-    @pytest.fixture
-    def op(self, op_lhs, op_rhs) -> pyct.OpT:
-        return op_lhs * op_rhs
+    @pytest.fixture(
+        params=itertools.product(
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def spec(self, op_lhs, op_rhs, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
+        ndi, width = request.param
+        op = op_lhs * op_rhs
+        return op, ndi, width
 
     @pytest.fixture
     def data_shape(self, op_lhs, op_rhs) -> pyct.Shape:
