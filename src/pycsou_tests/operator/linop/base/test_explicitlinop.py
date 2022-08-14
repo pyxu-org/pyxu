@@ -1,37 +1,11 @@
-import dask.array as da
+import itertools
+
 import numpy as np
 import pytest
-import scipy.sparse as sp
-import sparse as ssp
 
 import pycsou.runtime as pycrt
-import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
-
-
-def array_initializers() -> list[callable]:
-    init = [
-        np.array,
-        da.array,
-        sp.bsr_array,
-        sp.coo_array,
-        sp.csc_array,
-        sp.csr_array,
-        ssp.COO.from_numpy,
-        ssp.GCXS.from_numpy,
-    ]
-    if pycd.CUPY_ENABLED:
-        import cupy as cp
-        import cupyx.scipy.sparse as csp
-
-        init += [
-            cp.array,
-            csp.coo_matrix,
-            csp.csc_matrix,
-            csp.csr_matrix,
-        ]
-    return init
 
 
 # We disable PrecisionWarnings since ExplicitLinOp() is not precision-agnostic, but the outputs
@@ -40,91 +14,86 @@ def array_initializers() -> list[callable]:
 class ExplicitOpMixin:
     # Mixin class which must be inherited from by each concrete ExplicitLinOp sub-class.
     # Reason: sets all parameters such that users only need to provide the linear operator (in array
-    # form) being tested.
+    # form) being tested: `matrix`.
 
+    # Internal Helpers --------------------------------------------------------
     @staticmethod
-    def skip_if_state_mismatch(op, _gpu):
-        xp = pycu.get_array_module(op._mat, fallback=np)
-        skip = False
-        if _gpu and pycd.CUPY_ENABLED:
-            import cupy as cp
+    def spec_data() -> list[tuple[callable, pycd.NDArrayInfo, pycrt.Width]]:
+        N = pycd.NDArrayInfo
+        S = pycd.SparseArrayInfo
+        data = []  # (array_initializer, *accepted input backend/width)
 
-            if xp != cp:
-                skip = True
-        else:
-            if xp not in {np, da}:
-                skip = True
-        if skip:
-            msg = f"Got incompatible test configuration (type(mat), _gpu) = {type(op._mat), _gpu} -> safe to skip."
-            pytest.skip(msg)
+        # NUMPY inputs ------------------------
+        data.extend(
+            itertools.product(
+                [
+                    N.NUMPY.module().array,
+                    S.SCIPY_SPARSE.module().bsr_array,
+                    S.SCIPY_SPARSE.module().coo_array,
+                    S.SCIPY_SPARSE.module().csc_array,
+                    S.SCIPY_SPARSE.module().csr_array,
+                    S.PYDATA_SPARSE.module().COO.from_numpy,
+                    S.PYDATA_SPARSE.module().GCXS.from_numpy,
+                ],
+                (N.NUMPY,),
+                pycrt.Width,
+            )
+        )
 
+        # DASK inputs -------------------------
+        data.extend(
+            itertools.product(
+                (N.DASK.module().array,),
+                (N.DASK,),
+                pycrt.Width,
+            )
+        )
+
+        # CUPY inputs -------------------------
+        if pycd.CUPY_ENABLED:
+            cp_t = N.CUPY.module().array
+            data.extend(
+                itertools.product(
+                    [
+                        cp_t,
+                        lambda _: S.CUPY_SPARSE.module().coo_matrix(cp_t(_)),
+                        lambda _: S.CUPY_SPARSE.module().csc_matrix(cp_t(_)),
+                        lambda _: S.CUPY_SPARSE.module().csr_matrix(cp_t(_)),
+                    ],
+                    (N.CUPY,),
+                    pycrt.Width,
+                )
+            )
+
+        return data
+
+    # Fixtures ----------------------------------------------------------------
     @pytest.fixture
     def matrix(self) -> np.ndarray:
-        # To be specified by sub-classes
         raise NotImplementedError
 
-    @pytest.fixture(params=array_initializers())
-    def _matrix(self, matrix, width, request):
-        initializer = request.param
-        return initializer(matrix.astype(width.value))
+    @pytest.fixture(params=spec_data())
+    def spec(self, matrix, request):
+        init, ndi, width = request.param
+        A = init(matrix).astype(width.value)
+        op = self.base.from_array(A=A)
+        return op, ndi, width
 
     @pytest.fixture
-    def xp(self, _matrix):
-        # Recall (not all) explicit operator methods are backend-agnostic
-        # -> limit eval to module they are defined in.
-        return pycu.get_array_module(_matrix, fallback=np)  # fallback if _matrix is sparse.
+    def data_shape(self, matrix):
+        return matrix.shape
 
     @pytest.fixture
-    def op(self, _matrix):
-        return self.base.from_array(_matrix)
-
-    @pytest.fixture
-    def data_shape(self, _matrix):
-        return _matrix.shape
-
-    @pytest.fixture
-    def data_apply(self, _matrix, xp):
-        N = _matrix.shape[1]
-        arr = xp.array(self._random_array((N,)))
-        out = _matrix.dot(arr)
+    def data_apply(self, matrix):
+        N = matrix.shape[1]
+        arr = self._random_array((N,))
+        out = matrix @ arr
         return dict(
             in_=dict(arr=arr),
             out=out,
         )
 
-    def test_backend_svdvals(self, op, _gpu):
-        self.skip_if_state_mismatch(op, _gpu)
-        super().test_backend_svdvals(op, _gpu)
-
-    def test_precCM_svdvals(self, op, _gpu, width):
-        self.skip_if_state_mismatch(op, _gpu)
-        super().test_precCM_svdvals(op, _gpu, width)
-
-
-class ExplicitOpNormalMixin(ExplicitOpMixin):
-    def test_backend_eigvals(self, op, _gpu):
-        self.skip_if_state_mismatch(op, _gpu)
-        super().test_backend_eigvals(op, _gpu)
-
-    # local override of this fixture
-    # We use the complex-valued types since .eigvals() should return complex. (Exception: SelfAdjointOp)
-    @pytest.mark.parametrize("width", list(pycrt._CWidth))
-    def test_precCM_eigvals(self, op, _gpu, width):
-        self.skip_if_state_mismatch(op, _gpu)
-        super().test_precCM_eigvals(op, _gpu, width)
-
-
-class ExplicitOpSelfAdjointMixin(ExplicitOpNormalMixin):
-    def test_backend_eigvals(self, op, _gpu):
-        self.skip_if_state_mismatch(op, _gpu)
-        super().test_backend_eigvals(op, _gpu)
-
-    # local override of this fixture
-    # We revert back to real-valued types since .eigvals() should return real.
-    @pytest.mark.parametrize("width", list(pycrt.Width))
-    def test_precCM_eigvals(self, op, _gpu, width):
-        self.skip_if_state_mismatch(op, _gpu)
-        super().test_precCM_eigvals(op, _gpu, width)
+    # Tests -------------------------------------------------------------------
 
 
 class TestExplicitLinOp(ExplicitOpMixin, conftest.LinOpT):
@@ -132,7 +101,7 @@ class TestExplicitLinOp(ExplicitOpMixin, conftest.LinOpT):
     def matrix(self):
         import pycsou_tests.operator.examples.test_linop as tc
 
-        return tc.Tile(N=3, M=5).asarray()
+        return tc.Tile(N=10, M=5).asarray()
 
 
 class TestExplicitSquareOp(ExplicitOpMixin, conftest.SquareOpT):
@@ -140,7 +109,7 @@ class TestExplicitSquareOp(ExplicitOpMixin, conftest.SquareOpT):
     def matrix(self):
         import pycsou_tests.operator.examples.test_squareop as tc
 
-        return tc.CumSum(N=5).asarray()
+        return tc.CumSum(N=20).asarray()
 
 
 class TestExplicitProjOp(ExplicitOpMixin, conftest.ProjOpT):
@@ -148,47 +117,47 @@ class TestExplicitProjOp(ExplicitOpMixin, conftest.ProjOpT):
     def matrix(self):
         import pycsou_tests.operator.examples.test_projop as tc
 
-        return tc.Oblique(N=5, alpha=np.pi / 4).asarray()
+        return tc.Oblique(N=20, alpha=np.pi / 4).asarray()
 
 
-class TestExplicitOrthProjOp(ExplicitOpSelfAdjointMixin, conftest.OrthProjOpT):
+class TestExplicitOrthProjOp(ExplicitOpMixin, conftest.OrthProjOpT):
     @pytest.fixture
     def matrix(self):
         import pycsou_tests.operator.examples.test_orthprojop as tc
 
-        return tc.ScaleDown(N=5).asarray()
+        return tc.ScaleDown(N=20).asarray()
 
 
-class TestExplicitNormalOp(ExplicitOpNormalMixin, conftest.NormalOpT):
+class TestExplicitNormalOp(ExplicitOpMixin, conftest.NormalOpT):
     @pytest.fixture
     def matrix(self):
         import pycsou_tests.operator.examples.test_normalop as tc
 
-        return tc.CircularConvolution(h=np.ones(5)).asarray()
+        return tc.CircularConvolution(h=np.ones(20)).asarray()
 
 
-class TestExplicitUnitOp(ExplicitOpNormalMixin, conftest.UnitOpT):
+class TestExplicitUnitOp(ExplicitOpMixin, conftest.UnitOpT):
     @pytest.fixture
     def matrix(self):
         import pycsou_tests.operator.examples.test_unitop as tc
 
-        return tc.Permutation(N=5).asarray()
+        return tc.Permutation(N=20).asarray()
 
 
-class TestExplicitSelfAdjointOp(ExplicitOpSelfAdjointMixin, conftest.SelfAdjointOpT):
+class TestExplicitSelfAdjointOp(ExplicitOpMixin, conftest.SelfAdjointOpT):
     @pytest.fixture
     def matrix(self):
         import pycsou_tests.operator.examples.test_selfadjointop as tc
 
-        return tc.CDO2(N=5).asarray()
+        return tc.CDO2(N=20).asarray()
 
 
-class TestExplicitPosDefOp(ExplicitOpSelfAdjointMixin, conftest.PosDefOpT):
+class TestExplicitPosDefOp(ExplicitOpMixin, conftest.PosDefOpT):
     @pytest.fixture
     def matrix(self):
         import pycsou_tests.operator.examples.test_posdefop as tc
 
-        return tc.CDO4(N=5).asarray()
+        return tc.CDO4(N=20).asarray()
 
 
 class TestExplicitLinFunc(ExplicitOpMixin, conftest.LinFuncT):
@@ -196,4 +165,4 @@ class TestExplicitLinFunc(ExplicitOpMixin, conftest.LinFuncT):
     def matrix(self):
         import pycsou_tests.operator.examples.test_linfunc as tc
 
-        return tc.ScaledSum(N=5).asarray()
+        return tc.ScaledSum(N=20).asarray()

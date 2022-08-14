@@ -76,6 +76,14 @@ class SparseArrayInfo(enum.Enum):
         else:
             raise ValueError(f"No known array type for {self.name}.")
 
+    @classmethod
+    def from_obj(cls, obj) -> "SparseArrayInfo":
+        if obj is not None:
+            for sai in cls:
+                if isinstance(obj, sai.type()):
+                    return sai
+        raise ValueError(f"No known array type to match {sai}.")
+
     def module(self) -> types.ModuleType:
         if self.name == "SCIPY_SPARSE":
             return scipy.sparse

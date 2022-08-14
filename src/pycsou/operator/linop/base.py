@@ -349,6 +349,7 @@ def _ExplicitLinOp(
     mat: pyct.NDArray | pyct.SparseArray
         (M, N) matrix generator.
         The input array can be *dense* or *sparse*.
+        Accepted sparse arrays are COO/CSC/CSR/BSR/GCXS.
     enable_warnings: bool
         If ``True``, emit a warning in case of precision mis-match issues.
 
@@ -374,7 +375,7 @@ def _ExplicitLinOp(
 
         fail_scipy_sparse = False
         try:
-            return A.tocoo().tocsr()
+            return A.tocsr()
         except:
             fail_scipy_sparse = True
 
@@ -400,7 +401,7 @@ def _ExplicitLinOp(
         sh_out = (*b.shape[:-1], M)
         b = b.reshape((-1, N)).T  # (N, (...).prod)
         out = A.dot(b)  # (M, (...).prod)
-        return out.T.reshape(sh_out).astype(b.dtype, copy=False)
+        return out.T.reshape(sh_out)
 
     @pycrt.enforce_precision(i="arr")
     def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
@@ -410,30 +411,34 @@ def _ExplicitLinOp(
     def op_adjoint(_, arr: pyct.NDArray) -> pyct.NDArray:
         return _matmat(_.mat.T, arr, warn=_._enable_warnings)
 
-    def op_asarray(
-        _,
-        xp: pyct.ArrayModule = np,
-        dtype: pyct.DType = None,
-    ) -> pyct.NDArray:
-        if dtype is None:
-            dtype = pycrt.getPrecision().value
-        try:
-            # dense arrays
-            _xp = pycu.get_array_module(_.mat)
-            if (xp == _xp) or (not hasattr(_.mat, "get")):
-                A = _.mat  # NumPy/Dask
-            else:
-                A = _.mat.get()  # CuPy
-        except:
-            # sparse arrays
-            A = _.mat.toarray()
+    def op_asarray(_, **kwargs) -> pyct.NDArray:
+        N = pycd.NDArrayInfo
+        S = pycd.SparseArrayInfo
+        dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
+        xp = kwargs.pop("xp", np)
+
+        try:  # Sparse arrays
+            info = S.from_obj(_.mat)
+            A = _.mat.astype(dtype).toarray()  # `copy` field not ubiquitous
+        except:  # Dense arrays
+            info = N.from_obj(_.mat)
+            A = pycu.compute(_.mat.astype(dtype, copy=False))
+        finally:
+            if (ndi := N.from_obj(A)) == N.CUPY:
+                A = A.get()
+
         return xp.array(A, dtype=dtype)
 
     def op_trace(_, **kwargs) -> pyct.Real:
         if _.dim != _.codim:
             raise NotImplementedError
         else:
-            return float(_.mat.trace())
+            try:
+                tr = _.mat.trace()
+            except:
+                # .trace() missing from CuPy sparse API.
+                tr = _.mat.diagonal().sum()
+            return float(tr)
 
     def op_lipschitz(_, **kwargs) -> pyct.Real:
         # We want to piggy-back onto Lin[Op,Func].lipschitz() to compute the Lipschitz constant L.
@@ -443,15 +448,25 @@ def _ExplicitLinOp(
         # * we add the relevant kwargs before calling the LinOp.lipschitz() + drop all unrecognized
         #   kwargs there as needed.
         # * similarly for LinFunc.lipschitz().
-        xp = pycu.get_array_module(_.mat)
-        kwargs.update(xp=xp)
-        if pycd.CUPY_ENABLED:
-            import cupy as cp
+        N = pycd.NDArrayInfo
+        S = pycd.SparseArrayInfo
 
-            if xp == cp:
-                kwargs.update(gpu=True)
+        try:  # Dense arrays
+            info = N.from_obj(_.mat)
+            kwargs.update(
+                xp=info.module(),
+                gpu=info == N.CUPY,
+            )
+        except:  # Sparse arrays
+            info = S.from_obj(_.mat)
+            gpu = info == S.CUPY_SPARSE
+            kwargs.update(
+                xp=N.CUPY.module() if gpu else N.NUMPY.module(),
+                gpu=gpu,
+            )
+
         if _.codim == 1:
-            L = pyca.LinFunc.lipschitz(_, xp=xp)
+            L = pyca.LinFunc.lipschitz(_, **kwargs)
         else:
             L = _.__class__.lipschitz(_, **kwargs)
         return L
