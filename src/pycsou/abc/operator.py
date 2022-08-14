@@ -974,6 +974,20 @@ class LinOp(DiffMap):
     The Jacobian of a linear map :math:`\mathbf{h}` is constant.
     """
 
+    # Internal Helpers ------------------------------------
+    @staticmethod
+    def _warn_vals_sparse_gpu():
+        msg = "\n".join(
+            [
+                "Potential Error:",
+                "Sparse GPU-evaluation of svdvals/eigvals() is known to produce incorrect results. (CuPy-specific + Matrix-Dependant.)",
+                "It is advised to cross-check results with CPU-computed results.",
+            ]
+        )
+        warnings.warn(msg, pycuw.BackendWarning)
+
+    # -----------------------------------------------------
+
     @classmethod
     def properties(cls) -> cabc.Set[pyct.Property]:
         p = set(super().properties())
@@ -1186,6 +1200,8 @@ class LinOp(DiffMap):
             if gpu:
                 assert pycd.CUPY_ENABLED
                 import cupyx.scipy.sparse.linalg as spx
+
+                self._warn_vals_sparse_gpu()
             else:
                 spx = spsl
             op = self.to_sciop(gpu=gpu, dtype=pycrt.getPrecision().value)
@@ -1583,6 +1599,8 @@ class NormalOp(SquareOp):
             if gpu:
                 assert pycd.CUPY_ENABLED
                 import cupyx.scipy.sparse.linalg as spx
+
+                self._warn_vals_sparse_gpu()
             else:
                 spx = spsl
             op = self.to_sciop(pycrt.getPrecision().value, gpu)
