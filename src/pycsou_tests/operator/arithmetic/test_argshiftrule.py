@@ -4,17 +4,19 @@
 #   [Caveat: we assume all tested examples are defined on \bR.] (This is not a problem in practice.)
 #   [Caveat: we assume the base operators (op_orig) are correctly implemented.] (True if choosing test operators from examples/.)
 #
-# * To test an arg-shifted-operator, inherit from ArgShiftRuleMixin and the suitable REDEFINED MapT
-#   subclass which the arg-shifted operator should abide by. (Redefined in this module to disable
-#   problematic tests; see comments below.)
+# * To test an arg-shifted-operator, inherit from ArgShiftRuleMixin and the suitable MapT subclass
+#   which the arg-shifted operator should abide by.
 #
 # Important: argshifted-operators are not module/precision-agnostic!
 
 import collections.abc as cabc
+import itertools
 
 import numpy as np
 import pytest
 
+import pycsou.runtime as pycrt
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 import pycsou_tests.operator.examples.test_diffmap as tc_diffmap
@@ -46,10 +48,22 @@ class ArgShiftRuleMixin:
         cst = self._random_array((dim,), seed=20)  # random seed for reproducibility
         return cst
 
-    @pytest.fixture
-    def op(self, op_orig, op_shift, xp, width) -> pyct.OpT:
-        shift = xp.array(op_shift, dtype=width.value)  # See top-level disclaimer(s).
-        return op_orig.argshift(shift)
+    @pytest.fixture(
+        params=itertools.product(
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def spec(self, op_orig, op_shift, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
+        ndi, width = request.param
+        if (xp := ndi.module()) is not None:
+            shift = xp.array(op_shift, dtype=width.value)
+            op = op_orig.argshift(shift)
+        else:
+            # Some test functions run without needing `xp`, hence it is required to add extra
+            # skip-logic in `spec` as well.
+            pytest.skip(f"{ndi} unsupported on this machine.")
+        return op, ndi, width
 
     @pytest.fixture
     def data_shape(self, op_orig) -> pyct.Shape:
@@ -100,61 +114,8 @@ class ArgShiftRuleMixin:
         return self._random_array((N_test, dim))
 
 
-# Redefined MapT classes ------------------------------------------------------
-#
-# Arg-shifted operators are not module/precision-agnostic: users are expected to apply/grad/prox()
-# them using the same array-module as `shift`.
-#
-# Problem: some tests (namely `test_math*` family defined in `numpy_only_tests`) are explicitly
-# designed to run with NumPy input/outputs only.
-#
-# Consequence: we need to disable these tests since there is no non-repetitive way to re-parametrize
-# these functions to only run when `xp=np`.
-#
-# This is achieved by sub-classing `conftest.MapT` classes to override `disable_test`.
-numpy_only_tests = frozenset(
-    {
-        "test_math_lipschitz",
-        "test_math_diff_lipschitz",
-        "test_math1_grad",
-        "test_math2_grad",
-        "test_math_prox",
-        "test_math1_moreau_envelope",
-        "test_math2_moreau_envelope",
-    }
-)
-
-
-class MapT(conftest.MapT):
-    disable_test = frozenset(conftest.MapT.disable_test | numpy_only_tests)
-
-
-class DiffMapT(conftest.DiffMapT):
-    disable_test = frozenset(conftest.DiffMapT.disable_test | numpy_only_tests)
-
-
-class FuncT(conftest.FuncT):
-    disable_test = frozenset(conftest.FuncT.disable_test | numpy_only_tests)
-
-
-class DiffFuncT(conftest.DiffFuncT):
-    disable_test = frozenset(conftest.DiffFuncT.disable_test | numpy_only_tests)
-
-
-class ProxFuncT(conftest.ProxFuncT):
-    disable_test = frozenset(conftest.ProxFuncT.disable_test | numpy_only_tests)
-
-
-class _QuadraticFuncT(conftest._QuadraticFuncT):
-    disable_test = frozenset(conftest._QuadraticFuncT.disable_test | numpy_only_tests)
-
-
-class ProxDiffFuncT(conftest.ProxDiffFuncT):
-    disable_test = frozenset(conftest.ProxDiffFuncT.disable_test | numpy_only_tests)
-
-
 # Test classes (Maps) ---------------------------------------------------------
-class TestArgShiftRuleMap(ArgShiftRuleMixin, MapT):
+class TestArgShiftRuleMap(ArgShiftRuleMixin, conftest.MapT):
     @pytest.fixture
     def op_orig(self):
         import pycsou_tests.operator.examples.test_map as tc
@@ -162,7 +123,7 @@ class TestArgShiftRuleMap(ArgShiftRuleMixin, MapT):
         return tc.ReLU(M=6)
 
 
-class TestArgShiftRuleDiffMap(ArgShiftRuleMixin, DiffMapT):
+class TestArgShiftRuleDiffMap(ArgShiftRuleMixin, conftest.DiffMapT):
     @pytest.fixture(
         params=[
             tc_diffmap.Sin(M=6),
@@ -181,7 +142,7 @@ class TestArgShiftRuleDiffMap(ArgShiftRuleMixin, DiffMapT):
 
 
 # Test classes (Funcs) --------------------------------------------------------
-class TestArgShiftRuleFunc(ArgShiftRuleMixin, FuncT):
+class TestArgShiftRuleFunc(ArgShiftRuleMixin, conftest.FuncT):
     @pytest.fixture
     def op_orig(self):
         import pycsou_tests.operator.examples.test_func as tc
@@ -189,7 +150,7 @@ class TestArgShiftRuleFunc(ArgShiftRuleMixin, FuncT):
         return tc.Median()
 
 
-class TestArgShiftRuleDiffFunc(ArgShiftRuleMixin, DiffFuncT):
+class TestArgShiftRuleDiffFunc(ArgShiftRuleMixin, conftest.DiffFuncT):
     @pytest.fixture(params=[None, 7])
     def op_orig(self, request):
         import pycsou_tests.operator.examples.test_difffunc as tc
@@ -197,7 +158,7 @@ class TestArgShiftRuleDiffFunc(ArgShiftRuleMixin, DiffFuncT):
         return tc.SquaredL2Norm(M=request.param)
 
 
-class TestArgShiftRuleProxFunc(ArgShiftRuleMixin, ProxFuncT):
+class TestArgShiftRuleProxFunc(ArgShiftRuleMixin, conftest.ProxFuncT):
     @pytest.fixture(params=[None, 7])
     def op_orig(self, request):
         import pycsou_tests.operator.examples.test_proxfunc as tc
@@ -205,7 +166,7 @@ class TestArgShiftRuleProxFunc(ArgShiftRuleMixin, ProxFuncT):
         return tc.L1Norm(M=request.param)
 
 
-class TestArgShiftRuleQuadraticFunc(ArgShiftRuleMixin, _QuadraticFuncT):
+class TestArgShiftRuleQuadraticFunc(ArgShiftRuleMixin, conftest._QuadraticFuncT):
     @pytest.fixture
     def op_orig(self):
         from pycsou.operator.func import QuadraticFunc
@@ -217,7 +178,7 @@ class TestArgShiftRuleQuadraticFunc(ArgShiftRuleMixin, _QuadraticFuncT):
         )
 
 
-class TestArgShiftRuleProxDiffFunc(ArgShiftRuleMixin, ProxDiffFuncT):
+class TestArgShiftRuleProxDiffFunc(ArgShiftRuleMixin, conftest.ProxDiffFuncT):
     @pytest.fixture(
         params=[
             tc_proxdifffunc.SquaredL2Norm(M=7),

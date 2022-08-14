@@ -9,13 +9,16 @@
 
 
 import collections.abc as cabc
+import itertools
 
 import numpy as np
 import pytest
 import scipy.linalg as splinalg
 
 import pycsou.abc as pyca
+import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
@@ -140,18 +143,25 @@ class AddRuleMixin:
     def op_rhs(self, op_lrhs) -> pyct.OpT:
         return op_lrhs[1]
 
-    @pytest.fixture(params=["lhs + rhs", "rhs + lhs"])
-    def lrhs_options(self, request) -> bool:
-        return request.param
-
-    @pytest.fixture
-    def op(self, op_lhs, op_rhs, lrhs_options) -> pyct.OpT:
-        if lrhs_options == "lhs + rhs":
-            return op_lhs + op_rhs
-        elif lrhs_options == "rhs + lhs":
-            return op_rhs + op_lhs
+    @pytest.fixture(
+        params=itertools.product(
+            [
+                "lhs + rhs",
+                "rhs + lhs",
+            ],
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def spec(self, op_lhs, op_rhs, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
+        mode, ndi, width = request.param
+        if mode == "lhs + rhs":
+            op = op_lhs + op_rhs
+        elif mode == "rhs + lhs":
+            op = op_rhs + op_lhs
         else:
             raise NotImplementedError
+        return op, ndi, width
 
     @pytest.fixture
     def data_shape(self, op_lhs, op_rhs) -> pyct.Shape:
