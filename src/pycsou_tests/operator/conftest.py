@@ -1023,13 +1023,17 @@ class LinOpT(DiffMapT):
         # backend/precisions as needed.)
         #
         # Default implementation: auto-computes pinv() at output points specified to test op.apply().
-        A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
-        A = pycu.copy_if_unsafe(A)
+
+        # Safe implementation of --------------------------
+        #   A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
+        B = op.asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
+        A = B.T @ B
+        # -------------------------------------------------
         for i in range(op.dim):
             A[i, i] += _damp
 
         arr = data_apply["out"]
-        out, *_ = splinalg.lstsq(A, op.asarray().T @ arr)
+        out, *_ = splinalg.lstsq(A, B.T @ arr)
         data = dict(
             in_=dict(
                 arr=arr,
@@ -1075,14 +1079,18 @@ class LinOpT(DiffMapT):
         # backend/precisions as needed.)
         #
         # Default implementation: auto-computes .adjoint() at input points specified to test op.apply().
-        A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
-        A = pycu.copy_if_unsafe(A)
+
+        # Safe implementation of --------------------------
+        #   A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
+        B = op.asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
+        A = B.T @ B
+        # -------------------------------------------------
         for i in range(op.dim):
             A[i, i] += _damp
 
         arr = data_apply["in_"]["arr"]
         out, *_ = splinalg.lstsq(A, arr)
-        out = op.asarray() @ out
+        out = B @ out
         data = dict(
             in_=dict(
                 arr=arr,
