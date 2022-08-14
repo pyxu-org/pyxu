@@ -1,10 +1,10 @@
 import warnings
 
-import dask.array as da
 import numpy as np
 
 import pycsou.abc as pyca
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 
@@ -30,7 +30,7 @@ def norm(x: pyct.NDArray, **kwargs):
 
     Returns
     -------
-    nrm: pyct.NDArray
+    nrm: pyct.Real | pyct.NDArray
         Norm of the matrix or vector(s).
     """
     xp = pycu.get_array_module(x)
@@ -75,10 +75,8 @@ def hutchpp(
     """
     if m >= op.dim:
         if enable_warnings:
-            warnings.warn(
-                "Number of queries >= dim(op): fallback to deterministic trace eval.",
-                pycuw.DenseWarning,
-            )
+            msg = "Number of queries >= dim(op): fallback to deterministic trace eval."
+            warnings.warn(msg, pycuw.DenseWarning)
         tr = 0
         for i in range(op.dim):
             e = xp.zeros(op.dim)
@@ -91,7 +89,7 @@ def hutchpp(
 
         data = op.apply(s.T).T
         kwargs = dict(mode="reduced")
-        if xp == da:
+        if xp == pycd.NDArrayInfo.DASK.module():
             data = data.rechunk({0: "auto", 1: -1})
             kwargs.pop("mode")
 
