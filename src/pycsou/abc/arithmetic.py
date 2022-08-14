@@ -547,6 +547,7 @@ class AddRule(Rule):
         return op
 
     def _infer_op_klass(self) -> pyct.OpC:
+        P = pyco.Property
         lhs_p = self._lhs.properties()
         rhs_p = self._rhs.properties()
         base = set(lhs_p & rhs_p)
@@ -557,41 +558,35 @@ class AddRule(Rule):
 
         # Exceptions ----------------------------------------------------------
         # normality preserved for self-adjoint addition
-        if pyco.Property.LINEAR_SELF_ADJOINT in base:
-            base.add(pyco.Property.LINEAR_NORMAL)
+        if P.LINEAR_SELF_ADJOINT in base:
+            base.add(P.LINEAR_NORMAL)
 
         # orth-proj + pos-def => pos-def
-        if (
-            ({pyco.Property.LINEAR_IDEMPOTENT, pyco.Property.LINEAR_SELF_ADJOINT} < lhs_p)
-            and (pyco.Property.LINEAR_POSITIVE_DEFINITE in rhs_p)
-        ) or (
-            ({pyco.Property.LINEAR_IDEMPOTENT, pyco.Property.LINEAR_SELF_ADJOINT} < rhs_p)
-            and (pyco.Property.LINEAR_POSITIVE_DEFINITE in lhs_p)
+        if (({P.LINEAR_IDEMPOTENT, P.LINEAR_SELF_ADJOINT} < lhs_p) and (P.LINEAR_POSITIVE_DEFINITE in rhs_p)) or (
+            ({P.LINEAR_IDEMPOTENT, P.LINEAR_SELF_ADJOINT} < rhs_p) and (P.LINEAR_POSITIVE_DEFINITE in lhs_p)
         ):
-            base.add(pyco.Property.LINEAR_SQUARE)
-            base.add(pyco.Property.LINEAR_NORMAL)
-            base.add(pyco.Property.LINEAR_SELF_ADJOINT)
-            base.add(pyco.Property.LINEAR_POSITIVE_DEFINITE)
+            base.add(P.LINEAR_SQUARE)
+            base.add(P.LINEAR_NORMAL)
+            base.add(P.LINEAR_SELF_ADJOINT)
+            base.add(P.LINEAR_POSITIVE_DEFINITE)
 
         # linfunc + (square-shape) => square
-        if pyco.Property.LINEAR in base:
+        if P.LINEAR in base:
             sh = pycu.infer_sum_shape(self._lhs.shape, self._rhs.shape)
             if (sh[0] == sh[1]) and (sh[0] > 1):
-                base.add(pyco.Property.LINEAR_SQUARE)
+                base.add(P.LINEAR_SQUARE)
 
         # quadratic + quadratic => quadratic
-        if pyco.Property.QUADRATIC in base:
-            base.add(pyco.Property.PROXIMABLE)
+        if P.QUADRATIC in base:
+            base.add(P.PROXIMABLE)
 
         # quadratic + linfunc => quadratic
-        if (pyco.Property.PROXIMABLE in (lhs_p & rhs_p)) and (
-            {pyco.Property.QUADRATIC, pyco.Property.LINEAR} < (lhs_p | rhs_p)
-        ):
-            base.add(pyco.Property.QUADRATIC)
+        if (P.PROXIMABLE in (lhs_p & rhs_p)) and ({P.QUADRATIC, P.LINEAR} < (lhs_p | rhs_p)):
+            base.add(P.QUADRATIC)
 
         # prox(-diff) + linfunc => prox(-diff)
-        if (pyco.Property.PROXIMABLE in (lhs_p & rhs_p)) and (pyco.Property.LINEAR in (lhs_p | rhs_p)):
-            base.add(pyco.Property.PROXIMABLE)
+        if (P.PROXIMABLE in (lhs_p & rhs_p)) and (P.LINEAR in (lhs_p | rhs_p)):
+            base.add(P.PROXIMABLE)
 
         klass = pyco.Operator._infer_operator_type(base)
         return klass
