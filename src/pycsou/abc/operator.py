@@ -1080,11 +1080,11 @@ class LinOp(DiffMap):
 
         def matmat(arr):
             with pycrt.EnforcePrecision(False):
-                return pycu.compute(self.apply(arr.T).T)
+                return self.apply(arr.T).T
 
         def rmatmat(arr):
             with pycrt.EnforcePrecision(False):
-                return pycu.compute(self.adjoint(arr.T).T)
+                return self.adjoint(arr.T).T
 
         if dtype is None:
             dtype = pycrt.getPrecision().value
