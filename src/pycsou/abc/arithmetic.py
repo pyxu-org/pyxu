@@ -681,7 +681,7 @@ class AddRule(Rule):
             if self.has(pyco.Property.FUNCTIONAL):
                 self._lipschitz = pyco.LinFunc.lipschitz(self, **kwargs)
             else:
-                kwargs = copy.deepcopy(kwargs)
+                kwargs = copy.copy(kwargs)
                 kwargs.update(recompute=True)
                 self._lipschitz = pyco.LinOp.lipschitz(self, **kwargs)
         else:
@@ -982,7 +982,7 @@ class ChainRule(Rule):
             if self.has(pyco.Property.FUNCTIONAL):
                 self._lipschitz = pyco.LinFunc.lipschitz(self, **kwargs)
             else:
-                kwargs = copy.deepcopy(kwargs)
+                kwargs = copy.copy(kwargs)
                 kwargs.update(recompute=True)
                 self._lipschitz = pyco.LinOp.lipschitz(self, **kwargs)
         else:
