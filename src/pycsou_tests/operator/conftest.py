@@ -272,8 +272,8 @@ class MapT:
                 # The large scale introduced to assess transparency may give rise to
                 # operator-dependant round-off errors. We therefore assess transparency at
                 # FP32-precision to avoid false negatives.
-                assert allclose(out_1, out_gt, as_dtype=pycrt.Width.SINGLE)
-                assert allclose(out_2, out_gt, as_dtype=pycrt.Width.SINGLE)
+                assert allclose(out_1, out_gt, as_dtype=pycrt.Width.SINGLE.value)
+                assert allclose(out_2, out_gt, as_dtype=pycrt.Width.SINGLE.value)
             except AssertionError as exc:
                 # Function is non-transparent, but which backend caused it?
                 N = pycd.NDArrayInfo
