@@ -2,14 +2,12 @@ import collections
 import collections.abc as cabc
 import copy
 import enum
-import functools as ft
 import inspect
 import types
 import typing as typ
 import warnings
 
 import numpy as np
-import scipy.linalg as spl
 import scipy.sparse.linalg as spsl
 
 import pycsou.runtime as pycrt
@@ -50,9 +48,20 @@ class Property(enum.Enum):
     def arithmetic_methods(self) -> cabc.Set[str]:
         "Instance methods affected by arithmetic operations."
         data = collections.defaultdict(list)
-        data[self.CAN_EVAL].extend(["apply", "__call__", "lipschitz"])
+        data[self.CAN_EVAL].extend(
+            [
+                "apply",
+                "__call__",
+                "lipschitz",
+            ]
+        )
         data[self.PROXIMABLE].append("prox")
-        data[self.DIFFERENTIABLE].extend(["jacobian", "diff_lipschitz"])
+        data[self.DIFFERENTIABLE].extend(
+            [
+                "jacobian",
+                "diff_lipschitz",
+            ]
+        )
         data[self.DIFFERENTIABLE_FUNCTION].append("grad")
         data[self.LINEAR].append("adjoint")
         data[self.QUADRATIC].append("_hessian")
@@ -486,11 +495,11 @@ class Map(Operator):
 
           .. math::
 
-              \|\mathbf{h}(\mathbf{x})-\mathbf{h}(\mathbf{y})\|_{\mathbb{R}^N}
-              \leq
-              L_\mathbf{h} \|\mathbf{x}-\mathbf{y}\|_{\mathbb{R}^M},
-              \qquad
-              \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^M,
+             \|\mathbf{h}(\mathbf{x})-\mathbf{h}(\mathbf{y})\|_{\mathbb{R}^N}
+             \leq
+             L_\mathbf{h} \|\mathbf{x}-\mathbf{y}\|_{\mathbb{R}^M},
+             \qquad
+             \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^M,
 
           where
           :math:`\|\cdot\|_{\mathbb{R}^M}` and
@@ -1192,7 +1201,8 @@ class LinOp(DiffMap):
                 import cupy as xp
                 import cupy.linalg as spx
             else:
-                xp, spx = np, spl
+                import numpy as xp
+                import scipy.linalg as spx
             op = self.asarray(xp=xp, dtype=pycrt.getPrecision().value)
             return spx.svd(op, compute_uv=False)
 
@@ -1371,7 +1381,7 @@ class LinOp(DiffMap):
 
         .. math::
 
-            (L^\ast L + \tau I) \mathbf{x}= L^\ast \mathbf{y},
+           (L^\ast L + \tau I) \mathbf{x}= L^\ast \mathbf{y},
 
         where :math:`\tau>0` corresponds to the ``damp`` parameter.
         """
@@ -1590,7 +1600,8 @@ class NormalOp(SquareOp):
                 import cupy as xp
                 import cupy.linalg as spx
             else:
-                xp, spx = np, spl
+                import numpy as xp
+                import scipy.linalg as spx
             op = self.asarray(xp=xp, dtype=pycrt.getPrecision().value)
             f = getattr(spx, "eigvalsh" if symmetric else "eigvals")
             return f(op)
@@ -1858,8 +1869,9 @@ class LinFunc(ProxDiffFunc, LinOp):
 
     @property
     def T(self) -> pyct.OpT:
-        # Keeping LinFunc core class not possible contrary to super-class implementation since no
-        # longer a functional. Moreover .asop() won't do anything since LinFunc inherits from LinOp.
+        # Keeping LinFunc core class not possible contrary to super-class implementation since
+        # LinFunc.T != LinFunc.
+        # Moreover .asop() won't do anything since LinFunc inherits from LinOp.
         # Therefore we need to manually wrap the LinFunc into a LinOp and forward all exposed
         # arithmetic methods.
         op = LinOp(shape=(self.dim, 1))
