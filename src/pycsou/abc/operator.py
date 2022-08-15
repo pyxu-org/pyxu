@@ -1048,11 +1048,19 @@ class LinOp(DiffMap):
         r"""
         Return the (M, N) adjoint of the linear operator.
         """
+
+        # An operator may have defined a custom .asarray() method.
+        # In such cases we want op.T to use it in place of the default implementation.
+        def op_asarray(_, **kwargs) -> pyct.NDArray:
+            A = self.asarray(**kwargs)
+            return A.T
+
         adj = copy.copy(self)
         adj._shape = self.dim, self.codim
         adj.apply = self.adjoint
         adj.__call__ = self.adjoint
         adj.adjoint = self.apply
+        adj.asarray = types.MethodType(op_asarray, adj)
         return adj
 
     def to_sciop(
