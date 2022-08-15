@@ -35,45 +35,49 @@ class ScaleRule(Rule):
         \alpha = 0  => NullOp/NullFunc
         \alpha = 1  => self
     Else:
-        |--------------------------|-------------|---------------------------------------------------------------|
-        |         Property         |  Preserved? |                   Arithmetic Update Rule(s)                   |
-        |--------------------------|-------------|---------------------------------------------------------------|
-        | CAN_EVAL                 | yes         | op_new.apply(arr) = op_old.apply(arr) * \alpha                |
-        |                          |             | op_new._lipschitz = op_old._lipschitz * abs(\alpha)           |
-        |                          |             |                                                               |
-        |                          |             | op_new.lipschitz()                                            |
-        |                          |             | = op_old.lipschitz() * abs(\alpha)                            |
-        |                          |             | + update op_new._lipschitz                                    |
-        |--------------------------|-------------|---------------------------------------------------------------|
-        | FUNCTIONAL               | yes         |                                                               |
-        |--------------------------|-------------|---------------------------------------------------------------|
-        | PROXIMABLE               | \alpha > 0  | op_new.prox(arr, tau) = op_old.prox(arr, tau * \alpha)        |
-        |--------------------------|-------------|---------------------------------------------------------------|
-        | DIFFERENTIABLE           | yes         | op_new.jacobian(arr) = op_old.jacobian(arr) * \alpha          |
-        |                          |             | op_new._diff_lipschitz = op_old._diff_lipschitz * abs(\alpha) |
-        |                          |             |                                                               |
-        |                          |             | diff_lipschitz()                                              |
-        |                          |             | = op_old.diff_lipschitz() * abs(\alpha)                       |
-        |                          |             | + update op_new._diff_lipschitz                               |
-        |--------------------------|-------------|---------------------------------------------------------------|
-        | DIFFERENTIABLE_FUNCTION  | yes         | op_new.grad(arr) = op_old.grad(arr) * \alpha                  |
-        |--------------------------|-------------|---------------------------------------------------------------|
-        | QUADRATIC                | \alpha > 0  | op_new._hessian() = op_old._hessian() * \alpha                |
-        |--------------------------|-------------|---------------------------------------------------------------|
-        | LINEAR                   | yes         | op_new.adjoint(arr) = op_old.adjoint(arr) * \alpha            |
-        |--------------------------|-------------|---------------------------------------------------------------|
-        | LINEAR_SQUARE            | yes         |                                                               |
-        |--------------------------|-------------|---------------------------------------------------------------|
-        | LINEAR_NORMAL            | yes         |                                                               |
-        |--------------------------|-------------|---------------------------------------------------------------|
-        | LINEAR_UNITARY           | \alpha = -1 |                                                               |
-        |--------------------------|-------------|---------------------------------------------------------------|
-        | LINEAR_SELF_ADJOINT      | yes         |                                                               |
-        |--------------------------|-------------|---------------------------------------------------------------|
-        | LINEAR_POSITIVE_DEFINITE | \alpha > 0  |                                                               |
-        |--------------------------|-------------|---------------------------------------------------------------|
-        | LINEAR_IDEMPOTENT        | no          |                                                               |
-        |--------------------------|-------------|---------------------------------------------------------------|
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        |         Property         |  Preserved? |                     Arithmetic Update Rule(s)                      |
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        | CAN_EVAL                 | yes         | op_new.apply(arr) = op_old.apply(arr) * \alpha                     |
+        |                          |             | op_new._lipschitz = op_old._lipschitz * abs(\alpha)                |
+        |                          |             |                                                                    |
+        |                          |             | op_new.lipschitz()                                                 |
+        |                          |             | = op_old.lipschitz() * abs(\alpha)                                 |
+        |                          |             | + update op_new._lipschitz                                         |
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        | FUNCTIONAL               | yes         |                                                                    |
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        | PROXIMABLE               | \alpha > 0  | op_new.prox(arr, tau) = op_old.prox(arr, tau * \alpha)             |
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        | DIFFERENTIABLE           | yes         | op_new.jacobian(arr) = op_old.jacobian(arr) * \alpha               |
+        |                          |             | op_new._diff_lipschitz = op_old._diff_lipschitz * abs(\alpha)      |
+        |                          |             |                                                                    |
+        |                          |             | diff_lipschitz()                                                   |
+        |                          |             | = op_old.diff_lipschitz() * abs(\alpha)                            |
+        |                          |             | + update op_new._diff_lipschitz                                    |
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        | DIFFERENTIABLE_FUNCTION  | yes         | op_new.grad(arr) = op_old.grad(arr) * \alpha                       |
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        | QUADRATIC                | \alpha > 0  | op_new._hessian() = op_old._hessian() * \alpha                     |
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        | LINEAR                   | yes         | op_new.adjoint(arr) = op_old.adjoint(arr) * \alpha                 |
+        |                          |             | op_new.asarray() = op_old.asarray() * \alpha                       |
+        |                          |             | op_new.svdvals() = op_old.svdvals() * abs(\alpha)                  |
+        |                          |             | op_new.pinv(x, damp) = op_old.pinv(x, damp / (\alpha**2)) / \alpha |
+        |                          |             | op_new.dagger(damp) = op_old.dagger(damp / (\alpha**2)) / \alpha   |
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        | LINEAR_SQUARE            | yes         | op_new.trace() = op_old.trace() * \alpha                           |
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        | LINEAR_NORMAL            | yes         | op_new.eigvals() = op_old.eigvals() * \alpha                       |
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        | LINEAR_UNITARY           | \alpha = -1 |                                                                    |
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        | LINEAR_SELF_ADJOINT      | yes         |                                                                    |
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        | LINEAR_POSITIVE_DEFINITE | \alpha > 0  |                                                                    |
+        |--------------------------|-------------|--------------------------------------------------------------------|
+        | LINEAR_IDEMPOTENT        | no          |                                                                    |
+        |--------------------------|-------------|--------------------------------------------------------------------|
     """
 
     def __init__(self, op: pyct.OpT, cst: pyct.Real):
@@ -173,6 +177,37 @@ class ScaleRule(Rule):
         out *= self._cst
         return out
 
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        A = pycu.copy_if_unsafe(self._op.asarray(**kwargs))
+        A *= self._cst
+        return A
+
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        D = pycu.copy_if_unsafe(self._op.svdvals(**kwargs))
+        D *= abs(self._cst)
+        return D
+
+    def eigvals(self, **kwargs) -> pyct.NDArray:
+        D = pycu.copy_if_unsafe(self._op.eigvals(**kwargs))
+        D *= self._cst
+        return D
+
+    @pycrt.enforce_precision(i="arr")
+    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+        scale = kwargs.get("damp", 0) / (self._cst**2)
+        out = pycu.copy_if_unsafe(self._op.pinv(arr, damp=scale))
+        out /= self._cst
+        return out
+
+    def dagger(self, **kwargs) -> pyct.OpT:
+        scale = kwargs.get("damp", 0) / (self._cst**2)
+        op = self._op.dagger(damp=scale) / self._cst
+        return op
+
+    def trace(self, **kwargs) -> pyct.Real:
+        tr = self._op.trace(**kwargs) * self._cst
+        return float(tr)
+
 
 class ArgScaleRule(Rule):
     r"""
@@ -207,10 +242,14 @@ class ArgScaleRule(Rule):
         | QUADRATIC                | yes         | op_new._hessian() = op_old._hessian() * (\alpha**2)                         |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | LINEAR                   | yes         | op_new.adjoint(arr) = op_old.adjoint(arr) * \alpha                          |
+        |                          |             | op_new.asarray() = op_old.asarray() * \alpha                                |
+        |                          |             | op_new.svdvals() = op_old.svdvals() * abs(\alpha)                           |
+        |                          |             | op_new.pinv(x, damp) = op_old.pinv(x, damp / (\alpha**2)) / \alpha          |
+        |                          |             | op_new.dagger(damp) = op_old.dagger(damp / (\alpha**2)) / \alpha            |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
-        | LINEAR_SQUARE            | yes         |                                                                             |
+        | LINEAR_SQUARE            | yes         | op_new.trace() = op_old.trace() * \alpha                                    |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
-        | LINEAR_NORMAL            | yes         |                                                                             |
+        | LINEAR_NORMAL            | yes         | op_new.eigvals() = op_old.eigvals() * \alpha                                |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | LINEAR_UNITARY           | \alpha = -1 |                                                                             |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
@@ -338,6 +377,37 @@ class ArgScaleRule(Rule):
         out = pycu.copy_if_unsafe(self._op.adjoint(arr))
         out *= self._cst
         return out
+
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        A = pycu.copy_if_unsafe(self._op.asarray(**kwargs))
+        A *= self._cst
+        return A
+
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        D = pycu.copy_if_unsafe(self._op.svdvals(**kwargs))
+        D *= abs(self._cst)
+        return D
+
+    def eigvals(self, **kwargs) -> pyct.NDArray:
+        D = pycu.copy_if_unsafe(self._op.eigvals(**kwargs))
+        D *= self._cst
+        return D
+
+    @pycrt.enforce_precision(i="arr")
+    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+        scale = kwargs.get("damp", 0) / (self._cst**2)
+        out = pycu.copy_if_unsafe(self._op.pinv(arr, damp=scale))
+        out /= self._cst
+        return out
+
+    def dagger(self, **kwargs) -> pyct.OpT:
+        scale = kwargs.get("damp", 0) / (self._cst**2)
+        op = self._op.dagger(damp=scale) / self._cst
+        return op
+
+    def trace(self, **kwargs) -> pyct.Real:
+        tr = self._op.trace(**kwargs) * self._cst
+        return float(tr)
 
 
 class ArgShiftRule(Rule):
@@ -521,6 +591,10 @@ class AddRule(Rule):
         op.adjoint(arr) = _lhs.adjoint(arr) + _rhs.adjoint(arr)
         IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
                    operand's adjoint-input must be averaged.
+        op.asarray() = _lhs.asarray() + _rhs.asarray()
+
+    * LINEAR_SQUARE
+        op.trace() = _lhs.trace() + _rhs.trace()
 
     * QUADRATIC
         op._hessian() = _lhs._hessian() + _rhs.hessian()
@@ -708,6 +782,40 @@ class AddRule(Rule):
         out += self._rhs.adjoint(arr_rhs)
         return out
 
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        # broadcast may be involved, so can't do in-place updates.
+        A_lhs = self._lhs.asarray(**kwargs)
+        A_rhs = self._rhs.asarray(**kwargs)
+        A = A_lhs + A_rhs
+        return A
+
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        # No known simple form in terms of _lhs/_rhs: use default implementation
+        D = self.__class__.svdvals(self, **kwargs)
+        return D
+
+    def eigvals(self, **kwargs) -> pyct.NDArray:
+        # No known simple form in terms of _lhs/_rhs: use default implementation
+        D = self.__class__.eigvals(self, **kwargs)
+        return D
+
+    @pycrt.enforce_precision(i="arr")
+    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+        # No known simple form in terms of _lhs/_rhs: use default implementation
+        out = self.__class__.pinv(self, arr=arr, **kwargs)
+        return out
+
+    def dagger(self, **kwargs) -> pyct.OpT:
+        # No known simple form in terms of _lhs/_rhs: use default implementation
+        op = self.__class__.dagger(self, **kwargs)
+        return op
+
+    def trace(self, **kwargs) -> pyct.Real:
+        tr_lhs = self._lhs.trace(**kwargs)
+        tr_rhs = self._rhs.trace(**kwargs)
+        tr = float(tr_lhs) + float(tr_rhs)
+        return tr
+
 
 class ChainRule(Rule):
     r"""
@@ -763,6 +871,7 @@ class ChainRule(Rule):
 
     * LINEAR
         op.adjoint(arr) = _rhs.adjoint(_lhs.adjoint(arr))
+        op.asarray() = _lhs.asarray() @ _rhs.asarray()
 
     * QUADRATIC
         op._hessian() = _rhs.T \comp _lhs._hessian() \comp _rhs [Positive-Definite]
@@ -977,6 +1086,38 @@ class ChainRule(Rule):
         x = self._lhs.adjoint(arr)
         out = self._rhs.adjoint(x)
         return out
+
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        A_lhs = self._lhs.asarray(**kwargs)
+        A_rhs = self._rhs.asarray(**kwargs)
+        A = A_lhs @ A_rhs
+        return A
+
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        # No known simple form in terms of _lhs/_rhs: use default implementation
+        D = self.__class__.svdvals(self, **kwargs)
+        return D
+
+    def eigvals(self, **kwargs) -> pyct.NDArray:
+        # No known simple form in terms of _lhs/_rhs: use default implementation
+        D = self.__class__.eigvals(self, **kwargs)
+        return D
+
+    @pycrt.enforce_precision(i="arr")
+    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+        # No known simple form in terms of _lhs/_rhs: use default implementation
+        out = self.__class__.pinv(self, arr=arr, **kwargs)
+        return out
+
+    def dagger(self, **kwargs) -> pyct.OpT:
+        # No known simple form in terms of _lhs/_rhs: use default implementation
+        op = self.__class__.dagger(self, **kwargs)
+        return op
+
+    def trace(self, **kwargs) -> pyct.Real:
+        # No known simple form in terms of _lhs/_rhs: use default implementation
+        tr = self.__class__.trace(**kwargs)
+        return float(tr)
 
 
 class PowerRule(Rule):

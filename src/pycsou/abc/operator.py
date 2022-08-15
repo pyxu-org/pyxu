@@ -63,7 +63,17 @@ class Property(enum.Enum):
             ]
         )
         data[self.DIFFERENTIABLE_FUNCTION].append("grad")
-        data[self.LINEAR].append("adjoint")
+        data[self.LINEAR].extend(
+            [
+                "adjoint",
+                "asarray",
+                "svdvals",
+                "pinv",
+                "dagger",
+            ]
+        )
+        data[self.LINEAR_SQUARE].append("trace")
+        data[self.LINEAR_NORMAL].append("eigvals")
         data[self.QUADRATIC].append("_hessian")
 
         meth = frozenset(data[self])
