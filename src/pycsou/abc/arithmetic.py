@@ -1119,7 +1119,7 @@ class ChainRule(Rule):
 
     def trace(self, **kwargs) -> pyct.Real:
         # No known simple form in terms of _lhs/_rhs: use default implementation
-        tr = self.__class__.trace(**kwargs)
+        tr = self.__class__.trace(self, **kwargs)
         return float(tr)
 
 
