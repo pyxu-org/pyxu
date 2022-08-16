@@ -1877,7 +1877,11 @@ class LinFunc(ProxDiffFunc, LinOp):
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        return arr - tau * self.grad(arr)
+        # out = arr - tau * self.grad(arr)
+        out = pycu.copy_if_unsafe(self.grad(arr))
+        out *= -tau
+        out += arr
+        return out
 
     @pycrt.enforce_precision(i=("arr", "sigma"))
     def fenchel_prox(self, arr: pyct.NDArray, sigma: pyct.Real) -> pyct.NDArray:
