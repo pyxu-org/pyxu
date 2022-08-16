@@ -811,9 +811,12 @@ class AddRule(Rule):
         return op
 
     def trace(self, **kwargs) -> pyct.Real:
-        tr_lhs = self._lhs.trace(**kwargs)
-        tr_rhs = self._rhs.trace(**kwargs)
-        tr = float(tr_lhs) + float(tr_rhs)
+        tr = 0
+        for side in (self._lhs, self._rhs):
+            if side.has(pyco.Property.FUNCTIONAL):
+                tr += float(side.asarray().sum())
+            else:
+                tr += float(side.trace(**kwargs))
         return tr
 
 
