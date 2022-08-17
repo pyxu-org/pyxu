@@ -1878,7 +1878,7 @@ class LinFunc(ProxDiffFunc, LinOp):
         # 'fro' / 'svds' mode are identical for linfuncs.
         xp = kwargs.get("xp", np)
         g = self.grad(xp.ones(self.dim))
-        self._lipschitz = float(np.linalg.norm(g))
+        self._lipschitz = float(xp.linalg.norm(g))
         return self._lipschitz
 
     @pycrt.enforce_precision(i="arr")
