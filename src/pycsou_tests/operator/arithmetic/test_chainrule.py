@@ -324,6 +324,7 @@ class TestChainRuleLinOp(ChainRuleMixin, conftest.LinOpT):
     @pytest.fixture(
         params=[
             (op_linop(), op_linop()),  # may return SquareOp, but OK
+            (op_linop(dim=8, codim_scale=2), op_linop(dim=2, codim_scale=4)),
             (op_linop(dim=1, codim_scale=5), op_linfunc()),
             (op_linop(), op_squareop()),
             (op_linop(), op_normalop()),
@@ -584,6 +585,7 @@ class TestChainRuleLinFunc(ChainRuleMixin, conftest.LinFuncT):
     @pytest.fixture(
         params=[
             (op_linfunc(), op_linop()),
+            (op_linfunc(dim=8), op_linop(dim=2, codim_scale=4)),
             (op_linfunc(dim=1), op_linfunc()),
             (op_linfunc(), op_squareop()),
             (op_linfunc(), op_normalop()),

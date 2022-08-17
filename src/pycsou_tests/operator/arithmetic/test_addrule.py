@@ -72,10 +72,10 @@ def op_quadraticfunc():
     )
 
 
-def op_linop():
+def op_linop(dim: int = 7, codim_scale: int = 1):
     import pycsou_tests.operator.examples.test_linop as tc
 
-    return tc.Tile(N=7, M=1)
+    return tc.Tile(N=dim, M=codim_scale)
 
 
 def op_linfunc():
@@ -348,6 +348,8 @@ class TestAddRuleLinOp(AddRuleMixin, conftest.LinOpT):
         params=[
             (op_linop(), op_linop()),
             (op_linop(), op_linfunc()),
+            (op_linop(codim_scale=2), op_linop(codim_scale=2)),
+            (op_linop(codim_scale=2), op_linfunc()),
         ]
     )
     def op_lrhs(self, request):
