@@ -993,6 +993,11 @@ class LinOpT(DiffMapT):
         op_T = op.T
         return op_T
 
+    @pytest.fixture
+    def _op_TT(self, _op_T) -> pyca.LinOp:
+        op_TT = _op_T.T
+        return op_TT
+
     @pytest.fixture(
         params=[
             False,
@@ -1287,8 +1292,18 @@ class LinOpT(DiffMapT):
         data = dict(in_=dict(k=1, gpu=_gpu))
         self._check_precCM(op.svdvals, data, (width,))
 
-    def test_interface_T(self, _op_T):
-        self._check_has_interface(_op_T, LinOpT)
+    def test_interface_T(self, op, _op_T):
+        self._skip_if_disabled()
+        if op.dim == 1:
+            klass = LinFuncT
+        else:
+            klass = LinOpT
+        self._check_has_interface(_op_T, klass)
+
+    def test_interface_TT(self, op, _op_TT):
+        # Transposing twice returns operator with initial shape.
+        self._skip_if_disabled()
+        assert _op_TT.shape == op.shape
 
     def test_value1D_call_T(self, _op_T, _data_adjoint):
         self._skip_if_disabled()
