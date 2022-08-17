@@ -1056,6 +1056,20 @@ class LinOp(DiffMap):
     def T(self) -> pyct.OpT:
         r"""
         Return the (M, N) adjoint of the linear operator.
+
+        See Also
+        --------
+        :py:meth:`~pycsou.abc.operator.LinOp.transpose`
+        """
+        return self.transpose()
+
+    def transpose(self) -> pyct.OpT:
+        r"""
+        Return the (M, N) adjoint of the linear operator.
+
+        See Also
+        --------
+        :py:meth:`~pycsou.abc.operator.LinOp.T`
         """
 
         # An operator may have defined a custom .asarray() method.
@@ -1699,8 +1713,7 @@ class SelfAdjointOp(NormalOp):
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         return self.apply(arr)
 
-    @property
-    def T(self) -> pyct.OpT:
+    def transpose(self) -> pyct.OpT:
         return self
 
     def eigvals(
@@ -1886,8 +1899,7 @@ class LinFunc(ProxDiffFunc, LinOp):
     def fenchel_prox(self, arr: pyct.NDArray, sigma: pyct.Real) -> pyct.NDArray:
         return self.grad(arr)
 
-    @property
-    def T(self) -> pyct.OpT:
+    def transpose(self) -> pyct.OpT:
         # Keeping LinFunc core class not possible contrary to super-class implementation since
         # LinFunc.T != LinFunc.
         # Moreover .asop() won't do anything since LinFunc inherits from LinOp.
