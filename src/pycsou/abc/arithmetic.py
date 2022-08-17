@@ -64,7 +64,6 @@ class ScaleRule(Rule):
         |                          |             | op_new.asarray() = op_old.asarray() * \alpha                       |
         |                          |             | op_new.svdvals() = op_old.svdvals() * abs(\alpha)                  |
         |                          |             | op_new.pinv(x, damp) = op_old.pinv(x, damp / (\alpha**2)) / \alpha |
-        |                          |             | op_new.dagger(damp) = op_old.dagger(damp / (\alpha**2)) / \alpha   |
         |--------------------------|-------------|--------------------------------------------------------------------|
         | LINEAR_SQUARE            | yes         | op_new.trace() = op_old.trace() * \alpha                           |
         |--------------------------|-------------|--------------------------------------------------------------------|
@@ -199,11 +198,6 @@ class ScaleRule(Rule):
         out /= self._cst
         return out
 
-    def dagger(self, **kwargs) -> pyct.OpT:
-        scale = kwargs.get("damp", 0) / (self._cst**2)
-        op = self._op.dagger(damp=scale) / self._cst
-        return op
-
     def trace(self, **kwargs) -> pyct.Real:
         tr = self._op.trace(**kwargs) * self._cst
         return float(tr)
@@ -245,7 +239,6 @@ class ArgScaleRule(Rule):
         |                          |             | op_new.asarray() = op_old.asarray() * \alpha                                |
         |                          |             | op_new.svdvals() = op_old.svdvals() * abs(\alpha)                           |
         |                          |             | op_new.pinv(x, damp) = op_old.pinv(x, damp / (\alpha**2)) / \alpha          |
-        |                          |             | op_new.dagger(damp) = op_old.dagger(damp / (\alpha**2)) / \alpha            |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | LINEAR_SQUARE            | yes         | op_new.trace() = op_old.trace() * \alpha                                    |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
@@ -399,11 +392,6 @@ class ArgScaleRule(Rule):
         out = pycu.copy_if_unsafe(self._op.pinv(arr, damp=scale))
         out /= self._cst
         return out
-
-    def dagger(self, **kwargs) -> pyct.OpT:
-        scale = kwargs.get("damp", 0) / (self._cst**2)
-        op = self._op.dagger(damp=scale) / self._cst
-        return op
 
     def trace(self, **kwargs) -> pyct.Real:
         tr = self._op.trace(**kwargs) * self._cst
@@ -805,11 +793,6 @@ class AddRule(Rule):
         out = self.__class__.pinv(self, arr=arr, **kwargs)
         return out
 
-    def dagger(self, **kwargs) -> pyct.OpT:
-        # No known simple form in terms of _lhs/_rhs: use default implementation
-        op = self.__class__.dagger(self, **kwargs)
-        return op
-
     def trace(self, **kwargs) -> pyct.Real:
         tr = 0
         for side in (self._lhs, self._rhs):
@@ -1111,11 +1094,6 @@ class ChainRule(Rule):
         # No known simple form in terms of _lhs/_rhs: use default implementation
         out = self.__class__.pinv(self, arr=arr, **kwargs)
         return out
-
-    def dagger(self, **kwargs) -> pyct.OpT:
-        # No known simple form in terms of _lhs/_rhs: use default implementation
-        op = self.__class__.dagger(self, **kwargs)
-        return op
 
     def trace(self, **kwargs) -> pyct.Real:
         # No known simple form in terms of _lhs/_rhs: use default implementation

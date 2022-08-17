@@ -69,7 +69,6 @@ class Property(enum.Enum):
                 "asarray",
                 "svdvals",
                 "pinv",
-                "dagger",
             ]
         )
         data[self.LINEAR_SQUARE].append("trace")
