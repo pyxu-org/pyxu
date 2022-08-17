@@ -15,7 +15,7 @@ import pycsou.util.ptype as pyct
 
 class Rule:
     def __init__(self):
-        # Arithmetic Attributes
+        # Default Arithmetic Attributes
         self._lipschitz = np.inf
         self._diff_lipschitz = np.inf
 
@@ -27,6 +27,31 @@ class Rule:
             Synthesized operator given inputs to :py:meth:`~pycsou.abc.arithmetic.Rule.__init__`.
         """
         raise NotImplementedError
+
+    # Default Arithmetic Methods ----------------------------------------------
+    # Fallback on these when no simple form in terms of Rule.__init__() args is known.
+    # If a method from Property.arithmetic_methods() is not listed here, then all Rule subclasses
+    # provide an overloaded implementation.
+
+    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return self.apply(arr)
+
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        D = self.__class__.svdvals(self, **kwargs)
+        return D
+
+    def eigvals(self, **kwargs) -> pyct.NDArray:
+        D = self.__class__.eigvals(self, **kwargs)
+        return D
+
+    @pycrt.enforce_precision(i="arr")
+    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+        out = self.__class__.pinv(self, arr=arr, **kwargs)
+        return out
+
+    def trace(self, **kwargs) -> pyct.Real:
+        tr = self.__class__.trace(self, **kwargs)
+        return float(tr)
 
 
 class ScaleRule(Rule):
@@ -136,9 +161,6 @@ class ScaleRule(Rule):
         out = pycu.copy_if_unsafe(self._op.apply(arr))
         out *= self._cst
         return out
-
-    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self.apply(arr)
 
     def lipschitz(self, **kwargs) -> pyct.Real:
         self._lipschitz = self._op.lipschitz(**kwargs)
@@ -324,9 +346,6 @@ class ArgScaleRule(Rule):
         out = self._op.apply(x)
         return out
 
-    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self.apply(arr)
-
     def lipschitz(self, **kwargs) -> pyct.Real:
         self._lipschitz = self._op.lipschitz(**kwargs)
         self._lipschitz *= abs(self._cst)
@@ -483,9 +502,6 @@ class ArgShiftRule(Rule):
         x += self._cst
         out = self._op.apply(x)
         return out
-
-    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self.apply(arr)
 
     def lipschitz(self, **kwargs) -> pyct.Real:
         self._lipschitz = self._op.lipschitz(**kwargs)
@@ -661,9 +677,6 @@ class AddRule(Rule):
         out = out_lhs + out_rhs
         return out
 
-    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self.apply(arr)
-
     def lipschitz(self, **kwargs) -> pyct.Real:
         if self.has(pyco.Property.LINEAR):
             if self.has(pyco.Property.FUNCTIONAL):
@@ -776,22 +789,6 @@ class AddRule(Rule):
         A_rhs = self._rhs.asarray(**kwargs)
         A = A_lhs + A_rhs
         return A
-
-    def svdvals(self, **kwargs) -> pyct.NDArray:
-        # No known simple form in terms of _lhs/_rhs: use default implementation
-        D = self.__class__.svdvals(self, **kwargs)
-        return D
-
-    def eigvals(self, **kwargs) -> pyct.NDArray:
-        # No known simple form in terms of _lhs/_rhs: use default implementation
-        D = self.__class__.eigvals(self, **kwargs)
-        return D
-
-    @pycrt.enforce_precision(i="arr")
-    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-        # No known simple form in terms of _lhs/_rhs: use default implementation
-        out = self.__class__.pinv(self, arr=arr, **kwargs)
-        return out
 
     def trace(self, **kwargs) -> pyct.Real:
         tr = 0
@@ -960,9 +957,6 @@ class ChainRule(Rule):
         out = self._lhs.apply(x)
         return out
 
-    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self.apply(arr)
-
     def lipschitz(self, **kwargs) -> pyct.Real:
         if self.has(pyco.Property.LINEAR):
             if self.has(pyco.Property.FUNCTIONAL):
@@ -1078,27 +1072,6 @@ class ChainRule(Rule):
         A_rhs = self._rhs.asarray(**kwargs)
         A = A_lhs @ A_rhs
         return A
-
-    def svdvals(self, **kwargs) -> pyct.NDArray:
-        # No known simple form in terms of _lhs/_rhs: use default implementation
-        D = self.__class__.svdvals(self, **kwargs)
-        return D
-
-    def eigvals(self, **kwargs) -> pyct.NDArray:
-        # No known simple form in terms of _lhs/_rhs: use default implementation
-        D = self.__class__.eigvals(self, **kwargs)
-        return D
-
-    @pycrt.enforce_precision(i="arr")
-    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-        # No known simple form in terms of _lhs/_rhs: use default implementation
-        out = self.__class__.pinv(self, arr=arr, **kwargs)
-        return out
-
-    def trace(self, **kwargs) -> pyct.Real:
-        # No known simple form in terms of _lhs/_rhs: use default implementation
-        tr = self.__class__.trace(self, **kwargs)
-        return float(tr)
 
 
 class PowerRule(Rule):
