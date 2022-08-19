@@ -6,59 +6,56 @@ import pycsou.operator.linop.nufft as nufft
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 
-
-def NUFFT1_array(x, N, isign) -> np.ndarray:
-    D = x.shape[-1]
-    if isinstance(N, int):
-        N = (N,) * D
-    A = np.meshgrid(*[np.arange(-(m // 2), (m - 1) // 2 + 1) for m in N], indexing="ij")
-    B = np.stack(A, axis=0).reshape((D, -1)).T
-    return np.exp(1j * np.sign(isign) * B @ x.T)
-
-
-def NUFFT2_array(x, N, isign) -> np.ndarray:
-    A = NUFFT1_array(x, N, isign).T
-    return A
-
-
 if __name__ == "__main__":
-
-    use_dask = True
-    real = True
+    use_dask = False
+    nufft_kwargs = dict(real=False, eps=1e-3, isign=1, n_trans=6, nthreads=0, modeord=1)
 
     rng = np.random.default_rng(0)
     D, M, N = 2, 200, 5
     N_full = (N,) * D if isinstance(N, int) else N
-    x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+    x = 2 * np.pi * rng.random(size=(M, D)) - np.pi
     if use_dask:
         client = dad.Client(processes=False)  # processes=True yields a serialization error.
         x = da.from_array(x)
 
-    with pycrt.Precision(pycrt.Width.SINGLE):
-        N_trans, isign = 50, -1
-        A = nufft.NUFFT.type2(x, N, n_trans=N_trans, isign=isign, eps=1e-2, real=real)
-        B = NUFFT2_array(x, N, isign)
+    xp = pycu.get_array_module(x)
+    with pycrt.Precision(pycrt.Width.DOUBLE):
+        A = nufft.NUFFT.type2(x, N, **nufft_kwargs)
+        cB = A.complex_matrix(xp)
+        rB = pycu.view_as_real_mat(cB, real_output=nufft_kwargs["real"])
 
-        arr = rng.normal(size=(13, N_trans, *N_full))
-        if not real:
+        arr = rng.normal(size=(13, nufft_kwargs["n_trans"], *N_full))
+        if not nufft_kwargs["real"]:
             arr = arr + 1j * rng.normal(size=arr.shape)
-        arr = arr.reshape(13, N_trans, -1)
+        arr = arr.reshape((13, nufft_kwargs["n_trans"], -1))
         if use_dask:
             arr = da.from_array(arr)
 
-        A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
-        B_out_fw = np.tensordot(arr, B, axes=[[2], [1]])
+        rA_out_fw = A.apply(pycu.view_as_real(arr))
+        cA_out_fw = pycu.view_as_complex(rA_out_fw)
+        rB_out_fw = xp.tensordot(pycu.view_as_real(arr), rB, axes=[[2], [1]])
+        cB_out_fw = xp.tensordot(arr, cB, axes=[[2], [1]])
 
-        A_out_bw = A.adjoint(pycu.view_as_real(A_out_fw))
-        if not real:
-            A_out_bw = pycu.view_as_complex(A_out_bw)
-        B_out_bw = np.tensordot(B_out_fw, B.conj().T, axes=[[2], [1]])
-        if real:
-            B_out_bw = B_out_bw.real
+        rA_out_bw = A.adjoint(pycu.view_as_real(cA_out_fw))
+        if not nufft_kwargs["real"]:
+            cA_out_bw = pycu.view_as_complex(rA_out_bw)
+        rB_out_bw = xp.tensordot(rB_out_fw, rB.T, axes=[[2], [1]])
+        cB_out_bw = xp.tensordot(cB_out_fw, cB.conj().T, axes=[[2], [1]])
+        if nufft_kwargs["real"]:
+            cB_out_bw = cB_out_bw.real
 
-        res_fw = (np.linalg.norm(A_out_fw - B_out_fw, axis=-1) / np.linalg.norm(B_out_fw, axis=-1)).max()
-        res_bw = (np.linalg.norm(A_out_bw - B_out_bw, axis=-1) / np.linalg.norm(B_out_bw, axis=-1)).max()
-        if use_dask:
-            res_fw, res_bw = pycu.compute(res_fw, res_bw)
-        print(res_fw)
-        print(res_bw)
+        res_fw_r = (xp.linalg.norm(rA_out_fw - rB_out_fw, axis=-1) / xp.linalg.norm(rB_out_fw, axis=-1)).max()
+        res_fw_c = (xp.linalg.norm(cA_out_fw - cB_out_fw, axis=-1) / xp.linalg.norm(cB_out_fw, axis=-1)).max()
+        res_bw_r = (xp.linalg.norm(rA_out_bw - rB_out_bw, axis=-1) / xp.linalg.norm(rB_out_bw, axis=-1)).max()
+        if not nufft_kwargs["real"]:
+            res_bw_c = (xp.linalg.norm(cA_out_bw - cB_out_bw, axis=-1) / xp.linalg.norm(cB_out_bw, axis=-1)).max()
+        else:
+            res_bw_c = res_bw_r
+
+        res = dict(
+            zip(
+                ["res_fw_r", "res_fw_c", "res_bw_r", "res_bw_c", "eps"],
+                pycu.compute(res_fw_r, res_fw_c, res_bw_r, res_bw_c, nufft_kwargs["eps"]),
+            )
+        )
+        print(res)

@@ -1,9 +1,11 @@
 import collections.abc as cabc
+import types
 import typing as typ
 
 import dask.array as da
 import dask.distributed as dad
 import finufft
+import numba as nb
 import numpy as np
 
 import pycsou.abc as pyca
@@ -36,7 +38,7 @@ class NUFFT(pyca.LinOp):
     The transforms should be instantiated via
     :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type1`,
     :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type2`, and
-    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3` respectively.
+    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3` respectively (see each method for usage examples).
 
     The dimension of the NUFFT transforms is inferred from the dimensions of the input arguments,
     with support for for :math:`d=\{1,2,3\}`.
@@ -69,7 +71,7 @@ class NUFFT(pyca.LinOp):
 
 
     Then the NUFFT operators approximate, up to a requested relative accuracy
-    :math:`\varepsilon>0`, the following exponential sums:
+    :math:`\varepsilon\geq 0`, [#]_ the following exponential sums:
 
     .. math::
 
@@ -130,7 +132,7 @@ class NUFFT(pyca.LinOp):
     :math:`\|\tilde{\mathbf{w}}-{\mathbf{w}}\|_2/\|{\mathbf{w}}\|_2` are **almost always similar to
     the user-requested tolerance** :math:`\varepsilon`, except when round-off error dominates
     (i.e. very small user-requested tolerances).
-    The same holds approximately for the NUFFT of Type 3.
+    The same holds approximately for the type-3 NUFFT.
     Note however that this is a *typical error analysis*: some degenerate (but rare) worst-case
     scenarios can result in much higher errors.
 
@@ -154,7 +156,7 @@ class NUFFT(pyca.LinOp):
     The complexity of the type-3 NUFFT can be arbitrarily large for poorly-centered data. In certain
     cases however, an easy fix consists in centering the data before/after the NUFFT via
     pre/post-phasing operations, as described in equation (3.24) of [FINUFFT]_.
-    This optimization is automatically by FINUFFT if the compute/memory gains are significant
+    This optimization is automatically carried out by FINUFFT if the compute/memory gains are significant
     enough. [#]_
 
     **Backend.** The NUFFT tansforms are computed via Python wrappers to `FINUFFT
@@ -175,22 +177,38 @@ class NUFFT(pyca.LinOp):
     from FINUFFT and its `companion page
     <https://finufft.readthedocs.io/en/latest/opts.html#options-parameters>`_ for details.
 
+    .. Hint::
+
+        FINUFFT exposes a ``dtype`` keyword to control the precision (single or double) at which
+        transforms are performed.
+        This parameter is ignored by :py:class:`~pycsou.operator.linop.nufft.NUFFT`.
+        Use the context manager :py:class:`~pycsou.runtime.Precision` to control the floating point
+        precision.
+
+    .. warning::
+
+        The NUFFT is performed in **chunks of size (n_trans, K)** where K is the size of the non-stacking dimension of input arrays and
+        n_trans the number of simultaneous transforms requested (see the ``n_trans`` parameter of `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.).
+        To avoid memory overloading and bad performances, one must hence make sure that *each chunk fits comfortably in memory*.
+        Note that this recommendation applies to Dask arrays too, which are rechunked to meet such chunk sizes (FINUFFT cannot process arbitrary chunk sizes).
+
+        Additionally, this class is **only compatible** with Dask's `distributed scheduler <https://distributed.dask.org/en/stable/>`_ in multithreading mode (``processes=False``). [#]_
+        Indeed, the sharing of FINUFFT's plan among all workers creates a race condition which, unlike Dask's default schedulers, the distributed scheduler can prevent by means of locks.
+        One implication of this implementation is that chunks are processed serially one after the other, while NUFFT computations within each chunk are multithreaded.
+        Note moreover that **multiprocessing is currently not available** due to serialization issues of FINUFFT's C routines (will be fixed in the future).
+
+    .. [#] :math:`\varepsilon= 0` means that no approximation is performed: the exponential sums are naively computed by direct evaluation.
     .. [#] FINUFFT uses the following rule of thumb:
            for a given dimension, if the magnitude of the center is less than 10% of half the
            peak-to-peak distance, then the data is considered well-centered and no fix is performed.
+    .. [#] The distributed scheduler in multithreading mode can be invoked as ``from dask.distributed import Client; client=Client(processes=False)``.
 
-    Warnings
-    --------
-    FINUFFT exposes a ``dtype`` keyword to control the precision (single or double) at which
-    transforms are performed.
-    This parameter is ignored by :py:class:`~pycsou.operator.linop.nufft.NUFFT`.
-    Use the context manager :py:class:`~pycsou.runtime.Precision` to control the floating point
-    precision.
 
     See Also
     --------
     FFT, DCT, Radon
     """
+    _safetyfac = 0.976  # Safety factor for computing the kernel width.
 
     # The goal of this wrapper class is to sanitize __init__() inputs.
 
@@ -220,14 +238,15 @@ class NUFFT(pyca.LinOp):
         isign: 1 | -1
             Sign :math:`\sigma` of the transform.
         eps: float
-            Requested relative accuracy (defaults to 1e-4).
+            Requested relative accuracy :math:`\varepsilon\geq 0` (defaults to 1e-4). If ``eps=0``, the NUFFT is computed exactly by
+            direct evaluation of the exponential sum via a Numba JIT-compiled kernel.
         real: bool
             If ``True``, assumes ``.apply()`` takes (..., M) inputs.
             If ``False``, then ``.apply()`` takes (..., 2M) inputs.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
-            Most useful is ``n_trans`` and ``debug`` (for debugging or diagnostics).
+            Most useful are ``n_trans``, ``nthreads`` and ``debug`` (for debugging or diagnostics).
 
         Returns
         -------
@@ -302,14 +321,15 @@ class NUFFT(pyca.LinOp):
         isign: 1 | -1
             Sign :math:`\sigma` of the transform.
         eps: float
-            Requested relative accuracy (defaults to 1e-4).
+            Requested relative accuracy :math:`\varepsilon\geq 0` (defaults to 1e-4). If ``eps=0``, the NUFFT is computed exactly by
+            direct evaluation of the exponential sum via a Numba JIT-compiled kernel.
         real: bool
             If ``True``, assumes ``.apply()`` takes (..., N.prod()) inputs.
             If ``False``, then ``.apply()`` takes (..., 2N.prod()) inputs.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
-            Most useful is ``n_trans`` and ``debug`` (for debugging or diagnostics).
+            Most useful are ``n_trans``, ``nthreads`` and ``debug`` (for debugging or diagnostics).
 
         Returns
         -------
@@ -363,7 +383,15 @@ class NUFFT(pyca.LinOp):
             real_output=real,
             **kwargs,
         )
-        return _NUFFT1(**init_kwargs).squeeze().T
+
+        op = _NUFFT1(**init_kwargs)
+
+        def adj_complex_matrix(_, xp=np):
+            return op.complex_matrix(xp).conj().T
+
+        adj = op.squeeze().T
+        adj.complex_matrix = types.MethodType(adj_complex_matrix, adj)
+        return adj
 
     @staticmethod
     @pycrt.enforce_precision(i=("x", "z"), o=False, allow_None=False)
@@ -387,14 +415,15 @@ class NUFFT(pyca.LinOp):
         isign: 1 | -1
             Sign :math:`\sigma` of the transform.
         eps: float
-            Requested relative accuracy (defaults to 1e-4).
+            Requested relative accuracy :math:`\varepsilon\geq 0` (defaults to 1e-4). If ``eps=0``, the NUFFT is computed exactly by
+            direct evaluation of the exponential sum via a Numba JIT-compiled kernel.
         real: bool
             If ``True``, assumes ``.apply()`` takes (..., M) inputs.
             If ``False``, then ``.apply()`` takes (..., 2M) inputs.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
-            Most useful is ``n_trans`` and ``debug`` (for debugging or diagnostics).
+            Most useful are ``n_trans``, ``nthreads`` and ``debug`` (for debugging or diagnostics).
 
         Returns
         -------
@@ -443,6 +472,273 @@ class NUFFT(pyca.LinOp):
             **kwargs,
         )
         return _NUFFT3(**init_kwargs).squeeze()
+
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: pyct.NDArray (constructor-dependant)
+            - **Type 1 and 3:**
+                * (...,  M) input weights :math:`\mathbf{w} \in \mathbb{R}^{M}` (real transform).
+                * (..., 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
+                  (see :py:func:`~pycsou.util.complex.view_as_real`).
+            - **Type 2:**
+                * (...,  N.prod()) output weights :math:`\mathbf{u} \in
+                  \mathbb{R}^{\mathcal{I}_{N_1,\ldots, N_d}}` (real transform).
+                * (..., 2N.prod()) output weights :math:`\mathbf{u} \in
+                  \mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` viewed as a real array.
+                  (see :py:func:`~pycsou.util.complex.view_as_real`).
+
+        Returns
+        -------
+        out: pyct.NDArray (constructor-dependant)
+            - **Type 1:**
+                (..., 2N.prod()) output weights :math:`\mathbf{u} \in
+                \mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` viewed as a real array.
+                (see :py:func:`~pycsou.util.complex.view_as_real`).
+            - **Type 2:**
+                (..., 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
+                (see :py:func:`~pycsou.util.complex.view_as_real`).
+            - **Type 3:**
+                (..., 2N) output weights :math:`\mathbf{v} \in \mathbb{C}^{N}` viewed as a real array.
+                (see :py:func:`~pycsou.util.complex.view_as_real`).
+        """
+        raise NotImplementedError
+
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: pyct.NDArray (constructor-dependant)
+            - **Type 1:**
+                (..., 2N.prod()) output weights :math:`\mathbf{u} \in
+                \mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` viewed as a real array.
+                (see :py:func:`~pycsou.util.complex.view_as_real`).
+            - **Type 2:**
+                (..., 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
+                (see :py:func:`~pycsou.util.complex.view_as_real`).
+            - **Type 3:**
+                (..., 2N) output weights :math:`\mathbf{v} \in \mathbb{C}^{N}` viewed as a real array.
+                (see :py:func:`~pycsou.util.complex.view_as_real`).
+
+        Returns
+        -------
+        out: pyct.NDArray (constructor-dependant)
+            - **Type 1 and 3:**
+                * (...,  M) input weights :math:`\mathbf{w} \in \mathbb{R}^{M}` (real transform).
+                * (..., 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
+                  (see :py:func:`~pycsou.util.complex.view_as_real`).
+            - **Type 2:**
+                * (...,  N.prod()) output weights :math:`\mathbf{u} \in
+                  \mathbb{R}^{\mathcal{I}_{N_1,\ldots, N_d}}` (real transform).
+                * (..., 2N.prod()) output weights :math:`\mathbf{u} \in
+                  \mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` viewed as a real array.
+                  (see :py:func:`~pycsou.util.complex.view_as_real`).
+        """
+        raise NotImplementedError
+
+    def complex_matrix(self, xp: pyct.ArrayModule = np) -> pyct.NDArray:
+        r"""
+        Form the complex-valued matrix associated to the operator.
+
+        Parameters
+        ----------
+        xp: ArrayModule
+            Which array module to use to represent the output.
+
+        Returns
+        -------
+        NDArray
+            * (N.prod(), M) complex-valued array for type-1 NUFFT.
+            * (M, N.prod()) complex-valued array for type-2 NUFFT.
+            * (M, N) complex-valued array for type-3 NUFFT.
+        Examples
+        --------
+        .. code-block:: python3
+
+           import numpy as np
+           import pycsou.operator.linop as pycl
+           import pycsou.runtime as pycrt
+           import pycsou.util as pycu
+
+           rng = np.random.default_rng(0)
+           D, M, N = 1, 2, 3  # D denotes the dimension of the data
+           x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+           A = pycl.NUFFT.type1(
+                   x,
+                   N,
+                   isign=-1,
+                   eps=1e-3,
+               )
+           A.complex_matrix()
+           >> array([[0.99210636+0.12539922j, 0.99128684-0.13172096j],
+                     [1.        +0.j        , 1.        +0.j        ],
+                     [0.99210636-0.12539922j, 0.99128684+0.13172096j]])
+
+        Warnings
+        --------
+        This method is mainly for debugging/benchmarking purposes and must be used sparingly/carefully as forming the complex
+        matrix associated to the NUFFT operator can be slow and very memory intensive in high dimensional settings.
+        """
+        raise NotImplementedError
+
+    def mesh(
+        self,
+        xp: pyct.ArrayModule = np,
+        coords: typ.Literal["normalized", "x", "z"] = "normalized",
+        upsampling: bool = False,
+    ) -> pyct.NDArray:
+        r"""
+        Return the transform's meshgrid :math:`\mathcal{I}_{N_1\times\cdots\times N_d} =\mathcal{I}_{N_1}\times \cdots \times \mathcal{I}_{N_d}`
+        in normalized (unit-spacing) or rescaled coordinates.
+
+        For the type-3 NUFFT, this method returns the meshgrid used for internal FFT computations.
+
+        Parameters
+        ----------
+        xp: ArrayModule
+            Which array module to use to represent the output.
+        coords: ['normalized', 'x', 'z']
+            Coordinates of the grid: ``'normalized'`` (canonical unity grid) or ``'x'`` (source coordinates).
+            For type-3 NUFFT, it is also possible to express the grid in target coordinates (``coords='z'``).
+        upsampling: bool
+            Whether the return the upsampled meshgrid or not (see [FINUFFT]_ for details).
+
+        Returns
+        -------
+        NDArray
+            (N1, ..., Nd, d) meshgrid following Numpy's :py:func:`~numpy.meshgrid` convention with ``'ij'`` indexing.
+            If ``modeord=1`` was passed as optional keyword argument to the class constructor, all axes of the grid are "`ifftshifted <https://numpy.org/doc/stable/reference/generated/numpy.fft.ifftshift.html>`_"
+            to reflect the different ordering convention.
+
+        Examples
+        --------
+        .. code-block:: python3
+
+           import numpy as np
+           import pycsou.operator.linop as pycl
+
+           rng = np.random.default_rng(0)
+           D, M, N = 1, 2, 3  # D denotes the dimension of the data
+           x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+           A = pycl.NUFFT.type1(
+                   x,
+                   N,
+                   isign=-1,
+                   eps=1e-3,
+               )
+           A.mesh()
+           >> array([[-1.,  0.,  1.]])
+        """
+        raise NotImplementedError
+
+    @property
+    def fft_size(self) -> tuple[list, float]:
+        r"""
+        Size of the effective meshgrid (after upsampling and 5-smoothing) used for internal FFT computations.
+
+        Returns
+        -------
+        n: list
+            (d,) size of the meshgrid in each dimension.
+        nbytes: float
+            Size in bytes of the arrays processed by FFT.
+        """
+        raise NotImplementedError
+
+    @property
+    def kernel_width(self) -> float:
+        r"""
+        Width of the spreading/interpolation kernel.
+
+        Returns
+        -------
+        float
+            Width of the kernel.
+        """
+        if self._eps == 0:
+            raise ValueError("Kernel width is undefined for eps=0.")
+        else:
+            leps = np.abs(np.log10(self._eps))
+            u = 2 if self._upsampfac == 0 else self._upsampfac
+            sigmainv = 1 / u
+            denominator = (
+                np.pi * self._safetyfac * np.sqrt(1 - sigmainv - (sigmainv**2) * (self._safetyfac ** (-2) - 1) / 4)
+            )
+            w = np.ceil(leps / denominator) + 1
+            return pycrt.coerce(w)
+
+    @pycrt.enforce_precision("w")
+    def _ES_beta(self, w: float = 2) -> float:
+        r"""Beta parameter of the exponential semi-circle kernel."""
+        u = 2 if self._upsampfac == 0 else self._upsampfac
+        return w * np.pi * self._safetyfac * (1 - 1 / (2 * u))
+
+    @pycrt.enforce_precision(["z", "w"])
+    def ES_kernel(self, z: pyct.NDArray, w: float = 2) -> pyct.NDArray:
+        r"""
+        Exponential of semi-circle kernel used for spreading/interpolation to/from the meshgrid.
+
+        Parameters
+        ----------
+        z: NDArray
+            Query points in :math:`[-w/2, w/2]`.
+        w: float
+            Width of the kernel.
+
+        Returns
+        -------
+        y: NDArray
+            Evaluation of the kernel at the query points.
+
+        Notes
+        -----
+        The exponential of semi-circle (ES) kernel is defined as (see [FINUFFT]_ eq. (1.8)):
+
+        .. math::
+
+            \phi_\beta(z) = \begin{cases} e^{\beta(\sqrt{1-z^2}-1)}, & |z|\leq 1,\\0, &\text{otherwise.} \end{cases}
+
+        This kernel has support [-1,1] with width 2. For ``w!=2``, the current method proceeds to a dilation by :math:`2/w` so that
+        the support becomes  :math:`[-w/2,w/2]` with width :math:`w`.
+        """
+        xp = pycu.get_array_module(z)
+        z = z * 2 / w
+        beta = self._ES_beta(w)
+        y = 0 * z
+        y[xp.abs(z) <= 1] = xp.exp(beta * (xp.sqrt(1 - z[xp.abs(z) <= 1] ** 2) - 1))
+        return y
+
+    def plot_kernel(self, npix: int = 1024, **kwargs) -> tuple:
+        r"""
+        Plot the ES kernel in use on its support.
+
+        Parameters
+        ----------
+        npix: int
+            Resolution of the line plot.
+
+        Returns
+        -------
+        fig:
+            Figure handle.
+        lin:
+            Line plot handle.
+
+        Warnings
+        --------
+        Requires Matplotlib to be installed.
+        """
+        try:
+            import matplotlib.pyplot as plt
+        except:
+            raise ImportError("This method requires matplotlib to be installed.")
+        w = self.kernel_width
+        z = np.linspace(-w / 2, w / 2, npix)
+        y = self.ES_kernel(z, w)
+        fig = plt.figure()
+        (lin,) = plt.plot(z, y, **kwargs)
+        return fig, lin
 
     @staticmethod
     def _as_canonical_coordinate(x: pyct.NDArray) -> pyct.NDArray:
@@ -561,13 +857,23 @@ class _NUFFT1(NUFFT):
     def __init__(self, **kwargs):
         self._real_input = kwargs.pop("real_input")
         self._real_output = kwargs.pop("real_output")
-        self._plan = dict(
-            fw=self._plan_fw(**kwargs),
-            bw=self._plan_bw(**kwargs),
-        )
+        self._eps = kwargs["eps"]
+        if self._eps > 0:
+            self._plan = dict(
+                fw=self._plan_fw(**kwargs),
+                bw=self._plan_bw(**kwargs),
+            )
+            self._n = self._plan["fw"].n_trans
+            self._upsampfac = kwargs.get("upsampfac", 0)
+        else:
+            self._plan = None
+            self._n = None
+            self._upsampfac = None
         self._M, self._D = kwargs["x"].shape  # Useful constants
         self._N = kwargs["N"]
-        self._n = self._plan["fw"].n_trans
+        self._x = kwargs["x"]
+        self._isign = kwargs["isign"]
+        self._modeord = kwargs.get("modeord", 0)
 
         sh_op = [2 * np.prod(self._N), 2 * self._M]
         if self._real_output:
@@ -580,7 +886,7 @@ class _NUFFT1(NUFFT):
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:
         kwargs = kwargs.copy()
-        for k in ("nufft_type", "n_modes_or_dim", "dtype", "modeord"):
+        for k in ("nufft_type", "n_modes_or_dim", "dtype"):
             kwargs.pop(k, None)
         x = kwargs["x"] = cls._as_canonical_coordinate(kwargs["x"])
         N = kwargs["N"] = cls._as_canonical_mode(kwargs["N"])
@@ -606,7 +912,7 @@ class _NUFFT1(NUFFT):
             eps=kwargs.pop("eps"),
             n_trans=kwargs.pop("n_trans", 1),
             isign=kwargs.pop("isign"),
-            modeord=0,
+            modeord=kwargs.pop("modeord", 0),
             **kwargs,
         )
         plan.setpts(
@@ -615,7 +921,7 @@ class _NUFFT1(NUFFT):
         return plan
 
     def _fw(self, arr: np.ndarray) -> np.ndarray:
-        out = self._plan["fw"].execute(arr.squeeze())  # ([n_trans], M) -> ([n_trans], N1,..., Nd)
+        out = self._plan["fw"].execute(np.atleast_1d(arr.squeeze()))  # ([n_trans], M) -> ([n_trans], N1,..., Nd)
         return out.reshape((self._n, np.prod(self._N)))
 
     def _fw_locked(self, arr: np.ndarray, lock: dad.Lock = None) -> np.ndarray:
@@ -623,7 +929,7 @@ class _NUFFT1(NUFFT):
             pycrt.getPrecision().complex.value
         )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('complex128') (== passes but not "is" which FINUFFT uses)
         with lock:
-            out = self._plan["fw"].execute(arr.squeeze())  # ([n_trans], M) -> ([n_trans], N1,..., Nd)
+            out = self._plan["fw"].execute(np.atleast_1d(arr.squeeze()))  # ([n_trans], M) -> ([n_trans], N1,..., Nd)
         return out.reshape((self._n, np.prod(self._N)))[
             None, ...
         ]  # with map_blocks we can skip _postprocess by simply recreating the stacking axis after processing each chunk
@@ -641,7 +947,7 @@ class _NUFFT1(NUFFT):
             eps=kwargs.pop("eps"),
             n_trans=kwargs.pop("n_trans", 1),
             isign=-kwargs.pop("isign"),
-            modeord=0,
+            modeord=kwargs.pop("modeord", 0),
             **kwargs,
         )
         plan.setpts(
@@ -650,12 +956,12 @@ class _NUFFT1(NUFFT):
         return plan
 
     def _bw(self, arr: np.ndarray) -> np.ndarray:
-        arr = arr.reshape((self._n, *self._N)).squeeze()
+        arr = np.atleast_1d(arr.reshape((self._n, *self._N)).squeeze())
         out = self._plan["bw"].execute(arr)  # ([n_trans], N1, ..., Nd) -> ([n_trans], M)
         return out.reshape((self._n, self._M))  # req. if squeeze-like behaviour above kicked in.
 
     def _bw_locked(self, arr: np.ndarray, lock: dad.Lock = None) -> np.ndarray:
-        arr = arr.reshape((self._n, *self._N)).squeeze()
+        arr = np.atleast_1d(arr.reshape((self._n, *self._N)).squeeze())
         arr = arr.astype(
             pycrt.getPrecision().complex.value
         )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('complex128') (== passes but not "is" which FINUFFT uses)
@@ -690,10 +996,25 @@ class _NUFFT1(NUFFT):
         else:
             arr = pycu.view_as_complex(arr)
 
-        data, N, sh = self._preprocess(arr, self._n, np.prod(self._N))
+        if self._eps > 0:
+            out = self._nufft_apply(arr)
+        else:
+            out = self._nudft_apply(arr)
+        return out.real if self._real_output else pycu.view_as_real(out)
 
+    def _nufft_apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        data, N, sh = self._preprocess(arr, self._n, np.prod(self._N))
         if isinstance(data, da.Array):
-            lock = dad.Lock("fw_lock")  # Use lock to avoid race condition because of the shared FFTW resources.
+            try:
+                lock = dad.Lock()  # Use lock to avoid race condition because of the shared FFTW resources.
+            except:
+                error_message = r"""
+                        The NUFFT operator requires Dask's distributed scheduler in multi-threading mode (other schedulers are not accepted).
+                        Start a client and point it to the scheduler address:
+                            from dask.distributed import Client
+                            client = Client('ip-addr-of-scheduler:8786', processes=False)
+                        """
+                raise ValueError(error_message)
             out = data.rechunk(chunks=(1, -1, -1)).map_blocks(
                 func=self._fw_locked,
                 dtype=data.dtype,
@@ -702,11 +1023,24 @@ class _NUFFT1(NUFFT):
                 meta=data._meta,
                 lock=lock,
             )
+            out = out.reshape(-1, sh[-1])[:N].reshape(sh)
         else:
             blks = [self._fw(blk) for blk in data]
             out = self._postprocess(blks, N, sh)
+        return out
 
-        return out.real if self._real_output else pycu.view_as_real(out)
+    def _nudft_apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        if isinstance(arr, da.Array):
+            out = da.tensordot(arr, self.complex_matrix(pycu.get_array_module(arr)), axes=(arr.ndim - 1, -1))
+        else:
+            out = _nudft(
+                weights=arr,
+                source=self._x,
+                target=self.mesh().reshape(-1, self._D),
+                isign=self._isign,
+                dtype=pycrt.getPrecision().complex.value,
+            )
+        return out
 
     @pycrt.enforce_precision("arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -733,10 +1067,27 @@ class _NUFFT1(NUFFT):
         else:
             arr = pycu.view_as_complex(arr)
 
+        if self._eps > 0:
+            out = self._nufft_adjoint(arr)
+        else:
+            out = self._nudft_adjoint(arr)
+
+        return out.real if self._real_input else pycu.view_as_real(out)
+
+    def _nufft_adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         data, N, sh = self._preprocess(arr, self._n, self._M)
 
         if isinstance(data, da.Array):
-            lock = dad.Lock("bw_lock")  # Use lock to avoid race condition because of the shared FFTW resources.
+            try:
+                lock = dad.Lock()  # Use lock to avoid race condition because of the shared FFTW resources.
+            except:
+                error_message = r"""
+                        The NUFFT operator requires Dask's distributed scheduler in multi-threading mode (other schedulers are not accepted).
+                        Start a client and point it to the scheduler address:
+                            from dask.distributed import Client
+                            client = Client('ip-addr-of-scheduler:8786', processes=False)
+                        """
+                raise ValueError(error_message)
             out = data.rechunk(chunks=(1, -1, -1)).map_blocks(
                 func=self._bw_locked,
                 dtype=data.dtype,
@@ -745,23 +1096,95 @@ class _NUFFT1(NUFFT):
                 meta=data._meta,
                 lock=lock,
             )
+            out = out.reshape(-1, sh[-1])[:N].reshape(sh)
         else:
             blks = [self._bw(blk) for blk in data]
             out = self._postprocess(blks, N, sh)
+        return out
 
-        return out.real if self._real_input else pycu.view_as_real(out)
+    def _nudft_adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        if isinstance(arr, da.Array):
+            out = da.tensordot(arr, self.complex_matrix(pycu.get_array_module(arr)).conj().T, axes=(arr.ndim - 1, 1))
+        else:
+            out = _nudft(
+                weights=arr,
+                source=self.mesh().reshape(-1, self._D),
+                target=self._x,
+                isign=-self._isign,
+                dtype=pycrt.getPrecision().complex.value,
+            )
+        return out
+
+    @pycrt.enforce_precision()
+    def mesh(
+        self, xp: pyct.ArrayModule = np, coords: typ.Literal["normalized", "x"] = "normalized", upsampling: bool = False
+    ) -> pyct.NDArray:
+        n_modes = self.fft_size[0] if upsampling else self._N
+        h = 2 * np.pi / np.array(n_modes)
+        if coords == "normalized":
+            mesh = xp.stack(
+                xp.meshgrid(*[xp.arange(-(m // 2), (m - 1) // 2 + 1) for m in n_modes], indexing="ij"), axis=-1
+            )
+        else:
+            mesh = xp.stack(xp.meshgrid(*[xp.arange(-np.pi, np.pi, hi) for hi in h], indexing="ij"), axis=-1)
+        if self._modeord:
+            mesh = xp.stack([xp.fft.ifftshift(mesh[..., i], axes=i) for i in range(mesh.shape[-1])], axis=-1)
+        return mesh
+
+    @property
+    def fft_size(self) -> tuple[list, float]:
+        from scipy.fftpack import next_fast_len
+
+        u = 2.0 if self._upsampfac == 0 else self._upsampfac
+        n = list(map(lambda Ni: next_fast_len(np.ceil(u * Ni).astype(int)), self._N))
+        nbytes = np.prod(n) * pycrt.coerce(np.r_[1.0]).itemsize
+        return n, nbytes
+
+    def complex_matrix(self, xp: pyct.ArrayModule = np) -> pyct.NDArray:
+        A = self.mesh(xp)
+        A = A.reshape((-1, self._D))
+        A = xp.exp(1j * xp.sign(self._isign) * A @ self._x.T).astype(pycrt.getPrecision().complex.value)
+        return A
+
+    def asarray(
+        self,
+        xp: pyct.ArrayModule = np,
+        dtype: typ.Optional[type] = None,
+    ) -> pyct.NDArray:
+        if dtype is None:
+            dtype = pycrt.getPrecision().value
+
+        try:
+            width = pycrt.Width(np.dtype(dtype))
+        except:
+            raise ValueError(f"Unsupported dtype {dtype}.")
+
+        cmat = self.complex_matrix(xp=xp).astype(width.complex.value)
+        return pycu.view_as_real_mat(cmat, real_input=self._real_input, real_output=self._real_output).astype(dtype)
 
 
 class _NUFFT3(NUFFT):
     def __init__(self, **kwargs):
         self._real = kwargs.pop("real")
-        self._plan = dict(
-            fw=self._plan_fw(**kwargs),
-            bw=self._plan_bw(**kwargs),
-        )
+        self._eps = kwargs["eps"]
+        if self._eps > 0:
+            self._plan = dict(
+                fw=self._plan_fw(**kwargs),
+                bw=self._plan_bw(**kwargs),
+            )
+            self._n = self._plan["fw"].n_trans
+            self._upsampfac = kwargs.get("upsampfac", 0)
+        else:
+            self._plan = None
+            self._n = None
+            self._upsampfac = None
         self._M, self._D = kwargs["x"].shape  # Useful constants
         self._N, _ = kwargs["z"].shape
-        self._n = self._plan["fw"].n_trans
+        self._x = kwargs["x"]
+        self._z = kwargs["z"]
+        self._X, self._Z = pycu.compute(np.ptp(self._x, axis=0) / 2, np.ptp(self._z, axis=0) / 2)
+        self._isign = kwargs["isign"]
+        self._modeord = kwargs.get("modeord", 0)
 
         sh_op = [2 * self._N, 2 * self._M]
         if self._real:
@@ -772,7 +1195,7 @@ class _NUFFT3(NUFFT):
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:
         kwargs = kwargs.copy()
-        for k in ("nufft_type", "n_modes_or_dim", "dtype", "modeord"):
+        for k in ("nufft_type", "n_modes_or_dim", "dtype"):
             kwargs.pop(k, None)
         x = kwargs["x"] = cls._as_canonical_coordinate(kwargs["x"])
         z = kwargs["z"] = cls._as_canonical_coordinate(kwargs["z"])
@@ -800,16 +1223,15 @@ class _NUFFT3(NUFFT):
             **dict(
                 zip(
                     "xyz"[:N_dim] + "stu"[:N_dim],
-                    tuple(
-                        _.astype(pycrt.getPrecision().value) for _ in pycu.compute(*x.T[:N_dim], *z.T[:N_dim])
-                    ),  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('float64') (== passes but not "is" which FINUFFT uses)
+                    tuple(_.astype(pycrt.getPrecision().value) for _ in pycu.compute(*x.T[:N_dim], *z.T[:N_dim])),
+                    # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('float64') (== passes but not "is" which FINUFFT uses)
                 )
             ),
         )
         return plan
 
     def _fw(self, arr: np.ndarray) -> np.ndarray:
-        out = self._plan["fw"].execute(arr.squeeze())  # ([n_trans], M) -> ([n_trans], N)
+        out = self._plan["fw"].execute(np.atleast_1d(arr.squeeze()))  # ([n_trans], M) -> ([n_trans], N)
         return out.reshape((self._n, self._N))
 
     def _fw_locked(self, arr: np.ndarray, lock: dad.Lock = None) -> np.ndarray:
@@ -817,7 +1239,7 @@ class _NUFFT3(NUFFT):
             pycrt.getPrecision().complex.value
         )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('complex128') (== passes but not "is" which FINUFFT uses)
         with lock:
-            out = self._plan["fw"].execute(arr.squeeze())  # ([n_trans], M) -> ([n_trans], N)
+            out = self._plan["fw"].execute(np.atleast_1d(arr.squeeze()))  # ([n_trans], M) -> ([n_trans], N)
         return out.reshape((self._n, self._N))[
             None, ...
         ]  # with map_blocks we can skip _postprocess by simply recreating the stacking axis after processing each chunk
@@ -841,16 +1263,15 @@ class _NUFFT3(NUFFT):
             **dict(
                 zip(
                     "xyz"[:N_dim] + "stu"[:N_dim],
-                    tuple(
-                        _.astype(pycrt.getPrecision().value) for _ in pycu.compute(*z.T[:N_dim], *x.T[:N_dim])
-                    ),  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('float64') (== passes but not "is" which FINUFFT uses)
+                    tuple(_.astype(pycrt.getPrecision().value) for _ in pycu.compute(*z.T[:N_dim], *x.T[:N_dim])),
+                    # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('float64') (== passes but not "is" which FINUFFT uses)
                 )
             ),
         )
         return plan
 
     def _bw(self, arr: np.ndarray) -> np.ndarray:
-        out = self._plan["bw"].execute(arr.squeeze())  # ([n_trans,] N) -> ([n_trans,] M)
+        out = self._plan["bw"].execute(np.atleast_1d(arr.squeeze()))  # ([n_trans,] N) -> ([n_trans,] M)
         return out.reshape((self._n, self._M))
 
     def _bw_locked(self, arr: np.ndarray, lock: dad.Lock = None) -> np.ndarray:
@@ -858,7 +1279,7 @@ class _NUFFT3(NUFFT):
             pycrt.getPrecision().complex.value
         )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('complex128') (== passes but not "is" which FINUFFT uses)
         with lock:
-            out = self._plan["bw"].execute(arr.squeeze())  # ([n_trans], N) -> ([n_trans], M)
+            out = self._plan["bw"].execute(np.atleast_1d(arr.squeeze()))  # ([n_trans], N) -> ([n_trans], M)
         return out.reshape((self._n, self._M))[
             None, ...
         ]  # with map_blocks we can skip _postprocess by simply recreating the stacking axis after processing each chunk
@@ -884,10 +1305,27 @@ class _NUFFT3(NUFFT):
             arr = arr.astype(r_width.complex.value)
         else:
             arr = pycu.view_as_complex(arr)
+
+        if self._eps > 0:
+            out = self._nufft_apply(arr)
+        else:
+            out = self._nudft_apply(arr)
+        return pycu.view_as_real(out)
+
+    def _nufft_apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         data, N, sh = self._preprocess(arr, self._n, self._N)
 
         if isinstance(data, da.Array):
-            lock = dad.Lock("fw_lock")  # Use lock to avoid race condition because of the shared FFTW resources.
+            try:
+                lock = dad.Lock()  # Use lock to avoid race condition because of the shared FFTW resources.
+            except:
+                error_message = r"""
+                        The NUFFT operator requires Dask's distributed scheduler in multi-threading mode (other schedulers are not accepted).
+                        Start a client and point it to the scheduler address:
+                            from dask.distributed import Client
+                            client = Client('ip-addr-of-scheduler:8786', processes=False)
+                        """
+                raise ValueError(error_message)
             out = data.rechunk(chunks=(1, -1, -1)).map_blocks(
                 func=self._fw_locked,
                 dtype=data.dtype,
@@ -896,10 +1334,24 @@ class _NUFFT3(NUFFT):
                 meta=data._meta,
                 lock=lock,
             )
+            out = out.reshape(-1, sh[-1])[:N].reshape(sh)
         else:
             blks = [self._fw(blk) for blk in data]
             out = self._postprocess(blks, N, sh)
-        return pycu.view_as_real(out)
+        return out
+
+    def _nudft_apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        if isinstance(arr, da.Array):
+            out = da.tensordot(arr, self.complex_matrix(pycu.get_array_module(arr)), axes=(arr.ndim - 1, 1))
+        else:
+            out = _nudft(
+                weights=arr,
+                source=self._x,
+                target=self._z,
+                isign=self._isign,
+                dtype=pycrt.getPrecision().complex.value,
+            )
+        return out
 
     @pycrt.enforce_precision("arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -918,9 +1370,25 @@ class _NUFFT3(NUFFT):
             (see :py:func:`~pycsou.util.complex.view_as_real`.)
         """
         arr = pycu.view_as_complex(arr)
+        if self._eps > 0:
+            out = self._nufft_adjoint(arr)
+        else:
+            out = self._nudft_adjoint(arr)
+        return out.real if self._real else pycu.view_as_real(out)
+
+    def _nufft_adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         data, N, sh = self._preprocess(arr, self._n, self._M)
         if isinstance(data, da.Array):
-            lock = dad.Lock("bw_lock")  # Use lock to avoid race condition because of the shared FFTW resources.
+            try:
+                lock = dad.Lock("bw_lock")  # Use lock to avoid race condition because of the shared FFTW resources.
+            except:
+                error_message = r"""
+                        The NUFFT operator requires Dask's distributed scheduler in multi-threading mode (other schedulers are not accepted).
+                        Start a client and point it to the scheduler address:
+                            from dask.distributed import Client
+                            client = Client('ip-addr-of-scheduler:8786', processes=False)
+                        """
+                raise ValueError(error_message)
             out = data.rechunk(chunks=(1, -1, -1)).map_blocks(
                 func=self._bw_locked,
                 dtype=data.dtype,
@@ -929,7 +1397,115 @@ class _NUFFT3(NUFFT):
                 meta=data._meta,
                 lock=lock,
             )
+            out = out.reshape(-1, sh[-1])[:N].reshape(sh)
         else:
             blks = [self._bw(blk) for blk in data]
             out = self._postprocess(blks, N, sh)
-        return out.real if self._real else pycu.view_as_real(out)
+        return out
+
+    def _nudft_adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        if isinstance(arr, da.Array):
+            out = da.tensordot(arr, self.complex_matrix(pycu.get_array_module(arr)).conj().T, axes=(arr.ndim - 1, 1))
+        else:
+            out = _nudft(
+                weights=arr,
+                source=self._z,
+                target=self._x,
+                isign=-self._isign,
+                dtype=pycrt.getPrecision().complex.value,
+            )
+        return out
+
+    @pycrt.enforce_precision()
+    def mesh(
+        self,
+        xp: pyct.ArrayModule = np,
+        coords: typ.Literal["normalized", "x", "z"] = "normalized",
+        upsampling: bool = False,
+    ) -> pyct.NDArray:
+        gamma = self._dilationfac
+        n_modes = self.fft_size[0] if upsampling else self._n_modes
+        h = 2 * np.pi / np.array(n_modes)
+        if coords in ["normalized", "z"]:
+            s = 1 + 0 * gamma if coords == "normalized" else 1 / gamma
+            mesh = xp.stack(
+                xp.meshgrid(
+                    *[xp.arange(-(mi // 2), (mi - 1) // 2 + 1) * si for mi, si in zip(n_modes, s)], indexing="ij"
+                ),
+                axis=-1,
+            )
+        else:
+            mesh = xp.stack(
+                xp.meshgrid(*[xp.arange(-np.pi, np.pi, hi) * gammai for hi, gammai in zip(h, gamma)], indexing="ij"),
+                axis=-1,
+            )
+        if self._modeord:
+            mesh = xp.stack([xp.fft.ifftshift(mesh[..., i], axes=i) for i in range(mesh.shape[-1])], axis=-1)
+        return mesh
+
+    @property
+    def fft_size(self) -> tuple[list, float]:
+        from scipy.fftpack import next_fast_len
+
+        u = 2.0 if self._upsampfac == 0 else self._upsampfac
+        n = np.ceil(2 * u * self._X * self._Z / np.pi + self.kernel_width).astype(int)
+        n = list(map(next_fast_len, n))
+        nbytes = np.prod(n) * pycrt.coerce(np.r_[1.0]).itemsize
+        return n, nbytes
+
+    @property
+    def _n_modes(self):
+        """Number of modes of the inner FFT grid before upsampling."""
+        u = 2.0 if self._upsampfac == 0 else self._upsampfac
+        n, _ = self.fft_size
+        return np.floor(np.array(n) / u).astype(int).tolist()
+
+    @property
+    def _dilationfac(self):
+        """Dilation factor :math:`\gamma` across each dimension."""
+        u = 2.0 if self._upsampfac == 0 else self._upsampfac
+        n, _ = self.fft_size
+        return np.array(n) / (2 * u * self._Z)
+
+    def complex_matrix(self, xp: pyct.ArrayModule = np) -> pyct.NDArray:
+        return xp.exp(1j * xp.sign(self._isign) * self._z @ self._x.T).astype(pycrt.getPrecision().complex.value)
+
+    def asarray(
+        self,
+        xp: pyct.ArrayModule = np,
+        dtype: typ.Optional[type] = None,
+    ) -> pyct.NDArray:
+        if dtype is None:
+            dtype = pycrt.getPrecision().value
+
+        try:
+            width = pycrt.Width(np.dtype(dtype))
+        except:
+            raise ValueError(f"Unsupported dtype {dtype}.")
+
+        cmat = self.complex_matrix(xp=xp).astype(width.complex.value)
+        return pycu.view_as_real_mat(cmat, real_input=self._real).astype(dtype)
+
+
+@nb.njit(parallel=True, fastmath=True, nogil=True)
+def _nudft_cpu(
+    weights: pyct.NDArray, source: pyct.NDArray, target: pyct.NDArray, *, isign: typ.Literal[1, -1], dtype: np.dtype
+) -> pyct.NDArray:
+    out = np.zeros(weights.shape[:-1] + (target.shape[0],), dtype=dtype)
+    for n in nb.prange(target.shape[0]):
+        for j in nb.prange(source.shape[0]):
+            out[..., n] += weights[..., j] * np.exp(isign * 1j * np.dot(source[j, :], target[n, :]))
+    return out
+
+
+def _nudft_gpu(
+    weights: pyct.NDArray, source: pyct.NDArray, target: pyct.NDArray, *, isign: typ.Literal[1, -1], dtype: np.dtype
+) -> pyct.NDArray:
+    raise NotImplementedError
+
+
+@pycu.redirect("weights", NUMPY=_nudft_cpu, CUPY=_nudft_gpu)
+def _nudft(
+    weights: pyct.NDArray, source: pyct.NDArray, target: pyct.NDArray, *, isign: typ.Literal[1, -1], dtype: np.dtype
+) -> pyct.NDArray:
+    pass
