@@ -1063,7 +1063,7 @@ class LinOp(DiffMap):
         """
         return self.transpose()
 
-    def transpose(self) -> pyct.OpT:
+    def transpose(self, klass: pyct.OpC = None) -> pyct.OpT:
         r"""
         Return the (M, N) adjoint of the linear operator.
 
@@ -1071,20 +1071,34 @@ class LinOp(DiffMap):
         --------
         :py:meth:`~pycsou.abc.operator.LinOp.T`
         """
+        if klass is None:
+            klass = self._infer_operator_type(self.properties())
 
-        # An operator may have defined a custom .asarray() method.
-        # In such cases we want op.T to use it in place of the default implementation.
-        def op_asarray(_, **kwargs) -> pyct.NDArray:
+        opT = klass(shape=(self.dim, self.codim))
+        opT._op = self  # embed for introspection
+        for p in opT.properties():
+            for name in p.arithmetic_attributes():
+                attr = getattr(self, name)
+                setattr(opT, name, attr)
+            for name in p.arithmetic_methods():
+                func = getattr(self.__class__, name)
+                setattr(opT, name, types.MethodType(func, opT))
+
+        def opT_asarray(_, **kwargs) -> pyct.NDArray:
             A = self.asarray(**kwargs)
             return A.T
 
-        adj = copy.copy(self)
-        adj._shape = self.dim, self.codim
-        adj.apply = self.adjoint
-        adj.__call__ = self.adjoint
-        adj.adjoint = self.apply
-        adj.asarray = types.MethodType(op_asarray, adj)
-        return adj
+        def opT_eigvals(_, **kwargs) -> pyct.NDArray:
+            D = self.eigvals(**kwargs)
+            return D.conj()
+
+        # Overwrite arithmetic methods with different implementations vs. encapsulated op.
+        opT.apply = self.adjoint
+        opT.__call__ = opT.apply
+        opT.adjoint = self.apply
+        opT.asarray = types.MethodType(opT_asarray, opT)
+        opT.eigvals = types.MethodType(opT_eigvals, opT)
+        return opT._squeeze()
 
     def to_sciop(
         self,
@@ -1714,7 +1728,7 @@ class SelfAdjointOp(NormalOp):
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         return self.apply(arr)
 
-    def transpose(self) -> pyct.OpT:
+    def transpose(self, **kwargs) -> pyct.OpT:
         return self
 
     def eigvals(
@@ -1900,24 +1914,12 @@ class LinFunc(ProxDiffFunc, LinOp):
     def fenchel_prox(self, arr: pyct.NDArray, sigma: pyct.Real) -> pyct.NDArray:
         return self.grad(arr)
 
-    def transpose(self) -> pyct.OpT:
-        # Keeping LinFunc core class not possible contrary to super-class implementation since
-        # LinFunc.T != LinFunc.
-        # Moreover .asop() won't do anything since LinFunc inherits from LinOp.
-        # Therefore we need to manually wrap the LinFunc into a LinOp and forward all exposed
-        # arithmetic methods.
-        op = LinOp(shape=(self.dim, 1))
-        for p in op.properties():
-            for name in p.arithmetic_attributes():
-                attr = getattr(self, name)
-                setattr(op, name, attr)
-            for name in p.arithmetic_methods():
-                func = getattr(self.__class__, name)
-                setattr(op, name, types.MethodType(func, op))
-        op.apply = self.adjoint
-        op.__call__ = self.adjoint
-        op.adjoint = self.apply
-        return op
+    def transpose(self, **kwargs) -> pyct.OpT:
+        if self.dim == self.codim:
+            opT = self
+        else:
+            opT = super().transpose(klass=LinOp)
+        return opT
 
     def cogram(self) -> pyct.OpT:
         from pycsou.operator.linop import HomothetyOp
