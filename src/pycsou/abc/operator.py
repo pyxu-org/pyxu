@@ -1350,7 +1350,8 @@ class LinOp(DiffMap):
         If the Gram can be computed more efficiently (e.g. with a convolution), the user should
         re-define this method.
         """
-        return (self.T * self).asop(SelfAdjointOp)
+        op = self.T * self
+        return op.asop(SelfAdjointOp)._squeeze()
 
     def cogram(self) -> pyct.OpT:
         r"""
@@ -1368,7 +1369,8 @@ class LinOp(DiffMap):
         If the co-Gram can be computed more efficiently (e.g. with a convolution), the user should
         re-define this method.
         """
-        return (self * self.T).asop(SelfAdjointOp)
+        op = self * self.T
+        return op.asop(SelfAdjointOp)._squeeze()
 
     @pycrt.enforce_precision(i=("arr", "damp"), allow_None=True)
     def pinv(
@@ -1776,10 +1778,7 @@ class UnitOp(NormalOp):
     def gram(self) -> pyct.OpT:
         from pycsou.operator.linop import IdentityOp
 
-        return IdentityOp(dim=self.dim)
-
-    def cogram(self) -> pyct.OpT:
-        return self.gram()
+        return IdentityOp(dim=self.dim)._squeeze()
 
     def svdvals(self, **kwargs) -> pyct.NDArray:
         N = pycd.NDArrayInfo

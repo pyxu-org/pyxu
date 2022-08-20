@@ -1459,7 +1459,11 @@ class LinOpT(DiffMapT):
 
     def test_interface_gram(self, op):
         self._skip_if_disabled()
-        self._check_has_interface(op.gram(), PosDefOpT)
+        if op.dim > 1:
+            klass = SelfAdjointOpT
+        else:
+            klass = LinFuncT
+        self._check_has_interface(op.gram(), klass)
 
     def test_math_gram(self, op, xp, width):
         # op_g.apply == op_g.adjoint == adjoint \comp apply
@@ -1472,7 +1476,11 @@ class LinOpT(DiffMapT):
 
     def test_interface_cogram(self, op):
         self._skip_if_disabled()
-        self._check_has_interface(op.cogram(), PosDefOpT)
+        if op.codim > 1:
+            klass = SelfAdjointOpT
+        else:
+            klass = LinFuncT
+        self._check_has_interface(op.cogram(), klass)
 
     def test_math_cogram(self, op, xp, width):
         # op_cg.apply == op_cg.adjoint == apply \comp adjoint
@@ -1628,10 +1636,6 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
     def test_value1D_svdvals(self, op, xp, _gpu, _op_svd, k, which):
         self._skip_if_disabled()
         super().test_value1D_svdvals(op, xp, _gpu, _op_svd, k, which)
-
-    def test_interface_cogram(self, op):
-        self._skip_if_disabled()
-        self._check_has_interface(op.cogram(), LinFuncT)
 
 
 class SquareOpT(LinOpT):

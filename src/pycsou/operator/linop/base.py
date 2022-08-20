@@ -81,10 +81,12 @@ class NullOp(pyca.LinOp):
         return D
 
     def gram(self) -> pyct.OpT:
-        return NullOp(shape=(self.dim, self.dim)).asop(pyca.PosDefOp)
+        op = NullOp(shape=(self.dim, self.dim))
+        return op.asop(pyca.SelfAdjointOp)._squeeze()
 
     def cogram(self) -> pyct.OpT:
-        return NullOp(shape=(self.codim, self.codim)).asop(pyca.PosDefOp)
+        op = NullOp(shape=(self.codim, self.codim))
+        return op.asop(pyca.SelfAdjointOp)._squeeze()
 
     def asarray(self, **kwargs) -> pyct.NDArray:
         dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
