@@ -69,6 +69,8 @@ class Property(enum.Enum):
                 "asarray",
                 "svdvals",
                 "pinv",
+                "gram",
+                "cogram",
             ]
         )
         data[self.LINEAR_SQUARE].append("trace")
@@ -1098,6 +1100,8 @@ class LinOp(DiffMap):
         opT.adjoint = self.apply
         opT.asarray = types.MethodType(opT_asarray, opT)
         opT.eigvals = types.MethodType(opT_eigvals, opT)
+        opT.gram = self.cogram
+        opT.cogram = self.gram
         return opT._squeeze()
 
     def to_sciop(

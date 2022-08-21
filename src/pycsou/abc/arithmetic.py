@@ -89,6 +89,8 @@ class ScaleRule(Rule):
         |                          |             | op_new.asarray() = op_old.asarray() * \alpha                       |
         |                          |             | op_new.svdvals() = op_old.svdvals() * abs(\alpha)                  |
         |                          |             | op_new.pinv(x, damp) = op_old.pinv(x, damp / (\alpha**2)) / \alpha |
+        |                          |             | op_new.gram() = op_old.gram() * (\alpha**2)                        |
+        |                          |             | op_new.cogram() = op_old.cogram() * (\alpha**2)                        |
         |--------------------------|-------------|--------------------------------------------------------------------|
         | LINEAR_SQUARE            | yes         | op_new.trace() = op_old.trace() * \alpha                           |
         |--------------------------|-------------|--------------------------------------------------------------------|
@@ -220,6 +222,14 @@ class ScaleRule(Rule):
         out /= self._cst
         return out
 
+    def gram(self) -> pyct.OpT:
+        op = self._op.gram() * (self._cst**2)
+        return op
+
+    def cogram(self) -> pyct.OpT:
+        op = self._op.cogram() * (self._cst**2)
+        return op
+
     def trace(self, **kwargs) -> pyct.Real:
         tr = self._op.trace(**kwargs) * self._cst
         return float(tr)
@@ -261,6 +271,8 @@ class ArgScaleRule(Rule):
         |                          |             | op_new.asarray() = op_old.asarray() * \alpha                                |
         |                          |             | op_new.svdvals() = op_old.svdvals() * abs(\alpha)                           |
         |                          |             | op_new.pinv(x, damp) = op_old.pinv(x, damp / (\alpha**2)) / \alpha          |
+        |                          |             | op_new.gram() = op_old.gram() * (\alpha**2)                                 |
+        |                          |             | op_new.cogram() = op_old.cogram() * (\alpha**2)                             |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | LINEAR_SQUARE            | yes         | op_new.trace() = op_old.trace() * \alpha                                    |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
@@ -411,6 +423,14 @@ class ArgScaleRule(Rule):
         out = pycu.copy_if_unsafe(self._op.pinv(arr, damp=scale))
         out /= self._cst
         return out
+
+    def gram(self) -> pyct.OpT:
+        op = self._op.gram() * (self._cst**2)
+        return op
+
+    def cogram(self) -> pyct.OpT:
+        op = self._op.cogram() * (self._cst**2)
+        return op
 
     def trace(self, **kwargs) -> pyct.Real:
         tr = self._op.trace(**kwargs) * self._cst
@@ -596,6 +616,8 @@ class AddRule(Rule):
         IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
                    operand's adjoint-input must be averaged.
         op.asarray() = _lhs.asarray() + _rhs.asarray()
+        op.gram() = _lhs.gram() + _rhs.gram() + (_lhs.T * _rhs) + (_rhs.T * _lhs)
+        op.cogram() = _lhs.cogram() + _rhs.cogram() + (_lhs * _rhs.T) + (_rhs * _lhs.T)
 
     * LINEAR_SQUARE
         op.trace() = _lhs.trace() + _rhs.trace()
@@ -790,6 +812,56 @@ class AddRule(Rule):
         A = A_lhs + A_rhs
         return A
 
+    def gram(self) -> pyct.OpT:
+        lhs, rhs = self._lhs, self._rhs
+        if self._lhs.codim == self._rhs.codim:
+            # No broadcasting
+            lhs_F = rhs_F = False
+        else:
+            # Broadcasting
+            lhs_F = self._lhs.has(pyco.Property.FUNCTIONAL)
+            rhs_F = self._rhs.has(pyco.Property.FUNCTIONAL)
+            if lhs_F:
+                lhs = _Sum(M=self._rhs.codim, N=1) * self._lhs
+            if rhs_F:
+                rhs = _Sum(M=self._lhs.codim, N=1) * self._rhs
+
+        op1 = self._lhs.gram() * (self._rhs.codim if lhs_F else 1)
+        op2 = self._rhs.gram() * (self._lhs.codim if rhs_F else 1)
+        op3 = lhs.T * rhs
+        op4 = rhs.T * lhs
+        op = op1 + op2 + (op3 + op4).asop(pyco.SelfAdjointOp)
+        return op._squeeze()
+
+    def cogram(self) -> pyct.OpT:
+        lhs, rhs = self._lhs, self._rhs
+        if self._lhs.codim == self._rhs.codim:
+            # No broadcasting
+            lhs_F = rhs_F = False
+        else:
+            # Broadcasting
+            lhs_F = self._lhs.has(pyco.Property.FUNCTIONAL)
+            rhs_F = self._rhs.has(pyco.Property.FUNCTIONAL)
+            if lhs_F:
+                lhs = _Sum(M=self._rhs.codim, N=1) * self._lhs
+            if rhs_F:
+                rhs = _Sum(M=self._lhs.codim, N=1) * self._rhs
+
+        if lhs_F:
+            scale = float(self._lhs.cogram().asarray())
+            op1 = _Sum(M=self._rhs.codim, N=self._rhs.codim) * scale
+        else:
+            op1 = self._lhs.cogram()
+        if rhs_F:
+            scale = float(self._rhs.cogram().asarray())
+            op2 = _Sum(M=self._lhs.codim, N=self._lhs.codim) * scale
+        else:
+            op2 = self._rhs.cogram()
+        op3 = lhs * rhs.T
+        op4 = rhs * lhs.T
+        op = op1 + op2 + (op3 + op4).asop(pyco.SelfAdjointOp)
+        return op._squeeze()
+
     def trace(self, **kwargs) -> pyct.Real:
         tr = 0
         for side in (self._lhs, self._rhs):
@@ -855,6 +927,8 @@ class ChainRule(Rule):
     * LINEAR
         op.adjoint(arr) = _rhs.adjoint(_lhs.adjoint(arr))
         op.asarray() = _lhs.asarray() @ _rhs.asarray()
+        op.gram() = _rhs.T @ _lhs.gram() @ _rhs
+        op.cogram() = _lhs @ _rhs.cogram() @ _lhs.T
 
     * QUADRATIC
         op._hessian() = _rhs.T \comp _lhs._hessian() \comp _rhs [Positive-Definite]
@@ -1073,6 +1147,14 @@ class ChainRule(Rule):
         A = A_lhs @ A_rhs
         return A
 
+    def gram(self) -> pyct.OpT:
+        op = self._rhs.T * self._lhs.gram() * self._rhs
+        return op.asop(pyco.SelfAdjointOp)._squeeze()
+
+    def cogram(self) -> pyct.OpT:
+        op = self._lhs * self._rhs.cogram() * self._lhs.T
+        return op.asop(pyco.SelfAdjointOp)._squeeze()
+
 
 class PowerRule(Rule):
     r"""
@@ -1100,3 +1182,48 @@ class PowerRule(Rule):
                 for _ in range(self._k - 1):
                     op = ChainRule(self._op, op).op()
         return op
+
+
+# Helper Class/Functions ------------------------------------------------------
+def _Sum(M: int, N: int) -> pyct.OpT:
+    # f: \bR^{N} -> \bR^{M}
+    #      x     -> [sum(x), ..., sum(x)]  (M times)
+    @pycrt.enforce_precision(i="arr")
+    def op_apply(_, arr) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        out = xp.broadcast_to(
+            arr.sum(axis=-1, keepdims=True),
+            (*arr.shape[:-1], _.codim),
+        )
+        return out
+
+    @pycrt.enforce_precision(i="arr")
+    def op_adjoint(_, arr) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        out = xp.broadcast_to(
+            arr.sum(axis=-1, keepdims=True),
+            (*arr.shape[:-1], _.dim),
+        )
+        return out
+
+    def op_gram(_) -> pyct.OpT:
+        op = _Sum(M=_.dim, N=_.dim) * _.codim
+        return op
+
+    def op_cogram(_) -> pyct.OpT:
+        op = _Sum(M=_.codim, N=_.codim) * _.dim
+        return op
+
+    if M == 1:
+        klass = pyco.LinFunc
+    elif M == N:
+        klass = pyco.SelfAdjointOp
+    else:
+        klass = pyco.LinOp
+    op = klass(shape=(M, N))
+    op._lipschitz = np.sqrt(M * N)
+    op.apply = types.MethodType(op_apply, op)
+    op.adjoint = types.MethodType(op_adjoint, op)
+    op.gram = types.MethodType(op_gram, op)
+    op.cogram = types.MethodType(op_cogram, op)
+    return op
