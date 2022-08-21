@@ -22,7 +22,7 @@ __all__ = [
 ]
 
 
-class IdentityOp(pyca.UnitOp):
+class IdentityOp(pyca.OrthProjOp):
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
 
@@ -34,14 +34,28 @@ class IdentityOp(pyca.UnitOp):
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         return pycu.read_only(arr)
 
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        return pyca.UnitOp.svdvals(self, **kwargs)
+
     def eigvals(self, **kwargs) -> pyct.NDArray:
-        return self.svdvals(**kwargs)
+        return pyca.UnitOp.svdvals(self, **kwargs)
 
     def asarray(self, **kwargs) -> pyct.NDArray:
         dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
         xp = kwargs.pop("xp", np)
         A = xp.eye(N=self.dim, dtype=dtype)
         return A
+
+    @pycrt.enforce_precision(i="arr")
+    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+        out = arr.copy()
+        out /= 1 + kwargs.pop("damp", 0)
+        return out
+
+    def dagger(self, **kwargs) -> pyct.OpT:
+        cst = 1 / (1 + kwargs.pop("damp", 0))
+        op = HomothetyOp(cst=cst, dim=self.dim)
+        return op
 
     def trace(self, **kwargs) -> pyct.Real:
         return float(self.dim)
