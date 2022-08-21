@@ -164,8 +164,8 @@ class Operator:
             Operator with the new interface.
             Fails when cast is forbidden. (Ex: Map -> Func if codim > 1)
 
-        Implementation Notes
-        --------------------
+        Notes
+        -----
         * The interface of `cast_to` is provided via encapsulation + forwarding.
         * If ``self`` does not implement all methods from ``cast_to``, then unimplemented methods
           will raise ``NotImplementedError`` when called.
