@@ -113,10 +113,10 @@ class QuadraticFunc(pyca._QuadraticFunc):
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        from pycsou.operator.linop import IdentityOp
+        from pycsou.operator.linop import HomothetyOp
         from pycsou.opt.solver import CG
 
-        A = self._Q + (IdentityOp(dim=self._Q.dim) / tau)
+        A = self._Q + HomothetyOp(cst=1 / tau, dim=self._Q.dim)
         b = arr.copy()
         b /= tau
         b -= self._c.grad(arr)
