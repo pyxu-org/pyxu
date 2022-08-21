@@ -1735,7 +1735,7 @@ class SelfAdjointOp(NormalOp):
         return self.apply(arr)
 
     def transpose(self, **kwargs) -> pyct.OpT:
-        return self
+        return self._squeeze()
 
     def eigvals(
         self,
@@ -1828,10 +1828,10 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
         return self._lipschitz
 
     def gram(self) -> pyct.OpT:
-        return self
+        return self._squeeze()
 
     def cogram(self) -> pyct.OpT:
-        return self
+        return self._squeeze()
 
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
