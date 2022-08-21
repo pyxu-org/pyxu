@@ -53,6 +53,7 @@ class Property(enum.Enum):
                 "apply",
                 "__call__",
                 "lipschitz",
+                "_expr",
             ]
         )
         data[self.PROXIMABLE].append("prox")
@@ -442,6 +443,75 @@ class Operator:
     def __repr__(self) -> str:
         klass = self.__class__.__name__
         return f"{klass}{self.shape}"
+
+    def _expr(self) -> tuple:
+        """
+        Show the expression-representation of the operator.
+
+        If overridden, must return a tuple of the form
+
+            (head, *tail),
+
+        where `head` is the operator (ex: +/*), and `tail` denotes all the expression's terms.
+        If an operator cannot be expanded further, then this method should return (self,).
+        """
+        return (self,)
+
+    def expr(self, level: int = 0, strip: bool = True) -> str:
+        """
+        Pretty-Print the expression representation of the operator.
+
+        Useful for debugging arithmetic-induced expressions.
+
+        Example
+        -------
+
+        .. code-block:: python3
+
+           >>> import numpy as np
+           >>> import pycsou.abc as pyca
+
+           >>> N = 5
+           >>> op1 = pyca.LinFunc.from_array(np.arange(N))
+           >>> op2 = pyca.LinOp.from_array(np.ones((N, N)))
+           >>> op = ((2 * op1) + (op2 ** 3)).argshift(np.full(N, 4))
+
+           >>> print(op.expr())
+           [argshift, ==> DiffMap(5, 5)
+           .[add, ==> SquareOp(5, 5)
+           ..[scale, ==> LinFunc(1, 5)
+           ...LinFunc(1, 5),
+           ...2.0],
+           ..[exp, ==> SquareOp(5, 5)
+           ...LinOp(5, 5),
+           ...3]],
+           .(5,)]
+        """
+        fmt = lambda obj, lvl: ("." * lvl) + str(obj)
+        lines = []
+
+        head, *tail = self._expr()
+        if len(tail) == 0:
+            head = f"{repr(head)},"
+        else:
+            head = f"[{head}, ==> {repr(self)}"
+        lines.append(fmt(head, level))
+
+        for t in tail:
+            if isinstance(t, Operator):
+                lines += t.expr(level=level + 1, strip=False).split("\n")
+            else:
+                t = f"{t},"
+                lines.append(fmt(t, level + 1))
+        if len(tail) > 0:
+            # Drop comma for last tail item, then close the sub-expression.
+            lines[-1] = lines[-1][:-1]
+            lines[-1] += "],"
+
+        out = "\n".join(lines)
+        if strip:
+            out = out.strip(",")  # drop comma at top-level tail.
+        return out
 
 
 class Map(Operator):
