@@ -132,6 +132,9 @@ class ScaleRule(Rule):
                     setattr(op, name, types.MethodType(func, op))
         return op
 
+    def _expr(self) -> tuple:
+        return ("scale", self._op, self._cst)
+
     def _infer_op_klass(self) -> pyct.OpC:
         preserved = {
             pyco.Property.CAN_EVAL,
@@ -329,6 +332,9 @@ class ArgScaleRule(Rule):
                     setattr(op, name, types.MethodType(func, op))
         return op
 
+    def _expr(self) -> tuple:
+        return ("argscale", self._op, self._cst)
+
     def _infer_op_klass(self) -> pyct.OpC:
         preserved = {
             pyco.Property.CAN_EVAL,
@@ -502,6 +508,9 @@ class ArgShiftRule(Rule):
                     setattr(op, name, types.MethodType(func, op))
         return op
 
+    def _expr(self) -> tuple:
+        return ("argshift", self._op, self._cst.shape)
+
     def _infer_op_klass(self) -> pyct.OpC:
         preserved = {
             pyco.Property.CAN_EVAL,
@@ -645,6 +654,9 @@ class AddRule(Rule):
                 func = getattr(self.__class__, name)
                 setattr(op, name, types.MethodType(func, op))
         return op
+
+    def _expr(self) -> tuple:
+        return ("add", self._lhs, self._rhs)
 
     def _infer_op_klass(self) -> pyct.OpC:
         P = pyco.Property
@@ -954,6 +966,9 @@ class ChainRule(Rule):
                 setattr(op, name, types.MethodType(func, op))
         return op
 
+    def _expr(self) -> tuple:
+        return ("compose", self._lhs, self._rhs)
+
     def _infer_op_klass(self) -> pyct.OpC:
         # |--------------------------|------------------------------------------------------|
         # |         Property         |                      Preserved?                      |
@@ -1181,7 +1196,13 @@ class PowerRule(Rule):
             if pyco.Property.LINEAR_IDEMPOTENT not in self._op.properties():
                 for _ in range(self._k - 1):
                     op = ChainRule(self._op, op).op()
+
+            # Needed due to implicit PowerRule definition in terms of ChainRule.
+            op._expr = self._expr
         return op
+
+    def _expr(self) -> tuple:
+        return ("exp", self._op, self._k)
 
 
 # Helper Class/Functions ------------------------------------------------------
