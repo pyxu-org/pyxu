@@ -1432,7 +1432,12 @@ class LinOp(DiffMap):
         If the Gram can be computed more efficiently (e.g. with a convolution), the user should
         re-define this method.
         """
+
+        def op_expr(_) -> tuple:
+            return ("gram", self)
+
         op = self.T * self
+        op._expr = types.MethodType(op_expr, op)
         return op.asop(SelfAdjointOp)._squeeze()
 
     def cogram(self) -> pyct.OpT:
@@ -1451,7 +1456,12 @@ class LinOp(DiffMap):
         If the co-Gram can be computed more efficiently (e.g. with a convolution), the user should
         re-define this method.
         """
+
+        def op_expr(_) -> tuple:
+            return ("cogram", self)
+
         op = self * self.T
+        op._expr = types.MethodType(op_expr, op)
         return op.asop(SelfAdjointOp)._squeeze()
 
     @pycrt.enforce_precision(i=("arr", "damp"), allow_None=True)
