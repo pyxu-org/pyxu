@@ -1168,6 +1168,9 @@ class LinOp(DiffMap):
             D = self.eigvals(**kwargs)
             return D.conj()
 
+        def opT_expr(_) -> tuple:
+            return ("transpose", self)
+
         # Overwrite arithmetic methods with different implementations vs. encapsulated op.
         opT.apply = self.adjoint
         opT.__call__ = opT.apply
@@ -1176,6 +1179,7 @@ class LinOp(DiffMap):
         opT.eigvals = types.MethodType(opT_eigvals, opT)
         opT.gram = self.cogram
         opT.cogram = self.gram
+        opT._expr = types.MethodType(opT_expr, opT)
         return opT._squeeze()
 
     def to_sciop(
