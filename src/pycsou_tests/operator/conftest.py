@@ -147,6 +147,7 @@ class MapT:
             "apply",
             "__call__",
             "lipschitz",
+            "expr",
         }
     )
 
