@@ -1576,7 +1576,8 @@ class LinOp(DiffMap):
         def op_expr(_) -> tuple:
             return ("dagger", self, damp)
 
-        dagger = LinOp(shape=(self.dim, self.codim))
+        klass = SquareOp if (self.dim == self.codim) else LinOp
+        dagger = klass(shape=(self.dim, self.codim))
         dagger.apply = types.MethodType(op_apply, dagger)
         dagger.__call__ = dagger.apply
         dagger.adjoint = types.MethodType(op_adjoint, dagger)
