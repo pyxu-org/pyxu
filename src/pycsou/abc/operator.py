@@ -932,12 +932,16 @@ class ProxFunc(Func):
             x /= _._mu
             return x
 
+        def op_expr(_) -> tuple:
+            return ("moreau_envelope", self, _._mu)
+
         assert mu > 0, f"mu: expected positive, got {mu}"
         op = DiffFunc(self.shape)
         op._mu = mu
         op._diff_lipschitz = 1 / mu
         op.apply = types.MethodType(op_apply, op)
         op.grad = types.MethodType(op_grad, op)
+        op._expr = types.MethodType(op_expr, op)
         return op
 
 
