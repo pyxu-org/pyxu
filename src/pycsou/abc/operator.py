@@ -1573,10 +1573,14 @@ class LinOp(DiffMap):
                 kwargs_fit=copy.copy(kwargs_fit),
             )
 
+        def op_expr(_) -> tuple:
+            return ("dagger", self, damp)
+
         dagger = LinOp(shape=(self.dim, self.codim))
         dagger.apply = types.MethodType(op_apply, dagger)
         dagger.__call__ = dagger.apply
         dagger.adjoint = types.MethodType(op_adjoint, dagger)
+        dagger._expr = types.MethodType(op_expr, dagger)
         return dagger
 
     @classmethod
