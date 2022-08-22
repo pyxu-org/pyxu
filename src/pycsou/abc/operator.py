@@ -1842,15 +1842,13 @@ class UnitOp(NormalOp):
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = self.adjoint(arr)
-        if not np.isclose(damp := kwargs.pop("damp", 0), 0):
+        if not np.isclose(damp := kwargs.get("damp", 0), 0):
             out = pycu.copy_if_unsafe(out)
             out /= 1 + damp
         return out
 
     def dagger(self, **kwargs) -> pyct.OpT:
-        op = self.T
-        if not np.isclose(damp := kwargs.pop("damp", 0), 0):
-            op = op / (1 + damp)
+        op = self.T / (1 + kwargs.get("damp", 0))
         return op
 
     def gram(self) -> pyct.OpT:
@@ -1910,15 +1908,13 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = self.apply(arr)
-        if not np.isclose(damp := kwargs.pop("damp", 0), 0):
+        if not np.isclose(damp := kwargs.get("damp", 0), 0):
             out = pycu.copy_if_unsafe(out)
             out /= 1 + damp
         return out
 
     def dagger(self, **kwargs) -> pyct.OpT:
-        op = self
-        if not np.isclose(damp := kwargs.pop("damp", 0), 0):
-            op = op / (1 + damp)
+        op = self / (1 + kwargs.get("damp", 0))
         return op
 
 
