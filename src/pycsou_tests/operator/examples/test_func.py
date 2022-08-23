@@ -1,14 +1,16 @@
+import itertools
+
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
-import pycsou.operator.func as pycof
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
-class Median(pyco.Func):
+class Median(pyca.Func):
     # f: \bR^{M} -> \bR
     #      x     -> median(x)
     def __init__(self):
@@ -21,14 +23,17 @@ class Median(pyco.Func):
         y = xp.median(arr, axis=-1, keepdims=True)
         return y
 
-    def asloss(self, data=None):
-        return pycof.shift_loss(self, data)
-
 
 class TestMedian(conftest.FuncT):
-    @pytest.fixture
-    def op(self):
-        return Median()
+    @pytest.fixture(
+        params=itertools.product(
+            (Median(),),
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def spec(self, request):
+        return request.param
 
     @pytest.fixture
     def data_shape(self):

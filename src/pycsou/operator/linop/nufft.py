@@ -1,7 +1,6 @@
 import collections.abc as cabc
 import typing as typ
 
-import dask.array as da
 import finufft
 import numpy as np
 
@@ -19,6 +18,8 @@ eps_default = 1e-4
 
 
 def _wrap_if_dask(func: cabc.Callable) -> cabc.Callable:
+    import dask.array as da
+
     def wrapper(obj, arr):
         xp = pycu.get_array_module(arr)
         out = func(obj, pycu.compute(arr))
@@ -141,7 +142,6 @@ class NUFFT(pyca.LinOp):
     Note however that this is a *typical error analysis*: some degenerate (but rare) worst-case
     scenarios can result in much higher errors.
 
-
     **Complexity.**
     Naive evaluation of the exponential sums (1), (2) and (3) above costs :math:`O(NM)`, where
     :math:`N=N_1\ldots N_d` for the type-1 and type-2 NUFFTs.
@@ -165,9 +165,10 @@ class NUFFT(pyca.LinOp):
     This fix can be enabled via the ``center`` parameter of
     :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`.
 
-    **Backend.** The NUFFT tansforms are computed via Python wrappers to `FINUFFT
-    <https://github.com/flatironinstitute/finufft>`_ and `cuFINUFFT
-    <https://github.com/flatironinstitute/cufinufft>`_ (see also [FINUFFT]_ and [cuFINUFFT]_).
+    **Backend.** The NUFFT tansforms are computed via Python wrappers to
+    `FINUFFT <https://github.com/flatironinstitute/finufft>`_ and
+    `cuFINUFFT <https://github.com/flatironinstitute/cufinufft>`_.
+    (see also [FINUFFT]_ and [cuFINUFFT]_.)
 
     **Optional Parameters.**
     [cu]FINUFFT exposes many optional parameters to adjust the performance of the algorithms, change

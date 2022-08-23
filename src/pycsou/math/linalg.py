@@ -1,13 +1,17 @@
 import warnings
 
-import dask.array as da
 import numpy as np
 
-import pycsou.abc.operator as pyco
-import pycsou.operator.linop.base as pycb
-import pycsou.runtime as pycrt
+import pycsou.abc as pyca
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
+
+__all__ = [
+    "hutchpp",
+    "norm",
+]
 
 
 def norm(x: pyct.NDArray, **kwargs):
@@ -26,7 +30,7 @@ def norm(x: pyct.NDArray, **kwargs):
 
     Returns
     -------
-    nrm: pyct.NDArray
+    nrm: pyct.Real | pyct.NDArray
         Norm of the matrix or vector(s).
     """
     xp = pycu.get_array_module(x)
@@ -36,45 +40,46 @@ def norm(x: pyct.NDArray, **kwargs):
 
 
 def hutchpp(
-    op: pyco.SquareOp,
-    m: int = 4002,
+    op: pyca.SquareOp,
+    m: pyct.Integer = 4002,
     xp: pyct.ArrayModule = np,
-    seed: float = 0,
+    seed: pyct.Integer = 0,
     enable_warnings: bool = True,
-) -> float:
+    **kwargs,
+) -> pyct.Real:
     r"""
     Stochastic estimate of the trace of a linear operator based on the Hutch++ algorithm.
     (Specifically algorithm 3 of the paper https://arxiv.org/abs/2010.09649)
 
     Parameters
     ----------
-    op: :py:class:`~pycsou.abc.operator.SquareOp`
-    m: int
+    op: pyca.SquareOp
+    m: pyct.Integer
         Number of queries used to estimate the trace of the linear operator.
 
         ``m`` is set to 4002 by default based on the analysis of the variance described in theorem
-        10. This default corresponds to having an estimation error smaller than 0.01 with a
-        probability of 0.9.
-    xp: pycsou.util.ptype.ArrayModule
+        10.
+        This default corresponds to having an estimation error smaller than 0.01 with probability
+        0.9.
+    xp: pyct.ArrayModule
         Array module used for internal computations.
-    seed: int
+    seed: pyct.Integer
         Seed for the random number generator.
+    kwargs: dict
+        Extra keyword arguments for (future) extensibility.
 
     Returns
     -------
-    tr: float
+    tr: pyct.Real
         Stochastic estimate of tr(op).
     """
     if m >= op.dim:
         if enable_warnings:
-            warnings.warn(
-                "Number of queries >= dim(op): fallback to deterministic trace eval.",
-                UserWarning,
-            )
+            msg = "Number of queries >= dim(op): fallback to deterministic trace eval."
+            warnings.warn(msg, pycuw.DenseWarning)
         tr = 0
-        e = xp.zeros(op.dim)
         for i in range(op.dim):
-            e[:] = 0
+            e = xp.zeros(op.dim)
             e[i] = 1
             tr += op.apply(e)[i]
     else:
@@ -84,7 +89,7 @@ def hutchpp(
 
         data = op.apply(s.T).T
         kwargs = dict(mode="reduced")
-        if xp == da:
+        if xp == pycd.NDArrayInfo.DASK.module():
             data = data.rechunk({0: "auto", 1: -1})
             kwargs.pop("mode")
 

@@ -21,14 +21,12 @@ Features
 
 Pycsou makes it easy to construct and solve penalised optimisation problems:
 
-1. It offers a rich collection of linear operators, loss functionals and penalty functionals
-   commonly used in practice.
-2. It implements *arithmetic operations* for linear operators, loss functionals and penalty
-   functionals, hence allowing to *add*, *substract*, *scale*, *compose*, *exponentiate* or *stack*
-   those various objects with one another to quickly design *custom complex optimisation problems*.
+1. It offers a rich collection of operators and functionals commonly used in practice.
+2. It implements *operator arithmetic*: *add/scale/compose/stack* operators together to quickly
+   design *complex optimisation problems*.
 3. It implements a rich collection of **state-of-the-art iterative proximal algorithms**, including
-   **efficient primal-dual splitting methods** which involve only gradient steps, proximal steps and
-   simple linear evaluations.
+   **efficient primal-dual splitting methods** which involve only gradient, proximal and simple
+   linear evaluations.
 4. It supports *matrix-free linear operators*, making it easy to work with large scale linear
    operators that *may not fit in memory*.
    
@@ -38,10 +36,16 @@ Developper Install
 
 .. code-block:: bash
 
-   $ git clone https://github.com/matthieumeo/pycsou && cd pycsou
-   $ conda create -n pycsou --channel=conda-forge --file=conda/requirements.txt
-   $ conda activate pycsou
-   $ python3 -m pip install -e ".[dev]"
+   $ my_env=<CONDA ENVIRONMENT NAME>
+   $ my_branch=<PYCSOU BRANCH NAME>
+   $ git clone https://github.com/matthieumeo/pycsou && cd pycsou/
+   $ git checkout "${my_branch}"
+   $ conda create --name "${my_env}"            \
+                  --strict-channel-priority     \
+                  --channel=conda-forge         \
+                  --file=conda/requirements.txt
+   $ conda activate "${my_env}"
+   $ python3 -m pip install -e ".[dev,complete_gpu]"  # 'complete_no_gpu' also available
    $ pre-commit install
    $ tox  # to run tests
 

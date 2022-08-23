@@ -1,36 +1,64 @@
 import collections.abc as cabc
+import contextlib
 import copy
 import inspect
 import itertools
 import math
 import types
 import typing as typ
+import warnings
 
+import dask.array as da
 import numpy as np
 import numpy.random as npr
 import pytest
 import scipy.linalg as splinalg
 import scipy.sparse.linalg as spsl
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
+import pycsou.math.linalg as pylinalg
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.complex as pycuc
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
+from pycsou.abc.operator import _core_operators
 
-high_precision = frozenset(_ for _ in pycrt.Width if _ != pycrt.Width.HALF)
+
+def get_test_class(cls: pyct.OpC) -> "MapT":
+    # Find the correct MapT subclass designed to test `cls`.
+    is_test = lambda _: all(
+        [
+            hasattr(_, "base"),
+            hasattr(_, "interface"),
+            hasattr(_, "disable_test"),
+        ]
+    )
+    candidates = {_ for _ in globals().values() if is_test(_)}
+    for clsT in candidates:
+        if clsT.base == cls:
+            return clsT
+    else:
+        raise ValueError(f"No known test type for {cls}.")
 
 
-def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
+def isclose(
+    a: typ.Union[pyct.Real, pyct.NDArray],
+    b: typ.Union[pyct.Real, pyct.NDArray],
+    as_dtype: pyct.DType,
+) -> pyct.NDArray:
     """
-    Equivalent of `np.isclose`, but where atol is automatically chosen based on `as_dtype`.
+    Equivalent of `xp.isclose`, but where atol is automatically chosen based on `as_dtype`.
+
+    This function always returns a computed array, i.e. NumPy/CuPy output.
     """
     atol = {
-        pycrt.Width.HALF.value: 3e-2,
+        np.dtype(np.half): 3e-2,  # former pycrt.Width.HALF
         pycrt.Width.SINGLE.value: 2e-4,
+        pycrt._CWidth.SINGLE.value: 2e-4,
         pycrt.Width.DOUBLE.value: 1e-8,
-        pycrt.Width.QUAD.value: 1e-16,
+        pycrt._CWidth.DOUBLE.value: 1e-8,
     }
     # Numbers obtained by:
     # * \sum_{k >= (p+1)//2} 2^{-k}, where p=<number of mantissa bits>; then
@@ -39,24 +67,34 @@ def isclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
 
     if (prec := atol.get(as_dtype)) is None:
         # should occur for integer types only
-        prec = atol[pycrt.Width.QUAD.value]
-    cast = lambda x: x.astype(as_dtype)
+        prec = atol[pycrt.Width.DOUBLE.value]
+    cast = lambda x: pycu.compute(x)
     eq = np.isclose(cast(a), cast(b), atol=prec)
     return eq
 
 
-def allclose(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> bool:
+def allclose(
+    a: pyct.NDArray,
+    b: pyct.NDArray,
+    as_dtype: pyct.DType,
+) -> bool:
     """
-    Equivalent of `all.isclose`, but where atol is automatically chosen based on `as_dtype`.
+    Equivalent of `all(isclose)`, but where atol is automatically chosen based on `as_dtype`.
     """
-    return np.all(isclose(a, b, as_dtype))
+    return bool(np.all(isclose(a, b, as_dtype)))
 
 
-def less_equal(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
+def less_equal(
+    a: pyct.NDArray,
+    b: pyct.NDArray,
+    as_dtype: pyct.DType,
+) -> pyct.NDArray:
     """
     Equivalent of `a <= b`, but where equality tests are done at a chosen numerical precision.
+
+    This function always returns a computed array, i.e. NumPy/CuPy output.
     """
-    x = a <= b
+    x = pycu.compute(a <= b)
     y = isclose(a, b, as_dtype)
     return x | y
 
@@ -75,12 +113,13 @@ def less_equal(a: np.ndarray, b: np.ndarray, as_dtype: np.dtype) -> np.ndarray:
 #         * in_ are kwargs to `op.<method>()`;
 #         * out denotes the output of `op.method(**data[in_])`.
 #
-# * test_[value,backend,prec,precCM]_<method>(op, ...)
+# * test_[value,backend,prec,precCM,transparent]_<method>(op, ...)
 #       Verify that <method>, returns
 #       * value: right output values
 #       * backend: right output type
 #       * prec: input/output have same precision
 #       * precCM: output respects context-manager choice
+#       * transparent: referential-transparency, i.e. no side-effects.
 #
 # * data_math_<method>()
 #       Special test data for mathematical identities.
@@ -95,22 +134,42 @@ DataLike = cabc.Mapping[str, typ.Any]
 
 class MapT:
     # Class Properties --------------------------------------------------------
-    base = pyco.Map
+    base = pyca.Map
     disable_test: cabc.Set[str] = frozenset()
     interface: cabc.Set[str] = frozenset(
         {
             "shape",
             "dim",
             "codim",
+            "asop",
+            "argshift",
+            "argscale",
             "apply",
             "__call__",
             "lipschitz",
-            "squeeze",
-            "specialize",
+            "expr",
         }
     )
 
     # Internal helpers --------------------------------------------------------
+    @staticmethod
+    def _random_array(
+        shape: tuple[int],
+        seed: int = 0,
+        xp: pyct.ArrayModule = np,
+        width: pycrt.Width = pycrt.Width.DOUBLE,
+    ):
+        rng = npr.default_rng(seed)
+        x = rng.normal(size=shape)
+        return xp.array(x, dtype=width.value)
+
+    @staticmethod
+    def _sanitize(x, default):
+        if x is not None:
+            return x
+        else:
+            return default
+
     def _skip_if_disabled(self):
         # Get name of function which invoked me.
         my_frame = inspect.currentframe()
@@ -122,54 +181,53 @@ class MapT:
             pytest.skip("disabled test")
 
     @staticmethod
-    def _check_has_interface(op: pyco.Map, klass: "MapT"):
+    def _check_has_interface(op: pyca.Map, klass: "MapT"):
         # Verify `op` has the public interface of `klass`.
         assert klass.interface <= frozenset(dir(op))
 
     @staticmethod
-    def _check_value1D(func, data, precision: pycrt.Width = None):
+    def _check_value1D(
+        func,
+        data: DataLike,
+        dtype: pyct.DType = None,
+    ):
+        in_ = data["in_"]
+        out = func(**in_)
         out_gt = data["out"]
 
-        in_ = data["in_"]
-        out = pycu.compute(func(**in_))
-
-        if precision is None:
-            dtype = in_["arr"].dtype
-        else:
-            dtype = precision.value
+        dtype = MapT._sanitize(dtype, in_["arr"].dtype)
         assert out.ndim == in_["arr"].ndim
         assert allclose(out, out_gt, as_dtype=dtype)
 
     @staticmethod
-    def _check_valueND(func, data, precision: pycrt.Width = None):
+    def _check_valueND(
+        func,
+        data: DataLike,
+        dtype: pyct.DType = None,
+    ):
         sh_extra = (2, 1)  # prepend input/output shape by this amount.
-
-        out_gt = data["out"]
-        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
 
         in_ = data["in_"]
         arr = in_["arr"]
         xp = pycu.get_array_module(arr)
         arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
         in_.update(arr=arr)
-        out = pycu.compute(func(**in_))
+        out = func(**in_)
+        out_gt = np.broadcast_to(data["out"], (*sh_extra, *data["out"].shape))
 
-        if precision is None:
-            dtype = in_["arr"].dtype
-        else:
-            dtype = precision.value
+        dtype = MapT._sanitize(dtype, in_["arr"].dtype)
         assert out.ndim == in_["arr"].ndim
         assert allclose(out, out_gt, as_dtype=dtype)
 
     @staticmethod
-    def _check_backend(func, data):
+    def _check_backend(func, data: DataLike):
         in_ = data["in_"]
         out = func(**in_)
 
         assert type(out) == type(in_["arr"])
 
     @staticmethod
-    def _check_prec(func, data):
+    def _check_prec(func, data: DataLike):
         in_ = data["in_"]
         with pycrt.EnforcePrecision(False):
             out = func(**in_)
@@ -178,70 +236,94 @@ class MapT:
     @staticmethod
     def _check_precCM(
         func,
-        data,
-        widths: cabc.Collection[pycrt.Width] = high_precision,
+        data: DataLike,
+        widths: cabc.Collection[pycrt.Width] = pycrt.Width,
     ):
-        in_ = data["in_"]
-        stats = []
-        for width in widths:
-            with pycrt.Precision(width):
-                out = func(**in_)
-            stats.append(out.dtype == width.value)
-
-        assert all(stats)
+        stats = dict()
+        for w in widths:
+            with pycrt.Precision(w):
+                out = func(**data["in_"])
+            stats[w] = out.dtype == w.value
+        assert all(stats.values())
 
     @staticmethod
-    def _random_array(shape: tuple[int], seed: int = 0):
-        rng = npr.default_rng(seed)
-        x = rng.normal(size=shape)
-        return x
+    def _check_no_side_effect(func, data: DataLike):
+        # idea:
+        # * eval func() once [out_1]
+        # * in-place update out_1, ex: scale by constant factor [scale]
+        # * re-eval func() [out_2]
+        # * assert out_1 == out_2, i.e. input was not modified
+        data = copy.deepcopy(data)
+        in_, out_gt = data["in_"], data["out"]
+        scale = 10
+        out_gt *= scale
 
-    @staticmethod
-    def _sanitize(x, default):
-        if x is not None:
-            return x
-        else:
-            return default
+        with pycrt.EnforcePrecision(False):
+            out_1 = func(**in_)
+            if pycu.copy_if_unsafe(out_1) is not out_1:
+                # out_1 is read_only -> safe
+                return
+            else:
+                # out_1 is writeable -> test correctness
+                out_1 *= scale
+                out_2 = func(**in_)
+                out_2 *= scale
+
+            try:
+                # The large scale introduced to assess transparency may give rise to
+                # operator-dependant round-off errors. We therefore assess transparency at
+                # FP32-precision to avoid false negatives.
+                assert allclose(out_1, out_gt, as_dtype=pycrt.Width.SINGLE.value)
+                assert allclose(out_2, out_gt, as_dtype=pycrt.Width.SINGLE.value)
+            except AssertionError as exc:
+                # Function is non-transparent, but which backend caused it?
+                N = pycd.NDArrayInfo
+                ndi = N.from_obj(out_1)
+                if ndi == N.CUPY:
+                    # warn about CuPy-only non-transparency.
+                    msg = "\n".join(
+                        [
+                            f"{func} is not transparent when applied to CuPy inputs.",
+                            f"If the same test fails for non-CuPy inputs, then {func}'s implementation is at fault -> user fix required.",
+                            f"If the same test passes for non-CuPy inputs, then this warning can be safely ignored.",
+                        ]
+                    )
+                    warnings.warn(msg, pycuw.NonTransparentWarning)
+                else:
+                    raise
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
-    def op(self) -> pyco.Map:
-        # override in subclass to instantiate the object to test.
+    def spec(self) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
+        # override in subclass to return:
+        # * the operator to test;
+        # * the backend of accepted input arrays;
+        # * the precision of accepted input arrays.
+        #
+        # The triplet (op, backend, precision) must be provided since some operators may not be
+        # backend/precision-agnostic.
         raise NotImplementedError
 
-    @pytest.fixture(params=pycd.supported_array_modules())
-    def xp(self, request) -> types.ModuleType:
-        # override in subclass if numeric methods are to be tested on a subset of array backends.
-        return request.param
+    @pytest.fixture
+    def op(self, spec) -> pyct.OpT:
+        return spec[0]
 
-    @pytest.fixture(params=high_precision)
-    def width(self, request) -> pycrt.Width:
-        # override in subclass if numeric methods are to be tested on a subset of precisions.
-        # NOTE: we purposefully do not test at HALF-precision.
-        return request.param
+    @pytest.fixture
+    def xp(self, spec) -> pyct.ArrayModule:
+        ndi = spec[1]
+        if (xp_ := ndi.module()) is not None:
+            return xp_
+        else:
+            pytest.skip(f"{ndi} unsupported on this machine.")
 
-    @pytest.fixture(
-        params=[
-            pyco.Map,
-            pyco.DiffMap,
-            pyco.Func,
-            pyco.DiffFunc,
-            pyco.ProxFunc,
-            pyco.ProxDiffFunc,
-            pyco.LinOp,
-            pyco.LinFunc,
-            pyco.SquareOp,
-            pyco.NormalOp,
-            pyco.SelfAdjointOp,
-            pyco.PosDefOp,
-            pyco.UnitOp,
-            pyco.ProjOp,
-            pyco.OrthProjOp,
-        ]
-    )
-    def _klass(self, request) -> pyco.Map:
-        # Returns some operator in the pyco.Map hierarchy.
-        # Do not override in subclass: for internal use only to test `op.specialize()`.
+    @pytest.fixture
+    def width(self, spec) -> pycrt.Width:
+        return spec[2]
+
+    @pytest.fixture(params=_core_operators())
+    def _klass(self, request) -> pyct.OpC:
+        # Returns some operator in the Operator hierarchy.
+        # Do not override in subclass: for internal use only to test `op.asop()`.
         return request.param
 
     @pytest.fixture
@@ -261,7 +343,8 @@ class MapT:
     def data_math_lipschitz(self) -> cabc.Collection[np.ndarray]:
         # override in subclass with at least 2 evaluation points for op.apply().
         # Used to verify if op.apply() satisfies the Lipschitz condition.
-        # Arrays should be NumPy-only.
+        # Arrays should be NumPy-only. (Internal machinery will transform to different
+        # backend/precisions as needed.)
         raise NotImplementedError
 
     @pytest.fixture
@@ -276,48 +359,6 @@ class MapT:
             out=data_apply["out"],
         )
         return data
-
-    @pytest.fixture
-    def _data_apply_argshift(self, _data_apply) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argshift().apply()`.
-        in_ = copy.deepcopy(_data_apply["in_"])
-
-        xp = pycu.get_array_module(in_["arr"])
-        shift = self._random_array((in_["arr"].size,))
-        shift = xp.array(shift, dtype=in_["arr"].dtype)
-        in_.update(arr=in_["arr"] + shift)
-
-        data = dict(
-            in_=in_,
-            out=_data_apply["out"],
-            shift=shift,  # for _op_argshift()
-        )
-        return data
-
-    @pytest.fixture
-    def _op_argshift(self, op, _data_apply_argshift) -> pyco.Map:
-        shift = _data_apply_argshift["shift"]
-        return op.argshift(-shift)
-
-    @pytest.fixture
-    def _data_apply_argscale(self, _data_apply) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argscale().apply()`.
-        in_ = copy.deepcopy(_data_apply["in_"])
-
-        scale = self._random_array((1,)).item()
-        in_["arr"] *= scale
-
-        data = dict(
-            in_=in_,
-            out=_data_apply["out"],
-            scale=scale,  # for _op_argscale()
-        )
-        return data
-
-    @pytest.fixture
-    def _op_argscale(self, op, _data_apply_argscale) -> pyco.Map:
-        scale = _data_apply_argscale["scale"]
-        return op.argscale(1 / scale)
 
     # Tests -------------------------------------------------------------------
     def test_interface(self, op):
@@ -336,13 +377,13 @@ class MapT:
         self._skip_if_disabled()
         assert op.codim == data_shape[0]
 
-    def test_lipschitz(self, op):
+    def test_lipschitz(self, op, width):
         # Ensure:
-        # * _lipschitz matches .lipschitz() after being called once;
+        # * _lipschitz matches .lipschitz() after being called once.
         self._skip_if_disabled()
         L_computed = op.lipschitz()
         L_memoized = op._lipschitz
-        assert np.isclose(L_computed, L_memoized)
+        assert allclose(L_computed, L_memoized, as_dtype=width.value)
 
     def test_value1D_apply(self, op, _data_apply):
         self._skip_if_disabled()
@@ -364,6 +405,10 @@ class MapT:
         self._skip_if_disabled()
         self._check_precCM(op.apply, _data_apply)
 
+    def test_transparent_apply(self, op, _data_apply):
+        self._skip_if_disabled()
+        self._check_no_side_effect(op.apply, _data_apply)
+
     def test_value1D_call(self, op, _data_apply):
         self._skip_if_disabled()
         self._check_value1D(op.__call__, _data_apply)
@@ -384,130 +429,93 @@ class MapT:
         self._skip_if_disabled()
         self._check_precCM(op.__call__, _data_apply)
 
-    def test_interface_argshift(self, op):
-        # Must be of same class (subclass if needed)
+    def test_transparent_call(self, op, _data_apply):
         self._skip_if_disabled()
-        N_dim = self._sanitize(op.dim, 3)
-        shift = self._random_array((N_dim,))
-        op_s = op.argshift(shift)
-        self._check_has_interface(op_s, self.__class__)
+        self._check_no_side_effect(op.__call__, _data_apply)
 
-    def test_value1D_apply_argshift(self, _op_argshift, _data_apply_argshift):
-        self._skip_if_disabled()
-        self._check_value1D(_op_argshift.apply, _data_apply_argshift)
-
-    def test_valueND_apply_argshift(self, _op_argshift, _data_apply_argshift):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argshift.apply, _data_apply_argshift)
-
-    def test_backend_apply_argshift(self, _op_argshift, _data_apply_argshift):
-        self._skip_if_disabled()
-        self._check_backend(_op_argshift.apply, _data_apply_argshift)
-
-    def test_prec_apply_argshift(self, _op_argshift, _data_apply_argshift):
-        self._skip_if_disabled()
-        self._check_prec(_op_argshift.apply, _data_apply_argshift)
-
-    def test_precCM_apply_argshift(self, _op_argshift, _data_apply_argshift):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argshift.apply, _data_apply_argshift)
-
-    def test_interface_argscale(self, op):
-        # Must be of same class
-        self._skip_if_disabled()
-        scale = self._random_array((1,)).item()
-        op_s = op.argscale(scale)
-        self._check_has_interface(op_s, self.__class__)
-
-    def test_value1D_apply_argscale(self, _op_argscale, _data_apply_argscale):
-        self._skip_if_disabled()
-        self._check_value1D(_op_argscale.apply, _data_apply_argscale)
-
-    def test_valueND_apply_argscale(self, _op_argscale, _data_apply_argscale):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argscale.apply, _data_apply_argscale)
-
-    def test_backend_apply_argscale(self, _op_argscale, _data_apply_argscale):
-        self._skip_if_disabled()
-        self._check_backend(_op_argscale.apply, _data_apply_argscale)
-
-    def test_prec_apply_argscale(self, _op_argscale, _data_apply_argscale):
-        self._skip_if_disabled()
-        self._check_prec(_op_argscale.apply, _data_apply_argscale)
-
-    def test_precCM_apply_argscale(self, _op_argscale, _data_apply_argscale):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argscale.apply, _data_apply_argscale)
-
-    def test_math_lipschitz(self, op, data_math_lipschitz):
+    def test_math_lipschitz(
+        self,
+        op,
+        xp,
+        width,
+        data_math_lipschitz,
+    ):
         # \norm{f(x) - f(y)}{2} \le L * \norm{x - y}{2}
         self._skip_if_disabled()
-        L = op.lipschitz()
+        with pycrt.EnforcePrecision(False):
+            L = op.lipschitz()
 
-        stats = []
-        for x, y in itertools.combinations(data_math_lipschitz, 2):
-            lhs = np.linalg.norm(op.apply(x) - op.apply(y))
-            rhs = L * np.linalg.norm(x - y)
-            stats.append(less_equal(lhs, rhs, as_dtype=data_math_lipschitz.dtype))
+            stats = []  # (x, y, condition success)
+            data = xp.array(data_math_lipschitz, dtype=width.value)
+            for x, y in itertools.combinations(data, 2):
+                lhs = pylinalg.norm(op.apply(x) - op.apply(y))
+                rhs = L * pylinalg.norm(x - y)
+                success = less_equal(lhs, rhs, as_dtype=width.value)
+                stats.append((lhs, rhs, success))
 
-        assert all(stats)
+            assert all(_[2] for _ in stats)
 
-    def test_squeeze(self, op):
-        # op.squeeze() sub-classes to Func for scalar outputs, and is transparent otherwise.
+    def test_interface_asop(self, op, _klass):
+        # * .asop() is no-op if same klass or parent
+        # * .asop() has correct interface otherwise.
+        # * Expect an exception if cast is illegal. (shape-issues, domain-agnostic linfuncs)
         self._skip_if_disabled()
-        if op.codim == 1:
-            self._check_has_interface(op.squeeze(), FuncT)
+        P = pyca.Property
+        if _klass in op.__class__.__mro__:
+            op2 = op.asop(_klass)
+            assert op2 is op
+        elif (P.FUNCTIONAL in _klass.properties()) and (op.codim > 1):
+            # Casting to functionals when codim != 1.
+            with pytest.raises(Exception):
+                op2 = op.asop(_klass)
+        elif ({P.FUNCTIONAL, P.LINEAR} <= _klass.properties()) and (op.dim is None):
+            # Casting to domain-agnostic linear functionals.
+            with pytest.raises(Exception):
+                op2 = op.asop(_klass)
+        elif (P.LINEAR_SQUARE in _klass.properties()) and (op.codim != op.dim):
+            # Casting non-square operators to square linops.
+            # Includes domain-agnostic functionals.
+            with pytest.raises(Exception):
+                op2 = op.asop(_klass)
         else:
-            assert op.squeeze() is op
+            op2 = op.asop(_klass)
+            klassT = get_test_class(_klass)
+            self._check_has_interface(op2, klassT)
 
-    @pytest.mark.skip(reason="Requires some scaffolding first.")
-    def test_specialize(self, op, _klass):
+    def test_value_asop(self, op, width, _klass):
+        # Ensure encapsulated arithmetic fields are forwarded.
+        # We only test fields known to belong to any Map subclass:
+        # * _lipschitz (attribute)
+        # * lipschitz (method)
+        # * apply (method)
+        # * __call__ (special method)
         self._skip_if_disabled()
-        # def map_cmp(a, b):
-        #     if a above b:
-        #         return -1
-        #     elif a == b:
-        #         return 0
-        #     else:
-        #         return 1
-
-        #     test_specialize: needed fixture: op, klass
-        #         for every class lower in the hierarchy:
-        #             verify op.specialize(klass) has correct class interface
-        #         assert op.specialize(op.__class__) is op
-        #         for every class upper in the hierarchy:
-        #             verify op.specialize() fails
-        pass
+        try:
+            op2 = op.asop(_klass)
+        except:
+            # nothing to test since `op.asop(_klass)` is illegal.
+            return
+        else:
+            assert allclose(op2._lipschitz, op._lipschitz, as_dtype=width.value)
+            assert allclose(op2.lipschitz(), op.lipschitz(), as_dtype=width.value)
+            assert op2.apply == op.apply
+            assert op2.__call__ == op.__call__
 
 
 class FuncT(MapT):
     # Class Properties --------------------------------------------------------
-    base = pyco.Func
-    interface = frozenset(MapT.interface | {"asloss"})
+    base = pyca.Func
+    interface = MapT.interface
 
     # Tests -------------------------------------------------------------------
-    def test_codim(self, op, data_shape):
+    def test_codim(self, op):
         self._skip_if_disabled()
         assert op.codim == 1
-
-    def test_squeeze(self, op):
-        self._skip_if_disabled()
-        assert op.squeeze() is op
-
-    def test_interface_asloss(self, op):
-        # op.asloss() sub-classes Func if data provided, transparent otherwise.
-        # Disable this test if asloss() not defined.
-        self._skip_if_disabled()
-        assert op.asloss() is op
-
-        N_dim = self._sanitize(op.dim, default=3)
-        data = self._random_array((N_dim,))
-        self._check_has_interface(op.asloss(data), self.__class__)
 
 
 class DiffMapT(MapT):
     # Class Properties --------------------------------------------------------
-    base = pyco.DiffMap
+    base = pyca.DiffMap
     interface = frozenset(
         MapT.interface
         | {
@@ -521,25 +529,18 @@ class DiffMapT(MapT):
     def data_math_diff_lipschitz(self) -> cabc.Collection[np.ndarray]:
         # override in subclass with at least 2 evaluation points for op.apply().
         # Used to verify if op.jacobian() satisfies the diff_Lipschitz condition.
-        # Arrays should be NumPy-only.
+        # Arrays should be NumPy-only. (Internal machinery will transform to different
+        # backend/precisions as needed.)
         raise NotImplementedError
 
     # Tests -------------------------------------------------------------------
-    def test_diff_lipschitz(self, op):
+    def test_diff_lipschitz(self, op, width):
         # Ensure:
         # * _diff_lipschitz matches .diff_lipschitz() after being called once.
         self._skip_if_disabled()
         dL_computed = op.diff_lipschitz()
         dL_memoized = op._diff_lipschitz
-        assert np.isclose(dL_computed, dL_memoized)
-
-    def test_squeeze(self, op):
-        # op.squeeze() sub-classes to DiffFunc for scalar outputs, and is transparent otherwise.
-        self._skip_if_disabled()
-        if op.codim == 1:
-            self._check_has_interface(op.squeeze(), DiffFuncT)
-        else:
-            assert op.squeeze() is op
+        assert allclose(dL_computed, dL_memoized, as_dtype=width.value)
 
     def test_interface_jacobian(self, op, _data_apply):
         self._skip_if_disabled()
@@ -547,26 +548,36 @@ class DiffMapT(MapT):
         J = op.jacobian(arr)
         self._check_has_interface(J, LinOpT)
 
-    def test_math_diff_lipschitz(self, op, data_math_diff_lipschitz):
+    def test_math_diff_lipschitz(
+        self,
+        op,
+        xp,
+        width,
+        data_math_diff_lipschitz,
+    ):
         # \norm{J(x) - J(y)}{F} \le diff_L * \norm{x - y}{2}
         self._skip_if_disabled()
-        dL = op.diff_lipschitz()
-        J = lambda _: op.jacobian(_).asarray().flatten()
-        # .flatten() used to consistently compare jacobians via the L2 norm.
-        # (Allows one to re-use this test for scalar-valued DiffMaps.)
+        with pycrt.EnforcePrecision(False):
+            dL = op.diff_lipschitz()
 
-        stats = []
-        for x, y in itertools.combinations(data_math_diff_lipschitz, 2):
-            lhs = np.linalg.norm(J(x) - J(y))
-            rhs = dL * np.linalg.norm(x - y)
-            stats.append(less_equal(lhs, rhs, as_dtype=data_math_diff_lipschitz.dtype))
+            J = lambda _: op.jacobian(_).asarray(dtype=width.value).flatten()
+            # .flatten() used to consistently compare jacobians via the L2 norm.
+            # (Allows one to re-use this test for scalar-valued DiffMaps.)
 
-        assert all(stats)
+            stats = []  # (x, y, condition success)
+            data = xp.array(data_math_diff_lipschitz, dtype=width.value)
+            for x, y in itertools.combinations(data, 2):
+                lhs = pylinalg.norm(J(x) - J(y))
+                rhs = dL * pylinalg.norm(x - y)
+                success = less_equal(lhs, rhs, as_dtype=width.value)
+                stats.append((lhs, rhs, success))
+
+            assert all(_[2] for _ in stats)
 
 
 class DiffFuncT(FuncT, DiffMapT):
     # Class Properties --------------------------------------------------------
-    base = pyco.DiffFunc
+    base = pyca.DiffFunc
     interface = frozenset(FuncT.interface | DiffMapT.interface | {"grad"})
     disable_test = frozenset(FuncT.disable_test | DiffMapT.disable_test)
 
@@ -591,40 +602,6 @@ class DiffFuncT(FuncT, DiffMapT):
         )
         return data
 
-    @pytest.fixture
-    def _data_grad_argshift(self, _data_grad) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argshift().grad()`.
-        in_ = copy.deepcopy(_data_grad["in_"])
-
-        xp = pycu.get_array_module(in_["arr"])
-        shift = self._random_array((in_["arr"].size,))
-        shift = xp.array(shift, dtype=in_["arr"].dtype)
-        in_.update(arr=in_["arr"] + shift)
-
-        data = dict(
-            in_=in_,
-            out=_data_grad["out"],
-            shift=shift,  # for _op_argshift()
-        )
-        return data
-
-    @pytest.fixture
-    def _data_grad_argscale(self, _data_grad) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argscale().grad()`.
-        in_ = copy.deepcopy(_data_grad["in_"])
-        out = copy.deepcopy(_data_grad["out"])
-
-        scale = self._random_array((1,)).item()
-        in_["arr"] *= scale
-        out = out / scale  # potential dtype change doesn't matter: see _data_grad()
-
-        data = dict(
-            in_=in_,
-            out=out,
-            scale=scale,  # for _op_argscale()
-        )
-        return data
-
     # Tests -------------------------------------------------------------------
     def test_value1D_grad(self, op, _data_grad):
         self._skip_if_disabled()
@@ -646,71 +623,41 @@ class DiffFuncT(FuncT, DiffMapT):
         self._skip_if_disabled()
         self._check_precCM(op.grad, _data_grad)
 
-    def test_value1D_grad_argshift(self, _op_argshift, _data_grad_argshift):
+    def test_transparent_grad(self, op, _data_grad):
         self._skip_if_disabled()
-        self._check_value1D(_op_argshift.grad, _data_grad_argshift)
+        self._check_no_side_effect(op.grad, _data_grad)
 
-    def test_valueND_grad_argshift(self, _op_argshift, _data_grad_argshift):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argshift.grad, _data_grad_argshift)
-
-    def test_backend_grad_argshift(self, _op_argshift, _data_grad_argshift):
-        self._skip_if_disabled()
-        self._check_backend(_op_argshift.grad, _data_grad_argshift)
-
-    def test_prec_grad_argshift(self, _op_argshift, _data_grad_argshift):
-        self._skip_if_disabled()
-        self._check_prec(_op_argshift.grad, _data_grad_argshift)
-
-    def test_precCM_grad_argshift(self, _op_argshift, _data_grad_argshift):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argshift.grad, _data_grad_argshift)
-
-    def test_value1D_grad_argscale(self, _op_argscale, _data_grad_argscale):
-        self._skip_if_disabled()
-        self._check_value1D(_op_argscale.grad, _data_grad_argscale)
-
-    def test_valueND_grad_argscale(self, _op_argscale, _data_grad_argscale):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argscale.grad, _data_grad_argscale)
-
-    def test_backend_grad_argscale(self, _op_argscale, _data_grad_argscale):
-        self._skip_if_disabled()
-        self._check_backend(_op_argscale.grad, _data_grad_argscale)
-
-    def test_prec_grad_argscale(self, _op_argscale, _data_grad_argscale):
-        self._skip_if_disabled()
-        self._check_prec(_op_argscale.grad, _data_grad_argscale)
-
-    def test_precCM_grad_argscale(self, _op_argscale, _data_grad_argscale):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argscale.grad, _data_grad_argscale)
-
-    def test_math1_grad(self, op, data_grad):
+    def test_math1_grad(self, op, width, _data_grad):
         # .jacobian/.grad outputs are consistent.
         self._skip_if_disabled()
-        arr = data_grad["in_"]["arr"]
-        J = op.jacobian(arr).asarray()
-        g = op.grad(arr)
+        arr = _data_grad["in_"]["arr"]
+        with pycrt.EnforcePrecision(False):
+            J = op.jacobian(arr).asarray(dtype=width.value)
+            g = op.grad(arr)
 
-        assert J.size == g.size
-        assert allclose(J.squeeze(), g, as_dtype=arr.dtype)
+            assert J.size == g.size
+            assert allclose(J.squeeze(), g, as_dtype=arr.dtype)
 
-    def test_math2_grad(self, op):
+    def test_math2_grad(self, op, xp, width):
         # f(x - \frac{1}{L} \grad_{f}(x)) <= f(x)
         self._skip_if_disabled()
-        L = op.lipschitz()
+        with pycrt.EnforcePrecision(False):
+            L = op.lipschitz()
+            if np.isclose(L, 0):
+                return  # trivially true since f(x) = cst
+            elif np.isclose(L, np.inf):
+                return  # trivially true since f(x) <= f(x)
 
-        N_test, N_dim = 5, self._sanitize(op.dim, default=3)
-        rhs = self._random_array((N_test, N_dim))
-        lhs = rhs - op.grad(rhs) / L
+            N_test, N_dim = 5, self._sanitize(op.dim, default=3)
+            rhs = self._random_array((N_test, N_dim), xp=xp, width=width)
+            lhs = rhs - op.grad(rhs) / L
 
-        assert np.all(less_equal(op.apply(lhs), op.apply(rhs), as_dtype=lhs.dtype))
+            assert np.all(less_equal(op.apply(lhs), op.apply(rhs), as_dtype=width.value))
 
 
 class ProxFuncT(FuncT):
     # Class Properties --------------------------------------------------------
-    base = pyco.ProxFunc
+    base = pyca.ProxFunc
     interface = frozenset(
         FuncT.interface
         | {
@@ -722,7 +669,7 @@ class ProxFuncT(FuncT):
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
-    def _op_m(self, op) -> tuple[float, pyco.DiffFunc]:
+    def _op_m(self, op) -> tuple[float, pyca.DiffFunc]:
         mu = 1.1
         return mu, op.moreau_envelope(mu)
 
@@ -732,6 +679,21 @@ class ProxFuncT(FuncT):
         # Arrays should be NumPy-only. (Internal machinery will transform to different
         # backend/precisions as needed.)
         raise NotImplementedError
+
+    @pytest.fixture
+    def data_fenchel_prox(self, data_prox) -> DataLike:
+        # override in subclass with 1D input/outptus of op.fenchel_prox().
+        # Default value: inferred from data_prox().
+        p_arr = data_prox["in_"]["arr"]
+        p_tau = data_prox["in_"]["tau"]
+        p_out = data_prox["out"]
+        return dict(
+            in_=dict(
+                arr=p_arr / p_tau,
+                sigma=1 / p_tau,
+            ),
+            out=(p_arr - p_out) / p_tau,
+        )
 
     @pytest.fixture
     def _data_prox(self, data_prox, xp, width) -> DataLike:
@@ -747,54 +709,15 @@ class ProxFuncT(FuncT):
         return data
 
     @pytest.fixture
-    def _data_prox_argshift(self, _data_prox) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argshift().prox()`.
-        in_ = copy.deepcopy(_data_prox["in_"])
-
-        xp = pycu.get_array_module(in_["arr"])
-        shift = self._random_array((in_["arr"].size,))
-        shift = xp.array(shift, dtype=in_["arr"].dtype)
-        in_.update(arr=in_["arr"] + shift)
-        out = pycu.compute(_data_prox["out"] + shift)
-
-        data = dict(
-            in_=in_,
-            out=out,
-            shift=shift,  # for _op_argshift()
-        )
-        return data
-
-    @pytest.fixture
-    def _data_prox_argscale(self, _data_prox) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argscale().prox()`.
-        in_ = copy.deepcopy(_data_prox["in_"])
-        out = copy.deepcopy(_data_prox["out"])
-
-        scale = self._random_array((1,)).item()
-        in_["arr"] *= scale
-        in_["tau"] *= scale**2
-        out = out * scale
-
-        data = dict(
-            in_=in_,
-            out=out,
-            scale=scale,  # for _op_argscale()
-        )
-        return data
-
-    @pytest.fixture
-    def _data_fenchel_prox(self, _data_prox) -> DataLike:
-        # Generate fenchel_prox values from prox ground-truth. (All precision/backends.)
+    def _data_fenchel_prox(self, data_fenchel_prox, xp, width) -> DataLike:
+        # Generate Cartesian product of inputs.
         # Do not override in subclass: for internal use only to test `op.fenchel_prox()`.
-        p_arr = _data_prox["in_"]["arr"]
-        p_tau = _data_prox["in_"]["tau"]
-        p_out = _data_prox["out"]
+        # Outputs are left unchanged: different tests should transform them as required.
+        in_ = copy.deepcopy(data_fenchel_prox["in_"])
+        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
         data = dict(
-            in_=dict(
-                arr=p_arr / p_tau,
-                sigma=1 / p_tau,
-            ),
-            out=(p_arr - p_out) / p_tau,
+            in_=in_,
+            out=data_fenchel_prox["out"],
         )
         return data
 
@@ -819,59 +742,23 @@ class ProxFuncT(FuncT):
         self._skip_if_disabled()
         self._check_precCM(op.prox, _data_prox)
 
-    def test_value1D_prox_argshift(self, _op_argshift, _data_prox_argshift):
+    def test_transparent_prox(self, op, _data_prox):
         self._skip_if_disabled()
-        self._check_value1D(_op_argshift.prox, _data_prox_argshift)
+        self._check_no_side_effect(op.prox, _data_prox)
 
-    def test_valueND_prox_argshift(self, _op_argshift, _data_prox_argshift):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argshift.prox, _data_prox_argshift)
-
-    def test_backend_prox_argshift(self, _op_argshift, _data_prox_argshift):
-        self._skip_if_disabled()
-        self._check_backend(_op_argshift.prox, _data_prox_argshift)
-
-    def test_prec_prox_argshift(self, _op_argshift, _data_prox_argshift):
-        self._skip_if_disabled()
-        self._check_prec(_op_argshift.prox, _data_prox_argshift)
-
-    def test_precCM_prox_argshift(self, _op_argshift, _data_prox_argshift):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argshift.prox, _data_prox_argshift)
-
-    def test_value1D_prox_argscale(self, _op_argscale, _data_prox_argscale):
-        self._skip_if_disabled()
-        self._check_value1D(_op_argscale.prox, _data_prox_argscale)
-
-    def test_valueND_prox_argscale(self, _op_argscale, _data_prox_argscale):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argscale.prox, _data_prox_argscale)
-
-    def test_backend_prox_argscale(self, _op_argscale, _data_prox_argscale):
-        self._skip_if_disabled()
-        self._check_backend(_op_argscale.prox, _data_prox_argscale)
-
-    def test_prec_prox_argscale(self, _op_argscale, _data_prox_argscale):
-        self._skip_if_disabled()
-        self._check_prec(_op_argscale.prox, _data_prox_argscale)
-
-    def test_precCM_prox_argscale(self, _op_argscale, _data_prox_argscale):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argscale.prox, _data_prox_argscale)
-
-    def test_math_prox(self, op, data_prox):
+    def test_math_prox(self, op, xp, width, _data_prox):
         # Ensure y = prox_{tau f}(x) minimizes:
         # 2\tau f(z) - \norm{z - x}{2}^{2}, for any z \in \bR^{N}
         self._skip_if_disabled()
-        in_ = data_prox["in_"]
+        in_ = _data_prox["in_"]
         y = op.prox(**in_)
 
         N_test, N_dim = 5, y.shape[-1]
-        x = self._random_array((N_test, N_dim)) + in_["arr"]
+        x = self._random_array((N_test, N_dim), xp=xp, width=width) + in_["arr"]
 
         def g(x):
             a = 2 * in_["tau"] * op.apply(x)
-            b = np.linalg.norm(in_["arr"] - x, axis=-1, keepdims=True) ** 2
+            b = pylinalg.norm(in_["arr"] - x, axis=-1, keepdims=True) ** 2
             return a + b
 
         assert np.all(less_equal(g(y), g(x), as_dtype=y.dtype))
@@ -901,21 +788,21 @@ class ProxFuncT(FuncT):
         _, op_m = _op_m
         self._check_has_interface(op_m, DiffFuncT)
 
-    def test_math1_moreau_envelope(self, op, _op_m, data_apply):
+    def test_math1_moreau_envelope(self, op, _op_m, _data_apply):
         # op_m.apply() lower-bounds op.apply()
         self._skip_if_disabled()
         _, op_m = _op_m
-        arr = data_apply["in_"]["arr"]
+        arr = _data_apply["in_"]["arr"]
         lhs = op_m.apply(arr)
         rhs = op.apply(arr)
 
         assert less_equal(lhs, rhs, as_dtype=rhs.dtype)
 
-    def test_math2_moreau_envelope(self, op, _op_m, data_apply):
+    def test_math2_moreau_envelope(self, op, _op_m, _data_apply):
         # op_m.grad(x) * mu = x - op.prox(x, mu)
         self._skip_if_disabled()
         mu, op_m = _op_m
-        arr = data_apply["in_"]["arr"]
+        arr = _data_apply["in_"]["arr"]
         lhs = op_m.grad(arr) * mu
         rhs = arr - op.prox(arr, mu)
 
@@ -924,13 +811,49 @@ class ProxFuncT(FuncT):
 
 class ProxDiffFuncT(ProxFuncT, DiffFuncT):
     # Class Properties --------------------------------------------------------
-    base = pyco.ProxDiffFunc
+    base = pyca.ProxDiffFunc
     interface = frozenset(ProxFuncT.interface | DiffFuncT.interface)
 
 
+class _QuadraticFuncT(ProxDiffFuncT):
+    # Class Properties --------------------------------------------------------
+    base = pyca._QuadraticFunc
+    interface = frozenset(ProxDiffFuncT.interface | {"_hessian"})
+
+    @pytest.fixture
+    def data_math_lipschitz(self, op):
+        N_test, dim = 5, self._sanitize(op.dim, 3)
+        return self._random_array((N_test, dim), seed=5)
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, op):
+        N_test, dim = 5, self._sanitize(op.dim, 3)
+        return self._random_array((N_test, dim), seed=5)
+
+    # Tests -------------------------------------------------------------------
+    # [fenchel_]prox() use CG internally.
+    # To avoid CG convergence issues, correctness is assesed at lowest precision only.
+    def test_value1D_prox(self, op, _data_prox):
+        self._skip_if_disabled()
+        self._check_value1D(op.prox, _data_prox, dtype=np.dtype(np.half))
+
+    def test_valueND_prox(self, op, _data_prox):
+        self._skip_if_disabled()
+        self._check_valueND(op.prox, _data_prox, dtype=np.dtype(np.half))
+
+    def test_value1D_fenchel_prox(self, op, _data_fenchel_prox):
+        self._skip_if_disabled()
+        self._check_value1D(op.fenchel_prox, _data_fenchel_prox, dtype=np.dtype(np.half))
+
+    def test_valueND_fenchel_prox(self, op, _data_fenchel_prox):
+        self._skip_if_disabled()
+        self._check_valueND(op.fenchel_prox, _data_fenchel_prox, dtype=np.dtype(np.half))
+
+
+@pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
 class LinOpT(DiffMapT):
     # Class Properties --------------------------------------------------------
-    base = pyco.LinOp
+    base = pyca.LinOp
     interface = frozenset(
         DiffMapT.interface
         | {
@@ -950,34 +873,73 @@ class LinOpT(DiffMapT):
     )
 
     # Internal helpers --------------------------------------------------------
+    def _skip_unless_NUMPY_CUPY(self, xp, gpu):
+        N = pycd.NDArrayInfo
+        xp_ = {True: N.CUPY, False: N.NUMPY}[gpu].module()
+        if xp != xp_:
+            pytest.skip("Only NUMPY/CUPY backends supported.")
+
+    coupled_gpu_which = pytest.mark.parametrize(
+        ["_gpu", "which"],
+        [
+            (False, "LM"),
+            (False, "SM"),
+            pytest.param(
+                *(True, "LM"),
+                marks=pytest.mark.xfail(
+                    reason="`which=LM` sparse-evaled via CuPy flaky.",
+                    strict=False,  # fails based on matrix structure.
+                ),
+            ),
+            pytest.param(
+                *(True, "SM"),
+                marks=pytest.mark.xfail(
+                    True,
+                    reason="`which=SM` unsupported by CuPy",
+                    strict=False,
+                ),
+            ),
+        ],
+    )
+
     @staticmethod
     def _check_value1D_vals(func, kwargs, ground_truth):
-        k, which = kwargs["k"], kwargs["which"]
+        N = pycd.NDArrayInfo
+        xp = {True: N.CUPY, False: N.NUMPY}[kwargs["gpu"]].module()
+        if kwargs["gpu"]:
+            ground_truth = xp.array(ground_truth)
 
+        k = kwargs["k"]
         out = func(**kwargs)
-        idx = np.argsort(np.abs(out))
+        idx = xp.argsort(xp.abs(out))
         assert out.size == k  # obtain N_vals asked for
         assert allclose(out[idx], out, out.dtype)  # sorted in ascending magnitude
 
         # and output is correct (in magnitude)
-        idx_gt = np.argsort(np.abs(ground_truth))
+        which = kwargs["which"]
+        idx_gt = xp.argsort(xp.abs(ground_truth))
         if which == "SM":
             out = out[idx][:k]
             gt = ground_truth[idx_gt][:k]
         else:  # LM
             out = out[idx][-k:]
             gt = ground_truth[idx_gt][-k:]
-        assert allclose(np.abs(out), np.abs(gt), out.dtype)
+
+        # When seeking the smallest-magnitude singular values via svdvals(), the iterative algorithm
+        # used converges to values close to the ground-truth (GT).
+        # However, for 0-valued singular vectors, the relative error between converged solution and
+        # GT is sometimes slightly higher than the relative tolerance set for FP32/FP64 to consider
+        # them identical.
+        # We therefore assess [svd,eig]vals() outputs at FP32-precision only.
+        # This precision is enough to query an operator's spectrum for further diagnostics.
+        assert allclose(xp.abs(out), xp.abs(gt), as_dtype=pycrt.Width.SINGLE.value)
 
     @staticmethod
     def _check_backend_vals(func, _gpu):
-        data = dict(k=1, gpu=_gpu)
-        out = func(**data)
+        N = pycd.NDArrayInfo
+        xp_truth = {True: N.CUPY, False: N.NUMPY}[_gpu].module()
 
-        if _gpu:
-            import cupy as xp_truth
-        else:
-            xp_truth = np
+        out = func(k=1, gpu=_gpu)
         assert pycu.get_array_module(out) == xp_truth
 
     # Fixtures ----------------------------------------------------------------
@@ -1008,25 +970,6 @@ class LinOpT(DiffMapT):
         return data
 
     @pytest.fixture
-    def _data_adjoint_argscale(self, op, _data_apply_argscale) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.argscale().adjoint()`.
-        N_test = 30
-        arr = self._random_array((N_test, op.codim))
-        out = op.adjoint(arr)
-        _data_adjoint = dict(in_=dict(arr=arr), out=out)
-
-        in_ = copy.deepcopy(_data_adjoint["in_"])
-        scale = _data_apply_argscale["scale"]
-        out /= scale
-
-        data = dict(
-            in_=in_,
-            out=out,
-            scale=scale,  # for _op_argscale()
-        )
-        return data
-
-    @pytest.fixture
     def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
         N_test = 5
         return self._random_array((N_test, op.dim))
@@ -1047,9 +990,14 @@ class LinOpT(DiffMapT):
         return np.sort(D)
 
     @pytest.fixture
-    def _op_T(self, op) -> pyco.LinOp:
+    def _op_T(self, op) -> pyca.LinOp:
         op_T = op.T
         return op_T
+
+    @pytest.fixture
+    def _op_TT(self, _op_T) -> pyca.LinOp:
+        op_TT = _op_T.T
+        return op_TT
 
     @pytest.fixture(
         params=[
@@ -1058,7 +1006,7 @@ class LinOpT(DiffMapT):
                 True,
                 marks=pytest.mark.skipif(
                     not pycd.CUPY_ENABLED,
-                    reason="GPU missing",
+                    reason="GPU unsupported on this machine.",
                 ),
             ),
         ]
@@ -1067,9 +1015,11 @@ class LinOpT(DiffMapT):
         # Do not override in subclass: for use only to test methods taking a `gpu` parameter.
         return request.param
 
-    @pytest.fixture(params=[None, 1])
-    def _damp(self, request) -> typ.Optional[float]:
+    @pytest.fixture(params=[1, 2])
+    def _damp(self, request) -> float:
         # candidate dampening factors for .pinv() & .dagger()
+        # We do not test damp=0 since ill-conditioning of some operators would require a lot of
+        # manual _damp-correcting to work.
         return request.param
 
     @pytest.fixture
@@ -1079,13 +1029,17 @@ class LinOpT(DiffMapT):
         # backend/precisions as needed.)
         #
         # Default implementation: auto-computes pinv() at output points specified to test op.apply().
-        A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
-        if _damp is not None:
-            for i in range(op.dim):
-                A[i, i] += _damp
+
+        # Safe implementation of --------------------------
+        #   A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
+        B = op.asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
+        A = B.T @ B
+        # -------------------------------------------------
+        for i in range(op.dim):
+            A[i, i] += _damp
 
         arr = data_apply["out"]
-        out, *_ = splinalg.lstsq(A, op.adjoint(arr))
+        out, *_ = splinalg.lstsq(A, B.T @ arr)
         data = dict(
             in_=dict(
                 arr=arr,
@@ -1111,7 +1065,7 @@ class LinOpT(DiffMapT):
         return data
 
     @pytest.fixture
-    def _op_dagger(self, op, _damp) -> pyco.LinOp:
+    def _op_dagger(self, op, _damp) -> pyca.LinOp:
         op_d = op.dagger(damp=_damp)
         return op_d
 
@@ -1131,14 +1085,18 @@ class LinOpT(DiffMapT):
         # backend/precisions as needed.)
         #
         # Default implementation: auto-computes .adjoint() at input points specified to test op.apply().
-        A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
-        if _damp is not None:
-            for i in range(op.dim):
-                A[i, i] += _damp
+
+        # Safe implementation of --------------------------
+        #   A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
+        B = op.asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
+        A = B.T @ B
+        # -------------------------------------------------
+        for i in range(op.dim):
+            A[i, i] += _damp
 
         arr = data_apply["in_"]["arr"]
         out, *_ = splinalg.lstsq(A, arr)
-        out = op.apply(out)
+        out = B @ out
         data = dict(
             in_=dict(
                 arr=arr,
@@ -1162,15 +1120,29 @@ class LinOpT(DiffMapT):
         )
         return data
 
-    @pytest.fixture
-    def _op_array(self, op, xp, width) -> pyct.NDArray:
+    @pytest.fixture(
+        params=itertools.product(
+            pycd.supported_array_modules(),
+            pycrt.Width,
+        )
+    )
+    def _op_array(self, op, xp, width, request) -> pyct.NDArray:
         # Ground-truth array which should be returned by .asarray()
+
+        # op() only defined for specifid xp/width combos.
+        # Idea: compute .asarray() using backend/precision supported by op(), then cast to
+        # user-desired backend/precision.
         A_gt = xp.zeros((op.codim, op.dim), dtype=width.value)
         for i in range(op.dim):
             e = xp.zeros((op.dim,), dtype=width.value)
             e[i] = 1
             A_gt[:, i] = op.apply(e)
-        return A_gt
+
+        N = pycd.NDArrayInfo
+        xp_, width_ = request.param
+        if N.from_obj(A_gt) == N.CUPY:
+            A_gt = A_gt.get()
+        return xp_.array(A_gt, dtype=width_.value)
 
     @pytest.fixture
     def _op_sciop(self, op, _gpu, width) -> spsl.LinearOperator:
@@ -1185,33 +1157,29 @@ class LinOpT(DiffMapT):
             "rmatmat",
         ]
     )
-    def _data_to_sciop(self, op, _op_sciop, _gpu, width, request) -> DataLike:
+    def _data_to_sciop(self, op, xp, width, _gpu, request) -> DataLike:
         # Do not override in subclass: for internal use only to test `op.to_sciop()`.
-        if _gpu:
-            import cupy as cp
+        self._skip_unless_NUMPY_CUPY(xp, _gpu)
 
-            xp = cp
-        else:
-            xp = np
-
-        N_test = 5
-        f = lambda _: xp.array(_, dtype=width.value)
+        N_test = 7
+        f = lambda _: self._random_array(_, xp=xp, width=width)
+        op_array = op.asarray(xp=xp, dtype=width.value)
         mode = request.param
         if mode == "matvec":
-            arr = f(self._random_array((op.dim,)))
-            out_gt = op.apply(arr)
+            arr = f((op.dim,))
+            out_gt = op_array @ arr
             var = "x"
         elif mode == "matmat":
-            arr = f(self._random_array((op.dim, N_test)))
-            out_gt = op.apply(arr.T).T
+            arr = f((op.dim, N_test))
+            out_gt = op_array @ arr
             var = "X"
         elif mode == "rmatvec":
-            arr = f(self._random_array((op.codim,)))
-            out_gt = op.adjoint(arr)
+            arr = f((op.codim,))
+            out_gt = op_array.T @ arr
             var = "x"
         elif mode == "rmatmat":
-            arr = f(self._random_array((op.codim, N_test)))
-            out_gt = op.adjoint(arr.T).T
+            arr = f((op.codim, N_test))
+            out_gt = op_array.T @ arr
             var = "X"
         return dict(
             in_={var: arr},
@@ -1265,57 +1233,40 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         self._check_precCM(op.adjoint, _data_adjoint)
 
-    def test_math_adjoint(self, op):
+    def test_transparent_adjoint(self, op, _data_adjoint):
+        self._skip_if_disabled()
+        self._check_no_side_effect(op.adjoint, _data_adjoint)
+
+    def test_math_adjoint(self, op, xp, width):
         # <op.adjoint(x), y> = <x, op.apply(y)>
         self._skip_if_disabled()
         N = 20
-        x = self._random_array((N, op.codim))
-        y = self._random_array((N, op.dim))
+        x = self._random_array((N, op.codim), xp=xp, width=width)
+        y = self._random_array((N, op.dim), xp=xp, width=width)
 
         ip = lambda a, b: (a * b).sum(axis=-1)  # (N, Q) * (N, Q) -> (N,)
         lhs = ip(op.adjoint(x), y)
         rhs = ip(x, op.apply(y))
 
-        assert allclose(lhs, rhs, lhs.dtype)
+        assert allclose(lhs, rhs, as_dtype=width.value)
 
-    def test_interface_argshift(self, op):
-        self._skip_if_disabled()
-        shift = self._random_array((op.dim,))
-        op_s = op.argshift(shift)
-        self._check_has_interface(op_s, DiffMapT)
-
-    def test_value1D_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
-        self._skip_if_disabled()
-        self._check_value1D(_op_argscale.adjoint, _data_adjoint_argscale)
-
-    def test_valueND_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
-        self._skip_if_disabled()
-        self._check_valueND(_op_argscale.adjoint, _data_adjoint_argscale)
-
-    def test_backend_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
-        self._skip_if_disabled()
-        self._check_backend(_op_argscale.adjoint, _data_adjoint_argscale)
-
-    def test_prec_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
-        self._skip_if_disabled()
-        self._check_prec(_op_argscale.adjoint, _data_adjoint_argscale)
-
-    def test_precCM_adjoint_argscale(self, _op_argscale, _data_adjoint_argscale):
-        self._skip_if_disabled()
-        self._check_precCM(_op_argscale.adjoint, _data_adjoint_argscale)
-
-    def test_math2_lipschitz(self, op):
+    def test_math2_lipschitz(self, op, xp, width):
         # op.lipschitz('fro') upper bounds op.lipschitz('svds')
         self._skip_if_disabled()
         L_svds = op.lipschitz(recompute=True, algo="svds")
-        L_fro = op.lipschitz(recompute=True, algo="fro", enable_warnings=False)
-        assert L_svds <= L_fro
+        L_fro = op.lipschitz(recompute=True, algo="fro", xp=xp, enable_warnings=False)
+        assert less_equal(
+            L_svds,
+            L_fro,
+            as_dtype=width.value,
+            # as_dtype=pycrt.Width.SINGLE.value,
+        ).item()
 
-    def test_math3_lipschitz(self, op, _op_svd):
+    def test_math3_lipschitz(self, op, _op_svd, width):
         # op.lipschitz('svds') computes the optimal Lipschitz constant.
         self._skip_if_disabled()
         L_svds = op.lipschitz(recompute=True, algo="svds")
-        assert np.isclose(L_svds, _op_svd.max())
+        assert allclose(L_svds, _op_svd.max(), as_dtype=width.value)
 
     def test_interface_jacobian(self, op, _data_apply):
         self._skip_if_disabled()
@@ -1323,49 +1274,37 @@ class LinOpT(DiffMapT):
         J = op.jacobian(arr)
         assert J is op
 
-    def test_squeeze(self, op):
-        # op.squeeze() sub-classes to LinFunc for scalar outputs, and is transparent otherwise.
-        self._skip_if_disabled()
-        if op.codim == 1:
-            self._check_has_interface(op.squeeze(), LinFuncT)
-        else:
-            assert op.squeeze() is op
-
     @pytest.mark.parametrize("k", [1, 2])
-    @pytest.mark.parametrize("which", ["SM", "LM"])
-    @pytest.mark.filterwarnings("ignore::UserWarning")
-    def test_value1D_svdvals(self, op, _op_svd, k, which):
+    @coupled_gpu_which
+    def test_value1D_svdvals(self, op, xp, _gpu, _op_svd, k, which):
         self._skip_if_disabled()
-        data = dict(k=k, which=which)
+        self._skip_unless_NUMPY_CUPY(xp, _gpu)
+        data = dict(k=k, which=which, gpu=_gpu)
         self._check_value1D_vals(op.svdvals, data, _op_svd)
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
-    def test_backend_svdvals(self, op, _gpu):
+    def test_backend_svdvals(self, op, xp, _gpu):
         self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(xp, _gpu)
         self._check_backend_vals(op.svdvals, _gpu)
 
-    @pytest.mark.parametrize(
-        "width",  # local override of this fixture
-        [
-            pycrt.Width.SINGLE,
-            pycrt.Width.DOUBLE,
-            pytest.param(
-                pycrt.Width.QUAD,
-                marks=pytest.mark.xfail(
-                    reason="Unsupported by ARPACK/PROPACK/LOBPCG.",
-                    strict=True,
-                ),
-            ),
-        ],
-    )
-    @pytest.mark.filterwarnings("ignore::UserWarning")
-    def test_precCM_svdvals(self, op, _gpu, width):
+    def test_precCM_svdvals(self, op, xp, _gpu, width):
         self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(xp, _gpu)
         data = dict(in_=dict(k=1, gpu=_gpu))
         self._check_precCM(op.svdvals, data, (width,))
 
-    def test_interface_T(self, _op_T):
-        self._check_has_interface(_op_T, LinOpT)
+    def test_interface_T(self, op, _op_T):
+        self._skip_if_disabled()
+        if op.dim == 1:
+            klass = LinFuncT
+        else:
+            klass = LinOpT
+        self._check_has_interface(_op_T, klass)
+
+    def test_interface_TT(self, op, _op_TT):
+        # Transposing twice returns operator with initial shape.
+        self._skip_if_disabled()
+        assert _op_TT.shape == op.shape
 
     def test_value1D_call_T(self, _op_T, _data_adjoint):
         self._skip_if_disabled()
@@ -1430,12 +1369,12 @@ class LinOpT(DiffMapT):
     def test_value1D_pinv(self, op, _data_pinv):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_value1D(op.pinv, _data_pinv, precision=pycrt.Width.HALF)
+        self._check_value1D(op.pinv, _data_pinv, dtype=np.dtype(np.half))
 
     def test_valueND_pinv(self, op, _data_pinv):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_valueND(op.pinv, _data_pinv, precision=pycrt.Width.HALF)
+        self._check_valueND(op.pinv, _data_pinv, dtype=np.dtype(np.half))
 
     def test_backend_pinv(self, op, _data_pinv):
         self._skip_if_disabled()
@@ -1456,12 +1395,12 @@ class LinOpT(DiffMapT):
     def test_value1D_call_dagger(self, _op_dagger, _data_apply_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_value1D(_op_dagger.__call__, _data_apply_dagger, precision=pycrt.Width.HALF)
+        self._check_value1D(_op_dagger.__call__, _data_apply_dagger, dtype=np.dtype(np.half))
 
     def test_valueND_call_dagger(self, _op_dagger, _data_apply_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_valueND(_op_dagger.__call__, _data_apply_dagger, precision=pycrt.Width.HALF)
+        self._check_valueND(_op_dagger.__call__, _data_apply_dagger, dtype=np.dtype(np.half))
 
     def test_backend_call_dagger(self, _op_dagger, _data_apply_dagger):
         self._skip_if_disabled()
@@ -1478,12 +1417,12 @@ class LinOpT(DiffMapT):
     def test_value1D_apply_dagger(self, _op_dagger, _data_apply_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_value1D(_op_dagger.apply, _data_apply_dagger, precision=pycrt.Width.HALF)
+        self._check_value1D(_op_dagger.apply, _data_apply_dagger, dtype=np.dtype(np.half))
 
     def test_valueND_apply_dagger(self, _op_dagger, _data_apply_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_valueND(_op_dagger.apply, _data_apply_dagger, precision=pycrt.Width.HALF)
+        self._check_valueND(_op_dagger.apply, _data_apply_dagger, dtype=np.dtype(np.half))
 
     def test_backend_apply_dagger(self, _op_dagger, _data_apply_dagger):
         self._skip_if_disabled()
@@ -1500,12 +1439,12 @@ class LinOpT(DiffMapT):
     def test_value1D_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_value1D(_op_dagger.adjoint, _data_adjoint_dagger, precision=pycrt.Width.HALF)
+        self._check_value1D(_op_dagger.adjoint, _data_adjoint_dagger, dtype=np.dtype(np.half))
 
     def test_valueND_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
-        self._check_valueND(_op_dagger.adjoint, _data_adjoint_dagger, precision=pycrt.Width.HALF)
+        self._check_valueND(_op_dagger.adjoint, _data_adjoint_dagger, dtype=np.dtype(np.half))
 
     def test_backend_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
         self._skip_if_disabled()
@@ -1521,55 +1460,62 @@ class LinOpT(DiffMapT):
 
     def test_interface_gram(self, op):
         self._skip_if_disabled()
-        self._check_has_interface(op.gram(), PosDefOpT)
+        if op.dim > 1:
+            klass = SelfAdjointOpT
+        else:
+            klass = LinFuncT
+        self._check_has_interface(op.gram(), klass)
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
-    def test_math_gram(self, op):
+    def test_math_gram(self, op, xp, width):
         # op_g.apply == op_g.adjoint == adjoint \comp apply
-        # op_g.svdmax == op.svdmax**2
         self._skip_if_disabled()
         op_g = op.gram()
-        x = self._random_array((30, op.dim))
-        kwargs = dict(k=1, which="LM", gpu=False)
+        x = self._random_array((30, op.dim), xp=xp, width=width)
 
-        assert allclose(op_g.apply(x), op_g.adjoint(x), as_dtype=x.dtype)
-        assert allclose(op_g.apply(x), op.adjoint(op.apply(x)), as_dtype=x.dtype)
-        assert np.isclose(op_g.svdvals(**kwargs), op.svdvals(**kwargs) ** 2)
+        assert allclose(op_g.apply(x), op_g.adjoint(x), as_dtype=width.value)
+        assert allclose(op_g.apply(x), op.adjoint(op.apply(x)), as_dtype=width.value)
 
     def test_interface_cogram(self, op):
         self._skip_if_disabled()
-        self._check_has_interface(op.cogram(), PosDefOpT)
+        if op.codim > 1:
+            klass = SelfAdjointOpT
+        else:
+            klass = LinFuncT
+        self._check_has_interface(op.cogram(), klass)
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
-    def test_math_cogram(self, op):
+    def test_math_cogram(self, op, xp, width):
         # op_cg.apply == op_cg.adjoint == apply \comp adjoint
-        # op_cg.svdmax == op.svdmax**2
         self._skip_if_disabled()
         op_cg = op.cogram()
-        x = self._random_array((30, op.codim))
-        kwargs = dict(k=1, which="LM", gpu=False)
+        x = self._random_array((30, op.codim), xp=xp, width=width)
 
-        assert allclose(op_cg.apply(x), op_cg.adjoint(x), as_dtype=x.dtype)
-        assert allclose(op_cg.apply(x), op.apply(op.adjoint(x)), as_dtype=x.dtype)
-        assert np.isclose(op_cg.svdvals(**kwargs), op.svdvals(**kwargs) ** 2)
+        assert allclose(op_cg.apply(x), op_cg.adjoint(x), as_dtype=width.value)
+        assert allclose(op_cg.apply(x), op.apply(op.adjoint(x)), as_dtype=width.value)
 
     def test_value_asarray(self, op, _op_array):
         self._skip_if_disabled()
         xp = pycu.get_array_module(_op_array)
         dtype = _op_array.dtype
+
         A = op.asarray(xp=xp, dtype=dtype)
         assert A.shape == _op_array.shape
         assert allclose(_op_array, A, as_dtype=dtype)
 
-    def test_backend_asarray(self, op, xp, width):
+    def test_backend_asarray(self, op, _op_array):
         self._skip_if_disabled()
-        A = op.asarray(xp=xp, dtype=width.value)
+        xp = pycu.get_array_module(_op_array)
+        dtype = _op_array.dtype
+
+        A = op.asarray(xp=xp, dtype=dtype)
         assert pycu.get_array_module(A) == xp
 
-    def test_prec_asarray(self, op, xp, width):
+    def test_prec_asarray(self, op, _op_array):
         self._skip_if_disabled()
-        A = op.asarray(xp=xp, dtype=width.value)
-        assert A.dtype == width.value
+        xp = pycu.get_array_module(_op_array)
+        dtype = _op_array.dtype
+
+        A = op.asarray(xp=xp, dtype=dtype)
+        assert A.dtype == dtype
 
     def test_value_array(self, op, _op_array):
         self._skip_if_disabled()
@@ -1578,15 +1524,17 @@ class LinOpT(DiffMapT):
         assert A.shape == _op_array.shape
         assert allclose(_op_array, A, as_dtype=dtype)
 
-    def test_backend_array(self, op, width):
+    def test_backend_array(self, op, _op_array):
         self._skip_if_disabled()
-        A = np.array(op, dtype=width.value)
+        dtype = _op_array.dtype
+        A = np.array(op, dtype=dtype)
         assert pycu.get_array_module(A) == np
 
-    def test_prec_array(self, op, width):
+    def test_prec_array(self, op, _op_array):
         self._skip_if_disabled()
-        A = np.array(op, dtype=width.value)
-        assert A.dtype == width.value
+        dtype = _op_array.dtype
+        A = np.array(op, dtype=dtype)
+        assert A.dtype == dtype
 
     def test_value_to_sciop(self, _op_sciop, _data_to_sciop):
         self._skip_if_disabled()
@@ -1643,7 +1591,7 @@ class LinOpT(DiffMapT):
 
 class LinFuncT(ProxDiffFuncT, LinOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.LinFunc
+    base = pyca.LinFunc
     interface = frozenset(ProxDiffFuncT.interface | LinOpT.interface)
     disable_test = frozenset(ProxDiffFuncT.disable_test | LinOpT.disable_test)
 
@@ -1684,22 +1632,16 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
         )
 
     # Tests -------------------------------------------------------------------
-    def test_interface_argshift(self, op):
-        self._skip_if_disabled()
-        shift = self._random_array((op.dim,))
-        op_s = op.argshift(shift)
-        self._check_has_interface(op_s, DiffFuncT)
-
     @pytest.mark.parametrize("k", [1])
     @pytest.mark.parametrize("which", ["SM", "LM"])
-    @pytest.mark.filterwarnings("ignore::UserWarning")
-    def test_value1D_svdvals(self, op, _op_svd, k, which):
-        super().test_value1D_svdvals(op, _op_svd, k, which)
+    def test_value1D_svdvals(self, op, xp, _gpu, _op_svd, k, which):
+        self._skip_if_disabled()
+        super().test_value1D_svdvals(op, xp, _gpu, _op_svd, k, which)
 
 
 class SquareOpT(LinOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.SquareOp
+    base = pyca.SquareOp
     interface = frozenset(LinOpT.interface | {"trace"})
 
     # Fixtures ----------------------------------------------------------------
@@ -1714,15 +1656,13 @@ class SquareOpT(LinOpT):
         self._skip_if_disabled()
         assert op.dim == op.codim
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_interface_trace(self, op):
         assert isinstance(op.trace(), float)
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
     def test_value_trace(self, op, _op_trace):
         # Ensure computed trace (w/ default parameter values) satisfies statistical property stated
         # in hutchpp() docstring, i.e.: estimation error smaller than 1e-2 w/ probability 0.9
-        N_trial = 20
+        N_trial = 100
         tr = np.array([op.trace() for _ in range(N_trial)])
         N_pass = sum(np.abs(tr - _op_trace) <= 1e-2)
         assert N_pass >= 0.9 * N_trial
@@ -1730,8 +1670,24 @@ class SquareOpT(LinOpT):
 
 class NormalOpT(SquareOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.NormalOp
+    base = pyca.NormalOp
     interface = frozenset(SquareOpT.interface | {"eigvals"})
+
+    # Internal Helpers --------------------------------------------------------
+    eigvals_unsupported_on_gpu = pytest.mark.parametrize(
+        "_gpu",
+        [
+            False,
+            pytest.param(
+                True,
+                marks=pytest.mark.xfail(
+                    True,
+                    reason="eigvals unsupported by CuPy.",
+                    strict=True,
+                ),
+            ),
+        ],
+    )
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
@@ -1744,58 +1700,49 @@ class NormalOpT(SquareOpT):
     # Tests -------------------------------------------------------------------
     @pytest.mark.parametrize("k", [1, 2])
     @pytest.mark.parametrize("which", ["SM", "LM"])
-    @pytest.mark.filterwarnings("ignore::UserWarning")
-    def test_value1D_eigvals(self, op, _op_eig, k, which):
+    @eigvals_unsupported_on_gpu
+    def test_value1D_eigvals(self, op, xp, _gpu, _op_eig, k, which):
         self._skip_if_disabled()
-        data = dict(k=k, which=which)
+        self._skip_unless_NUMPY_CUPY(xp, _gpu)
+        data = dict(k=k, which=which, gpu=_gpu)
         self._check_value1D_vals(op.eigvals, data, _op_eig)
 
-    @pytest.mark.filterwarnings("ignore::UserWarning")
-    def test_backend_eigvals(self, op, _gpu):
+    @eigvals_unsupported_on_gpu
+    def test_backend_eigvals(self, op, xp, _gpu):
         self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(xp, _gpu)
         self._check_backend_vals(op.eigvals, _gpu)
 
-    @pytest.mark.parametrize(
-        "width",  # local override of this fixture
-        [  # We use the complex-valued types since .eigvals() should return complex. (Exception: SelfAdjointOp)
-            pycrt._CWidth.SINGLE,
-            pycrt._CWidth.DOUBLE,
-            pytest.param(
-                pycrt._CWidth.QUAD,
-                marks=pytest.mark.xfail(
-                    reason="Unsupported by ARPACK/PROPACK/LOBPCG.",
-                    strict=True,
-                ),
-            ),
-        ],
-    )
-    @pytest.mark.filterwarnings("ignore::UserWarning")
-    def test_precCM_eigvals(self, op, _gpu, width):
+    @eigvals_unsupported_on_gpu
+    def test_precCM_eigvals(self, op, xp, _gpu, width):
         self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(xp, _gpu)
         data = dict(in_=dict(k=1, gpu=_gpu))
-        self._check_precCM(op.eigvals, data, (width,))
+        self._check_precCM(op.eigvals, data, (width.complex,))  # <<===
+        # We use the complex-valued types since .eigvals() should return complex.
+        # (Exception: SelfAdjointOp)
 
-    def test_math_normality(self, op):
+    def test_math_normality(self, op, xp, width):
         # AA^{*} = A^{*}A
         self._skip_if_disabled()
         N = 20
-        x = self._random_array((N, op.dim))
+        x = self._random_array((N, op.dim), xp=xp, width=width)
 
         lhs = op.apply(op.adjoint(x))
         rhs = op.adjoint(op.apply(x))
-        assert allclose(lhs, rhs, lhs.dtype)
+        assert allclose(lhs, rhs, as_dtype=width.value)
 
 
 class UnitOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.UnitOp
+    base = pyca.UnitOp
 
     # Internal helpers --------------------------------------------------------
     @classmethod
-    def _check_identity(cls, operator):
-        x = cls._random_array((30, operator.dim))
-        assert allclose(operator.apply(x), x, as_dtype=x.dtype)
-        assert allclose(operator.adjoint(x), x, as_dtype=x.dtype)
+    def _check_identity(cls, operator, xp, width):
+        x = cls._random_array((30, operator.dim), xp=xp, width=width)
+        assert allclose(operator.apply(x), x, as_dtype=width.value)
+        assert allclose(operator.adjoint(x), x, as_dtype=width.value)
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
@@ -1808,63 +1755,79 @@ class UnitOpT(NormalOpT):
         # |\lambda| == 1
         assert np.allclose(np.abs(_op_eig), 1)
 
-    def test_math_gram(self, op):
+    def test_math_gram(self, op, xp, width):
         # op_g == I
         self._skip_if_disabled()
-        self._check_identity(op.gram())
+        self._check_identity(op.gram(), xp, width)
 
-    def test_math_cogram(self, op):
+    def test_math_cogram(self, op, xp, width):
         # op_cg == I
         self._skip_if_disabled()
-        self._check_identity(op.cogram())
+        self._check_identity(op.cogram(), xp, width)
 
-    def test_math_norm(self, op):
+    def test_math_norm(self, op, xp, width):
         # \norm{U x} = \norm{U^{*} x} = \norm{x}
         self._skip_if_disabled()
         N = 20
-        x = self._random_array((N, op.dim))
+        x = self._random_array((N, op.dim), xp=xp, width=width)
 
-        lhs1 = np.linalg.norm(op.apply(x), axis=-1)
-        lhs2 = np.linalg.norm(op.adjoint(x), axis=-1)
-        rhs = np.linalg.norm(x, axis=-1)
+        lhs1 = pylinalg.norm(op.apply(x), axis=-1)
+        lhs2 = pylinalg.norm(op.adjoint(x), axis=-1)
+        rhs = pylinalg.norm(x, axis=-1)
 
-        assert allclose(lhs1, lhs2, as_dtype=x.dtype)
-        assert allclose(lhs1, rhs, as_dtype=x.dtype)
+        assert allclose(lhs1, lhs2, as_dtype=width.value)
+        assert allclose(lhs1, rhs, as_dtype=width.value)
 
-    @pytest.mark.parametrize("scale", (1, -1, 2))
-    def test_interface_argscale(self, op, scale):
+    # local override of this fixture: no GPU limitations
+    @pytest.mark.parametrize("k", [1, 2])
+    @pytest.mark.parametrize("which", ["SM", "LM"])
+    def test_value1D_svdvals(self, op, xp, _gpu, _op_svd, k, which):
         self._skip_if_disabled()
-        op_s = op.argscale(scale)
-        if np.isclose(abs(scale), 1):
-            otype = self.__class__
-        else:
-            otype = NormalOpT
-        self._check_has_interface(op_s, otype)
+        super().test_value1D_svdvals(op, xp, _gpu, _op_svd, k, which)
 
 
 class SelfAdjointOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.SelfAdjointOp
+    base = pyca.SelfAdjointOp
 
     # Tests -------------------------------------------------------------------
     def test_math_eig(self, _op_eig):
         self._skip_if_disabled()
         assert pycuc._is_real(_op_eig)
 
-    def test_math_selfadjoint(self, op):
+    # local override of this fixture: back to standard _gpu rules
+    @pytest.mark.parametrize("k", [1, 2])
+    @LinOpT.coupled_gpu_which
+    def test_value1D_eigvals(self, op, xp, _gpu, _op_eig, k, which):
+        self._skip_if_disabled()
+        super().test_value1D_eigvals(op, xp, _gpu, _op_eig, k, which)
+
+    # local override of this fixture: back to standard _gpu rules
+    def test_backend_eigvals(self, op, xp, _gpu):
+        self._skip_if_disabled()
+        super().test_backend_eigvals(op, xp, _gpu)
+
+    def test_precCM_eigvals(self, op, xp, _gpu, width):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(xp, _gpu)
+        data = dict(in_=dict(k=1, gpu=_gpu))
+        self._check_precCM(op.eigvals, data, (width,))  # <<===
+        # We revert back to real-valued types since .eigvals() should return real.
+
+    def test_math_selfadjoint(self, op, xp, width):
         # A = A^{*}
         self._skip_if_disabled()
         N = 20
-        x = self._random_array((N, op.dim))
+        x = self._random_array((N, op.dim), xp=xp, width=width)
 
         lhs = op.apply(x)
         rhs = op.adjoint(x)
-        assert allclose(lhs, rhs, lhs.dtype)
+        assert allclose(lhs, rhs, as_dtype=width.value)
 
 
 class PosDefOpT(SelfAdjointOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.PosDefOp
+    base = pyca.PosDefOp
 
     # Tests -------------------------------------------------------------------
     def test_math_eig(self, _op_eig):
@@ -1872,64 +1835,33 @@ class PosDefOpT(SelfAdjointOpT):
         assert pycuc._is_real(_op_eig)
         assert np.all(_op_eig > 0)
 
-    def test_math_posdef(self, op):
+    def test_math_posdef(self, op, xp, width):
         # <Ax,x> > 0
         self._skip_if_disabled()
         N = 20
-        x = self._random_array((N, op.dim))
+        x = self._random_array((N, op.dim), xp=xp, width=width)
 
         ip = lambda a, b: (a * b).sum(axis=-1)  # (N, Q) * (N, Q) -> (N,)
-        assert np.all(ip(op.apply(x), x) > 0)
-
-    @pytest.mark.parametrize("scale", (-1, 1))
-    def test_interface_argscale(self, op, scale):
-        self._skip_if_disabled()
-        op_s = op.argscale(scale)
-        if scale > 0:
-            otype = self.__class__
-        else:
-            otype = SelfAdjointOpT
-        self._check_has_interface(op_s, otype)
+        assert np.all(less_equal(0, ip(op.apply(x), x), as_dtype=width.value))
 
 
 class ProjOpT(SquareOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.ProjOp
+    base = pyca.ProjOp
 
     # Fixtures ----------------------------------------------------------------
-    def test_math_idempotent(self, op):
+    def test_math_idempotent(self, op, xp, width):
         self._skip_if_disabled()
         N = 30
-        x = self._random_array((N, op.dim))
+        x = self._random_array((N, op.dim), xp=xp, width=width)
         y = op.apply(x)
         z = op.apply(y)
 
-        assert allclose(y, z, as_dtype=x.dtype)
-
-    @pytest.mark.parametrize("scale", (1, 2))
-    def test_interface_argscale(self, op, scale):
-        self._skip_if_disabled()
-        op_s = op.argscale(scale)
-        if np.isclose(scale, 1):
-            otype = self.__class__
-        else:
-            otype = SquareOpT
-        self._check_has_interface(op_s, otype)
+        assert allclose(y, z, as_dtype=width.value)
 
 
 class OrthProjOpT(ProjOpT, SelfAdjointOpT):
     # Class Properties --------------------------------------------------------
-    base = pyco.OrthProjOp
+    base = pyca.OrthProjOp
     interface = frozenset(ProjOpT.interface | SelfAdjointOpT.interface)
     disable_test = frozenset(ProjOpT.disable_test | SelfAdjointOpT.disable_test)
-
-    # Tests -------------------------------------------------------------------
-    @pytest.mark.parametrize("scale", (1, 2))
-    def test_interface_argscale(self, op, scale):
-        self._skip_if_disabled()
-        op_s = op.argscale(scale)
-        if np.isclose(scale, 1):
-            otype = self.__class__
-        else:
-            otype = SelfAdjointOpT
-        self._check_has_interface(op_s, otype)

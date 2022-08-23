@@ -1,13 +1,16 @@
+import itertools
+
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
-class Tile(pyco.LinOp):
+class Tile(pyca.LinOp):
     # f: \bR^{N} -> \bR^{N \times M = NM}
     #      x     -> [x ... x] (M times)
     def __init__(self, N: int, M: int):
@@ -30,17 +33,27 @@ class Tile(pyco.LinOp):
 
 
 class TestTile(conftest.LinOpT):
-    @pytest.fixture
-    def dim(self):
-        return 3
+    @pytest.fixture(
+        params=itertools.product(
+            ((10, 120, Tile(N=10, M=120 // 10)),),  # dim, codim, op
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def _spec(self, request):
+        return request.param
 
     @pytest.fixture
-    def codim(self):
-        return 12
+    def spec(self, _spec):
+        return _spec[0][2], _spec[1], _spec[2]
 
     @pytest.fixture
-    def op(self, codim, dim):
-        return Tile(N=dim, M=codim // dim)
+    def dim(self, _spec):
+        return _spec[0][0]
+
+    @pytest.fixture
+    def codim(self, _spec):
+        return _spec[0][1]
 
     @pytest.fixture
     def data_shape(self, codim, dim):

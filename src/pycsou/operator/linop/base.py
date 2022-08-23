@@ -3,201 +3,73 @@ import typing as typ
 import warnings
 
 import numpy as np
-import scipy.sparse as scisp
-import sparse as sp
+import scipy.sparse as sp
+import sparse as ssp
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
 
-if pycd.CUPY_ENABLED:
-    import cupy as cp
-    import cupyx.scipy.sparse as cusp
+__all__ = [
+    "IdentityOp",
+    "NullOp",
+    "NullFunc",
+    "HomothetyOp",
+    "DiagonalOp",
+]
 
 
-class ExplicitLinFunc(pyco.LinFunc):
-    r"""
-    Build a linear functional from its vectorial representation.
-
-    Given a vector :math:`\mathbf{z}\in\mathbb{R}^N`, the *explicit linear functional* associated to  :math:`\mathbf{z}` is defined as
-
-    .. math::
-
-        f_\mathbf{z}(\mathbf{x})=\mathbf{z}^T\mathbf{x}, \qquad \forall \mathbf{x}\in\mathbb{R}^N,
-
-    with adjoint given by:
-
-    .. math::
-
-        f^\ast_\mathbf{z}(\alpha)=\alpha\mathbf{z}, \qquad \forall \alpha\in\mathbb{R}.
-
-    The vector :math:`\mathbf{z}` is called the *vectorial representation* of the linear functional :math:`f_\mathbf{z}`.
-    The lipschitz constant of explicit linear functionals is trivially given by :math:`\|\mathbf{z}\|_2`.
-
-    Examples
-    --------
-    >>> from pycsou.operator.linop.base import ExplicitLinFunc
-    >>> import numpy as np
-    >>> vec = np.ones(10)
-    >>> sum_func = ExplicitLinFunc(vec)
-    >>> sum_func.shape
-    (1, 10)
-    >>> np.allclose(sum_func(np.arange(10)), np.sum(np.arange(10)))
-    True
-    >>> np.allclose(sum_func.adjoint(3), 3 * vec)
-    True
-
-    Notes
-    -----
-    :py:class:`~pycsou.operator.linop.base.ExplicitLinFunc` instances are **not array module agnostic**: they will only work with input arrays
-    belonging to the same array module than the one of the array ``vec`` used to initialize the :py:class:`~pycsou.operator.linop.base.ExplicitLinFunc` object.
-    Moreover, while the input/output precisions of the callable methods of :py:class:`~pycsou.operator.linop.base.ExplicitLinFunc` objects are
-    guaranteed to match the user-requested precision, the inner computations may force a recast of the input arrays when
-    the precision of ``vec`` does not match the user-requested precision. If such a situation occurs, a warning is raised.
-
-    See Also
-    --------
-    :py:meth:`~pycsou.abc.operator.LinOp.asarray`
-        Convert a matrix-free :py:class:`~pycsou.abc.operator.LinFunc` into an :py:class:`~pycsou.operator.linop.base.ExplicitLinFunc`.
-    """
-
-    @pycrt.enforce_precision(i="vec")
-    def __init__(self, vec: pyct.NDArray, enable_warnings: bool = True):
-        r"""
-
-        Parameters
-        ----------
-        vec: NDArray
-            (N,) input. N-D input arrays are flattened. This is the vectorial representation of the linear functional.
-        enable_warnings: bool
-            If ``True``, the user will be warned in case of mismatching precision issues.
-
-        Notes
-        -----
-        The input ``vec`` is automatically casted by the decorator :py:func:`~pycsou.runtime.enforce_precision` to the user-requested precision at initialization time.
-        Explicit control over the precision of ``vec`` is hence only possible via the context manager :py:class:`~pycsou.runtime.Precision`:
-
-        >>> from pycsou.operator.linop.base import ExplicitLinFunc
-        >>> import pycsou.runtime as pycrt
-        >>> import numpy as np
-        >>> vec = np.ones(10) # This array will be recasted to requested precision.
-        >>> with pycrt.Precision(pycrt.Width.HALF):
-        ...     sum_func = ExplicitLinFunc(vec) # The init function of ExplicitLinFunc stores ``vec`` at the requested precision.
-        ...     # Further calculations with sum_func. Within this context mismatching precisions are avoided.
-
-        """
-        super(ExplicitLinFunc, self).__init__(shape=(1, vec.size))
-        xp = pycu.get_array_module(vec)
-        self.vec = vec.copy().reshape(-1)
-        self._lipschitz = xp.linalg.norm(vec)
-        self._enable_warnings = bool(enable_warnings)
+class IdentityOp(pyca.OrthProjOp):
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self.vec.dtype != pycrt.getPrecision().value and self._enable_warnings:
-            warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        return (self.vec * arr).sum(axis=-1)
+        return pycu.read_only(arr)
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self.vec.dtype != pycrt.getPrecision().value and self._enable_warnings:
-            warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        return arr * self.vec
+        return pycu.read_only(arr)
+
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        return pyca.UnitOp.svdvals(self, **kwargs)
+
+    def eigvals(self, **kwargs) -> pyct.NDArray:
+        return pyca.UnitOp.svdvals(self, **kwargs)
+
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
+        xp = kwargs.pop("xp", np)
+        A = xp.eye(N=self.dim, dtype=dtype)
+        return A
 
     @pycrt.enforce_precision(i="arr")
-    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        if self.vec.dtype != pycrt.getPrecision().value and self._enable_warnings:
-            warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        return xp.broadcast_to(self.vec, arr.shape)
-
-    @pycrt.enforce_precision(i=["arr", "tau"])
-    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        if self.vec.dtype != pycrt.getPrecision().value and self._enable_warnings:
-            warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        return arr - tau * self.vec
-
-
-class IdentityOp(pyco.PosDefOp, pyco.UnitOp):
-    r"""
-    Identity operator :math:`\mathrm{Id}`.
-    """
-
-    def __init__(self, shape: pyct.SquareShape):
-        pyco.PosDefOp.__init__(self, shape)
-        pyco.UnitOp.__init__(self, shape)
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return arr
-
-
-class HomothetyOp(pyco.SelfAdjointOp):
-    r"""
-    Scaling operator.
-
-    This operators performs a scaling by real factor ``cst``. Its Lipschitz constant is given by ``abs(cst)``.
-    """
-
-    def __init__(self, cst: pyct.Real, dim: int):
-        r"""
-
-        Parameters
-        ----------
-        cst: Real
-            Scaling factor.
-        dim: int
-            Dimension of the domain.
-
-        Raises
-        ------
-        ValueError
-            If ``cst`` is not real.
-        """
-        if not isinstance(cst, pyct.Real):
-            raise ValueError(f"cst: expected real number, got {cst}.")
-        super(HomothetyOp, self).__init__(shape=(dim, dim))
-        self._cst = cst
-        self._lipschitz = abs(cst)
-        self._diff_lipschitz = 0
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = arr.copy()
-        out *= self._cst
+        out /= 1 + kwargs.pop("damp", 0)
         return out
 
-    @pycrt.enforce_precision(i="arr")
-    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self.apply(arr)
-
-    def __mul__(self, other):
-        op = pyco.Property.__mul__(self, other)
-        if isinstance(other, pyco.ProxFunc):
-            op.specialize(cast_to=pyco.ProxFunc)
-            post_composition_prox = lambda obj, arr, tau: other.prox(arr, self._cst * tau)
-            op.prox = types.MethodType(post_composition_prox, op)
+    def dagger(self, **kwargs) -> pyct.OpT:
+        cst = 1 / (1 + kwargs.pop("damp", 0))
+        op = HomothetyOp(cst=cst, dim=self.dim)
         return op
 
+    def trace(self, **kwargs) -> pyct.Real:
+        return float(self.dim)
 
-class NullOp(pyco.LinOp):
-    r"""
+
+class NullOp(pyca.LinOp):
+    """
     Null operator.
 
-    This operator maps any input vector on the null vector. Its Lipschitz constant is zero.
+    This operator maps any input vector on the null vector.
     """
 
-    def __init__(self, shape: typ.Tuple[int, int]):
-        r"""
-
-        Parameters
-        ----------
-        shape: tuple(int, int)
-            Shape of the null operator.
-        """
-        super(NullOp, self).__init__(shape)
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape=shape)
         self._lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
@@ -213,185 +85,414 @@ class NullOp(pyco.LinOp):
         xp = pycu.get_array_module(arr)
         return xp.broadcast_to(
             xp.array(0, arr.dtype),
-            (arr.shape[:-1], self.dim),
+            (*arr.shape[:-1], self.dim),
         )
 
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        N = pycd.NDArrayInfo
+        xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
+        D = xp.zeros(kwargs.pop("k"), dtype=pycrt.getPrecision().value)
+        return D
 
-class NullFunc(NullOp, pyco.LinFunc):
-    r"""
+    def gram(self) -> pyct.OpT:
+        op = NullOp(shape=(self.dim, self.dim))
+        return op.asop(pyca.SelfAdjointOp)._squeeze()
+
+    def cogram(self) -> pyct.OpT:
+        op = NullOp(shape=(self.codim, self.codim))
+        return op.asop(pyca.SelfAdjointOp)._squeeze()
+
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
+        xp = kwargs.pop("xp", np)
+        A = xp.zeros(self.shape, dtype=dtype)
+        return A
+
+    def trace(self, **kwargs) -> pyct.Real:
+        return float(0)
+
+
+def NullFunc(dim: pyct.Integer) -> pyct.OpT:
+    """
     Null functional.
 
-    This functional maps any input vector on the null scalar. Its Lipschitz constant is zero.
+    This functional maps any input vector on the null scalar.
     """
-
-    def __init__(self, dim: typ.Optional[int] = None):
-        r"""
-
-        Parameters
-        ----------
-        dim: Optional[int]
-            Dimension of the domain. Set ``dim=None`` for making the functional domain-agnostic.
-        """
-        pyco.LinFunc.__init__(self, shape=(1, dim))
-        NullOp.__init__(self, shape=self.shape)
-
-    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self.apply(arr)
-
-    @pycrt.enforce_precision(i="arr")
-    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        return arr
+    op = NullOp(shape=(1, dim))._squeeze()
+    return op
 
 
-class ExplicitLinOp(pyco.LinOp):
+def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
+    """
+    Scaling operator.
+
+    Parameters
+    ----------
+    cst: pyct.Real
+        Scaling factor.
+    dim: pyct.Integer
+        Dimension of the domain.
+
+    Returns
+    -------
+    op: pyct.OpT
+        (dim, dim) scaling operator.
+
+    Notes
+    -----
+    This operator is not defined in terms of :py:func:`~pycsou.operator.linop.DiagonalOp` since it
+    is array-backend-agnostic.
+    """
+    assert isinstance(cst, pyct.Real), f"cst: expected real, got {cst}."
+
+    if np.isclose(cst, 0):
+        op = NullOp(shape=(dim, dim))
+    elif np.isclose(cst, 1):
+        op = IdentityOp(dim=dim)
+    else:  # build PosDef or SelfAdjointOp
+
+        @pycrt.enforce_precision(i="arr")
+        def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
+            out = arr.copy()
+            out *= _._cst
+            return out
+
+        def op_svdvals(_, **kwargs) -> pyct.NDArray:
+            N = pycd.NDArrayInfo
+            xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
+            D = xp.full(
+                shape=kwargs.pop("k"),
+                fill_value=abs(_._cst),
+                dtype=pycrt.getPrecision().value,
+            )
+            return D
+
+        def op_eigvals(_, **kwargs) -> pyct.NDArray:
+            D = _.svdvals(**kwargs)
+            D *= np.sign(_._cst)
+            return D
+
+        @pycrt.enforce_precision(i="arr")
+        def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+            out = arr.copy()
+            scale = _._cst / (_._cst**2 + kwargs.pop("damp", 0))
+            out *= scale
+            return out
+
+        def op_dagger(_, **kwargs) -> pyct.OpT:
+            scale = _._cst / (_._cst**2 + kwargs.pop("damp", 0))
+            op = HomothetyOp(cst=scale, dim=_.dim)
+            return op
+
+        def op_gram(_):
+            return HomothetyOp(cst=_._cst**2, dim=_.dim)
+
+        def op_trace(_, **kwargs):
+            out = _._cst * _.codim
+            return float(out)
+
+        klass = pyca.PosDefOp if (cst > 0) else pyca.SelfAdjointOp
+        op = klass(shape=(dim, dim))
+        op._cst = cst
+        op._lipschitz = abs(cst)
+        op.apply = types.MethodType(op_apply, op)
+        op.svdvals = types.MethodType(op_svdvals, op)
+        op.eigvals = types.MethodType(op_eigvals, op)
+        op.pinv = types.MethodType(op_pinv, op)
+        op.dagger = types.MethodType(op_dagger, op)
+        op.gram = types.MethodType(op_gram, op)
+        op.cogram = op.gram
+        op.trace = types.MethodType(op_trace, op)
+
+    return op._squeeze()
+
+
+def DiagonalOp(
+    vec: pyct.NDArray,
+    enable_warnings: bool = True,
+) -> pyct.OpT:
+    r"""
+    Diagonal linear operator :math:`L: \mathbf{x} \to \text{diag}(\mathbf{v}) \mathbf{x}`.
+
+    Notes
+    -----
+    :py:func:`~pycsou.operator.linop.base.DiagonalOp` instances are **not arraymodule-agnostic**:
+    they will only work with NDArrays belonging to the same array module as ``vec``.
+    Moreover, inner computations may cast input arrays when the precision of ``vec`` does not match
+    the user-requested precision.
+    If such a situation occurs, a warning is raised.
+
+    Parameters
+    ----------
+    vec: pyct.NDArray
+        (N,) diagonal scale factors.
+    enable_warnings: bool
+        If ``True``, emit a warning in case of precision mis-match issues.
+    """
+    assert len(vec) == np.prod(vec.shape), f"vec: {vec.shape} is not a DiagonalOp generator."
+    if (dim := vec.size) == 1:  # Module-agnostic
+        return HomothetyOp(cst=float(vec), dim=1)
+    else:
+        xp = pycu.get_array_module(vec)
+        if pycu.compute(xp.allclose(vec, 0)):
+            op = NullOp(shape=(dim, dim))
+        elif pycu.compute(xp.allclose(vec, 1)):
+            op = IdentityOp(dim=dim)
+        else:  # build PosDef or SelfAdjointOp
+
+            @pycrt.enforce_precision(i="arr")
+            def op_apply(_, arr):
+                if (_._vec.dtype != arr.dtype) and _._enable_warnings:
+                    msg = "Computation may not be performed at the requested precision."
+                    warnings.warn(msg, pycuw.PrecisionWarning)
+                out = arr.copy()
+                out *= _._vec
+                return out
+
+            def op_asarray(_, **kwargs) -> pyct.NDArray:
+                N = pycd.NDArrayInfo
+                dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
+                xp = kwargs.pop("xp", np)
+
+                v = pycu.compute(_._vec.astype(dtype=dtype, copy=False))
+                if (ndi := N.from_obj(v)) == N.CUPY:
+                    v = v.get()
+                A = xp.diag(v)
+                return A
+
+            def op_gram(_):
+                return DiagonalOp(
+                    vec=_._vec**2,
+                    enable_warnings=_._enable_warnings,
+                )
+
+            def op_svdvals(_, **kwargs):
+                k = kwargs.pop("k")
+                which = kwargs.pop("which", "LM")
+                N = pycd.NDArrayInfo
+                xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
+                D = xp.abs(pycu.compute(_._vec))
+                D = D[xp.argsort(D)]
+                D = D.astype(pycrt.getPrecision().value, copy=False)
+                return D[:k] if (which == "SM") else D[-k:]
+
+            def op_eigvals(_, **kwargs):
+                k = kwargs.pop("k")
+                which = kwargs.pop("which", "LM")
+                N = pycd.NDArrayInfo
+                xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
+                D = pycu.compute(_._vec)
+                D = D[xp.argsort(xp.abs(D))]
+                D = D.astype(pycrt.getPrecision().value, copy=False)
+                return D[:k] if (which == "SM") else D[-k:]
+
+            @pycrt.enforce_precision(i="arr")
+            def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+                damp = kwargs.pop("damp", 0)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    scale = _._vec / (_._vec**2 + damp)
+                    scale[xp.isnan(scale)] = 0
+                out = arr.copy()
+                out *= scale
+                return out
+
+            def op_dagger(_, **kwargs) -> pyct.OpT:
+                damp = kwargs.pop("damp", 0)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    scale = _._vec / (_._vec**2 + damp)
+                    scale[xp.isnan(scale)] = 0
+                return DiagonalOp(
+                    vec=scale,
+                    enable_warnings=_._enable_warnings,
+                )
+
+            def op_trace(_, **kwargs):
+                return float(_._vec.sum())
+
+            klass = pyca.PosDefOp if pycu.compute(xp.all(vec > 0)) else pyca.SelfAdjointOp
+            op = klass(shape=(dim, dim))
+            op._vec = vec
+            op._enable_warnings = bool(enable_warnings)
+            op._lipschitz = pycu.compute(xp.abs(vec).max())
+            op.apply = types.MethodType(op_apply, op)
+            op.asarray = types.MethodType(op_asarray, op)
+            op.gram = types.MethodType(op_gram, op)
+            op.cogram = op.gram
+            op.svdvals = types.MethodType(op_svdvals, op)
+            op.eigvals = types.MethodType(op_eigvals, op)
+            op.pinv = types.MethodType(op_pinv, op)
+            op.dagger = types.MethodType(op_dagger, op)
+            op.trace = types.MethodType(op_trace, op)
+
+        return op._squeeze()
+
+
+def _ExplicitLinOp(
+    cls: pyct.OpC,
+    mat: typ.Union[pyct.NDArray, pyct.SparseArray],
+    enable_warnings: bool = True,
+) -> pyct.OpT:
     r"""
     Build a linear operator from its matrix representation.
 
-    Given a matrix :math:`\mathbf{A}\in\mathbb{R}^{M\times N}`, the *explicit linear operator* associated to  :math:`\mathbf{A}` is defined as
+    Given a matrix :math:`\mathbf{A}\in\mathbb{R}^{M\times N}`, the *explicit linear operator*
+    associated to :math:`\mathbf{A}` is defined as
 
     .. math::
 
-        f_\mathbf{A}(\mathbf{x})=\mathbf{A}\mathbf{x}, \qquad \forall \mathbf{x}\in\mathbb{R}^N,
+       f_\mathbf{A}(\mathbf{x})
+       =
+       \mathbf{A}\mathbf{x},
+       \qquad
+       \forall \mathbf{x}\in\mathbb{R}^N,
 
     with adjoint given by:
 
     .. math::
 
-        f^\ast_\mathbf{A}(\mathbf{z})=\mathbf{A}^T\mathbf{z}, \qquad \forall \mathbf{z}\in\mathbb{R}^M.
+       f^\ast_\mathbf{A}(\mathbf{z})
+       =
+       \mathbf{A}^T\mathbf{z},
+       \qquad
+       \forall \mathbf{z}\in\mathbb{R}^M.
 
-    Examples
-    --------
-    >>> from pycsou.operator.linop.base import ExplicitLinOp
-    >>> import numpy as np
-    >>> mat = np.arange(10).reshape(2,5)
-    >>> f = ExplicitLinOp(mat)
-    >>> f.shape
-    (2, 5)
-    >>> np.allclose(f(np.arange(5)), mat @ np.arange(5))
-    True
-    >>> np.allclose(f.adjoint(np.arange(2)), mat.T @ np.arange(2))
-    True
+    Parameters
+    ----------
+    cls: pyct.OpC
+        LinOp sub-class to instantiate.
+    mat: pyct.NDArray | pyct.SparseArray
+        (M, N) matrix generator.
+        The input array can be *dense* or *sparse*.
+        Accepted sparse arrays are COO/CSC/CSR/BSR/GCXS.
+    enable_warnings: bool
+        If ``True``, emit a warning in case of precision mis-match issues.
 
     Notes
     -----
-    :py:class:`~pycsou.operator.linop.base.ExplicitLinOp` instances are **not array module agnostic**: they will only work with input arrays
-    belonging to the same array module than the one of the array ``mat`` used to initialize the :py:class:`~pycsou.operator.linop.base.ExplicitLinOp` object.
-    Moreover, while the input/output precisions of the callable methods of :py:class:`~pycsou.operator.linop.base.ExplicitLinOp` objects are
-    guaranteed to match the user-requested precision, the inner computations may force a recast of the input arrays when
-    the precision of ``mat`` does not match the user-requested precision. If such a situation occurs, a warning is raised.
+    * :py:class:`~pycsou.operator.linop.base._ExplicitLinOp` instances are **not
+      arraymodule-agnostic**: they will only work with NDArrays belonging to the same array module
+      as ``mat``.
+      Moreover, inner computations may cast input arrays when the precision of ``mat`` does not
+      match the user-requested precision.
+      If such a situation occurs, a warning is raised.
 
-    See Also
-    --------
-    :py:class:`~pycsou.operator.linop.base.ExplicitLinFunc`
-    :py:meth:`~pycsou.abc.operator.LinOp.asarray`
-        Convert a matrix-free :py:class:`~pycsou.abc.operator.LinOp` into an :py:class:`~pycsou.operator.linop.base.ExplicitLinOp`.
+    * The internal matrix can be accessed via ``.mat``.
     """
 
-    @pycrt.enforce_precision(i="mat")
-    def __init__(self, mat: typ.Union[pyct.NDArray, pyct.SparseArray], enable_warnings: bool = True):
-        r"""
+    def _standard_form(A):
+        fail_dense = False
+        try:
+            pycu.get_array_module(A)
+            return A
+        except:
+            fail_dense = True
 
-        Parameters
-        ----------
-        mat: NDArray | SparseArray
-            (M,N) input array. This is the matrix representation of the linear operator. The input array can be *dense* or *sparse*.
-            In the latter case, it must be an instance of one of the following sparse array classes: :py:class:`sparse.SparseArray`,
-            :py:class:`scipy.sparse.spmatrix`, :py:class:`cupyx.scipy.sparse.spmatrix`. Note that
-        enable_warnings: bool
-            If ``True``, the user will be warned in case of mismatching precision issues.
+        fail_scipy_sparse = False
+        try:
+            return A.tocsr()
+        except:
+            fail_scipy_sparse = True
 
-        Notes
-        -----
-        The input ``mat`` is automatically casted by the decorator :py:func:`~pycsou.runtime.enforce_precision` to the user-requested precision at initialization time.
-        Explicit control over the precision of ``mat`` is hence only possible via the context manager :py:class:`~pycsou.runtime.Precision`:
+        fail_pydata_sparse = False
+        try:
+            return ssp.as_coo(A).tocsr()
+        except:
+            fail_pydata_sparse = True
 
-        >>> from pycsou.operator.linop.base import ExplicitLinOp
-        >>> import pycsou.runtime as pycrt
-        >>> import numpy as np
-        >>> mat = np.arange(10).reshape(2,5) # This array will be recasted to requested precision.
-        >>> with pycrt.Precision(pycrt.Width.HALF):
-        ...     f = ExplicitLinOp(mat) # The init function of ExplicitLinOp stores ``mat`` at the requested precision.
-        ...     # Further calculations with f. Within this context mismatching precisions are avoided.
+        if fail_dense and fail_scipy_sparse and fail_pydata_sparse:
+            raise ValueError("mat: format could not be inferred.")
+        return B
 
-        Note moreover that sparse inputs with type :py:class:`scipy.sparse.spmatrix` are automatically casted as :py:class:`sparse.SparseArray` which should be
-        the preferred class for representing sparse arrays. Finally, the default sparse storage format is ``'csr'`` (for fast matrix-vector multiplications).
-        """
-        super(ExplicitLinOp, self).__init__(shape=mat.shape)
-        self.mat = self._coerce_input(mat)
-        self._enable_warnings = bool(enable_warnings)
-        self._module_name = self._get_module_name(mat)
+    def _matmat(A, b, warn: bool = True) -> pyct.NDArray:
+        # A: (M, N) dense/sparse
+        # b: (..., N) dense
+        # out: (..., M) dense
+        if (A.dtype != b.dtype) and warn:
+            msg = "Computation may not be performed at the requested precision."
+            warnings.warn(msg, pycuw.PrecisionWarning)
 
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self.mat.dtype != pycrt.getPrecision().value and self._enable_warnings:
-            warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        if self._module_name == "cupyx":
-            stack_shape = arr.shape[:-1]
-            return cp.asarray(self.mat.dot(arr.reshape(-1, self.dim).transpose()).transpose()).reshape(
-                *stack_shape, self.codim
-            )
-        else:
-            return self.mat.__matmul__(arr[..., None]).squeeze(axis=-1)
+        M, N = A.shape
+        sh_out = (*b.shape[:-1], M)
+        b = b.reshape((-1, N)).T  # (N, (...).prod)
+        out = A.dot(b)  # (M, (...).prod)
+        return out.T.reshape(sh_out)
 
     @pycrt.enforce_precision(i="arr")
-    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self.mat.dtype != pycrt.getPrecision().value and self._enable_warnings:
-            warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
-        if self._module_name == "cupyx":
-            stack_shape = arr.shape[:-1]
-            return cp.asarray(self.mat.T.dot(arr.reshape(-1, self.dim).transpose()).transpose()).reshape(
-                *stack_shape, self.codim
+    def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
+        return _matmat(_.mat, arr, warn=_._enable_warnings)
+
+    @pycrt.enforce_precision(i="arr")
+    def op_adjoint(_, arr: pyct.NDArray) -> pyct.NDArray:
+        return _matmat(_.mat.T, arr, warn=_._enable_warnings)
+
+    def op_asarray(_, **kwargs) -> pyct.NDArray:
+        N = pycd.NDArrayInfo
+        S = pycd.SparseArrayInfo
+        dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
+        xp = kwargs.pop("xp", np)
+
+        try:  # Sparse arrays
+            info = S.from_obj(_.mat)
+            A = _.mat.astype(dtype).toarray()  # `copy` field not ubiquitous
+        except:  # Dense arrays
+            info = N.from_obj(_.mat)
+            A = pycu.compute(_.mat.astype(dtype, copy=False))
+        finally:
+            if (ndi := N.from_obj(A)) == N.CUPY:
+                A = A.get()
+
+        return xp.array(A, dtype=dtype)
+
+    def op_trace(_, **kwargs) -> pyct.Real:
+        if _.dim != _.codim:
+            raise NotImplementedError
+        else:
+            try:
+                tr = _.mat.trace()
+            except:
+                # .trace() missing from CuPy sparse API.
+                tr = _.mat.diagonal().sum()
+            return float(tr)
+
+    def op_lipschitz(_, **kwargs) -> pyct.Real:
+        # We want to piggy-back onto Lin[Op,Func].lipschitz() to compute the Lipschitz constant L.
+        # Problem: LinOp.lipschitz() relies on svdvals() or hutchpp() to compute L, and they take
+        # different parameters to do computations on the GPU.
+        # Solution:
+        # * we add the relevant kwargs before calling the LinOp.lipschitz() + drop all unrecognized
+        #   kwargs there as needed.
+        # * similarly for LinFunc.lipschitz().
+        N = pycd.NDArrayInfo
+        S = pycd.SparseArrayInfo
+
+        try:  # Dense arrays
+            info = N.from_obj(_.mat)
+            kwargs.update(
+                xp=info.module(),
+                gpu=info == N.CUPY,
             )
+        except:  # Sparse arrays
+            info = S.from_obj(_.mat)
+            gpu = info == S.CUPY_SPARSE
+            kwargs.update(
+                xp=N.CUPY.module() if gpu else N.NUMPY.module(),
+                gpu=gpu,
+            )
+
+        if _.codim == 1:
+            L = pyca.LinFunc.lipschitz(_, **kwargs)
         else:
-            return self.mat.transpose().__matmul__(arr[..., None]).squeeze(axis=-1)
+            L = _.__class__.lipschitz(_, **kwargs)
+        return L
 
-    def lipschitz(self, recompute: bool = False, algo: str = "svds", **kwargs) -> float:
-        r"""
-        Same functionality as :py:meth:`~pycsou.abc.operator.LinOp.lipschitz` but the case ``algo='fro'`` is handled
-        differently: the Frobenius norm of the operator is directly computed from its matrix representation rather than with the Hutch++ algorithm.
-        """
-        kwargs.pop("gpu", None)
-        gpu = True if self._module_name in ["cupy", "cupyx"] else False
-        if recompute or (self._lipschitz == np.inf):
-            if algo == "fro":
-                if self._module_name in ["sparse", "cupyx"]:
-                    data = self.mat.asformat("coo").data.squeeze()
-                    xp = pycu.get_array_module(data)
-                    self._lipschitz = xp.linalg.norm(data, ord=algo)
-                else:
-                    xp = pycu.get_array_module(self.mat)
-                    self._lipschitz = xp.linalg.norm(self.mat, ord=algo)
-            else:
-                self._lipschitz = pyco.LinOp.lipschitz(self, recompute=recompute, algo=algo, gpu=gpu, **kwargs)
-        return self._lipschitz
-
-    def svdvals(self, k: int, which="LM", **kwargs) -> pyct.NDArray:
-        kwargs.pop("gpu", None)
-        gpu = True if self._module_name in ["cupy", "cupyx"] else False
-        return pyco.LinOp.svdvals(self, k=k, which=which, gpu=gpu, **kwargs)
-
-    def _coerce_input(
-        self, mat: typ.Union[pyct.NDArray, pyct.SparseArray]
-    ) -> typ.Union[pyct.NDArray, pyct.SparseArray]:
-        assert type(mat) in pycd.supported_array_types() + pycd.supported_sparse_types()
-        if pycd.CUPY_ENABLED and isinstance(mat, cusp.spmatrix):
-            out = mat.tocsr(copy=True)
-        elif isinstance(mat, scisp.spmatrix):
-            out = sp.GCXS.from_scipy_sparse(mat)
-        elif isinstance(mat, sp.SparseArray):
-            assert mat.ndim == 2
-            out = mat.asformat("gcxs")
-        else:
-            assert mat.ndim == 2
-            out = mat.copy()
-        return out
-
-    def _get_module_name(self, arr: typ.Union[pyct.NDArray, pyct.SparseArray]) -> str:
-        if pycd.CUPY_ENABLED and isinstance(arr, cusp.spmatrix):
-            return "cupyx"
-        else:
-            array_module = pycu.get_array_module(arr, fallback=sp)
-            return array_module.__name__
-
-    def trace(self, **kwargs) -> float:
-        return self.mat.trace().item()
+    op = cls(shape=mat.shape)
+    op.mat = _standard_form(mat)
+    op._enable_warnings = bool(enable_warnings)
+    op.apply = types.MethodType(op_apply, op)
+    op.adjoint = types.MethodType(op_adjoint, op)
+    op.asarray = types.MethodType(op_asarray, op)
+    op.lipschitz = types.MethodType(op_lipschitz, op)
+    op.trace = types.MethodType(op_trace, op)
+    return op

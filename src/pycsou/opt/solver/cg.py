@@ -1,15 +1,17 @@
 import typing as typ
 
-import pycsou.abc.operator as pyco
-import pycsou.abc.solver as pycs
+import pycsou.abc as pyca
 import pycsou.math.linalg as pylinalg
-import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
+__all__ = [
+    "CG",
+]
 
-class CG(pycs.Solver):
+
+class CG(pyca.Solver):
     r"""
      Conjugate Gradient Method.
 
@@ -23,60 +25,34 @@ class CG(pycs.Solver):
      operator, and :math:`\mathbf{b} \in \mathbb{R}^{N}`.
 
      The norm of the `explicit residual <https://www.wikiwand.com/en/Conjugate_gradient_method>`_
-     :math:`\mathbf {r}_{k+1}:=\mathbf{b}-\mathbf{Ax}_{k+1}` is used as the default stopping criterion. This provides a
-     guaranteed level of accuracy both in exact arithmetic and in the presence of round-off errors. By default, the
-     iterations stop when the norm of the explicit residual is smaller than 1e-4.
+     :math:`\mathbf {r}_{k+1}:=\mathbf{b}-\mathbf{Ax}_{k+1}` is used as the default stopping criterion.
+     This provides a guaranteed level of accuracy both in exact arithmetic and in the presence of
+     round-off errors.
+     By default, the iterations stop when the norm of the explicit residual is smaller than 1e-4.
 
 
      ``CG.fit()`` **Parameterization**
 
-     b: NDArray
-         (..., N) 'b' terms in the CG cost function. All problems are solved in parallel.
-     x0: NDArray
+     b: pyct.NDArray
+         (..., N) 'b' terms in the CG cost function.
+         All problems are solved in parallel.
+     x0: pyct.NDArray
         (..., N) initial point(s). Defaults to 0 if unspecified.
-     restart_rate: int
-        Number of iterations after which restart is applied. By default, restart is done after 'n' iterations, where 'n'
-        corresponds to the dimension of the linear operator :math:`\mathbf{A}`.
+     restart_rate: pyct.Integer
+        Number of iterations after which restart is applied.
+        By default, restart is done after 'n' iterations, where 'n' corresponds to the dimension of
+        the linear operator :math:`\mathbf{A}`.
 
-    **Remark 1:** 'x0' can be any array with the same shape as 'b' or with any other shape that is broadcastable with the
-    shape of 'b'. In the latter case, the initial point(s) are broadcasted following the `numpy broadcasting rules
-    <https://numpy.org/doc/stable/user/basics.broadcasting.html.>`_.
+    **Remark 1:**
+    If provided, 'x0' must be broadcastable with 'b'.
 
-    **Remark 2:** The default stopping criterion evaluates the linear operator :math:`\mathbf{A}` at every iteration.
-    This computation can be very costly in some scenarios in which alternative stopping criteria might allow faster
-    performance, (e.g. relative improvement :py:class:`~pycsou.opt.solver.stop.RelError`).
-
-    **Remark 3:** `Restarts <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ could slow down convergence, but
-    they might improve stability due to round-off error or ill-posedness of the linear operator. If these issues are
-    suspected, users can adjust the 'restart_rate' variable accordingly.
-
-
-     Examples
-     --------
-     >>> import numpy as np
-     >>> from pycsou.abc import LinOp
-     >>> # Create a PSD linear operator
-     >>> rng = np.random.default_rng(seed=0)
-     >>> mat = rng.normal(size=(10, 10))
-     >>> A = LinOp.from_array(mat).gram()
-     >>> # Create the ground truth 'x_star'
-     >>> x_star = rng.normal(size=(2, 2, 10))
-     >>> # Generate the corresponding data vector 'b'
-     >>> b = A.apply(x_star)
-     >>> # Solve 'Ax=b' for 'x' with the conjugate gradient method
-     >>> cg = CG(A, show_progress=False)
-     >>> cg.fit(b=b)
-     >>> x_solution = cg.solution()
-     >>> assert np.allclose(x_star, x_solution)
-
-     .. Warning::
-
-         This  is a simplified example for illustration puposes only. It may not abide by all the rules listed in the
-         :ref:`developer-notes`.
-
+    **Remark 2:**
+    `Restarts <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ may slow down convergence,
+    but improve stability due to round-off error or ill-conditioning of the linear operator.
+    If these issues are suspected, adjust 'restart_rate' accordingly.
     """
 
-    def __init__(self, A: pyco.PosDefOp, **kwargs):
+    def __init__(self, A: pyca.PosDefOp, **kwargs):
         kwargs.update(
             log_var=kwargs.get("log_var", ("x",)),
         )
@@ -84,12 +60,12 @@ class CG(pycs.Solver):
 
         self._A = A
 
-    @pycrt.enforce_precision(i=["b", "x0"])
+    @pycrt.enforce_precision(i=("b", "x0"))
     def m_init(
         self,
         b: pyct.NDArray,
-        x0: typ.Optional[pyct.NDArray] = None,
-        restart_rate: typ.Optional[int] = None,
+        x0: pyct.NDArray = None,
+        restart_rate: pyct.Integer = None,
     ):
         mst = self._mstate  # shorthand
 
@@ -106,10 +82,8 @@ class CG(pycs.Solver):
         else:
             mst["x"] = x0
 
-        # 2-stage res-computation guarantees RT-precision in case apply() not
-        # enforce_precision()-ed.
-        mst["residual"] = xp.zeros_like(b)
-        mst["residual"][:] = b - self._A.apply(mst["x"])
+        mst["residual"] = b.copy()
+        mst["residual"] -= self._A.apply(mst["x"])
         mst["conjugate_dir"] = mst["residual"].copy()
 
     def m_step(self):
@@ -140,8 +114,10 @@ class CG(pycs.Solver):
         # for homogenity with other solver code. Optional in CG due to in-place computations.
         mst["x"], mst["residual"], mst["conjugate_dir"] = x, r, p
 
-    def default_stop_crit(self) -> pycs.StoppingCriterion:
-        stop_crit = pycos.AbsError(
+    def default_stop_crit(self) -> pyca.StoppingCriterion:
+        from pycsou.opt.stop import AbsError
+
+        stop_crit = AbsError(
             eps=1e-4,
             var="residual",
             f=None,
@@ -165,7 +141,7 @@ class CG(pycs.Solver):
         """
         Returns
         -------
-        x: NDArray
+        x: pyct.NDArray
             (..., N) solution.
         """
         data, _ = self.stats()
