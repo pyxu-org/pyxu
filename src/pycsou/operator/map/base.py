@@ -36,7 +36,7 @@ def ConstantValued(
         def op_jacobian(_, arr: pyct.NDArray) -> pyct.OpT:
             from pycsou.operator.linop import NullOp
 
-            return NullOp(shape=_.shape)._squeeze()
+            return NullOp(shape=_.shape).squeeze()
 
         @pycrt.enforce_precision(i="arr")
         def op_grad(_, arr: pyct.NDArray) -> pyct.NDArray:
@@ -60,4 +60,4 @@ def ConstantValued(
         op.grad = types.MethodType(op_grad, op)
         op.prox = types.MethodType(op_prox, op)
 
-    return op._squeeze()
+    return op.squeeze()

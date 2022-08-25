@@ -416,13 +416,10 @@ class Operator:
         else:
             raise ValueError(f"No operator found with properties {prop}.")
 
-    def _squeeze(self) -> pyct.OpT:
+    def squeeze(self) -> pyct.OpT:
         r"""
         Cast an :py:class:`~pycsou.abc.operator.Operator` to the right core operator sub-type given
         codomain dimension.
-
-        This function is meant for internal use only.
-        If an end-user had to call it, then it is considered a bug.
         """
         p = set(self.properties())
         if self.codim == 1:
@@ -1180,7 +1177,7 @@ class LinOp(DiffMap):
         opT.gram = self.cogram
         opT.cogram = self.gram
         opT._expr = types.MethodType(opT_expr, opT)
-        return opT._squeeze()
+        return opT.squeeze()
 
     def to_sciop(
         self,
@@ -1438,7 +1435,7 @@ class LinOp(DiffMap):
 
         op = self.T * self
         op._expr = types.MethodType(op_expr, op)
-        return op.asop(SelfAdjointOp)._squeeze()
+        return op.asop(SelfAdjointOp).squeeze()
 
     def cogram(self) -> pyct.OpT:
         r"""
@@ -1462,7 +1459,7 @@ class LinOp(DiffMap):
 
         op = self * self.T
         op._expr = types.MethodType(op_expr, op)
-        return op.asop(SelfAdjointOp)._squeeze()
+        return op.asop(SelfAdjointOp).squeeze()
 
     @pycrt.enforce_precision(i=("arr", "damp"), allow_None=True)
     def pinv(
@@ -1828,7 +1825,7 @@ class SelfAdjointOp(NormalOp):
         return self.apply(arr)
 
     def transpose(self, **kwargs) -> pyct.OpT:
-        return self._squeeze()
+        return self.squeeze()
 
     def eigvals(
         self,
@@ -1873,7 +1870,7 @@ class UnitOp(NormalOp):
     def gram(self) -> pyct.OpT:
         from pycsou.operator.linop import IdentityOp
 
-        return IdentityOp(dim=self.dim)._squeeze()
+        return IdentityOp(dim=self.dim).squeeze()
 
     def svdvals(self, **kwargs) -> pyct.NDArray:
         N = pycd.NDArrayInfo
@@ -1919,10 +1916,10 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
         return self._lipschitz
 
     def gram(self) -> pyct.OpT:
-        return self._squeeze()
+        return self.squeeze()
 
     def cogram(self) -> pyct.OpT:
-        return self._squeeze()
+        return self.squeeze()
 
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:

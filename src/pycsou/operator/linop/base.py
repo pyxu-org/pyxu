@@ -96,11 +96,11 @@ class NullOp(pyca.LinOp):
 
     def gram(self) -> pyct.OpT:
         op = NullOp(shape=(self.dim, self.dim))
-        return op.asop(pyca.SelfAdjointOp)._squeeze()
+        return op.asop(pyca.SelfAdjointOp).squeeze()
 
     def cogram(self) -> pyct.OpT:
         op = NullOp(shape=(self.codim, self.codim))
-        return op.asop(pyca.SelfAdjointOp)._squeeze()
+        return op.asop(pyca.SelfAdjointOp).squeeze()
 
     def asarray(self, **kwargs) -> pyct.NDArray:
         dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
@@ -118,7 +118,7 @@ def NullFunc(dim: pyct.Integer) -> pyct.OpT:
 
     This functional maps any input vector on the null scalar.
     """
-    op = NullOp(shape=(1, dim))._squeeze()
+    op = NullOp(shape=(1, dim)).squeeze()
     return op
 
 
@@ -204,7 +204,7 @@ def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
         op.cogram = op.gram
         op.trace = types.MethodType(op_trace, op)
 
-    return op._squeeze()
+    return op.squeeze()
 
 
 def DiagonalOp(
@@ -326,7 +326,7 @@ def DiagonalOp(
             op.dagger = types.MethodType(op_dagger, op)
             op.trace = types.MethodType(op_trace, op)
 
-        return op._squeeze()
+        return op.squeeze()
 
 
 def _ExplicitLinOp(

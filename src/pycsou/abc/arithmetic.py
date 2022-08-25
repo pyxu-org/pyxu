@@ -108,14 +108,14 @@ class ScaleRule(Rule):
 
     def __init__(self, op: pyct.OpT, cst: pyct.Real):
         super().__init__()
-        self._op = op._squeeze()
+        self._op = op.squeeze()
         self._cst = float(cst)
 
     def op(self) -> pyct.OpT:
         if np.isclose(self._cst, 0):
             from pycsou.operator.linop import NullOp
 
-            op = NullOp(shape=self._op.shape)._squeeze()
+            op = NullOp(shape=self._op.shape).squeeze()
         elif np.isclose(self._cst, 1):
             op = self._op
         else:
@@ -293,7 +293,7 @@ class ArgScaleRule(Rule):
 
     def __init__(self, op: pyct.OpT, cst: pyct.Real):
         super().__init__()
-        self._op = op._squeeze()
+        self._op = op.squeeze()
         self._cst = float(cst)
 
     def op(self) -> pyct.OpT:
@@ -485,7 +485,7 @@ class ArgShiftRule(Rule):
 
     def __init__(self, op: pyct.OpT, cst: pyct.NDArray):
         super().__init__()
-        self._op = op._squeeze()
+        self._op = op.squeeze()
         assert cst.size == len(cst), f"cst: expected 1D array, got {cst.shape}."
         self._cst = cst
 
@@ -567,7 +567,7 @@ class ArgShiftRule(Rule):
 
 class AddRule(Rule):
     r"""
-    The output type of AddRule(A._squeeze(), B._squeeze()) is summarized in the table below (LHS/RHS
+    The output type of AddRule(A.squeeze(), B.squeeze()) is summarized in the table below (LHS/RHS
     commute):
 
         |---------------|-----|------|---------|----------|----------|--------------|-----------|---------|--------------|------------|------------|------------|---------------|---------------|------------|---------------|
@@ -637,8 +637,8 @@ class AddRule(Rule):
 
     def __init__(self, lhs: pyct.OpT, rhs: pyct.OpT):
         super().__init__()
-        self._lhs = lhs._squeeze()
-        self._rhs = rhs._squeeze()
+        self._lhs = lhs.squeeze()
+        self._rhs = rhs.squeeze()
 
     def op(self) -> pyct.OpT:
         sh_op = pycu.infer_sum_shape(self._lhs.shape, self._rhs.shape)
@@ -843,7 +843,7 @@ class AddRule(Rule):
         op3 = lhs.T * rhs
         op4 = rhs.T * lhs
         op = op1 + op2 + (op3 + op4).asop(pyco.SelfAdjointOp)
-        return op._squeeze()
+        return op.squeeze()
 
     def cogram(self) -> pyct.OpT:
         lhs, rhs = self._lhs, self._rhs
@@ -872,7 +872,7 @@ class AddRule(Rule):
         op3 = lhs * rhs.T
         op4 = rhs * lhs.T
         op = op1 + op2 + (op3 + op4).asop(pyco.SelfAdjointOp)
-        return op._squeeze()
+        return op.squeeze()
 
     def trace(self, **kwargs) -> pyct.Real:
         tr = 0
@@ -886,7 +886,7 @@ class AddRule(Rule):
 
 class ChainRule(Rule):
     r"""
-    The output type of ChainRule(A._squeeze(), B._squeeze()) is summarized in the table below:
+    The output type of ChainRule(A.squeeze(), B.squeeze()) is summarized in the table below:
 
         |---------------|------|------------|----------|------------|------------|----------------|----------------------|------------------|------------|-----------|-----------|--------------|---------------|-----------|-----------|------------|
         |   LHS / RHS   | Map  |    Func    | DiffMap  |  DiffFunc  |  ProxFunc  |  ProxDiffFunc  |      Quadratic       |      LinOp       |  LinFunc   |  SquareOp |  NormalOp |    UnitOp    | SelfAdjointOp |  PosDefOp |   ProjOp  | OrthProjOp |
@@ -948,8 +948,8 @@ class ChainRule(Rule):
 
     def __init__(self, lhs: pyct.OpT, rhs: pyct.OpT):
         super().__init__()
-        self._lhs = lhs._squeeze()
-        self._rhs = rhs._squeeze()
+        self._lhs = lhs.squeeze()
+        self._rhs = rhs.squeeze()
 
     def op(self) -> pyct.OpT:
         sh_op = pycu.infer_composition_shape(self._lhs.shape, self._rhs.shape)
@@ -1164,11 +1164,11 @@ class ChainRule(Rule):
 
     def gram(self) -> pyct.OpT:
         op = self._rhs.T * self._lhs.gram() * self._rhs
-        return op.asop(pyco.SelfAdjointOp)._squeeze()
+        return op.asop(pyco.SelfAdjointOp).squeeze()
 
     def cogram(self) -> pyct.OpT:
         op = self._lhs * self._rhs.cogram() * self._lhs.T
-        return op.asop(pyco.SelfAdjointOp)._squeeze()
+        return op.asop(pyco.SelfAdjointOp).squeeze()
 
 
 class PowerRule(Rule):
@@ -1183,7 +1183,7 @@ class PowerRule(Rule):
         super().__init__()
         assert op.codim == op.dim, f"PowerRule: expected endomorphism, got {op}."
         assert int(k) >= 0, "PowerRule: only non-negative exponents are supported."
-        self._op = op._squeeze()
+        self._op = op.squeeze()
         self._k = int(k)
 
     def op(self) -> pyct.OpT:

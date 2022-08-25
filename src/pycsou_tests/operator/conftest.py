@@ -148,6 +148,7 @@ class MapT:
             "__call__",
             "lipschitz",
             "expr",
+            "squeeze",
         }
     )
 
