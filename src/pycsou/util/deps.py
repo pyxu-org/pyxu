@@ -73,6 +73,7 @@ class SparseArrayInfo(enum.Enum):
 
     def type(self) -> type:
         if self.name == "SCIPY_SPARSE":
+            # All `*matrix` and `*_array` classes descend from `spmatrix`.
             return scipy.sparse.spmatrix
         elif self.name == "PYDATA_SPARSE":
             return sparse.SparseArray
