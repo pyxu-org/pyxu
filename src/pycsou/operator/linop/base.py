@@ -365,45 +365,42 @@ def _ExplicitLinOp(
     mat: pyct.NDArray | pyct.SparseArray
         (M, N) matrix generator.
         The input array can be *dense* or *sparse*.
-        Accepted sparse arrays are COO/CSC/CSR/BSR/GCXS.
+        Accepted sparse arrays are:
+
+        * CPU: COO/CSC/CSR/BSR/GCXS
+        * GPU: COO/CSC/CSR
     enable_warnings: bool
         If ``True``, emit a warning in case of precision mis-match issues.
 
     Notes
     -----
     * :py:class:`~pycsou.operator.linop.base._ExplicitLinOp` instances are **not
-      arraymodule-agnostic**: they will only work with NDArrays belonging to the same array module
-      as ``mat``.
+      arraymodule-agnostic**: they will only work with NDArrays belonging to the same (dense) array
+      module as ``mat``.
       Moreover, inner computations may cast input arrays when the precision of ``mat`` does not
       match the user-requested precision.
       If such a situation occurs, a warning is raised.
 
-    * The internal matrix can be accessed via ``.mat``.
+    * The matrix provided in ``__init__()`` is used as-is and can be accessed via ``.mat``.
     """
 
     def _standard_form(A):
         fail_dense = False
         try:
-            pycu.get_array_module(A)
-            return A
+            pycd.NDArrayInfo.from_obj(A)
         except:
             fail_dense = True
 
-        fail_scipy_sparse = False
+        fail_sparse = False
         try:
-            return A.tocsr()
+            pycd.SparseArrayInfo.from_obj(A)
         except:
-            fail_scipy_sparse = True
+            fail_sparse = True
 
-        fail_pydata_sparse = False
-        try:
-            return ssp.as_coo(A).tocsr()
-        except:
-            fail_pydata_sparse = True
-
-        if fail_dense and fail_scipy_sparse and fail_pydata_sparse:
+        if fail_dense and fail_sparse:
             raise ValueError("mat: format could not be inferred.")
-        return B
+        else:
+            return A
 
     def _matmat(A, b, warn: bool = True) -> pyct.NDArray:
         # A: (M, N) dense/sparse

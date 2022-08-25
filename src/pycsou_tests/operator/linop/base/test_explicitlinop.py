@@ -77,11 +77,19 @@ class ExplicitOpMixin:
         raise NotImplementedError
 
     @pytest.fixture(params=spec_data())
-    def spec(self, matrix, request):
+    def _spec(self, matrix, request):
         init, ndi, width = request.param
         A = init(matrix).astype(width.value)
         op = self.base.from_array(A=A)
-        return op, ndi, width
+        return A, (op, ndi, width)
+
+    @pytest.fixture
+    def raw_init_input(self, _spec):
+        return _spec[0]
+
+    @pytest.fixture
+    def spec(self, _spec):
+        return _spec[1]
 
     @pytest.fixture
     def data_shape(self, matrix):
@@ -98,6 +106,10 @@ class ExplicitOpMixin:
         )
 
     # Tests -------------------------------------------------------------------
+    def test_array_not_modified(self, op, raw_init_input):
+        # Ensure ExplicitLinOp is using the raw array provided to __init__().
+        # The user is expected to know what he is doing.
+        assert op.mat is raw_init_input
 
 
 class TestExplicitLinOp(ExplicitOpMixin, conftest.LinOpT):
