@@ -453,8 +453,21 @@ def _ExplicitLinOp(
             try:
                 tr = _.mat.trace()
             except:
-                # .trace() missing from CuPy sparse API.
-                tr = _.mat.diagonal().sum()
+                # .trace() missing for [PYDATA,CUPY]_SPARSE API.
+                S = pycd.SparseArrayInfo
+                info = S.from_obj(_.mat)
+                if info == S.PYDATA_SPARSE:
+                    # use `sparse.diagonal().sum()`, but array must be COO.
+                    try:
+                        A = _.mat.tocoo()  # GCXS inputs
+                    except:
+                        A = _.mat  # COO inputs
+                    finally:
+                        tr = info.module().diagonal(A).sum()
+                elif info == S.CUPY_SPARSE:
+                    tr = _.mat.diagonal().sum()
+                else:
+                    raise ValueError(f"Unknown sparse format {_.mat}.")
             return float(tr)
 
     def op_lipschitz(_, **kwargs) -> pyct.Real:
