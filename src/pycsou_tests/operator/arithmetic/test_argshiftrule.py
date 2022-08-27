@@ -15,6 +15,7 @@ import itertools
 import numpy as np
 import pytest
 
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
@@ -112,6 +113,18 @@ class ArgShiftRuleMixin:
     def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
         N_test, dim = 5, self._sanitize(op.dim, 7)
         return self._random_array((N_test, dim))
+
+    # Tests -------------------------------------------------------------------
+    def test_interface_asloss(self, op, xp, width, op_orig):
+        self._skip_if_disabled()
+        if not op_orig.has(pyca.Property.FUNCTIONAL):
+            pytest.skip("asloss() unavailable for non-functionals.")
+
+        try:
+            op_orig.asloss()  # detect if fails
+            super().test_interface_asloss(op, xp, width)
+        except NotImplementedError as exc:
+            pytest.skip("asloss() unsupported by base operator.")
 
 
 # Test classes (Maps) ---------------------------------------------------------
