@@ -130,6 +130,7 @@ def op_orthprojop():
 
 # Data Mixin ------------------------------------------------------------------
 class AddRuleMixin:
+    # Fixtures ----------------------------------------------------------------
     @pytest.fixture
     def op_lrhs(self) -> tuple[pyct.OpT, pyct.OpT]:
         # Override in inherited class with LHS/RHS operands.
@@ -251,6 +252,19 @@ class AddRuleMixin:
     def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
         N_test, dim = 5, self._sanitize(op.dim, 7)
         return self._random_array((N_test, dim))
+
+    # Tests -------------------------------------------------------------------
+    def test_interface_asloss(self, op, xp, width, op_lhs, op_rhs):
+        self._skip_if_disabled()
+        if pyca.Property.FUNCTIONAL not in (op_lhs.properties() & op_rhs.properties()):
+            pytest.skip("asloss() unavailable for non-functionals.")
+
+        try:
+            op_lhs.asloss()  # detect if fails
+            op_rhs.asloss()  # detect if fails
+            super().test_interface_asloss(op, xp, width)
+        except NotImplementedError as exc:
+            pytest.skip("asloss() unsupported by LHS/RHS operator(s).")
 
 
 # Test classes (Maps) ---------------------------------------------------------
