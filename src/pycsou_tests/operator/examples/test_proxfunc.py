@@ -34,6 +34,12 @@ class L1Norm(pyca.ProxFunc):
         y *= xp.sign(arr)
         return y
 
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        from pycsou.operator.func.loss import shift_loss
+
+        op = shift_loss(op=self, data=data)
+        return op
+
 
 class TestL1Norm(conftest.ProxFuncT):
     @pytest.fixture(
@@ -104,6 +110,14 @@ class TestL1Norm(conftest.ProxFuncT):
 
 
 class TestL1NormMoreau(conftest.DiffFuncT):
+    disable_test = frozenset(
+        conftest.DiffFuncT.disable_test
+        | {
+            # .asloss().moreau_envelope() makes sense, not the converse.
+            "test_interface_asloss",
+        }
+    )
+
     @pytest.fixture(
         params=itertools.product(
             (  # dim, mu, op

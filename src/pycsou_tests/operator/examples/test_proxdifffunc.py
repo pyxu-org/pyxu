@@ -7,6 +7,7 @@ import pycsou.abc as pyca
 import pycsou.math.linalg as pylinalg
 import pycsou.runtime as pycrt
 import pycsou.util.deps as pycd
+import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
 
@@ -33,6 +34,12 @@ class SquaredL2Norm(pyca.ProxDiffFunc):
         y = arr.copy()
         y /= 2 * tau + 1
         return y
+
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        from pycsou.operator.func.loss import shift_loss
+
+        op = shift_loss(op=self, data=data)
+        return op
 
 
 class TestSquaredL2Norm(conftest.ProxDiffFuncT):
