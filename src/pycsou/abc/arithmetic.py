@@ -513,7 +513,8 @@ class ArgShiftRule(Rule):
             op = self._op
         else:
             klass = self._infer_op_klass()
-            op = klass(shape=self._op.shape)
+            shape = self._infer_op_shape()
+            op = klass(shape=shape)
             op._op = self._op  # embed for introspection
             op._cst = self._cst  # embed for introspection
             for p in op.properties():
@@ -541,6 +542,14 @@ class ArgShiftRule(Rule):
         properties = self._op.properties() & preserved
         klass = pyco.Operator._infer_operator_type(properties)
         return klass
+
+    def _infer_op_shape(self) -> pyct.Shape:
+        dim_op = self._op.dim
+        dim_cst = self._cst.size
+        if (dim_op is None) or (dim_op == dim_cst):
+            return (self._op.codim, dim_cst)
+        else:
+            raise ValueError(f"Shifting {self._op} by {self._cst.shape} forbidden.")
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
