@@ -70,7 +70,7 @@ class ScaleRule(Rule):
         |                          |             | = op_old.lipschitz() * abs(\alpha)                                 |
         |                          |             | + update op_new._lipschitz                                         |
         |--------------------------|-------------|--------------------------------------------------------------------|
-        | FUNCTIONAL               | yes         |                                                                    |
+        | FUNCTIONAL               | yes         | op_new.asloss(\beta) = op_old.asloss(\beta) * \alpha               |
         |--------------------------|-------------|--------------------------------------------------------------------|
         | PROXIMABLE               | \alpha > 0  | op_new.prox(arr, tau) = op_old.prox(arr, tau * \alpha)             |
         |--------------------------|-------------|--------------------------------------------------------------------|
@@ -237,6 +237,16 @@ class ScaleRule(Rule):
         tr = self._op.trace(**kwargs) * self._cst
         return float(tr)
 
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        if self.has(pyco.Property.FUNCTIONAL):
+            if data is None:
+                op = self
+            else:
+                op = self._op.asloss(data) * self._cst
+            return op
+        else:
+            raise NotImplementedError
+
 
 class ArgScaleRule(Rule):
     r"""
@@ -254,7 +264,7 @@ class ArgScaleRule(Rule):
         |                          |             | = op_old.lipschitz() * abs(\alpha)                                          |
         |                          |             | + update op_new._lipschitz                                                  |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
-        | FUNCTIONAL               | yes         |                                                                             |
+        | FUNCTIONAL               | yes         | op_new.asloss(\beta) = op_old.argscale(\alpha).asloss(\beta)                |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | PROXIMABLE               | yes         | op_new.prox(arr, tau) = op_old.prox(\alpha * arr, \alpha**2 * tau) / \alpha |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
@@ -442,6 +452,13 @@ class ArgScaleRule(Rule):
         tr = self._op.trace(**kwargs) * self._cst
         return float(tr)
 
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        if self.has(pyco.Property.FUNCTIONAL):
+            op = self._op.__class__.asloss(self, data=data)
+            return op
+        else:
+            raise NotImplementedError
+
 
 class ArgShiftRule(Rule):
     r"""
@@ -455,7 +472,7 @@ class ArgShiftRule(Rule):
         |                          |            | op_new._lipschitz = op_old._lipschitz                           |
         |                          |            | op_new.lipschitz() = op_new._lipschitz alias                    |
         |--------------------------|------------|-----------------------------------------------------------------|
-        | FUNCTIONAL               | yes        |                                                                 |
+        | FUNCTIONAL               | yes        | op_new.asloss(\beta) = op_old.argshift(\shift).asloss(\beta)    |
         |--------------------------|------------|-----------------------------------------------------------------|
         | PROXIMABLE               | yes        | op_new.prox(arr, tau) = op_old.prox(arr + \shift, tau) - \shift |
         |--------------------------|------------|-----------------------------------------------------------------|
@@ -564,6 +581,13 @@ class ArgShiftRule(Rule):
         out = self._op.grad(x)
         return out
 
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        if self.has(pyco.Property.FUNCTIONAL):
+            op = self._op.__class__.asloss(self, data=data)
+            return op
+        else:
+            raise NotImplementedError
+
 
 class AddRule(Rule):
     r"""
@@ -602,6 +626,9 @@ class AddRule(Rule):
             + update op._lipschitz
         IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
                    operand's Lipschitz constant must be magnified by \sqrt{M}.
+
+    * FUNCTIONAL
+        op.asloss(\beta) = _lhs.asloss(\beta) + _rhs.asloss(\beta)
 
     * PROXIMABLE
         op.prox(arr, tau) = _lhs.prox(arr - tau * _rhs.grad(arr), tau)
@@ -883,6 +910,18 @@ class AddRule(Rule):
                 tr += float(side.trace(**kwargs))
         return tr
 
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        if self.has(pyco.Property.FUNCTIONAL):
+            if data is None:
+                op = self
+            else:
+                op_lhs = self._lhs.asloss(data=data)
+                op_rhs = self._rhs.asloss(data=data)
+                op = op_lhs + op_rhs
+            return op
+        else:
+            raise NotImplementedError
+
 
 class ChainRule(Rule):
     r"""
@@ -918,6 +957,9 @@ class ChainRule(Rule):
         op.lipschitz()
             = _lhs.lipschitz() * _rhs.lipschitz()
             + update op._lipschitz
+
+    * FUNCTIONAL
+        op.asloss(\beta) = _lhs.asloss(\beta) * _rhs
 
     * PROXIMABLE (RHS Unitary only)
         op.prox(arr, tau) = _rhs.adjoint(_lhs.prox(_rhs.apply(arr), tau))
@@ -1169,6 +1211,17 @@ class ChainRule(Rule):
     def cogram(self) -> pyct.OpT:
         op = self._lhs * self._rhs.cogram() * self._lhs.T
         return op.asop(pyco.SelfAdjointOp).squeeze()
+
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        if self.has(pyco.Property.FUNCTIONAL):
+            if data is None:
+                op = self
+            else:
+                op_lhs = self._lhs.asloss(data=data)
+                op = op_lhs * self._rhs
+            return op
+        else:
+            raise NotImplementedError
 
 
 class PowerRule(Rule):

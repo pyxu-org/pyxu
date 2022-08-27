@@ -56,6 +56,7 @@ class Property(enum.Enum):
                 "_expr",
             ]
         )
+        data[self.FUNCTIONAL].append("asloss")
         data[self.PROXIMABLE].append("prox")
         data[self.DIFFERENTIABLE].extend(
             [
