@@ -611,6 +611,23 @@ class Func(Map):
         super().__init__(shape=shape)
         assert self.codim == 1, f"shape: expected (1, n), got {shape}."
 
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        """
+        Transform a functional into a loss functional.
+
+        Parameters
+        ----------
+        data: pyct.NDArray
+            (M,) input.
+
+        Returns
+        -------
+        op: pyct.OpT
+            (1, M) loss function.
+            If `data` is unspecified, returns `self`.
+        """
+        raise NotImplementedError
+
 
 class DiffMap(Map):
     r"""
@@ -1049,6 +1066,12 @@ class _QuadraticFunc(ProxDiffFunc):
         # This function is NOT EXPOSED to the user on purpose: it is bad practice to try to compute
         # the Hessian in large-scale inverse problems due to its size.
         raise NotImplementedError
+
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        from pycsou.operator.func.loss import shift_loss
+
+        op = shift_loss(op=self, data=data)
+        return op
 
 
 class LinOp(DiffMap):
