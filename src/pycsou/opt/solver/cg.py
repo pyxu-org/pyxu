@@ -133,11 +133,12 @@ class CG(pyca.Solver):
         b = self._mstate["b"]
 
         f = self._A.apply(x)
+        f = pycu.copy_if_unsafe(f)
         f /= 2
         f -= b
-        f = (x * f).sum(axis=-1, keepdims=True)
+        f *= x
 
-        return f
+        return f.sum(axis=-1, keepdims=True)
 
     def solution(self) -> pyct.NDArray:
         """
