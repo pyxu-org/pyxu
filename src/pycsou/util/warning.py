@@ -11,6 +11,14 @@ class PycsouWarning(UserWarning):
     pass
 
 
+class AutoInferenceWarning(PycsouWarning):
+    """
+    Use when a quantity was auto-inferenced with possible caveats.
+    """
+
+    pass
+
+
 class PrecisionWarning(PycsouWarning):
     """
     Use for precision-related warnings.
