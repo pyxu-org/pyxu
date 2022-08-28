@@ -11,6 +11,7 @@
 
 import collections.abc as cabc
 import itertools
+import typing as typ
 
 import numpy as np
 import pytest
@@ -42,11 +43,13 @@ class ArgShiftRuleMixin:
         # Override in inherited class with the operator to be arg-shifted.
         raise NotImplementedError
 
-    @pytest.fixture
-    def op_shift(self, op_orig) -> pyct.NDArray:
+    @pytest.fixture(params=[True, False])
+    def op_shift(self, op_orig, request) -> typ.Union[pyct.Real, pyct.NDArray]:
         # Arg-shift values applied to op_orig()
         dim = self._sanitize(op_orig.dim, 7)
         cst = self._random_array((dim,), seed=20)  # random seed for reproducibility
+        if request.param:  # scalar output
+            cst = float(cst.sum())
         return cst
 
     @pytest.fixture(
@@ -58,7 +61,10 @@ class ArgShiftRuleMixin:
     def spec(self, op_orig, op_shift, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
         ndi, width = request.param
         if (xp := ndi.module()) is not None:
-            shift = xp.array(op_shift, dtype=width.value)
+            if isinstance(op_shift, pyct.Real):
+                shift = op_shift
+            else:
+                shift = xp.array(op_shift, dtype=width.value)
             op = op_orig.argshift(shift)
         else:
             # Some test functions run without needing `xp`, hence it is required to add extra
@@ -69,7 +75,11 @@ class ArgShiftRuleMixin:
     @pytest.fixture
     def data_shape(self, op_orig, op_shift) -> pyct.Shape:
         # Safe implementation in case `op_orig` is domain-agnostic.
-        return (op_orig.shape[0], op_shift.size)
+        if isinstance(op_shift, pyct.Real):
+            sh = op_orig.shape
+        else:
+            sh = (op_orig.shape[0], op_shift.size)
+        return sh
 
     @pytest.fixture
     def data_apply(self, op_orig, op_shift) -> conftest.DataLike:

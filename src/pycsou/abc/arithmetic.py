@@ -4,6 +4,7 @@ Operator Arithmetic.
 
 import copy
 import types
+import typing as typ
 
 import numpy as np
 
@@ -500,14 +501,19 @@ class ArgShiftRule(Rule):
         |--------------------------|------------|-----------------------------------------------------------------|
     """
 
-    def __init__(self, op: pyct.OpT, cst: pyct.NDArray):
+    def __init__(self, op: pyct.OpT, cst: typ.Union[pyct.Real, pyct.NDArray]):
         super().__init__()
         self._op = op.squeeze()
-        assert cst.size == len(cst), f"cst: expected 1D array, got {cst.shape}."
+        self._scalar = isinstance(cst, pyct.Real)
+        if self._scalar:
+            cst = float(cst)
+        else:  # pyct.NDArray
+            assert cst.size == len(cst), f"cst: expected 1D array, got {cst.shape}."
         self._cst = cst
 
     def op(self) -> pyct.OpT:
-        xp = pycu.get_array_module(self._cst)
+        kwargs = dict(fallback=np if self._scalar else None)
+        xp = pycu.get_array_module(self._cst, **kwargs)
         norm = pycu.compute(xp.linalg.norm(self._cst))
         if np.isclose(float(norm), 0):
             op = self._op
@@ -527,7 +533,8 @@ class ArgShiftRule(Rule):
         return op
 
     def _expr(self) -> tuple:
-        return ("argshift", self._op, self._cst.shape)
+        sh = (None,) if isinstance(self._cst, pyct.Real) else self._cst.shape
+        return ("argshift", self._op, sh)
 
     def _infer_op_klass(self) -> pyct.OpC:
         preserved = {
@@ -544,12 +551,15 @@ class ArgShiftRule(Rule):
         return klass
 
     def _infer_op_shape(self) -> pyct.Shape:
-        dim_op = self._op.dim
-        dim_cst = self._cst.size
-        if (dim_op is None) or (dim_op == dim_cst):
-            return (self._op.codim, dim_cst)
-        else:
-            raise ValueError(f"Shifting {self._op} by {self._cst.shape} forbidden.")
+        if self._scalar:
+            return self._op.shape
+        else:  # pyct.NDArray
+            dim_op = self._op.dim
+            dim_cst = self._cst.size
+            if (dim_op is None) or (dim_op == dim_cst):
+                return (self._op.codim, dim_cst)
+            else:
+                raise ValueError(f"Shifting {self._op} by {self._cst.shape} forbidden.")
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:

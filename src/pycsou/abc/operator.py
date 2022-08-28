@@ -385,13 +385,13 @@ class Operator:
         assert isinstance(scalar, pyct.Real)
         return arithmetic.ArgScaleRule(op=self, cst=scalar).op()
 
-    def argshift(self, shift: pyct.NDArray) -> pyct.OpT:
+    def argshift(self, shift: typ.Union[pyct.Real, pyct.NDArray]) -> pyct.OpT:
         """
         Shift operator's domain.
 
         Parameters
         ----------
-        shift: pyct.NDArray
+        shift: pyct.Real | pyct.NDArray
             (M,) shift value
 
         Returns
