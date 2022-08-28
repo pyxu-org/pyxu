@@ -3,6 +3,7 @@ import math
 
 import pycsou.abc as pyca
 import pycsou.runtime as pycrt
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 __all__ = [
@@ -141,10 +142,21 @@ class PGD(pyca.Solver):
 
     def m_step(self):
         mst = self._mstate  # shorthand
-
         a = next(mst["a"])
-        y = (1 + a) * mst["x"] - a * mst["x_prev"]
-        z = y - mst["tau"] * self._f.grad(y)
+
+        # In-place implementation of -----------------
+        #   y = (1 + a) * mst["x"] - a * mst["x_prev"]
+        y = mst["x"] - mst["x_prev"]
+        y *= a
+        y += mst["x"]
+        # --------------------------------------------
+
+        # In-place implementation of -----------------
+        #   z = y - mst["tau"] * self._f.grad(y)
+        z = pycu.copy_if_unsafe(self._f.grad(y))
+        z *= -mst["tau"]
+        z += y
+        # --------------------------------------------
 
         mst["x_prev"], mst["x"] = mst["x"], self._g.prox(z, mst["tau"])
 
