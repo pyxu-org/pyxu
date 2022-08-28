@@ -118,7 +118,7 @@ class PGD(pyca.Solver):
         mst["x"] = mst["x_prev"] = x0
 
         if tau is None:
-            if math.isfinite(dl := self._f._diff_lipschitz):
+            if math.isfinite(dl := self._f.diff_lipschitz()):
                 mst["tau"] = pycrt.coerce(1 / dl)
             else:
                 msg = "tau: automatic inference not supported for operators with unbounded Lipschitz gradients."
