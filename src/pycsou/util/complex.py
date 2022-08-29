@@ -2,8 +2,8 @@ import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
 __all__ = [
-    "view_as_real",
     "view_as_complex",
+    "view_as_real",
 ]
 
 
@@ -13,12 +13,12 @@ def view_as_complex(x: pyct.NDArray) -> pyct.NDArray:
 
     Parameters
     ----------
-    x: NDArray
+    x: pyct.NDArray
         (..., 2N) real-valued array.
 
     Returns
     -------
-    y: NDArray
+    y: pyct.NDArray
         (..., N) complex-valued array.
 
     Note
@@ -47,12 +47,12 @@ def view_as_real(x: pyct.NDArray) -> pyct.NDArray:
 
     Parameters
     ----------
-    x: NDArray
+    x: pyct.NDArray
         (..., N) complex-valued array
 
     Returns
     -------
-    y: NDArray
+    y: pyct.NDArray
         (..., 2N) real-valued array.
 
     Note

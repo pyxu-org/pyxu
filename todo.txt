@@ -1,9 +1,8 @@
 Matthieu
 --------
 
-* nd arithmetic
 * [doc] Fix missing reference warnings. (See build/html/WARNINGS.log)
-* use pycrt.coerce() where it makes sense.
+* use pycrt.coerce() where it makes sense. [PDS only; the CG/PGD ok.]
 * use **kwargs to simplify signatures
 
 
@@ -11,26 +10,17 @@ Matthieu
 Sepand
 ------
 
-* Operator tests
-
-  Problems
-  ^^^^^^^^
-
-  * MapT.test_specialize() skipped -> enable once scaffolding in place.
-  * Func.squeeze() fails FuncT.test_squeeze() -> deactivated for now.
-  * test_math_() routines should be conducted for each precision to ensure pre-conditions hold.
-
-* Arithmetic tests
-* Solver tests [APGD for now]
+* Solver tests
 * Go over all code: refactor docstrings, type hints, etc.
+  Remaining: opt/solver/pds.py
+             compound/
+
 
    
 
 Joan
 ----
 
-* [operator] See various TODOs in file abc/operator.py
-* [linop/base] Implement diagonal operator
 * [opt] Implement LSQR LSMR
 * Add SVG drawing of class diagrams in documentation
 * create benchmark suite for all operators.
@@ -43,13 +33,6 @@ Joan
   * value: execution time [s] (on sample data, identical throughout the commit history.)
 
   This data can then be plotted to visualize performance changes.
-
-* StoppingCriterion:
-
-  * Add carbon_footprint
-  * Add duality_gap
-
-
 
 
   Roadmap:
@@ -66,7 +49,3 @@ Joan
   - Stochastic solvers -> Alec
   - Second order solvers -> Kaan
   - LSQR/LSMR -> Kaan
-  
-
-
-

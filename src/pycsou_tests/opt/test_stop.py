@@ -3,7 +3,7 @@ import collections.abc as cabc
 import numpy as np
 import pytest
 
-import pycsou.abc.solver as pycs
+import pycsou.abc as pyca
 import pycsou.opt.stop as stop
 
 # We do not test MaxIter(), ManualStop() and MaxDuration() since they are trivial.
@@ -137,7 +137,7 @@ class TestRelError:
     ],
 )
 def test_clear(
-    sc: pycs.StoppingCriterion,
+    sc: pyca.StoppingCriterion,
     state_stream: cabc.Sequence[cabc.Mapping],
 ):
     """

@@ -50,7 +50,7 @@ class TestEnforcePrecisionDecorator:
             assert self.right_dtype(x)
             return x + 1
 
-        with pycrt.Precision(pycrt.Width.HALF):
+        with pycrt.Precision(pycrt.Width.SINGLE):
             assert self.right_dtype(f(value))
 
     @pytest.mark.parametrize(
@@ -76,7 +76,7 @@ class TestEnforcePrecisionDecorator:
             assert self.right_dtype(y)
             return x + y
 
-        with pycrt.Precision(pycrt.Width.HALF):
+        with pycrt.Precision(pycrt.Width.SINGLE):
             f(1, 1.0, True)
 
     def test_valid_name_i(self):
@@ -93,7 +93,7 @@ class TestEnforcePrecisionDecorator:
             assert self.right_dtype(x)
             return x
 
-        with pycrt.Precision(pycrt.Width.HALF):
+        with pycrt.Precision(pycrt.Width.SINGLE):
             x = xp.arange(5)
             assert self.right_dtype(f(x))
 
@@ -103,7 +103,7 @@ class TestEnforcePrecisionDecorator:
             assert self.right_dtype(x)
             return x
 
-        with pycrt.Precision(pycrt.Width.HALF):
+        with pycrt.Precision(pycrt.Width.SINGLE):
             x = xp.arange(5) + 1j * xp.arange(5)
             with pytest.raises(TypeError):
                 f(x)
@@ -138,7 +138,7 @@ class TestCoerce:
         ],
     )
     def test_valid_scalar(self, value):
-        with pycrt.Precision(pycrt.Width.HALF):
+        with pycrt.Precision(pycrt.Width.SINGLE):
             assert self.right_dtype(pycrt.coerce(value))
 
     @pytest.mark.parametrize(
@@ -153,12 +153,12 @@ class TestCoerce:
             pycrt.coerce(value)
 
     def test_valid_array(self, xp):
-        with pycrt.Precision(pycrt.Width.HALF):
+        with pycrt.Precision(pycrt.Width.SINGLE):
             x = xp.arange(5)
             assert self.right_dtype(pycrt.coerce(x))
 
     def test_invalid_array(self, xp):
-        with pycrt.Precision(pycrt.Width.HALF):
+        with pycrt.Precision(pycrt.Width.SINGLE):
             x = xp.arange(5) + 1j * xp.arange(5)
             with pytest.raises(TypeError):
                 pycrt.coerce(x)

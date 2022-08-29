@@ -1,16 +1,19 @@
 import itertools
-import math
-import typing as typ
+import warnings
 
-import pycsou.abc.operator as pyco
-import pycsou.abc.solver as pycs
-import pycsou.operator.linop.base as pyclo
-import pycsou.opt.stop as pycos
+import pycsou.abc as pyca
+import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
+
+__all__ = [
+    "PGD",
+]
 
 
-class PGD(pycs.Solver):
+class PGD(pyca.Solver):
     r"""
     Proximal Gradient Descent (PGD) solver.
 
@@ -29,13 +32,16 @@ class PGD(pycs.Solver):
 
     The problem is *feasible* -- i.e. there exists at least one solution.
 
-    **Remark 1:** the algorithm is still valid if either :math:`\mathcal{F}` or :math:`\mathcal{G}`
-    is zero.
+    **Remark 1:**
+    the algorithm is still valid if either :math:`\mathcal{F}` or :math:`\mathcal{G}` is zero.
 
-    **Remark 2:** The convergence is guaranteed for step sizes :math:`\tau\leq 1/\beta`.
+    **Remark 2:**
+    The convergence is guaranteed for step sizes :math:`\tau\leq 1/\beta`.
 
-    **Remark 3:** Various acceleration schemes are described in [APGD]_. PGD achieves the following
-    (optimal) *convergence rate* with the implemented acceleration scheme from Chambolle & Dossal:
+    **Remark 3:**
+    Various acceleration schemes are described in [APGD]_.
+    PGD achieves the following (optimal) *convergence rate* with the implemented acceleration scheme
+    from Chambolle & Dossal:
 
     .. math::
 
@@ -44,25 +50,27 @@ class PGD(pycs.Solver):
        \lim\limits_{n\rightarrow \infty} n^2\Vert \mathbf{x}_n-\mathbf{x}_{n-1}\Vert^2_\mathcal{X}=0,
 
     for *some minimiser* :math:`{\mathbf{x}^\star}\in\arg\min_{\mathbf{x}\in\mathbb{R}^N} \;\left\{\mathcal{J}(\mathbf{x}):=\mathcal{F}(\mathbf{x})+\mathcal{G}(\mathbf{x})\right\}`.
-    In other words, both the objective functional and the PGD iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}`
-    converge at a rate :math:`o(1/n^2)`. Significant practical *speedup* can be achieved for values
-    of :math:`d` in the range :math:`[50,100]` [APGD]_.
+    In other words, both the objective functional and the PGD iterates
+    :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` converge at a rate :math:`o(1/n^2)`.
+    Significant practical *speedup* can be achieved for values of :math:`d` in the range
+    :math:`[50,100]` [APGD]_.
 
-    **Remark 4:** The relative norm change of the primal variable is used as the default stopping criterion. By
-    default, the algorithm stops when the norm of the difference between two consecutive PGD iterates
-    :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4. Different stopping criteria can be used (see
-    :py:mod:`~pycsou.opt.solver.stop`).
+    **Remark 4:**
+    The relative norm change of the primal variable is used as the default stopping criterion.
+    By default, the algorithm stops when the norm of the difference between two consecutive PGD
+    iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4.
+    Different stopping criteria can be used. (see :py:mod:`~pycsou.opt.solver.stop`.)
 
     ``PGD.fit()`` **Parameterization**
 
-    x0: NDArray
+    x0: pyct.NDArray
         (..., N) initial point(s).
-    tau: Real
+    tau: pyct.Real
         Gradient step size.
         Defaults to :math:`1 / \beta` if unspecified.
     acceleration: bool
         If True (default), then use Chambolle & Dossal acceleration scheme.
-    d: Real
+    d: pyct.Real
         Chambolle & Dossal acceleration parameter :math:`d`.
         Should be greater than 2.
         Only meaningful if `acceleration` is True.
@@ -71,8 +79,8 @@ class PGD(pycs.Solver):
 
     def __init__(
         self,
-        f: typ.Optional[pyco.DiffFunc] = None,
-        g: typ.Optional[pyco.ProxFunc] = None,
+        f: pyca.DiffFunc = None,
+        g: pyca.ProxFunc = None,
         **kwargs,
     ):
         kwargs.update(
@@ -80,8 +88,6 @@ class PGD(pycs.Solver):
         )
         super().__init__(**kwargs)
 
-        self._f = pyclo.NullFunc() if (f is None) else f
-        self._g = pyclo.NullFunc() if (g is None) else g
         if (f is None) and (g is None):
             msg = " ".join(
                 [
@@ -90,24 +96,47 @@ class PGD(pycs.Solver):
                 ]
             )
             raise ValueError(msg)
+        else:
+            # Problem
+            # -------
+            # If f/g is domain-agnostic and g/f is unspecified, cannot auto-infer NullFunc
+            # dimension.
+            #
+            # Solution
+            # --------
+            # Delay initialization of missing f/g to m_init(), where x0's shape can be used.
+            self._f = f
+            self._g = g
 
-    @pycrt.enforce_precision(i=["x0", "tau"])
+    @pycrt.enforce_precision(i=("x0", "tau"))
     def m_init(
         self,
         x0: pyct.NDArray,
-        tau: typ.Optional[pyct.Real] = None,
+        tau: pyct.Real = None,
         acceleration: bool = True,
-        d: typ.Optional[pyct.Real] = 75,
+        d: pyct.Real = 75,
     ):
         mst = self._mstate  # shorthand
         mst["x"] = mst["x_prev"] = x0
 
+        if self._f is None:
+            self._f = pycof.NullFunc(dim=x0.shape[-1])
+        if self._g is None:
+            self._g = pycof.NullFunc(dim=x0.shape[-1])
+
         if tau is None:
-            if math.isfinite(dl := self._f._diff_lipschitz):
-                mst["tau"] = pycrt.coerce(1 / dl)
-            else:
-                msg = "tau: automatic inference not supported for operators with unbounded Lipschitz gradients."
-                raise ValueError(msg)
+            try:
+                mst["tau"] = pycrt.coerce(1 / self._f.diff_lipschitz())
+            except ZeroDivisionError as exc:
+                # _f is constant-valued: \tau is a free parameter.
+                mst["tau"] = 1
+                msg = "\n".join(
+                    [
+                        rf"The gradient/proximal step size \tau is auto-set to {mst['tau']}.",
+                        r"Choosing \tau manually may lead to faster convergence.",
+                    ]
+                )
+                warnings.warn(msg, pycuw.AutoInferenceWarning)
         else:
             try:
                 assert tau > 0
@@ -126,15 +155,28 @@ class PGD(pycs.Solver):
 
     def m_step(self):
         mst = self._mstate  # shorthand
-
         a = next(mst["a"])
-        y = (1 + a) * mst["x"] - a * mst["x_prev"]
-        z = y - mst["tau"] * self._f.grad(y)
+
+        # In-place implementation of -----------------
+        #   y = (1 + a) * mst["x"] - a * mst["x_prev"]
+        y = mst["x"] - mst["x_prev"]
+        y *= a
+        y += mst["x"]
+        # --------------------------------------------
+
+        # In-place implementation of -----------------
+        #   z = y - mst["tau"] * self._f.grad(y)
+        z = pycu.copy_if_unsafe(self._f.grad(y))
+        z *= -mst["tau"]
+        z += y
+        # --------------------------------------------
 
         mst["x_prev"], mst["x"] = mst["x"], self._g.prox(z, mst["tau"])
 
-    def default_stop_crit(self) -> pycs.StoppingCriterion:
-        stop_crit = pycos.RelError(
+    def default_stop_crit(self) -> pyca.StoppingCriterion:
+        from pycsou.opt.stop import RelError
+
+        stop_crit = RelError(
             eps=1e-4,
             var="x",
             f=None,
@@ -153,7 +195,7 @@ class PGD(pycs.Solver):
         """
         Returns
         -------
-        x: NDArray
+        x: pyct.NDArray
             (..., N) solution.
         """
         data, _ = self.stats()

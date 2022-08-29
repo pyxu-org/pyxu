@@ -8,37 +8,33 @@ import numbers as nb
 import pathlib as plib
 import typing as typ
 
+import numpy.typing as npt
+
 import pycsou.util.deps as pycd
 
-# supported array types
+# supported dense arrays/modules
 NDArray = typ.TypeVar("NDArray", *pycd.supported_array_types())
-
-# supported array modules
 ArrayModule = typ.TypeVar(
     "ArrayModule",
     *[typ.Literal[_] for _ in pycd.supported_array_modules()],
 )
 
-# supported sparse arrays
+# supported sparse arrays/modules
 SparseArray = typ.TypeVar("SparseArray", *pycd.supported_sparse_types())
-
-# supported sparse modules
 SparseModule = typ.TypeVar(
     "SparseModule",
     *[typ.Literal[_] for _ in pycd.supported_sparse_modules()],
 )
 
-# non-complex numbers
-Real = nb.Real
+# Top-level operator exposed to users
+OpT = typ.Literal["Operator"]  # Operator instances
+OpC = typ.Type[OpT]  # Operator classes
+Property = typ.Literal["Property"]
+
+# Other
 Integer = nb.Integral
-
-# map shapes
-Shape = typ.Tuple[int, typ.Union[int, None]]
-ShapeOrDim = typ.Union[typ.Union[int, None], Shape]
-NonAgnosticShape = typ.Tuple[int, int]
-SquareShape = typ.Union[int, typ.Tuple[int, int]]
-
-# one or more variable names
+Real = nb.Real
+DType = npt.DTypeLike
+Shape = tuple[Integer, typ.Union[Integer, None]]
+Path = typ.Union[str, plib.Path]
 VarName = typ.Union[str, cabc.Collection[str]]
-
-PathLike = typ.Union[str, plib.Path]

@@ -1,12 +1,15 @@
+import itertools
+
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
+import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
-class ReLU(pyco.Map):
+class ReLU(pyca.Map):
     # f: \bR^{M} -> \bR^{M}
     #      x     -> max(x, 0)
     def __init__(self, M: int):
@@ -20,13 +23,26 @@ class ReLU(pyco.Map):
 
 
 class TestReLU(conftest.MapT):
-    @pytest.fixture
-    def dim(self):
-        return 3
+    @pytest.fixture(
+        params=itertools.product(
+            (  # dim, op
+                (3, ReLU(M=3)),
+                (1, ReLU(M=1)),
+            ),
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def _spec(self, request):
+        return request.param
 
     @pytest.fixture
-    def op(self, dim):
-        return ReLU(M=dim)
+    def spec(self, _spec):
+        return _spec[0][1], _spec[1], _spec[2]
+
+    @pytest.fixture
+    def dim(self, _spec):
+        return _spec[0][0]
 
     @pytest.fixture
     def data_shape(self, dim):

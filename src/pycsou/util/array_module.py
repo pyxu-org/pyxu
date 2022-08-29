@@ -1,15 +1,15 @@
 import collections.abc as cabc
 import functools
 
-import dask
-
 import pycsou.util.deps as pycd
 import pycsou.util.inspect as pycui
 import pycsou.util.ptype as pyct
 
 __all__ = [
-    "get_array_module",
     "compute",
+    "copy_if_unsafe",
+    "get_array_module",
+    "read_only",
     "redirect",
 ]
 
@@ -22,21 +22,21 @@ def get_array_module(x, fallback: pyct.ArrayModule = None) -> pyct.ArrayModule:
     ----------
     x: object
         Any object compatible with the interface of NumPy arrays.
-    fallback: pycsou.util.ptype.ArrayModule
+    fallback: pyct.ArrayModule
         Fallback module if `x` is not a NumPy-like array.
         Default behaviour: raise error if fallback used.
 
     Returns
     -------
-    namespace: pycsou.util.ptype.ArrayModule
+    namespace: pyct.ArrayModule
         The namespace to use to manipulate `x`, or `fallback` if provided.
     """
 
     def infer_api(y):
-        for array_t, api, _ in pycd.array_backend_info():
-            if isinstance(y, array_t):
-                return api
-        return None
+        try:
+            return pycd.NDArrayInfo.from_obj(y).module()
+        except ValueError:
+            return None
 
     if (xp := infer_api(x)) is not None:
         return xp
@@ -68,6 +68,8 @@ def compute(*args, mode: str = "compute", **kwargs):
     *cargs: object | sequence(object)
         Evaluated objects. Non-dask arguments are passed through unchanged.
     """
+    import dask
+
     try:
         func = dict(compute=dask.compute, persist=dask.persist)[mode.lower()]
     except:
@@ -106,8 +108,8 @@ def redirect(
 
     Notes
     -----
-    Auto-dispatch via :py:func:`redirect` assumes the
-    dispatcher/dispatchee have the same parameterization, i.e.:
+    Auto-dispatch via :py:func:`redirect` assumes the dispatcher/dispatchee have the same
+    parameterization, i.e.:
 
     * if `f` is a function -> dispatch possible to another callable with identical signature (i.e.,
       function or staticmethod)
@@ -142,10 +144,8 @@ def redirect(
                 error_msg = f"Parameter[{i}] not part of {func.__qualname__}() parameter list."
                 raise ValueError(error_msg)
 
-            xp = get_array_module(func_args[i])
-            short_name = {xp_: short_name for (_, xp_, short_name) in pycd.array_backend_info()}.get(xp)
-
-            if (alt_func := kwargs.get(short_name)) is not None:
+            ndi = pycd.NDArrayInfo.from_obj(func_args[i])
+            if (alt_func := kwargs.get(ndi.name)) is not None:
                 out = alt_func(**func_args)
             else:
                 out = func(**func_args)
@@ -155,3 +155,66 @@ def redirect(
         return wrapper
 
     return decorator
+
+
+def copy_if_unsafe(x: pyct.NDArray) -> pyct.NDArray:
+    """
+    Copy array if it is unsafe to do in-place updates on it, i.e.
+
+    * if the array is read-only, OR
+    * if the array is a view onto another array.
+
+    Parameters
+    ----------
+    x: pyct.NDArray
+
+    Returns
+    -------
+    y: pyct.NDArray
+    """
+    N = pycd.NDArrayInfo
+    ndi = N.from_obj(x)
+    if ndi == N.DASK:
+        # Dask operations span a graph -> always safe.
+        y = x
+    elif ndi == N.NUMPY:
+        read_only = not x.flags.writeable
+        reference = not x.flags.owndata
+        y = x.copy() if (read_only or reference) else x
+    elif ndi == N.CUPY:
+        read_only = False  # https://github.com/cupy/cupy/issues/2616
+        reference = not x.flags.owndata
+        y = x.copy() if (read_only or reference) else x
+    else:
+        msg = f"copy_if_unsafe() not yet defined for {ndi}."
+        raise NotImplementedError(msg)
+    return y
+
+
+def read_only(x: pyct.NDArray) -> pyct.NDArray:
+    """
+    Make an array read-only.
+
+    Parameters
+    ----------
+    x: pyct.NDArray
+
+    Returns
+    -------
+    y: pyct.NDArray
+    """
+    N = pycd.NDArrayInfo
+    ndi = N.from_obj(x)
+    if ndi == N.DASK:
+        # Dask operations are read-only since graph-backed.
+        y = x
+    elif ndi == N.NUMPY:
+        y = x.view()
+        y.flags.writeable = False
+    elif ndi == N.CUPY:
+        y = x.view()
+        # y.flags.writeable = False  # https://github.com/cupy/cupy/issues/2616
+    else:
+        msg = f"read_only() not yet defined for {ndi}."
+        raise NotImplementedError(msg)
+    return y

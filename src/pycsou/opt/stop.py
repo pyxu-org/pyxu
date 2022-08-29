@@ -5,9 +5,19 @@ import warnings
 
 import numpy as np
 
-import pycsou.abc.solver as pycs
+import pycsou.abc as pyca
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
+
+__all__ = [
+    "AbsError",
+    "ManualStop",
+    "MaxDuration",
+    "MaxIter",
+    "Memorize",
+    "RelError",
+]
+
 
 SVFunction = typ.Union[
     cabc.Callable[[pyct.Real], pyct.Real],
@@ -15,7 +25,7 @@ SVFunction = typ.Union[
 ]
 
 
-class MaxIter(pycs.StoppingCriterion):
+class MaxIter(pyca.StoppingCriterion):
     """
     Stop iterative solver after a fixed number of iterations.
 
@@ -32,11 +42,11 @@ class MaxIter(pycs.StoppingCriterion):
     # If N_iter >= 5 -> stop if AbsError() decides to.
     """
 
-    def __init__(self, n: int):
+    def __init__(self, n: pyct.Integer):
         """
         Parameters
         ----------
-        n: int
+        n: pyct.Integer
             Max number of iterations allowed.
         """
         try:
@@ -57,7 +67,7 @@ class MaxIter(pycs.StoppingCriterion):
         self._i = 0
 
 
-class ManualStop(pycs.StoppingCriterion):
+class ManualStop(pyca.StoppingCriterion):
     """
     Continue-forever criterion.
 
@@ -77,7 +87,7 @@ class ManualStop(pycs.StoppingCriterion):
         pass
 
 
-class MaxDuration(pycs.StoppingCriterion):
+class MaxDuration(pyca.StoppingCriterion):
     """
     Stop iterative solver after a specified duration has elapsed.
     """
@@ -110,17 +120,17 @@ class MaxDuration(pycs.StoppingCriterion):
         self._t_now = self._t_start
 
 
-class Memorize(pycs.StoppingCriterion):
+class Memorize(pyca.StoppingCriterion):
     """
-    Memorize a variable. (Special StoppingCriterion mostly useful for tracking objective functions
-    in Solver.)
+    Memorize a variable.
+    (Special StoppingCriterion mostly useful for tracking objective functions in Solver.)
     """
 
-    def __init__(self, var: str):
+    def __init__(self, var: pyct.VarName):
         """
         Parameters
         ----------
-        var: str
+        var: pyct.VarName
             Variable in `Solver._mstate` to query.
             Must be a scalar or NDArray (1D).
         """
@@ -150,32 +160,32 @@ class Memorize(pycs.StoppingCriterion):
         self._val = np.r_[0]
 
 
-class AbsError(pycs.StoppingCriterion):
+class AbsError(pyca.StoppingCriterion):
     """
     Stop iterative solver after absolute norm of a variable (or function thereof) reaches threshold.
     """
 
     def __init__(
         self,
-        eps: float,
-        var: str = "x",
-        f: typ.Optional[SVFunction] = None,
-        norm: float = 2,
+        eps: pyct.Real,
+        var: pyct.VarName = "x",
+        f: SVFunction = None,
+        norm: pyct.Real = 2,
         satisfy_all: bool = True,
     ):
         """
         Parameters
         ----------
-        eps: float
+        eps: pyct.Real
             Positive threshold.
-        var: str
+        var: pyct.VarName
             Variable in `Solver._mstate` to query.
         f: Callable
             Optional function to pre-apply to `Solver._mstate[var]` before applying the norm.
             Defaults to the identity function. The callable should either:
             * accept a scalar input -> output a scalar, or
-            * accept an NDArray input -> output an NDArray, i.e same semantics as `Property.apply`.
-        norm: int | float
+            * accept an NDArray input -> output an NDArray, i.e same semantics as `Operator.apply`.
+        norm: pyct.Integer | pyct.Real
             Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool
             If True (default) and `Solver._mstate[var]` is multi-dimensional, stop if all evaluation
@@ -226,7 +236,7 @@ class AbsError(pycs.StoppingCriterion):
         self._val = np.r_[0]
 
 
-class RelError(pycs.StoppingCriterion):
+class RelError(pyca.StoppingCriterion):
     """
     Stop iterative solver after relative norm change of a variable (or function thereof) reaches
     threshold.
@@ -234,25 +244,25 @@ class RelError(pycs.StoppingCriterion):
 
     def __init__(
         self,
-        eps: float,
-        var: str = "x",
-        f: typ.Optional[SVFunction] = None,
-        norm: float = 2,
+        eps: pyct.Real,
+        var: pyct.VarName = "x",
+        f: SVFunction = None,
+        norm: pyct.Real = 2,
         satisfy_all: bool = True,
     ):
         """
         Parameters
         ----------
-        eps: float
+        eps: pyct.Real
             Positive threshold.
-        var: str
+        var: pyct.VarName
             Variable in `Solver._mstate` to query.
         f: Callable
             Optional function to pre-apply to `Solver._mstate[var]` before applying the norm.
             Defaults to the identity function. The callable should either:
             * accept a scalar input -> output a scalar, or
-            * accept an NDArray input -> output an NDArray, i.e same semantics as `Property.apply`.
-        norm: int | float
+            * accept an NDArray input -> output an NDArray, i.e same semantics as `Operator.apply`.
+        norm: pyct.Integer | pyct.Real
             Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool
             If True (default) and `Solver._mstate[var]` is multi-dimensional, stop if all evaluation

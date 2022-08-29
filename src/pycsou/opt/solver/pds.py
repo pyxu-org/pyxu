@@ -3,26 +3,37 @@ import types
 import typing as typ
 import warnings
 
-import pycsou.abc.operator as pyco
-import pycsou.abc.solver as pycs
-import pycsou.operator.func.base as pycfb
-import pycsou.operator.linop.base as pyclo
+import pycsou.abc as pyca
+import pycsou.operator.func as pycf
+import pycsou.operator.linop as pyclo
 import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
+__all__ = [
+    *("CondatVu", "CV"),
+    "PD3O",
+    *("ChambollePock", "CP"),
+    *("LorisVerhoeven", "LV"),
+    *("DavisYin", "DY"),
+    *("DouglasRachford", "DR"),
+    "ADMM",
+    *("ForwardBackward", "FB"),
+    *("ProximalPoint", "PP"),
+]
 
-class _PrimalDualSplitting(pycs.Solver):
+
+class _PrimalDualSplitting(pyca.Solver):
     r"""
     Base class for Primal Dual Splitting (PDS) solvers.
     """
 
     def __init__(
         self,
-        f: typ.Optional[pyco.DiffFunc] = None,
-        g: typ.Optional[pyco.ProxFunc] = None,
-        h: typ.Optional[pyco.ProxFunc] = None,
-        K: typ.Optional[pyco.DiffMap] = None,
+        f: typ.Optional[pyca.DiffFunc] = None,
+        g: typ.Optional[pyca.ProxFunc] = None,
+        h: typ.Optional[pyca.ProxFunc] = None,
+        K: typ.Optional[pyca.DiffMap] = None,
         beta: typ.Optional[pyct.Real] = None,
         **kwargs,
     ):
@@ -72,7 +83,7 @@ class _PrimalDualSplitting(pycs.Solver):
     def m_step(self):
         raise NotImplementedError
 
-    def default_stop_crit(self) -> pycs.StoppingCriterion:
+    def default_stop_crit(self) -> pyca.StoppingCriterion:
         stop_crit_x = pycos.RelError(
             eps=1e-4,
             var="x",
@@ -188,7 +199,9 @@ class CondatVu(_PrimalDualSplitting):
     It can be used to solve problems of the form:
 
     .. math::
+
        {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathcal{K} \mathbf{x}).}
+
     where:
 
     * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
@@ -199,7 +212,8 @@ class CondatVu(_PrimalDualSplitting):
     * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator* :math:`\mathbf{K}`), with **operator norm**:
 
     .. math::
-         \Vert{\mathcal{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathcal{K}(\mathbf{x})\Vert_2.
+
+       \Vert{\mathcal{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathcal{K}(\mathbf{x})\Vert_2.
 
     * The problem is *feasible* --i.e. there exists at least one solution.
 
@@ -222,7 +236,7 @@ class CondatVu(_PrimalDualSplitting):
       - :math:`\gamma \geq \frac{\beta}{2}`,
       - :math:`\frac{1}{\tau}-\sigma\Vert\mathbf{K}\Vert_{2}^2\geq \gamma`,
       - :math:`\rho \in ]0,\delta[`, where :math:`\delta:=2-\frac{\beta}{2}\gamma^{-1}\in[1,2[` (:math:`\delta=2` is possible when :math:`\mathcal{F}` is *quadratic*
-       and :math:`\gamma \geq \beta`, see [PSA]_).
+        and :math:`\gamma \geq \beta`, see [PSA]_).
 
     * or :math:`\beta=0` and:
 
@@ -288,29 +302,34 @@ class CondatVu(_PrimalDualSplitting):
     * For :math:`\beta>0` and :math:`\mathcal{H}\neq 0` this yields:
 
         .. math::
-            \frac{1}{\tau}-\tau\Vert\mathbf{K}\Vert_{2}^2= \gamma \quad\Longleftrightarrow\quad -\tau^2\Vert\mathbf{K}\Vert_{2}^2-\gamma\tau+1=0,
+
+           \frac{1}{\tau}-\tau\Vert\mathbf{K}\Vert_{2}^2= \gamma \quad\Longleftrightarrow\quad -\tau^2\Vert\mathbf{K}\Vert_{2}^2-\gamma\tau+1=0,
 
         which admits one positive root
 
         .. math::
-            \tau=\sigma=\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}\left(-\frac{\gamma}{2}+\sqrt{\frac{\gamma^2}{4}+\Vert\mathbf{K}\Vert_{2}^2}\right).
+
+           \tau=\sigma=\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}\left(-\frac{\gamma}{2}+\sqrt{\frac{\gamma^2}{4}+\Vert\mathbf{K}\Vert_{2}^2}\right).
 
     * For :math:`\beta>0` and :math:`\mathcal{H}=0` this yields: :math:`\tau=1/\gamma.`
 
     * For :math:`\beta=0` this yields:
 
         .. math::
-            \tau=\sigma=\Vert\mathbf{K}\Vert_{2}^{-1}.
+
+           \tau=\sigma=\Vert\mathbf{K}\Vert_{2}^{-1}.
 
     When :math:`\tau` is provided (:math:`\tau = \tau_{1}`), but not :math:`\sigma`, the latter is chosen as:
 
     .. math::
-        \frac{1}{\tau_{1}}-\sigma\Vert\mathbf{K}\Vert_{2}^2= \gamma \quad\Longleftrightarrow\quad \sigma=\left(\frac{1}{\tau_{1}}-\gamma\right)\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}.
+
+       \frac{1}{\tau_{1}}-\sigma\Vert\mathbf{K}\Vert_{2}^2= \gamma \quad\Longleftrightarrow\quad \sigma=\left(\frac{1}{\tau_{1}}-\gamma\right)\frac{1}{\Vert\mathbf{K}\Vert_{2}^2}.
 
     When :math:`\sigma` is provided (:math:`\sigma = \sigma_{1}`), but not :math:`\tau`, the latter is chosen as:
 
     .. math::
-        \frac{1}{\tau}-\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2= \gamma \quad\Longleftrightarrow\quad \tau=\frac{1}{\left(\gamma+\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2\right)}.
+
+       \frac{1}{\tau}-\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2= \gamma \quad\Longleftrightarrow\quad \tau=\frac{1}{\left(\gamma+\sigma_{1}\Vert\mathbf{K}\Vert_{2}^2\right)}.
 
     Warnings
     --------
@@ -330,41 +349,45 @@ class CondatVu(_PrimalDualSplitting):
     :math:`\mathcal{H}(\mathbf{x})=\lambda \|\mathbf{x}\|_1` and :math:`\mathbf{K}=\mathbf{D}`.
 
     .. plot::
-    >>> import matplotlib.pyplot as plt
-    >>> import numpy as np
-    >>> from pycsou.opt.solver.pds import CV
-    >>> from pycsou._dev import FirstDerivative, DownSampling, SquaredL2Norm, L1Norm
 
-    >>> x = np.repeat(np.asarray([0, 2, 1, 3, 0, 2, 0]), 10)
-    >>> D = FirstDerivative(size=x.size, kind="forward")
-    >>> D.lipschitz(tol=1e-3)
-    >>> downsampling = DownSampling(size=x.size, downsampling_factor=3)
-    >>> downsampling.lipschitz()
-    >>> y = downsampling(x)
-    >>> l22_loss = (1 / 2) * SquaredL2Norm().asloss(data=y)
-    >>> fidelity = l22_loss * downsampling
-    >>> H = 0.1 * L1Norm()
+       >>> import matplotlib.pyplot as plt
+       >>> import numpy as np
+       >>> from pycsou.opt.solver.pds import CV
+       >>> from pycsou._dev import FirstDerivative, DownSampling, SquaredL2Norm, L1Norm
 
-    >>> G = 0.01 * L1Norm()
-    >>> cv = CV(f=fidelity, g=G, h=H, K=D)
-    >>> x0, z0 = x * 0, x * 0
-    >>> cv.fit(x0=x0, z0=z0)
+       >>> x = np.repeat(np.asarray([0, 2, 1, 3, 0, 2, 0]), 10)
+       >>> D = FirstDerivative(size=x.size, kind="forward")
+       >>> D.lipschitz(tol=1e-3)
+       >>> downsampling = DownSampling(size=x.size, downsampling_factor=3)
+       >>> downsampling.lipschitz()
+       >>> y = downsampling(x)
+       >>> l22_loss = (1 / 2) * SquaredL2Norm().argshift(-y)
+       >>> fidelity = l22_loss * downsampling
+       >>> H = 0.1 * L1Norm()
 
-    >>> estimate = cv.solution()
-    >>> x_recons = estimate[0]
-    >>>
-    >>> plt.figure()
-    >>> plt.stem(x, linefmt="C0-", markerfmt="C0o")
-    >>> mask_ids = np.where(downsampling.downsampling_mask)[0]
-    >>> markerline, stemlines, baseline = plt.stem(mask_ids, y, linefmt="C3-", markerfmt="C3o")
-    >>> markerline.set_markerfacecolor("none")
-    >>> plt.stem(x_recons, linefmt="C1--", markerfmt="C1s")
-    >>> plt.legend(["Ground truth", "Observation", "CV Estimate"])
-    >>> plt.show()
+       >>> G = 0.01 * L1Norm()
+       >>> cv = CV(f=fidelity, g=G, h=H, K=D)
+       >>> x0, z0 = x * 0, x * 0
+       >>> cv.fit(x0=x0, z0=z0)
+
+       >>> estimate = cv.solution()
+       >>> x_recons = estimate[0]
+       >>>
+       >>> plt.figure()
+       >>> plt.stem(x, linefmt="C0-", markerfmt="C0o")
+       >>> mask_ids = np.where(downsampling.downsampling_mask)[0]
+       >>> markerline, stemlines, baseline = plt.stem(mask_ids, y, linefmt="C3-", markerfmt="C3o")
+       >>> markerline.set_markerfacecolor("none")
+       >>> plt.stem(x_recons, linefmt="C1--", markerfmt="C1s")
+       >>> plt.legend(["Ground truth", "Observation", "CV Estimate"])
+       >>> plt.show()
 
     See Also
     --------
-    :py:class:`~pycsou.opt.solver.pds.CV`, :py:class:`~pycsou.opt.solver.pds.PD3O`, :py:class:`~pycsou.opt.solver.pds.ChambollePock`, :py:class:`~pycsou.opt.solver.pds.DouglasRachford`
+    :py:class:`~pycsou.opt.solver.pds.CV`,
+    :py:class:`~pycsou.opt.solver.pds.PD3O`,
+    :py:class:`~pycsou.opt.solver.pds.ChambollePock`,
+    :py:class:`~pycsou.opt.solver.pds.DouglasRachford`
     """
 
     def m_step(self):
@@ -391,7 +414,7 @@ class CondatVu(_PrimalDualSplitting):
             Sensible primal/dual step sizes and value of the parameter :math:`delta`.
         """
 
-        if not issubclass(self._K.__class__, pyco.LinOp):
+        if not issubclass(self._K.__class__, pyca.LinOp):
             msg = (
                 f"Automatic selection of parameters is only supported in the case in which K is a linear operator. "
                 f"Got operator of type {self._K.__class__}."
@@ -446,7 +469,7 @@ class CondatVu(_PrimalDualSplitting):
                         raise ValueError(msg)
         delta = (
             2
-            if (self._beta == 0 or (isinstance(self._f, pycfb.QuadraticFunc) and gamma <= self._beta))
+            if (self._beta == 0 or (isinstance(self._f, pycf.QuadraticFunc) and gamma <= self._beta))
             else 2 - self._beta / (2 * gamma)
         )
         return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
@@ -464,7 +487,8 @@ class PD3O(_PrimalDualSplitting):
     It can be used to solve problems of the form:
 
     .. math::
-        {\min_{\mathbf{x}\in\mathbb{R}^N} \;\Psi(\mathbf{x}):=\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathcal{K} \mathbf{x}).}
+
+       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\Psi(\mathbf{x}):=\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathcal{K} \mathbf{x}).}
 
     where:
 
@@ -476,7 +500,8 @@ class PD3O(_PrimalDualSplitting):
     * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator* :math:`\mathbf{K}`), with **operator norm**:
 
     .. math::
-         \Vert{\mathcal{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathcal{K}(\mathbf{x})\Vert_2.
+
+       \Vert{\mathcal{K}}\Vert_2=\sup_{\mathbf{x}\in\mathbb{R}^N,\Vert\mathbf{x}\Vert_2=1} \Vert\mathcal{K}(\mathbf{x})\Vert_2.
 
     * The problem is *feasible* --i.e. there exists at least one solution.
 
@@ -511,7 +536,8 @@ class PD3O(_PrimalDualSplitting):
     its minimum :math:`\Psi^\ast` with rate :math:`o(1/\sqrt{n})` (Theorem 1 of [dPSA]_):
 
     .. math::
-        \Psi(\mathbf{x}_n) - \Psi^\ast = o(1/\sqrt{n}).
+
+       \Psi(\mathbf{x}_n) - \Psi^\ast = o(1/\sqrt{n}).
 
     **Initialization parameters of the class:**
 
@@ -565,20 +591,23 @@ class PD3O(_PrimalDualSplitting):
     In practice, the following linear programming optimization problem is solved:
 
     .. math::
-        (\tau, \, \sigma) = \operatorname{arg} \max_{(\tau^{*}, \,  \sigma^{*})} \quad & \operatorname{log}(\tau^{*}) + \operatorname{log}(\sigma^{*})\\
-        \text{s.t.} \quad & \operatorname{log}(\tau^{*}) + \operatorname{log}(\sigma^{*}) \leq 2\operatorname{log}(\Vert\mathbf{K}\Vert_{2})\\
-        & \operatorname{log}(\tau^{*}) \leq -\operatorname{log}(\gamma)\\
-        & \operatorname{log}(\tau^{*}) = \operatorname{log}(\sigma^{*}).
+
+       (\tau, \, \sigma) = \operatorname{arg} \max_{(\tau^{*}, \,  \sigma^{*})} \quad & \operatorname{log}(\tau^{*}) + \operatorname{log}(\sigma^{*})\\
+       \text{s.t.} \quad & \operatorname{log}(\tau^{*}) + \operatorname{log}(\sigma^{*}) \leq 2\operatorname{log}(\Vert\mathbf{K}\Vert_{2})\\
+       & \operatorname{log}(\tau^{*}) \leq -\operatorname{log}(\gamma)\\
+       & \operatorname{log}(\tau^{*}) = \operatorname{log}(\sigma^{*}).
 
     When :math:`\tau \leq 1/\gamma` is given (i.e., :math:`\tau=\tau_{1}`), but not :math:`\sigma`, the latter is chosen as:
 
     .. math::
-        \tau_{1}\sigma\Vert\mathbf{K}\Vert_{2}^2= 1 \quad\Longleftrightarrow\quad \sigma=\frac{1}{\tau_{1}\Vert\mathbf{K}\Vert_{2}^{2}}.
+
+       \tau_{1}\sigma\Vert\mathbf{K}\Vert_{2}^2= 1 \quad\Longleftrightarrow\quad \sigma=\frac{1}{\tau_{1}\Vert\mathbf{K}\Vert_{2}^{2}}.
 
     When :math:`\sigma` is given (i.e., :math:`\sigma=\sigma_{1}`), but not :math:`\tau`, the latter is chosen as:
 
     .. math::
-        \tau = \min \left\{\frac{1}{\gamma}, \frac{1}{\sigma_{1}\Vert\mathbf{K}\Vert_{2}^{2}}\right\}.
+
+       \tau = \min \left\{\frac{1}{\gamma}, \frac{1}{\sigma_{1}\Vert\mathbf{K}\Vert_{2}^{2}}\right\}.
 
     Warnings
     --------
@@ -599,38 +628,38 @@ class PD3O(_PrimalDualSplitting):
     :math:`\mathcal{H}(\mathbf{x})=\lambda \|\mathbf{x}\|_1` and :math:`\mathbf{K}=\mathbf{D}`.
 
     .. plot::
-    >>> import matplotlib.pyplot as plt
-    >>> import numpy as np
-    >>> from pycsou.opt.solver.pds import CV
-    >>> from pycsou._dev import FirstDerivative, DownSampling, SquaredL2Norm, L1Norm
 
-    >>> x = np.repeat(np.asarray([0, 2, 1, 3, 0, 2, 0]), 10)
-    >>> D = FirstDerivative(size=x.size, kind="forward")
-    >>> D.lipschitz(tol=1e-3)
-    >>> downsampling = DownSampling(size=x.size, downsampling_factor=3)
-    >>> downsampling.lipschitz()
-    >>> y = downsampling(x)
-    >>> l22_loss = (1 / 2) * SquaredL2Norm().asloss(data=y)
-    >>> fidelity = l22_loss * downsampling
-    >>> H = 0.1 * L1Norm()
+       >>> import matplotlib.pyplot as plt
+       >>> import numpy as np
+       >>> from pycsou.opt.solver.pds import CV
+       >>> from pycsou._dev import FirstDerivative, DownSampling, SquaredL2Norm, L1Norm
 
-    >>> G = 0.01 * L1Norm()
-    >>> pd3o = PD3O(f=fidelity, g=G, h=H, K=D)
-    >>> x0, z0 = x * 0, x * 0
-    >>> pd3o.fit(x0=x0, z0=z0)
+       >>> x = np.repeat(np.asarray([0, 2, 1, 3, 0, 2, 0]), 10)
+       >>> D = FirstDerivative(size=x.size, kind="forward")
+       >>> D.lipschitz(tol=1e-3)
+       >>> downsampling = DownSampling(size=x.size, downsampling_factor=3)
+       >>> downsampling.lipschitz()
+       >>> y = downsampling(x)
+       >>> l22_loss = (1 / 2) * SquaredL2Norm().argshift(-y)
+       >>> fidelity = l22_loss * downsampling
+       >>> H = 0.1 * L1Norm()
 
-    >>> estimate = pd3o.solution()
-    >>> x_recons = estimate[0]
-    >>>
-    >>> plt.figure()
-    >>> plt.stem(x, linefmt="C0-", markerfmt="C0o")
-    >>> mask_ids = np.where(downsampling.downsampling_mask)[0]
-    >>> markerline, stemlines, baseline = plt.stem(mask_ids, y, linefmt="C3-", markerfmt="C3o")
-    >>> markerline.set_markerfacecolor("none")
-    >>> plt.stem(x_recons, linefmt="C1--", markerfmt="C1s")
-    >>> plt.legend(["Ground truth", "Observation", "PD3O Estimate"])
-    >>> plt.show()
+       >>> G = 0.01 * L1Norm()
+       >>> pd3o = PD3O(f=fidelity, g=G, h=H, K=D)
+       >>> x0, z0 = x * 0, x * 0
+       >>> pd3o.fit(x0=x0, z0=z0)
 
+       >>> estimate = pd3o.solution()
+       >>> x_recons = estimate[0]
+       >>>
+       >>> plt.figure()
+       >>> plt.stem(x, linefmt="C0-", markerfmt="C0o")
+       >>> mask_ids = np.where(downsampling.downsampling_mask)[0]
+       >>> markerline, stemlines, baseline = plt.stem(mask_ids, y, linefmt="C3-", markerfmt="C3o")
+       >>> markerline.set_markerfacecolor("none")
+       >>> plt.stem(x_recons, linefmt="C1--", markerfmt="C1s")
+       >>> plt.legend(["Ground truth", "Observation", "PD3O Estimate"])
+       >>> plt.show()
     """
 
     @pycrt.enforce_precision(i=["x0", "z0", "tau", "sigma", "rho"], allow_None=True)
@@ -671,7 +700,7 @@ class PD3O(_PrimalDualSplitting):
             Sensible primal/dual step sizes and value of :math:`\delta`.
         """
 
-        if not issubclass(self._K.__class__, pyco.LinOp):
+        if not issubclass(self._K.__class__, pyca.LinOp):
             msg = (
                 f"Automatic selection of parameters is only supported in the case in which K is a linear operator. "
                 f"Got operator of type {self._K.__class__}."
@@ -754,9 +783,9 @@ class PD3O(_PrimalDualSplitting):
 
 
 def ChambollePock(
-    g: typ.Optional[pyco.ProxFunc] = None,
-    h: typ.Optional[pyco.ProxFunc] = None,
-    K: typ.Optional[pyco.DiffMap] = None,
+    g: typ.Optional[pyca.ProxFunc] = None,
+    h: typ.Optional[pyca.ProxFunc] = None,
+    K: typ.Optional[pyca.DiffMap] = None,
     base: typ.Type[_PrimalDualSplitting] = CondatVu,
     **kwargs,
 ):
@@ -927,9 +956,9 @@ class LorisVerhoeven(PD3O):
 
     def __init__(
         self,
-        f: typ.Optional[pyco.DiffFunc] = None,
-        h: typ.Optional[pyco.ProxFunc] = None,
-        K: typ.Optional[pyco.DiffMap] = None,
+        f: typ.Optional[pyca.DiffFunc] = None,
+        h: typ.Optional[pyca.ProxFunc] = None,
+        K: typ.Optional[pyca.DiffMap] = None,
         beta: typ.Optional[pyct.Real] = None,
         **kwargs,
     ):
@@ -955,7 +984,7 @@ class LorisVerhoeven(PD3O):
             Sensible primal/dual step sizes and value of the parameter :math:`delta`.
         """
         tau, sigma, _ = super(LorisVerhoeven, self)._set_step_sizes(tau=tau, sigma=sigma, gamma=gamma)
-        delta = 2 if (self._beta == 0 or isinstance(self._f, pycfb.QuadraticFunc)) else 2 - self._beta / (2 * gamma)
+        delta = 2 if (self._beta == 0 or isinstance(self._f, pycf.QuadraticFunc)) else 2 - self._beta / (2 * gamma)
         return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
 
 
@@ -971,7 +1000,9 @@ class DavisYin(PD3O):
     The *Davis and Yin (DY) primal-dual splitting* method can be used to solve problems of the form:
 
     .. math::
+
        {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{x}).}
+
     where:
 
     * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
@@ -1025,9 +1056,9 @@ class DavisYin(PD3O):
 
     def __init__(
         self,
-        f: typ.Optional[pyco.DiffFunc] = None,
-        g: typ.Optional[pyco.ProxFunc] = None,
-        h: typ.Optional[pyco.ProxFunc] = None,
+        f: typ.Optional[pyca.DiffFunc] = None,
+        g: typ.Optional[pyca.ProxFunc] = None,
+        h: typ.Optional[pyca.ProxFunc] = None,
         beta: typ.Optional[pyct.Real] = None,
         **kwargs,
     ):
@@ -1066,8 +1097,8 @@ DY = DavisYin  #: Alias of :py:class:`~pycsou.opt.solver.pds.DavisYin`.
 
 
 def DouglasRachford(
-    g: typ.Optional[pyco.ProxFunc] = None,
-    h: typ.Optional[pyco.ProxFunc] = None,
+    g: typ.Optional[pyca.ProxFunc] = None,
+    h: typ.Optional[pyca.ProxFunc] = None,
     base: typ.Type[_PrimalDualSplitting] = CondatVu,
     **kwargs,
 ):
@@ -1194,8 +1225,8 @@ class ADMM(_PDS):
 
     def __init__(
         self,
-        g: typ.Optional[pyco.ProxFunc] = None,
-        h: typ.Optional[pyco.ProxFunc] = None,
+        g: typ.Optional[pyca.ProxFunc] = None,
+        h: typ.Optional[pyca.ProxFunc] = None,
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x", "u", "z")))
@@ -1319,8 +1350,8 @@ class ForwardBackward(CondatVu):
 
     def __init__(
         self,
-        f: typ.Optional[pyco.DiffFunc] = None,
-        g: typ.Optional[pyco.ProxFunc] = None,
+        f: typ.Optional[pyca.DiffFunc] = None,
+        g: typ.Optional[pyca.ProxFunc] = None,
         beta: typ.Optional[pyct.Real] = None,
         **kwargs,
     ):
@@ -1339,7 +1370,7 @@ FB = ForwardBackward  #: Alias of :py:class:`~pycsou.opt.solver.pds.ForwardBackw
 
 
 def ProximalPoint(
-    g: typ.Optional[pyco.ProxFunc] = None,
+    g: typ.Optional[pyca.ProxFunc] = None,
     base: typ.Optional[_PrimalDualSplitting] = CondatVu,
     **kwargs,
 ):
