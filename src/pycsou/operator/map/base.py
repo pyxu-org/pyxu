@@ -59,5 +59,6 @@ def ConstantValued(
         op.jacobian = types.MethodType(op_jacobian, op)
         op.grad = types.MethodType(op_grad, op)
         op.prox = types.MethodType(op_prox, op)
+        op._name = "ConstantValued"
 
     return op.squeeze()
