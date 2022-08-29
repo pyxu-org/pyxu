@@ -12,6 +12,7 @@ if CUPY_ENABLED:
     try:
         import cupy
         import cupyx.scipy.sparse
+        import cupyx.scipy.sparse.linalg
     except ImportError:
         # CuPy is installed, but GPU drivers probably missing.
         CUPY_ENABLED = False
@@ -45,15 +46,19 @@ class NDArrayInfo(enum.Enum):
                     return ndi
         raise ValueError(f"No known array type to match {obj}.")
 
-    def module(self) -> types.ModuleType:
+    def module(self, linalg: bool = False) -> types.ModuleType:
         if self.name == "NUMPY":
-            return numpy
+            xp = numpy
+            xpl = xp.linalg
         elif self.name == "DASK":
-            return dask.array
+            xp = dask.array
+            xpl = xp.linalg
         elif self.name == "CUPY":
-            return cupy if CUPY_ENABLED else None
+            xp = cupy if CUPY_ENABLED else None
+            xpl = xp if (xp is None) else xp.linalg
         else:
-            raise ValueError(f"No known array module for {self.name}.")
+            raise ValueError(f"No known module(s) for {self.name}.")
+        return xpl if linalg else xp
 
 
 @enum.unique
@@ -68,6 +73,7 @@ class SparseArrayInfo(enum.Enum):
 
     def type(self) -> type:
         if self.name == "SCIPY_SPARSE":
+            # All `*matrix` and `*_array` classes descend from `spmatrix`.
             return scipy.sparse.spmatrix
         elif self.name == "PYDATA_SPARSE":
             return sparse.SparseArray
@@ -84,15 +90,19 @@ class SparseArrayInfo(enum.Enum):
                     return sai
         raise ValueError(f"No known array type to match {sai}.")
 
-    def module(self) -> types.ModuleType:
+    def module(self, linalg: bool = False) -> types.ModuleType:
         if self.name == "SCIPY_SPARSE":
-            return scipy.sparse
+            xp = scipy.sparse
+            xpl = xp.linalg
         elif self.name == "PYDATA_SPARSE":
-            return sparse
+            xp = sparse
+            xpl = scipy.sparse.linalg
         elif self.name == "CUPY_SPARSE":
-            return cupyx.scipy.sparse if CUPY_ENABLED else None
+            xp = cupyx.scipy.sparse if CUPY_ENABLED else None
+            xpl = xp if (xp is None) else cupyx.scipy.sparse.linalg
         else:
             raise ValueError(f"No known array module for {self.name}.")
+        return xpl if linalg else xp
 
 
 def supported_array_types():

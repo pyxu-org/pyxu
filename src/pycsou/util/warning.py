@@ -3,25 +3,41 @@ Custom warnings used inside Pycsou.
 """
 
 
-class PrecisionWarning(UserWarning):
+class PycsouWarning(UserWarning):
+    """
+    Parent class of all warnings raised in Pycsou.
+    """
+
+    pass
+
+
+class AutoInferenceWarning(PycsouWarning):
+    """
+    Use when a quantity was auto-inferenced with possible caveats.
+    """
+
+    pass
+
+
+class PrecisionWarning(PycsouWarning):
     """
     Use for precision-related warnings.
     """
 
 
-class DenseWarning(UserWarning):
+class DenseWarning(PycsouWarning):
     """
     Use for sparse-based algos which revert to dense arrays.
     """
 
 
-class NonTransparentWarning(UserWarning):
+class NonTransparentWarning(PycsouWarning):
     """
     [Dev-team only] Inform test suite runner of (safe) non-transparent function call.
     """
 
 
-class BackendWarning(UserWarning):
+class BackendWarning(PycsouWarning):
     """
     Inform user of a backend-specific problem to be aware of.
     """

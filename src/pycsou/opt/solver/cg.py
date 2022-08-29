@@ -97,16 +97,18 @@ class CG(pyca.Solver):
         x += alpha * p
 
         if pycu.compute(xp.any(rr <= pycrt.Width(rr.dtype).eps())):  # explicit eval
-            r[:] = mst["b"] - self._A.apply(x)
+            r[:] = mst["b"]
+            r -= self._A.apply(x)
         else:  # implicit eval
             r -= alpha * Ap
 
         # Because CG can only generate n conjugate vectors in an n-dimensional space, it makes sense
         # to restart CG every n iterations.
-        if self._astate["idx"] % mst["restart_rate"] == 0:
+        if self._astate["idx"] % mst["restart_rate"] == 0:  # explicit eval
             beta = 0
-            r[:] = mst["b"] - self._A.apply(x)  # explicit eval to restart fully
-        else:
+            r[:] = mst["b"]
+            r -= self._A.apply(x)
+        else:  # implicit eval
             beta = pylinalg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
         p *= beta
         p += r
@@ -131,11 +133,12 @@ class CG(pyca.Solver):
         b = self._mstate["b"]
 
         f = self._A.apply(x)
+        f = pycu.copy_if_unsafe(f)
         f /= 2
         f -= b
-        f = (x * f).sum(axis=-1, keepdims=True)
+        f *= x
 
-        return f
+        return f.sum(axis=-1, keepdims=True)
 
     def solution(self) -> pyct.NDArray:
         """

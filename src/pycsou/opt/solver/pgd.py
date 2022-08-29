@@ -1,9 +1,12 @@
 import itertools
-import math
+import warnings
 
 import pycsou.abc as pyca
+import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
 
 __all__ = [
     "PGD",
@@ -80,23 +83,11 @@ class PGD(pyca.Solver):
         g: pyca.ProxFunc = None,
         **kwargs,
     ):
-        from pycsou.operator.func import NullFunc
-
         kwargs.update(
             log_var=kwargs.get("log_var", ("x",)),
         )
         super().__init__(**kwargs)
 
-        # Problem
-        # -------
-        # If f/g is domain-agnostic and g/f is unspecified, cannot auto-infer NullFunc dimension.
-        #
-        # Solution
-        # --------
-        # Since PGD never calls NullFunc.adjoint(), we don't care if its output is wrong.
-        # Therefore we can safely set NullFunc.dim == 1.
-        self._f = NullFunc(dim=1) if (f is None) else f
-        self._g = NullFunc(dim=1) if (g is None) else g
         if (f is None) and (g is None):
             msg = " ".join(
                 [
@@ -105,6 +96,17 @@ class PGD(pyca.Solver):
                 ]
             )
             raise ValueError(msg)
+        else:
+            # Problem
+            # -------
+            # If f/g is domain-agnostic and g/f is unspecified, cannot auto-infer NullFunc
+            # dimension.
+            #
+            # Solution
+            # --------
+            # Delay initialization of missing f/g to m_init(), where x0's shape can be used.
+            self._f = f
+            self._g = g
 
     @pycrt.enforce_precision(i=("x0", "tau"))
     def m_init(
@@ -117,12 +119,24 @@ class PGD(pyca.Solver):
         mst = self._mstate  # shorthand
         mst["x"] = mst["x_prev"] = x0
 
+        if self._f is None:
+            self._f = pycof.NullFunc(dim=x0.shape[-1])
+        if self._g is None:
+            self._g = pycof.NullFunc(dim=x0.shape[-1])
+
         if tau is None:
-            if math.isfinite(dl := self._f._diff_lipschitz):
-                mst["tau"] = pycrt.coerce(1 / dl)
-            else:
-                msg = "tau: automatic inference not supported for operators with unbounded Lipschitz gradients."
-                raise ValueError(msg)
+            try:
+                mst["tau"] = pycrt.coerce(1 / self._f.diff_lipschitz())
+            except ZeroDivisionError as exc:
+                # _f is constant-valued: \tau is a free parameter.
+                mst["tau"] = 1
+                msg = "\n".join(
+                    [
+                        rf"The gradient/proximal step size \tau is auto-set to {mst['tau']}.",
+                        r"Choosing \tau manually may lead to faster convergence.",
+                    ]
+                )
+                warnings.warn(msg, pycuw.AutoInferenceWarning)
         else:
             try:
                 assert tau > 0
@@ -141,10 +155,21 @@ class PGD(pyca.Solver):
 
     def m_step(self):
         mst = self._mstate  # shorthand
-
         a = next(mst["a"])
-        y = (1 + a) * mst["x"] - a * mst["x_prev"]
-        z = y - mst["tau"] * self._f.grad(y)
+
+        # In-place implementation of -----------------
+        #   y = (1 + a) * mst["x"] - a * mst["x_prev"]
+        y = mst["x"] - mst["x_prev"]
+        y *= a
+        y += mst["x"]
+        # --------------------------------------------
+
+        # In-place implementation of -----------------
+        #   z = y - mst["tau"] * self._f.grad(y)
+        z = pycu.copy_if_unsafe(self._f.grad(y))
+        z *= -mst["tau"]
+        z += y
+        # --------------------------------------------
 
         mst["x_prev"], mst["x"] = mst["x"], self._g.prox(z, mst["tau"])
 

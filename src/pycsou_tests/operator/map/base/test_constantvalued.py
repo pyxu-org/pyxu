@@ -84,6 +84,13 @@ class TestConstantValuedMap(ConstantValueMixin, conftest.DiffMapT):
 
 
 class TestConstantValuedFunc(ConstantValueMixin, conftest.ProxDiffFuncT):
+    disable_test = frozenset(
+        conftest.ProxDiffFuncT.disable_test
+        | {
+            "test_interface_asloss",  # does not make sense for ConstantValued().
+        }
+    )
+
     @pytest.fixture(
         params=itertools.product(
             [-3.14, 0, 2],  # cst

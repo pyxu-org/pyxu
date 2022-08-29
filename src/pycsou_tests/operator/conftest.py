@@ -148,6 +148,7 @@ class MapT:
             "__call__",
             "lipschitz",
             "expr",
+            "squeeze",
         }
     )
 
@@ -505,12 +506,26 @@ class MapT:
 class FuncT(MapT):
     # Class Properties --------------------------------------------------------
     base = pyca.Func
-    interface = MapT.interface
+    interface = frozenset(MapT.interface | {"asloss"})
 
     # Tests -------------------------------------------------------------------
     def test_codim(self, op):
         self._skip_if_disabled()
         assert op.codim == 1
+
+    def test_interface_asloss(self, op, xp, width):
+        # op.asloss() sub-classes Func if data provided, transparent otherwise.
+        # Disable this test if asloss() not defined for a functional.
+        self._skip_if_disabled()
+
+        N_dim = self._sanitize(op.dim, default=3)
+        data = self._random_array((N_dim,), xp=xp, width=width)
+        try:
+            assert op.asloss() is op
+            self._check_has_interface(op.asloss(data), self.__class__)
+        except NotImplementedError as exc:
+            msg = f"{op.asloss} is undefined, but `test_interface_asloss()` was not disabled."
+            assert False, msg
 
 
 class DiffMapT(MapT):
@@ -1637,6 +1652,10 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
     def test_value1D_svdvals(self, op, xp, _gpu, _op_svd, k, which):
         self._skip_if_disabled()
         super().test_value1D_svdvals(op, xp, _gpu, _op_svd, k, which)
+
+    @pytest.mark.skip("Notion of loss undefined for LinFuncs.")
+    def test_interface_asloss(self, op, xp, width):
+        super().test_interface_asloss(op, xp, width)
 
 
 class SquareOpT(LinOpT):

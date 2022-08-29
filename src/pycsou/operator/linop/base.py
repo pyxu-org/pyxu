@@ -96,11 +96,11 @@ class NullOp(pyca.LinOp):
 
     def gram(self) -> pyct.OpT:
         op = NullOp(shape=(self.dim, self.dim))
-        return op.asop(pyca.SelfAdjointOp)._squeeze()
+        return op.asop(pyca.SelfAdjointOp).squeeze()
 
     def cogram(self) -> pyct.OpT:
         op = NullOp(shape=(self.codim, self.codim))
-        return op.asop(pyca.SelfAdjointOp)._squeeze()
+        return op.asop(pyca.SelfAdjointOp).squeeze()
 
     def asarray(self, **kwargs) -> pyct.NDArray:
         dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
@@ -118,7 +118,7 @@ def NullFunc(dim: pyct.Integer) -> pyct.OpT:
 
     This functional maps any input vector on the null scalar.
     """
-    op = NullOp(shape=(1, dim))._squeeze()
+    op = NullOp(shape=(1, dim)).squeeze()
     return op
 
 
@@ -204,7 +204,7 @@ def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
         op.cogram = op.gram
         op.trace = types.MethodType(op_trace, op)
 
-    return op._squeeze()
+    return op.squeeze()
 
 
 def DiagonalOp(
@@ -326,7 +326,7 @@ def DiagonalOp(
             op.dagger = types.MethodType(op_dagger, op)
             op.trace = types.MethodType(op_trace, op)
 
-        return op._squeeze()
+        return op.squeeze()
 
 
 def _ExplicitLinOp(
@@ -365,45 +365,42 @@ def _ExplicitLinOp(
     mat: pyct.NDArray | pyct.SparseArray
         (M, N) matrix generator.
         The input array can be *dense* or *sparse*.
-        Accepted sparse arrays are COO/CSC/CSR/BSR/GCXS.
+        Accepted sparse arrays are:
+
+        * CPU: COO/CSC/CSR/BSR/GCXS
+        * GPU: COO/CSC/CSR
     enable_warnings: bool
         If ``True``, emit a warning in case of precision mis-match issues.
 
     Notes
     -----
     * :py:class:`~pycsou.operator.linop.base._ExplicitLinOp` instances are **not
-      arraymodule-agnostic**: they will only work with NDArrays belonging to the same array module
-      as ``mat``.
+      arraymodule-agnostic**: they will only work with NDArrays belonging to the same (dense) array
+      module as ``mat``.
       Moreover, inner computations may cast input arrays when the precision of ``mat`` does not
       match the user-requested precision.
       If such a situation occurs, a warning is raised.
 
-    * The internal matrix can be accessed via ``.mat``.
+    * The matrix provided in ``__init__()`` is used as-is and can be accessed via ``.mat``.
     """
 
     def _standard_form(A):
         fail_dense = False
         try:
-            pycu.get_array_module(A)
-            return A
+            pycd.NDArrayInfo.from_obj(A)
         except:
             fail_dense = True
 
-        fail_scipy_sparse = False
+        fail_sparse = False
         try:
-            return A.tocsr()
+            pycd.SparseArrayInfo.from_obj(A)
         except:
-            fail_scipy_sparse = True
+            fail_sparse = True
 
-        fail_pydata_sparse = False
-        try:
-            return ssp.as_coo(A).tocsr()
-        except:
-            fail_pydata_sparse = True
-
-        if fail_dense and fail_scipy_sparse and fail_pydata_sparse:
+        if fail_dense and fail_sparse:
             raise ValueError("mat: format could not be inferred.")
-        return B
+        else:
+            return A
 
     def _matmat(A, b, warn: bool = True) -> pyct.NDArray:
         # A: (M, N) dense/sparse
@@ -435,7 +432,11 @@ def _ExplicitLinOp(
 
         try:  # Sparse arrays
             info = S.from_obj(_.mat)
-            A = _.mat.astype(dtype).toarray()  # `copy` field not ubiquitous
+            if info in (S.SCIPY_SPARSE, S.CUPY_SPARSE):
+                f = lambda _: _.toarray()
+            elif info == S.PYDATA_SPARSE:
+                f = lambda _: _.todense()
+            A = f(_.mat.astype(dtype))  # `copy` field not ubiquitous
         except:  # Dense arrays
             info = N.from_obj(_.mat)
             A = pycu.compute(_.mat.astype(dtype, copy=False))
@@ -452,8 +453,21 @@ def _ExplicitLinOp(
             try:
                 tr = _.mat.trace()
             except:
-                # .trace() missing from CuPy sparse API.
-                tr = _.mat.diagonal().sum()
+                # .trace() missing for [PYDATA,CUPY]_SPARSE API.
+                S = pycd.SparseArrayInfo
+                info = S.from_obj(_.mat)
+                if info == S.PYDATA_SPARSE:
+                    # use `sparse.diagonal().sum()`, but array must be COO.
+                    try:
+                        A = _.mat.tocoo()  # GCXS inputs
+                    except:
+                        A = _.mat  # COO inputs
+                    finally:
+                        tr = info.module().diagonal(A).sum()
+                elif info == S.CUPY_SPARSE:
+                    tr = _.mat.diagonal().sum()
+                else:
+                    raise ValueError(f"Unknown sparse format {_.mat}.")
             return float(tr)
 
     def op_lipschitz(_, **kwargs) -> pyct.Real:

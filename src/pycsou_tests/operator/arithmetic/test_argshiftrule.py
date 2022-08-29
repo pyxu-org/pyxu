@@ -11,10 +11,12 @@
 
 import collections.abc as cabc
 import itertools
+import typing as typ
 
 import numpy as np
 import pytest
 
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
@@ -41,11 +43,13 @@ class ArgShiftRuleMixin:
         # Override in inherited class with the operator to be arg-shifted.
         raise NotImplementedError
 
-    @pytest.fixture
-    def op_shift(self, op_orig) -> pyct.NDArray:
+    @pytest.fixture(params=[True, False])
+    def op_shift(self, op_orig, request) -> typ.Union[pyct.Real, pyct.NDArray]:
         # Arg-shift values applied to op_orig()
         dim = self._sanitize(op_orig.dim, 7)
         cst = self._random_array((dim,), seed=20)  # random seed for reproducibility
+        if request.param:  # scalar output
+            cst = float(cst.sum())
         return cst
 
     @pytest.fixture(
@@ -57,7 +61,10 @@ class ArgShiftRuleMixin:
     def spec(self, op_orig, op_shift, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
         ndi, width = request.param
         if (xp := ndi.module()) is not None:
-            shift = xp.array(op_shift, dtype=width.value)
+            if isinstance(op_shift, pyct.Real):
+                shift = op_shift
+            else:
+                shift = xp.array(op_shift, dtype=width.value)
             op = op_orig.argshift(shift)
         else:
             # Some test functions run without needing `xp`, hence it is required to add extra
@@ -66,8 +73,13 @@ class ArgShiftRuleMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_orig) -> pyct.Shape:
-        return op_orig.shape
+    def data_shape(self, op_orig, op_shift) -> pyct.Shape:
+        # Safe implementation in case `op_orig` is domain-agnostic.
+        if isinstance(op_shift, pyct.Real):
+            sh = op_orig.shape
+        else:
+            sh = (op_orig.shape[0], op_shift.size)
+        return sh
 
     @pytest.fixture
     def data_apply(self, op_orig, op_shift) -> conftest.DataLike:
@@ -112,6 +124,18 @@ class ArgShiftRuleMixin:
     def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
         N_test, dim = 5, self._sanitize(op.dim, 7)
         return self._random_array((N_test, dim))
+
+    # Tests -------------------------------------------------------------------
+    def test_interface_asloss(self, op, xp, width, op_orig):
+        self._skip_if_disabled()
+        if not op_orig.has(pyca.Property.FUNCTIONAL):
+            pytest.skip("asloss() unavailable for non-functionals.")
+
+        try:
+            op_orig.asloss()  # detect if fails
+            super().test_interface_asloss(op, xp, width)
+        except NotImplementedError as exc:
+            pytest.skip("asloss() unsupported by base operator.")
 
 
 # Test classes (Maps) ---------------------------------------------------------

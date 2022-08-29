@@ -4,6 +4,7 @@ Operator Arithmetic.
 
 import copy
 import types
+import typing as typ
 
 import numpy as np
 
@@ -70,7 +71,7 @@ class ScaleRule(Rule):
         |                          |             | = op_old.lipschitz() * abs(\alpha)                                 |
         |                          |             | + update op_new._lipschitz                                         |
         |--------------------------|-------------|--------------------------------------------------------------------|
-        | FUNCTIONAL               | yes         |                                                                    |
+        | FUNCTIONAL               | yes         | op_new.asloss(\beta) = op_old.asloss(\beta) * \alpha               |
         |--------------------------|-------------|--------------------------------------------------------------------|
         | PROXIMABLE               | \alpha > 0  | op_new.prox(arr, tau) = op_old.prox(arr, tau * \alpha)             |
         |--------------------------|-------------|--------------------------------------------------------------------|
@@ -108,14 +109,14 @@ class ScaleRule(Rule):
 
     def __init__(self, op: pyct.OpT, cst: pyct.Real):
         super().__init__()
-        self._op = op._squeeze()
+        self._op = op.squeeze()
         self._cst = float(cst)
 
     def op(self) -> pyct.OpT:
         if np.isclose(self._cst, 0):
             from pycsou.operator.linop import NullOp
 
-            op = NullOp(shape=self._op.shape)._squeeze()
+            op = NullOp(shape=self._op.shape).squeeze()
         elif np.isclose(self._cst, 1):
             op = self._op
         else:
@@ -237,6 +238,16 @@ class ScaleRule(Rule):
         tr = self._op.trace(**kwargs) * self._cst
         return float(tr)
 
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        if self.has(pyco.Property.FUNCTIONAL):
+            if data is None:
+                op = self
+            else:
+                op = self._op.asloss(data) * self._cst
+            return op
+        else:
+            raise NotImplementedError
+
 
 class ArgScaleRule(Rule):
     r"""
@@ -254,7 +265,7 @@ class ArgScaleRule(Rule):
         |                          |             | = op_old.lipschitz() * abs(\alpha)                                          |
         |                          |             | + update op_new._lipschitz                                                  |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
-        | FUNCTIONAL               | yes         |                                                                             |
+        | FUNCTIONAL               | yes         | op_new.asloss(\beta) = op_old.argscale(\alpha).asloss(\beta)                |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | PROXIMABLE               | yes         | op_new.prox(arr, tau) = op_old.prox(\alpha * arr, \alpha**2 * tau) / \alpha |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
@@ -293,7 +304,7 @@ class ArgScaleRule(Rule):
 
     def __init__(self, op: pyct.OpT, cst: pyct.Real):
         super().__init__()
-        self._op = op._squeeze()
+        self._op = op.squeeze()
         self._cst = float(cst)
 
     def op(self) -> pyct.OpT:
@@ -442,6 +453,13 @@ class ArgScaleRule(Rule):
         tr = self._op.trace(**kwargs) * self._cst
         return float(tr)
 
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        if self.has(pyco.Property.FUNCTIONAL):
+            op = self._op.__class__.asloss(self, data=data)
+            return op
+        else:
+            raise NotImplementedError
+
 
 class ArgShiftRule(Rule):
     r"""
@@ -455,7 +473,7 @@ class ArgShiftRule(Rule):
         |                          |            | op_new._lipschitz = op_old._lipschitz                           |
         |                          |            | op_new.lipschitz() = op_new._lipschitz alias                    |
         |--------------------------|------------|-----------------------------------------------------------------|
-        | FUNCTIONAL               | yes        |                                                                 |
+        | FUNCTIONAL               | yes        | op_new.asloss(\beta) = op_old.argshift(\shift).asloss(\beta)    |
         |--------------------------|------------|-----------------------------------------------------------------|
         | PROXIMABLE               | yes        | op_new.prox(arr, tau) = op_old.prox(arr + \shift, tau) - \shift |
         |--------------------------|------------|-----------------------------------------------------------------|
@@ -483,20 +501,26 @@ class ArgShiftRule(Rule):
         |--------------------------|------------|-----------------------------------------------------------------|
     """
 
-    def __init__(self, op: pyct.OpT, cst: pyct.NDArray):
+    def __init__(self, op: pyct.OpT, cst: typ.Union[pyct.Real, pyct.NDArray]):
         super().__init__()
-        self._op = op._squeeze()
-        assert cst.size == len(cst), f"cst: expected 1D array, got {cst.shape}."
+        self._op = op.squeeze()
+        self._scalar = isinstance(cst, pyct.Real)
+        if self._scalar:
+            cst = float(cst)
+        else:  # pyct.NDArray
+            assert cst.size == len(cst), f"cst: expected 1D array, got {cst.shape}."
         self._cst = cst
 
     def op(self) -> pyct.OpT:
-        xp = pycu.get_array_module(self._cst)
+        kwargs = dict(fallback=np if self._scalar else None)
+        xp = pycu.get_array_module(self._cst, **kwargs)
         norm = pycu.compute(xp.linalg.norm(self._cst))
         if np.isclose(float(norm), 0):
             op = self._op
         else:
             klass = self._infer_op_klass()
-            op = klass(shape=self._op.shape)
+            shape = self._infer_op_shape()
+            op = klass(shape=shape)
             op._op = self._op  # embed for introspection
             op._cst = self._cst  # embed for introspection
             for p in op.properties():
@@ -509,7 +533,8 @@ class ArgShiftRule(Rule):
         return op
 
     def _expr(self) -> tuple:
-        return ("argshift", self._op, self._cst.shape)
+        sh = (None,) if isinstance(self._cst, pyct.Real) else self._cst.shape
+        return ("argshift", self._op, sh)
 
     def _infer_op_klass(self) -> pyct.OpC:
         preserved = {
@@ -524,6 +549,17 @@ class ArgShiftRule(Rule):
         properties = self._op.properties() & preserved
         klass = pyco.Operator._infer_operator_type(properties)
         return klass
+
+    def _infer_op_shape(self) -> pyct.Shape:
+        if self._scalar:
+            return self._op.shape
+        else:  # pyct.NDArray
+            dim_op = self._op.dim
+            dim_cst = self._cst.size
+            if (dim_op is None) or (dim_op == dim_cst):
+                return (self._op.codim, dim_cst)
+            else:
+                raise ValueError(f"Shifting {self._op} by {self._cst.shape} forbidden.")
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -564,10 +600,17 @@ class ArgShiftRule(Rule):
         out = self._op.grad(x)
         return out
 
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        if self.has(pyco.Property.FUNCTIONAL):
+            op = self._op.__class__.asloss(self, data=data)
+            return op
+        else:
+            raise NotImplementedError
+
 
 class AddRule(Rule):
     r"""
-    The output type of AddRule(A._squeeze(), B._squeeze()) is summarized in the table below (LHS/RHS
+    The output type of AddRule(A.squeeze(), B.squeeze()) is summarized in the table below (LHS/RHS
     commute):
 
         |---------------|-----|------|---------|----------|----------|--------------|-----------|---------|--------------|------------|------------|------------|---------------|---------------|------------|---------------|
@@ -603,6 +646,9 @@ class AddRule(Rule):
         IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
                    operand's Lipschitz constant must be magnified by \sqrt{M}.
 
+    * FUNCTIONAL
+        op.asloss(\beta) = _lhs.asloss(\beta) + _rhs.asloss(\beta)
+
     * PROXIMABLE
         op.prox(arr, tau) = _lhs.prox(arr - tau * _rhs.grad(arr), tau)
                       OR  = _rhs.prox(arr - tau * _lhs.grad(arr), tau)
@@ -637,8 +683,8 @@ class AddRule(Rule):
 
     def __init__(self, lhs: pyct.OpT, rhs: pyct.OpT):
         super().__init__()
-        self._lhs = lhs._squeeze()
-        self._rhs = rhs._squeeze()
+        self._lhs = lhs.squeeze()
+        self._rhs = rhs.squeeze()
 
     def op(self) -> pyct.OpT:
         sh_op = pycu.infer_sum_shape(self._lhs.shape, self._rhs.shape)
@@ -843,7 +889,7 @@ class AddRule(Rule):
         op3 = lhs.T * rhs
         op4 = rhs.T * lhs
         op = op1 + op2 + (op3 + op4).asop(pyco.SelfAdjointOp)
-        return op._squeeze()
+        return op.squeeze()
 
     def cogram(self) -> pyct.OpT:
         lhs, rhs = self._lhs, self._rhs
@@ -872,7 +918,7 @@ class AddRule(Rule):
         op3 = lhs * rhs.T
         op4 = rhs * lhs.T
         op = op1 + op2 + (op3 + op4).asop(pyco.SelfAdjointOp)
-        return op._squeeze()
+        return op.squeeze()
 
     def trace(self, **kwargs) -> pyct.Real:
         tr = 0
@@ -883,10 +929,22 @@ class AddRule(Rule):
                 tr += float(side.trace(**kwargs))
         return tr
 
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        if self.has(pyco.Property.FUNCTIONAL):
+            if data is None:
+                op = self
+            else:
+                op_lhs = self._lhs.asloss(data=data)
+                op_rhs = self._rhs.asloss(data=data)
+                op = op_lhs + op_rhs
+            return op
+        else:
+            raise NotImplementedError
+
 
 class ChainRule(Rule):
     r"""
-    The output type of ChainRule(A._squeeze(), B._squeeze()) is summarized in the table below:
+    The output type of ChainRule(A.squeeze(), B.squeeze()) is summarized in the table below:
 
         |---------------|------|------------|----------|------------|------------|----------------|----------------------|------------------|------------|-----------|-----------|--------------|---------------|-----------|-----------|------------|
         |   LHS / RHS   | Map  |    Func    | DiffMap  |  DiffFunc  |  ProxFunc  |  ProxDiffFunc  |      Quadratic       |      LinOp       |  LinFunc   |  SquareOp |  NormalOp |    UnitOp    | SelfAdjointOp |  PosDefOp |   ProjOp  | OrthProjOp |
@@ -919,6 +977,9 @@ class ChainRule(Rule):
             = _lhs.lipschitz() * _rhs.lipschitz()
             + update op._lipschitz
 
+    * FUNCTIONAL
+        op.asloss(\beta) = _lhs.asloss(\beta) * _rhs
+
     * PROXIMABLE (RHS Unitary only)
         op.prox(arr, tau) = _rhs.adjoint(_lhs.prox(_rhs.apply(arr), tau))
 
@@ -948,8 +1009,8 @@ class ChainRule(Rule):
 
     def __init__(self, lhs: pyct.OpT, rhs: pyct.OpT):
         super().__init__()
-        self._lhs = lhs._squeeze()
-        self._rhs = rhs._squeeze()
+        self._lhs = lhs.squeeze()
+        self._rhs = rhs.squeeze()
 
     def op(self) -> pyct.OpT:
         sh_op = pycu.infer_composition_shape(self._lhs.shape, self._rhs.shape)
@@ -1164,11 +1225,22 @@ class ChainRule(Rule):
 
     def gram(self) -> pyct.OpT:
         op = self._rhs.T * self._lhs.gram() * self._rhs
-        return op.asop(pyco.SelfAdjointOp)._squeeze()
+        return op.asop(pyco.SelfAdjointOp).squeeze()
 
     def cogram(self) -> pyct.OpT:
         op = self._lhs * self._rhs.cogram() * self._lhs.T
-        return op.asop(pyco.SelfAdjointOp)._squeeze()
+        return op.asop(pyco.SelfAdjointOp).squeeze()
+
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        if self.has(pyco.Property.FUNCTIONAL):
+            if data is None:
+                op = self
+            else:
+                op_lhs = self._lhs.asloss(data=data)
+                op = op_lhs * self._rhs
+            return op
+        else:
+            raise NotImplementedError
 
 
 class PowerRule(Rule):
@@ -1183,7 +1255,7 @@ class PowerRule(Rule):
         super().__init__()
         assert op.codim == op.dim, f"PowerRule: expected endomorphism, got {op}."
         assert int(k) >= 0, "PowerRule: only non-negative exponents are supported."
-        self._op = op._squeeze()
+        self._op = op.squeeze()
         self._k = int(k)
 
     def op(self) -> pyct.OpT:
