@@ -134,7 +134,7 @@ class _PrimalDualSplitting(pyca.Solver):
 
     def _set_dual_variable(self, z: typ.Optional[pyct.NDArray]) -> pyct.NDArray:
         r"""
-        Initialize the dual variable if it is ```None``` by copying of the primal variable.
+        Initialize the dual variable if it is ```None``` by mapping the primal variable through the operator K.
 
         Returns
         -------
@@ -145,7 +145,7 @@ class _PrimalDualSplitting(pyca.Solver):
             return None
         else:
             if z is None:
-                return self._mstate["x"].copy()
+                return self._K(self._mstate["x"].copy())
             else:
                 return z if z.ndim > 1 else z.reshape(1, -1)
 
@@ -273,7 +273,7 @@ class CondatVu(_PrimalDualSplitting):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     sigma: Real | None
@@ -561,7 +561,7 @@ class PD3O(_PrimalDualSplitting):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     sigma: Real | None
@@ -846,7 +846,7 @@ def ChambollePock(
         (..., N) initial point(s) for the primal variable.
     z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     sigma: Real | None
@@ -939,7 +939,7 @@ class LorisVerhoeven(PD3O):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     sigma: Real | None
@@ -1039,7 +1039,7 @@ class DavisYin(PD3O):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     sigma: Real | None
@@ -1142,7 +1142,7 @@ def DouglasRachford(
         (..., N) initial point(s) for the primal variable.
     z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size. Defaults to 1.
 
@@ -1210,7 +1210,7 @@ class ADMM(_PDS):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     rho: Real | None
@@ -1335,7 +1335,7 @@ class ForwardBackward(CondatVu):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     rho: Real | None
