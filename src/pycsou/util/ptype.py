@@ -12,6 +12,10 @@ import numpy.typing as npt
 
 import pycsou.util.deps as pycd
 
+if typ.TYPE_CHECKING:
+    import pycsou.abc.operator as pyco
+    import pycsou.abc.solver as pycs
+
 # supported dense arrays/modules
 NDArray = typ.TypeVar("NDArray", *pycd.supported_array_types())
 ArrayModule = typ.TypeVar(
@@ -26,10 +30,35 @@ SparseModule = typ.TypeVar(
     *[typ.Literal[_] for _ in pycd.supported_sparse_modules()],
 )
 
-# Top-level operator exposed to users
-OpT = typ.Literal["Operator"]  # Operator instances
+OpT = typ.TypeVar(
+    # Top-level operator exposed to users.
+    # This list should be kept in sync with all user-facing operators in `pyco`.
+    "OpT",
+    "pyco.Operator",
+    "pyco.DiffFunc",
+    "pyco.ProxDiffFunc",
+    "pyco.NormalOp",
+    "pyco.ProxFunc",
+    "pyco.SquareOp",
+    "pyco._QuadraticFunc",
+    "pyco.ProjOp",
+    "pyco.LinFunc",
+    "pyco.PosDefOp",
+    "pyco.Map",
+    "pyco.Func",
+    "pyco.OrthProjOp",
+    "pyco.DiffMap",
+    "pyco.UnitOp",
+    "pyco.SelfAdjointOp",
+    "pyco.LinOp",
+)
 OpC = typ.Type[OpT]  # Operator classes
-Property = typ.Literal["Property"]
+Property = "pyco.Property"
+
+# Top-level solver exposed to users
+SolverT = typ.TypeVar("SolverT", bound="pycs.Solver")  # Solver instances
+SolverC = typ.Type[SolverT]  # Solver classes
+SolverM = typ.TypeVar("SolverM", bound="pycs.Mode")
 
 # Other
 Integer = nb.Integral
