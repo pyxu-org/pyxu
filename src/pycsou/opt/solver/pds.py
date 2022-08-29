@@ -141,7 +141,7 @@ class _PrimalDualSplitting(pyca.Solver):
         NDArray
             Initialized dual variable.
         """
-        if isinstance(self._h, pyclo.NullFunc):
+        if self._h._name == "NullFunc":
             return None
         else:
             if z is None:
@@ -396,7 +396,7 @@ class CondatVu(_PrimalDualSplitting):
             mst["x"] - mst["tau"] * self._f.grad(mst["x"]) - mst["tau"] * self._K.jacobian(mst["x"]).adjoint(mst["z"]),
             tau=mst["tau"],
         )
-        if not isinstance(self._h, pyclo.NullFunc):
+        if not self._h._name == "NullFunc":
             u = 2 * x_temp - mst["x"]
             z_temp = self._h.fenchel_prox(mst["z"] + mst["sigma"] * self._K(u), sigma=mst["sigma"])
             mst["z"] = mst["rho"] * z_temp + (1 - mst["rho"]) * mst["z"]
@@ -425,7 +425,7 @@ class CondatVu(_PrimalDualSplitting):
 
         if (tau is not None) and (sigma is None):
             assert tau > 0, f"Parameter tau must be positive, got {tau}."
-            if isinstance(self._h, pyclo.NullFunc):
+            if self._h._name == "NullFunc":
                 assert tau <= 1 / gamma, f"Parameter tau must be smaller than 1/gamma: {tau} > {1 / gamma}."
                 sigma = 0
             else:
@@ -436,7 +436,7 @@ class CondatVu(_PrimalDualSplitting):
                     raise ValueError(msg)
         elif (tau is None) and (sigma is not None):
             assert sigma > 0
-            if isinstance(self._h, pyclo.NullFunc):
+            if self._h._name == "NullFunc":
                 tau = 1 / gamma
             else:
                 if math.isfinite(self._K._lipschitz):
@@ -446,7 +446,7 @@ class CondatVu(_PrimalDualSplitting):
                     raise ValueError(msg)
         elif (tau is None) and (sigma is None):
             if self._beta > 0:
-                if isinstance(self._h, pyclo.NullFunc):
+                if self._h._name == "NullFunc":
                     tau = 1 / gamma
                     sigma = 0
                 else:
@@ -458,7 +458,7 @@ class CondatVu(_PrimalDualSplitting):
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                         raise ValueError(msg)
             else:
-                if isinstance(self._h, pyclo.NullFunc):
+                if self._h._name == "NullFunc":
                     tau = 1
                     sigma = 0
                 else:
@@ -681,7 +681,7 @@ class PD3O(_PrimalDualSplitting):
         mst = self._mstate
         mst["x"] = self._g.prox(mst["u"] - mst["tau"] * self._K.jacobian(mst["u"]).adjoint(mst["z"]), tau=mst["tau"])
         u_temp = mst["x"] - mst["tau"] * self._f.grad(mst["x"])
-        if not isinstance(self._h, pyclo.NullFunc):
+        if not self._h._name == "NullFunc":
             z_temp = self._h.fenchel_prox(
                 mst["z"] + mst["sigma"] * self._K(mst["x"] + u_temp - mst["u"]), sigma=mst["sigma"]
             )
@@ -711,7 +711,7 @@ class PD3O(_PrimalDualSplitting):
 
         if (tau is not None) and (sigma is None):
             assert 0 < tau <= 1 / gamma, f"tau must be positive and smaller than 1/gamma."
-            if isinstance(self._h, pyclo.NullFunc):
+            if self._h._name == "NullFunc":
                 sigma = 0
             else:
                 if math.isfinite(self._K._lipschitz):
@@ -721,7 +721,7 @@ class PD3O(_PrimalDualSplitting):
                     raise ValueError(msg)
         elif (tau is None) and (sigma is not None):
             assert sigma > 0, f"sigma must be positive, got {sigma}."
-            if isinstance(self._h, pyclo.NullFunc):
+            if self._h._name == "NullFunc":
                 tau = 1 / gamma
             else:
                 if math.isfinite(self._K._lipschitz):
@@ -731,7 +731,7 @@ class PD3O(_PrimalDualSplitting):
                     raise ValueError(msg)
         elif (tau is None) and (sigma is None):
             if self._beta > 0:
-                if isinstance(self._h, pyclo.NullFunc):
+                if self._h._name == "NullFunc":
                     tau = 1 / gamma
                     sigma = 0
                 else:
@@ -741,7 +741,7 @@ class PD3O(_PrimalDualSplitting):
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                         raise ValueError(msg)
             else:
-                if isinstance(self._h, pyclo.NullFunc):
+                if self._h._name == "NullFunc":
                     tau = 1
                     sigma = 0
                 else:
@@ -1258,7 +1258,7 @@ class ADMM(_PDS):
         mst = self._mstate
         mst["x"] = self._g.prox(mst["u"] - mst["z"], tau=mst["tau"])
         z_temp = mst["z"] + mst["x"] - mst["u"]
-        if not isinstance(self._h, pyclo.NullFunc):
+        if not self._h._name == "NullFunc":
             mst["u"] = self._h.prox(mst["x"] + z_temp, tau=mst["tau"])
         mst["z"] = z_temp + (mst["rho"] - 1) * (mst["x"] - mst["u"])
 
