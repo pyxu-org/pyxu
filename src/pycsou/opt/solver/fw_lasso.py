@@ -45,7 +45,7 @@ class GenericFWforLasso(pycs.Solver):
         forwardOp: pyco.LinOp,
         lambda_: float,
         *,
-        folder: typ.Optional[pyct.PathLike] = None,
+        folder=None,  # typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
         stop_rate: int = 1,
         writeback_rate: typ.Optional[int] = None,
@@ -153,7 +153,7 @@ class VanillaFWforLasso(GenericFWforLasso):
         lambda_: float,
         step_size: str = "optimal",
         *,
-        folder: typ.Optional[pyct.PathLike] = None,
+        folder=None,  # : typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
         stop_rate: int = 1,
         writeback_rate: typ.Optional[int] = None,
@@ -298,7 +298,7 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         final_correction_prec: float = 1e-4,
         remove_positions: bool = False,
         *,
-        folder: typ.Optional[pyct.PathLike] = None,
+        folder=None,  # : typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
         stop_rate: int = 1,
         writeback_rate: typ.Optional[int] = None,
@@ -430,6 +430,7 @@ class PolyatomicFWforLasso(GenericFWforLasso):
 
         injection = pycdevu.SubSampling(size=self.forwardOp.shape[1], sampling_indices=support_indices).T
         rs_data_fid = self._data_fidelity * injection
+        rs_data_fid.diff_lipschitz()  # todo this was not necessary earlier, change of API to be expected later on ?
         x0 = injection.T(self._mstate["x"])
         apgd = PGD(rs_data_fid, self._penalty, show_progress=False)
         # The penalty is agnostic to the dimension in this implementation (L1Norm()).

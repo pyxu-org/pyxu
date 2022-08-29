@@ -1,27 +1,33 @@
+import datetime as dt
 import time
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
 import pycsou._dev.fw_utils as pycdevu
+import pycsou.abc as pyca
 import pycsou.opt.solver.fw_lasso as pycfw
 import pycsou.opt.stop as pycos
-from pycsou.operator.linop.base import ExplicitLinOp
+from pycsou.abc.operator import LinOp
 from pycsou.opt.solver.pgd import PGD
+
+matplotlib.use("Qt5Agg")
 
 seed = None  # for reproducibility
 
 # Dimensions of the problem
-L = 40
-N = 100
-k = 10
-psnr = 60
+L = 1000
+N = 10000
+k = 100
+psnr = 20
 
 # Parameters for reconstruction
 lambda_factor = 0.1
 remove = True
-eps = 1e-6
+eps = 1e-5
 min_iterations = 100
+tmax = 15.0
 
 # alternative stopping criteria
 dcv = pycfw.dcvStoppingCrit(1e-4)
@@ -48,7 +54,7 @@ if __name__ == "__main__":
     injection = pycdevu.SubSampling(size=N, sampling_indices=indices).T
     source = injection(rng.normal(size=k))  # sparse source
 
-    op = ExplicitLinOp(mat)
+    op = pyca.LinOp.from_array(mat)
     op.lipschitz()
     noiseless_measurements = op(source)
     std = np.max(np.abs(noiseless_measurements)) * 10 ** (-psnr / 20)
@@ -65,7 +71,7 @@ if __name__ == "__main__":
     print("\nVanilla FW: Solving ...")
     start = time.time()
     # vfw.fit(stop_crit=min_iter & vfw.default_stop_crit())
-    vfw.fit(stop_crit=min_iter & stop_crit)
+    vfw.fit(stop_crit=(min_iter & stop_crit) | pycos.MaxDuration(t=dt.timedelta(seconds=tmax)))
     data_v, hist_v = vfw.stats()
     time_v = time.time() - start
     print("\tSolved in {:.3f} seconds".format(time_v))
@@ -73,19 +79,25 @@ if __name__ == "__main__":
     print("Polyatomic FW: Solving ...")
     start = time.time()
     # pfw.fit(stop_crit=min_iter & pfw.default_stop_crit())
-    pfw.fit(stop_crit=min_iter & stop_crit)
+    pfw.fit(stop_crit=(min_iter & stop_crit) | pycos.MaxDuration(t=dt.timedelta(seconds=tmax)))
     data_p, hist_p = pfw.stats()
     time_p = time.time() - start
     print("\tSolved in {:.3f} seconds".format(time_p))
 
     # Explicit definition of the objective function for APGD
-    data_fid = 0.5 * pycdevu.SquaredL2Norm().asloss(data=measurements) * op
+    data_fid = 0.5 * pycdevu.SquaredL2Norm().argshift(-measurements) * op
+    # it seems necessary to manually lunch the evaluation of the diff lipschitz constant
+    data_fid.diff_lipschitz()
     regul = lambda_ * pycdevu.L1Norm()
 
     print("Solving with APGD: ...")
     pgd = PGD(data_fid, regul, show_progress=False)
     start = time.time()
-    pgd.fit(x0=np.zeros(N, dtype="float64"), stop_crit=min_iter & pgd.default_stop_crit(), track_objective=True)
+    pgd.fit(
+        x0=np.zeros(N, dtype="float64"),
+        stop_crit=(min_iter & pgd.default_stop_crit()) | pycos.MaxDuration(t=dt.timedelta(seconds=tmax)),
+        track_objective=True,
+    )
     data_apgd, hist_apgd = pgd.stats()
     time_pgd = time.time() - start
     print("\tSolved in {:.3f} seconds".format(time_pgd))
@@ -93,15 +105,15 @@ if __name__ == "__main__":
     print("Final value of dual certificate:\n\tVFW: {:.4f}\n\tPFW: {:.4f}".format(data_v["dcv"], data_p["dcv"]))
     print(
         "Final value of objective:\n\tAPGD: {:.4f}\n\tVFW : {:.4f}\n\tPFW : {:.4f}".format(
-            hist_apgd[-1][-1], data_v["ofv"], data_p["ofv"]
+            hist_apgd[-1][-1], hist_v[-1][-1], hist_p[-1][-1]
         )
     )
 
     # Solving the same problems with another stopping criterion: DCV
-    vfw.fit(stop_crit=min_iter & dcv)
+    vfw.fit(stop_crit=(min_iter & dcv) | pycos.MaxDuration(t=dt.timedelta(seconds=tmax)))
     data_v_dcv, hist_v_dcv = vfw.stats()
 
-    pfw.fit(stop_crit=min_iter & dcv)
+    pfw.fit(stop_crit=(min_iter & dcv) | pycos.MaxDuration(t=dt.timedelta(seconds=tmax)))
     data_p_dcv, hist_p_dcv = pfw.stats()
 
     plt.figure(figsize=(10, 8))
@@ -126,33 +138,35 @@ if __name__ == "__main__":
     plt.suptitle("Objective function values")
     plt.subplot(211)
     plt.yscale("log")
-    plt.plot(hist_p["AbsError[ofv]"], label="PFW")
-    plt.plot(hist_v["AbsError[ofv]"], label="VFW")
+    plt.plot(hist_p["duration"], hist_p["Memorize[objective_func]"], label="PFW")
+    plt.plot(hist_v["duration"], hist_v["Memorize[objective_func]"], label="VFW")
+    plt.plot(hist_apgd["duration"], hist_apgd["Memorize[objective_func]"], label="APGD")
     plt.legend()
     plt.ylabel("OFV")
     plt.title("Stop: Relative improvement ofv")
 
     plt.subplot(212)
     plt.yscale("log")
-    plt.plot(hist_p_dcv["AbsError[ofv]"], label="PFW")
-    plt.plot(hist_v_dcv["AbsError[ofv]"], label="VFW")
+    plt.plot(hist_p_dcv["duration"], hist_p_dcv["Memorize[objective_func]"], label="PFW")
+    plt.plot(hist_v_dcv["duration"], hist_v_dcv["Memorize[objective_func]"], label="VFW")
+    plt.plot(hist_apgd["duration"], hist_apgd["Memorize[objective_func]"], label="APGD")
     plt.ylabel("OFV")
     plt.legend()
     plt.title("Stop: Absolute error dcv")
     plt.show()
 
     plt.figure(figsize=(10, 8))
-    plt.suptitle("Stopping criterion values")
+    plt.suptitle("Stopping criterion values")  # TO CHAAAAAAAAAAANGE + time x-axis + push
     plt.subplot(211)
     plt.yscale("log")
-    plt.plot(hist_p["RelError[ofv]"], label="PFW")
-    plt.plot(hist_v["RelError[ofv]"], label="VFW")
+    plt.plot(hist_p["duration"], hist_p["RelError[objective_func]"], label="PFW")
+    plt.plot(hist_v["duration"], hist_v["RelError[objective_func]"], label="VFW")
     plt.title("Stop: Relative improvement ofv")
     plt.legend()
     plt.subplot(212)
     plt.yscale("log")
-    plt.plot(hist_p_dcv["AbsError[dcv]"], label="PFW")
-    plt.plot(hist_v_dcv["AbsError[dcv]"], label="VFW")
+    plt.plot(hist_p_dcv["duration"], hist_p_dcv["AbsError[dcv]"], label="PFW")
+    plt.plot(hist_v_dcv["duration"], hist_v_dcv["AbsError[dcv]"], label="VFW")
     plt.title("Stop: Absolute error dcv")
     plt.legend()
     plt.show()
