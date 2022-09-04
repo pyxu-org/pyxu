@@ -109,7 +109,7 @@ class NpzDataset(Dataset):
 
 class ChunkDataset(cabc.Sequence):
     r"""
-    Base class that batches data into chunks using dask as the backend.
+    Generator that batches data into chunks and yields chunks based on an index.
 
     **Initialization parameters of the class:**
 
@@ -119,10 +119,6 @@ class ChunkDataset(cabc.Sequence):
         how to reshape the data dimension
     chunks : int, tuple
         Shape of 1 batch of data.
-    operator : pyco.LinOp
-        Global operator that will be used to create batched operators.
-
-    .. Important:: User must override create_op to provide logic for batching of a pycsou operator.
 
     **Remark 1:**
 
@@ -299,8 +295,51 @@ class ChunkOp(pyco.LinOp):
             return out.reshape(*input_shape[:-1], -1)
 
 
-def neighbors_map_overlap(x, op, ind, overlap, stack_dims, block_info=None):
-    save_shape = x.shape
+def neighbors_map_overlap(
+    x: pyct.NDArray, op: pyco.LinOp, ind: tuple, overlap: bool, stack_dims: pyct.Shape, block_info: dict = None
+) -> pyct.NDArray:
+    r"""
+    Block function that works with `da.map_overlap`.
+    Applies pycsou LinOp operator op.adjoint over 1 block and conditionally over its direct neighbors, leaving the
+    other blocks untouched.
+
+    **Remark 1:**
+
+    Based on `Map Blocks`_ documentation.
+
+    .. _Map Blocks: https://docs.dask.org/en/stable/generated/dask.array.map_blocks.html
+
+    **Remark 2:**
+
+     op must be a LinOp with attribute data_shape and an adjoint method.
+     The data_shape is dynamically adjusted to allow for different batch_sizes.
+
+     **Remark 3:**
+
+     If there is any overlap at all, every neighbor in every dimension will be calculated, even if there is not an
+     overlap in that specific dimension.
+
+    Parameters
+    ----------
+    x : da.array
+        the function `da.map_overlap()` will provide chunks of data. x will be a chunk of data.
+    op : pyco.LinOp
+        operator with which to call adjoint over the data
+    ind : tuple
+        indices of block to apply op to
+    overlap : bool
+        whether to apply op to the neighbors of ind
+    stack_dims : pyct.Shape
+        stacking dimensions of x
+    block_info : dict
+        special keyword argument provided by `da.map_overlap()` to get information about where in array we are
+
+    Returns
+    -------
+    x : da.array
+        the chunk of data with op conditionally applied to it
+
+    """
     block_id = block_info[0]["chunk-location"]
     array_location = block_info[0]["array-location"]
 
@@ -314,7 +353,7 @@ def neighbors_map_overlap(x, op, ind, overlap, stack_dims, block_info=None):
         if all([i - int(overlap) <= j <= i + int(overlap) for i, j in zip(ind, block_id)]):
             shape_overload = [s[1] - s[0] for s in array_location]
             op.data_shape = tuple(shape_overload)
-            return op.adjoint(x.reshape(*stack_dims, -1)).reshape(save_shape)
+            return op.adjoint(x.reshape(*stack_dims, -1)).reshape(x.shape)
     return x
 
 
