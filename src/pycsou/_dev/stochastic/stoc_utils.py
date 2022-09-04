@@ -43,9 +43,9 @@ def add_gaussian_noise(arr, percent_noise=0.01):
 def salt_and_pepper_noise(arr, percent):
     # assume its between 0 and 1 the values
     assert 0 < percent < 1.0
-    size = arr.size
+    size = arr[0].size
     portion = int(size * percent)
     noise_coord = np.random.choice(size, size=portion, replace=False)
-    arr[noise_coord[portion // 2 :]] = 1
-    arr[noise_coord[: portion // 2]] = 0
+    arr[..., noise_coord[portion // 2 :]] = 1
+    arr[..., noise_coord[: portion // 2]] = 0
     return arr
