@@ -4,25 +4,27 @@ import numpy as np
 import pycsou._dev as dev
 import pycsou.opt.stochastic as pystoc
 
-data = np.arange(2 * 50 * 50).reshape(2, 50 * 50)
-data_shape = (50, 50)
-chunks = (9, 9)
+if __name__ == "__main__":
 
-cdataset = pystoc.ChunkDataset(data, data_shape=data_shape, chunks=chunks)
-cdataset.communicate()
+    data = np.arange(2 * 50 * 50).reshape(2, 50 * 50)
+    data_shape = (50, 50)
+    chunks = (9, 9)
 
-Cop = dev.Convolve(data_shape=data_shape, filter=np.arange(49).reshape(7, 7), mode="reflect")
-chunkOp = pystoc.ChunkOp(Cop, depth={0: 3, 1: 3}, boundary={0: "reflect", 1: "reflect"})
+    cdataset = pystoc.ChunkDataset(data, data_shape=data_shape, chunks=chunks)
+    cdataset.communicate()
 
-chunkOp.startup(**cdataset.communicate())
+    Cop = dev.Convolve(data_shape=data_shape, filter=np.arange(11 * 11).reshape(11, 11), mode="reflect")
+    chunkOp = pystoc.ChunkOp(Cop, depth={0: 5, 1: 5}, boundary={0: "reflect", 1: "reflect"})
 
-c0 = chunkOp[0]
+    chunkOp.startup(**cdataset.communicate())
 
-x0 = da.arange(2 * 50 * 50).reshape(2, 50 * 50)
+    c0 = chunkOp[5]
 
-x0_apply = c0.apply(x0)
+    x0 = da.arange(2 * 50 * 50).reshape(2, 50 * 50)
 
-x0_adjoint = c0.adjoint(x0_apply)
+    x0_apply = c0.apply(x0)
+    val = x0_apply.reshape(2, 9, 5).compute()
 
-out = x0_adjoint.reshape(50, 50).compute()
-a
+    x0_adjoint = c0.adjoint(x0_apply)
+
+    out = x0_adjoint.reshape(2, 50, 50).compute()
