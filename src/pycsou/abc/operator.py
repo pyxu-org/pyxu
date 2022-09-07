@@ -108,6 +108,7 @@ class Operator:
         assert shape[0] is not None, "shape: codomain-agnostic operators are not supported."
         intify = lambda _: int(_) if (_ is not None) else _
         self._shape = tuple(map(intify, shape))
+        self._name = self.__class__.__name__
 
     # Public Interface --------------------------------------------------------
     @property
@@ -439,7 +440,7 @@ class Operator:
         return self.asop(klass)
 
     def __repr__(self) -> str:
-        klass = self.__class__.__name__
+        klass = self._name
         return f"{klass}{self.shape}"
 
     def _expr(self) -> tuple:

@@ -119,6 +119,7 @@ def NullFunc(dim: pyct.Integer) -> pyct.OpT:
     This functional maps any input vector on the null scalar.
     """
     op = NullOp(shape=(1, dim)).squeeze()
+    op._name = "NullFunc"
     return op
 
 
@@ -203,6 +204,7 @@ def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
         op.gram = types.MethodType(op_gram, op)
         op.cogram = op.gram
         op.trace = types.MethodType(op_trace, op)
+        op._name = "HomothetyOp"
 
     return op.squeeze()
 
@@ -325,6 +327,7 @@ def DiagonalOp(
             op.pinv = types.MethodType(op_pinv, op)
             op.dagger = types.MethodType(op_dagger, op)
             op.trace = types.MethodType(op_trace, op)
+            op._name = "DiagonalOp"
 
         return op.squeeze()
 
@@ -509,4 +512,5 @@ def _ExplicitLinOp(
     op.asarray = types.MethodType(op_asarray, op)
     op.lipschitz = types.MethodType(op_lipschitz, op)
     op.trace = types.MethodType(op_trace, op)
+    op._name = "_ExplicitLinOp"
     return op

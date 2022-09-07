@@ -5,7 +5,6 @@ import warnings
 
 import pycsou.abc as pyca
 import pycsou.operator.func as pycf
-import pycsou.operator.func.quadratic as pycfq
 import pycsou.operator.linop as pyclo
 import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
@@ -54,7 +53,7 @@ class _PrimalDualSplitting(pyca.Solver):
         self._h = pyclo.NullFunc() if (h is None) else h
         self._beta = self._set_beta(beta)
         if h is not None:
-            self._K = pyclo.IdentityOp(dim=h.dim) if (K is None) else K
+            self._K = pyclo.IdentityOp(shape=h.dim) if (K is None) else K
         else:
             if K is None:
                 K_dim = f.dim if f is not None else g.dim
@@ -135,18 +134,18 @@ class _PrimalDualSplitting(pyca.Solver):
 
     def _set_dual_variable(self, z: typ.Optional[pyct.NDArray]) -> pyct.NDArray:
         r"""
-        Initialize the dual variable if it is ```None``` by copying of the primal variable.
+        Initialize the dual variable if it is ```None``` by mapping the primal variable through the operator K.
 
         Returns
         -------
         NDArray
             Initialized dual variable.
         """
-        if isinstance(self._h, pyclo.NullOp):
+        if self._h._name == "NullFunc":
             return None
         else:
             if z is None:
-                return self._mstate["x"].copy()
+                return self._K(self._mstate["x"].copy())
             else:
                 return z if z.ndim > 1 else z.reshape(1, -1)
 
@@ -274,7 +273,7 @@ class CondatVu(_PrimalDualSplitting):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     sigma: Real | None
@@ -397,7 +396,7 @@ class CondatVu(_PrimalDualSplitting):
             mst["x"] - mst["tau"] * self._f.grad(mst["x"]) - mst["tau"] * self._K.jacobian(mst["x"]).adjoint(mst["z"]),
             tau=mst["tau"],
         )
-        if not isinstance(self._h, pyclo.NullOp):
+        if not self._h._name == "NullFunc":
             u = 2 * x_temp - mst["x"]
             z_temp = self._h.fenchel_prox(mst["z"] + mst["sigma"] * self._K(u), sigma=mst["sigma"])
             mst["z"] = mst["rho"] * z_temp + (1 - mst["rho"]) * mst["z"]
@@ -426,7 +425,7 @@ class CondatVu(_PrimalDualSplitting):
 
         if (tau is not None) and (sigma is None):
             assert tau > 0, f"Parameter tau must be positive, got {tau}."
-            if isinstance(self._h, pyclo.NullOp):
+            if self._h._name == "NullFunc":
                 assert tau <= 1 / gamma, f"Parameter tau must be smaller than 1/gamma: {tau} > {1 / gamma}."
                 sigma = 0
             else:
@@ -437,7 +436,7 @@ class CondatVu(_PrimalDualSplitting):
                     raise ValueError(msg)
         elif (tau is None) and (sigma is not None):
             assert sigma > 0
-            if isinstance(self._h, pyclo.NullOp):
+            if self._h._name == "NullFunc":
                 tau = 1 / gamma
             else:
                 if math.isfinite(self._K._lipschitz):
@@ -447,7 +446,7 @@ class CondatVu(_PrimalDualSplitting):
                     raise ValueError(msg)
         elif (tau is None) and (sigma is None):
             if self._beta > 0:
-                if isinstance(self._h, pyclo.NullOp):
+                if self._h._name == "NullFunc":
                     tau = 1 / gamma
                     sigma = 0
                 else:
@@ -459,7 +458,7 @@ class CondatVu(_PrimalDualSplitting):
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                         raise ValueError(msg)
             else:
-                if isinstance(self._h, pyclo.NullOp):
+                if self._h._name == "NullFunc":
                     tau = 1
                     sigma = 0
                 else:
@@ -470,7 +469,7 @@ class CondatVu(_PrimalDualSplitting):
                         raise ValueError(msg)
         delta = (
             2
-            if (self._beta == 0 or (isinstance(self._f, pycfq.QuadraticFunc) and gamma <= self._beta))
+            if (self._beta == 0 or (isinstance(self._f, pycf.QuadraticFunc) and gamma <= self._beta))
             else 2 - self._beta / (2 * gamma)
         )
         return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
@@ -562,7 +561,7 @@ class PD3O(_PrimalDualSplitting):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     sigma: Real | None
@@ -682,7 +681,7 @@ class PD3O(_PrimalDualSplitting):
         mst = self._mstate
         mst["x"] = self._g.prox(mst["u"] - mst["tau"] * self._K.jacobian(mst["u"]).adjoint(mst["z"]), tau=mst["tau"])
         u_temp = mst["x"] - mst["tau"] * self._f.grad(mst["x"])
-        if not isinstance(self._h, pyclo.NullOp):
+        if not self._h._name == "NullFunc":
             z_temp = self._h.fenchel_prox(
                 mst["z"] + mst["sigma"] * self._K(mst["x"] + u_temp - mst["u"]), sigma=mst["sigma"]
             )
@@ -712,7 +711,7 @@ class PD3O(_PrimalDualSplitting):
 
         if (tau is not None) and (sigma is None):
             assert 0 < tau <= 1 / gamma, f"tau must be positive and smaller than 1/gamma."
-            if isinstance(self._h, pyclo.NullOp):
+            if self._h._name == "NullFunc":
                 sigma = 0
             else:
                 if math.isfinite(self._K._lipschitz):
@@ -722,7 +721,7 @@ class PD3O(_PrimalDualSplitting):
                     raise ValueError(msg)
         elif (tau is None) and (sigma is not None):
             assert sigma > 0, f"sigma must be positive, got {sigma}."
-            if isinstance(self._h, pyclo.NullOp):
+            if self._h._name == "NullFunc":
                 tau = 1 / gamma
             else:
                 if math.isfinite(self._K._lipschitz):
@@ -732,7 +731,7 @@ class PD3O(_PrimalDualSplitting):
                     raise ValueError(msg)
         elif (tau is None) and (sigma is None):
             if self._beta > 0:
-                if isinstance(self._h, pyclo.NullOp):
+                if self._h._name == "NullFunc":
                     tau = 1 / gamma
                     sigma = 0
                 else:
@@ -742,7 +741,7 @@ class PD3O(_PrimalDualSplitting):
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
                         raise ValueError(msg)
             else:
-                if isinstance(self._h, pyclo.NullOp):
+                if self._h._name == "NullFunc":
                     tau = 1
                     sigma = 0
                 else:
@@ -847,7 +846,7 @@ def ChambollePock(
         (..., N) initial point(s) for the primal variable.
     z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     sigma: Real | None
@@ -940,7 +939,7 @@ class LorisVerhoeven(PD3O):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     sigma: Real | None
@@ -985,7 +984,7 @@ class LorisVerhoeven(PD3O):
             Sensible primal/dual step sizes and value of the parameter :math:`delta`.
         """
         tau, sigma, _ = super(LorisVerhoeven, self)._set_step_sizes(tau=tau, sigma=sigma, gamma=gamma)
-        delta = 2 if (self._beta == 0 or isinstance(self._f, pycfq.QuadraticFunc)) else 2 - self._beta / (2 * gamma)
+        delta = 2 if (self._beta == 0 or isinstance(self._f, pycf.QuadraticFunc)) else 2 - self._beta / (2 * gamma)
         return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
 
 
@@ -1040,7 +1039,7 @@ class DavisYin(PD3O):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     sigma: Real | None
@@ -1143,7 +1142,7 @@ def DouglasRachford(
         (..., N) initial point(s) for the primal variable.
     z0: NDArray | None
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size. Defaults to 1.
 
@@ -1211,7 +1210,7 @@ class ADMM(_PDS):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     rho: Real | None
@@ -1259,7 +1258,7 @@ class ADMM(_PDS):
         mst = self._mstate
         mst["x"] = self._g.prox(mst["u"] - mst["z"], tau=mst["tau"])
         z_temp = mst["z"] + mst["x"] - mst["u"]
-        if not isinstance(self._h, pyclo.NullOp):
+        if not self._h._name == "NullFunc":
             mst["u"] = self._h.prox(mst["x"] + z_temp, tau=mst["tau"])
         mst["z"] = z_temp + (mst["rho"] - 1) * (mst["x"] - mst["u"])
 
@@ -1336,7 +1335,7 @@ class ForwardBackward(CondatVu):
         (..., N) initial point(s) for the primal variable.
     z0: NDArray
         (..., N) initial point(s) for the dual variable.
-        If ``None`` (default), then use ``x0`` as the initial point(s) for the dual variable as well.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     tau: Real | None
         Primal step size.
     rho: Real | None
