@@ -128,3 +128,42 @@ class SubSampling(pyco.LinOp):
         )
         y[..., self.sampling_indices] = arr
         return y
+
+
+class NonNegativeOrthant(pyco.ProxFunc):
+    def __init__(self, shape: pyct.Shape):
+        super().__init__(shape=shape)
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        if arr.ndim <= 1:
+            return 0 if xp.all(arr >= 0) else xp.inf
+        else:
+            res = xp.zeros(arr.shape[:-1])
+            res[xp.any(arr < 0, axis=-1)] = xp.infty
+            return res
+
+    @pycrt.enforce_precision(i="arr")
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        res = xp.copy(arr)
+        res[res < 0] = 0
+        return res
+
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        pass
+
+
+if __name__ == "__main__":
+    N = 10
+    posIndicator = NonNegativeOrthant(shape=(1, None))
+
+    a = np.random.normal(size=N)
+    b = posIndicator.prox(a, tau=1)
+    print(posIndicator(a))
+    print(b)
+    print(posIndicator(b))
+
+    print("0-d input: {}".format(posIndicator(np.r_[-1])))
+    print("3-d input: {}".format(posIndicator(np.arange(24).reshape((2, 3, 4)) - 3)))
