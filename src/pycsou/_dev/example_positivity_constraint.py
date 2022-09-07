@@ -122,20 +122,28 @@ if __name__ == "__main__":
     data_p_pos, hist_p_pos = pfw.stats()
     print("\tSolved in {:.3f} seconds".format(hist_p_pos["duration"][-1]))
 
-    print("\tSolving with PDS: ...")
-    cv = CondatVu(f=data_fid, g=regul, h=pycdevu.NonNegativeOrthant(shape=(1, N)), show_progress=True, verbosity=100)
-    cv.fit(
+    print("\tSolving with PGD: ...")
+    posRegul = lambda_ * pycdevu.L1NormPositivityConstraint(shape=(1, None))
+    pgd_pos = PGD(data_fid, posRegul, show_progress=False)
+    pgd_pos.fit(
         x0=np.zeros(N, dtype="float64"),
-        stop_crit=(min_iter & cv.default_stop_crit()) | pycos.MaxDuration(t=dt.timedelta(seconds=tmax)),
+        stop_crit=(min_iter & pgd_pos.default_stop_crit()) | pycos.MaxDuration(t=dt.timedelta(seconds=tmax)),
         track_objective=True,
     )
-    data_pds, hist_pds = cv.stats()
-    print("\tSolved in {:.3f} seconds".format(hist_pds["duration"][-1]))
+    # cv = CondatVu(f=data_fid, g=regul, h=pycdevu.NonNegativeOrthant(shape=(1, N)), show_progress=True, verbosity=100)
+    # cv.fit(
+    #     x0=np.zeros(N, dtype="float64"),
+    #     stop_crit=(min_iter & cv.default_stop_crit()) | pycos.MaxDuration(t=dt.timedelta(seconds=tmax)),
+    #     track_objective=True,
+    # )
+    # data_pds, hist_pds = cv.stats()
+    data_pgd_pos, hist_pgd_pos = pgd_pos.stats()
+    print("\tSolved in {:.3f} seconds".format(hist_pgd_pos["duration"][-1]))
 
     print("Final value of dual certificate:\n\tVFW: {:.4f}\n\tPFW: {:.4f}".format(data_v_pos["dcv"], data_p_pos["dcv"]))
     print(
         "Final value of objective:\n\tPDS: {:.4f}\n\tVFW : {:.4f}\n\tPFW : {:.4f}".format(
-            hist_pds[-1][-1], hist_v_pos[-1][-1], hist_p_pos[-1][-1]
+            hist_pgd_pos[-1][-1], hist_v_pos[-1][-1], hist_p_pos[-1][-1]
         )
     )
     ###########################################################################################
@@ -158,7 +166,7 @@ if __name__ == "__main__":
     plt.title("Unconstrained reconstruction")
     plt.subplot(212)
     plt.stem(source, label="source", linefmt="C0-", markerfmt="C0o")
-    plt.stem(data_pds["x"][0], label="PDS", linefmt="C1:", markerfmt="C1s")
+    plt.stem(data_pgd_pos["x"], label="PGD", linefmt="C1:", markerfmt="C1s")
     plt.stem(data_v_pos["x"], label="VFW", linefmt="C2:", markerfmt="C2x")
     plt.stem(data_p_pos["x"], label="PFW", linefmt="C3:", markerfmt="C3x")
     plt.legend()
@@ -179,7 +187,7 @@ if __name__ == "__main__":
     plt.yscale("log")
     plt.plot(hist_p_pos["duration"], hist_p_pos["Memorize[objective_func]"], label="PFW")
     plt.plot(hist_v_pos["duration"], hist_v_pos["Memorize[objective_func]"], label="VFW")
-    plt.plot(hist_pds["duration"], hist_pds["Memorize[objective_func]"], label="PDS")
+    plt.plot(hist_pgd_pos["duration"], hist_pgd_pos["Memorize[objective_func]"], label="PGD")
     plt.ylabel("OFV")
     plt.legend()
     plt.title("Positivity constrained solution")
