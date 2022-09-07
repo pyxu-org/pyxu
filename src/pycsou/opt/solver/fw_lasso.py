@@ -111,6 +111,8 @@ class GenericFWforLasso(pycs.Solver):
         ``Solver``.
         """
         track_objective = kwargs.pop("track_objective", True)
+        positivity_c = kwargs.pop("positivity_constraint", False)
+        self._astate["positivity_c"] = positivity_c
         super().fit(track_objective=track_objective, **kwargs)
 
 
@@ -210,7 +212,10 @@ class VanillaFWforLasso(GenericFWforLasso):
         mst = self._mstate  # shorthand
         xp = pycu.get_array_module(mst["x"])
         mgrad = -self._data_fidelity.grad(mst["x"])
-        new_ind = xp.argmax(xp.abs(mgrad), axis=-1)
+        if self._astate["positivity_c"]:
+            new_ind = xp.argmax(mgrad, axis=-1)
+        else:
+            new_ind = xp.argmax(xp.abs(mgrad), axis=-1)
         dcv = mgrad[new_ind] / self.lambda_  # todo [0]
         mst["dcv"] = dcv
         # To be careful about mst["dcv"] as it can be either float if new_ind is size 1 or NDArray if new_ind is size>1
@@ -366,13 +371,20 @@ class PolyatomicFWforLasso(GenericFWforLasso):
     def m_step(self):
         mst = self._mstate  # shorthand
         mgrad = -self._data_fidelity.grad(mst["x"])
-        mst["dcv"] = max(mgrad.max(), mgrad.min(), key=abs) / self.lambda_  # todo [0]
-        # mst["dcv"] is stored as a float in this case and does not handle stacked multidimensional inputs.
-        maxi = abs(mst["dcv"])
+        if self._astate["positivity_c"]:
+            mst["dcv"] = mgrad.max() / self.lambda_
+            maxi = mst["dcv"]
+        else:
+            mst["dcv"] = max(mgrad.max(), mgrad.min(), key=abs) / self.lambda_  # todo [0]
+            # mst["dcv"] is stored as a float in this case and does not handle stacked multidimensional inputs.
+            maxi = abs(mst["dcv"])
         if self._astate["idx"] == 1:
             mst["delta"] = maxi * (1.0 - self._ms_threshold)
         thresh = maxi - (2 / self._astate["idx"] + 1) * mst["delta"]
-        new_indices = (abs(mgrad) > max(thresh, 1.0)).nonzero()[0]
+        if self._astate["positivity_c"]:
+            new_indices = (mgrad > max(thresh, 1.0)).nonzero()[0]
+        else:
+            new_indices = (abs(mgrad) > max(thresh, 1.0)).nonzero()[0]
 
         xp = pycu.get_array_module(mst["x"])
         if new_indices.size > 0:
