@@ -69,8 +69,10 @@ class GenericFWforLasso(pycs.Solver):
         self.forwardOp = forwardOp
         self.data = pycrt.coerce(data)
 
-        self._data_fidelity = 0.5 * pycdevu.SquaredL2Norm().argshift(-self.data) * self.forwardOp
-        self._penalty = self.lambda_ * pycdevu.L1Norm()
+        self._data_fidelity = (
+            0.5 * pycdevu.SquaredL2Norm(M=self.forwardOp.shape[0]).argshift(-self.data) * self.forwardOp
+        )
+        self._penalty = self.lambda_ * pycdevu.L1Norm(M=self.forwardOp.shape[1])
         # QfR: Vocabulary question: penalty or regul ?
 
         self._bound = 0.5 * pycdevu.SquaredL2Norm()(data)[0] / self.lambda_  # todo [0]
