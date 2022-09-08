@@ -75,14 +75,20 @@ class CG(pyca.Solver):
         else:
             mst["restart_rate"] = self._A.dim
 
-        mst["b"] = b
         xp = pycu.get_array_module(b)
         if x0 is None:
+            mst["b"] = b
             mst["x"] = xp.zeros_like(b)
-        else:
+        elif b.shape == x0.shape:
+            # No broadcasting involved
+            mst["b"] = b
             mst["x"] = x0
+        else:
+            # In-place updates involving b/x won't work if shapes differ -> coerce to largest.
+            mst["b"], mst["x"] = xp.broadcast_arrays(b, x0)
+            mst["x"] = mst["x"].copy()
 
-        mst["residual"] = b.copy()
+        mst["residual"] = mst["b"].copy()
         mst["residual"] -= self._A.apply(mst["x"])
         mst["conjugate_dir"] = mst["residual"].copy()
 
