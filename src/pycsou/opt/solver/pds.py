@@ -48,12 +48,26 @@ class _PrimalDualSplitting(pyca.Solver):
             )
             raise ValueError(msg)
 
-        self._f = pyclo.NullFunc() if (f is None) else f
-        self._g = pyclo.NullFunc() if (g is None) else g
-        self._h = pyclo.NullFunc() if (h is None) else h
+        if f is not None:
+            primal_dim = f.dim
+        elif g is not None:
+            primal_dim = g.dim
+        else:
+            primal_dim = h.dim
+
+        if h is not None:
+            dual_dim = h.dim
+        elif K is not None:
+            dual_dim = K.shape[0]
+        else:
+            dual_dim = primal_dim
+
+        self._f = pyclo.NullFunc(dim=primal_dim) if (f is None) else f
+        self._g = pyclo.NullFunc(dim=primal_dim) if (g is None) else g
+        self._h = pyclo.NullFunc(dim=dual_dim) if (h is None) else h
         self._beta = self._set_beta(beta)
         if h is not None:
-            self._K = pyclo.IdentityOp(shape=h.dim) if (K is None) else K
+            self._K = pyclo.IdentityOp(dim=h.dim) if (K is None) else K
         else:
             if K is None:
                 K_dim = f.dim if f is not None else g.dim
