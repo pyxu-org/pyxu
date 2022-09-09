@@ -446,7 +446,11 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         rs_data_fid = self._data_fidelity * injection
         rs_data_fid.diff_lipschitz()  # todo this was not necessary earlier, change of API to be expected later on ?
         x0 = injection.T(self._mstate["x"])
-        apgd = PGD(rs_data_fid, self._penalty, show_progress=False)
+        if self._astate["positivity_c"]:
+            penalty = pycdevu.L1NormPositivityConstraint(shape=(1, None))
+        else:
+            penalty = self._penalty
+        apgd = PGD(rs_data_fid, penalty, show_progress=False)
         # The penalty is agnostic to the dimension in this implementation (L1Norm()).
         apgd.fit(x0=x0, stop_crit=correction_stop_crit(self._mstate["correction_prec"]))
         sol, _ = apgd.stats()
