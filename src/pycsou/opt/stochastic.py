@@ -1,5 +1,6 @@
 import abc
 import collections.abc as cabc
+import functools
 import itertools
 import operator
 import types
@@ -14,21 +15,25 @@ import toolz
 import pycsou._dev as dev
 import pycsou.abc.operator as pyco
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou.util.operator as pycuo
 import pycsou.util.ptype as pyct
 
+if pycd.CUPY_ENABLED:
+    import cupy as cp
+
 __all__ = [
-    "Load",
-    "NpzLoad",
-    "BlockLoader",
-    "ConvolveLoader",
+    "Dataset",
+    "NpzDataset",
+    "ChunkDataset",
+    "ChunkOp",
     "Batch",
     "SGD",
     "Stochastic",
 ]
 
 
-class Load(cabc.Sequence):
+class Dataset(cabc.Sequence):
     r"""
     Base class for loading data.
 
@@ -40,8 +45,9 @@ class Load(cabc.Sequence):
         Filepath to load
     """
 
-    def __init__(self, path: pyct.PathLike):
+    def __init__(self, path: pyct.PathLike, gpu: bool):
         self.path = path
+        self.gpu = gpu
         self.data, self._shape, self._ndim, self._dtype = self._load(self.path)
         self._size = np.prod(self._shape)
 
@@ -77,7 +83,7 @@ class Load(cabc.Sequence):
         return self._size
 
 
-class NpzLoad(Load):
+class NpzDataset(Dataset):
     r"""
     NPZ file format loader.
 
@@ -90,30 +96,29 @@ class NpzLoad(Load):
         Filepath to load
     """
 
-    def __init__(self, path: pyct.PathLike):
-        super().__init__(path)
+    def __init__(self, path: pyct.PathLike, gpu: bool = False):
+        super().__init__(path, gpu)
 
     def _load(self, path):
-        data = np.load(path, mmap_mode="c")
+        if self.gpu:
+            data = cp.load(path, mmap_mode="c")
+        else:
+            data = np.load(path, mmap_mode="c")
         return data, data.shape, data.ndim, data.dtype
 
 
-class BlockLoader(cabc.Sequence):
+class ChunkDataset(cabc.Sequence):
     r"""
-    Base class that batches data into blocks using dask as the backend.
+    Generator that batches data into chunks and yields chunks based on an index.
 
     **Initialization parameters of the class:**
 
-    loader : Load-type
+    loader : Dataset-type
         Object that makes data available.
     data_shape: pyct.Shape
         how to reshape the data dimension
-    blocks : int, tuple
+    chunks : int, tuple
         Shape of 1 batch of data.
-    operator : pyco.LinOp
-        Global operator that will be used to create batched operators.
-
-    .. Important:: User must override create_op to provide logic for batching of a pycsou operator.
 
     **Remark 1:**
 
@@ -122,36 +127,37 @@ class BlockLoader(cabc.Sequence):
 
     **Remark 2:**
 
-    Not all batches are guaranteed to be the same size. If the data shape is not divisible by blocks then dask
-    will handle the edges by creating smaller blocks.
+    Not all batches are guaranteed to be the same size. If the data shape is not divisible by chunks then dask
+    will handle the edges by creating smaller chunks.
 
     """
 
-    def __init__(self, load, data_shape: pyct.Shape, blocks: pyct.Shape, operator: pyco.LinOp):
+    # TODO what if load is already a dask array -> redirect or if statement
+    def __init__(self, load, data_shape, chunks: pyct.Shape):
         self.load = load
-        self.blocks = blocks
         self.data_shape = data_shape
-        self.global_op = operator
+        self.data_ndim = len(self.data_shape)
+
+        self.chunks = chunks
         self.global_shape = self.load.shape
-        self._stack_dims = self.global_shape[:-1]
+        self.stack_shape = self.global_shape[:-1]
 
         self.data = (
             da.from_array(self.load)
-            .reshape(*self._stack_dims, *data_shape)
-            .rechunk(chunks=(*self._stack_dims, *self.blocks))
-            .persist()
+            .reshape(*self.stack_shape, *self.data_shape)
+            .rechunk(chunks=(*self.stack_shape, *self.chunks))
         )
 
-        self.chunks = self.data.chunks
-        self.chunk_dim = [len(c) for c in self.chunks]
+        # Went with name chunkLoader, but it doesn't correspond to what dask calls chunks. Changed name to blocks.
+        self.blocks = self.data.chunks
+        self.block_dim = [len(c) for c in self.blocks]
         self.indices = (
             da.arange(self.load.size)
-            .reshape(*self._stack_dims, *data_shape)
-            .rechunk(chunks=(*self._stack_dims, *self.blocks))
-            .persist()
+            .reshape(*self.stack_shape, *self.data_shape)
+            .rechunk(chunks=(*self.stack_shape, *self.chunks))
         )
 
-    def __getitem__(self, b_index: int) -> tuple[pyct.NDArray, pyco.LinOp, np.array]:
+    def __getitem__(self, b_index: int) -> tuple[pyct.NDArray, pyct.NDArray]:
         r"""
         Parameters
         ----------
@@ -167,200 +173,188 @@ class BlockLoader(cabc.Sequence):
         np.array
             ND-indices flattened
         """
-        i = np.unravel_index(b_index, self.chunk_dim)
+        i = np.unravel_index(b_index, self.block_dim)
 
         batch = self.data.blocks[i]
         ind = self.indices.blocks[i]
 
-        op = self.create_op(b_index, batch.shape)
-
-        return (
-            batch.compute().reshape(*self.global_shape[:-1], -1),
-            op,
-            ind.compute().flatten(),
-        )
+        return (batch.compute().reshape(*self.stack_shape, -1), ind.compute().flatten())
 
     def __len__(self):
         return self.data.npartitions
 
-    @abc.abstractmethod
-    def create_op(self, b_index: int, batch_shape: pyct.Shape) -> pyco.LinOp:
-        r"""
-        Create an operator that works on a batch of data.
-
-        Parameters
-        ----------
-        b_index : int
-            index for 1 batch of data
-        batch_shape : pyct.Shape
-            shape of this batch of data
-
-        Returns
-        -------
-        LinOp
-            batched operator
+    def communicate(self):
+        return {"blocks": self.blocks, "block_dim": self.block_dim, "stack_shape": self.stack_shape}
 
 
-        .. Important:
+class ChunkOp(pyco.LinOp):
+    def __init__(self, op: pyco.LinOp, depth=None, boundary=None):
+        # TODO check that depth is not larger than any chunk (otherwise is rechunked which is not good)
+        self.op = op
+        self.data_shape = self.op.data_shape
+        self.data_ndim = len(self.data_shape)
+        super().__init__(shape=self.op.shape)
+        self.depth = depth
+        self.boundary = boundary
+        self._diff_lipschitz = self.op.diff_lipschitz()
+        self._lipschitz = self.op.lipschitz()
 
-            This method should abide by the rules described in :ref:`developer-notes`.
-        """
-        raise NotImplementedError
+        # TODO create Stochasitc operator subclass to check against...
+        # if not isinstance(op, dev.Convolve):
+        #     raise ValueError("Operator must be a Convolve operator.")
 
+    def startup(self, blocks, block_dim, stack_shape, *args, **kwargs):
+        self.blocks = blocks
+        self.block_dim = block_dim
+        self.slices = da.core.slices_from_chunks(self.blocks)
+        self.stack_shape = stack_shape
+        stack_ndim = len(self.stack_shape)
 
-def depth_to_pad(depth: dict, ndims: int = 0) -> list[tuple]:
-    r"""
-    Converts from dask depth to numpy pad inputs.
+        self.depth = self._coerce_condition(self.depth, self.data_ndim + stack_ndim, stack_ndim, default=0)
+        self.boundary = self._coerce_condition(self.boundary, self.data_ndim + stack_ndim, stack_ndim, default=None)
+        for i, (k, v) in enumerate(self.depth.items()):
+            if v > 0:
+                if not all([b >= v for b in self.blocks[i]]):
+                    raise ValueError(
+                        f"{self.blocks[i]} has a chunk/chunks smaller than depth: {v}. Provide a different chunking size."
+                    )
 
-    **Note**
-    Depth is assumed to be coerced using dask.array.overlap.coerce_depth. This means every dimension will have a depth
-    key, even if that key is zero.
+    def __getitem__(self, b_index):
+        """ """
+        self.b_index = b_index
+        self.index = np.unravel_index(self.b_index, self.block_dim)
+        self.batch_slice = self.slices[self.b_index]
+        self.overlap_shape = [s.stop - s.start + 2 * self.depth[i] for i, s in enumerate(self.batch_slice)][
+            -self.data_ndim :
+        ]
+        self.batch_shape = [s.stop - s.start for s in self.batch_slice[-self.data_ndim :]]
+        self.op.data_shape = self.overlap_shape
+        return self
 
-    Examples:
-    -------
-    >>> depth_to_pad({0:1, 1:2, 2:0})
-    [(1,1), (2,2), (0,0)]
-    """
-    initial = [(0, 0)] * ndims
-    initial.extend([(v, v) for _, v in depth.items()])
-    return initial
+    @staticmethod
+    def _coerce_condition(condition, ndim, num_stack, default=0):
+        return dict(((i, default) if i < num_stack else (i, condition[i - num_stack]) for i in range(ndim)))
 
+    def apply(self, arr):
+        xp = pycu.get_array_module(arr)
+        input_shape = arr.shape
 
-def _cumsum(seq, initial):
-    r"""
-    Modified from dask.utils._cumsum - https://github.com/dask/dask/blob/main/dask/utils.py
-    Can take an initial value other than zero.
-    """
-    return tuple(toolz.accumulate(operator.add, seq, initial=initial))
+        if xp != da:
+            arr = da.from_array(arr)
 
+        arr = arr.reshape(*input_shape[:-1], *self.data_shape).rechunk(self.blocks)
 
-def slices_from_chunks_with_overlap(chunks: tuple[tuple[int]], depth: dict):
-    r"""
-    Translates dask chunks tuples into a set of slices in product order. Takes into account padding and block overlaps.
-
-    Modified from dask.array.core.slices_from_chunks - https://github.com/dask/dask/blob/main/dask/array/core.py
-
-    **Remark 1:**
-    The depth padding is assumed to be symmetric around each dimension. This is the convention dask uses, and we follow
-    it.
-
-    **Remark 2:**
-    Depth is assumed to be coerced using dask.array.overlap.coerce_depth. This means every dimension will have a depth
-    key, even if that key is zero.
-
-    Examples:
-    -------
-    >>> slices_from_chunks_with_overlap(chunks=((2, 2), (3, 3, 3)), depth={0:1, 1:2})
-     [(slice(0, 4, None), slice(0, 7, None)),
-      (slice(0, 4, None), slice(3, 10, None)),
-      (slice(0, 4, None), slice(6, 13, None)),
-      (slice(2, 6, None), slice(0, 7, None)),
-      (slice(2, 6, None), slice(3, 10, None)),
-      (slice(2, 6, None), slice(6, 13, None))]
-    """
-    cumdims = [_cumsum(bds, initial=depth[i]) for i, bds in enumerate(chunks)]
-    slices = [
-        [slice(s - depth[i], s + dim + depth[i]) for s, dim in zip(starts, shapes)]
-        for i, (starts, shapes) in enumerate(zip(cumdims, chunks))
-    ]
-    return list(itertools.product(*slices))
-
-
-class ConvolveLoader(BlockLoader):
-    r"""
-    Batches data and a Convolution Operator.
-
-    **Initialization parameters of the class:**
-
-    loader : Load-type
-        Object that makes data available.
-    data_shape: pyct.Shape
-        how to reshape the data dimension
-    blocks : int, tuple
-        Shape of 1 batch of data.
-    operator : pyco.LinOp
-        Global operator that will be used to create batched operators.
-    depth : dict
-        dictionary with the size of padding for each dimension. Padding is symmetric.
-    mode : str
-        how to pad the edges of the data, see np.pad - https://numpy.org/doc/stable/reference/generated/numpy.pad.html
-    """
-
-    def __init__(
-        self,
-        load,
-        data_shape: pyct.Shape,
-        blocks: pyct.Shape,
-        operator: pyco.LinOp,
-        depth: tuple[int, int],
-        mode: str = "reflect",
-    ):
-        super().__init__(load, data_shape, blocks, operator)
-        if not isinstance(operator, dev.Convolve):
-            raise ValueError("Operator must be a Convolve operator.")
-        self.depth = da.overlap.coerce_depth(
-            len(depth) + len(self._stack_dims), (*[(0)] * len(self._stack_dims), *depth)
-        )
-        self.overlap_ind = slices_from_chunks_with_overlap(self.chunks, self.depth)
-        self.mode = mode
-        self.stacking_shape = self.global_shape[:-1]
-        self.pad_data_shape = tuple(
-            [d + 2 * self.depth.get(i, 0) for i, d in enumerate((*self.stacking_shape, *self.data_shape))]
+        out = da.map_overlap(
+            lambda x: self.op.apply(x.reshape(*input_shape[:-1], -1)).reshape(x.shape),
+            arr,
+            depth=self.depth,
+            boundary=self.boundary,
+            # allow_rechunk=True, - released 2022.6.1 DASK
+            meta=xp.array(()),
+            dtype=arr.dtype,
         )
 
-    def create_op(self, b_index: int, batch_shape: pyct.Shape) -> pyco.LinOp:
-        overlap_slice = self.overlap_ind[b_index]
-        overlap_shape = tuple([s.stop - s.start for s in overlap_slice[len(self._stack_dims) :]])
+        out = out[self.batch_slice]
 
-        # TODO how to copy global convolve into local convolve, this is a cheat but
-        kernel = self.global_op.filter
-
-        # for dev.Convolve would prefer mode='valid' to save computation as we are handling padding ourselves
-        # https://github.com/scipy/scipy/issues/12997
-        convolve = dev.Convolve(data_shape=overlap_shape, filter=kernel, mode="constant")
-
-        def apply(arr):
-            xp = pycu.get_array_module(arr)
-            input_shape = arr.shape
-            padding = depth_to_pad(self.depth)
-
-            arr = arr.reshape(*input_shape[:-1], *self.data_shape)
-            p_arr = xp.pad(arr, padding, mode=self.mode)
-
-            # grab indices with overlap
-            sub_arr = p_arr[tuple([Ellipsis, *overlap_slice])]
-
-            out = convolve.apply(sub_arr.reshape(*input_shape[:-1], -1))
-
-            # trim overlap
-            out = out.reshape(*input_shape[:-1], *overlap_shape)
-            out = pycuo.unpad(out, padding)
+        if xp != da:
+            return out.reshape(*input_shape[:-1], -1).compute()
+        else:
             return out.reshape(*input_shape[:-1], -1)
 
-        def adjoint(arr):
-            input_shape = arr.shape
-            xp = pycu.get_array_module(arr)
-            padding = depth_to_pad(self.depth)
+    def adjoint(self, arr):
+        input_shape = arr.shape
+        xp = pycu.get_array_module(arr)
 
-            # pad with zeros, we need to keep information in padded region when the region is shared inside an image
-            arr = xp.pad(arr.reshape(*batch_shape), padding)
+        if xp != da:
+            out = da.from_array(xp.zeros((*input_shape[:-1], *self.data_shape)), chunks=self.blocks)
+        else:
+            out = da.zeros((*input_shape[:-1], *self.data_shape), chunks=self.blocks)
 
-            out = convolve.adjoint(arr.reshape(*input_shape[:-1], -1))
-            out = out.reshape(*input_shape[:-1], *overlap_shape)
+        out[self.batch_slice] = arr.reshape((*input_shape[:-1], *self.batch_shape))
 
-            # create array size of gradient to place our block gradient into (plus padding to then trim edges, this
-            # also trims the edges of our block)
-            new_arr = xp.zeros(self.pad_data_shape)
-            new_arr[tuple([Ellipsis, *overlap_slice])] = out
-            new_arr = pycuo.unpad(new_arr, padding)
+        n_map_overlap = functools.partial(
+            neighbors_map_overlap,
+            op=self.op,
+            ind=self.index,
+            stack_dims=input_shape[:-1],
+            overlap=bool(self.depth),
+        )
+        out = da.map_overlap(
+            n_map_overlap,
+            out,
+            depth=self.depth,
+            boundary=0,
+            # allow_rechunk=False,- released 2022.6.1 DASK
+            meta=xp.array(()),
+            dtype=arr.dtype,
+        )
 
-            return new_arr.reshape(*input_shape[:-1], -1)
+        if xp != da:
+            return out.reshape(*input_shape[:-1], -1).compute()
+        else:
+            return out.reshape(*input_shape[:-1], -1)
 
-        op = pyco.LinOp(shape=(np.prod(overlap_shape), np.prod(overlap_shape)))
-        op.apply = types.MethodType(lambda _, arr: apply(arr), op)
-        op.adjoint = types.MethodType(lambda _, arr: adjoint(arr), op)
 
-        return op
+def neighbors_map_overlap(
+    x: pyct.NDArray, op: pyco.LinOp, ind: tuple, overlap: bool, stack_dims: pyct.Shape, block_info: dict = None
+) -> pyct.NDArray:
+    r"""
+    Block function that works with `da.map_overlap`.
+    Applies pycsou LinOp operator op.adjoint over 1 block and conditionally over its direct neighbors, leaving the
+    other blocks untouched.
+
+    **Remark 1:**
+
+    Based on `Map Blocks`_ documentation.
+
+    .. _Map Blocks: https://docs.dask.org/en/stable/generated/dask.array.map_blocks.html
+
+    **Remark 2:**
+
+     op must be a LinOp with attribute data_shape and an adjoint method.
+     The data_shape is dynamically adjusted to allow for different batch_sizes.
+
+     **Remark 3:**
+
+     If there is any overlap at all, every neighbor in every dimension will be calculated, even if there is not an
+     overlap in that specific dimension.
+
+    Parameters
+    ----------
+    x : da.array
+        the function `da.map_overlap()` will provide chunks of data. x will be a chunk of data.
+    op : pyco.LinOp
+        operator with which to call adjoint over the data
+    ind : tuple
+        indices of block to apply op to
+    overlap : bool
+        whether to apply op to the neighbors of ind
+    stack_dims : pyct.Shape
+        stacking dimensions of x
+    block_info : dict
+        special keyword argument provided by `da.map_overlap()` to get information about where in array we are
+
+    Returns
+    -------
+    x : da.array
+        the chunk of data with op conditionally applied to it
+
+    """
+    block_id = block_info[0]["chunk-location"]
+    array_location = block_info[0]["array-location"]
+
+    if block_id:
+        # subset to only be dimensions of interest (not stacking dimensions)
+        block_id = block_id[len(stack_dims) :]
+        array_location = array_location[len(stack_dims) :]
+        ind = ind[len(stack_dims) :]
+
+        # if dimensions of interest within +/-1, apply function
+        if all([i - int(overlap) <= j <= i + int(overlap) for i, j in zip(ind, block_id)]):
+            shape_overload = [s[1] - s[0] for s in array_location]
+            op.data_shape = tuple(shape_overload)
+            return op.adjoint(x.reshape(*stack_dims, -1)).reshape(x.shape)
+    return x
 
 
 class Batch:
@@ -372,7 +366,7 @@ class Batch:
 
     **Initialization parameters of the class:**
 
-    loader : BlockLoader
+    loader : ChunkDataset
         loader to get data and batched operator from
     shuffle : bool
         if batches are shuffled
@@ -383,12 +377,16 @@ class Batch:
         * int - shuffle according to seed, and keep this shuffle order every epoch
     """
 
-    def __init__(self, loader, shuffle: bool = False, seed: int = None):
-        self.loader = loader
+    def __init__(self, batch_dataset, batch_op, shuffle: bool = False, seed: int = None):
+        self.batch_dataset = batch_dataset
+        self.batch_op = batch_op
+        self._communicate()
+
         self._epochs = 0
         self.counter = 0
         self.batch_counter = 0
-        self.num_batches = len(self.loader)
+        # TODO is this the right way to set num_batches if we have a stacking dimension?
+        self.num_batches = len(self.batch_dataset)
         self.shuffle = shuffle
         self.seed = seed
         if self.shuffle:
@@ -402,6 +400,10 @@ class Batch:
         int
         """
         return self._epochs
+
+    def _communicate(self):
+        kwargs = self.batch_dataset.communicate()
+        self.batch_op.startup(**kwargs)
 
     def _bookkeeping(self):
         if self.shuffle:
@@ -420,7 +422,8 @@ class Batch:
         return rng.permutation(np.arange(self.num_batches))
 
     def batches(self) -> typ.Tuple[pyct.NDArray, pyco.LinOp, np.array]:
-        y, op, ind = self.loader[self.batch_counter]
+        y, ind = self.batch_dataset[self.batch_counter]
+        op = self.batch_op[self.batch_counter]
         self._bookkeeping()
         yield y, op, ind
 
@@ -551,7 +554,7 @@ class Stochastic(pyco.DiffFunc):
         else:
             self.strategy = SGD()
         self.batch = batch
-        self.global_op = self.batch.loader.global_op
+        self.global_op = self.batch.batch_op.op
         n = self.global_op.shape[0]
         self._diff_lipschitz = (1 / n * self._f * self.global_op).diff_lipschitz()
 
