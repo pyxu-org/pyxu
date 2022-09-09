@@ -75,6 +75,8 @@ upstream. A link to an issue-tracker entry is provided if already reported.
      >>> y_dense, y_sparse
      (array(1.), array([2.08290313]))
 
-* ``cupyx.scipy.sparse.linalg.[eigsh,svds]()`` only support computing leading singular-/eigen-values, i.e. ``which="LM"``. (``which="SM"`` unsupported.)
+* ``cupyx.scipy.sparse.linalg.[eigsh,svds]()`` only support computing leading
+  singular-/eigen-values, i.e. ``which="LM"``. (``which="SM"`` unsupported.)
 
-* ``cupy.linalg.eigvals()`` does not exist. CuPy only supports computing eigenvalues of Hermitian matrices via ``cupy.linalg.eigvalsh()``.
+* ``cupy.linalg.eigvals()`` does not exist. CuPy only supports computing eigenvalues of Hermitian
+  matrices via ``cupy.linalg.eigvalsh()``.
