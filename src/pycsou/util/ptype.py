@@ -8,36 +8,62 @@ import numbers as nb
 import pathlib as plib
 import typing as typ
 
+import numpy.typing as npt
+
 import pycsou.util.deps as pycd
 
-# supported array types
-NDArray = typ.TypeVar("NDArray", *pycd.supported_array_types())
+if typ.TYPE_CHECKING:
+    import pycsou.abc.operator as pyco
+    import pycsou.abc.solver as pycs
 
-# supported array modules
+# supported dense arrays/modules
+NDArray = typ.TypeVar("NDArray", *pycd.supported_array_types())
 ArrayModule = typ.TypeVar(
     "ArrayModule",
     *[typ.Literal[_] for _ in pycd.supported_array_modules()],
 )
 
-# supported sparse arrays
+# supported sparse arrays/modules
 SparseArray = typ.TypeVar("SparseArray", *pycd.supported_sparse_types())
-
-# supported sparse modules
 SparseModule = typ.TypeVar(
     "SparseModule",
     *[typ.Literal[_] for _ in pycd.supported_sparse_modules()],
 )
 
-# non-complex numbers
+OpT = typ.TypeVar(
+    # Top-level operator exposed to users.
+    # This list should be kept in sync with all user-facing operators in `pyco`.
+    "OpT",
+    "pyco.Operator",
+    "pyco.DiffFunc",
+    "pyco.ProxDiffFunc",
+    "pyco.NormalOp",
+    "pyco.ProxFunc",
+    "pyco.SquareOp",
+    "pyco._QuadraticFunc",
+    "pyco.ProjOp",
+    "pyco.LinFunc",
+    "pyco.PosDefOp",
+    "pyco.Map",
+    "pyco.Func",
+    "pyco.OrthProjOp",
+    "pyco.DiffMap",
+    "pyco.UnitOp",
+    "pyco.SelfAdjointOp",
+    "pyco.LinOp",
+)
+OpC = typ.Type[OpT]  # Operator classes
+Property = "pyco.Property"
+
+# Top-level solver exposed to users
+SolverT = typ.TypeVar("SolverT", bound="pycs.Solver")  # Solver instances
+SolverC = typ.Type[SolverT]  # Solver classes
+SolverM = typ.TypeVar("SolverM", bound="pycs.Mode")
+
+# Other
+Integer = nb.Integral
 Real = nb.Real
-
-# map shapes
-Shape = typ.Tuple[int, typ.Union[int, None]]
-ShapeOrDim = typ.Union[typ.Union[int, None], Shape]
-NonAgnosticShape = typ.Tuple[int, int]
-SquareShape = typ.Union[int, typ.Tuple[int, int]]
-
-# one or more variable names
+DType = npt.DTypeLike
+Shape = tuple[Integer, typ.Union[Integer, None]]
+Path = typ.Union[str, plib.Path]
 VarName = typ.Union[str, cabc.Collection[str]]
-
-PathLike = typ.Union[str, plib.Path]

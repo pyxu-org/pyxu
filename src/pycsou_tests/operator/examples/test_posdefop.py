@@ -1,14 +1,17 @@
+import itertools
+
 import dask.array as da
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
-class CDO4(pyco.PosDefOp):
+class CDO4(pyca.PosDefOp):
     # Central Difference of Order 4 (implemented as cascade of 2 CDO2)
     def __init__(self, N: int):
         super().__init__(shape=(N, N))
@@ -38,13 +41,23 @@ class CDO4(pyco.PosDefOp):
 
 
 class TestCDO4(conftest.PosDefOpT):
-    @pytest.fixture
-    def dim(self):
-        return 10
+    @pytest.fixture(
+        params=itertools.product(
+            ((10, CDO4(N=10)),),  # dim, op
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def _spec(self, request):
+        return request.param
 
     @pytest.fixture
-    def op(self, dim):
-        return CDO4(dim)
+    def spec(self, _spec):
+        return _spec[0][1], _spec[1], _spec[2]
+
+    @pytest.fixture
+    def dim(self, _spec):
+        return _spec[0][0]
 
     @pytest.fixture
     def data_shape(self, dim):
@@ -65,63 +78,3 @@ class TestCDO4(conftest.PosDefOpT):
             in_=dict(arr=x),
             out=y,
         )
-
-    # -------------------------------------------------------------------------
-    # Run all .pinv()/.dagger() tests with low-precision only.
-    #
-    # Reason: value[1N]D tests check solution closeness to the ground-truth up to different
-    # accuracies depending on the chosen precision.
-    #
-    # The default stopping criterion of CG is AbsErr(eps=1e-4). At this eps-level,
-    # DOUBLE/QUAD-precision will not have dropped below the accuracy threshold set in MapT.isclose()
-    # to pass value[1N]D tests.
-    #
-    # Since CG converges however, it is OK to accept these tests as being successful (despite their
-    # apparent failure).
-    low_precision = pytest.mark.parametrize(
-        "width",  # local override of this fixture
-        [
-            pycrt.Width.HALF,
-            pycrt.Width.SINGLE,
-            pytest.param(
-                pycrt.Width.DOUBLE,
-                marks=pytest.mark.xfail(reason="CG auto-quits given default stop-crit threshold too high."),
-            ),
-            pytest.param(
-                pycrt.Width.QUAD,
-                marks=pytest.mark.xfail(reason="CG auto-quits given default stop-crit threshold too high."),
-            ),
-        ],
-    )
-
-    @low_precision
-    def test_value1D_pinv(self, op, _data_pinv):
-        super().test_value1D_pinv(op, _data_pinv)
-
-    @low_precision
-    def test_valueND_pinv(self, op, _data_pinv):
-        super().test_valueND_pinv(op, _data_pinv)
-
-    @low_precision
-    def test_value1D_call_dagger(self, _op_dagger, _data_apply_dagger):
-        super().test_value1D_call_dagger(_op_dagger, _data_apply_dagger)
-
-    @low_precision
-    def test_valueND_call_dagger(self, _op_dagger, _data_apply_dagger):
-        super().test_valueND_call_dagger(_op_dagger, _data_apply_dagger)
-
-    @low_precision
-    def test_value1D_apply_dagger(self, _op_dagger, _data_apply_dagger):
-        super().test_value1D_apply_dagger(_op_dagger, _data_apply_dagger)
-
-    @low_precision
-    def test_valueND_apply_dagger(self, _op_dagger, _data_apply_dagger):
-        super().test_valueND_apply_dagger(_op_dagger, _data_apply_dagger)
-
-    @low_precision
-    def test_value1D_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
-        super().test_value1D_adjoint_dagger(_op_dagger, _data_adjoint_dagger)
-
-    @low_precision
-    def test_valueND_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
-        super().test_valueND_adjoint_dagger(_op_dagger, _data_adjoint_dagger)

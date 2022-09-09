@@ -12,7 +12,7 @@ def parse_params(func, *args, **kwargs) -> cabc.Mapping:
 
     Returns
     -------
-    params: dict
+    params: cabc.Mapping
         (key, value) params as seen in body of `func` when called via `func(*args, **kwargs)`.
     """
     sig = inspect.Signature.from_callable(func)

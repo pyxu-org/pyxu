@@ -16,12 +16,10 @@ class Width(enum.Enum):
     Machine-dependent floating-point types.
     """
 
-    HALF = np.dtype(np.half)
     SINGLE = np.dtype(np.single)
     DOUBLE = np.dtype(np.double)
-    QUAD = np.dtype(np.longdouble)
 
-    def eps(self) -> float:
+    def eps(self) -> pyct.Real:
         """
         Machine precision of a floating-point type.
 
@@ -44,10 +42,8 @@ class _CWidth(enum.Enum):
     Machine-dependent complex-valued floating-point types.
     """
 
-    # HALF = np.dtype(np.chalf)  # unsupported by NumPy
     SINGLE = np.dtype(np.csingle)
     DOUBLE = np.dtype(np.cdouble)
-    QUAD = np.dtype(np.clongdouble)
 
     @property
     def real(self) -> "Width":
@@ -67,8 +63,8 @@ class Precision(contextlib.AbstractContextManager):
     -------
     >>> import pycsou.runtime as pycrt
     >>> pycrt.getPrecision()                      # Width.DOUBLE
-    ... with pycrt.Precision(pycrt.Width.HALF):
-    ...     pycrt.getPrecision()                  # Width.HALF
+    ... with pycrt.Precision(pycrt.Width.SINGLE):
+    ...     pycrt.getPrecision()                  # Width.SINGLE
     ... pycrt.getPrecision()                      # Width.DOUBLE
     """
 
@@ -199,11 +195,11 @@ def coerce(x):
 
     Parameters
     ----------
-    x: Real | NDArray
+    x: pyct.Real | pyct.NDArray
 
     Returns
     -------
-    y: Real | NDArray
+    y: pyct.Real | pyct.NDArray
         Input cast to the runtime FP-precision.
         Fails if operation is impossible or unsafe. (I.e. casting complex-valued data.)
 

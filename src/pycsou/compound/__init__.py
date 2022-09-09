@@ -5,21 +5,21 @@ import typing as typ
 
 import numpy as np
 
-import pycsou.abc.operator as pyco
-import pycsou.operator.linop.base as pycb
+import pycsou.abc as pyca
+import pycsou.operator.linop as pycl
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 
 def stack(
-    maps: typ.Iterable[pyco.MapLike],
+    maps: typ.Iterable[pyct.OpT],
     axis: typ.Literal[0, 1, -1] = 0,
     executor: typ.Union[
         None, cf.ThreadPoolExecutor, cf.ProcessPoolExecutor, typ.Literal["threads", "processes"]
     ] = None,
     max_workers: typ.Optional[int] = None,
-) -> pyco.MapLike:  # TODO: **kwargs instead of max_workers
+) -> pyct.OpT:  # TODO: **kwargs instead of max_workers
     r"""
     Stack multiple instances of :py:class:`~pycsou.abc.operator.Map` subclasses together.
 
@@ -115,7 +115,7 @@ def stack(
         methods: typ.List[typ.Callable],
         executor: typ.Union[cf.ThreadPoolExecutor, cf.ProcessPoolExecutor],
         max_workers: typ.Optional[int],
-    ) -> pyco.LinOp:
+    ) -> pyca.LinOp:
         fs = [executor.submit(method, arr) for method in methods]
         cf.wait(fs)
         out_list = [f.result() for f in fs]
@@ -144,10 +144,10 @@ def stack(
         shared_props.discard("single_valued")
         stack_of_funcs = "grad" in shared_props
         shared_props.discard("grad")
-    for Op in pyco._base_operators:
+    for Op in pyca._base_operators:
         if Op.properties() == shared_props:
             break
-    if Op in [pyco.LinOp, pyco.DiffFunc, pyco.ProxDiffFunc, pyco.LinFunc]:
+    if Op in [pyca.LinOp, pyca.DiffFunc, pyca.ProxDiffFunc, pyca.LinFunc]:
         shared_props.discard("jacobian")  # The method jacobian is implicitly defined for such objects.
     shared_props.discard("single_valued")  # Useful for determining the base class only, can discard now.
     out_op = Op(out_shape)
@@ -167,12 +167,12 @@ def stack(
                 if axis == 0 and stack_of_funcs:
 
                     @pycrt.enforce_precision(i="arr", o=False)
-                    def _jacobian_from_grads(methods, _, arr: pyct.NDArray) -> pycb.ExplicitLinOp:
+                    def _jacobian_from_grads(methods, _, arr: pyct.NDArray) -> pycl.ExplicitLinOp:
                         fs = [executor.submit(grad, arr) for grad in methods]
                         cf.wait(fs)
                         out_list = [f.result() for f in fs]
                         xp = pycu.get_array_module(arr)
-                        return pycb.ExplicitLinOp(map=xp.stack(out_list, axis=0), enable_warnings=True)
+                        return pycl.ExplicitLinOp(map=xp.stack(out_list, axis=0), enable_warnings=True)
 
                     multi_prop = ft.partial(_jacobian_from_grads, methods)
                 else:
@@ -220,20 +220,20 @@ def stack(
 
 
 def hstack(
-    maps: typ.Iterable[pyco.MapLike],
+    maps: typ.Iterable[pyct.OpT],
     executor: typ.Union[
         None, cf.ThreadPoolExecutor, cf.ProcessPoolExecutor, typ.Literal["threads", "processes"]
     ] = None,
     max_workers: typ.Optional[int] = None,
-) -> pyco.MapLike:
+) -> pyct.OpT:
     return stack(maps, axis=1, executor=executor, max_workers=max_workers)
 
 
 def vstack(
-    maps: typ.Iterable[pyco.MapLike],
+    maps: typ.Iterable[pyct.OpT],
     executor: typ.Union[
         None, cf.ThreadPoolExecutor, cf.ProcessPoolExecutor, typ.Literal["threads", "processes"]
     ] = None,
     max_workers: typ.Optional[int] = None,
-) -> pyco.MapLike:
+) -> pyct.OpT:
     return stack(maps, axis=0, executor=executor, max_workers=max_workers)

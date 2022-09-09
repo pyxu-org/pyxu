@@ -1,93 +1,58 @@
+import itertools
+
 import numpy as np
 import pytest
 
-import pycsou.abc.operator as pyco
+import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
-class Rotation(pyco.UnitOp):
+class Permutation(pyca.UnitOp):
     # f: \bR^{N} -> \bR^{N}
-    #      x     -> Rz(aZ) Ry(aY) Rx(aX) x
-    #               Rk(aK) \in \bR^{N x N} = rotation of `ak[rad]` around axis `k`.
-    def __init__(self, ax: float, ay: float, az: float):
-        super().__init__(shape=(3, 3))
-        self._ax = ax
-        self._ay = ay
-        self._az = az
+    #      x     -> x[::-1] (reverse-ordering)
+    def __init__(self, N: int):
+        super().__init__(shape=(N, N))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):
-        return self._compose(self.Rz @ self.Ry @ self.Rx, arr)
+        return pycu.read_only(arr[..., ::-1])
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr):
-        return self._compose(self.Rx.T @ self.Ry.T @ self.Rz.T, arr)
-        return out
+        return pycu.read_only(arr[..., ::-1])
 
-    @staticmethod
-    def _compose(R, x):
-        xp = pycu.get_array_module(x)
-        R = xp.array(R, dtype=x.dtype)
-        out = xp.tensordot(R, x, axes=[[1], [-1]])
-        return xp.moveaxis(out, 0, -1)
 
-    @property
-    def Rx(self) -> np.ndarray:
-        return np.array(
-            [
-                [1, 0, 0],
-                [0, np.cos(self._ax), -np.sin(self._ax)],
-                [0, np.sin(self._ax), np.cos(self._ax)],
-            ]
+class TestPermutation(conftest.UnitOpT):
+    @pytest.fixture(
+        params=itertools.product(
+            ((10, Permutation(N=10)),),  # dim, op
+            pycd.NDArrayInfo,
+            pycrt.Width,
         )
-
-    @property
-    def Ry(self) -> np.ndarray:
-        return np.array(
-            [
-                [np.cos(self._ay), 0, np.sin(self._ay)],
-                [0, 1, 0],
-                [-np.sin(self._ay), 0, np.cos(self._ay)],
-            ]
-        )
-
-    @property
-    def Rz(self) -> np.ndarray:
-        return np.array(
-            [
-                [np.cos(self._az), -np.sin(self._az), 0],
-                [np.sin(self._az), np.cos(self._az), 0],
-                [0, 0, 1],
-            ]
-        )
-
-
-class TestRotation(conftest.UnitOpT):
-    @pytest.fixture
-    def angleZ(self):  # rotation around Z-axis
-        return np.pi / 3
+    )
+    def _spec(self, request):
+        return request.param
 
     @pytest.fixture
-    def op(self, angleZ):
-        return Rotation(ax=0, ay=0, az=angleZ)
+    def spec(self, _spec):
+        return _spec[0][1], _spec[1], _spec[2]
 
     @pytest.fixture
-    def data_shape(self):
-        return (3, 3)
+    def dim(self, _spec):
+        return _spec[0][0]
 
     @pytest.fixture
-    def data_apply(self, angleZ):
-        x = np.r_[1, 0, 0.5]
-        c, s = np.cos(angleZ), np.sin(angleZ)
-        y = np.r_[
-            c * x[0] - s * x[1],
-            s * x[0] + c * x[1],
-            x[2],
-        ]
+    def data_shape(self, dim):
+        return (dim, dim)
 
+    @pytest.fixture
+    def data_apply(self, dim):
+        arr = self._random_array((dim,))
+        out = arr[::-1]
         return dict(
-            in_=dict(arr=x),
-            out=y,
+            in_=dict(arr=arr),
+            out=out,
         )

@@ -4,6 +4,14 @@ pycsou.operator.linop package
 Submodules
 ----------
 
+pycsou.operator.linop module
+----------------------------
+
+.. automodule:: pycsou.operator.linop
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 pycsou.operator.linop.base module
 ---------------------------------
 
@@ -12,10 +20,10 @@ pycsou.operator.linop.base module
    :undoc-members:
    :show-inheritance:
 
-Module contents
----------------
+pycsou.operator.linop.nufft module
+----------------------------------
 
-.. automodule:: pycsou.operator.linop
+.. automodule:: pycsou.operator.linop.nufft
    :members:
    :undoc-members:
    :show-inheritance:
