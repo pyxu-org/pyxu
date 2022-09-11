@@ -257,8 +257,7 @@ def DiagonalOp(
                 xp = kwargs.pop("xp", np)
 
                 v = pycu.compute(_._vec.astype(dtype=dtype, copy=False))
-                if (ndi := N.from_obj(v)) == N.CUPY:
-                    v = v.get()
+                v = pycu.to_NUMPY(v)
                 A = xp.diag(v)
                 return A
 
@@ -444,8 +443,7 @@ def _ExplicitLinOp(
             info = N.from_obj(_.mat)
             A = pycu.compute(_.mat.astype(dtype, copy=False))
         finally:
-            if (ndi := N.from_obj(A)) == N.CUPY:
-                A = A.get()
+            A = pycu.to_NUMPY(A)
 
         return xp.array(A, dtype=dtype)
 
