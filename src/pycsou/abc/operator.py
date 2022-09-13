@@ -1986,7 +1986,7 @@ class LinFunc(ProxDiffFunc, LinOp):
 
     def lipschitz(self, **kwargs) -> pyct.Real:
         # 'fro' / 'svds' mode are identical for linfuncs.
-        xp = kwargs.get("xp", np)
+        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
         g = self.grad(xp.ones(self.dim))
         self._lipschitz = float(xp.linalg.norm(g))
         return self._lipschitz

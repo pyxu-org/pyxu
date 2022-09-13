@@ -42,7 +42,7 @@ class IdentityOp(pyca.OrthProjOp):
 
     def asarray(self, **kwargs) -> pyct.NDArray:
         dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
-        xp = kwargs.pop("xp", np)
+        xp = kwargs.pop("xp", pycd.NDArrayInfo.NUMPY.module())
         A = xp.eye(N=self.dim, dtype=dtype)
         return A
 
@@ -104,7 +104,7 @@ class NullOp(pyca.LinOp):
 
     def asarray(self, **kwargs) -> pyct.NDArray:
         dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
-        xp = kwargs.pop("xp", np)
+        xp = kwargs.pop("xp", pycd.NDArrayInfo.NUMPY.module())
         A = xp.zeros(self.shape, dtype=dtype)
         return A
 
@@ -254,7 +254,7 @@ def DiagonalOp(
             def op_asarray(_, **kwargs) -> pyct.NDArray:
                 N = pycd.NDArrayInfo
                 dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
-                xp = kwargs.pop("xp", np)
+                xp = kwargs.pop("xp", pycd.NDArrayInfo.NUMPY.module())
 
                 v = pycu.compute(_._vec.astype(dtype=dtype, copy=False))
                 v = pycu.to_NUMPY(v)
@@ -430,7 +430,7 @@ def _ExplicitLinOp(
         N = pycd.NDArrayInfo
         S = pycd.SparseArrayInfo
         dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
-        xp = kwargs.pop("xp", np)
+        xp = kwargs.pop("xp", pycd.NDArrayInfo.NUMPY.module())
 
         try:  # Sparse arrays
             info = S.from_obj(_.mat)
