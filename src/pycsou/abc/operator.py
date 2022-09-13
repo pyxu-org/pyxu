@@ -96,6 +96,9 @@ class Operator:
       be distinguishable from its peers.
     """
 
+    # For `(size-1 ndarray) * OpT` to work, we need to force NumPy's hand and call OpT.__rmul__() in
+    # place of ndarray.__mul__() to determine how scaling should be performed.
+    # This is achieved by increasing __array_priority__ for all operators.
     __array_priority__ = np.inf
 
     def __init__(self, shape: pyct.Shape):
