@@ -872,7 +872,6 @@ class LinOpT(DiffMapT):
     interface = frozenset(
         DiffMapT.interface
         | {
-            "__array__",
             "adjoint",
             "asarray",
             "cogram",
@@ -1530,25 +1529,6 @@ class LinOpT(DiffMapT):
         dtype = _op_array.dtype
 
         A = op.asarray(xp=xp, dtype=dtype)
-        assert A.dtype == dtype
-
-    def test_value_array(self, op, _op_array):
-        self._skip_if_disabled()
-        dtype = _op_array.dtype
-        A = np.array(op, dtype=dtype)
-        assert A.shape == _op_array.shape
-        assert allclose(_op_array, A, as_dtype=dtype)
-
-    def test_backend_array(self, op, _op_array):
-        self._skip_if_disabled()
-        dtype = _op_array.dtype
-        A = np.array(op, dtype=dtype)
-        assert pycu.get_array_module(A) == np
-
-    def test_prec_array(self, op, _op_array):
-        self._skip_if_disabled()
-        dtype = _op_array.dtype
-        A = np.array(op, dtype=dtype)
         assert A.dtype == dtype
 
     def test_value_to_sciop(self, _op_sciop, _data_to_sciop):

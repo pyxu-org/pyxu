@@ -1417,27 +1417,6 @@ class LinOp(DiffMap):
             A = self.apply(E).T
         return A
 
-    def __array__(self, dtype: pyct.DType = None) -> pyct.NDArray:
-        r"""
-        Coerce linear operator to a :py:class:`numpy.ndarray`.
-
-        Parameters
-        ----------
-        dtype: pyct.DType
-            Optional type of the array
-
-        Returns
-        -------
-        A : numpy.ndarray
-            (codim, dim) representation of the linear operator, stored as a NumPy array.
-
-        Notes
-        -----
-        Functions like ``np.array`` or  ``np.asarray`` will check for the existence of the
-        ``__array__`` protocol to know how to coerce the custom object fed as input into an array.
-        """
-        return self.asarray(xp=np, dtype=dtype)
-
     def gram(self) -> pyct.OpT:
         r"""
         Gram operator :math:`L^\ast L:\mathbb{R}^M\to \mathbb{R}^M`.
