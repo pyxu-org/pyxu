@@ -96,6 +96,8 @@ class Operator:
       be distinguishable from its peers.
     """
 
+    __array_priority__ = np.inf
+
     def __init__(self, shape: pyct.Shape):
         r"""
         Parameters
