@@ -304,25 +304,24 @@ class Operator:
 
         if isinstance(other, Operator):
             return arithmetic.ChainRule(lhs=self, rhs=other).op()
-        elif isinstance(other, pyct.Real):
-            return arithmetic.ScaleRule(op=self, cst=other).op()
+        elif _is_real(other):
+            return arithmetic.ScaleRule(op=self, cst=float(other)).op()
         else:
             return NotImplemented
 
     def __rmul__(self, other: pyct.Real) -> pyct.OpT:
         import pycsou.abc.arithmetic as arithmetic
 
-        if isinstance(other, pyct.Real):
-            return arithmetic.ScaleRule(op=self, cst=other).op()
+        if _is_real(other):
+            return arithmetic.ScaleRule(op=self, cst=float(other)).op()
         else:
             return NotImplemented
 
     def __truediv__(self, other: pyct.Real) -> pyct.OpT:
         import pycsou.abc.arithmetic as arithmetic
 
-        if isinstance(other, pyct.Real):
-            return arithmetic.ScaleRule(op=self, cst=1 / other).op()
-
+        if _is_real(other):
+            return arithmetic.ScaleRule(op=self, cst=float(1 / other)).op()
         else:
             return NotImplemented
 
@@ -383,8 +382,8 @@ class Operator:
         """
         import pycsou.abc.arithmetic as arithmetic
 
-        assert isinstance(scalar, pyct.Real)
-        return arithmetic.ArgScaleRule(op=self, cst=scalar).op()
+        assert _is_real(scalar)
+        return arithmetic.ArgScaleRule(op=self, cst=float(scalar)).op()
 
     def argshift(self, shift: typ.Union[pyct.Real, pyct.NDArray]) -> pyct.OpT:
         """
@@ -406,6 +405,8 @@ class Operator:
         """
         import pycsou.abc.arithmetic as arithmetic
 
+        if _is_real(shift):
+            shift = float(shift)
         return arithmetic.ArgShiftRule(op=self, cst=shift).op()
 
     # Internal Helpers --------------------------------------------------------
@@ -2057,6 +2058,15 @@ def _core_operators() -> cabc.Set[pyct.OpC]:
             ops.add(_)
     ops.remove(Operator)
     return ops
+
+
+def _is_real(x) -> bool:
+    if isinstance(x, pyct.Real):
+        return True
+    elif isinstance(x, pycd.supported_array_types()) and (x.size == 1):
+        return True
+    else:
+        return False
 
 
 __all__ = [
