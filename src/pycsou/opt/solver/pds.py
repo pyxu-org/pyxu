@@ -1405,7 +1405,7 @@ class QuadraticADMM(_PDS):
         from pycsou.opt.solver import CG
 
         A = self._f._Q + (1 / tau) * self._K.gram()
-        b = (1 / tau) * self._K.adjoint(arr) - self._c.grad(arr)
+        b = (1 / tau) * self._K.adjoint(arr) - self._f._c.grad(arr)
         slvr = CG(A=A)
         slvr.fit(b=b)
         return slvr.solution()
