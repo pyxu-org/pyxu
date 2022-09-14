@@ -64,7 +64,7 @@ class QuadraticFunc(pyca._QuadraticFunc):
 
     * ``QF(Q1, c1, t1) + QF(Q2, c2, t2) = QF(Q1+Q2, c1+c2, t1+t2)``
     * ``QF(Q, c, t) + LinFunc(d) = QF(Q, c+d, t)``
-    * ``QF(Q, c, t) * a = QF(a*Q, a*c, a*t)``, :math:`a \in \mathbb{R}_{+}.
+    * ``QF(Q, c, t) * a = QF(a*Q, a*c, a*t)``, :math:`a \in \mathbb{R}_{+}`.
     * ``QF(Q, c, t) * A = QF(A*Q*A, A*c, t)``, :math:`A` positive-definite.
     * ``QF(Q, c, t).argscale(a) = QF(a**2 * Q, a*c, t)``, :math:`a \in \mathbb{R}`.
     * ``QF(Q, c, t).argshift(y) = QF(Q, c + Q*y, QF(Q, c, t).apply(y))``, :math:`y \in \mathbb{R}^{N}`.
