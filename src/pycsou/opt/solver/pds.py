@@ -1369,7 +1369,7 @@ class QuadraticADMM(_PDS):
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x", "u", "z")))
-        super(QuadraticADMM).__init__(
+        super(QuadraticADMM, self).__init__(
             f=f,
             g=None,
             h=h,
