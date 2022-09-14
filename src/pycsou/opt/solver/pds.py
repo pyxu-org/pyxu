@@ -1254,7 +1254,7 @@ class ADMM(_PDS):
             **kwargs,
         )
 
-    @pycrt.enforce_precision(i=["x0", "z0", "tau", "sigma", "rho"], allow_None=True)
+    @pycrt.enforce_precision(i=["x0", "z0", "tau", "rho"], allow_None=True)
     def m_init(
         self,
         x0: pyct.NDArray,
@@ -1378,7 +1378,7 @@ class QuadraticADMM(_PDS):
             **kwargs,
         )
 
-    @pycrt.enforce_precision(i=["x0", "z0", "tau", "sigma", "rho"], allow_None=True)
+    @pycrt.enforce_precision(i=["x0", "z0", "tau", "rho"], allow_None=True)
     def m_init(
         self,
         x0: pyct.NDArray,
