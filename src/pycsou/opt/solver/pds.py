@@ -1263,7 +1263,7 @@ class ADMM(_PDS):
         rho: typ.Optional[pyct.Real] = None,
         tuning_strategy: typ.Literal[1, 2, 3] = 1,
     ):
-        super(ADMM, self).m_init(x0=x0, z0=z0, tau=tau, sigma=1 / tau, rho=rho, tuning_strategy=tuning_strategy)
+        super(ADMM, self).m_init(x0=x0, z0=z0, tau=tau, sigma=None, rho=rho, tuning_strategy=tuning_strategy)
         self._mstate["u"] = x0 if x0.ndim > 1 else x0.reshape(1, -1)
 
     def m_step(
@@ -1387,9 +1387,7 @@ class QuadraticADMM(_PDS):
         rho: typ.Optional[pyct.Real] = None,
         tuning_strategy: typ.Literal[1, 2, 3] = 1,
     ):
-        super(QuadraticADMM, self).m_init(
-            x0=x0, z0=z0, tau=tau, sigma=1 / tau, rho=rho, tuning_strategy=tuning_strategy
-        )
+        super(QuadraticADMM, self).m_init(x0=x0, z0=z0, tau=tau, sigma=None, rho=rho, tuning_strategy=tuning_strategy)
         self._mstate["u"] = self._K(x0) if x0.ndim > 1 else self._K(x0).reshape(1, -1)
 
     def m_step(
