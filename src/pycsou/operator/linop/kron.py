@@ -254,21 +254,92 @@ def khatri_rao(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
     -------
     op: pyct.OpT
         (mA*mB, n) linear operator.
+
+    Notes
+    -----
+    A matrix-free implementation of the Khatri-Rao product, i.e. a method which only relies on
+    ``apply()`` / ``adjoint()`` , does not allow the same optimizations as a matrix-based
+    implementation.
+    Thus the Khatri-Rao product as implemented here is only marginally more efficient than applying
+    :py:func:`~pycsou.operator.linop.kron.kron` and pruning its output.
     """
-    # Preserved properties:
-    #     square (if output square)
-    # Rules
-    #     (A \kr B)(x) = vec(B * diag(x) * A.T)
-    #     (A \kr B).H(x) = diag(B.H * mat(x) * A.conj)
-    #     (A \kr B)._lipschitz = inf
-    #     (A \kr B).asarray() = A.asarray() \kr B.asarray()
-    #     (A \kr B).gram() =   default algorithm
-    #     (A \kr B).cogram() = default algorithm
-    #     (A \kr B).svdvals(k, which) = default algorithm
-    #     (A \kr B).eigvals(k, which) = default algorithm
-    #     (A \kr B).pinv(x, tau) = default algorithm
-    #     (A \kr B).dagger(tau) = default algorithm
-    #     tr(A \kr B) = default algorithm
-    #     (A \kr B)._expr() = ("kr", A, B)
-    # squeeze before return
-    pass
+
+    def _infer_op_shape(shA: pyct.Shape, shB: pyct.Shape) -> pyct.Shape:
+        if shA[1] != shB[1]:
+            raise ValueError(f"Khatri-Rao product of {shA} and {shB} operators forbidden.")
+        sh = (shA[0] * shB[0], shA[1])
+        return sh
+
+    def _infer_op_klass(A: pyct.OpT, B: pyct.OpT) -> pyct.OpC:
+        # linear \kr linear -> linear
+        # square (if output square)
+        sh = _infer_op_shape(A.shape, B.shape)
+        if sh[0] == 1:
+            klass = pyco.LinFunc
+        else:
+            properties = set(pyco.LinOp.properties())
+            if sh[0] == sh[1]:
+                properties.add(pyco.Property.LINEAR_SQUARE)
+            klass = pyco.Operator._infer_operator_type(properties)
+        return klass
+
+    @pycrt.enforce_precision(i="arr")
+    def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
+        # If `x` is a vector, then:
+        #     (A \kr B)(x) = vec(B * diag(x) * A.T)
+        sh_prefix = arr.shape[:-1]
+        sh_dim = len(sh_prefix)
+        xp = pycu.get_array_module(arr)
+        I = xp.eye(N=_.dim, dtype=arr.dtype)  # (dim, dim)
+
+        x = arr.reshape((*sh_prefix, 1, _.dim))  # (..., 1, dim)
+        y = _._B.apply(x * I)  # (..., dim, B.codim)
+        z = y.transpose((*range(sh_dim), -1, -2))  # (..., B.codim, dim)
+        t = _._A.apply(z)  # (..., B.codim, A.codim)
+        u = t.transpose((*range(sh_dim), -1, -2))  # (..., A.codim, B.codim)
+
+        out = u.reshape((*sh_prefix, -1))  # (..., A.codim * B.codim)
+        return out
+
+    @pycrt.enforce_precision(i="arr")
+    def op_adjoint(_, arr: pyct.NDArray) -> pyct.NDArray:
+        # If `x` is a vector, then:
+        #     (A \kr B).H(x) = diag(B.H * mat(x) * A.conj)
+        sh_prefix = arr.shape[:-1]
+        sh_dim = len(sh_prefix)
+        xp = pycu.get_array_module(arr)
+        I = xp.eye(N=_.dim, dtype=arr.dtype)
+
+        x = arr.reshape((*sh_prefix, _._A.codim, _._B.codim))  # (..., A.codim, B.codim)
+        y = _._B.adjoint(x)  # (..., A.codim, B.dim)
+        z = y.transpose((*range(sh_dim), -1, -2))  # (..., dim, A.codim)
+        t = pycu.copy_if_unsafe(_._A.adjoint(z))  # (..., dim, dim)
+        t *= I
+
+        out = t.sum(axis=-1)  # (..., dim)
+        return out
+
+    def op_asarray(_, **kwargs) -> pyct.NDArray:
+        # (A \kr B).asarray()[:,i] = A.asarray()[:,i] \kron B.asarray()[:,i]
+        A = _._A.asarray(**kwargs).T.reshape((_.dim, _._A.codim, 1))
+        B = _._B.asarray(**kwargs).T.reshape((_.dim, 1, _._B.codim))
+        C = (A * B).reshape((_.dim, -1)).T
+        return C
+
+    def op_expr(_) -> tuple:
+        return ("khatri_rao", _._A, _._B)
+
+    _A = A.squeeze()
+    _B = B.squeeze()
+    if not (klass := _infer_op_klass(_A, _B)).has(pyco.Property.LINEAR):
+        raise ValueError("Khatri-Rao product is defined for linear operators only.")
+    op = klass(shape=_infer_op_shape(_A.shape, _B.shape))
+    op._name = "khatri_rao"
+    op._A = _A  # embed for introspection
+    op._B = _B  # embed for introspection
+
+    op.apply = types.MethodType(op_apply, op)
+    op.adjoint = types.MethodType(op_adjoint, op)
+    op.asarray = types.MethodType(op_asarray, op)
+    op._expr = types.MethodType(op_expr, op)
+    return op
