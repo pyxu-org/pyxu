@@ -131,15 +131,26 @@ def kron(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
         #     A.svdvals(k, which),
         #     B.svdvals(k, which)
         #   ).[top|bottom](k)
-        D_A = _._A.svdvals(**kwargs)
-        D_B = _._B.svdvals(**kwargs)
-
-        xp = pycu.get_array_module(D_A)
-        D_C = xp.sort(xp.outer(D_A, D_B), axis=None)
-
         k = kwargs.get("k", 1)
         which = kwargs.get("which", "LM")
-        return D_C[:k] if (which.upper() == "SM") else D_C[-k:]
+        if which.upper() == "SM":
+            # `scipy.sparse.linalg.svds()` and `scipy.linalg.svd()` will only return up to
+            # min(shape) singular values.
+            # As such (A.svdvals(), B.svdvals()) output is insufficient to infer SM-singular values
+            # of (A \kron B).
+            D_C = _.__class__.svdvals(_, **kwargs)
+        else:
+            D_A = _._A.svdvals(**kwargs)
+            D_B = _._B.svdvals(**kwargs)
+            xp = pycu.get_array_module(D_A)
+            pad_length = np.fmax(k - len(D_A) * len(D_B), 0)
+            D_C = xp.concatenate(
+                [
+                    xp.zeros(pad_length, dtype=D_A.dtype),
+                    xp.sort(xp.outer(D_A, D_B), axis=None),
+                ]
+            )[-k:]
+        return D_C
 
     def op_eigvals(_, **kwargs) -> pyct.NDArray:
         # (A \kron B).eigvals(k, which)
