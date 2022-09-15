@@ -121,13 +121,13 @@ def op_unitop():
 def op_selfadjointop():
     import pycsou_tests.operator.examples.test_selfadjointop as tc
 
-    return tc.CDO2(N=7)
+    return tc.SelfAdjointConvolution(N=7)
 
 
 def op_posdefop():
     import pycsou_tests.operator.examples.test_posdefop as tc
 
-    return tc.CDO4(N=7)
+    return tc.PSDConvolution(N=7)
 
 
 def op_projop():

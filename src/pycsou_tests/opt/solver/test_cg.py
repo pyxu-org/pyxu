@@ -11,13 +11,13 @@ import pycsou_tests.opt.solver.conftest as conftest
 class TestCG(conftest.SolverT):
     @staticmethod
     def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
-        from pycsou_tests.operator.examples.test_posdefop import CDO4
+        from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
         klass = [
             pycos.CG,
         ]
         kwargs_init = [
-            dict(A=CDO4(N=N)),
+            dict(A=PSDConvolution(N=N)),
         ]
 
         kwargs_fit = []
