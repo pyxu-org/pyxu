@@ -1,5 +1,10 @@
 import collections.abc as cabc
+import types
 
+import pycsou.abc.operator as pyco
+import pycsou.runtime as pycrt
+import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
 __all__ = [
@@ -230,37 +235,244 @@ def block_diag(ops: cabc.Sequence[pyct.OpT]) -> pyct.OpT:
     :py:func:`~pycsou.operator.block.block`,
     :py:func:`~pycsou.operator.block.coo_block`.
     """
-    # CAN_EVAL: always
-    #     op.apply(x) = concatenate([op1.apply(x1), ..., opN.apply(xN)], axis=-1)
-    #     op._lipschitz = inf
-    #     op.lipschitz(**kwargs) = max([op1.lipschitz(**kwargs), ..., opN.lipschitz(**kwargs)])
-    #                            + update _lipschitz
-    #     op._expr() = (op._name, op1, ..., opN)
-    #     op._name = "block_diag"
-    # DIFFERENTIABLE: [op1,...,opN] all differentiable
-    #     op.jacobian(x) = block_diag([op1.jacobian(x1), ..., opN.jacobian(xN)])
-    #     op._diff_lipschitz = inf
-    #     op.diff_lipschitz(**kwargs) = max([op1.diff_lipschitz(**kwargs), ..., opN.diff_lipschitz(**kwargs)])
-    #                                 + update _diff_lipschitz
-    # LINEAR: [op1,...,opN] all linear
-    #     op.adjoint(y) = concatenate([op1.adjoint(y1), ..., opN.adjoint(yN)], axis=-1)
-    #     op.asarray(**kwargs) = \diag([op1.asarray(**kwargs), ..., opN.asarray(**kwargs)])
-    #     op.svdvals(**kwargs) = [top|bottom-k]([op1.svdvals(**kwargs), ..., opN.svdvals(**kwargs)])
-    #     op.pinv(y, damp) = concatenate([op1.pinv(y1, damp), ..., opN.pinv(yN, damp)], axis=-1)
-    #     op.gram() = \diag([op1.gram(), ..., opN.gram()])
-    #     op.cogram() = \diag([op1.cogram(), ..., opN.cogram()])
-    # LINEAR_SQUARE: final shape square & all linear
-    #     op.trace(**kwargs) = if [op1,...,opN] square
-    #                              sum([op1.trace(**kwargs), ..., opN.trace(**kwargs)])
-    #                          else
-    #                              SquareOp.trace(**kwargs)
-    # LINEAR_NORMAL: [op1, ..., opN] all normal
-    #     op.eigvals(**kwargs) = [top|bottom-k]([op1.eigvals(**kwargs), ..., opN.eigvals(**kwargs)])
-    # LINEAR_IDEMPOTENT: [op1, ..., opN] all idempotent
-    # LINEAR_SELF_ADJOINT: [op1, ..., opN] all self-adjoint
-    # LINEAR_POSITIVE_DEFINITE: [op1, ..., opN] all positive-definite
-    # LINEAR_UNITARY: [op1, ..., opN] all unitary
-    pass
+
+    def _infer_op_shape(sh_ops: list[pyct.Shape]) -> pyct.Shape:
+        if any(_[1] == None for _ in sh_ops):
+            raise ValueError("Domain-agnostic operators are unsupported.")
+
+        dim, codim = 0, 0
+        for _ in sh_ops:
+            codim += _[0]
+            dim += _[1]
+        return (codim, dim)
+
+    def _infer_op_klass(ops: list[pyct.OpT]) -> pyct.OpC:
+        P = pyco.Property
+        properties = frozenset.intersection(*[op.properties() for op in ops])
+        properties -= {  # all functional-related properties are lost.
+            P.FUNCTIONAL,
+            P.PROXIMABLE,
+            P.DIFFERENTIABLE_FUNCTION,
+            P.QUADRATIC,
+        }
+        klass = pyco.Operator._infer_operator_type(properties)
+        return klass
+
+    @pycrt.enforce_precision(i="arr")
+    def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
+        # op.apply(x) = concatenate([op1.apply(x1), ..., opN.apply(xN)], axis=-1)
+        parts, i = [], 0
+        for op in _._ops:
+            p = op.apply(arr[..., i : i + op.dim])
+            parts.append(p)
+            i += op.dim
+
+        xp = pycu.get_array_module(arr)
+        out = xp.concatenate(parts, axis=-1)
+        return out
+
+    def op_lipschitz(_, **kwargs) -> pyct.Real:
+        # op.lipschitz(**kwargs) = max([op1.lipschitz(**kwargs), ..., opN.lipschitz(**kwargs)])
+        #                        + update _lipschitz
+        if _.has(pyco.Property.LINEAR):
+            L = _.__class__.lipschitz(_, **kwargs)
+        else:
+            L = max([op.lipschitz(**kwargs) for op in _._ops])
+        _._lipschitz = float(L)
+        return _._lipschitz
+
+    def op_jacobian(_, arr: pyct.NDArray) -> pyct.OpT:
+        # op.jacobian(x) = block_diag([op1.jacobian(x1), ..., opN.jacobian(xN)])
+        if not _.has(pyco.Property.DIFFERENTIABLE):
+            raise NotImplementedError
+
+        if _.has(pyco.Property.LINEAR):
+            out = _
+        else:
+            parts, i = [], 0
+            for op in _._ops:
+                p = op.jacobian(arr[..., i : i + op.dim])
+                parts.append(p)
+                i += op.dim
+
+            out = block_diag(parts)
+        return out
+
+    def op_diff_lipschitz(_, **kwargs) -> pyct.Real:
+        # op.diff_lipschitz(**kwargs) = max([op1.diff_lipschitz(**kwargs), ..., opN.diff_lipschitz(**kwargs)])
+        #                             + update _diff_lipschitz
+        if not _.has(pyco.Property.DIFFERENTIABLE):
+            raise NotImplementedError
+
+        if _.has(pyco.Property.LINEAR):
+            dL = _.__class__.diff_lipschitz(_, **kwargs)
+        else:
+            dL = max([op.diff_lipschitz(**kwargs) for op in _._ops])
+        _._diff_lipschitz = float(dL)
+        return _._diff_lipschitz
+
+    @pycrt.enforce_precision(i="arr")
+    def op_adjoint(_, arr: pyct.NDArray) -> pyct.NDArray:
+        # op.adjoint(y) = concatenate([op1.adjoint(y1), ..., opN.adjoint(yN)], axis=-1)
+        if not _.has(pyco.Property.LINEAR):
+            raise NotImplementedError
+
+        parts, i = [], 0
+        for op in _._ops:
+            p = op.adjoint(arr[..., i : i + op.codim])
+            parts.append(p)
+            i += op.codim
+
+        xp = pycu.get_array_module(arr)
+        out = xp.concatenate(parts, axis=-1)
+        return out
+
+    def op_asarray(_, **kwargs) -> pyct.NDArray:
+        # op.asarray(**kwargs) = \diag([op1.asarray(**kwargs), ..., opN.asarray(**kwargs)])
+        if not _.has(pyco.Property.LINEAR):
+            raise NotImplementedError
+
+        parts = []
+        for op in _._ops:
+            p = op.asarray(**kwargs)
+            parts.append(p)
+
+        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
+        dtype = kwargs.get("dtype", pycrt.getPrecision().value)
+        A, i, j = xp.zeros(_.shape, dtype=dtype), 0, 0
+        for op, p in zip(_._ops, parts):
+            A[i : i + op.codim, j : j + op.dim] = p
+            i += op.codim
+            j += op.dim
+        return A
+
+    def op_gram(_) -> pyct.OpT:
+        # op.gram() = \diag([op1.gram(), ..., opN.gram()])
+        if not _.has(pyco.Property.LINEAR):
+            raise NotImplementedError
+
+        parts = []
+        for op in _._ops:
+            p = op.gram()
+            parts.append(p)
+
+        G = block_diag(parts)
+        return G
+
+    def op_cogram(_) -> pyct.OpT:
+        # op.cogram() = \diag([op1.cogram(), ..., opN.cogram()])
+        if not _.has(pyco.Property.LINEAR):
+            raise NotImplementedError
+
+        parts = []
+        for op in _._ops:
+            p = op.cogram()
+            parts.append(p)
+
+        CG = block_diag(parts)
+        return CG
+
+    def op_svdvals(_, **kwargs) -> pyct.NDArray:
+        # op.svdvals(**kwargs) = [top|bottom-k]([op1.svdvals(**kwargs), ..., opN.svdvals(**kwargs)])
+        if not _.has(pyco.Property.LINEAR):
+            raise NotImplementedError
+
+        k = kwargs.get("k", 1)
+        which = kwargs.get("which", "LM")
+        if which.upper() == "SM":
+            D = _.__class__.svdvals(_, **kwargs)
+        else:
+            parts = []
+            for op in _._ops:
+                p = op.svdvals(**kwargs)
+                parts.append(p)
+
+            xp = pycu.get_array_module(parts[0])
+            D = xp.sort(xp.concatenate(parts, axis=0), axis=None)[-k:]
+        return D
+
+    def op_eigvals(_, **kwargs) -> pyct.NDArray:
+        # op.eigvals(**kwargs) = [top|bottom-k]([op1.eigvals(**kwargs), ..., opN.eigvals(**kwargs)])
+        if not _.has(pyco.Property.LINEAR_NORMAL):
+            raise NotImplementedError
+
+        parts = []
+        for op in _._ops:
+            p = op.eigvals(**kwargs)
+            parts.append(p)
+
+        xp = pycu.get_array_module(parts[0])
+        D = xp.concatenate(parts, axis=0)
+        D = D[xp.argsort(xp.abs(D))]
+
+        k = kwargs.get("k", 1)
+        which = kwargs.get("which", "LM")
+        D = D[:k] if (which.upper() == "SM") else D[-k:]
+        return D
+
+    @pycrt.enforce_precision(i="arr")
+    def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+        # op.pinv(y, damp) = concatenate([op1.pinv(y1, damp), ..., opN.pinv(yN, damp)], axis=-1)
+        if not _.has(pyco.Property.LINEAR):
+            raise NotImplementedError
+
+        parts, i = [], 0
+        for op in _._ops:
+            p = op.pinv(arr[..., i : i + op.codim], **kwargs)
+            parts.append(p)
+            i += op.codim
+
+        xp = pycu.get_array_module(arr)
+        out = xp.concatenate(parts, axis=-1)
+        return out
+
+    def op_trace(_, **kwargs) -> pyct.Real:
+        # op.trace(**kwargs) = if [op1,...,opN] square
+        #                          sum([op1.trace(**kwargs), ..., opN.trace(**kwargs)])
+        #                      else
+        #                          SquareOp.trace(**kwargs)
+        if not _.has(pyco.Property.LINEAR_SQUARE):
+            raise NotImplementedError
+
+        if all(op.has(pyco.Property.LINEAR_SQUARE) for op in _._ops):
+            parts = []
+            for op in _._ops:
+                p = op.trace(**kwargs)
+                parts.append(p)
+            tr = sum(parts)
+        else:  # default fallback
+            tr = pyco.SquareOp.trace(_, **kwargs)
+        return float(tr)
+
+    def op_expr(_) -> tuple:
+        return ("block_diag", *_._ops)
+
+    if len(ops) == 1:
+        op = ops[0].squeeze()
+    else:
+        _ops = [op.squeeze() for op in ops]
+        klass = _infer_op_klass(_ops)
+
+        _sh_ops = [op.shape for op in ops]
+        sh_op = _infer_op_shape(_sh_ops)
+
+        op = klass(shape=sh_op)
+        op._ops = _ops  # embed for introspection
+
+        op.apply = types.MethodType(op_apply, op)
+        op.lipschitz = types.MethodType(op_lipschitz, op)
+        op.jacobian = types.MethodType(op_jacobian, op)
+        op.diff_lipschitz = types.MethodType(op_diff_lipschitz, op)
+        op.adjoint = types.MethodType(op_adjoint, op)
+        op.asarray = types.MethodType(op_asarray, op)
+        op.gram = types.MethodType(op_gram, op)
+        op.cogram = types.MethodType(op_cogram, op)
+        op.svdvals = types.MethodType(op_svdvals, op)
+        op.eigvals = types.MethodType(op_eigvals, op)
+        op.pinv = types.MethodType(op_pinv, op)
+        op.trace = types.MethodType(op_trace, op)
+        op._expr = types.MethodType(op_expr, op)
+    return op
 
 
 def block(
