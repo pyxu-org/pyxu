@@ -8,7 +8,6 @@ Subpackages
    :maxdepth: 4
 
    pycsou.abc
-   pycsou.compound
    pycsou.operator
    pycsou.math
    pycsou.opt
