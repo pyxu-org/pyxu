@@ -11,6 +11,7 @@ __all__ = [
     "get_array_module",
     "read_only",
     "redirect",
+    "to_NUMPY",
 ]
 
 
@@ -79,6 +80,38 @@ def compute(*args, mode: str = "compute", **kwargs):
     if len(args) == 1:
         cargs = cargs[0]
     return cargs
+
+
+def to_NUMPY(x: pyct.NDArray) -> pyct.NDArray:
+    """
+    Convert an array from a specific backend to NUMPY.
+
+    Parameters
+    ----------
+    x: pyct.NDArray
+        Array to be converted.
+
+    Returns
+    -------
+    y: pyct.NDArray
+        Array with NumPy backend.
+
+    Notes
+    -----
+    This function is a no-op if the array is already a NumPy array.
+    """
+    N = pycd.NDArrayInfo
+    ndi = N.from_obj(x)
+    if ndi == N.NUMPY:
+        y = x
+    elif ndi == N.DASK:
+        y = compute(x)
+    elif ndi == N.CUPY:
+        y = x.get()
+    else:
+        msg = f"Dev-action required: define behaviour for {ndi}."
+        raise ValueError(msg)
+    return y
 
 
 def redirect(

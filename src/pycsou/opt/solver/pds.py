@@ -18,6 +18,7 @@ __all__ = [
     *("DavisYin", "DY"),
     *("DouglasRachford", "DR"),
     "ADMM",
+    "QuadraticADMM",
     *("ForwardBackward", "FB"),
     *("ProximalPoint", "PP"),
 ]
@@ -1253,7 +1254,7 @@ class ADMM(_PDS):
             **kwargs,
         )
 
-    @pycrt.enforce_precision(i=["x0", "z0", "tau", "sigma", "rho"], allow_None=True)
+    @pycrt.enforce_precision(i=["x0", "z0", "tau", "rho"], allow_None=True)
     def m_init(
         self,
         x0: pyct.NDArray,
@@ -1262,7 +1263,7 @@ class ADMM(_PDS):
         rho: typ.Optional[pyct.Real] = None,
         tuning_strategy: typ.Literal[1, 2, 3] = 1,
     ):
-        super(ADMM, self).m_init(x0=x0, z0=z0, tau=tau, sigma=1 / tau, rho=rho, tuning_strategy=tuning_strategy)
+        super(ADMM, self).m_init(x0=x0, z0=z0, tau=tau, sigma=None, rho=rho, tuning_strategy=tuning_strategy)
         self._mstate["u"] = x0 if x0.ndim > 1 else x0.reshape(1, -1)
 
     def m_step(
@@ -1289,6 +1290,136 @@ class ADMM(_PDS):
             return data.get("z") / self._mstate["tau"]
         else:
             raise ValueError(f"Parameter which must be one of ['primal_g', 'primal_h', 'dual'] got: {which}.")
+
+    def _set_step_sizes(
+        self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real], gamma: pyct.Real
+    ) -> typ.Tuple[pyct.Real, pyct.Real, pyct.Real]:
+        if tau is not None:
+            assert tau > 0, f"Parameter tau must be positive, got {tau}."
+        else:
+            tau = 1.0
+        delta = 2.0
+        return pycrt.coerce(tau), pycrt.coerce(1 / tau), pycrt.coerce(delta)
+
+
+class QuadraticADMM(_PDS):
+    r"""
+    Specialized ADMM algorithm for problems involving a quadratic and non-smooth composite terms.
+
+    This algorithm can be used to solve problems of the form:
+
+    .. math::
+
+       \min_{\mathbf{x}\in\mathbb{R}^N} \quad \mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K}\mathbf{x}),
+
+    where:
+
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}_+` is a *quadratic functional* (see :py:class:`~pycsou.operator.func.quadratic.QuadraticFunc` for a definition),
+    * :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` is a *proper*, *lower semicontinuous* and *convex function* with *simple proximal operator*.
+    * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *linear operator* with **operator norm**: :math:`\Vert{\mathbf{K}}\Vert_2`,
+    * The problem is *feasible* --i.e. there exists at least one solution.
+
+    **Remark 1:**
+
+    The algorithm is still valid if :math:`\mathcal{H}` is zero.
+
+    **Remark 2:**
+    This algorithm handles the non-smooth composite term by means of a change of variable and the infimal postcomposition
+    trick discussed in Section 5.4 [PSA]_.
+    This technique requires inverting the weighted average of the quadratic functional's Hessian and the Gramian of :math:`\mathbf{K}` at each iteration,
+    which can be expensive if the Hessian/Gramian cannot be evaluated with fast algorithms. In practice, the inversion is performed
+    via Pycsou's conjugate gradient method :py:class:`~pycsou.opt.solver.cg.CG`. Note that this algorithm **does not require** the
+    diff-lipschitz constant of :math:`\mathcal{F}` to be known!
+
+    **Initialization parameters of the class:**
+
+    f: QuadraticFunc | None
+        Quadratic functional, instance of :py:class:`~pycsou.operator.func.quadratic.QuadraticFunc`.
+    h: ProxFunc | None
+        Proximable functional, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+    K: LinOp | None
+        Linear operator,  instance of :py:class:`~pycsou.abc.operator.LinOp`.
+
+    **Parameterization** of the ``fit()`` method:
+
+    x0: NDArray
+        (..., N) initial point(s) for the primal variable.
+    z0: NDArray
+        (..., N) initial point(s) for the dual variable.
+        If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
+    tau: Real | None
+        Primal step size.
+    rho: Real | None
+        Momentum parameter.
+    tuning_strategy: [1, 2, 3]
+        Strategy to be employed when setting the hyperparameters (default to 1). See base class for more details.
+
+
+    See Also
+    --------
+    :py:class:`~pycsou.opt.solver.pds.ADMM`, :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`,
+    :py:class:`~pycsou.opt.solver.pgd.PGD`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`
+    """
+
+    def __init__(
+        self,
+        f: typ.Optional[pycf.QuadraticFunc] = None,
+        h: typ.Optional[pyca.ProxFunc] = None,
+        K: typ.Optional[pyca.DiffMap] = None,
+        **kwargs,
+    ):
+        kwargs.update(log_var=kwargs.get("log_var", ("x", "u", "z")))
+        super(QuadraticADMM, self).__init__(
+            f=f,
+            g=None,
+            h=h,
+            K=K,
+            beta=1,  # Beta is irrelevant here, set it to 1 arbitrarily to prevent _PDS from complaining.
+            **kwargs,
+        )
+
+    @pycrt.enforce_precision(i=["x0", "z0", "tau", "rho"], allow_None=True)
+    def m_init(
+        self,
+        x0: pyct.NDArray,
+        z0: typ.Optional[pyct.NDArray] = None,
+        tau: typ.Optional[pyct.Real] = None,
+        rho: typ.Optional[pyct.Real] = None,
+        tuning_strategy: typ.Literal[1, 2, 3] = 1,
+    ):
+        super(QuadraticADMM, self).m_init(x0=x0, z0=z0, tau=tau, sigma=None, rho=rho, tuning_strategy=tuning_strategy)
+        self._mstate["u"] = self._K(x0) if x0.ndim > 1 else self._K(x0).reshape(1, -1)
+
+    def m_step(
+        self,
+    ):  # Algorithm (145) in [PSA]_.
+
+        mst = self._mstate
+        mst["x"] = self._quadratic_modified_prox(mst["u"] - mst["z"], tau=mst["tau"])
+        z_temp = mst["z"] + self._K(mst["x"]) - mst["u"]
+        if not self._h._name == "NullFunc":
+            mst["u"] = self._h.prox(self._K(mst["x"]) + z_temp, tau=mst["tau"])
+        mst["z"] = z_temp + (mst["rho"] - 1) * (self._K(mst["x"]) - mst["u"])
+
+    def _quadratic_modified_prox(self, arr: pyct.NDArray, tau: float) -> pyct.NDArray:
+        from pycsou.opt.solver import CG
+
+        A = self._f._Q + (1 / tau) * self._K.gram()
+        b = (1 / tau) * self._K.adjoint(arr) - self._f._c.grad(arr)
+        slvr = CG(A=A)
+        slvr.fit(b=b)
+        return slvr.solution()
+
+    def solution(self, which: typ.Literal["primal", "dual"] = "primal") -> pyct.NDArray:
+        data, _ = self.stats()
+        if which == "primal":
+            assert "x" in data.keys(), "Primal variable x was not logged (declare it in log_var to log it)."
+            return data.get("x")
+        elif which == "dual":
+            assert "z" in data.keys(), "Dual variable z was not logged (declare it in log_var to log it)."
+            return data.get("z") / self._mstate["tau"]
+        else:
+            raise ValueError(f"Parameter which must be one of ['primal', 'dual'] got: {which}.")
 
     def _set_step_sizes(
         self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real], gamma: pyct.Real

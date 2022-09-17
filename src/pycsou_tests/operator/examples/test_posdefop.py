@@ -1,6 +1,5 @@
 import itertools
 
-import dask.array as da
 import numpy as np
 import pytest
 
@@ -11,39 +10,34 @@ import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
-class CDO4(pyca.PosDefOp):
-    # Central Difference of Order 4 (implemented as cascade of 2 CDO2)
+def filterF(N: int) -> np.ndarray:
+    hF = np.r_[1.0, np.r_[1 : (N - 1) // 2 + 1], -np.r_[-(N // 2) : 0]]
+    hF /= np.abs(hF).max()
+    return hF
+
+
+class PSDConvolution(pyca.PosDefOp):
+    # Convolution where the filter coefficients imply operator is positive-definite.
     def __init__(self, N: int):
+        assert N % 2 == 1, "Even-length filters are unsupported."
         super().__init__(shape=(N, N))
-
-    def _apply(self, arr):
-        xp = pycu.get_array_module(arr)
-        h = xp.array([1, -4, 6, -4, 1], dtype=arr.dtype)
-        out = xp.convolve(arr, h)[2:-2]
-        return out
-
-    def _apply_dask(self, arr):
-        out = da.map_overlap(
-            self._apply,
-            arr,
-            depth=4,
-            boundary=0,
-            trim=True,
-            dtype=arr.dtype,
-        )
-        return out
+        self._lipschitz = np.inf
+        self._hF = filterF(N)
 
     @pycrt.enforce_precision(i="arr")
-    @pycu.vectorize("arr")
-    @pycu.redirect("arr", DASK=_apply_dask)
     def apply(self, arr):
-        return self._apply(arr)
+        xp = pycu.get_array_module(arr)
+        fw = lambda _: xp.fft.fft(_, axis=-1)
+        bw = lambda _: xp.fft.ifft(_, axis=-1)
+        hF = xp.array(self._hF, dtype=arr.dtype)
+        out = bw(hF * fw(arr)).real
+        return out.astype(arr.dtype, copy=False)
 
 
-class TestCDO4(conftest.PosDefOpT):
+class TestPSDConvolution(conftest.PosDefOpT):
     @pytest.fixture(
         params=itertools.product(
-            ((10, CDO4(N=10)),),  # dim, op
+            ((11, PSDConvolution(N=11)),),  # dim, op
             pycd.NDArrayInfo,
             pycrt.Width,
         )
@@ -65,16 +59,14 @@ class TestCDO4(conftest.PosDefOpT):
 
     @pytest.fixture
     def data_apply(self, dim):
-        x = self._random_array((dim,))
-        y = np.zeros_like(x)
-        a, b, c = 1, -4, 6
-        y[0] = c * x[0] + b * x[1] + a * x[2]
-        y[1] = b * x[0] + c * x[1] + b * x[2] + a * x[3]
-        for i in range(2, dim - 2):
-            y[i] = a * x[i - 2] + b * x[i - 1] + c * x[i] + b * x[i + 1] + a * x[i + 2]
-        y[-2] = a * x[-4] + b * x[-3] + c * x[-2] + b * x[-1]
-        y[-1] = a * x[-3] + b * x[-2] + c * x[-1]
+        F = np.fft.ifft(filterF(dim)).real
+        N = F.size
+        arr = self._random_array((N,))
+        out = np.zeros((N,))
+        for n in range(N):
+            for k in range(N):
+                out[n] += arr[k] * F[n - k % N]
         return dict(
-            in_=dict(arr=x),
-            out=y,
+            in_=dict(arr=arr),
+            out=out,
         )
