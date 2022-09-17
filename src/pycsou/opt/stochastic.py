@@ -1,22 +1,16 @@
 import abc
 import collections.abc as cabc
 import functools
-import itertools
-import operator
-import types
 import typing as typ
 import warnings
 
 import dask.array as da
 import numpy as np
 import sparse
-import toolz
 
-import pycsou._dev as dev
 import pycsou.abc.operator as pyco
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
-import pycsou.util.operator as pycuo
 import pycsou.util.ptype as pyct
 
 if pycd.CUPY_ENABLED:
@@ -25,27 +19,46 @@ if pycd.CUPY_ENABLED:
 __all__ = [
     "Dataset",
     "NpzDataset",
-    "ChunkDataset",
+    "DataLoader",
+    "ChunkDataloader",
+    "BatchOp",
     "ChunkOp",
     "Batch",
+    "GradStrategy",
     "SGD",
     "Stochastic",
 ]
 
+# TODO how to deal with data_shape ? - will it be some part of core pycsou?
 
+
+# TODO refacotor base classes into abc Dataset,
+# what is wrong - how to get the class attributes necessary (shape, ndim, dtype) without this weird _load() thing
 class Dataset(cabc.Sequence):
     r"""
-    Base class for loading data.
+    An abstract base class representing :py::class:`Dataset`.
 
-    We use dask to batch the data, therefore we must provide .shape, .ndim, .dtype and support numpy-style slicing.
+    All subclasses should overwrite :py:meth:`~pycsou.opt.stochastic.Dataset._load` which should output an
+    object holding the data and the relevant attributes.
 
-    **Initialization parameters of the class:**
-
-    path : pyct.PathLike
+    Parameters
+    ----------
+    path : pyct.Path
         Filepath to load
+
+    gpu : bool
+        load data in gpu or cpu format
+
+    Notes
+    -----
+    If the dataset is very large, the data object can be constructed to not load the entire dataset in memory.
+    Rather the dataset can be read piece by piece from disk and combined with a stochastic methodology linear inverse
+    problems can be solved even if the data is too large to fit into memory.
+
+    We use dask to batch the data, therefore we must provide `.shape, .ndim, .dtype and support numpy-style slicing <https://docs.dask.org/en/stable/generated/dask.array.from_array.html>`_.
     """
 
-    def __init__(self, path: pyct.PathLike, gpu: bool):
+    def __init__(self, path: pyct.Path, gpu: bool):
         self.path = path
         self.gpu = gpu
         self.data, self._shape, self._ndim, self._dtype = self._load(self.path)
@@ -63,7 +76,27 @@ class Dataset(cabc.Sequence):
         return len(self.data)
 
     @abc.abstractmethod
-    def _load(self, path: pyct.PathLike):
+    def _load(self, path: pyct.Path) -> tuple[cabc.Sequence, pyct.Shape, pyct.Integer, pyct.DType]:
+        r"""
+        Parameters
+        ----------
+        path : pyct.Path
+            Filepath to load
+
+        Returns
+        -------
+        data : cabc.Sequence
+            object that has a :py:meth:`__getitem__`
+        _shape : pyct.Shape
+            shape of stored dataset
+        _ndim : pyct.Integer
+            number of dimensions of data
+        _dtype : pyct.DType
+
+        Note
+        -------
+        shape should abide by pycsou rules for NDArray shape
+        """
         raise NotImplementedError
 
     @property
@@ -83,20 +116,18 @@ class Dataset(cabc.Sequence):
         return self._size
 
 
+Loader = typ.Union[cabc.Sequence, Dataset]  # TODO after refactor point Dataset to correct spot
+
+
 class NpzDataset(Dataset):
     r"""
     NPZ file format loader.
 
     Uses mmap_mode which allows us to access small segments of large files on disk, without reading the entire file
     into memory.
-
-    **Initialization parameters of the class:**
-
-    path : pyct.PathLike
-        Filepath to load
     """
 
-    def __init__(self, path: pyct.PathLike, gpu: bool = False):
+    def __init__(self, path: pyct.Path, gpu: bool = False):
         super().__init__(path, gpu)
 
     def _load(self, path):
@@ -107,48 +138,101 @@ class NpzDataset(Dataset):
         return data, data.shape, data.ndim, data.dtype
 
 
-class ChunkDataset(cabc.Sequence):
+class DataLoader(cabc.Sequence):
     r"""
-    Generator that batches data into chunks and yields chunks based on an index.
+    Abstract class DataLoader. Given a dataset, gives batches of the data.
 
-    **Initialization parameters of the class:**
+    All subclasses should overwrite:
+    :py:meth:`~pycsou.opt.stochastic.DataLoader.__getitem__` which takes an index and returns a batch of the dataset and potentially other meta-information about that batch of data.
+    :py:meth:`~pycsou.opt.stochastic.DataLoader.len` which outputs the number of batches in the dataset.
+    :py:meth:`~pycsou.opt.stochastic.DataLoader.communicate` which communicates meta-information about the dataset and batching scheme in :py:class:`Batch`. This is information that needs to be communicated only once before the optimization process begins.
+    so the user doesn't have to provide this information twice.
 
-    loader : Dataset-type
-        Object that makes data available.
-    data_shape: pyct.Shape
-        how to reshape the data dimension
-    chunks : int, tuple
-        Shape of 1 batch of data.
+    See Also
+    -------
+    :py:class:`~pycsou.opt.stochastic.Batch`
+    """
 
-    **Remark 1:**
+    def __init__(self, load: Loader, data_shape: pyct.Shape):
+        self.load = load
+        self.data_shape = data_shape
 
-    Loader is assumed to provide data baseed on the pycsou standard of (stacking dimensions, 1 data dimension).
-    For example for a color photograph this would be (C, H*W) with channels as the stacking dimension.
+    @abc.abstractmethod
+    def __getitem__(self, index: pyct.Integer):
+        r"""
+        Should provide data itself and any information that is necessary on a per-batch basis.
+        """
+        raise NotImplementedError
 
-    **Remark 2:**
+    @abc.abstractmethod
+    def len(self):
+        r"""
+        Number of batches in the dataset
+        """
+        raise NotImplementedError
 
+    @abc.abstractmethod
+    def communicate(self):
+        r"""
+        Communicate meta information about the dataset and batching.
+        """
+        raise NotImplementedError
+
+
+class ChunkDataloader(DataLoader):
+    r"""
+    Batches data following a chunking strategy using dask in the internals.
+    Should be used in conjunction with `~pycsou.opt.stochastic.ChunkOp` as the DataLoading strategy must work in
+    conjunction with the Operator batching strategy.
+
+    We use dask under the hood to create `chunks <https://docs.dask.org/en/stable/array-chunks.html>_`.
+
+    Note
+    ----------
     Not all batches are guaranteed to be the same size. If the data shape is not divisible by chunks then dask
-    will handle the edges by creating smaller chunks.
+    will handle the edges by creating smaller chunks. This can cause potential issues surrounding the step size hyperparameters.
+    We advise to make your data divisible into evenly spaced chunks. This could mean potentially padding or cutting your data.
 
+    See Also
+    ----------
+    :py:class:`~pycsou.opt.stochastic.ChunkOp`
     """
 
     # TODO what if load is already a dask array -> redirect or if statement
-    def __init__(self, load, data_shape, chunks: pyct.Shape):
-        self.load = load
-        self.data_shape = data_shape
-        self.data_ndim = len(self.data_shape)
+    def __init__(self, load: Loader, data_shape: pyct.Shape, chunks: pyct.Shape):
+        r"""
+        Parameters
+        ----------
+        load : Loader
+            object to query data from
+        data_shape : pyct.Shape
+            This should represent the actual shape of your data. This should not abide by rules for pycsou ndarrays.
+            For example a 2d image would be represented by (H,W).
+        chunks
+            the size of one chunk of data.
 
+        Note
+        ----------
+        The number of dimensions of chunks should match number of dimensions of data_shape.
+        """
+        super().__init__(load, data_shape)
+
+        self.data_ndim = len(self.data_shape)
         self.chunks = chunks
+        if self.data_ndim != len(self.chunks):
+            msg = f"chunk dim of {len(self.chunks)} doesn't match data dim of {self.data_ndim}"
+            raise ValueError(msg)
+
         self.global_shape = self.load.shape
         self.stack_shape = self.global_shape[:-1]
 
+        # TODO think we can just say da.array() but need to look into that
         self.data = (
             da.from_array(self.load)
             .reshape(*self.stack_shape, *self.data_shape)
             .rechunk(chunks=(*self.stack_shape, *self.chunks))
         )
 
-        # Went with name chunkLoader, but it doesn't correspond to what dask calls chunks. Changed name to blocks.
         self.blocks = self.data.chunks
         self.block_dim = [len(c) for c in self.blocks]
         self.indices = (
@@ -157,28 +241,28 @@ class ChunkDataset(cabc.Sequence):
             .rechunk(chunks=(*self.stack_shape, *self.chunks))
         )
 
-    def __getitem__(self, b_index: int) -> tuple[pyct.NDArray, pyct.NDArray]:
+    # TODO we don't actually use the indices rn. Also think indices may be weird especially for stacking dimenions.
+    # need to think further about the indices.
+    def __getitem__(self, b_index: pyct.Integer) -> tuple[pyct.NDArray, pyct.NDArray]:
         r"""
         Parameters
         ----------
-        b_index : int
+        b_index : pyct.Integer
             index for 1 batch of data
 
         Returns
         -------
-        NDArray
+        batch : pyct.NDArray
             flattened batch of data
-        LinOp
-            batched operator according to create_op
-        np.array
-            ND-indices flattened
+        ind : pyct.NDArray
+            indices corresponding to the data in the array
         """
         i = np.unravel_index(b_index, self.block_dim)
 
         batch = self.data.blocks[i]
         ind = self.indices.blocks[i]
 
-        return (batch.compute().reshape(*self.stack_shape, -1), ind.compute().flatten())
+        return batch.compute().reshape(*self.stack_shape, -1), ind.compute().flatten()
 
     def __len__(self):
         return self.data.npartitions
@@ -187,21 +271,167 @@ class ChunkDataset(cabc.Sequence):
         return {"blocks": self.blocks, "block_dim": self.block_dim, "stack_shape": self.stack_shape}
 
 
-class ChunkOp(pyco.LinOp):
-    def __init__(self, op: pyco.LinOp, depth=None, boundary=None):
-        # TODO check that depth is not larger than any chunk (otherwise is rechunked which is not good)
+# TODO think about name at some point
+class BatchOp(pyco.LinOp):
+    r"""
+    Abstract class for BatchOp, ie Batched Operators. Creates an operator that mimics a global pyco.LinOp but
+    operates on a batch of the data.
+
+    Works in conjunction with a ':py:class:`~pycsou.opt.stochastic.DataLoader`' class. The Dataloader provides the data,
+    and this class provides the operator.
+
+    All subclasses should overwrite:
+    :py:meth:`~pycsou.opt.stochastic.BatchOp.startup`
+    :py:meth:`~pycsou.opt.stochastic.BatchOp.__getitem__`
+
+    Along with the subclasses for pyco.LinOp:
+    :py:meth:`~pycsou.abc.operator.LinOp.apply`
+    :py:meth:`~pycsou.abc.operator.LinOp.adjoint`
+
+    See Also
+    -------
+    :py:class:`~pycsou.opt.stochastic.DataLoader`
+    :py:class:`~pycsou.opt.stochastic.ChunkOp`
+    """
+
+    def __init__(self, op: pyco.LinOp):
         self.op = op
+        # TODO, not all have data_shape...
         self.data_shape = self.op.data_shape
-        self.data_ndim = len(self.data_shape)
         super().__init__(shape=self.op.shape)
+
+    @abc.abstractmethod
+    def startup(self, *args, **kwargs) -> None:
+        r"""
+        Startup is a secondary constructor that instantiates attributes from information provided in the DataLoader.
+        :py:meth:`~pycsou.opt.stochastic.DataLoader.communicate` is called and passed to
+        :py:meth:`~pycsou.opt.stochastic.BatchOp.startup`.
+
+        This process is managed through :py:meth:`~pycsou.opt.stochastic.Batch._communicate`. This is to avoid the user
+        having to duplicate passing in the same information twice.
+
+        Parameters
+        ----------
+        args
+        kwargs
+            attributes that comes from a :py:meth:`~pycsou.opt.stochastic.DataLoader.communicate` method.
+
+        See Also
+        -------
+        :py:class:`~pycsou.opt.stochastic.DataLoader`
+        :py:class:`~pycsou.opt.stochastic.Batch`
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def __getitem__(self, item: pyct.Integer) -> pyco.LinOp:
+        r"""
+        Return a new BatchOp that is prepared to operate on a particular subset of data.
+        """
+        raise NotImplementedError
+
+
+class ChunkOp(BatchOp):
+    r"""
+    Batches certain kinds of Linear Operators to operate on Chunks of data efficiently.
+
+    The Linear Operators that can be used with ChunkOp are:
+        TODO
+        - list of LinOps
+
+    See Also
+    -------
+    TODO
+    Convolve
+    MaxPool
+    AvgPool
+    """
+
+    def __init__(
+        self, op: pyco.LinOp, depth: dict[int:int] = None, boundary: dict[int : typ.Union[str, pyct.DTypeLike]] = None
+    ):
+        r"""
+        The parameters depth and boundary are passed along to
+        `dask.map_overlap<https://docs.dask.org/en/stable/array-overlap.html>_`
+
+        Parameters
+        ----------
+        op: pyco.LinOp
+            operator to be batched. Only certain types of operators can be batched with a Chunking strategy.
+        depth: dict[int: int]
+            How much chunking overlap there should be. See example1_
+            Current supported structure for depth is as a dict with the axis as the key, and number of values to overlap as value.
+
+        boundary: dict[int: typ.Union[str, pyct.DTypeLike]]
+            The boundary condition for overlap at the edges of the data. See example2_
+            Current supported structure for boundary is the same as depth, with the axis as the key and as the value:
+
+            - `periodic` - wrap borders around to the other side
+            - `reflect` - reflect each border outwards
+            - 'nearest' - take closest value and pad border
+            - `any-constant` - pad the border with this value
+
+        .. _example1:
+            For a convolution this will depend on your kernel size.
+            If you have a 5x5 kernel, you will want on overlap of 2 for each axis - {0: 2, 1: 2}
+            If you have a 7x7x7 kernel, you will want an overlap of 3 for each axis - {0: 3, 1: 3, 2: 3}
+            If you have a 5x7 kernel, you will want a varying level of overlap - {0: 2, 1: 3}
+
+        .. _example2:
+            Only if you have depth, will you need to define boundary. You can define a different boundary for each
+            axis.
+            If you have a depth of {0: 2, 1: 2} you can define a boundary of:
+
+                - {0: 'reflect', 1: 'periodic'}
+                - {0: 'reflect', 1: 'reflect'}
+                - {0: 0, 1: np.nan}
+        """
+        # TODO create Stochastic operator subclass to check against...
+        # if not isinstance(op, StochasticOp):
+        #     raise ValueError("Operator must be a StochasticOp operator.")
+        super().__init__(op=op)
+        self.data_ndim = len(self.data_shape)
         self.depth = depth
         self.boundary = boundary
+
+        # use global op lipschitz constants
         self._diff_lipschitz = self.op.diff_lipschitz()
         self._lipschitz = self.op.lipschitz()
 
-        # TODO create Stochasitc operator subclass to check against...
-        # if not isinstance(op, dev.Convolve):
-        #     raise ValueError("Operator must be a Convolve operator.")
+        # initialized in startup from the dataloader
+        self.blocks = None
+        self.block_dim = None
+        self.slices = None
+        self.stack_shape = None
+
+    @staticmethod
+    def _coerce_condition(
+        condition: dict, ndim: pyct.Integer, num_stack: pyct.Integer, default: pyct.DTypeLike = 0
+    ) -> dict:
+        r"""
+        Add a number of default values to a dictionary equivalent to num_stack, and re-order the existing values to be
+        after the default values. The spacing between values should stay equivalent.
+
+        Parameters
+        ----------
+        condition: dict
+            dictionary containing existing keys and values that needs to be re-ordered
+        ndim:
+            total number of keys in output dict
+        num_stack: pyct.Integer
+            number of keys to have default value in output dict
+        default: pyct.DTypeLike
+            the default value
+
+        Returns
+        -------
+            dict
+                dict with default values added to first num_stack keys, and the other keys re-ordered.
+        """
+
+        return dict(
+            ((i, default) if i < num_stack else (i, condition.get(i - num_stack, default)) for i in range(ndim))
+        )
 
     def startup(self, blocks, block_dim, stack_shape, *args, **kwargs):
         self.blocks = blocks
@@ -210,14 +440,16 @@ class ChunkOp(pyco.LinOp):
         self.stack_shape = stack_shape
         stack_ndim = len(self.stack_shape)
 
+        # TODO check what happens if None is put...is it what we want to happen?
         self.depth = self._coerce_condition(self.depth, self.data_ndim + stack_ndim, stack_ndim, default=0)
         self.boundary = self._coerce_condition(self.boundary, self.data_ndim + stack_ndim, stack_ndim, default=None)
         for i, (k, v) in enumerate(self.depth.items()):
             if v > 0:
                 if not all([b >= v for b in self.blocks[i]]):
-                    raise ValueError(
-                        f"{self.blocks[i]} has a chunk/chunks smaller than depth: {v}. Provide a different chunking size."
+                    msg = (
+                        f"{self.blocks[i]} has a chunk/chunks smaller than depth: {v}. Provide a larger chunking size."
                     )
+                    raise ValueError(msg)
 
     def __getitem__(self, b_index):
         """ """
@@ -230,10 +462,6 @@ class ChunkOp(pyco.LinOp):
         self.batch_shape = [s.stop - s.start for s in self.batch_slice[-self.data_ndim :]]
         self.op.data_shape = self.overlap_shape
         return self
-
-    @staticmethod
-    def _coerce_condition(condition, ndim, num_stack, default=0):
-        return dict(((i, default) if i < num_stack else (i, condition[i - num_stack]) for i in range(ndim)))
 
     def apply(self, arr):
         xp = pycu.get_array_module(arr)
@@ -296,7 +524,7 @@ class ChunkOp(pyco.LinOp):
 
 
 def neighbors_map_overlap(
-    x: pyct.NDArray, op: pyco.LinOp, ind: tuple, overlap: bool, stack_dims: pyct.Shape, block_info: dict = None
+    x: pyct.NDArray, op: pyco.LinOp, ind: tuple[int], overlap: bool, stack_dims: pyct.Shape, block_info: dict = None
 ) -> pyct.NDArray:
     r"""
     Block function that works with `da.map_overlap`.
@@ -316,6 +544,7 @@ def neighbors_map_overlap(
 
      **Remark 3:**
 
+    TODO - do we want this?
      If there is any overlap at all, every neighbor in every dimension will be calculated, even if there is not an
      overlap in that specific dimension.
 
@@ -359,34 +588,41 @@ def neighbors_map_overlap(
 
 class Batch:
     r"""
-    Decides batching strategy and provides a generator that returns everything that dynamically changes for stochastic
-    optimization.
+    Batch is an orchestrating class.
+    It controls batching through a batching strategy, currently random or in-order batching.
+    It instantiates the given Dataset and a BatchOp in :py:meth:`~pycsou.opt.stochastic.Batch._communicate` and is in charge of generating a batch of data and the
+    corresponding batched operator.
+    It keeps track of batching iterations and epochs.
 
-    Keeps track of internal stochastic opt variables of iterations and epochs.
-
-    **Initialization parameters of the class:**
-
-    loader : ChunkDataset
-        loader to get data and batched operator from
-    shuffle : bool
-        if batches are shuffled
-    seed : int
-        provides a seed to the shuffle generator
-
-        * None - random shuffles every epoch
-        * int - shuffle according to seed, and keep this shuffle order every epoch
+    See Also
+    -------
+    :py:class:`~pycsou.opt.stochastic.DataLoader`
+    :py:class:`~pycsou.opt.stochastic.BatchOp`
+    :py:class:`~pycsou.opt.stochastic.Stochastic`
     """
 
-    def __init__(self, batch_dataset, batch_op, shuffle: bool = False, seed: int = None):
-        self.batch_dataset = batch_dataset
+    def __init__(self, dataloader: DataLoader, batch_op: BatchOp, shuffle: bool = False, seed: pyct.Integer = None):
+        r"""
+        Parameters
+        ----------
+        dataloader: DataLoader
+            dataloader to query for batches of data
+        batch_op: BatchOp
+            batched operator to query for an operator that operates on a batch of data
+        shuffle: bool
+            whether to ask for batches in order or randomly
+        seed: pyct.Integer
+            if shuffle=True, which seed to use for randomness
+        """
+        self.dataloader = dataloader
         self.batch_op = batch_op
         self._communicate()
 
         self._epochs = 0
         self.counter = 0
         self.batch_counter = 0
-        # TODO is this the right way to set num_batches if we have a stacking dimension?
-        self.num_batches = len(self.batch_dataset)
+
+        self.num_batches = len(self.dataloader)
         self.shuffle = shuffle
         self.seed = seed
         if self.shuffle:
@@ -395,17 +631,31 @@ class Batch:
     @property
     def epochs(self) -> int:
         r"""
+        Each epoch denotes 1 pass through all batches of the data.
+
         Returns
         -------
         int
+            number of epochs
         """
         return self._epochs
 
     def _communicate(self):
-        kwargs = self.batch_dataset.communicate()
+        r"""
+        Communicates meta-information between the dataloader and the batch_op that is necessary upon intialization
+        of the optimization problem.
+
+        This is necessary so the user doesn't have to include information twice in the __init__ of both dataloader
+        and batch_op. Also, if there is important meta-information computed in dataloader it only needs to be computed
+        once and then shared.
+        """
+        kwargs = self.dataloader.communicate()
         self.batch_op.startup(**kwargs)
 
     def _bookkeeping(self):
+        r"""
+        Keeps track of which batch to query and when to start a new epoch.
+        """
         if self.shuffle:
             self.batch_counter = self.shuffled_batch[self.counter]
         else:
@@ -421,14 +671,22 @@ class Batch:
         rng = np.random.default_rng(self.seed)
         return rng.permutation(np.arange(self.num_batches))
 
-    def batches(self) -> typ.Tuple[pyct.NDArray, pyco.LinOp, np.array]:
-        y, ind = self.batch_dataset[self.batch_counter]
+    def batches(self) -> typ.Tuple[pyct.NDArray, pyco.LinOp, pyct.NDArray]:
+        r"""
+        Generator which queries the dataloader and batch_op and yields these.
+
+        Returns
+        -------
+        typ.Tuple[pyct.NDArray, pyco.LinOp, pyct.NDArray]
+            data, operator, indices of data
+        """
+        y, ind = self.dataloader[self.batch_counter]
         op = self.batch_op[self.batch_counter]
         self._bookkeeping()
         yield y, op, ind
 
 
-class GradStrategy(abc.ABC):
+class GradStrategy:
     r"""
     Base class for gradient update strategy.
     """
@@ -455,11 +713,10 @@ class SGD(GradStrategy):
 
     :math:`x_{t+1} = x_t - \eta_t \nabla f_i(x)`
 
-
-    Allows the gradient to flow through unchanged as :py:func:`pycsou.opt.stochastic.Stochastic` takes care of computing
+    Allows the gradient to flow through unchanged as :py:class:`pycsou.opt.stochastic.Stochastic` takes care of computing
     the gradient stochastically.
 
-    It is the base strategy for :py:func:`pycsou.opt.stochastic.Stochastic` if None is given.
+    It is the base strategy for :py:class:`pycsou.opt.stochastic.Stochastic` if None is given.
     """
 
     def apply(self, grad: pyct.NDArray) -> pyct.NDArray:
@@ -534,19 +791,19 @@ class Stochastic(pyco.DiffFunc):
     Creates batched differentiable objective functions and computes the gradient.
     Enables computing stochastic gradients within the Pycsou framework.
     Takes the place of a DiffFunc as a data fidelity term.
-
-    **Initialization parameters of the class:**
-
-    f : pyco.DiffFunc
-        data fidelity term
-    batch : Batch
-        generator to query and get batched data and a batched operator
-    strategy : GradStrategy = None
-        which gradient strategy to use. Default is :py:func:`pycsou.opt.stochastic.SGD`
-
     """
 
     def __init__(self, f: pyco.DiffFunc, batch: Batch, strategy: GradStrategy = None):
+        r"""
+        Parameters
+        ----------
+        f : pyco.DiffFunc
+            data fidelity term
+        batch : Batch
+            generator to query and get batched data and a batched operator
+        strategy : GradStrategy = None
+            which gradient strategy to use. Default is :py:func:`pycsou.opt.stochastic.SGD`
+        """
         self._f = f
         super().__init__(self._f.shape)
         if strategy:
