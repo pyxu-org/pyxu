@@ -46,6 +46,21 @@ def kron(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
     -------
     op: pyct.OpT
         (mA*mB, nA*nB) linear operator.
+
+    Notes
+    -----
+    This implementation is **matrix-free** by leveraging properties of the Kronecker product, i.e.
+    :math:`A` and :math:`B` need not be known explicitly.
+    In particular :math:`(A \otimes B) x` and :math:`(A \otimes B)^{*} x` are computed implicitly
+    via the relation:
+
+    .. math::
+
+       \text{vec}(\mathbf{A}\mathbf{B}\mathbf{C})
+       =
+       (\mathbf{C}^{T} \otimes \mathbf{A}) \text{vec}(\mathbf{B}),
+
+    where :math:`\mathbf{A}`, :math:`\mathbf{B}`, and :math:`\mathbf{C}` are matrices.
     """
 
     def _infer_op_shape(shA: pyct.Shape, shB: pyct.Shape) -> pyct.Shape:
@@ -257,9 +272,21 @@ def khatri_rao(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
 
     Notes
     -----
-    A matrix-free implementation of the Khatri-Rao product, i.e. a method which only relies on
-    ``apply()`` / ``adjoint()`` , does not allow the same optimizations as a matrix-based
-    implementation.
+    This implementation is **matrix-free** by leveraging properties of the Khatri-Rao product, i.e.
+    :math:`A` and :math:`B` need not be known explicitly.
+    In particular :math:`(A \circ B) x` and :math:`(A \circ B)^{*} x` are computed implicitly via
+    the relation:
+
+    .. math::
+
+       \text{vec}(\mathbf{A}\text{diag}(\mathbf{b})\mathbf{C})
+       =
+       (\mathbf{C}^{T} \circ \mathbf{A}) \mathbf{b},
+
+    where :math:`\mathbf{A}`, :math:`\mathbf{C}` are matrices, and :math:`\mathbf{b}` is a vector.
+
+    Note however that a matrix-free implementation of the Khatri-Rao product does not permit the
+    same optimizations as a matrix-based implementation.
     Thus the Khatri-Rao product as implemented here is only marginally more efficient than applying
     :py:func:`~pycsou.operator.linop.kron.kron` and pruning its output.
     """
