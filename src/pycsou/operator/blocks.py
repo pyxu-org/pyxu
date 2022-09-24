@@ -1,5 +1,9 @@
+import collections
 import collections.abc as cabc
+import itertools
 import types
+
+import numpy as np
 
 import pycsou.abc.operator as pyco
 import pycsou.runtime as pycrt
@@ -981,7 +985,7 @@ def coo_block(
        ...       [0, 1, 0, 2],  # i
        ...       [0, 0, 2, 1],  # j
        ...      ]),
-       ...     grid_shape=(2, 2),
+       ...     grid_shape=(3, 3),
        ... )
 
        | coarse_idx |      0       |    1    |      2      |
@@ -990,4 +994,494 @@ def coo_block(
        |          1 | B(1, 1000)   |         |             |
        |          2 |              | D(1, 3) |             |
     """
-    pass
+    op = _COOBlock(
+        ops=ops,
+        grid_shape=grid_shape,
+    ).op()
+    return op
+
+
+class _COOBlock:  # See coo_block() for a detailed description.
+    def __init__(
+        self,
+        ops: tuple[
+            cabc.Sequence[pyct.OpT],
+            tuple[
+                cabc.Sequence[pyct.Integer],
+                cabc.Sequence[pyct.Integer],
+            ],
+        ],
+        grid_shape: pyct.Shape,
+    ):
+        self._grid_shape = tuple(grid_shape)
+        self._init_spec(ops)
+
+        # Default Arithmetic Attributes
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
+
+    def op(self) -> pyct.OpT:
+        """
+        Returns
+        -------
+        op: pyct.OpT
+            Synthesized operator given inputs to
+            :py:meth:`~pycsou.operator.blocks._COOBlock.__init__`.
+        """
+        blk = self._block
+        if len(blk) == 1:
+            _, op = blk.popitem()
+        else:
+            op = self._infer_op()
+            op._block = self._block  # embed for introspection
+            op._block_offset = self._block_offset  # embed for introspection
+            op._grid_shape = self._grid_shape  # embed for introspection
+            for p in op.properties():
+                for name in p.arithmetic_attributes():
+                    attr = getattr(self, name)
+                    setattr(op, name, attr)
+                for name in p.arithmetic_methods():
+                    func = getattr(self.__class__, name)
+                    setattr(op, name, types.MethodType(func, op))
+        return op
+
+    def _init_spec(self, ops):
+        """
+        Transform input into standardized form.
+
+        Returns
+        -------
+        block: (int, int) -> pyct.OpT
+            coarse_grid index -> Operator at that location.
+        block_offset: (int, int) -> (int, int)
+            coarse_grid index -> (top-left) fine_grid index.
+        """
+        data, (i, j) = ops
+        N_row, N_col, N_block = *self._grid_shape, len(data)
+        msg = "Incorrect COO parametrization"
+        assert N_block == len(i) == len(j), msg
+        assert 0 < N_block <= N_row * N_col, msg
+        assert 0 <= min(i) <= max(i) < N_row, msg
+        assert 0 <= min(j) <= max(j) < N_col, msg
+
+        if any(op.dim == None for op in data):
+            raise ValueError("Domain-agnostic operators are unsupported.")
+
+        # block dimensions are compatible.
+        row = collections.defaultdict(list)  # row_idx -> [block]
+        col = collections.defaultdict(list)  # col_idx -> [block]
+        for (d, _i, _j) in zip(data, i, j):
+            row[_i].append(d)
+            col[_j].append(d)
+        msg = lambda dim, idx, dom: f"All sub-operators on {dim} {idx} must have same {dom} size."
+        for k, v in row.items():
+            assert len({_.codim for _ in v}) == 1, msg("row", k, "codomain")
+        for k, v in col.items():
+            assert len({_.dim for _ in v}) == 1, msg("column", k, "domain")
+
+        # no empty lines/columns in coarse grid.
+        msg = lambda _: f"Coarse grid contains empty {_}: cannot infer fine-grid dimensions."
+        assert len(row) == N_row, msg("rows")
+        assert len(col) == N_col, msg("columns")
+
+        # ---------------------------------------------------------------------
+        # create block
+        block = dict()  # coarse_grid(int, int) -> pyct.OpT
+        for (d, _i, _j) in zip(data, i, j):
+            block[(_i, _j)] = d.squeeze()
+        self._block = block
+
+        # create block_offset
+        block_offset = dict()  # coarse_grid(int, int) -> fine_grid(int, int)
+        row_offset = np.cumsum([row[k][0].codim for k in range(N_row)])
+        col_offset = np.cumsum([col[k][0].dim for k in range(N_col)])
+        for i in range(N_row):
+            for j in range(N_col):
+                _i = 0 if (i == 0) else row_offset[i - 1]
+                _j = 0 if (j == 0) else col_offset[j - 1]
+                block_offset[(i, j)] = _i, _j
+        self._block_offset = block_offset
+
+    def _infer_op(self) -> pyct.OpT:
+        # Create the abstract COO-operator to which methods will be assigned.
+        blk = self._block  # shorthand
+
+        row = collections.defaultdict(list)
+        col = collections.defaultdict(list)
+        for (r, c), op in blk.items():
+            row[r].append(op)
+            col[c].append(op)
+        N_row, N_col = len(row), len(col)
+        op_codim = sum(ops[0].codim for ops in row.values())
+        op_dim = sum(ops[0].dim for ops in col.values())
+
+        P = pyco.Property
+        properties = set.intersection(*[set(op.properties()) for op in blk.values()])
+        if op_codim > 1:
+            properties -= {
+                P.FUNCTIONAL,
+                P.PROXIMABLE,
+                P.DIFFERENTIABLE_FUNCTION,
+                P.QUADRATIC,
+            }
+
+        if all(  # block_diag case
+            [
+                N_row == N_col == len(blk),
+                all((r, r) in blk for r in range(N_row)),
+            ]
+        ):
+            pass
+        elif op_codim == 1:  # hstack case: special treatment of quadratics
+            if all(op.has(P.QUADRATIC) for op in blk.values()):
+                properties.add(P.QUADRATIC)
+            elif any(op.has(P.QUADRATIC) for op in blk.values()):
+                # possible quadratic if all other terms are linear.
+                non_quad = [op for op in blk.values() if not op.has(P.QUADRATIC)]
+                if all(op.has(P.LINEAR) for op in non_quad):
+                    properties.add(P.QUADRATIC)
+        else:  # (1) vstack case or (2) arbitrary fill-in case => non-functionals
+            properties &= {
+                P.CAN_EVAL,
+                P.DIFFERENTIABLE,
+                P.LINEAR,
+            }
+            if (op_codim == op_dim) and (P.LINEAR in properties):
+                properties.add(P.LINEAR_SQUARE)
+
+        klass = pyco.Operator._infer_operator_type(properties)
+        op = klass(shape=(op_codim, op_dim))
+        return op
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        # compute blocks
+        parts = dict()
+        for idx, op in self._block.items():
+            offset = self._block_offset[idx][1]
+            p = op.apply(arr[..., offset : offset + op.dim])
+            parts[idx] = p
+
+        # row-oriented reduction (via +)
+        rows = collections.defaultdict(list)
+        for (r, c), p in parts.items():
+            rows[r].append(p)
+        cols = [sum(rows[r]) for r in range(len(rows))]
+
+        # concatenate to super-column
+        xp = pycu.get_array_module(arr)
+        out = xp.concatenate(cols, axis=-1)
+        return out
+
+    def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return self.apply(arr)
+
+    def lipschitz(self, **kwargs) -> pyct.Real:
+        if self.has(pyco.Property.LINEAR):
+            L = self.__class__.lipschitz(self, **kwargs)
+        else:
+            # Various upper bounds apply depending on how the blocks are organized:
+            #   * vertical alignment: L**2 = sum(L_k**2)
+            #   * horizontal alignment: L**2 = max(L_k**2)
+            #   * block-diagonal alignment: L**2 = max(L_k**2)
+            #   * arbitrary 2D alignment: vertical+horizontal composition (or vice-versa)
+            # We compute all bounds and take the lowest one.
+
+            # squared Lipschitz constant of each block.
+            Ls_all = np.zeros(self._grid_shape)
+            for (r, c), op in self._block.items():
+                Ls_all[r, c] = op.lipschitz(**kwargs) ** 2
+
+            Ls_1 = Ls_all.sum(axis=0).max()  # upper bound 1
+            Ls_2 = Ls_all.max(axis=1).sum()  # upper bound 2
+            L = np.sqrt(min(Ls_1, Ls_2))
+        self._lipschitz = float(L)
+        return self._lipschitz
+
+    def _expr(self) -> tuple:
+        class _Block(pyco.Operator):
+            def __init__(self, idx: tuple[int, int], op: pyct.OpT):
+                super().__init__(shape=op.shape)
+                self._name = op._name
+                self._idx = tuple(idx)
+                self._op = op
+
+            def _expr(self) -> tuple:
+                head = f"block[" + ", ".join(map(str, self._idx)) + "]"
+                return (head, self._op)
+
+        # head = coo_block[grid_shape]
+        head = "coo_block[" + ", ".join(map(str, self._grid_shape)) + "]"
+
+        # tail = sequence of sub-blocks, encapsulated in _Block to obtain hierarchical view.
+        tail = [_Block(idx=k, op=op) for (k, op) in self._block.items()]
+        return (head, *tail)
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        if not self.has(pyco.Property.PROXIMABLE):
+            raise NotImplementedError
+
+        parts = dict()
+        for idx, op in self._block.items():
+            offset = self._block_offset[idx][1]
+            p = op.prox(arr=arr[..., offset : offset + op.dim], tau=tau)
+            parts[idx] = p
+
+        xp = pycu.get_array_module(arr)
+        parts = [parts[(0, c)] for c in range(len(parts))]  # re-ordering
+        out = xp.concatenate(parts, axis=-1)
+        return out
+
+    def _hessian(self) -> pyct.OpT:
+        if not self.has(pyco.Property.QUADRATIC):
+            raise NotImplementedError
+
+        parts = dict()
+        for idx, op in self._block.items():
+            if op.has(pyco.Property.QUADRATIC):
+                p = op._hessian()
+            else:  # op is necessarily LINEAR
+                from pycsou.operator.linop import NullOp
+
+                p = NullOp(shape=(op.dim, op.dim)).asop(pyco.PosDefOp)
+            parts[idx] = p
+
+        parts = [parts[k] for k in sorted(parts.keys())]  # re-ordering
+        H = block_diag(parts)
+        return H
+
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
+        if not self.has(pyco.Property.DIFFERENTIABLE):
+            raise NotImplementedError
+
+        if self.has(pyco.Property.LINEAR):
+            out = self
+        else:
+            data, i, j = [], [], []
+            for (r, c), op in self._block.items():
+                offset = self._block_offset[(r, c)][1]
+                opJ = op.jacobian(arr[offset : offset + op.dim])
+
+                i.append(r)
+                j.append(c)
+                data.append(opJ)
+
+            out = _COOBlock(
+                ops=(data, (i, j)),
+                grid_shape=self._grid_shape,
+            ).op()
+        return out
+
+    def diff_lipschitz(self, **kwargs) -> pyct.Real:
+        if not self.has(pyco.Property.DIFFERENTIABLE):
+            raise NotImplementedError
+
+        if self.has(pyco.Property.LINEAR):
+            dL = self.__class__.diff_lipschitz(self, **kwargs)
+        else:
+            # Various upper bounds apply depending on how the blocks are organized:
+            #   * vertical alignment: dL**2 = sum(dL_k**2)
+            #   * horizontal alignment: dL**2 = max(dL_k**2)
+            #   * block-diagonal alignment: dL**2 = max(dL_k**2)
+            #   * arbitrary 2D alignment: vertical+horizontal composition (or vice-versa)
+            # We compute all bounds and take the lowest one.
+
+            # squared diff-Lipschitz constant of each block.
+            dLs_all = np.zeros(self._grid_shape)
+            for (r, c), op in self._block.items():
+                dLs_all[r, c] = op.diff_lipschitz(**kwargs) ** 2
+
+            dLs_1 = dLs_all.sum(axis=0).max()  # upper bound 1
+            dLs_2 = dLs_all.max(axis=1).sum()  # upper bound 2
+            dL = np.sqrt(min(dLs_1, dLs_2))
+        self._diff_lipschitz = float(dL)
+        return self._diff_lipschitz
+
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        if not self.has(pyco.Property.DIFFERENTIABLE_FUNCTION):
+            raise NotImplementedError
+
+        parts = dict()
+        for idx, op in self._block.items():
+            offset = self._block_offset[idx][1]
+            p = op.grad(arr[..., offset : offset + op.dim])
+            parts[idx] = p
+
+        xp = pycu.get_array_module(arr)
+        parts = [parts[(0, c)] for c in range(len(parts))]  # re-ordering
+        out = xp.concatenate(parts, axis=-1)
+        return out
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        if not self.has(pyco.Property.LINEAR):
+            raise NotImplementedError
+
+        # compute blocks
+        parts = dict()
+        for idx, op in self._block.items():
+            offset = self._block_offset[idx][0]
+            p = op.adjoint(arr[..., offset : offset + op.codim])
+            parts[idx[::-1]] = p
+
+        # row-oriented reduction (via +)
+        rows = collections.defaultdict(list)
+        for (r, c), p in parts.items():
+            rows[r].append(p)
+        cols = [sum(rows[r]) for r in range(len(rows))]
+
+        # concatenate to super-column
+        xp = pycu.get_array_module(arr)
+        out = xp.concatenate(cols, axis=-1)
+        return out
+
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        if not self.has(pyco.Property.LINEAR):
+            raise NotImplementedError
+
+        parts = dict()
+        for idx, op in self._block.items():
+            p = op.asarray(**kwargs)
+            parts[idx] = p
+
+        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
+        dtype = kwargs.get("dtype", pycrt.getPrecision().value)
+        A = xp.zeros(self.shape, dtype=dtype)
+        for idx, p in parts.items():
+            r_o, c_o = self._block_offset[idx]  # offsets
+            r_s, c_s = self._block[idx].shape  # spans
+            A[r_o : r_o + r_s, c_o : c_o + c_s] = p
+        return A
+
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        D = self.__class__.svdvals(self, **kwargs)
+        return D
+
+    def eigvals(self, **kwargs) -> pyct.NDArray:
+        D = self.__class__.eigvals(self, **kwargs)
+        return D
+
+    @pycrt.enforce_precision(i="arr")
+    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+        out = self.__class__.pinv(self, arr=arr, **kwargs)
+        return out
+
+    def gram(self) -> pyct.OpT:
+        if not self.has(pyco.Property.LINEAR):
+            raise NotImplementedError
+
+        blk = self._block  # shorthand
+        N_row, N_col = self._grid_shape
+
+        # Determine operator(s) which will occupy position (r,c) on coarse grid.
+        ops = collections.defaultdict(list)  # coarse_grid(int, int) -> [pyct.OpT]
+        for r, c in itertools.product(range(N_col), repeat=2):
+            for k in range(N_row):
+                if ((k, r) in blk) and ((k, c) in blk):
+                    if r == c:
+                        _op = blk[(k, r)].gram()
+                    else:
+                        _op = blk[(k, r)].T * blk[(k, c)]
+                    ops[(r, c)].append(_op)
+
+        # ops[(r,c)] should be reduced (via +) to form a single operator per (r,c)-entry.
+        # It is inefficient however to chain so many operators together via AddRule().
+        # G.[apply,adjoint]() are thus redefined to improve performance.
+        data, i, j = [], [], []
+        for (r, c), _ops in ops.items():
+            klass = pyco.SelfAdjointOp if (r == c) else pyco.LinOp
+            _op = klass(shape=_ops[0].shape)  # .[apply|adjoint]() overridden below.
+            _op._ops = _ops  # embed for introspection
+
+            @pycrt.enforce_precision(i="arr")
+            def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
+                parts = [op.apply(arr) for op in _._ops]
+                out = sum(parts)
+                return out
+
+            @pycrt.enforce_precision(i="arr")
+            def op_adjoint(_, arr: pyct.NDArray) -> pyct.NDArray:
+                parts = [op.adjoint(arr) for op in _._ops]
+                out = sum(parts)
+                return out
+
+            _op.apply = types.MethodType(op_apply, _op)
+            _op.adjoint = types.MethodType(op_adjoint, _op)
+
+            data.append(_op)
+            i.append(r)
+            j.append(c)
+        G = (
+            _COOBlock(
+                ops=(data, (i, j)),
+                grid_shape=(N_col, N_col),
+            )
+            .op()
+            .asop(pyco.SelfAdjointOp)
+        )
+        return G.squeeze()
+
+    def cogram(self) -> pyct.OpT:
+        if not self.has(pyco.Property.LINEAR):
+            raise NotImplementedError
+
+        blk = self._block  # shorthand
+        N_row, N_col = self._grid_shape
+
+        # Determine operator(s) which will occupy position (r,c) on coarse grid.
+        ops = collections.defaultdict(list)  # coarse_grid(int, int) -> [pyct.OpT]
+        for r, c in itertools.product(range(N_row), repeat=2):
+            for k in range(N_col):
+                if ((r, k) in blk) and ((c, k) in blk):
+                    if r == c:
+                        _op = blk[(r, k)].cogram()
+                    else:
+                        _op = blk[(r, k)] * blk[(c, k)].T
+                    ops[(r, c)].append(_op)
+
+        # ops[(r,c)] should be reduced (via +) to form a single operator per (r,c)-entry.
+        # It is inefficient however to chain so many operators together via AddRule().
+        # CG.[apply,adjoint]() are thus redefined to improve performance.
+        data, i, j = [], [], []
+        for (r, c), _ops in ops.items():
+            klass = pyco.SelfAdjointOp if (r == c) else pyco.LinOp
+            _op = klass(shape=_ops[0].shape)  # .[apply|adjoint]() overridden below.
+            _op._ops = _ops  # embed for introspection
+
+            @pycrt.enforce_precision(i="arr")
+            def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
+                parts = [op.apply(arr) for op in _._ops]
+                out = sum(parts)
+                return out
+
+            @pycrt.enforce_precision(i="arr")
+            def op_adjoint(_, arr: pyct.NDArray) -> pyct.NDArray:
+                parts = [op.adjoint(arr) for op in _._ops]
+                out = sum(parts)
+                return out
+
+            _op.apply = types.MethodType(op_apply, _op)
+            _op.adjoint = types.MethodType(op_adjoint, _op)
+
+            data.append(_op)
+            i.append(r)
+            j.append(c)
+        CG = (
+            _COOBlock(
+                ops=(data, (i, j)),
+                grid_shape=(N_row, N_row),
+            )
+            .op()
+            .asop(pyco.SelfAdjointOp)
+        )
+        return CG.squeeze()
+
+    def trace(self, **kwargs) -> pyct.Real:
+        tr = self.__class__.trace(self, **kwargs)
+        return float(tr)
+
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        msg = "asloss() is ambiguous for block-defined operators."
+        raise NotImplementedError(msg)
