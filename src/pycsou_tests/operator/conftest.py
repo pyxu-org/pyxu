@@ -446,15 +446,15 @@ class MapT:
         with pycrt.EnforcePrecision(False):
             L = op.lipschitz()
 
-            stats = []  # (x, y, condition success)
             data = xp.array(data_math_lipschitz, dtype=width.value)
-            for x, y in itertools.combinations(data, 2):
-                lhs = pylinalg.norm(op.apply(x) - op.apply(y))
-                rhs = L * pylinalg.norm(x - y)
-                success = less_equal(lhs, rhs, as_dtype=width.value)
-                stats.append((lhs, rhs, success))
+            data = list(itertools.combinations(data, 2))
+            x = xp.stack([_[0] for _ in data], axis=0)
+            y = xp.stack([_[1] for _ in data], axis=0)
 
-            assert all(_[2] for _ in stats)
+            lhs = pylinalg.norm(op.apply(x) - op.apply(y), axis=-1)
+            rhs = L * pylinalg.norm(x - y, axis=-1)
+            success = less_equal(lhs, rhs, as_dtype=width.value)
+            assert all(success)
 
     def test_interface_asop(self, op, _klass):
         # * .asop() is no-op if same klass or parent
