@@ -20,6 +20,11 @@ __all__ = [
     "coo_block",
 ]
 
+# Arithmetic methods/attributes of [hstack, vstack, block_diag, coo_block]() are very similar. To
+# avoid excessive copy/paste-ing the same implementation everywhere, these functions piggy-back on
+# _COOBlock() for most computations. When a more efficient implementation is known however, it is
+# overridden in [hstack, vstack, block_diag]() as needed.
+
 
 def stack(
     ops: cabc.Sequence[pyct.OpT],
