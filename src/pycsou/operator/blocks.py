@@ -105,186 +105,23 @@ def vstack(ops: cabc.Sequence[pyct.OpT]) -> pyct.OpT:
     :py:func:`~pycsou.operator.block.stack`.
     """
 
-    def _infer_op_shape(sh_ops: list[pyct.Shape]) -> pyct.Shape:
-        if any(_[1] == None for _ in sh_ops):
-            raise ValueError("Domain-agnostic operators are unsupported.")
-        assert len(set(_[1] for _ in sh_ops)) == 1, "All sub-operators must have same domain size."
-
-        dim, codim = sh_ops[0][1], 0
-        for _ in sh_ops:
-            codim += _[0]
-        return (codim, dim)
-
-    def _infer_op_klass(ops: list[pyct.OpT]) -> pyct.OpC:
-        P = pyco.Property
-        base = {
-            P.CAN_EVAL,
-            P.DIFFERENTIABLE,
-            P.LINEAR,
-        }
-        properties = frozenset.intersection(*[op.properties() for op in ops])
-        properties = set(properties & base)
-
-        sh = _infer_op_shape([op.shape for op in ops])
-        if (P.LINEAR in properties) and (sh[0] == sh[1]):
-            properties.add(P.LINEAR_SQUARE)
-        klass = pyco.Operator._infer_operator_type(properties)
-        return klass
-
-    @pycrt.enforce_precision(i="arr")
-    def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
-        # op.apply(x) = concatenate([op1.apply(x), ..., opN.apply(x)], axis=-1)
-        parts = []
-        for op in _._ops:
-            p = op.apply(arr)
-            parts.append(p)
-
-        xp = pycu.get_array_module(arr)
-        out = xp.concatenate(parts, axis=-1)
-        return out
-
-    def op_lipschitz(_, **kwargs) -> pyct.Real:
-        # op.lipschitz(**kwargs) = sum([op1.lipschitz(**kwargs), ..., opN.lipschitz(**kwargs)])
-        #                        + update _lipschitz
-        if _.has(pyco.Property.LINEAR):
-            L = _.__class__.lipschitz(_, **kwargs)
-        else:
-            L = sum([op.lipschitz(**kwargs) for op in _._ops])
-        _._lipschitz = float(L)
-        return _._lipschitz
-
-    def op_jacobian(_, arr: pyct.NDArray) -> pyct.OpT:
-        # op.jacobian(x) = vstack([op1.jacobian(x), ..., opN.jacobian(x)])
-        if not _.has(pyco.Property.DIFFERENTIABLE):
-            raise NotImplementedError
-
-        if _.has(pyco.Property.LINEAR):
-            out = _
-        else:
-            parts = []
-            for op in _._ops:
-                p = op.jacobian(arr)
-                parts.append(p)
-
-            out = vstack(parts)
-        return out
-
-    def op_diff_lipschitz(_, **kwargs) -> pyct.Real:
-        # op.diff_lipschitz(**kwargs) = sum([op1.diff_lipschitz(**kwargs), ..., opN.diff_lipschitz(**kwargs)])
-        #                             + update _diff_lipschitz
-        if not _.has(pyco.Property.DIFFERENTIABLE):
-            raise NotImplementedError
-
-        if _.has(pyco.Property.LINEAR):
-            dL = _.__class__.diff_lipschitz(_, **kwargs)
-        else:
-            dL = sum([op.diff_lipschitz(**kwargs) for op in _._ops])
-        _._diff_lipschitz = float(dL)
-        return _._diff_lipschitz
-
-    @pycrt.enforce_precision(i="arr")
-    def op_adjoint(_, arr: pyct.NDArray) -> pyct.NDArray:
-        # op.adjoint(y) = sum([op1.adjoint(y1), ..., opN.adjoint(yN)], axis=0)
-        if not _.has(pyco.Property.LINEAR):
-            raise NotImplementedError
-
-        parts, i = [], 0
-        for op in _._ops:
-            p = op.adjoint(arr[..., i : i + op.codim])
-            parts.append(p)
-            i += op.codim
-
-        out = sum(parts)
-        return out
-
-    def op_asarray(_, **kwargs) -> pyct.NDArray:
-        # op.asarray(**kwargs) = concatenate([op1.asarray(**kwargs), ..., opN.asarray(**kwargs)], axis=0)
-        if not _.has(pyco.Property.LINEAR):
-            raise NotImplementedError
-
-        parts = []
-        for op in _._ops:
-            p = op.asarray(**kwargs)
-            parts.append(p)
-
-        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
-        A = xp.concatenate(parts, axis=0)
-        return A
-
-    def op_gram(_) -> pyct.OpT:
-        # op.gram() = op1.gram() + ... + opN.gram()
-        #
-        # It is inefficient however to chain so many operators together via AddRule().
-        # apply() is thus redefined to improve performance.
-        if not _.has(pyco.Property.LINEAR):
-            raise NotImplementedError
-
-        @pycrt.enforce_precision(i="arr")
-        def G_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
-            parts = []
-            for op in _._ops:
-                p = op.apply(arr)
-                parts.append(p)
-            out = sum(parts)
-            return out
-
-        G = pyco.SelfAdjointOp(shape=(_.dim, _.dim))
-        G._ops = [op.gram() for op in _._ops]  # embed for introspection
-        G.apply = types.MethodType(G_apply, G)
-        return G.squeeze()
-
-    def op_cogram(_) -> pyct.OpT:
-        # op.cogram() = \diag([op1.cogram(), ..., opN.cogram()]) + cross-terms
-        #             = constructed via coo_block()
-        if not _.has(pyco.Property.LINEAR):
-            raise NotImplementedError
-
-        def CG_expr(__) -> tuple:
-            return ("cogram", _)
-
-        N = len(_._ops)
-        data, i, j = [], [], []
-        for _i in range(N):
-            for _j in range(N):
-                if _i == _j:
-                    d = _._ops[_i].cogram()
-                else:
-                    d = _._ops[_i] * _._ops[_j].T
-                data.append(d)
-                i.append(_i)
-                j.append(_j)
-
-        CG = coo_block(
-            ops=(data, (i, j)),
-            grid_shape=(N, N),
-        ).asop(pyco.SelfAdjointOp)
-        CG._expr = types.MethodType(CG_expr, CG)
-        return CG
-
     def op_expr(_) -> tuple:
-        return ("vstack", *_._ops)
+        N_row = _._grid_shape[0]
+        ops = [_._block[(r, 0)] for r in range(N_row)]
+        return ("vstack", *ops)
 
-    if len(ops) == 1:
-        op = ops[0].squeeze()
-    else:
-        _ops = [op.squeeze() for op in ops]
-        klass = _infer_op_klass(_ops)
-
-        _sh_ops = [op.shape for op in ops]
-        sh_op = _infer_op_shape(_sh_ops)
-
-        op = klass(shape=sh_op)
-        op._ops = _ops  # embed for introspection
-
-        op.apply = types.MethodType(op_apply, op)
-        op.lipschitz = types.MethodType(op_lipschitz, op)
-        op.jacobian = types.MethodType(op_jacobian, op)
-        op.diff_lipschitz = types.MethodType(op_diff_lipschitz, op)
-        op.adjoint = types.MethodType(op_adjoint, op)
-        op.asarray = types.MethodType(op_asarray, op)
-        op.gram = types.MethodType(op_gram, op)
-        op.cogram = types.MethodType(op_cogram, op)
-        op._expr = types.MethodType(op_expr, op)
+    N_data = len(ops)
+    op = _COOBlock(
+        ops=(
+            ops,  # data
+            (
+                tuple(range(N_data)),  # i
+                [0] * N_data,  # j
+            ),
+        ),
+        grid_shape=(N_data, 1),
+    ).op()
+    op._expr = types.MethodType(op_expr, op)
     return op
 
 
