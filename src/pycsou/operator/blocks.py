@@ -1,5 +1,6 @@
 import collections
 import collections.abc as cabc
+import copy
 import functools
 import itertools
 import types
@@ -688,7 +689,12 @@ class _COOBlock:  # See coo_block() for a detailed description.
 
     def lipschitz(self, **kwargs) -> pyct.Real:
         if self.has(pyco.Property.LINEAR):
-            L = self.__class__.lipschitz(self, **kwargs)
+            if self.has(pyco.Property.FUNCTIONAL):
+                L = pyco.LinFunc.lipschitz(self, **kwargs)
+            else:
+                kwargs = copy.copy(kwargs)
+                kwargs.update(recompute=True)
+                L = pyco.LinOp.lipschitz(self, **kwargs)
         else:
             # Various upper bounds apply depending on how the blocks are organized:
             #   * vertical alignment: L**2 = sum(L_k**2)
