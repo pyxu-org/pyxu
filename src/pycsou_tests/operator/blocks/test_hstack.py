@@ -185,11 +185,12 @@ class HStackMixin:
         params=itertools.product(
             pycd.NDArrayInfo,
             pycrt.Width,
+            [True, False],  # parallel
         )
     )
     def spec(self, op_all, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
-        ndi, width = request.param
-        op = pycb.hstack(op_all)
+        ndi, width, parallel = request.param
+        op = pycb.hstack(op_all, parallel=parallel)
         return op, ndi, width
 
     @pytest.fixture

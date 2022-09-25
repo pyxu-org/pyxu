@@ -1,5 +1,6 @@
 import collections
 import collections.abc as cabc
+import functools
 import itertools
 import types
 
@@ -29,6 +30,7 @@ __all__ = [
 def stack(
     ops: cabc.Sequence[pyct.OpT],
     axis: pyct.Integer,
+    **kwargs,
 ) -> pyct.OpT:
     r"""
     Construct a stacked operator.
@@ -48,6 +50,8 @@ def stack(
 
         * 0: stack vertically (row-wise)
         * 1: stack horizontally (column-wise)
+    kwargs
+        Extra keyword-arguments forwarded to :py:class:`~pycsou.operator.blocks._COOBlock`.
 
     Returns
     -------
@@ -63,11 +67,14 @@ def stack(
     assert axis in {0, 1}, f"axis: out-of-bounds axis '{axis}'."
 
     f = {0: vstack, 1: hstack}[axis]
-    op = f(ops)
+    op = f(ops, **kwargs)
     return op
 
 
-def vstack(ops: cabc.Sequence[pyct.OpT]) -> pyct.OpT:
+def vstack(
+    ops: cabc.Sequence[pyct.OpT],
+    **kwargs,
+) -> pyct.OpT:
     r"""
     Construct a vertically-stacked operator.
 
@@ -91,6 +98,8 @@ def vstack(ops: cabc.Sequence[pyct.OpT]) -> pyct.OpT:
     ----------
     ops: cabc.Sequence[pyct.OpT]
         [op1(c1, d), ..., opN(cN, d)] operators to concatenate.
+    kwargs
+        Extra keyword-arguments forwarded to :py:class:`~pycsou.operator.blocks._COOBlock`.
 
     Returns
     -------
@@ -125,12 +134,16 @@ def vstack(ops: cabc.Sequence[pyct.OpT]) -> pyct.OpT:
             ),
         ),
         grid_shape=(N_data, 1),
+        parallel=kwargs.get("parallel", False),
     ).op()
     op._expr = types.MethodType(op_expr, op)
     return op
 
 
-def hstack(ops: cabc.Sequence[pyct.OpT]) -> pyct.OpT:
+def hstack(
+    ops: cabc.Sequence[pyct.OpT],
+    **kwargs,
+) -> pyct.OpT:
     r"""
     Construct a horizontally-stacked operator.
 
@@ -152,6 +165,8 @@ def hstack(ops: cabc.Sequence[pyct.OpT]) -> pyct.OpT:
     ----------
     ops: cabc.Sequence[pyct.OpT]
         [op1(c, d1), ..., opN(c, dN)] operators to concatenate.
+    kwargs
+        Extra keyword-arguments forwarded to :py:class:`~pycsou.operator.blocks._COOBlock`.
 
     Returns
     -------
@@ -186,12 +201,16 @@ def hstack(ops: cabc.Sequence[pyct.OpT]) -> pyct.OpT:
             ),
         ),
         grid_shape=(1, N_data),
+        parallel=kwargs.get("parallel", False),
     ).op()
     op._expr = types.MethodType(op_expr, op)
     return op
 
 
-def block_diag(ops: cabc.Sequence[pyct.OpT]) -> pyct.OpT:
+def block_diag(
+    ops: cabc.Sequence[pyct.OpT],
+    **kwargs,
+) -> pyct.OpT:
     r"""
     Construct a block-diagonal operator.
 
@@ -216,6 +235,8 @@ def block_diag(ops: cabc.Sequence[pyct.OpT]) -> pyct.OpT:
     ----------
     ops: cabc.Sequence[pyct.OpT]
         [op1(c1, d1), ..., opN(cN, dN)] operators to concatenate.
+    kwargs
+        Extra keyword-arguments forwarded to :py:class:`~pycsou.operator.blocks._COOBlock`.
 
     Returns
     -------
@@ -304,6 +325,7 @@ def block_diag(ops: cabc.Sequence[pyct.OpT]) -> pyct.OpT:
             ),
         ),
         grid_shape=(N_data, N_data),
+        parallel=kwargs.get("parallel", False),
     ).op()
     op.svdvals = types.MethodType(op_svdvals, op)
     op.eigvals = types.MethodType(op_eigvals, op)
@@ -316,6 +338,7 @@ def block_diag(ops: cabc.Sequence[pyct.OpT]) -> pyct.OpT:
 def block(
     ops: cabc.Sequence[cabc.Sequence[pyct.OpT]],
     order: pyct.Integer,
+    **kwargs,
 ) -> pyct.OpT:
     r"""
     Construct a (dense) block-defined operator.
@@ -332,6 +355,8 @@ def block(
 
         * 0: concatenate inner-most blocks via ``vstack()``, then ``hstack()``.
         * 1: concatenate inner-most blocks via ``hstack()``, then ``vstack()``.
+    kwargs
+        Extra keyword-arguments forwarded to :py:class:`~pycsou.operator.blocks._COOBlock`.
 
     Returns
     -------
@@ -378,7 +403,7 @@ def block(
     inner = {0: vstack, 1: hstack}[order]
     outer = {0: hstack, 1: vstack}[order]
 
-    op = outer([inner(row) for row in ops])
+    op = outer([inner(row, **kwargs) for row in ops], **kwargs)
     return op
 
 
@@ -391,6 +416,8 @@ def coo_block(
         ],
     ],
     grid_shape: pyct.Shape,
+    *,
+    parallel: bool = False,
 ) -> pyct.OpT:
     r"""
     Constuct a (possibly-sparse) block-defined operator in COOrdinate format.
@@ -409,6 +436,15 @@ def coo_block(
 
     grid_shape: pyct.Shape
         (M, N) shape of the coarse grid.
+
+    parallel: bool
+        If ``true`` , use Dask to evaluate the following methods:
+
+        * ``.apply()``
+        * ``.prox()``
+        * ``.grad()``
+        * ``.adjoint()``
+        * ``.[co]gram().[apply,adjoint]()``
 
     Returns
     -------
@@ -444,8 +480,31 @@ def coo_block(
     op = _COOBlock(
         ops=ops,
         grid_shape=grid_shape,
+        parallel=parallel,
     ).op()
     return op
+
+
+def _wrap_if_dask(func: cabc.Callable) -> cabc.Callable:
+    @functools.wraps(func)
+    def wrapper(*ARGS, **KWARGS):
+        func_args = pycu.parse_params(func, *ARGS, **KWARGS)
+
+        arr = func_args.get("arr", None)
+        N = pycd.NDArrayInfo
+        parallelize = ARGS[0]._parallel and (N.from_obj(arr) != N.DASK)
+
+        if parallelize:
+            xp = N.DASK.module()
+            func_args.update(arr=xp.array(arr, dtype=arr.dtype))
+        else:
+            pass
+
+        out = func(**func_args)
+        f = {True: pycu.compute, False: lambda _: _}[parallelize]
+        return f(out)
+
+    return wrapper
 
 
 class _COOBlock:  # See coo_block() for a detailed description.
@@ -459,9 +518,11 @@ class _COOBlock:  # See coo_block() for a detailed description.
             ],
         ],
         grid_shape: pyct.Shape,
+        parallel: bool,
     ):
         self._grid_shape = tuple(grid_shape)
         self._init_spec(ops)
+        self._parallel = bool(parallel)
 
         # Default Arithmetic Attributes
         self._lipschitz = np.inf
@@ -483,6 +544,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
             op._block = self._block  # embed for introspection
             op._block_offset = self._block_offset  # embed for introspection
             op._grid_shape = self._grid_shape  # embed for introspection
+            op._parallel = self._parallel  # embed for introspection
             for p in op.properties():
                 for name in p.arithmetic_attributes():
                     attr = getattr(self, name)
@@ -600,6 +662,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         op = klass(shape=(op_codim, op_dim))
         return op
 
+    @_wrap_if_dask
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         # compute blocks
@@ -664,6 +727,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         tail = [_Block(idx=k, op=op) for (k, op) in self._block.items()]
         return (head, *tail)
 
+    @_wrap_if_dask
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         if not self.has(pyco.Property.PROXIMABLE):
@@ -717,6 +781,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
             out = _COOBlock(
                 ops=(data, (i, j)),
                 grid_shape=self._grid_shape,
+                parallel=self._parallel,
             ).op()
         return out
 
@@ -745,6 +810,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         self._diff_lipschitz = float(dL)
         return self._diff_lipschitz
 
+    @_wrap_if_dask
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         if not self.has(pyco.Property.DIFFERENTIABLE_FUNCTION):
@@ -761,6 +827,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         out = xp.concatenate(parts, axis=-1)
         return out
 
+    @_wrap_if_dask
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         if not self.has(pyco.Property.LINEAR):
@@ -864,6 +931,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
             _COOBlock(
                 ops=(data, (i, j)),
                 grid_shape=(N_col, N_col),
+                parallel=self._parallel,
             )
             .op()
             .asop(pyco.SelfAdjointOp)
@@ -919,6 +987,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
             _COOBlock(
                 ops=(data, (i, j)),
                 grid_shape=(N_row, N_row),
+                parallel=self._parallel,
             )
             .op()
             .asop(pyco.SelfAdjointOp)

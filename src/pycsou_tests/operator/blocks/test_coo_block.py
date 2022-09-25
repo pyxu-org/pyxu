@@ -156,9 +156,12 @@ class COOBlockMixin:
         params=itertools.product(
             pycd.NDArrayInfo,
             pycrt.Width,
+            [True, False],  # parallel
         )
     )
     def spec(self, op_blocks, op_hole, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
+        ndi, width, parallel = request.param
+
         data, i, j = [], [], []
         for _i, row in enumerate(op_blocks):
             for _j, op in enumerate(row):
@@ -170,9 +173,8 @@ class COOBlockMixin:
         op = pycb.coo_block(
             (data, (i, j)),
             grid_shape=(N_row, N_col),
+            parallel=parallel,
         )
-
-        ndi, width = request.param
         return op, ndi, width
 
     @pytest.fixture
