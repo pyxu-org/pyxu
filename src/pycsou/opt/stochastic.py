@@ -165,7 +165,7 @@ class DataLoader(cabc.Sequence):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def len(self):
+    def __len__(self):
         r"""
         Number of batches in the dataset
         """
@@ -348,7 +348,7 @@ class ChunkOp(BatchOp):
     """
 
     def __init__(
-        self, op: pyco.LinOp, depth: dict[int:int] = None, boundary: dict[int : typ.Union[str, pyct.DTypeLike]] = None
+        self, op: pyco.LinOp, depth: dict[int:int] = None, boundary: dict[int : typ.Union[str, pyct.Real]] = None
     ):
         r"""
         The parameters depth and boundary are passed along to
@@ -361,8 +361,7 @@ class ChunkOp(BatchOp):
         depth: dict[int: int]
             How much chunking overlap there should be. See example1_
             Current supported structure for depth is as a dict with the axis as the key, and number of values to overlap as value.
-
-        boundary: dict[int: typ.Union[str, pyct.DTypeLike]]
+        boundary: dict[int: typ.Union[str, pyct.Real]]
             The boundary condition for overlap at the edges of the data. See example2_
             Current supported structure for boundary is the same as depth, with the axis as the key and as the value:
 
@@ -405,9 +404,7 @@ class ChunkOp(BatchOp):
         self.stack_shape = None
 
     @staticmethod
-    def _coerce_condition(
-        condition: dict, ndim: pyct.Integer, num_stack: pyct.Integer, default: pyct.DTypeLike = 0
-    ) -> dict:
+    def _coerce_condition(condition: dict, ndim: pyct.Integer, num_stack: pyct.Integer, default: pyct.Real = 0) -> dict:
         r"""
         Add a number of default values to a dictionary equivalent to num_stack, and re-order the existing values to be
         after the default values. The spacing between values should stay equivalent.
@@ -420,7 +417,7 @@ class ChunkOp(BatchOp):
             total number of keys in output dict
         num_stack: pyct.Integer
             number of keys to have default value in output dict
-        default: pyct.DTypeLike
+        default: pyct.Real
             the default value
 
         Returns
@@ -724,6 +721,7 @@ class SGD(GradStrategy):
         return grad
 
 
+# TODO - refactor this out to another branch
 # TODO -> since the batches are the same everytime (assumption) we would only need to keep a vector per batch, not a vector for every item in the batch.
 # so the grad book would be (batches, dim) and we would take batch_index instead of ind...
 # wouldn't work if we had disjoint batching strategy, but would speed things a lot otherwise.
