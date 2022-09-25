@@ -229,18 +229,18 @@ class COOBlockMixin:
         N_test, dim = 5, data_shape[1]
         return self._random_array((N_test, dim))
 
+
+class COOBlockFuncMixin(COOBlockMixin):
+    @pytest.fixture
+    def op_hole(self) -> list[tuple[int, int]]:
+        return []  # horizontal coo_block() objects cannot have any holes.
+
     # Tests -------------------------------------------------------------------
     def test_interface_asloss(self, op, xp, width):
         self._skip_if_disabled()
         with pytest.raises(NotImplementedError):
             # asloss() is ambiguous for block-defined operators -> must fail.
             op.asloss()
-
-
-class COOBlockFuncMixin(COOBlockMixin):
-    @pytest.fixture
-    def op_hole(self) -> list[tuple[int, int]]:
-        return []  # horizontal coo_block() objects cannot have any holes.
 
 
 # Test classes (Maps) ---------------------------------------------------------
