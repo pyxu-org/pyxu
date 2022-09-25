@@ -6,6 +6,7 @@ import numpy as np
 import pycsou._dev as dev
 import pycsou._dev.stochastic.stoc_utils as devs
 import pycsou.abc.solver as pycs
+import pycsou.operator.func.norm as pyofn
 import pycsou.opt.solver.pgd as pgd
 import pycsou.opt.stochastic as pystoc
 import pycsou.opt.stop as pycos
@@ -33,14 +34,14 @@ if __name__ == "__main__":
 
     mini_batch = (100, 100)
     Cop_batch = pystoc.ChunkOp(op=Cop, depth={0: overlap, 1: overlap}, boundary={0: "reflect", 1: "reflect"})
-    c_dataset = pystoc.ChunkDataset(load=load, data_shape=img_shape, chunks=mini_batch)
+    c_dataset = pystoc.ChunkDataloader(load=load, data_shape=img_shape, chunks=mini_batch)
 
     batch = pystoc.Batch(c_dataset, Cop_batch, shuffle=True)
 
     # ==================================================================
 
     grad_strategy = pystoc.SGD()
-    stoc_func = pystoc.Stochastic(f=dev.SquaredL2Norm(), batch=batch, strategy=grad_strategy)
+    stoc_func = pystoc.Stochastic(f=pyofn.SquaredL2Norm(), batch=batch, strategy=grad_strategy)
 
     # ==================================================================
 
@@ -49,7 +50,7 @@ if __name__ == "__main__":
     # Dop.lipschitz() - Lipschitz has been precomputed
 
     mu = 1 / (2 * np.prod(mini_batch))
-    reg = mu * dev.SquaredL2Norm() * Gop
+    reg = mu * pyofn.SquaredL2Norm() * Gop
 
     F = stoc_func + reg
 
