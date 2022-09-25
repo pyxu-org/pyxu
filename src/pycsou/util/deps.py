@@ -5,6 +5,7 @@ import types
 import dask.array
 import numpy
 import scipy.sparse
+import scipy.sparse.linalg
 import sparse
 
 CUPY_ENABLED: bool = importlib.util.find_spec("cupy") is not None
