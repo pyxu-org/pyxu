@@ -29,8 +29,6 @@ __all__ = [
     "Stochastic",
 ]
 
-# TODO how to deal with data_shape ? - will it be some part of core pycsou?
-
 
 # TODO refacotor base classes into abc Dataset,
 # what is wrong - how to get the class attributes necessary (shape, ndim, dtype) without this weird _load() thing
@@ -153,9 +151,9 @@ class DataLoader(cabc.Sequence):
     :py:class:`~pycsou.opt.stochastic.Batch`
     """
 
-    def __init__(self, load: Loader, data_shape: pyct.Shape):
+    def __init__(self, load: Loader, arg_shape: pyct.Shape):
         self.load = load
-        self.data_shape = data_shape
+        self.arg_shape = arg_shape
 
     @abc.abstractmethod
     def __getitem__(self, index: pyct.Integer):
@@ -199,13 +197,13 @@ class ChunkDataloader(DataLoader):
     """
 
     # TODO what if load is already a dask array -> redirect or if statement
-    def __init__(self, load: Loader, data_shape: pyct.Shape, chunks: pyct.Shape):
+    def __init__(self, load: Loader, arg_shape: pyct.Shape, chunks: pyct.Shape):
         r"""
         Parameters
         ----------
         load : Loader
             object to query data from
-        data_shape : pyct.Shape
+        arg_shape : pyct.Shape
             This should represent the actual shape of your data. This should not abide by rules for pycsou ndarrays.
             For example a 2d image would be represented by (H,W).
         chunks
@@ -213,11 +211,11 @@ class ChunkDataloader(DataLoader):
 
         Note
         ----------
-        The number of dimensions of chunks should match number of dimensions of data_shape.
+        The number of dimensions of chunks should match number of dimensions of arg_shape.
         """
-        super().__init__(load, data_shape)
+        super().__init__(load, arg_shape)
 
-        self.data_ndim = len(self.data_shape)
+        self.data_ndim = len(self.arg_shape)
         self.chunks = chunks
         if self.data_ndim != len(self.chunks):
             msg = f"chunk dim of {len(self.chunks)} doesn't match data dim of {self.data_ndim}"
@@ -229,7 +227,7 @@ class ChunkDataloader(DataLoader):
         # TODO think we can just say da.array() but need to look into that
         self.data = (
             da.from_array(self.load)
-            .reshape(*self.stack_shape, *self.data_shape)
+            .reshape(*self.stack_shape, *self.arg_shape)
             .rechunk(chunks=(*self.stack_shape, *self.chunks))
         )
 
@@ -237,7 +235,7 @@ class ChunkDataloader(DataLoader):
         self.block_dim = [len(c) for c in self.blocks]
         self.indices = (
             da.arange(self.load.size)
-            .reshape(*self.stack_shape, *self.data_shape)
+            .reshape(*self.stack_shape, *self.arg_shape)
             .rechunk(chunks=(*self.stack_shape, *self.chunks))
         )
 
@@ -296,8 +294,7 @@ class BatchOp(pyco.LinOp):
 
     def __init__(self, op: pyco.LinOp):
         self.op = op
-        # TODO, not all have data_shape...
-        self.data_shape = self.op.data_shape
+        self.arg_shape = self.op.arg_shape
         super().__init__(shape=self.op.shape)
 
     @abc.abstractmethod
@@ -389,7 +386,7 @@ class ChunkOp(BatchOp):
         # if not isinstance(op, StochasticOp):
         #     raise ValueError("Operator must be a StochasticOp operator.")
         super().__init__(op=op)
-        self.data_ndim = len(self.data_shape)
+        self.data_ndim = len(self.arg_shape)
         self.depth = depth
         self.boundary = boundary
 
@@ -457,7 +454,7 @@ class ChunkOp(BatchOp):
             -self.data_ndim :
         ]
         self.batch_shape = [s.stop - s.start for s in self.batch_slice[-self.data_ndim :]]
-        self.op.data_shape = self.overlap_shape
+        self.op.arg_shape = self.overlap_shape
         self._shape = (np.prod(self.batch_shape), np.prod(self.batch_shape))
         return self
 
@@ -468,7 +465,7 @@ class ChunkOp(BatchOp):
         if xp != da:
             arr = da.from_array(arr)
 
-        arr = arr.reshape(*input_shape[:-1], *self.data_shape).rechunk(self.blocks)
+        arr = arr.reshape(*input_shape[:-1], *self.arg_shape).rechunk(self.blocks)
 
         out = da.map_overlap(
             lambda x: self.op.apply(x.reshape(*input_shape[:-1], -1)).reshape(x.shape),
@@ -492,9 +489,9 @@ class ChunkOp(BatchOp):
         xp = pycu.get_array_module(arr)
 
         if xp != da:
-            out = da.from_array(xp.zeros((*input_shape[:-1], *self.data_shape)), chunks=self.blocks)
+            out = da.from_array(xp.zeros((*input_shape[:-1], *self.arg_shape)), chunks=self.blocks)
         else:
-            out = da.zeros((*input_shape[:-1], *self.data_shape), chunks=self.blocks)
+            out = da.zeros((*input_shape[:-1], *self.arg_shape), chunks=self.blocks)
 
         out[self.batch_slice] = arr.reshape((*input_shape[:-1], *self.batch_shape))
 
@@ -537,8 +534,8 @@ def neighbors_map_overlap(
 
     **Remark 2:**
 
-     op must be a LinOp with attribute data_shape and an adjoint method.
-     The data_shape is dynamically adjusted to allow for different batch_sizes.
+     op must be a LinOp with attribute arg_shape and an adjoint method.
+     The arg_shape is dynamically adjusted to allow for different batch_sizes.
 
      **Remark 3:**
 
@@ -579,7 +576,7 @@ def neighbors_map_overlap(
         # if dimensions of interest within +/-1, apply function
         if all([i - int(overlap) <= j <= i + int(overlap) for i, j in zip(ind, block_id)]):
             shape_overload = [s[1] - s[0] for s in array_location]
-            op.data_shape = tuple(shape_overload)
+            op.arg_shape = tuple(shape_overload)
             return op.adjoint(x.reshape(*stack_dims, -1)).reshape(x.shape)
     return x
 

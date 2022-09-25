@@ -7,13 +7,13 @@ import pycsou.opt.stochastic as pystoc
 if __name__ == "__main__":
 
     data = np.arange(2 * 50 * 50).reshape(2, 50 * 50)
-    data_shape = (50, 50)
+    arg_shape = (50, 50)
     chunks = (9, 9)
 
-    cdataset = pystoc.ChunkDataset(data, data_shape=data_shape, chunks=chunks)
+    cdataset = pystoc.ChunkDataloader(data, arg_shape=arg_shape, chunks=chunks)
     cdataset.communicate()
 
-    Cop = dev.Convolve(data_shape=data_shape, filter=np.arange(11 * 11).reshape(11, 11), mode="reflect")
+    Cop = dev.Convolve(arg_shape=arg_shape, filter=np.arange(11 * 11).reshape(11, 11), mode="reflect")
     chunkOp = pystoc.ChunkOp(Cop, depth={0: 5, 1: 5}, boundary={0: "reflect", 1: "reflect"})
 
     chunkOp.startup(**cdataset.communicate())

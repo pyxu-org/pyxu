@@ -18,7 +18,7 @@ if __name__ == "__main__":
     # define blur kernal and Convolution operator
     oof_blur = devs.out_of_focus_kernel(r=6)
     overlap = oof_blur.shape[0] // 2
-    Cop = dev.Convolve(data_shape=img_shape, filter=oof_blur)
+    Cop = dev.Convolve(arg_shape=img_shape, filter=oof_blur)
     Cop._lipschitz = np.array([0.99913936])
     # Gop.lipschitz() - Lipschitz has been precomputed
 
@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     mini_batch = (100, 100)
     Cop_batch = pystoc.ChunkOp(op=Cop, depth={0: overlap, 1: overlap}, boundary={0: "reflect", 1: "reflect"})
-    c_dataset = pystoc.ChunkDataloader(load=load, data_shape=img_shape, chunks=mini_batch)
+    c_dataset = pystoc.ChunkDataloader(load=load, arg_shape=img_shape, chunks=mini_batch)
 
     batch = pystoc.Batch(c_dataset, Cop_batch, shuffle=True)
 

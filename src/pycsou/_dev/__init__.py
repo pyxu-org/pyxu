@@ -218,17 +218,17 @@ class DownSampling(Masking):
 class Convolve(pyco.LinOp):
     conv_or_corr = {0: "correlate", 1: "convolve"}
 
-    def __init__(self, data_shape, filter, mode="reflect", cval=0.0, origin=0):
-        if filter.ndim != len(data_shape):
+    def __init__(self, arg_shape, filter, mode="reflect", cval=0.0, origin=0):
+        if filter.ndim != len(arg_shape):
             raise ValueError(
-                f"number of filter dimensions does not match number of data_shape dimensions: {filter.ndim} != {len(data_shape)}"
+                f"number of filter dimensions does not match number of arg_shape dimensions: {filter.ndim} != {len(arg_shape)}"
             )
-        super().__init__(shape=(np.product(data_shape), np.product(data_shape)))
+        super().__init__(shape=(np.product(arg_shape), np.product(arg_shape)))
         self.filter = filter
         self.mode = mode
         self.cval = cval
         self.origin = origin
-        self.data_shape = data_shape
+        self.arg_shape = arg_shape
 
     @pycrt.enforce_precision(i="arr")
     def _apply(self, arr, apply: bool):
@@ -238,7 +238,7 @@ class Convolve(pyco.LinOp):
         if self.filter.dtype != pycrt.getPrecision():
             warnings.warn("Computation may not be performed at the requested precision.", UserWarning)
 
-        # arr = arr.reshape(*input_shape[:-1], *self.data_shape)
+        # arr = arr.reshape(*input_shape[:-1], *self.arg_shape)
 
         if pycu.deps.CUPY_ENABLED and xp == cp:
             import cupyx.scipy.ndimage as sndx
@@ -247,7 +247,7 @@ class Convolve(pyco.LinOp):
         else:
             sndx = snd
         # flatten stacking dimension, reshape data dimension
-        arr = arr.reshape(-1, *self.data_shape)
+        arr = arr.reshape(-1, *self.arg_shape)
         data = []
         # iterate over stacking dimension
         for i in range(arr.shape[0]):
@@ -273,8 +273,8 @@ class GradientOp(pyco.LinOp):
 
         super(GradientOp, self).__init__((2 * size, size))
         self.dtype = dtype
-        self.data_shape = shape
-        self.op = pylops.Gradient(dims=self.data_shape, sampling=step, edge=edge, dtype=dtype, kind=kind)
+        self.arg_shape = shape
+        self.op = pylops.Gradient(dims=self.arg_shape, sampling=step, edge=edge, dtype=dtype, kind=kind)
         self.op_scipy = spls.aslinearoperator(self.op)
 
     def apply(self, arr):
