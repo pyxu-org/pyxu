@@ -507,8 +507,6 @@ class ArgShiftRule(Rule):
         self._scalar = isinstance(cst, pyct.Real)
         if self._scalar:
             cst = float(cst)
-        else:  # pyct.NDArray
-            assert cst.size == len(cst), f"cst: expected 1D array, got {cst.shape}."
         self._cst = cst
 
     def op(self) -> pyct.OpT:
@@ -555,7 +553,7 @@ class ArgShiftRule(Rule):
             return self._op.shape
         else:  # pyct.NDArray
             dim_op = self._op.dim
-            dim_cst = self._cst.size
+            dim_cst = self._cst.shape[-1]
             if (dim_op is None) or (dim_op == dim_cst):
                 return (self._op.codim, dim_cst)
             else:
