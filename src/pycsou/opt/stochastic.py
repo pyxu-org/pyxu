@@ -461,6 +461,7 @@ class ChunkOp(BatchOp):
         ]
         self.batch_shape = [s.stop - s.start for s in self.batch_slice[-self.data_ndim :]]
         self.op.data_shape = self.overlap_shape
+        self._shape = (np.prod(self.batch_shape), np.prod(self.batch_shape))
         return self
 
     def apply(self, arr):
