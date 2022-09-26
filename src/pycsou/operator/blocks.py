@@ -457,6 +457,7 @@ def coo_block(
     * Domain-agnostic operators, i.e. operators with None-valued ``dim`` s, are unsupported.
     * Blocks on the same row/column must have the same ``codim`` / ``dim`` s.
     * Each row/column of the coarse grid **must** contain at least one entry.
+    * ``parallel=True`` only parallelizes execution when inputs to listed methods are NUMPY arrays.
 
     Examples
     --------
@@ -493,7 +494,17 @@ def _wrap_if_dask(func: cabc.Callable) -> cabc.Callable:
 
         arr = func_args.get("arr", None)
         N = pycd.NDArrayInfo
-        parallelize = ARGS[0]._parallel and (N.from_obj(arr) != N.DASK)
+        parallelize = ARGS[0]._parallel and (N.from_obj(arr) == N.NUMPY)
+
+        # [2022.09.26] Sepand Kashani
+        # Q: Why do we parallelize only for NUMPY inputs and not CUPY?
+        # A: Given an arithmetic method `f`, there is no obligation (for DASK inputs) to satisfy the
+        #    relation `f(arr).chunk_type == arr.chunk_type`.
+        #    In particular the relationship does not hold for LinFunc.[grad, adjoint]() unless the
+        #    user provides a special implementation for DASK inputs.
+        #    Consequence: the sum() / xp.concatenate() instructions in _COOBlock() may:
+        #    * fail due to array-type mismatch; or
+        #    * induce unnecessary CPU<>GPU transfers.
 
         if parallelize:
             xp = N.DASK.module()
