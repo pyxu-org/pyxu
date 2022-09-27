@@ -16,7 +16,8 @@ __all__ = [
 
 def view_as_complex(x: pyct.NDArray) -> pyct.NDArray:
     r"""
-    View real-valued array as its complex-valued bijection (inverse of :py:func:`~pycsou.util.complex.view_as_real`).
+    View real-valued array as its complex-valued bijection.
+    (Inverse of :py:func:`~pycsou.util.complex.view_as_real`.)
 
     Parameters
     ----------
@@ -30,25 +31,28 @@ def view_as_complex(x: pyct.NDArray) -> pyct.NDArray:
 
     Examples
     --------
-    >>> from pycsou.util import view_as_real, view_as_complex
-    >>> x = np.arange(6).astype(float)
-    array([0., 1., 2., 3., 4., 5.])
-    >>> y = view_as_complex(x)
-    array([0.+1.j, 2.+3.j, 4.+5.j])
-    >>> view_as_real(y) == x
-    True
+
+    .. code-block:: python3
+
+       from pycsou.util import view_as_real, view_as_complex
+       x = np.arange(6.0)      # array([0., 1., 2., 3., 4., 5.])
+       y = view_as_complex(x)  # array([0.+1.j, 2.+3.j, 4.+5.j])
+       view_as_real(y) == x    # True
 
     Notes
     -----
-    Complex-valued input arrays are returned unchanged. For real-valued inputs, this function acts on the last axis as:
+    Complex-valued inputs are returned unchanged.
+    For real-valued inputs, this function acts on the last axis as:
 
     .. math::
 
-        y_n = x_{2n-1}+jx_{2n}, \qquad 1\leq n\leq N.
+       y_n = x_{2n-1}+j \, x_{2n}, \qquad 1\leq n\leq N.
 
     See Also
     --------
-    view_as_real, view_as_real_mat, view_as_complex_mat
+    :py:func:`~pycsou.util.complex.view_as_real`,
+    :py:func:`~pycsou.util.complex.view_as_real_mat`,
+    :py:func:`~pycsou.util.complex.view_as_complex_mat`
     """
     if _is_complex(x):
         return x
