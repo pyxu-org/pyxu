@@ -1,10 +1,5 @@
-import typing as typ
-
-import dask.array as da
-
 import pycsou.runtime as pycrt
 import pycsou.util.array_module as pyca
-import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
 __all__ = [
