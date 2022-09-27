@@ -238,71 +238,72 @@ def view_as_real_mat(
     return rmat
 
 
-def _rc_masks(cmat, xp, c_dtype, r_dtype) -> typ.Tuple:
-    ri, ci = xp.ones(cmat.shape[0], dtype=c_dtype).view(r_dtype).astype(bool), (
-        1j * xp.ones(cmat.shape[0], dtype=c_dtype)
-    ).view(r_dtype).astype(bool)
-    rj, cj = xp.ones(cmat.shape[1], dtype=c_dtype).view(r_dtype).astype(bool), (
-        1j * xp.ones(cmat.shape[1], dtype=c_dtype)
-    ).view(r_dtype).astype(bool)
-    rrij = (ri[:, None] * rj[None, :]).astype(bool)
-    crij = (ci[:, None] * rj[None, :]).astype(bool)
-    ccij = (ci[:, None] * cj[None, :]).astype(bool)
-    rcij = (ri[:, None] * cj[None, :]).astype(bool)
-    return pyca.compute(ri, rj, rrij, crij, ccij, rcij)
-
-
-def view_as_complex_mat(rmat: pyct.NDArray, real_input: bool = False, real_output: bool = False):
+def view_as_complex_mat(
+    rmat: pyct.NDArray,
+    real_input: bool = False,
+    real_output: bool = False,
+) -> pyct.NDArray:
     r"""
-    View real-valued matrix as its complex-valued equivalent (inverse of :py:func:`~pycsou.util.complex.view_as_real_mat`).
+    View real-valued matrix as its complex-valued equivalent.
+    (Inverse of :py:func:`~pycsou.util.complex.view_as_real_mat`.)
 
-    Useful to transform real-valued matrix/vector products in their complex counterparts.
+    Useful to transform real-valued matrix/vector products to their complex-valued counterparts.
 
     Parameters
     ----------
-    rmat: NDArray
-        * (2M, 2N) real-valued matrix if ``real_input=real_output=False``,
-        * (M, 2N) real-valued matrix if ``real_output=True`` and ``real_input=False``,
-        * (2M, N) real-valued matrix if ``real_output=False`` and ``real_input=True``,
-        * (M, N) real-valued matrix if ``real_input=real_output=True``.
+    rmat: pyct.NDArray
+        Real-valued matrix.
+        Accepted dimensions depend on the values of ``real_input`` and ``real_output``:
+
+        .. code-block::
+
+           | real_input | real_output | rmat.shape |
+           |------------|-------------|------------|
+           | False      | False       | (2M, 2N)   |
+           | False      | True        | ( M, 2N)   |
+           | True       | False       | (2M,  N)   |
+           | True       | True        | ( M,  N)   |
 
     Returns
     -------
-    cmat: NDArray
+    cmat: pyct.NDArray
         (M, N) complex-valued matrix.
 
     Examples
     --------
-    >>> from pycsou.util import view_as_real_mat, view_as_complex_mat
-    >>> A = (np.arange(6) + 1j * (np.arange(6)+2)).reshape(2,3)
-    array([[0.+2.j, 1.+3.j, 2.+4.j],
-           [3.+5.j, 4.+6.j, 5.+7.j]])
-    >>> B = view_as_real_mat(A)
-    array([[ 0., -2.,  1., -3.,  2., -4.],
-           [ 2.,  0.,  3.,  1.,  4.,  2.],
-           [ 3., -5.,  4., -6.,  5., -7.],
-           [ 5.,  3.,  6.,  4.,  7.,  5.]])
-    >>> C = view_as_complex_mat(B)
-    array([[0.+2.j, 1.+3.j, 2.+4.j],
-           [3.+5.j, 4.+6.j, 5.+7.j]])
+
+    .. code-block:: python3
+
+       from pycsou.util import view_as_real_mat, view_as_complex_mat
+
+       A = np.array([[ 0., -2.,  1., -3.,  2., -4.],
+                     [ 2.,  0.,  3.,  1.,  4.,  2.],
+                     [ 3., -5.,  4., -6.,  5., -7.],
+                     [ 5.,  3.,  6.,  4.,  7.,  5.]])
+
+       B = view_as_complex(A)  # array([[0.+2.j, 1.+3.j, 2.+4.j],
+                               #        [3.+5.j, 4.+6.j, 5.+7.j]])
 
     Notes
     -----
-    Complex-valued matrices are returned unchanged. Real-valued matrices are mapped into a
-    complex-valued matrix :math:`{A}\in\mathbb{C}^{M\times N}` as follows:
+    * Complex-valued matrices are returned unchanged.
+    * Real-valued matrices are mapped into a complex-valued matrix :math:`{A}\in\mathbb{C}^{M\times
+      N}` as follows:
 
-        * :math:`\hat{A}\in\mathbb{R}^{2M\times 2N}`:  :math:`A_{m,n} = \hat{A}_{2m-1,2n-1} + j \hat{A}_{2m,2n-1}`,
-        * :math:`\hat{A}\in\mathbb{R}^{M\times 2N}`:  :math:`A_{m,n} = \hat{A}_{m,2n-1} - j \hat{A}_{m,2n}`,
-        * :math:`\hat{A}\in\mathbb{R}^{2M\times N}`:  :math:`A_{m,n} = \hat{A}_{2m-1,n} + j \hat{A}_{2m,n}`,
-        * :math:`\hat{A}\in\mathbb{R}^{M\times N}`:  :math:`A_{m,n} = \hat{A}_{m,n} + 0j`,
+      * :math:`\hat{A}\in\mathbb{R}^{2M\times 2N}`:  :math:`A_{m,n} = \hat{A}_{2m-1,2n-1} + j \hat{A}_{2m,2n-1}`,
+      * :math:`\hat{A}\in\mathbb{R}^{M\times 2N}`:  :math:`A_{m,n} = \hat{A}_{m,2n-1} - j \hat{A}_{m,2n}`,
+      * :math:`\hat{A}\in\mathbb{R}^{2M\times N}`:  :math:`A_{m,n} = \hat{A}_{2m-1,n} + j \hat{A}_{2m,n}`,
+      * :math:`\hat{A}\in\mathbb{R}^{M\times N}`:  :math:`A_{m,n} = \hat{A}_{m,n} + 0j`,
 
-    for :math:`1\leq n \leq N`, :math:`1\leq m\leq M`.
+      for :math:`1\leq n \leq N`, :math:`1\leq m\leq M`.
 
     See Also
     --------
-    view_as_real, view_as_complex, view_as_real_mat
-
+    :py:func:`~pycsou.util.complex.view_as_real`,
+    :py:func:`~pycsou.util.complex.view_as_complex`,
+    :py:func:`~pycsou.util.complex.view_as_real_mat`
     """
+    assert rmat.ndim == 2, f"rmat: expected a 2D array, got {rmat.ndim}-D."
     if _is_complex(rmat):
         return rmat
 
@@ -313,32 +314,18 @@ def view_as_complex_mat(rmat: pyct.NDArray, real_input: bool = False, real_outpu
     except:
         raise ValueError(f"Unsupported dtype {r_dtype}.")
 
-    xp = pyca.get_array_module(rmat)
+    N_row, N_col = rmat.shape
+    error_msg = lambda _: f"{_} array dimension should be even-valued."
     if real_input and real_output:
-        return (rmat + 0j).astype(c_dtype)
-    else:
-        if real_input and not real_output:
-            assert rmat.shape[0] % 2 == 0, "First array dimension should be even-valued."
-            cmat = xp.zeros((rmat.shape[0] // 2, rmat.shape[1]), dtype=c_dtype)
-            _, rj, rrij, crij, _, _ = _rc_masks(cmat, xp, c_dtype, r_dtype)
-            rrij, crij = rrij[:, rj], crij[:, rj]
-            rpart = rmat[rrij]
-            ipart = rmat[crij]
-        elif not real_input and real_output:
-            assert rmat.shape[1] % 2 == 0, "Last array dimension should be even-valued."
-            cmat = xp.zeros((rmat.shape[0], rmat.shape[1] // 2), dtype=c_dtype)
-            ri, _, rrij, _, _, rcij = _rc_masks(cmat, xp, c_dtype, r_dtype)
-            rrij, rcij = rrij[ri, :], rcij[ri, :]
-            rpart = rmat[rrij]
-            ipart = -rmat[rcij]
-        else:
-            assert rmat.shape[0] % 2 == 0 and rmat.shape[1] % 2 == 0, "Both array dimensions should be even-valued."
-            cmat = xp.zeros((rmat.shape[0] // 2, rmat.shape[1] // 2), dtype=c_dtype)
-            _, _, rrij, crij, _, _ = _rc_masks(cmat, xp, c_dtype, r_dtype)
-            rpart = rmat[rrij]
-            ipart = rmat[crij]
-        if isinstance(rpart, da.Array):
-            rpart.compute_chunk_sizes()
-            ipart.compute_chunk_sizes()
-        cmat = (rpart + 1j * ipart).reshape(cmat.shape).astype(c_dtype)
-        return cmat
+        cmat = rmat.astype(c_dtype)
+    elif real_input and (not real_output):
+        assert N_row % 2 == 0, error_msg("First")
+        cmat = rmat[::2, :] + (1j * rmat[1::2, :])
+    elif (not real_input) and real_output:
+        assert N_col % 2 == 0, error_msg("Last")
+        cmat = rmat[:, ::2] - (1j * rmat[:, 1::2])
+    else:  # (not real_input) and (not real_output)
+        assert N_row % 2 == 0, error_msg("First")
+        assert N_col % 2 == 0, error_msg("Last")
+        cmat = rmat[::2, ::2] + (1j * rmat[1::2, ::2])
+    return cmat
