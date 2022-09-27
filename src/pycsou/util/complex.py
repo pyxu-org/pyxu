@@ -72,12 +72,13 @@ def view_as_complex(x: pyct.NDArray) -> pyct.NDArray:
 
 def view_as_real(x: pyct.NDArray) -> pyct.NDArray:
     r"""
-    View complex-valued array as its real-valued bijection (inverse of :py:func:`~pycsou.util.complex.view_as_complex`).
+    View complex-valued array as its real-valued bijection.
+    (Inverse of :py:func:`~pycsou.util.complex.view_as_complex`.)
 
     Parameters
     ----------
     x: pyct.NDArray
-        (..., N) complex-valued array
+        (..., N) complex-valued array.
 
     Returns
     -------
@@ -86,27 +87,33 @@ def view_as_real(x: pyct.NDArray) -> pyct.NDArray:
 
     Examples
     --------
-    >>> from pycsou.util import view_as_real, view_as_complex
-    >>> x = np.arange(3) + 1j * (np.arange(3) + 2)
-    array([0.+2.j, 1.+3.j, 2.+4.j])
-    >>> y = view_as_real(x)
-    array([0., 2., 1., 3., 2., 4.])
-    >>> view_as_complex(y) == x
-    True
+
+    .. code-block:: python3
+
+       from pycsou.util import view_as_real, view_as_complex
+       x = np.r_[:3] + 1j * np.r_[2:5]   # array([0.+2.j, 1.+3.j, 2.+4.j])
+       y = view_as_real(x)               # array([0., 2., 1., 3., 2., 4.])
+       view_as_complex(y) == x           # True
 
     Notes
     -----
-    Real-valued array inputs are returned unchanged. For complex-valued inputs, this function acts on the last axis as:
+    Real-valued inputs are returned unchanged.
+    For complex-valued inputs, this function acts on the last axis as:
 
     .. math::
 
-        y_{2n-1}=\mathcal{R}(x_n),\quad  y_{2n}=\mathcal{I}(x_n), \quad 1\leq n\leq N,
+        y_{2n-1} = \mathcal{R}(x_n),
+        \quad
+        y_{2n} = \mathcal{I}(x_n),
+        \quad 1\leq n\leq N,
 
     where :math:`\mathcal{R}, \mathcal{I}` denote the real/imaginary parts respectively.
 
     See Also
     --------
-    view_as_real_mat, view_as_complex, view_as_complex_mat
+    :py:func:`~pycsou.util.complex.view_as_complex`,
+    :py:func:`~pycsou.util.complex.view_as_real_mat`,
+    :py:func:`~pycsou.util.complex.view_as_complex_mat`
     """
     if _is_real(x):
         return x
