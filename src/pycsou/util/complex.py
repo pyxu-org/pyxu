@@ -4,6 +4,7 @@ import dask.array as da
 
 import pycsou.runtime as pycrt
 import pycsou.util.array_module as pyca
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
 __all__ = [
@@ -144,57 +145,78 @@ def _is_complex(x: pyct.NDArray) -> bool:
         return False
 
 
-def view_as_real_mat(cmat: pyct.NDArray, real_input: bool = False, real_output: bool = False) -> pyct.NDArray:
+def view_as_real_mat(
+    cmat: pyct.NDArray,
+    real_input: bool = False,
+    real_output: bool = False,
+) -> pyct.NDArray:
     r"""
-    View complex-valued matrix as its real-valued equivalent (inverse of :py:func:`~pycsou.util.complex.view_as_complex_mat`).
+    View complex-valued matrix as its real-valued equivalent.
+    (Inverse of :py:func:`~pycsou.util.complex.view_as_complex_mat`.)
 
-    Useful to transform complex-valued matrix/vector products in their real counterparts.
+    Useful to transform complex-valued matrix/vector products to their real-valued counterparts.
 
     Parameters
     ----------
-    cmat: NDArray
+    cmat: pyct.NDArray
         (M, N) complex-valued matrix.
 
     Returns
     -------
-    rmat: NDArray
-        * (2M, 2N) real-valued matrix if ``real_input=real_output=False``,
-        * (M, 2N) real-valued matrix if ``real_output=True`` and ``real_input=False``,
-        * (2M, N) real-valued matrix if ``real_output=False`` and ``real_input=True``,
-        * (M, N) real-valued matrix if ``real_input=real_output=True``.
+    rmat: pyct.NDArray
+        The output shape depends on the values of ``real_input`` and ``real_output``:
+
+        .. code-block::
+
+           | real_input | real_output | rmat.shape |
+           |------------|-------------|------------|
+           | False      | False       | (2M, 2N)   |
+           | False      | True        | ( M, 2N)   |
+           | True       | False       | (2M,  N)   |
+           | True       | True        | ( M,  N)   |
 
     Examples
     --------
-    >>> from pycsou.util import view_as_real_mat, view_as_complex_mat
-    >>> A = (np.arange(6) + 1j * (np.arange(6)+2)).reshape(2,3)
-    array([[0.+2.j, 1.+3.j, 2.+4.j],
-           [3.+5.j, 4.+6.j, 5.+7.j]])
-    >>> B = view_as_real_mat(A)
-    array([[ 0., -2.,  1., -3.,  2., -4.],
-           [ 2.,  0.,  3.,  1.,  4.,  2.],
-           [ 3., -5.,  4., -6.,  5., -7.],
-           [ 5.,  3.,  6.,  4.,  7.,  5.]])
-    >>> view_as_complex_mat(B) == A
-    True
+
+    .. code-block:: python3
+
+       from pycsou.util import view_as_real_mat, view_as_complex_mat
+
+       A = np.reshape(
+           np.r_[:6] + 1j * np.r_[2:8], # array([[0.+2.j, 1.+3.j, 2.+4.j],
+           newshape=(2, 3),             #        [3.+5.j, 4.+6.j, 5.+7.j]])
+       )
+       B = view_as_real_mat(A)          # array([[ 0., -2.,  1., -3.,  2., -4.],
+                                        #        [ 2.,  0.,  3.,  1.,  4.,  2.],
+                                        #        [ 3., -5.,  4., -6.,  5., -7.],
+                                        #        [ 5.,  3.,  6.,  4.,  7.,  5.]])
 
     Notes
     -----
-    Real-valued matrices are returned unchanged. Complex-valued matrices :math:`A\in\mathbb{C}^{M\times N}` are mapped into a
-    real-valued matrix :math:`\hat{A}\in\mathbb{R}^{2M\times 2N}` defined, for :math:`1\leq n \leq N`, :math:`1\leq m\leq M` as
+    * Real-valued matrices are returned unchanged.
+    * Complex-valued matrices :math:`A\in\mathbb{C}^{M\times N}` are mapped into a real-valued
+      matrix :math:`\hat{A}\in\mathbb{R}^{2M\times 2N}` defined, for :math:`1\leq n \leq N`,
+      :math:`1\leq m\leq M` as
 
-    .. math::
+      .. math::
 
-        \hat{A}_{2m-1,2n-1}=\mathcal{R}(A_{m,n}),& \quad \hat{A}_{2m-1,2n}=-\mathcal{I}(A_{m,n}),\\
-        \hat{A}_{2m,2n-1}=\mathcal{I}(A_{m,n}), & \quad \hat{A}_{2m,2n}=\mathcal{R}(A_{m,n}).
+          \hat{A}_{2m-1,2n-1} = \mathcal{R}(A_{m,n}),
+          & \quad
+          \hat{A}_{2m-1,2n} = -\mathcal{I}(A_{m,n}),\\
+          \hat{A}_{2m,2n-1} = \mathcal{I}(A_{m,n}),
+          & \quad
+          \hat{A}_{2m,2n}=\mathcal{R}(A_{m,n}).
 
-    If ``real_input=True`` or ``real_output=True``, even rows/columns (or both) are furthermore dropped.
-    We have ``view_as_real(A @ x)=view_as_real_mat(A) @ view_as_real(x)``.
+      If ``real_[in|out]put=True``, then even columns/rows (or both) are furthermore dropped.
+      We have ``view_as_real(A @ x) = view_as_real_mat(A) @ view_as_real(x)``.
 
     See Also
     --------
-    view_as_real, view_as_complex, view_as_complex_mat
-
+    :py:func:`~pycsou.util.complex.view_as_real`,
+    :py:func:`~pycsou.util.complex.view_as_complex`,
+    :py:func:`~pycsou.util.complex.view_as_complex_mat`
     """
+    assert cmat.ndim == 2, f"cmat: expected a 2D array, got {cmat.ndim}-D."
     if _is_real(cmat):
         return cmat
 
@@ -207,19 +229,12 @@ def view_as_real_mat(cmat: pyct.NDArray, real_input: bool = False, real_output: 
 
     xp = pyca.get_array_module(cmat)
     rmat = xp.zeros((2 * cmat.shape[0], 2 * cmat.shape[1]), dtype=r_dtype)
-    rsh = rmat.shape
-    rmat = rmat.ravel()
-    ri, rj, rrij, crij, ccij, rcij = _rc_masks(cmat, xp, c_dtype, r_dtype)
-    rmat[rrij.ravel()] = cmat.real.ravel()
-    rmat[crij.ravel()] = cmat.imag.ravel()
-    rmat[ccij.ravel()] = cmat.real.ravel()
-    rmat[rcij.ravel()] = -cmat.imag.ravel()
-    rmat = rmat.reshape(rsh)
+    rmat[::2, ::2], rmat[1::2, 1::2] = cmat.real, cmat.real
+    rmat[::2, 1::2], rmat[1::2, ::2] = -cmat.imag, cmat.imag
     if real_input:
-        rmat = rmat[:, rj]
+        rmat = rmat[:, ::2]
     if real_output:
-        rmat = rmat[ri, :]
-
+        rmat = rmat[::2, :]
     return rmat
 
 
