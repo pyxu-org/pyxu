@@ -1,7 +1,7 @@
 import pycsou.abc as pyca
 import pycsou.util.ptype as pyct
 
-LINESEARCH_DEFAULT_A_BAR = 1
+LINESEARCH_DEFAULT_A_BAR = 1.0
 LINESEARCH_DEFAULT_R = 0.5
 LINESEARCH_DEFAULT_C = 10e-4
 
@@ -16,9 +16,28 @@ def backtracking_linesearch(
     c: pyct.Real = LINESEARCH_DEFAULT_C,
 ) -> pyct.Real:
     r"""
-    Backtracking line search algorithm.
+    Backtracking line search algorithm based on the Armijo-Goldstein condition.
+
+    Follow `this link <https://www.wikiwand.com/en/Backtracking_line_search>`_ for reference of the algorithm and
+    default values.
+
+    **Parameterization**
+
+    f: pyca.DiffFunc
+        Differentiable functional
+    x: pyct.NDArray
+        (..., N) initial search position(s)
+    g_f_x: pyct.NDArray
+        (..., N) gradient of `f` at initial search position(s)
+    p: pyct.NDArray
+        (..., N) search direction(s)
+    a_bar: pyct.Real
+        Initial step size, defaults to 1
+    r: pyct.Real
+        Step reduction factor, defaults to 0.5
+    c: pyct:Real
+        Bound reduction factor, defaults to 10e-4
     """
-    # document where default values come from (continuous opti course)
 
     def default_if_none(v, default_v):
         return v if v is not None else default_v
