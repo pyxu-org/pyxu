@@ -60,6 +60,7 @@ class NLCG(pyca.Solver):
        Line search optional argument, see: :py:`~pycsou.math.linesearch`.
     c: pyct.Real
        Line search optional argument, see: :py:`~pycsou.math.linesearch`.
+
     """
 
     def __init__(self, f: pyca.DiffFunc, **kwargs):
@@ -84,9 +85,6 @@ class NLCG(pyca.Solver):
         r: pyct.Real = ls.LINESEARCH_DEFAULT_R,
         c: pyct.Real = ls.LINESEARCH_DEFAULT_C,
     ):
-
-        #  Linesearch arguments are given default values here in order to put them in mathematical state
-
         mst = self._mstate  # shorthand
         self._variant = self.__parse_variant(variant)
         self._ls_a_bar = a_bar
