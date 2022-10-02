@@ -15,7 +15,9 @@ def backtracking_linesearch(
     r: pyct.Real = LINESEARCH_DEFAULT_R,
     c: pyct.Real = LINESEARCH_DEFAULT_C,
 ) -> pyct.Real:
-
+    r"""
+    Backtracking line search algorithm.
+    """
     # document where default values come from (continuous opti course)
 
     def default_if_none(v, default_v):

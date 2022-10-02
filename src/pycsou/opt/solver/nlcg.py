@@ -10,6 +10,58 @@ __all__ = [
 
 
 class NLCG(pyca.Solver):
+    r"""
+    Nonlinear Conjugate Gradient Method.
+
+    The Nonlinear Conjugate Gradient method finds local minima of the problem
+
+    .. math::
+
+       \min_{x\in\mathbb{R}^{N}} f(x),
+
+    where :math:`f: \mathbb{R}^{N} \to \mathbb{R}` is a *differentiable* functional.
+
+    The norm of the `gradient <https://www.wikiwand.com/en/Nonlinear_conjugate_gradient_method>`_
+    :math:`\nabla f_k = \nabla f(x_k)` is used as the default stopping criterion.
+    This provides a guaranteed level of accuracy both in exact arithmetic and in the presence of
+    round-off errors.
+    By default, the iterations stop when the norm of the explicit residual is smaller than 1e-4.
+
+    Multiple variants of NLCG exist, that essentially only differ in the weighing of conjugate
+    directions. Two of the most popular variants are offered:
+
+    * The Fletcher-Reeves variant:
+
+    .. math::
+
+       \beta_k^\text{FR} = \frac{\Vert{\nabla f_{k+1}}\Vert_2^2}{\Vert{\nabla f_{k}}\Vert_2^2}
+
+    * The Polak-Ribière+ method:
+
+    .. math::
+
+       \beta_k^\text{PR} = \frac{\nabla f_{k+1}^T\left(\nabla f_{k+1} - \nabla f_k\right)}{\Vert{\nabla f_{k}}\Vert_2^2}
+       \beta_k^\text{PR+} = \max\left(0, \beta_k^\text{PR}\right)
+
+    ``NLCG.fit()`` **Parameterization**
+
+    x0: pyct.NDArray
+       (..., N) initial point(s).
+    variant: str
+       Name of the used variant for NLCG. Use "PR" for the Polak-Ribière+ variant, and "FR" for the
+       Fletcher-Reeves variant.
+    restart_rate: pyct.Integer
+       Number of iterations after which restart is applied.
+       By default, restart is done after 'n' iterations, where 'n' corresponds to the dimension of
+       the inputs of :math:`f`.
+    a_bar: pyct.Real
+       Line search optional argument, see: :py:`~pycsou.math.linesearch`.
+    r: pyct.Real
+       Line search optional argument, see: :py:`~pycsou.math.linesearch`.
+    c: pyct.Real
+       Line search optional argument, see: :py:`~pycsou.math.linesearch`.
+    """
+
     def __init__(self, f: pyca.DiffFunc, **kwargs):
         kwargs.update(
             log_var=kwargs.get("log_var", ("x",)),
@@ -71,7 +123,7 @@ class NLCG(pyca.Solver):
         # Because NLCG can only generate n conjugate vectors in an n-dimensional space, it makes sense
         # to restart NLCG every n iterations.
         if self._astate["idx"] % mst["restart_rate"] == 0:  # explicit eval
-            beta_kp1 = 0
+            beta_kp1 = 0.0
         else:
             beta_kp1 = self.__compute_beta(g_f_k, g_f_kp1)
         p_kp1 = -g_f_kp1 + beta_kp1 * p_k
@@ -106,7 +158,7 @@ class NLCG(pyca.Solver):
     def __compute_beta(self, g_f_k: pyct.NDArray, g_f_kp1: pyct.NDArray) -> pyct.Real:
         if self._variant == 0:
             return (pylinalg.norm(g_f_kp1) / pylinalg.norm(g_f_k)) ** 2
-        return max((g_f_kp1 @ (g_f_kp1 - g_f_k)) / (pylinalg.norm(g_f_k) ** 2), 0)
+        return max((g_f_kp1 @ (g_f_kp1 - g_f_k)) / (pylinalg.norm(g_f_k) ** 2), 0.0)
 
     def __parse_variant(self, variant: str):
         variant = variant.lower()
