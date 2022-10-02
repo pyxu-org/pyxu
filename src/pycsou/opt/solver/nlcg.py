@@ -155,17 +155,15 @@ class NLCG(pyca.Solver):
 
     def __compute_beta(self, g_f_k: pyct.NDArray, g_f_kp1: pyct.NDArray) -> pyct.Real:
         if self._variant == 0:
-            return (pylinalg.norm(g_f_kp1) / pylinalg.norm(g_f_k)) ** 2
-        return max((g_f_kp1 @ (g_f_kp1 - g_f_k)) / (pylinalg.norm(g_f_k) ** 2), 0.0)
+            return (pylinalg.norm(g_f_kp1, keepdims=True) / pylinalg.norm(g_f_k, keepdims=True)) ** 2
+        return max((g_f_kp1 @ (g_f_kp1 - g_f_k)) / (pylinalg.norm(g_f_k, keepdims=True) ** 2), 0.0)
 
     def __parse_variant(self, variant: str):
         variant = variant.lower()
-        FR_indicator = variant == "FR" or "fletcher" in variant or "reeves" in variant
-        PR_indicator = variant == "PR" or "polak" in variant or "ribi" in variant
+        FR_indicator = variant == "fr"
+        PR_indicator = variant == "pr"
 
-        if FR_indicator and PR_indicator:
-            raise ValueError("The variant was ambiguously specified.")
-        elif FR_indicator:
+        if FR_indicator:
             self._variant = 0
         elif PR_indicator:
             self._variant = 1
