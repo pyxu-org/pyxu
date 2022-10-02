@@ -175,12 +175,11 @@ class BlockDiagMixin:
         params=itertools.product(
             pycd.NDArrayInfo,
             pycrt.Width,
-            [True, False],  # parallel
         )
     )
     def spec(self, op_all, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
-        ndi, width, parallel = request.param
-        op = pycb.block_diag(op_all, parallel=parallel)
+        ndi, width = request.param
+        op = pycb.block_diag(op_all)
         return op, ndi, width
 
     @pytest.fixture
