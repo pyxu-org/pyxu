@@ -37,7 +37,10 @@ class TestNLCG(conftest.SolverT):
                 np.full((N,), 3.0),
                 np.full((2, N), 15.0),  # multiple initial points
             ],
-            variant=["PR", "FR"],
+            variant=[
+                "PR",
+                "FR",
+            ],
         )
         for config in itertools.product(*param_sweep.values()):
             d = dict(zip(param_sweep.keys(), config))

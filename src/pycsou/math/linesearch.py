@@ -1,4 +1,5 @@
 import pycsou.abc as pyca
+import pycsou.util.array_module as pyarr
 import pycsou.util.ptype as pyct
 
 LINESEARCH_DEFAULT_A_BAR = 1.0
@@ -11,10 +12,10 @@ def backtracking_linesearch(
     x: pyct.NDArray,
     g_f_x: pyct.NDArray,
     p: pyct.NDArray,
-    a_bar: pyct.Real = LINESEARCH_DEFAULT_A_BAR,
-    r: pyct.Real = LINESEARCH_DEFAULT_R,
-    c: pyct.Real = LINESEARCH_DEFAULT_C,
-) -> pyct.Real:
+    a_bar=LINESEARCH_DEFAULT_A_BAR,
+    r=LINESEARCH_DEFAULT_R,
+    c=LINESEARCH_DEFAULT_C,
+):
     r"""
     Backtracking line search algorithm based on the Armijo-Goldstein condition.
 
@@ -26,11 +27,11 @@ def backtracking_linesearch(
     f: pyca.DiffFunc
         Differentiable functional
     x: pyct.NDArray
-        (N,) initial search position
+        (..., N) initial search position(s)
     g_f_x: pyct.NDArray
-        (N,) gradient of `f` at initial search position(s)
+        (..., N) gradient of `f` at initial search position(s)
     p: pyct.NDArray
-        (N,) search direction(s)
+        (..., N) search direction(s) corresponding to the initial search position(s)
     a_bar: pyct.Real
         Initial step size, defaults to 1
     r: pyct.Real
@@ -39,17 +40,31 @@ def backtracking_linesearch(
         Bound reduction factor, defaults to 10e-4
     """
 
-    def default_if_none(v, default_v):
-        return v if v is not None else default_v
+    arrmod = pyarr.get_array_module(x)
 
-    a = default_if_none(a_bar, LINESEARCH_DEFAULT_A_BAR)
-    r = default_if_none(r, LINESEARCH_DEFAULT_R)
-    c = default_if_none(c, LINESEARCH_DEFAULT_C)
+    def coeff_rows_multip(coeffs, rows):
+        return arrmod.transpose(arrmod.transpose(rows) * coeffs)
+
+    def correct_shape(v, default_v):
+        return v if v not in [default_v, None] else arrmod.full(x.shape[:-1], default_v, dtype=x.dtype)
+
+    def dot_prod_last_axis(v1, v2):
+        return (v1 * v2).sum(axis=-1)
+
+    a = correct_shape(a_bar, LINESEARCH_DEFAULT_A_BAR)
+    r = correct_shape(r, LINESEARCH_DEFAULT_R)
+    c = correct_shape(c, LINESEARCH_DEFAULT_C)
 
     f_x = f.apply(x)
-    scalar_prod = c * (p @ g_f_x)
+    scalar_prod = c * dot_prod_last_axis(g_f_x, p)
+    f_x_ap = f.apply(x + a_bar * p)
+    a_prod = coeff_rows_multip(a, scalar_prod)
+    cond = f_x_ap > f_x + a_prod
 
-    while f.apply(x + a * p) > f_x + a * scalar_prod:
-        a = r * a
+    while arrmod.any(cond):
+        a = arrmod.where(cond, r * a, a)
+        f_x_ap = f.apply(x + a * p)
+        a_prod = coeff_rows_multip(a, scalar_prod)
+        cond = f_x_ap > f_x + a_prod
 
     return a

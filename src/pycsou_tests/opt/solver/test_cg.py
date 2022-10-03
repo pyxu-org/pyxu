@@ -29,7 +29,7 @@ class TestCG(conftest.SolverT):
             x0=[
                 None,  # let algorithm choose
                 np.full((N,), 3),
-                np.full((2, N), 15),  # multiple initial points
+                np.vstack([np.full((1, N), 1), (np.full((1, N), 15))]),  # multiple initial points
             ],
             restart_rate=[None, N, 2 * N],
         )
