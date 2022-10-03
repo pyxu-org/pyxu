@@ -75,11 +75,19 @@ class NLCG(pyca.Solver):
         self,
         x0: pyct.NDArray,
         variant: str,
+        restart_rate: pyct.Integer = None,
         a_bar: pyct.Real = ls.LINESEARCH_DEFAULT_A_BAR,
         r: pyct.Real = ls.LINESEARCH_DEFAULT_R,
         c: pyct.Real = ls.LINESEARCH_DEFAULT_C,
     ):
         mst = self._mstate  # shorthand
+
+        if restart_rate is not None:
+            assert restart_rate >= 1
+            mst["restart_rate"] = int(restart_rate)
+        else:
+            mst["restart_rate"] = x0.shape[0]
+
         self._variant = self.__parse_variant(variant)
         self._ls_a_bar = a_bar
         self._ls_r = r
@@ -107,7 +115,11 @@ class NLCG(pyca.Solver):
 
         # Because NLCG can only generate n conjugate vectors in an n-dimensional space, it makes sense
         # to restart NLCG every n iterations.
-        beta_kp1 = self.__compute_beta(g_f_k, g_f_kp1)
+        if self._astate["idx"] % mst["restart_rate"] == 0:
+            arrmod = pyarr.get_array_module(x_k)
+            beta_kp1 = arrmod.full((1, x_k.shape[-1]), 0.0, dtype=x_k.dtype)
+        else:
+            beta_kp1 = self.__compute_beta(g_f_k, g_f_kp1)
         p_kp1 = -g_f_kp1 + beta_kp1 * p_k
 
         mst["x"], mst["gradient"], mst["conjugate_dir"], mst["linesearch_a_k"] = x_kp1, g_f_kp1, p_kp1, a_k
