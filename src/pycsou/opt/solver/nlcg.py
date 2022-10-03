@@ -86,7 +86,7 @@ class NLCG(pyca.Solver):
             assert restart_rate >= 1
             mst["restart_rate"] = int(restart_rate)
         else:
-            mst["restart_rate"] = x0.shape[0]
+            mst["restart_rate"] = x0.shape[-1]
 
         self._variant = self.__parse_variant(variant)
         self._ls_a_bar = a_bar
