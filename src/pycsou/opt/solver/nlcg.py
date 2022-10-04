@@ -80,10 +80,6 @@ class NLCG(pyca.Solver):
         super().__init__(**kwargs)
 
         self._f = f
-        self._ls_a_bar = None
-        self._ls_r = None
-        self._ls_c = None
-        self._variant = 2
 
     @pycrt.enforce_precision(i=("x0", "a_bar", "r", "c"))
     def m_init(
@@ -103,18 +99,14 @@ class NLCG(pyca.Solver):
         else:
             mst["restart_rate"] = x0.shape[-1]
 
-        self._variant = self.__parse_variant(variant)
-        self._ls_a_bar = a_bar
-        self._ls_r = r
-        self._ls_c = c
-
         mst["x"] = x0 if len(x0.shape) > 1 else x0.reshape(1, x0.shape[0])
         mst["gradient"] = self._f.grad(x0)
         mst["conjugate_dir"] = -mst["gradient"].copy()
-        mst["linesearch_a_bar"] = a_bar
-        mst["linesearch_r"] = r
-        mst["linesearch_c"] = c
-        mst["linesearch_a_k"] = a_bar
+        mst["variant"] = self.__parse_variant(variant)
+        mst["ls_a_bar"] = a_bar  # line-search parameters
+        mst["ls_r"] = r
+        mst["ls_c"] = c
+        mst["ls_a_k"] = mst["ls_a_bar"]
 
     def m_step(self):
 
@@ -122,7 +114,7 @@ class NLCG(pyca.Solver):
         x_k, g_f_k, p_k = mst["x"], mst["gradient"], mst["conjugate_dir"]
 
         a_k = ls.backtracking_linesearch(
-            f=self._f, x=x_k, g_f_x=g_f_k, p=p_k, a_bar=self._ls_a_bar, r=self._ls_r, c=self._ls_c
+            f=self._f, x=x_k, g_f_x=g_f_k, p=p_k, a_bar=mst["ls_a_bar"], r=mst["ls_r"], c=mst["ls_c"]
         )
 
         x_kp1 = x_k + p_k * a_k[:, None]
@@ -137,7 +129,7 @@ class NLCG(pyca.Solver):
             beta_kp1 = self.__compute_beta(g_f_k, g_f_kp1)
         p_kp1 = -g_f_kp1 + beta_kp1 * p_k
 
-        mst["x"], mst["gradient"], mst["conjugate_dir"], mst["linesearch_a_k"] = x_kp1, g_f_kp1, p_kp1, a_k
+        mst["x"], mst["gradient"], mst["conjugate_dir"], mst["ls_a_k"] = x_kp1, g_f_kp1, p_kp1, a_k
 
     def default_stop_crit(self) -> pyca.StoppingCriterion:
         from pycsou.opt.stop import AbsError
