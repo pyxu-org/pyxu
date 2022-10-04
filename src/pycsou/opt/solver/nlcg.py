@@ -122,7 +122,7 @@ class NLCG(pyca.Solver):
             r=mst["ls_r"],
             c=mst["ls_c"],
         )
-        x_kp1 = x_k + p_k * a_k[:, None]
+        x_kp1 = x_k + p_k * a_k.reshape((*x_k.shape[:-1], 1))
         g_kp1 = self._f.grad(x_kp1)
 
         # Because NLCG can only generate n conjugate vectors in an n-dimensional space, it makes sense
