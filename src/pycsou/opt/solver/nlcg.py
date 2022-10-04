@@ -110,14 +110,18 @@ class NLCG(pyca.Solver):
         mst["ls_a_k"] = mst["ls_a_bar"]
 
     def m_step(self):
-
         mst = self._mstate  # shorthand
         x_k, g_k, p_k = mst["x"], mst["gradient"], mst["conjugate_dir"]
 
         a_k = ls.backtracking_linesearch(
-            f=self._f, x=x_k, g_f_x=g_k, p=p_k, a_bar=mst["ls_a_bar"], r=mst["ls_r"], c=mst["ls_c"]
+            f=self._f,
+            x=x_k,
+            g_f_x=g_k,
+            p=p_k,
+            a_bar=mst["ls_a_bar"],
+            r=mst["ls_r"],
+            c=mst["ls_c"],
         )
-
         x_kp1 = x_k + p_k * a_k[:, None]
         g_kp1 = self._f.grad(x_kp1)
 
