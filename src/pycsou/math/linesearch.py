@@ -40,13 +40,13 @@ def backtracking_linesearch(
         Bound reduction factor, defaults to 10e-4
     """
 
-    arrmod = pyarr.get_array_module(x)
+    xp = pyarr.get_array_module(x)
 
     def coeff_rows_multip(coeffs, rows):
-        return arrmod.transpose(arrmod.transpose(rows) * coeffs)
+        return xp.transpose(xp.transpose(rows) * coeffs)
 
     def correct_shape(v, default_v):
-        return v if v not in [default_v, None] else arrmod.full(x.shape[:-1], default_v, dtype=x.dtype)
+        return v if v not in [default_v, None] else xp.full(x.shape[:-1], default_v, dtype=x.dtype)
 
     def dot_prod_last_axis(v1, v2):
         return (v1 * v2).sum(axis=-1)
@@ -61,8 +61,8 @@ def backtracking_linesearch(
     a_prod = coeff_rows_multip(a, scalar_prod)
     cond = f_x_ap > f_x + a_prod
 
-    while arrmod.any(cond):
-        a = arrmod.where(cond, r * a, a)
+    while xp.any(cond):
+        a = xp.where(cond, r * a, a)
         f_x_ap = f.apply(x + a * p)
         a_prod = coeff_rows_multip(a, scalar_prod)
         cond = f_x_ap > f_x + a_prod
