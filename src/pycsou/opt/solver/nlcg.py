@@ -2,7 +2,6 @@ import pycsou.abc as pyca
 import pycsou.math.linalg as pylinalg
 import pycsou.math.linesearch as ls
 import pycsou.runtime as pycrt
-import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 __all__ = [
