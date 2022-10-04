@@ -155,7 +155,6 @@ class NLCG(pyca.Solver):
         x: pyct.NDArray
             (..., N) solution.
         """
-        pycu.compute()
         data, _ = self.stats()
         return data.get("x")
 
