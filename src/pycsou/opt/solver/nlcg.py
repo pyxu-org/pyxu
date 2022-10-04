@@ -125,8 +125,8 @@ class NLCG(pyca.Solver):
         # Because NLCG can only generate n conjugate vectors in an n-dimensional space, it makes sense
         # to restart NLCG every n iterations.
         if self._astate["idx"] % mst["restart_rate"] == 0:
-            arrmod = pycu.get_array_module(x_k)
-            beta_kp1 = arrmod.full((1, x_k.shape[-1]), 0.0, dtype=x_k.dtype)
+            xp = pycu.get_array_module(x_k)
+            beta_kp1 = xp.full((1, x_k.shape[-1]), 0.0, dtype=x_k.dtype)
         else:
             beta_kp1 = self.__compute_beta(g_f_k, g_f_kp1)
         p_kp1 = -g_f_kp1 + beta_kp1 * p_k
@@ -163,8 +163,8 @@ class NLCG(pyca.Solver):
         if self._variant == 0:
             return (pylinalg.norm(g_f_kp1, keepdims=True) / pylinalg.norm(g_f_k, keepdims=True)) ** 2
         temp = (g_f_kp1 * (g_f_kp1 - g_f_k)).sum(axis=-1) / (pylinalg.norm(g_f_k, keepdims=True) ** 2)
-        arrmod = pycu.get_array_module(temp)
-        return arrmod.where(temp > 0, temp, 0).T
+        xp = pycu.get_array_module(temp)
+        return xp.where(temp > 0, temp, 0).T
 
     def __parse_variant(self, variant: str):
         variant = variant.lower()
