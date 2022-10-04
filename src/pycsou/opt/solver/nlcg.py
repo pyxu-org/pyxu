@@ -165,14 +165,8 @@ class NLCG(pyca.Solver):
         xp = pycu.get_array_module(temp)
         return xp.where(temp > 0, temp, 0).T
 
-    def __parse_variant(self, variant: str):
-        variant = variant.lower()
-        FR_indicator = variant == "fr"
-        PR_indicator = variant == "pr"
-
-        if FR_indicator:
-            return 0
-        elif PR_indicator:
-            return 1
-        else:
-            raise ValueError("The NLCG variant was incorrectly specified.")
+    def __parse_variant(self, variant: str) -> str:
+        supported_variants = {"fr", "pr"}
+        if (v := variant.lower().strip()) not in supported_variants:
+            raise ValueError(f"Unsupported variant '{variant}'.")
+        return v
