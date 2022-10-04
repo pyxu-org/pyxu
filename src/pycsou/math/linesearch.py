@@ -10,7 +10,7 @@ LINESEARCH_DEFAULT_C = 10e-4
 def backtracking_linesearch(
     f: pyca.DiffFunc,
     x: pyct.NDArray,
-    g_f_x: pyct.NDArray,
+    g: pyct.NDArray,
     p: pyct.NDArray,
     a_bar=LINESEARCH_DEFAULT_A_BAR,
     r=LINESEARCH_DEFAULT_R,
@@ -28,7 +28,7 @@ def backtracking_linesearch(
         Differentiable functional
     x: pyct.NDArray
         (..., N) initial search position(s)
-    g_f_x: pyct.NDArray
+    g: pyct.NDArray
         (..., N) gradient of `f` at initial search position(s)
     p: pyct.NDArray
         (..., N) search direction(s) corresponding to the initial search position(s)
@@ -56,7 +56,7 @@ def backtracking_linesearch(
     c = correct_shape(c, LINESEARCH_DEFAULT_C)
 
     f_x = f.apply(x)
-    scalar_prod = c * dot_prod_last_axis(g_f_x, p)
+    scalar_prod = c * dot_prod_last_axis(g, p)
     f_x_ap = f.apply(x + a_bar * p)
     a_prod = coeff_rows_multip(a, scalar_prod)
     cond = f_x_ap > f_x + a_prod
