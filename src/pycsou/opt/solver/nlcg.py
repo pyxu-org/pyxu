@@ -87,9 +87,9 @@ class NLCG(pyca.Solver):
         x0: pyct.NDArray,
         variant: str,
         restart_rate: pyct.Integer = None,
-        a_bar: pyct.Real = ls.LINESEARCH_DEFAULT_A_BAR,
-        r: pyct.Real = ls.LINESEARCH_DEFAULT_R,
-        c: pyct.Real = ls.LINESEARCH_DEFAULT_C,
+        a_bar: pyct.Real = None,
+        r: pyct.Real = None,
+        c: pyct.Real = None,
     ):
         mst = self._mstate  # shorthand
 
@@ -99,13 +99,15 @@ class NLCG(pyca.Solver):
         else:
             mst["restart_rate"] = x0.shape[-1]
 
+        sanitize = lambda _, default: _ if (_ is not None) else default
+
         mst["x"] = x0 if len(x0.shape) > 1 else x0.reshape(1, x0.shape[0])
         mst["gradient"] = self._f.grad(x0)
         mst["conjugate_dir"] = -mst["gradient"].copy()
         mst["variant"] = self.__parse_variant(variant)
-        mst["ls_a_bar"] = a_bar  # line-search parameters
-        mst["ls_r"] = r
-        mst["ls_c"] = c
+        mst["ls_a_bar"] = sanitize(a_bar, ls.LINESEARCH_DEFAULT_A_BAR)
+        mst["ls_r"] = sanitize(r, ls.LINESEARCH_DEFAULT_R)
+        mst["ls_c"] = sanitize(c, ls.LINESEARCH_DEFAULT_C)
         mst["ls_a_k"] = mst["ls_a_bar"]
 
     def m_step(self):
