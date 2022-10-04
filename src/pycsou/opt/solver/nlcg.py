@@ -85,7 +85,7 @@ class NLCG(pyca.Solver):
     def m_init(
         self,
         x0: pyct.NDArray,
-        variant: str,
+        variant: str = "PR",
         restart_rate: pyct.Integer = None,
         a_bar: pyct.Real = None,
         r: pyct.Real = None,
