@@ -26,36 +26,51 @@ class NLCG(pyca.Solver):
     :math:`\nabla f_k = \nabla f(x_k)` is used as the default stopping criterion.
     By default, the iterations stop when the norm of the gradient is smaller than 1e-4.
 
-    Multiple variants of NLCG exist, that essentially only differ in the weighing of conjugate
-    directions. Two of the most popular variants are offered:
+    Multiple variants of NLCG exist.
+    They differ mainly in how the weights applied to conjugate directions are updated.
+    Two popular variants are implemented:
 
     * The Fletcher-Reeves variant:
 
     .. math::
 
-       \beta_k^\text{FR} = \frac{\Vert{\nabla f_{k+1}}\Vert_2^2}{\Vert{\nabla f_{k}}\Vert_2^2}
+       \beta_k^\text{FR}
+       =
+       \frac{
+         \Vert{\nabla f_{k+1}}\Vert_2^2
+       }{
+         \Vert{\nabla f_{k}}\Vert_2^2
+       }
 
     * The Polak-Ribière+ method:
 
     .. math::
 
-       \beta_k^\text{PR} = \frac{\nabla f_{k+1}^T\left(\nabla f_{k+1} - \nabla f_k\right)}{\Vert{\nabla f_{k}}\Vert_2^2}
-       \beta_k^\text{PR+} = \max\left(0, \beta_k^\text{PR}\right)
+       \beta_k^\text{PR}
+       =
+       \frac{
+         \nabla f_{k+1}^T\left(\nabla f_{k+1} - \nabla f_k\right)
+       }{
+         \Vert{\nabla f_{k}}\Vert_2^2
+       } \\
+       \beta_k^\text{PR+}
+       =
+       \max\left(0, \beta_k^\text{PR}\right)
 
     ``NLCG.fit()`` **Parameterization**
 
     x0: pyct.NDArray
-       (..., N) initial point(s).
+        (..., N) initial point(s).
     variant: str
-       Name of the used variant for NLCG. Use "PR" for the Polak-Ribière+ variant, and "FR" for the
-       Fletcher-Reeves variant.
-    a_bar: pyct.Real
-       Line search optional argument, see: :py:`~pycsou.math.linesearch`.
-    r: pyct.Real
-       Line search optional argument, see: :py:`~pycsou.math.linesearch`.
-    c: pyct.Real
-       Line search optional argument, see: :py:`~pycsou.math.linesearch`.
-
+        Name of the NLCG variant to use.
+        Use "PR" for the Polak-Ribière+ variant.
+        Use "FR" for the Fletcher-Reeves variant.
+    restart_rate: pyct.Integer
+        Number of iterations after which restart is applied.
+        By default, restart is done after 'n' iterations, where 'n' corresponds to the dimension of
+        the inputs to :math:`f`.
+    a_bar, r, c: pyct.Real
+        Optional line search parameters. (See: :py:mod:`~pycsou.math.linesearch`.)
     """
 
     def __init__(self, f: pyca.DiffFunc, **kwargs):
