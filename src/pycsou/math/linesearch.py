@@ -2,6 +2,11 @@ import pycsou.abc as pyca
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
+__all__ = [
+    "backtracking_linesearch",
+]
+
+
 LINESEARCH_DEFAULT_A_BAR = 1.0
 LINESEARCH_DEFAULT_R = 0.5
 LINESEARCH_DEFAULT_C = 10e-4
