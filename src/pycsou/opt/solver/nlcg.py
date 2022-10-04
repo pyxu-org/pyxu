@@ -100,7 +100,7 @@ class NLCG(pyca.Solver):
 
         sanitize = lambda _, default: _ if (_ is not None) else default
 
-        mst["x"] = x0 if len(x0.shape) > 1 else x0.reshape(1, x0.shape[0])
+        mst["x"] = x0
         mst["gradient"] = self._f.grad(x0)
         mst["conjugate_dir"] = -mst["gradient"].copy()
         mst["variant"] = self.__parse_variant(variant)
