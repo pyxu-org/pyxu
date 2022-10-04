@@ -2,7 +2,7 @@ import pycsou.abc as pyca
 import pycsou.math.linalg as pylinalg
 import pycsou.math.linesearch as ls
 import pycsou.runtime as pycrt
-import pycsou.util.array_module as pyarr
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 __all__ = [
@@ -131,7 +131,7 @@ class NLCG(pyca.Solver):
         # Because NLCG can only generate n conjugate vectors in an n-dimensional space, it makes sense
         # to restart NLCG every n iterations.
         if self._astate["idx"] % mst["restart_rate"] == 0:
-            arrmod = pyarr.get_array_module(x_k)
+            arrmod = pycu.get_array_module(x_k)
             beta_kp1 = arrmod.full((1, x_k.shape[-1]), 0.0, dtype=x_k.dtype)
         else:
             beta_kp1 = self.__compute_beta(g_f_k, g_f_kp1)
@@ -161,7 +161,7 @@ class NLCG(pyca.Solver):
         x: pyct.NDArray
             (..., N) solution.
         """
-        pyarr.compute()
+        pycu.compute()
         data, _ = self.stats()
         return data.get("x")
 
@@ -169,7 +169,7 @@ class NLCG(pyca.Solver):
         if self._variant == 0:
             return (pylinalg.norm(g_f_kp1, keepdims=True) / pylinalg.norm(g_f_k, keepdims=True)) ** 2
         temp = (g_f_kp1 * (g_f_kp1 - g_f_k)).sum(axis=-1) / (pylinalg.norm(g_f_k, keepdims=True) ** 2)
-        arrmod = pyarr.get_array_module(temp)
+        arrmod = pycu.get_array_module(temp)
         return arrmod.where(temp > 0, temp, 0).T
 
     def __parse_variant(self, variant: str):
