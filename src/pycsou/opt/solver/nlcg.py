@@ -113,14 +113,14 @@ class NLCG(pyca.Solver):
     def m_step(self):
 
         mst = self._mstate  # shorthand
-        x_k, g_f_k, p_k = mst["x"], mst["gradient"], mst["conjugate_dir"]
+        x_k, g_k, p_k = mst["x"], mst["gradient"], mst["conjugate_dir"]
 
         a_k = ls.backtracking_linesearch(
-            f=self._f, x=x_k, g_f_x=g_f_k, p=p_k, a_bar=mst["ls_a_bar"], r=mst["ls_r"], c=mst["ls_c"]
+            f=self._f, x=x_k, g_f_x=g_k, p=p_k, a_bar=mst["ls_a_bar"], r=mst["ls_r"], c=mst["ls_c"]
         )
 
         x_kp1 = x_k + p_k * a_k[:, None]
-        g_f_kp1 = self._f.grad(x_kp1)
+        g_kp1 = self._f.grad(x_kp1)
 
         # Because NLCG can only generate n conjugate vectors in an n-dimensional space, it makes sense
         # to restart NLCG every n iterations.
@@ -128,10 +128,10 @@ class NLCG(pyca.Solver):
             xp = pycu.get_array_module(x_k)
             beta_kp1 = xp.full((1, x_k.shape[-1]), 0.0, dtype=x_k.dtype)
         else:
-            beta_kp1 = self.__compute_beta(g_f_k, g_f_kp1)
-        p_kp1 = -g_f_kp1 + beta_kp1 * p_k
+            beta_kp1 = self.__compute_beta(g_k, g_kp1)
+        p_kp1 = -g_kp1 + beta_kp1 * p_k
 
-        mst["x"], mst["gradient"], mst["conjugate_dir"], mst["ls_a_k"] = x_kp1, g_f_kp1, p_kp1, a_k
+        mst["x"], mst["gradient"], mst["conjugate_dir"], mst["ls_a_k"] = x_kp1, g_kp1, p_kp1, a_k
 
     def default_stop_crit(self) -> pyca.StoppingCriterion:
         from pycsou.opt.stop import AbsError
@@ -158,10 +158,10 @@ class NLCG(pyca.Solver):
         data, _ = self.stats()
         return data.get("x")
 
-    def __compute_beta(self, g_f_k: pyct.NDArray, g_f_kp1: pyct.NDArray) -> pyct.Real:
+    def __compute_beta(self, g_k: pyct.NDArray, g_kp1: pyct.NDArray) -> pyct.Real:
         if self._variant == 0:
-            return (pylinalg.norm(g_f_kp1, keepdims=True) / pylinalg.norm(g_f_k, keepdims=True)) ** 2
-        temp = (g_f_kp1 * (g_f_kp1 - g_f_k)).sum(axis=-1) / (pylinalg.norm(g_f_k, keepdims=True) ** 2)
+            return (pylinalg.norm(g_kp1, keepdims=True) / pylinalg.norm(g_k, keepdims=True)) ** 2
+        temp = (g_kp1 * (g_kp1 - g_k)).sum(axis=-1) / (pylinalg.norm(g_k, keepdims=True) ** 2)
         xp = pycu.get_array_module(temp)
         return xp.where(temp > 0, temp, 0).T
 
