@@ -11,8 +11,7 @@ import pycsou_tests.opt.solver.conftest as conftest
 class TestNLCG(conftest.SolverT):
     @staticmethod
     def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
-        import pycsou.abc.operator as pyop
-        import pycsou.operator.func as pyfunc
+        from pycsou.operator.func import NullFunc, QuadraticFunc
         from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
         klass = [
@@ -20,13 +19,9 @@ class TestNLCG(conftest.SolverT):
         ]
         kwargs_init = [
             dict(
-                f=pyfunc.QuadraticFunc(
-                    PSDConvolution(N=N),
-                    pyop.LinFunc((1, N)).from_array(
-                        np.zeros(
-                            N,
-                        )
-                    ),
+                f=QuadraticFunc(
+                    Q=PSDConvolution(N=N),
+                    c=NullFunc(dim=N),
                 )
             ),
         ]
