@@ -125,8 +125,7 @@ class NLCG(pyca.Solver):
         # Because NLCG can only generate n conjugate vectors in an n-dimensional space, it makes sense
         # to restart NLCG every n iterations.
         if self._astate["idx"] % mst["restart_rate"] == 0:
-            xp = pycu.get_array_module(x_k)
-            beta_kp1 = xp.full((1, x_k.shape[-1]), 0.0, dtype=x_k.dtype)
+            beta_kp1 = pycrt.coerce(0)
         else:
             beta_kp1 = self.__compute_beta(g_k, g_kp1)
         p_kp1 = -g_kp1 + beta_kp1 * p_k
@@ -158,12 +157,18 @@ class NLCG(pyca.Solver):
         data, _ = self.stats()
         return data.get("x")
 
-    def __compute_beta(self, g_k: pyct.NDArray, g_kp1: pyct.NDArray) -> pyct.Real:
-        if self._variant == 0:
-            return (pylinalg.norm(g_kp1, keepdims=True) / pylinalg.norm(g_k, keepdims=True)) ** 2
-        temp = (g_kp1 * (g_kp1 - g_k)).sum(axis=-1) / (pylinalg.norm(g_k, keepdims=True) ** 2)
-        xp = pycu.get_array_module(temp)
-        return xp.where(temp > 0, temp, 0).T
+    def __compute_beta(self, g_k: pyct.NDArray, g_kp1: pyct.NDArray) -> pyct.NDArray:
+        v = self._mstate["variant"]
+        if v == "fr":  # Fletcher-Reeves
+            gn_k = pylinalg.norm(g_k, axis=-1, keepdims=True)
+            gn_kp1 = pylinalg.norm(g_kp1, axis=-1, keepdims=True)
+            beta = (gn_kp1 / gn_k) ** 2
+        elif v == "pr":  # Poliak-Ribière+
+            gn_k = pylinalg.norm(g_k, axis=-1, keepdims=True)
+            numerator = (g_kp1 * (g_kp1 - g_k)).sum(axis=-1, keepdims=True)
+            beta = numerator / (gn_k**2)
+            beta = beta.clip(min=0)
+        return beta  # (..., 1)
 
     def __parse_variant(self, variant: str) -> str:
         supported_variants = {"fr", "pr"}
