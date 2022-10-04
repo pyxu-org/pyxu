@@ -12,32 +12,35 @@ def backtracking_linesearch(
     x: pyct.NDArray,
     g: pyct.NDArray,
     p: pyct.NDArray,
-    a_bar=LINESEARCH_DEFAULT_A_BAR,
-    r=LINESEARCH_DEFAULT_R,
-    c=LINESEARCH_DEFAULT_C,
-):
+    a_bar: pyct.Real = LINESEARCH_DEFAULT_A_BAR,
+    r: pyct.Real = LINESEARCH_DEFAULT_R,
+    c: pyct.Real = LINESEARCH_DEFAULT_C,
+) -> pyct.NDArray:
     r"""
-    Backtracking line search algorithm based on the Armijo-Goldstein condition.
+    Backtracking line search algorithm based on the
+    `Armijo-Goldstein condition <https://www.wikiwand.com/en/Backtracking_line_search>`_.
 
-    Follow `this link <https://www.wikiwand.com/en/Backtracking_line_search>`_ for reference of the algorithm and
-    default values.
-
-    **Parameterization**
-
+    Parameters
+    ----------
     f: pyca.DiffFunc
         Differentiable functional
     x: pyct.NDArray
-        (..., N) initial search position(s)
+        (..., N) initial search point(s)
     g: pyct.NDArray
-        (..., N) gradient of `f` at initial search position(s)
+        (..., N) gradient of `f` at initial search point(s)
     p: pyct.NDArray
-        (..., N) search direction(s) corresponding to the initial search position(s)
+        (..., N) search direction(s) corresponding to initial point(s)
     a_bar: pyct.Real
-        Initial step size, defaults to 1
+        Initial step size.
     r: pyct.Real
-        Step reduction factor, defaults to 0.5
+        Step reduction factor.
     c: pyct:Real
-        Bound reduction factor, defaults to 10e-4
+        Bound reduction factor.
+
+    Returns
+    -------
+    a: pyct.NDArray
+        (N,) step sizes.
     """
 
     xp = pycu.get_array_module(x)
