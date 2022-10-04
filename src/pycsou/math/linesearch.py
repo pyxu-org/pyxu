@@ -1,5 +1,5 @@
 import pycsou.abc as pyca
-import pycsou.util.array_module as pyarr
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 LINESEARCH_DEFAULT_A_BAR = 1.0
@@ -40,7 +40,7 @@ def backtracking_linesearch(
         Bound reduction factor, defaults to 10e-4
     """
 
-    xp = pyarr.get_array_module(x)
+    xp = pycu.get_array_module(x)
 
     def coeff_rows_multip(coeffs, rows):
         return xp.transpose(xp.transpose(rows) * coeffs)
