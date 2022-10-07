@@ -125,7 +125,7 @@ class TestExplicitSquareOp(ExplicitOpMixin, conftest.SquareOpT):
     def matrix(self):
         import pycsou_tests.operator.examples.test_squareop as tc
 
-        return tc.CumSum(N=20).asarray()
+        return tc.CumSum(N=19).asarray()
 
 
 class TestExplicitProjOp(ExplicitOpMixin, conftest.ProjOpT):
@@ -133,7 +133,7 @@ class TestExplicitProjOp(ExplicitOpMixin, conftest.ProjOpT):
     def matrix(self):
         import pycsou_tests.operator.examples.test_projop as tc
 
-        return tc.Oblique(N=20, alpha=np.pi / 4).asarray()
+        return tc.Oblique(N=19, alpha=np.pi / 4).asarray()
 
 
 class TestExplicitOrthProjOp(ExplicitOpMixin, conftest.OrthProjOpT):
@@ -141,7 +141,7 @@ class TestExplicitOrthProjOp(ExplicitOpMixin, conftest.OrthProjOpT):
     def matrix(self):
         import pycsou_tests.operator.examples.test_orthprojop as tc
 
-        return tc.ScaleDown(N=20).asarray()
+        return tc.ScaleDown(N=19).asarray()
 
 
 class TestExplicitNormalOp(ExplicitOpMixin, conftest.NormalOpT):
@@ -157,7 +157,7 @@ class TestExplicitUnitOp(ExplicitOpMixin, conftest.UnitOpT):
     def matrix(self):
         import pycsou_tests.operator.examples.test_unitop as tc
 
-        return tc.Permutation(N=20).asarray()
+        return tc.Permutation(N=19).asarray()
 
 
 class TestExplicitSelfAdjointOp(ExplicitOpMixin, conftest.SelfAdjointOpT):
@@ -165,7 +165,7 @@ class TestExplicitSelfAdjointOp(ExplicitOpMixin, conftest.SelfAdjointOpT):
     def matrix(self):
         import pycsou_tests.operator.examples.test_selfadjointop as tc
 
-        return tc.CDO2(N=20).asarray()
+        return tc.SelfAdjointConvolution(N=19).asarray()
 
 
 class TestExplicitPosDefOp(ExplicitOpMixin, conftest.PosDefOpT):
@@ -173,7 +173,7 @@ class TestExplicitPosDefOp(ExplicitOpMixin, conftest.PosDefOpT):
     def matrix(self):
         import pycsou_tests.operator.examples.test_posdefop as tc
 
-        return tc.CDO4(N=20).asarray()
+        return tc.PSDConvolution(N=19).asarray()
 
 
 class TestExplicitLinFunc(ExplicitOpMixin, conftest.LinFuncT):
@@ -181,4 +181,4 @@ class TestExplicitLinFunc(ExplicitOpMixin, conftest.LinFuncT):
     def matrix(self):
         import pycsou_tests.operator.examples.test_linfunc as tc
 
-        return tc.ScaledSum(N=20).asarray()
+        return tc.ScaledSum(N=19).asarray()

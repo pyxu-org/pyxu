@@ -10,7 +10,6 @@ import pycsou.util.ptype as pyct
 
 __all__ = [
     "infer_composition_shape",
-    "infer_stack_shape",
     "infer_sum_shape",
     "vectorize",
 ]
@@ -43,34 +42,6 @@ def infer_composition_shape(sh1: pyct.Shape, sh2: pyct.Shape) -> pyct.Shape:
         return (A, D)
     else:
         raise ValueError(f"Composition of {sh1} and {sh2} operators forbidden.")
-
-
-def infer_stack_shape(
-    *shapes: cabc.Sequence[pyct.Shape],
-    axis: pyct.Integer,
-) -> pyct.Shape:
-    dims = [shape[1] for shape in shapes]
-    codims = [shape[0] for shape in shapes]
-    if axis == 0:
-        unique_dims = np.unique(np.array(dims).astype(float))
-        try:
-            assert unique_dims.size <= 2
-        except:
-            raise ValueError("Inconsistent map shapes for vertical stacking.")
-        dim = np.nansum(unique_dims)
-        dim = None if np.isnan(dim) else int(dim)
-        return (int(np.sum(codims).astype(int)), dim)
-    else:
-        try:
-            assert np.all(~np.isnan(np.array(dims).astype(float)))
-        except:
-            raise ValueError("Horizontal stackings of maps including domain-agnostic maps is ambiguous.")
-        unique_codim = np.unique(np.array(codims).astype(float))
-        try:
-            assert unique_codim.size == 1
-        except:
-            raise ValueError("Inconsistent map shapes for horizontal stacking.")
-        return (int(unique_codim), int(np.sum(dims).astype(int)))
 
 
 def vectorize(i: pyct.VarName) -> cabc.Callable:

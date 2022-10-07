@@ -4,6 +4,7 @@ import pytest
 
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
+import pycsou.util.ptype as pyct
 
 
 class TestGetArrayModule:
@@ -73,6 +74,24 @@ class TestCompute:
     def test_kwargs_does_not_fail(self):
         x = 1
         pycu.compute(x, optimize_graph=False)
+
+
+class TestToNumPy:
+    @pytest.fixture
+    def arr(self) -> pyct.NDArray:
+        return np.arange(-5, 5)
+
+    @pytest.fixture
+    def _arr(self, arr, xp):
+        return xp.array(arr, dtype=arr.dtype)
+
+    def test_backend_change(self, _arr):
+        N = pycd.NDArrayInfo
+        np_arr = pycu.to_NUMPY(_arr)
+
+        assert N.from_obj(np_arr) == N.NUMPY
+        if N.from_obj(_arr) == N.NUMPY:
+            assert _arr is np_arr
 
 
 class TestRedirect:

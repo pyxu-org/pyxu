@@ -446,15 +446,15 @@ class MapT:
         with pycrt.EnforcePrecision(False):
             L = op.lipschitz()
 
-            stats = []  # (x, y, condition success)
             data = xp.array(data_math_lipschitz, dtype=width.value)
-            for x, y in itertools.combinations(data, 2):
-                lhs = pylinalg.norm(op.apply(x) - op.apply(y))
-                rhs = L * pylinalg.norm(x - y)
-                success = less_equal(lhs, rhs, as_dtype=width.value)
-                stats.append((lhs, rhs, success))
+            data = list(itertools.combinations(data, 2))
+            x = xp.stack([_[0] for _ in data], axis=0)
+            y = xp.stack([_[1] for _ in data], axis=0)
 
-            assert all(_[2] for _ in stats)
+            lhs = pylinalg.norm(op.apply(x) - op.apply(y), axis=-1)
+            rhs = L * pylinalg.norm(x - y, axis=-1)
+            success = less_equal(lhs, rhs, as_dtype=width.value)
+            assert all(success)
 
     def test_interface_asop(self, op, _klass):
         # * .asop() is no-op if same klass or parent
@@ -872,7 +872,6 @@ class LinOpT(DiffMapT):
     interface = frozenset(
         DiffMapT.interface
         | {
-            "__array__",
             "adjoint",
             "asarray",
             "cogram",
@@ -1530,25 +1529,6 @@ class LinOpT(DiffMapT):
         dtype = _op_array.dtype
 
         A = op.asarray(xp=xp, dtype=dtype)
-        assert A.dtype == dtype
-
-    def test_value_array(self, op, _op_array):
-        self._skip_if_disabled()
-        dtype = _op_array.dtype
-        A = np.array(op, dtype=dtype)
-        assert A.shape == _op_array.shape
-        assert allclose(_op_array, A, as_dtype=dtype)
-
-    def test_backend_array(self, op, _op_array):
-        self._skip_if_disabled()
-        dtype = _op_array.dtype
-        A = np.array(op, dtype=dtype)
-        assert pycu.get_array_module(A) == np
-
-    def test_prec_array(self, op, _op_array):
-        self._skip_if_disabled()
-        dtype = _op_array.dtype
-        A = np.array(op, dtype=dtype)
         assert A.dtype == dtype
 
     def test_value_to_sciop(self, _op_sciop, _data_to_sciop):

@@ -1,6 +1,8 @@
 import collections.abc as cabc
 import typing as typ
 
+import dask.array as da
+import dask.distributed as dad
 import finufft
 import numpy as np
 
@@ -15,21 +17,6 @@ __all__ = [
 
 SignT = typ.Literal[1, -1]
 eps_default = 1e-4
-
-
-def _wrap_if_dask(func: cabc.Callable) -> cabc.Callable:
-    import dask.array as da
-
-    def wrapper(obj, arr):
-        xp = pycu.get_array_module(arr)
-        out = func(obj, pycu.compute(arr))
-
-        if xp == da:
-            return xp.array(out)
-        else:
-            return xp.array(out, copy=False)
-
-    return wrapper
 
 
 class NUFFT(pyca.LinOp):
@@ -98,6 +85,11 @@ class NUFFT(pyca.LinOp):
     For the type-3 NUFFT, the non-uniform samples :math:`\mathbf{x}_{j}` and
     :math:`\mathbf{z}_{k}` are arbitrary points in :math:`\mathbb{R}^d`.
 
+    **Adjoint NUFFTs.**
+    The type-1 and type-2 NUFFTs with opposite signs form an *adjoint pair*.
+    The adjoint of the type-3 NUFFT is obtained by flipping the transform's sign and switching the
+    roles of :math:`\mathbf{z}_k` and :math:`\mathbf{x}_{j}` in (3).
+
     **Lipschitz Constants.**
     The type-1 NUFFT can be interpreted as the truncated Fourier Series of a :math:`2\pi`-periodic
     Dirac stream with innovations :math:`(w_j, \mathbf{x}_j)`.
@@ -162,13 +154,14 @@ class NUFFT(pyca.LinOp):
     The complexity of the type-3 NUFFT can be arbitrarily large for poorly-centered data. In certain
     cases however, an easy fix consists in centering the data before/after the NUFFT via
     pre/post-phasing operations, as described in equation (3.24) of [FINUFFT]_.
-    This fix can be enabled via the ``center`` parameter of
-    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`.
+    This optimization is automatically by FINUFFT if the compute/memory gains are significant
+    enough. [#]_
 
-    **Backend.** The NUFFT tansforms are computed via Python wrappers to
-    `FINUFFT <https://github.com/flatironinstitute/finufft>`_ and
-    `cuFINUFFT <https://github.com/flatironinstitute/cufinufft>`_.
-    (see also [FINUFFT]_ and [cuFINUFFT]_.)
+    **Backend.** The NUFFT tansforms are computed via Python wrappers to `FINUFFT
+    <https://github.com/flatironinstitute/finufft>`_ and `cuFINUFFT
+    <https://github.com/flatironinstitute/cufinufft>`_ (see also [FINUFFT]_ and [cuFINUFFT]_).
+    These librairies perform the expensive spreading/interpolation between nonuniform points and the
+    fine grid via the "exponential of semicircle" kernel (see [FINUFFT]_).
 
     **Optional Parameters.**
     [cu]FINUFFT exposes many optional parameters to adjust the performance of the algorithms, change
@@ -181,6 +174,10 @@ class NUFFT(pyca.LinOp):
     See the `guru interface <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_
     from FINUFFT and its `companion page
     <https://finufft.readthedocs.io/en/latest/opts.html#options-parameters>`_ for details.
+
+    .. [#] FINUFFT uses the following rule of thumb:
+           for a given dimension, if the magnitude of the center is less than 10% of half the
+           peak-to-peak distance, then the data is considered well-centered and no fix is performed.
 
     Warnings
     --------
@@ -215,27 +212,61 @@ class NUFFT(pyca.LinOp):
 
         Parameters
         ----------
-        x: pyct.NDArray
+        x: NDArray
             (M, [d]) d-dimensional sample points :math:`\mathbf{x}_{j} \in \mathbb{R}^{d}`.
-        N: pyct.Integer | tuple[pyct.Integer]
+        N: int | tuple[int]
             ([d],) mesh size in each dimension :math:`(N_1, \ldots, N_d)`.
             If `N` is an integer, then the mesh is assumed to have the same size in each dimension.
         isign: 1 | -1
             Sign :math:`\sigma` of the transform.
-        eps: pyct.Real
-            Requested relative accuracy.
+        eps: float
+            Requested relative accuracy (defaults to 1e-4).
         real: bool
             If ``True``, assumes ``.apply()`` takes (..., M) inputs.
             If ``False``, then ``.apply()`` takes (..., 2M) inputs.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
-            Most useful is `n_trans`.
+            Most useful is ``n_trans`` and ``debug`` (for debugging or diagnostics).
 
         Returns
         -------
-        op: pyca.LinOp
+        op: :py:class:`~pycsou.abc.operator.LinOp`
             (2N.prod(), M) or (2N.prod(), 2M) type-1 NUFFT.
+
+        Examples
+        --------
+
+        .. code-block:: python3
+
+           import numpy as np
+           import pycsou.operator.linop as pycl
+           import pycsou.runtime as pycrt
+           import pycsou.util as pycu
+
+           rng = np.random.default_rng(0)
+           D, M, N = 2, 200, 5  # D denotes the dimension of the data
+           x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+
+           with pycrt.Precision(pycrt.Width.SINGLE):
+               # The NUFFT dimension (1/2/3) is inferred from the trailing dimension of x.
+               # Its precision is controlled by the context manager.
+               N_trans = 5
+               A = pycl.NUFFT.type1(
+                       x,
+                       N,
+                       n_trans=N_trans,
+                       isign=-1,
+                       eps=1e-3,
+                   )
+
+               # Pycsou operators only support real inputs/outputs, so we use the functions
+               # pycu.view_as_[complex/real] to interpret complex arrays as real arrays (and
+               # vice-versa).
+               arr =        rng.normal(size=(3, N_trans, M)) \
+                     + 1j * rng.normal(size=(3, N_trans, M))
+               A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
+               A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
         """
         init_kwargs = _NUFFT1._sanitize_init_kwargs(
             x=x,
@@ -263,27 +294,65 @@ class NUFFT(pyca.LinOp):
 
         Parameters
         ----------
-        x: pyct.NDArray
+        x: NDArray
             (M, [d]) d-dimensional query points :math:`\mathbf{x}_{j} \in \mathbb{R}^{d}`.
-        N: pyct.Integer | tuple[pyct.Integer]
+        N: int | tuple[int]
             ([d],) mesh size in each dimension :math:`(N_1, \ldots, N_d)`.
             If `N` is an integer, then the mesh is assumed to have the same size in each dimension.
         isign: 1 | -1
             Sign :math:`\sigma` of the transform.
-        eps: pyct.Real
-            Requested relative accuracy.
+        eps: float
+            Requested relative accuracy (defaults to 1e-4).
         real: bool
             If ``True``, assumes ``.apply()`` takes (..., N.prod()) inputs.
             If ``False``, then ``.apply()`` takes (..., 2N.prod()) inputs.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
-            Most useful is `n_trans`.
+            Most useful is ``n_trans`` and ``debug`` (for debugging or diagnostics).
 
         Returns
         -------
-        op: pyca.LinOp
+        op: :py:class:`~pycsou.abc.operator.LinOp`
             (2M, N.prod()) or (2M, 2N.prod()) type-2 NUFFT.
+
+        Examples
+        --------
+
+        .. code-block:: python3
+
+           import numpy as np
+           import pycsou.operator.linop as pycl
+           import pycsou.runtime as pycrt
+           import pycsou.util as pycu
+
+           rng = np.random.default_rng(0)
+           D, M, N = 2, 200, 5  # D denotes the dimension of the data
+           N_full = (N,) * D
+           x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+
+           with pycrt.Precision(pycrt.Width.SINGLE):
+               # The NUFFT dimension (1/2/3) is inferred from the trailing dimension of x.
+               # Its precision is controlled by the context manager.
+               N_trans = 5
+               A = pycl.NUFFT.type2(
+                       x,
+                       N,
+                       n_trans=N_trans,
+                       isign=-1,
+                       eps=1e-3,
+                   )
+
+               # Pycsou operators only support real inputs/outputs, so we use the functions
+               # pycu.view_as_[complex/real] to interpret complex arrays as real arrays (and
+               # vice-versa).
+               arr = np.reshape(
+                          rng.normal(size=(3, N_trans, *N_full))
+                   + 1j * rng.normal(size=(3, N_trans, *N_full)),
+                   (3, N_trans, -1),
+               )
+               A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
+               A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
         """
         init_kwargs = _NUFFT1._sanitize_init_kwargs(
             x=x,
@@ -304,7 +373,6 @@ class NUFFT(pyca.LinOp):
         isign: SignT = 1,
         eps: pyct.Real = eps_default,
         real: bool = False,
-        center: str = "",
         **kwargs,
     ) -> pyca.LinOp:
         r"""
@@ -312,36 +380,59 @@ class NUFFT(pyca.LinOp):
 
         Parameters
         ----------
-        x: pyct.NDArray
+        x: NDArray
             (M, [d]) d-dimensional sample points :math:`\mathbf{x}_{j} \in \mathbb{R}^{d}`.
-        z: pyct.NDArray
+        z: NDArray
             (N, [d]) d-dimensional query points :math:`\mathbf{z}_{k} \in \mathbb{R}^{d}`.
         isign: 1 | -1
             Sign :math:`\sigma` of the transform.
-        eps: pyct.Real
-            Requested relative accuracy.
+        eps: float
+            Requested relative accuracy (defaults to 1e-4).
         real: bool
             If ``True``, assumes ``.apply()`` takes (..., M) inputs.
             If ``False``, then ``.apply()`` takes (..., 2M) inputs.
-        center: str ["", "x", "z", "xz"]
-            Use a translated NUFFT algorithm with potential compute/memory savings.
-            (See eq. (3.24) of [FINUFFT]_ for a description.)
-
-            * "": operate on `x` and `z` as-is. (default type3 NUFFT)
-            * "x": operate on centered `x` coordinates.
-            * "z": operate on centered `z` coordinates.
-            * "xz": operate on centered `x` and `z` coordinates.
-
-            This is especially effective for poorly centered data.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
-            Most useful is `n_trans`.
+            Most useful is ``n_trans`` and ``debug`` (for debugging or diagnostics).
 
         Returns
         -------
-        op: pyca.LinOp
+        op: :py:class:`~pycsou.abc.operator.LinOp`
             (2N, M) or (2N, 2M) type-3 NUFFT.
+
+        Examples
+        --------
+
+        .. code-block:: python3
+
+           import numpy as np
+           import pycsou.operator.linop as pycl
+           import pycsou.runtime as pycrt
+           import pycsou.util as pycu
+
+           rng = np.random.default_rng(0)
+           D, M, N = 3, 200, 5  # D denotes the dimension of the data
+           x = rng.normal(size=(M, D)) + 2000  # Poorly-centered data
+           z = rng.normal(size=(N, D))
+           with pycrt.Precision(pycrt.Width.SINGLE):
+               # The NUFFT dimension (1/2/3) is inferred from the trailing dimension of x/z.
+               # Its precision is controlled by the context manager.
+               N_trans = 20
+               A = pycl.NUFFT.type3(
+                       x, z,
+                       n_trans=N_trans,
+                       isign=-1,
+                       eps=1e-6,
+                    )
+
+               # Pycsou operators only support real inputs/outputs, so we use the functions
+               # pycu.view_as_[complex/real] to interpret complex arrays as real arrays (and
+               # vice-versa).
+               arr =        rng.normal(size=(3, N_trans, M)) \
+                     + 1j * rng.normal(size=(3, N_trans, M))
+               A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
+               A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
         """
         init_kwargs = _NUFFT3._sanitize_init_kwargs(
             x=x,
@@ -349,7 +440,6 @@ class NUFFT(pyca.LinOp):
             isign=isign,
             eps=eps,
             real=real,
-            center=center,
             **kwargs,
         )
         return _NUFFT3(**init_kwargs).squeeze()
@@ -519,15 +609,24 @@ class _NUFFT1(NUFFT):
             modeord=0,
             **kwargs,
         )
-        plan.setpts(**dict(zip("xyz"[:N_dim], pycu.compute(x.T[:N_dim]))))
+        plan.setpts(
+            **dict(zip("xyz"[:N_dim], pycu.compute(x.T[:N_dim]).astype(pycrt.getPrecision().value)))
+        )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('float64') (== passes but not "is" which FINUFFT uses)
         return plan
 
-    @_wrap_if_dask
-    def _fw(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self._n == 1:  # finufft limitation: insists on having no
-            arr = arr[0]  # leading-dim if n_trans==1.
-        out = self._plan["fw"].execute(arr)  # ([n_trans], M) -> ([n_trans], N1,..., Nd)
+    def _fw(self, arr: np.ndarray) -> np.ndarray:
+        out = self._plan["fw"].execute(arr.squeeze())  # ([n_trans], M) -> ([n_trans], N1,..., Nd)
         return out.reshape((self._n, np.prod(self._N)))
+
+    def _fw_locked(self, arr: np.ndarray, lock: dad.Lock = None) -> np.ndarray:
+        arr = arr.astype(
+            pycrt.getPrecision().complex.value
+        )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('complex128') (== passes but not "is" which FINUFFT uses)
+        with lock:
+            out = self._plan["fw"].execute(arr.squeeze())  # ([n_trans], M) -> ([n_trans], N1,..., Nd)
+        return out.reshape((self._n, np.prod(self._N)))[
+            None, ...
+        ]  # with map_blocks we can skip _postprocess by simply recreating the stacking axis after processing each chunk
 
     @staticmethod
     def _plan_bw(**kwargs) -> finufft.Plan:
@@ -545,16 +644,26 @@ class _NUFFT1(NUFFT):
             modeord=0,
             **kwargs,
         )
-        plan.setpts(**dict(zip("xyz"[:N_dim], pycu.compute(x.T[:N_dim]))))
+        plan.setpts(
+            **dict(zip("xyz"[:N_dim], pycu.compute(x.T[:N_dim]).astype(pycrt.getPrecision().value)))
+        )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('float64') (== passes but not "is" which FINUFFT uses)
         return plan
 
-    @_wrap_if_dask
-    def _bw(self, arr: pyct.NDArray) -> pyct.NDArray:
-        arr = arr.reshape((self._n, *self._N))
-        if self._n == 1:  # finufft limitation: insists on having no
-            arr = arr[0]  # leading-dim if n_trans==1.
+    def _bw(self, arr: np.ndarray) -> np.ndarray:
+        arr = arr.reshape((self._n, *self._N)).squeeze()
         out = self._plan["bw"].execute(arr)  # ([n_trans], N1, ..., Nd) -> ([n_trans], M)
         return out.reshape((self._n, self._M))  # req. if squeeze-like behaviour above kicked in.
+
+    def _bw_locked(self, arr: np.ndarray, lock: dad.Lock = None) -> np.ndarray:
+        arr = arr.reshape((self._n, *self._N)).squeeze()
+        arr = arr.astype(
+            pycrt.getPrecision().complex.value
+        )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('complex128') (== passes but not "is" which FINUFFT uses)
+        with lock:
+            out = self._plan["bw"].execute(arr)  # ([n_trans], N1, ..., Nd) -> ([n_trans], M)
+        return out.reshape((self._n, self._M))[
+            None, ...
+        ]  # with map_blocks we can skip _postprocess by simply recreating the stacking axis after processing each chunk
 
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -582,8 +691,20 @@ class _NUFFT1(NUFFT):
             arr = pycu.view_as_complex(arr)
 
         data, N, sh = self._preprocess(arr, self._n, np.prod(self._N))
-        blks = [self._fw(blk) for blk in data]
-        out = self._postprocess(blks, N, sh)
+
+        if isinstance(data, da.Array):
+            lock = dad.Lock("fw_lock")  # Use lock to avoid race condition because of the shared FFTW resources.
+            out = data.rechunk(chunks=(1, -1, -1)).map_blocks(
+                func=self._fw_locked,
+                dtype=data.dtype,
+                chunks=(1, self._n, np.prod(self._N)),
+                name="_fw",
+                meta=data._meta,
+                lock=lock,
+            )
+        else:
+            blks = [self._fw(blk) for blk in data]
+            out = self._postprocess(blks, N, sh)
 
         return out.real if self._real_output else pycu.view_as_real(out)
 
@@ -613,33 +734,26 @@ class _NUFFT1(NUFFT):
             arr = pycu.view_as_complex(arr)
 
         data, N, sh = self._preprocess(arr, self._n, self._M)
-        blks = [self._bw(blk) for blk in data]
-        out = self._postprocess(blks, N, sh)
+
+        if isinstance(data, da.Array):
+            lock = dad.Lock("bw_lock")  # Use lock to avoid race condition because of the shared FFTW resources.
+            out = data.rechunk(chunks=(1, -1, -1)).map_blocks(
+                func=self._bw_locked,
+                dtype=data.dtype,
+                chunks=(1, self._n, self._M),
+                name="_bw",
+                meta=data._meta,
+                lock=lock,
+            )
+        else:
+            blks = [self._bw(blk) for blk in data]
+            out = self._postprocess(blks, N, sh)
 
         return out.real if self._real_input else pycu.view_as_real(out)
 
 
 class _NUFFT3(NUFFT):
     def __init__(self, **kwargs):
-        # compute pre/post-phase terms ----------------------------------------
-        cx = "x" in kwargs.get("center")
-        cz = "z" in kwargs.pop("center")
-        isign = kwargs.get("isign")
-        x, z = kwargs["x"], kwargs["z"]
-        x_c = 0.5 * x.ptp(axis=0) if cx else 0
-        z_c = 0.5 * z.ptp(axis=0) if cz else 0
-        xp = pycu.get_array_module(x)
-        self._pre_phase = self._post_phase = None
-        if cz:
-            self._pre_phase = xp.exp(1j * isign * x.dot(z_c))  # (M,)
-        if cx:
-            self._post_phase = xp.exp(1j * isign * z.dot(x_c))  # (N,)
-        if cz and cx:
-            self._post_phase *= xp.exp(-1j * isign * (x_c @ z_c))
-        x -= x_c
-        z -= z_c
-        # ---------------------------------------------------------------------
-
         self._real = kwargs.pop("real")
         self._plan = dict(
             fw=self._plan_fw(**kwargs),
@@ -664,8 +778,6 @@ class _NUFFT3(NUFFT):
         z = kwargs["z"] = cls._as_canonical_coordinate(kwargs["z"])
         assert x.shape[-1] == z.shape[-1], "x vs. z: dimensionality mis-match."
         assert pycu.get_array_module(x) == pycu.get_array_module(z)
-        c = kwargs["center"] = kwargs["center"].strip().lower()
-        assert c in {"", "x", "z", "xz"}, f"center: unexpected mode '{c}'."
         kwargs["isign"] = int(np.sign(kwargs["isign"]))
         return kwargs
 
@@ -688,18 +800,27 @@ class _NUFFT3(NUFFT):
             **dict(
                 zip(
                     "xyz"[:N_dim] + "stu"[:N_dim],
-                    pycu.compute(*x.T[:N_dim], *z.T[:N_dim]),
+                    tuple(
+                        _.astype(pycrt.getPrecision().value) for _ in pycu.compute(*x.T[:N_dim], *z.T[:N_dim])
+                    ),  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('float64') (== passes but not "is" which FINUFFT uses)
                 )
             ),
         )
         return plan
 
-    @_wrap_if_dask
-    def _fw(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self._n == 1:  # finufft limitation: insists on having no
-            arr = arr[0]  # leading-dim if n_trans==1.
-        out = self._plan["fw"].execute(arr)  # ([n_trans], M) -> ([n_trans], N)
+    def _fw(self, arr: np.ndarray) -> np.ndarray:
+        out = self._plan["fw"].execute(arr.squeeze())  # ([n_trans], M) -> ([n_trans], N)
         return out.reshape((self._n, self._N))
+
+    def _fw_locked(self, arr: np.ndarray, lock: dad.Lock = None) -> np.ndarray:
+        arr = arr.astype(
+            pycrt.getPrecision().complex.value
+        )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('complex128') (== passes but not "is" which FINUFFT uses)
+        with lock:
+            out = self._plan["fw"].execute(arr.squeeze())  # ([n_trans], M) -> ([n_trans], N)
+        return out.reshape((self._n, self._N))[
+            None, ...
+        ]  # with map_blocks we can skip _postprocess by simply recreating the stacking axis after processing each chunk
 
     @staticmethod
     def _plan_bw(**kwargs) -> finufft.Plan:
@@ -720,18 +841,27 @@ class _NUFFT3(NUFFT):
             **dict(
                 zip(
                     "xyz"[:N_dim] + "stu"[:N_dim],
-                    pycu.compute(*z.T[:N_dim], *x.T[:N_dim]),
+                    tuple(
+                        _.astype(pycrt.getPrecision().value) for _ in pycu.compute(*z.T[:N_dim], *x.T[:N_dim])
+                    ),  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('float64') (== passes but not "is" which FINUFFT uses)
                 )
             ),
         )
         return plan
 
-    @_wrap_if_dask
-    def _bw(self, arr: pyct.NDArray) -> pyct.NDArray:
-        if self._n == 1:  # finufft limitation: insists on having no
-            arr = arr[0]  # leading-dim if n_trans==1.
-        out = self._plan["bw"].execute(arr)  # ([n_trans,] N) -> ([n_trans,] M)
+    def _bw(self, arr: np.ndarray) -> np.ndarray:
+        out = self._plan["bw"].execute(arr.squeeze())  # ([n_trans,] N) -> ([n_trans,] M)
         return out.reshape((self._n, self._M))
+
+    def _bw_locked(self, arr: np.ndarray, lock: dad.Lock = None) -> np.ndarray:
+        arr = arr.astype(
+            pycrt.getPrecision().complex.value
+        )  # astype() is needed here because dask.distributed passes a dtype that FINUFFT does not recognize as the builtin np.dtype('complex128') (== passes but not "is" which FINUFFT uses)
+        with lock:
+            out = self._plan["bw"].execute(arr.squeeze())  # ([n_trans], N) -> ([n_trans], M)
+        return out.reshape((self._n, self._M))[
+            None, ...
+        ]  # with map_blocks we can skip _postprocess by simply recreating the stacking axis after processing each chunk
 
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -754,18 +884,21 @@ class _NUFFT3(NUFFT):
             arr = arr.astype(r_width.complex.value)
         else:
             arr = pycu.view_as_complex(arr)
-
-        if self._pre_phase is not None:
-            arr = arr.copy()
-            arr *= self._pre_phase  # Automatic casting to type of arr
-
         data, N, sh = self._preprocess(arr, self._n, self._N)
-        blks = [self._fw(blk) for blk in data]
-        out = self._postprocess(blks, N, sh)
 
-        if self._post_phase is not None:
-            out *= self._post_phase  # Automatic casting to type of arr
-
+        if isinstance(data, da.Array):
+            lock = dad.Lock("fw_lock")  # Use lock to avoid race condition because of the shared FFTW resources.
+            out = data.rechunk(chunks=(1, -1, -1)).map_blocks(
+                func=self._fw_locked,
+                dtype=data.dtype,
+                chunks=(1, self._n, self._N),
+                name="_fw",
+                meta=data._meta,
+                lock=lock,
+            )
+        else:
+            blks = [self._fw(blk) for blk in data]
+            out = self._postprocess(blks, N, sh)
         return pycu.view_as_real(out)
 
     @pycrt.enforce_precision("arr")
@@ -785,16 +918,18 @@ class _NUFFT3(NUFFT):
             (see :py:func:`~pycsou.util.complex.view_as_real`.)
         """
         arr = pycu.view_as_complex(arr)
-
-        if self._post_phase is not None:
-            arr = arr.copy()
-            arr *= self._post_phase.conj()
-
         data, N, sh = self._preprocess(arr, self._n, self._M)
-        blks = [self._bw(blk) for blk in data]
-        out = self._postprocess(blks, N, sh)
-
-        if self._pre_phase is not None:
-            out *= self._pre_phase.conj()
-
+        if isinstance(data, da.Array):
+            lock = dad.Lock("bw_lock")  # Use lock to avoid race condition because of the shared FFTW resources.
+            out = data.rechunk(chunks=(1, -1, -1)).map_blocks(
+                func=self._bw_locked,
+                dtype=data.dtype,
+                chunks=(1, self._n, self._M),
+                name="_bw",
+                meta=data._meta,
+                lock=lock,
+            )
+        else:
+            blks = [self._bw(blk) for blk in data]
+            out = self._postprocess(blks, N, sh)
         return out.real if self._real else pycu.view_as_real(out)

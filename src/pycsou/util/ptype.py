@@ -61,7 +61,7 @@ SolverC = typ.Type[SolverT]  # Solver classes
 SolverM = typ.TypeVar("SolverM", bound="pycs.Mode")
 
 # Other
-Integer = nb.Integral
+Integer = int  # [Sepand] `nb.Integral` seems to not work will with PyCharm...
 Real = nb.Real
 DType = npt.DTypeLike
 Shape = tuple[Integer, typ.Union[Integer, None]]

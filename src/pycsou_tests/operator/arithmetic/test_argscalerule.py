@@ -191,7 +191,7 @@ class TestArgScaleRuleSelfAdjointOp(ArgScaleRuleMixin, conftest.SelfAdjointOpT):
     def op_orig(self):
         import pycsou_tests.operator.examples.test_selfadjointop as tc
 
-        return tc.CDO2(N=7)
+        return tc.SelfAdjointConvolution(N=7)
 
 
 # START PosDefOp ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -200,7 +200,7 @@ class ArgScaleRulePosDefOp(ArgScaleRuleMixin):
     def op_orig(self):
         import pycsou_tests.operator.examples.test_posdefop as tc
 
-        return tc.CDO4(N=7)
+        return tc.PSDConvolution(N=7)
 
 
 @pytest.mark.parametrize("op_scale", op_scale_positive)
@@ -297,10 +297,10 @@ class TestArgScaleRuleQuadraticFunc(ArgScaleRuleMixin, conftest._QuadraticFuncT)
     def op_orig(self):
         from pycsou.operator.func import QuadraticFunc
         from pycsou_tests.operator.examples.test_linfunc import ScaledSum
-        from pycsou_tests.operator.examples.test_posdefop import CDO4
+        from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
         return QuadraticFunc(
-            Q=CDO4(N=7),
+            Q=PSDConvolution(N=7),
             c=ScaledSum(N=7),
             t=1,
         )

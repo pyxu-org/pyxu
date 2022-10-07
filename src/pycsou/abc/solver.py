@@ -209,6 +209,14 @@ class Solver:
         log_var: pyct.VarName
             Variables from the solver's math-state (slvr._mstate) to be logged per iteration.
             These are the variables made available when calling ``Solver.stats``.
+
+        Notes
+        -----
+        * Partial device<>CPU synchronization takes place when stopping-criteria are evaluated.
+          Increasing `stop_rate` is advised to reduce the effect of such transfers when applicable.
+        * Full device<>CPU synchronization takes place at checkpoint-time.
+          Increasing `writeback_rate` is advised to reduce the effect of such transfers when
+          applicable.
         """
         self._mstate = dict()  # mathematical state
         self._astate = dict(  # book-keeping (non-math) state

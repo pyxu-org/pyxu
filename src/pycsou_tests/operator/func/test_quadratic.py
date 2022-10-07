@@ -15,7 +15,7 @@ import pycsou_tests.operator.conftest as conftest
 def Q(dim: int) -> pyca.PosDefOp:
     import pycsou_tests.operator.examples.test_posdefop as tc_p
 
-    return tc_p.CDO4(N=dim)
+    return tc_p.PSDConvolution(N=dim)
 
 
 def c(dim: int) -> pyca.LinFunc:

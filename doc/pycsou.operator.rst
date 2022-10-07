@@ -9,6 +9,8 @@ Subpackages
 
    pycsou.operator.linop
    pycsou.operator.func
+   pycsou.operator.map
+   pycsou.operator.blocks
 
 Module contents
 ---------------
