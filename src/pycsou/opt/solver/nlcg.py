@@ -1,3 +1,5 @@
+import numpy as np
+
 import pycsou.abc as pyca
 import pycsou.math.linalg as pylinalg
 import pycsou.math.linesearch as ls
@@ -92,6 +94,16 @@ class NLCG(pyca.Solver):
     ):
         mst = self._mstate  # shorthand
 
+        if a_bar is None:
+            d_l = self._f.diff_lipschitz()
+            if d_l is np.inf or d_l == 0:
+                raise ValueError(
+                    "Either f gradient's lipschitz constant should be implemented through the diff_lipschitz"
+                    "method or a maximal step size a_bar should be given as an argument to NLCG."
+                )
+            else:
+                a_bar = 1.0 / self._f.diff_lipschitz()
+
         if restart_rate is not None:
             assert restart_rate >= 1
             mst["restart_rate"] = int(restart_rate)
@@ -104,7 +116,7 @@ class NLCG(pyca.Solver):
         mst["gradient"] = self._f.grad(x0)
         mst["conjugate_dir"] = -mst["gradient"].copy()
         mst["variant"] = self.__parse_variant(variant)
-        mst["ls_a_bar"] = sanitize(a_bar, ls.LINESEARCH_DEFAULT_A_BAR)
+        mst["ls_a_bar"] = a_bar
         mst["ls_r"] = sanitize(r, ls.LINESEARCH_DEFAULT_R)
         mst["ls_c"] = sanitize(c, ls.LINESEARCH_DEFAULT_C)
         mst["ls_a_k"] = mst["ls_a_bar"]
@@ -116,8 +128,8 @@ class NLCG(pyca.Solver):
         a_k = ls.backtracking_linesearch(
             f=self._f,
             x=x_k,
-            g=g_k,
-            p=p_k,
+            gradient=g_k,
+            direction=p_k,
             a_bar=mst["ls_a_bar"],
             r=mst["ls_r"],
             c=mst["ls_c"],
