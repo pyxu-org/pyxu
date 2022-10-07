@@ -96,6 +96,11 @@ class Operator:
       be distinguishable from its peers.
     """
 
+    # For `(size-1 ndarray) * OpT` to work, we need to force NumPy's hand and call OpT.__rmul__() in
+    # place of ndarray.__mul__() to determine how scaling should be performed.
+    # This is achieved by increasing __array_priority__ for all operators.
+    __array_priority__ = np.inf
+
     def __init__(self, shape: pyct.Shape):
         r"""
         Parameters
@@ -304,25 +309,24 @@ class Operator:
 
         if isinstance(other, Operator):
             return arithmetic.ChainRule(lhs=self, rhs=other).op()
-        elif isinstance(other, pyct.Real):
-            return arithmetic.ScaleRule(op=self, cst=other).op()
+        elif _is_real(other):
+            return arithmetic.ScaleRule(op=self, cst=float(other)).op()
         else:
             return NotImplemented
 
     def __rmul__(self, other: pyct.Real) -> pyct.OpT:
         import pycsou.abc.arithmetic as arithmetic
 
-        if isinstance(other, pyct.Real):
-            return arithmetic.ScaleRule(op=self, cst=other).op()
+        if _is_real(other):
+            return arithmetic.ScaleRule(op=self, cst=float(other)).op()
         else:
             return NotImplemented
 
     def __truediv__(self, other: pyct.Real) -> pyct.OpT:
         import pycsou.abc.arithmetic as arithmetic
 
-        if isinstance(other, pyct.Real):
-            return arithmetic.ScaleRule(op=self, cst=1 / other).op()
-
+        if _is_real(other):
+            return arithmetic.ScaleRule(op=self, cst=float(1 / other)).op()
         else:
             return NotImplemented
 
@@ -383,8 +387,8 @@ class Operator:
         """
         import pycsou.abc.arithmetic as arithmetic
 
-        assert isinstance(scalar, pyct.Real)
-        return arithmetic.ArgScaleRule(op=self, cst=scalar).op()
+        assert _is_real(scalar)
+        return arithmetic.ArgScaleRule(op=self, cst=float(scalar)).op()
 
     def argshift(self, shift: typ.Union[pyct.Real, pyct.NDArray]) -> pyct.OpT:
         """
@@ -406,6 +410,8 @@ class Operator:
         """
         import pycsou.abc.arithmetic as arithmetic
 
+        if _is_real(shift):
+            shift = float(shift)
         return arithmetic.ArgShiftRule(op=self, cst=shift).op()
 
     # Internal Helpers --------------------------------------------------------
@@ -1417,27 +1423,6 @@ class LinOp(DiffMap):
             A = self.apply(E).T
         return A
 
-    def __array__(self, dtype: pyct.DType = None) -> pyct.NDArray:
-        r"""
-        Coerce linear operator to a :py:class:`numpy.ndarray`.
-
-        Parameters
-        ----------
-        dtype: pyct.DType
-            Optional type of the array
-
-        Returns
-        -------
-        A : numpy.ndarray
-            (codim, dim) representation of the linear operator, stored as a NumPy array.
-
-        Notes
-        -----
-        Functions like ``np.array`` or  ``np.asarray`` will check for the existence of the
-        ``__array__`` protocol to know how to coerce the custom object fed as input into an array.
-        """
-        return self.asarray(xp=np, dtype=dtype)
-
     def gram(self) -> pyct.OpT:
         r"""
         Gram operator :math:`L^\ast L:\mathbb{R}^M\to \mathbb{R}^M`.
@@ -2004,7 +1989,7 @@ class LinFunc(ProxDiffFunc, LinOp):
 
     def lipschitz(self, **kwargs) -> pyct.Real:
         # 'fro' / 'svds' mode are identical for linfuncs.
-        xp = kwargs.get("xp", np)
+        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
         g = self.grad(xp.ones(self.dim))
         self._lipschitz = float(xp.linalg.norm(g))
         return self._lipschitz
@@ -2078,6 +2063,15 @@ def _core_operators() -> cabc.Set[pyct.OpC]:
             ops.add(_)
     ops.remove(Operator)
     return ops
+
+
+def _is_real(x) -> bool:
+    if isinstance(x, pyct.Real):
+        return True
+    elif isinstance(x, pycd.supported_array_types()) and (x.size == 1):
+        return True
+    else:
+        return False
 
 
 __all__ = [

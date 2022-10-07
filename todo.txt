@@ -11,6 +11,7 @@ Sepand
 ------
 
 * Solver tests
+  Remaining: opt/solver/pds.py
 * Go over all code: refactor docstrings, type hints, etc.
   Remaining: opt/solver/pds.py
              compound/

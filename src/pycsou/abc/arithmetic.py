@@ -1269,8 +1269,11 @@ class PowerRule(Rule):
                 for _ in range(self._k - 1):
                     op = ChainRule(self._op, op).op()
 
-            # Needed due to implicit PowerRule definition in terms of ChainRule.
-            op._expr = self._expr
+                # Needed due to implicit PowerRule definition in terms of ChainRule.
+                op._expr = self._expr
+            else:
+                # To stop .expr() from recursing indefinitely.
+                op._expr = self._op._expr
         return op
 
     def _expr(self) -> tuple:

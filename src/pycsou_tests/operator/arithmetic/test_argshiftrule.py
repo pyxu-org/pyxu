@@ -155,8 +155,8 @@ class TestArgShiftRuleDiffMap(ArgShiftRuleMixin, conftest.DiffMapT):
             tc_squareop.CumSum(N=7),
             tc_normalop.CircularConvolution(h=rng.normal(size=(5,))),
             tc_unitop.Permutation(N=7),
-            tc_selfadjointop.CDO2(N=7),
-            tc_posdefop.CDO4(N=7),
+            tc_selfadjointop.SelfAdjointConvolution(N=7),
+            tc_posdefop.PSDConvolution(N=7),
             tc_projop.Oblique(N=6, alpha=np.pi / 4),
             tc_orthprojop.ScaleDown(N=7),
         ]
@@ -196,7 +196,7 @@ class TestArgShiftRuleQuadraticFunc(ArgShiftRuleMixin, conftest._QuadraticFuncT)
         from pycsou.operator.func import QuadraticFunc
 
         return QuadraticFunc(
-            Q=tc_posdefop.CDO4(N=7),
+            Q=tc_posdefop.PSDConvolution(N=7),
             c=tc_linfunc.ScaledSum(N=7),
             t=1,
         )

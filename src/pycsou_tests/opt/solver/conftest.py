@@ -129,10 +129,11 @@ class SolverT:
 
     def test_transparent_fit(self, solver, kwargs_fit):
         # Running solver twice returns same results.
-        solver.fit(**kwargs_fit.copy())
-        data1, _ = solver.stats()
-        solver.fit(**kwargs_fit.copy())
-        data2, _ = solver.stats()
+        with pycrt.EnforcePrecision(False):
+            solver.fit(**kwargs_fit.copy())
+            data1, _ = solver.stats()
+            solver.fit(**kwargs_fit.copy())
+            data2, _ = solver.stats()
 
         assert self._check_allclose(data1, data2)
 
