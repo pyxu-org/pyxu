@@ -116,8 +116,8 @@ class NLCG(pyca.Solver):
         a_k = ls.backtracking_linesearch(
             f=self._f,
             x=x_k,
-            g=g_k,
-            p=p_k,
+            gradient=g_k,
+            direction=p_k,
             a_bar=mst["ls_a_bar"],
             r=mst["ls_r"],
             c=mst["ls_c"],

@@ -15,8 +15,8 @@ LINESEARCH_DEFAULT_C = 10e-4
 def backtracking_linesearch(
     f: pyca.DiffFunc,
     x: pyct.NDArray,
-    g: pyct.NDArray,
-    p: pyct.NDArray,
+    gradient: pyct.NDArray,
+    direction: pyct.NDArray,
     a_bar: pyct.Real = LINESEARCH_DEFAULT_A_BAR,
     r: pyct.Real = LINESEARCH_DEFAULT_R,
     c: pyct.Real = LINESEARCH_DEFAULT_C,
@@ -31,9 +31,9 @@ def backtracking_linesearch(
         Differentiable functional
     x: pyct.NDArray
         (..., N) initial search point(s)
-    g: pyct.NDArray
+    gradient: pyct.NDArray
         (..., N) gradient of `f` at initial search point(s)
-    p: pyct.NDArray
+    direction: pyct.NDArray
         (..., N) search direction(s) corresponding to initial point(s)
     a_bar: pyct.Real
         Initial step size.
@@ -64,14 +64,14 @@ def backtracking_linesearch(
     c = correct_shape(c, LINESEARCH_DEFAULT_C)
 
     f_x = f.apply(x)
-    scalar_prod = c * dot_prod_last_axis(g, p)
-    f_x_ap = f.apply(x + a_bar * p)
+    scalar_prod = c * dot_prod_last_axis(gradient, direction)
+    f_x_ap = f.apply(x + a_bar * direction)
     a_prod = coeff_rows_multip(a, scalar_prod)
     cond = f_x_ap > f_x + a_prod
 
     while xp.any(cond):
         a = xp.where(cond, r * a, a)
-        f_x_ap = f.apply(x + a * p)
+        f_x_ap = f.apply(x + a * direction)
         a_prod = coeff_rows_multip(a, scalar_prod)
         cond = f_x_ap > f_x + a_prod
 
