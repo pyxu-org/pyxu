@@ -15,8 +15,8 @@ LINESEARCH_DEFAULT_C = 10e-4
 def backtracking_linesearch(
     f: pyca.DiffFunc,
     x: pyct.NDArray,
-    gradient: pyct.NDArray,
     direction: pyct.NDArray,
+    gradient: pyct.NDArray = None,
     a_bar: pyct.Real = None,
     r: pyct.Real = LINESEARCH_DEFAULT_R,
     c: pyct.Real = LINESEARCH_DEFAULT_C,
@@ -31,10 +31,13 @@ def backtracking_linesearch(
         Differentiable functional
     x: pyct.NDArray
         (..., N) initial search point(s)
-    gradient: pyct.NDArray
-        (..., N) gradient of `f` at initial search point(s)
     direction: pyct.NDArray
         (..., N) search direction(s) corresponding to initial point(s)
+    gradient: pyct.NDArray
+        (..., N) gradient of `f` at initial search point(s)
+
+        Specifying `gradient` when known is an optimization:
+        it will be autocomputed via ``f.grad(x)`` if unspecified.
     a_bar: pyct.Real
         Initial step size.
 
@@ -69,6 +72,8 @@ def backtracking_linesearch(
             # f is linear -> line-search unbounded
             raise ValueError("Line-search does not converge for linear functionals.")
 
+    if gradient is None:
+        gradient = f.grad(x)
 
     a = correct_shape(a_bar, LINESEARCH_DEFAULT_A_BAR)
     r = correct_shape(r, LINESEARCH_DEFAULT_R)
