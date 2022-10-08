@@ -1,3 +1,5 @@
+import numpy as np
+
 import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
@@ -59,8 +61,11 @@ def backtracking_linesearch(
     def coeff_rows_multip(coeffs, rows):
         return xp.transpose(xp.transpose(rows) * coeffs)
 
-    def correct_shape(v, default_v):
-        return v if v not in [default_v, None] else xp.full(x.shape[:-1], default_v, dtype=x.dtype)
+    def sanitize(v, default_v):
+        return v if v not in [default_v, None] else default_v
+
+    def correct_shape(v):
+        return xp.full((*x.shape[:-1], 1), v, dtype=x.dtype)
 
     def dot_prod_last_axis(v1, v2):
         return (v1 * v2).sum(axis=-1)
@@ -75,9 +80,9 @@ def backtracking_linesearch(
     if gradient is None:
         gradient = f.grad(x)
 
-    a = correct_shape(a_bar, LINESEARCH_DEFAULT_A_BAR)
-    r = correct_shape(r, LINESEARCH_DEFAULT_R)
-    c = correct_shape(c, LINESEARCH_DEFAULT_C)
+    a = correct_shape(a_bar)
+    r = correct_shape(sanitize(r, LINESEARCH_DEFAULT_R))
+    c = correct_shape(sanitize(c, LINESEARCH_DEFAULT_C))
 
     f_x = f.apply(x)
     scalar_prod = c * dot_prod_last_axis(gradient, direction)
