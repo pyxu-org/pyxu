@@ -45,7 +45,7 @@ def backtracking_linesearch(
     Returns
     -------
     a: pyct.NDArray
-        (N,) step sizes.
+        (..., 1) step sizes.
     """
 
     xp = pycu.get_array_module(x)
