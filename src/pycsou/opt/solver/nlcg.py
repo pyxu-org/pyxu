@@ -131,7 +131,12 @@ class NLCG(pyca.Solver):
             r=mst["ls_r"],
             c=mst["ls_c"],
         )
-        x_kp1 = x_k + p_k * a_k
+        # In-place implementation of -----------------
+        #   x_kp1 = x_k + p_k * a_k
+        x_kp1 = p_k.copy()
+        x_kp1 *= a_k
+        x_kp1 += x_k
+        # --------------------------------------------
         g_kp1 = self._f.grad(x_kp1)
 
         # Because NLCG can only generate n conjugate vectors in an n-dimensional space, it makes sense
@@ -140,7 +145,13 @@ class NLCG(pyca.Solver):
             beta_kp1 = pycrt.coerce(0)
         else:
             beta_kp1 = self.__compute_beta(g_k, g_kp1)
-        p_kp1 = -g_kp1 + beta_kp1 * p_k
+
+        # In-place implementation of -----------------
+        #   p_kp1 = -g_kp1 + beta_kp1 * p_k
+        p_kp1 = p_k.copy()
+        p_kp1 *= beta_kp1
+        p_kp1 -= g_kp1
+        # --------------------------------------------
 
         mst["x"], mst["gradient"], mst["conjugate_dir"], mst["ls_a_k"] = x_kp1, g_kp1, p_kp1, a_k
 
