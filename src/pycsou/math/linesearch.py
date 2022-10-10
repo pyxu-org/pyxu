@@ -11,7 +11,7 @@ __all__ = [
 
 
 LINESEARCH_DEFAULT_R = 0.5
-LINESEARCH_DEFAULT_C = 10e-4
+LINESEARCH_DEFAULT_C = 1e-4
 
 
 def backtracking_linesearch(
