@@ -1,6 +1,5 @@
-import numpy as np
-
 import pycsou.abc as pyca
+import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
@@ -10,23 +9,25 @@ __all__ = [
 
 
 LINESEARCH_DEFAULT_R = 0.5
-LINESEARCH_DEFAULT_C = 10e-4
+LINESEARCH_DEFAULT_C = 1e-4
 
 
+@pycrt.enforce_precision(
+    i=("x", "direction", "gradient", "a0", "r", "c"),
+    allow_None=True,
+)
 def backtracking_linesearch(
     f: pyca.DiffFunc,
     x: pyct.NDArray,
     direction: pyct.NDArray,
     gradient: pyct.NDArray = None,
-    a_bar: pyct.Real = None,
+    a0: pyct.Real = None,
     r: pyct.Real = LINESEARCH_DEFAULT_R,
     c: pyct.Real = LINESEARCH_DEFAULT_C,
 ) -> pyct.NDArray:
     r"""
     Backtracking line search algorithm based on the
     `Armijo-Goldstein condition <https://www.wikiwand.com/en/Backtracking_line_search>`_.
-
-    Performs a line search along the given direction(s).
 
     Parameters
     ----------
@@ -37,11 +38,15 @@ def backtracking_linesearch(
     direction: pyct.NDArray
         (..., N) search direction(s) corresponding to initial point(s)
     gradient: pyct.NDArray
-        (..., N) gradient of `f` at initial search point(s). Can be provided as
-        well as left as None.
-    a_bar: pyct.Real
-        Initial step size. If left None, will use :math:`\frac{1}{L}` where
-        L is a Lipschitz constant for :math:'\nabla f`
+        (..., N) gradient of `f` at initial search point(s)
+
+        Specifying `gradient` when known is an optimization:
+        it will be autocomputed via ``f.grad(x)`` if unspecified.
+    a0: pyct.Real
+        Initial step size.
+
+        If unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a0` is
+        auto-chosen as :math:`\frac{1}{\beta}`.
     r: pyct.Real
         Step reduction factor.
     c: pyct:Real
@@ -50,50 +55,42 @@ def backtracking_linesearch(
     Returns
     -------
     a: pyct.NDArray
-        (N,) step sizes.
+        (..., 1) step sizes.
     """
-
-    xp = pycu.get_array_module(x)
-
-    def coeff_rows_multip(coeffs, rows):
-        return xp.transpose(xp.transpose(rows) * coeffs)
-
-    def sanitize(v, default_v):
-        return v if v not in [default_v, None] else default_v
-
-    def correct_shape(v):
-        return xp.full((*x.shape[:-1], 1), v, dtype=x.dtype)
-
-    def dot_prod_last_axis(v1, v2):
-        return (v1 * v2).sum(axis=-1)
-
-    if a_bar is None:
-        d_l = f.diff_lipschitz()
-        if d_l is np.inf or d_l == 0:
-            raise ValueError(
-                "Either f gradient's lipschitz constant should be implemented through the diff_lipschitz"
-                "method or a maximal step size a_bar should be given as an argument to this line search."
-            )
-        else:
-            a_bar = 1.0 / f.diff_lipschitz()
+    assert 0 < r < 1
+    assert 0 < c < 1
+    if a0 is None:
+        try:
+            a0 = pycrt.coerce(1 / f.diff_lipschitz())
+            assert a0 > 0, "a0: cannot auto-set step size."
+        except ZeroDivisionError as exc:
+            # f is linear -> line-search unbounded
+            raise ValueError("Line-search does not converge for linear functionals.")
+    else:
+        assert a0 > 0
 
     if gradient is None:
         gradient = f.grad(x)
 
-    a = correct_shape(a_bar)
-    r = correct_shape(sanitize(r, LINESEARCH_DEFAULT_R))
-    c = correct_shape(sanitize(c, LINESEARCH_DEFAULT_C))
+    def refine(a: pyct.NDArray) -> pyct.NDArray:
+        # Do one iteration of the algorithm.
+        #
+        # Parameters
+        # ----------
+        # a : pyct.NDArray
+        #     (..., 1) current step size(s)
+        #
+        # Returns
+        # -------
+        # mask : pyct.NDArray[bool]
+        #     (..., 1) refinement points
+        lhs = f.apply(x + a * direction)
+        rhs1 = f.apply(x)
+        rhs2 = (c * a) * (gradient * direction).sum(axis=-1, keepdims=True)
+        return lhs > rhs1 + rhs2  # mask
 
-    f_x = f.apply(x)
-    scalar_prod = c * dot_prod_last_axis(gradient, direction)
-    f_x_ap = f.apply(x + a_bar * direction)
-    a_prod = coeff_rows_multip(a, scalar_prod)
-    cond = f_x_ap > f_x + a_prod
-
-    while xp.any(cond):
-        a = xp.where(cond, r * a, a)
-        f_x_ap = f.apply(x + a * direction)
-        a_prod = coeff_rows_multip(a, scalar_prod)
-        cond = f_x_ap > f_x + a_prod
-
+    xp = pycu.get_array_module(x)
+    a = xp.full(shape=(*x.shape[:-1], 1), fill_value=a0, dtype=x.dtype)
+    while (mask := refine(a)).any():
+        a[mask] *= r
     return a
