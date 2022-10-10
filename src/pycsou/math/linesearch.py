@@ -14,6 +14,10 @@ LINESEARCH_DEFAULT_R = 0.5
 LINESEARCH_DEFAULT_C = 1e-4
 
 
+@pycrt.enforce_precision(
+    i=("x", "direction", "gradient", "a0", "r", "c"),
+    allow_None=True,
+)
 def backtracking_linesearch(
     f: pyca.DiffFunc,
     x: pyct.NDArray,
