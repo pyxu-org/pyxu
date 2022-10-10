@@ -1,4 +1,5 @@
 import pycsou.abc as pyca
+import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
@@ -7,7 +8,6 @@ __all__ = [
 ]
 
 
-LINESEARCH_DEFAULT_A_BAR = 1.0
 LINESEARCH_DEFAULT_R = 0.5
 LINESEARCH_DEFAULT_C = 10e-4
 
@@ -17,7 +17,7 @@ def backtracking_linesearch(
     x: pyct.NDArray,
     gradient: pyct.NDArray,
     direction: pyct.NDArray,
-    a_bar: pyct.Real = LINESEARCH_DEFAULT_A_BAR,
+    a_bar: pyct.Real = None,
     r: pyct.Real = LINESEARCH_DEFAULT_R,
     c: pyct.Real = LINESEARCH_DEFAULT_C,
 ) -> pyct.NDArray:
@@ -37,6 +37,9 @@ def backtracking_linesearch(
         (..., N) search direction(s) corresponding to initial point(s)
     a_bar: pyct.Real
         Initial step size.
+
+        If unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a_bar` is
+        auto-chosen as :math:`\frac{1}{\beta}`.
     r: pyct.Real
         Step reduction factor.
     c: pyct:Real
@@ -58,6 +61,14 @@ def backtracking_linesearch(
 
     def dot_prod_last_axis(v1, v2):
         return (v1 * v2).sum(axis=-1)
+
+    if a_bar is None:
+        try:
+            a_bar = pycrt.coerce(1 / f.diff_lipschitz())
+        except ZeroDivisionError as exc:
+            # f is linear -> line-search unbounded
+            raise ValueError("Line-search does not converge for linear functionals.")
+
 
     a = correct_shape(a_bar, LINESEARCH_DEFAULT_A_BAR)
     r = correct_shape(r, LINESEARCH_DEFAULT_R)
