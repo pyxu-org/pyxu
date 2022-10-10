@@ -72,6 +72,9 @@ def backtracking_linesearch(
     if gradient is None:
         gradient = f.grad(x)
 
+    f_x = f.apply(x)
+    gradient_times_direction = (gradient * direction).sum(axis=-1, keepdims=True)
+
     def refine(a: pyct.NDArray) -> pyct.NDArray:
         # Do one iteration of the algorithm.
         #
@@ -85,8 +88,8 @@ def backtracking_linesearch(
         # mask : pyct.NDArray[bool]
         #     (..., 1) refinement points
         lhs = f.apply(x + a * direction)
-        rhs1 = f.apply(x)
-        rhs2 = (c * a) * (gradient * direction).sum(axis=-1, keepdims=True)
+        rhs1 = f_x
+        rhs2 = (c * a) * gradient_times_direction
         return lhs > rhs1 + rhs2  # mask
 
     xp = pycu.get_array_module(x)
