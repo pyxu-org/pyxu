@@ -70,8 +70,11 @@ class NLCG(pyca.Solver):
         Number of iterations after which restart is applied.
         By default, restart is done after 'n' iterations, where 'n' corresponds to the dimension of
         the inputs to :math:`f`.
-    a0, r, c: pyct.Real
-        Optional line search parameters. (See: :py:mod:`~pycsou.math.linesearch`.)
+    **kwargs
+        Optional parameters forwarded to :py:func:`~pycsou.math.linesearch.backtracking_linesearch`.
+        (See: :py:mod:`~pycsou.math.linesearch`.)
+
+        Users are expected to set `a0` if its value cannot be auto-inferred.
     """
 
     def __init__(self, f: pyca.DiffFunc, **kwargs):
@@ -82,27 +85,23 @@ class NLCG(pyca.Solver):
 
         self._f = f
 
-    @pycrt.enforce_precision(i=("x0", "a0", "r", "c"))
+    @pycrt.enforce_precision(i="x0")
     def m_init(
         self,
         x0: pyct.NDArray,
         variant: str = "PR",
         restart_rate: pyct.Integer = None,
-        a0: pyct.Real = None,
-        r: pyct.Real = None,
-        c: pyct.Real = None,
+        **kwargs,
     ):
         mst = self._mstate  # shorthand
 
-        if a0 is None:
+        if (a0 := kwargs.get("a0")) is None:
             d_l = self._f.diff_lipschitz()
-            if d_l is np.inf or d_l == 0:
-                raise ValueError(
-                    "Either f gradient's lipschitz constant should be implemented through the diff_lipschitz"
-                    "method or a maximal step size a_bar should be given as an argument to NLCG."
-                )
+            if np.isclose(d_l, np.inf) or np.isclose(d_l, 0):
+                msg = "[NLCG] cannot auto-infer initial step size: specify `a0` manually in NLCG.fit()"
+                raise ValueError(msg)
             else:
-                a0 = 1.0 / self._f.diff_lipschitz()
+                a0 = pycrt.coerce(1 / d_l)
 
         if restart_rate is not None:
             assert restart_rate >= 1
@@ -110,15 +109,13 @@ class NLCG(pyca.Solver):
         else:
             mst["restart_rate"] = x0.shape[-1]
 
-        sanitize = lambda _, default: _ if (_ is not None) else default
-
         mst["x"] = x0
         mst["gradient"] = self._f.grad(x0)
         mst["conjugate_dir"] = -mst["gradient"].copy()
         mst["variant"] = self.__parse_variant(variant)
         mst["ls_a0"] = a0
-        mst["ls_r"] = sanitize(r, ls.LINESEARCH_DEFAULT_R)
-        mst["ls_c"] = sanitize(c, ls.LINESEARCH_DEFAULT_C)
+        mst["ls_r"] = kwargs.get("r", ls.LINESEARCH_DEFAULT_R)
+        mst["ls_c"] = kwargs.get("c", ls.LINESEARCH_DEFAULT_C)
         mst["ls_a_k"] = mst["ls_a0"]
 
     def m_step(self):
