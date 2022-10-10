@@ -55,6 +55,8 @@ def backtracking_linesearch(
     a: pyct.NDArray
         (..., 1) step sizes.
     """
+    assert 0 < r < 1
+    assert 0 < c < 1
 
     xp = pycu.get_array_module(x)
 
@@ -73,9 +75,12 @@ def backtracking_linesearch(
     if a_bar is None:
         try:
             a_bar = pycrt.coerce(1 / f.diff_lipschitz())
+            assert a_bar > 0, "a_bar: cannot auto-set step size."
         except ZeroDivisionError as exc:
             # f is linear -> line-search unbounded
             raise ValueError("Line-search does not converge for linear functionals.")
+    else:
+        assert a_bar > 0
 
     if gradient is None:
         gradient = f.grad(x)
