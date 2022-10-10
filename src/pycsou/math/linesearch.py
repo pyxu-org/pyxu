@@ -1,5 +1,3 @@
-import numpy as np
-
 import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
@@ -74,20 +72,25 @@ def backtracking_linesearch(
     if gradient is None:
         gradient = f.grad(x)
 
-    a = correct_shape(a_bar)
-    r = correct_shape(sanitize(r, LINESEARCH_DEFAULT_R))
-    c = correct_shape(sanitize(c, LINESEARCH_DEFAULT_C))
+    def refine(a: pyct.NDArray) -> pyct.NDArray:
+        # Do one iteration of the algorithm.
+        #
+        # Parameters
+        # ----------
+        # a : pyct.NDArray
+        #     (..., 1) current step size(s)
+        #
+        # Returns
+        # -------
+        # mask : pyct.NDArray[bool]
+        #     (..., 1) refinement points
+        lhs = f.apply(x + a * direction)
+        rhs1 = f.apply(x)
+        rhs2 = (c * a) * (gradient * direction).sum(axis=-1, keepdims=True)
+        return lhs > rhs1 + rhs2  # mask
 
-    f_x = f.apply(x)
-    scalar_prod = c * dot_prod_last_axis(gradient, direction)
-    f_x_ap = f.apply(x + a_bar * direction)
-    a_prod = coeff_rows_multip(a, scalar_prod)
-    cond = f_x_ap > f_x + a_prod
-
-    while xp.any(cond):
-        a = xp.where(cond, r * a, a)
-        f_x_ap = f.apply(x + a * direction)
-        a_prod = coeff_rows_multip(a, scalar_prod)
-        cond = f_x_ap > f_x + a_prod
-
+    xp = pycu.get_array_module(x)
+    a = xp.full(shape=(*x.shape[:-1], 1), fill_value=a0, dtype=x.dtype)
+    while (mask := refine(a)).any():
+        a[mask] *= r
     return a
