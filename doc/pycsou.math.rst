@@ -12,6 +12,14 @@ pycsou.math.linalg module
    :undoc-members:
    :show-inheritance:
 
+pycsou.math.linesearch module
+-----------------------------
+
+.. automodule:: pycsou.math.linesearch
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 

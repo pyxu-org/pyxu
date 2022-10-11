@@ -8,36 +8,34 @@ import pycsou.util.ptype as pyct
 import pycsou_tests.opt.solver.conftest as conftest
 
 
-class TestCG(conftest.SolverT):
+class TestNLCG(conftest.SolverT):
     @staticmethod
     def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
+        from pycsou.operator.func import NullFunc, QuadraticFunc
         from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
         klass = [
-            pycos.CG,
+            pycos.NLCG,
         ]
         kwargs_init = [
-            dict(A=PSDConvolution(N=N)),
+            dict(
+                f=QuadraticFunc(
+                    Q=PSDConvolution(N=N),
+                    c=NullFunc(dim=N),
+                )
+            ),
         ]
 
         kwargs_fit = []
         param_sweep = dict(
-            b=[
-                np.ones((N,)),
-                np.full((2, N), -2),  # multiple problems in parallel
-            ],
             x0=[
-                None,  # let algorithm choose
-                np.full((N,), 3),
-                np.stack(
-                    [
-                        np.full((N,), 1),
-                        np.full((N,), 15),
-                    ],
-                    axis=0,
-                ),  # multiple initial points
+                np.full((N,), 3.0),
+                np.full((2, N), 15.0),  # multiple initial points
             ],
-            restart_rate=[None, N, 2 * N],
+            variant=[
+                "PR",
+                "FR",
+            ],
         )
         for config in itertools.product(*param_sweep.values()):
             d = dict(zip(param_sweep.keys(), config))

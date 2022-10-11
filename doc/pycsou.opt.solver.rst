@@ -20,6 +20,14 @@ pycsou.opt.solver.cg module
    :undoc-members:
    :show-inheritance:
 
+pycsou.opt.solver.nlcg module
+-----------------------------
+
+.. automodule:: pycsou.opt.solver.nlcg
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 pycsou.opt.solver.pds module
 ----------------------------
 
