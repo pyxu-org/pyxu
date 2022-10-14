@@ -798,6 +798,10 @@ class ProxFuncT(FuncT):
         self._skip_if_disabled()
         self._check_precCM(op.fenchel_prox, _data_fenchel_prox)
 
+    def test_transparent_fenchel_prox(self, op, _data_fenchel_prox):
+        self._skip_if_disabled()
+        self._check_no_side_effect(op.fenchel_prox, _data_fenchel_prox)
+
     def test_interface_moreau_envelope(self, _op_m):
         self._skip_if_disabled()
         _, op_m = _op_m
