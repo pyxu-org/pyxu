@@ -186,8 +186,34 @@ class MapT:
         # Verify `op` has the public interface of `klass`.
         assert klass.interface <= frozenset(dir(op))
 
-    @staticmethod
+    @classmethod
+    def _metric(
+        cls,
+        a: pyct.NDArray,
+        b: pyct.NDArray,
+        as_dtype: pyct.DType,
+    ) -> bool:
+        # Function used to assess if computed values returned by arithmetic methods are correct.
+        #
+        # Users may override this function to introduce an alternative metrics when justified.
+        # The default metric is point-wise match.
+        #
+        # Parameters
+        # ----------
+        # a, b: pyct.NDArray
+        #    (..., N) arrays
+        # as_dtype: pyct.DType
+        #    dtype used to compare the values. (Not always relevant depending on the metric.)
+        #
+        # Returns
+        # -------
+        # match: bool
+        #    True if all (...) arrays match.
+        return allclose(a, b, as_dtype)
+
+    @classmethod
     def _check_value1D(
+        cls,
         func,
         data: DataLike,
         dtype: pyct.DType = None,
@@ -199,10 +225,11 @@ class MapT:
 
         dtype = MapT._sanitize(dtype, in_["arr"].dtype)
         assert out.ndim == in_["arr"].ndim
-        assert allclose(out, out_gt, as_dtype=dtype)
+        assert cls._metric(out, out_gt, as_dtype=dtype)
 
-    @staticmethod
+    @classmethod
     def _check_valueND(
+        cls,
         func,
         data: DataLike,
         dtype: pyct.DType = None,
@@ -220,7 +247,7 @@ class MapT:
 
         dtype = MapT._sanitize(dtype, in_["arr"].dtype)
         assert out.ndim == in_["arr"].ndim
-        assert allclose(out, out_gt, as_dtype=dtype)
+        assert cls._metric(out, out_gt, as_dtype=dtype)
 
     @staticmethod
     def _check_backend(func, data: DataLike):
@@ -250,8 +277,8 @@ class MapT:
             stats[w] = out.dtype == w.value
         assert all(stats.values())
 
-    @staticmethod
-    def _check_no_side_effect(func, data: DataLike):
+    @classmethod
+    def _check_no_side_effect(cls, func, data: DataLike):
         # idea:
         # * eval func() once [out_1]
         # * in-place update out_1, ex: scale by constant factor [scale]
@@ -277,8 +304,8 @@ class MapT:
                 # The large scale introduced to assess transparency may give rise to
                 # operator-dependant round-off errors. We therefore assess transparency at
                 # FP32-precision to avoid false negatives.
-                assert allclose(out_1, out_gt, as_dtype=pycrt.Width.SINGLE.value)
-                assert allclose(out_2, out_gt, as_dtype=pycrt.Width.SINGLE.value)
+                assert cls._metric(out_1, out_gt, as_dtype=pycrt.Width.SINGLE.value)
+                assert cls._metric(out_2, out_gt, as_dtype=pycrt.Width.SINGLE.value)
             except AssertionError as exc:
                 # Function is non-transparent, but which backend caused it?
                 N = pycd.NDArrayInfo
@@ -923,8 +950,8 @@ class LinOpT(DiffMapT):
         ],
     )
 
-    @staticmethod
-    def _check_value1D_vals(func, kwargs, ground_truth):
+    @classmethod
+    def _check_value1D_vals(cls, func, kwargs, ground_truth):
         N = pycd.NDArrayInfo
         xp = {True: N.CUPY, False: N.NUMPY}[kwargs["gpu"]].module()
         if kwargs["gpu"]:
@@ -953,7 +980,7 @@ class LinOpT(DiffMapT):
         # them identical.
         # We therefore assess [svd,eig]vals() outputs at FP32-precision only.
         # This precision is enough to query an operator's spectrum for further diagnostics.
-        assert allclose(xp.abs(out), xp.abs(gt), as_dtype=pycrt.Width.SINGLE.value)
+        assert cls._metric(xp.abs(out), xp.abs(gt), as_dtype=pycrt.Width.SINGLE.value)
 
     @staticmethod
     def _check_backend_vals(func, _gpu):
@@ -1271,7 +1298,7 @@ class LinOpT(DiffMapT):
             lhs = ip(op.adjoint(x), y)
             rhs = ip(x, op.apply(y))
 
-        assert allclose(lhs, rhs, as_dtype=width.value)
+        assert self._metric(lhs, rhs, as_dtype=width.value)
 
     def test_math2_lipschitz(self, op, xp, width):
         # op.lipschitz('fro') upper bounds op.lipschitz('svds')
@@ -1289,7 +1316,10 @@ class LinOpT(DiffMapT):
         # op.lipschitz('svds') computes the optimal Lipschitz constant.
         self._skip_if_disabled()
         L_svds = op.lipschitz(recompute=True, algo="svds")
-        assert allclose(L_svds, _op_svd.max(), as_dtype=width.value)
+        # Comparison is done with user-specified metric since operator may compute `L_svds` via an
+        # approximate `.apply()' method.
+        cast = lambda x: np.array([x], dtype=width.value)
+        assert self._metric(cast(L_svds), cast(_op_svd.max()), as_dtype=width.value)
 
     def test_interface_jacobian(self, op, _data_apply):
         self._skip_if_disabled()
@@ -1496,8 +1526,8 @@ class LinOpT(DiffMapT):
         x = self._random_array((30, op.dim), xp=xp, width=width)
 
         with pycrt.EnforcePrecision(False):
-            assert allclose(op_g.apply(x), op_g.adjoint(x), as_dtype=width.value)
-            assert allclose(op_g.apply(x), op.adjoint(op.apply(x)), as_dtype=width.value)
+            assert self._metric(op_g.apply(x), op_g.adjoint(x), as_dtype=width.value)
+            assert self._metric(op_g.apply(x), op.adjoint(op.apply(x)), as_dtype=width.value)
 
     def test_interface_cogram(self, op):
         self._skip_if_disabled()
@@ -1514,8 +1544,8 @@ class LinOpT(DiffMapT):
         x = self._random_array((30, op.codim), xp=xp, width=width)
 
         with pycrt.EnforcePrecision(False):
-            assert allclose(op_cg.apply(x), op_cg.adjoint(x), as_dtype=width.value)
-            assert allclose(op_cg.apply(x), op.apply(op.adjoint(x)), as_dtype=width.value)
+            assert self._metric(op_cg.apply(x), op_cg.adjoint(x), as_dtype=width.value)
+            assert self._metric(op_cg.apply(x), op.apply(op.adjoint(x)), as_dtype=width.value)
 
     def test_value_asarray(self, op, _op_array):
         self._skip_if_disabled()
@@ -1524,7 +1554,7 @@ class LinOpT(DiffMapT):
 
         A = op.asarray(xp=xp, dtype=dtype)
         assert A.shape == _op_array.shape
-        assert allclose(_op_array, A, as_dtype=dtype)
+        assert self._metric(_op_array.T, A.T, as_dtype=dtype)
 
     def test_backend_asarray(self, op, _op_array):
         self._skip_if_disabled()
@@ -1548,7 +1578,7 @@ class LinOpT(DiffMapT):
         out = func(**_data_to_sciop["in_"])
         out_gt = _data_to_sciop["out"]
         assert out.shape == out_gt.shape
-        assert allclose(out, out_gt, as_dtype=out_gt.dtype)
+        assert self._metric(out, out_gt, as_dtype=out_gt.dtype)
 
     def test_backend_to_sciop(self, _op_sciop, _data_to_sciop):
         self._skip_if_disabled()
@@ -1576,7 +1606,7 @@ class LinOpT(DiffMapT):
         out = func(**_data_from_sciop["in_"])
         out_gt = _data_from_sciop["out"]
         assert out.shape == out_gt.shape
-        assert allclose(out, out_gt, as_dtype=out_gt.dtype)
+        assert self._metric(out, out_gt, as_dtype=out_gt.dtype)
 
     def test_backend_from_sciop(self, _op_sciop, _data_from_sciop):
         self._skip_if_disabled()
