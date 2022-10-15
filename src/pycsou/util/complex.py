@@ -1,5 +1,5 @@
 import pycsou.runtime as pycrt
-import pycsou.util.array_module as pyca
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
 __all__ = [
@@ -222,7 +222,7 @@ def view_as_real_mat(
     except:
         raise ValueError(f"Unsupported dtype {c_dtype}.")
 
-    xp = pyca.get_array_module(cmat)
+    xp = pycd.NDArrayInfo.from_obj(cmat).module()
     rmat = xp.zeros((2 * cmat.shape[0], 2 * cmat.shape[1]), dtype=r_dtype)
     rmat[::2, ::2], rmat[1::2, 1::2] = cmat.real, cmat.real
     rmat[::2, 1::2], rmat[1::2, ::2] = -cmat.imag, cmat.imag
