@@ -193,7 +193,8 @@ class MapT:
         dtype: pyct.DType = None,
     ):
         in_ = data["in_"]
-        out = func(**in_)
+        with pycrt.EnforcePrecision(False):
+            out = func(**in_)
         out_gt = data["out"]
 
         dtype = MapT._sanitize(dtype, in_["arr"].dtype)
@@ -213,7 +214,8 @@ class MapT:
         xp = pycu.get_array_module(arr)
         arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
         in_.update(arr=arr)
-        out = func(**in_)
+        with pycrt.EnforcePrecision(False):
+            out = func(**in_)
         out_gt = np.broadcast_to(data["out"], (*sh_extra, *data["out"].shape))
 
         dtype = MapT._sanitize(dtype, in_["arr"].dtype)
@@ -223,7 +225,8 @@ class MapT:
     @staticmethod
     def _check_backend(func, data: DataLike):
         in_ = data["in_"]
-        out = func(**in_)
+        with pycrt.EnforcePrecision(False):
+            out = func(**in_)
 
         assert type(out) == type(in_["arr"])
 
@@ -1154,7 +1157,8 @@ class LinOpT(DiffMapT):
         for i in range(op.dim):
             e = xp.zeros((op.dim,), dtype=width.value)
             e[i] = 1
-            A_gt[:, i] = op.apply(e)
+            with pycrt.EnforcePrecision(False):
+                A_gt[:, i] = op.apply(e)
 
         N = pycd.NDArrayInfo
         xp_, width_ = request.param
@@ -1263,8 +1267,9 @@ class LinOpT(DiffMapT):
         y = self._random_array((N, op.dim), xp=xp, width=width)
 
         ip = lambda a, b: (a * b).sum(axis=-1)  # (N, Q) * (N, Q) -> (N,)
-        lhs = ip(op.adjoint(x), y)
-        rhs = ip(x, op.apply(y))
+        with pycrt.EnforcePrecision(False):
+            lhs = ip(op.adjoint(x), y)
+            rhs = ip(x, op.apply(y))
 
         assert allclose(lhs, rhs, as_dtype=width.value)
 
@@ -1490,8 +1495,9 @@ class LinOpT(DiffMapT):
         op_g = op.gram()
         x = self._random_array((30, op.dim), xp=xp, width=width)
 
-        assert allclose(op_g.apply(x), op_g.adjoint(x), as_dtype=width.value)
-        assert allclose(op_g.apply(x), op.adjoint(op.apply(x)), as_dtype=width.value)
+        with pycrt.EnforcePrecision(False):
+            assert allclose(op_g.apply(x), op_g.adjoint(x), as_dtype=width.value)
+            assert allclose(op_g.apply(x), op.adjoint(op.apply(x)), as_dtype=width.value)
 
     def test_interface_cogram(self, op):
         self._skip_if_disabled()
@@ -1507,8 +1513,9 @@ class LinOpT(DiffMapT):
         op_cg = op.cogram()
         x = self._random_array((30, op.codim), xp=xp, width=width)
 
-        assert allclose(op_cg.apply(x), op_cg.adjoint(x), as_dtype=width.value)
-        assert allclose(op_cg.apply(x), op.apply(op.adjoint(x)), as_dtype=width.value)
+        with pycrt.EnforcePrecision(False):
+            assert allclose(op_cg.apply(x), op_cg.adjoint(x), as_dtype=width.value)
+            assert allclose(op_cg.apply(x), op.apply(op.adjoint(x)), as_dtype=width.value)
 
     def test_value_asarray(self, op, _op_array):
         self._skip_if_disabled()
