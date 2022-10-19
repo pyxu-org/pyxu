@@ -206,12 +206,6 @@ class NUFFT(pyca.LinOp):
 
     .. Warning::
 
-       If :math:`\varepsilon > 0`, then the smallest singular values computed via
-       :py:meth:`~pycsou.abc.operator.LinOp.svdvals` may differ (significantly) from the
-       ground-truth.
-
-    .. Warning::
-
        Since FINUFFT plans cannot be shared among different processes, this class is **only
        compatible** with Dask's thread-based schedulers, i.e.:
 
