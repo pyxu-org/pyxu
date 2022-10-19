@@ -552,6 +552,13 @@ class NUFFT(pyca.LinOp):
             self._lipschitz = pyca.LinOp.lipschitz(self, **kwargs)
         return self._lipschitz
 
+    def to_sciop(self, **kwargs):
+        # _NUFFT.apply/adjoint() only support the precision provided at init-time.
+        if not self._direct_eval:
+            kwargs.update(dtype=self._x.dtype)  # silently drop user-provided `dtype`
+        op = pyca.LinOp.to_sciop(self, **kwargs)
+        return op
+
     @staticmethod
     def _as_canonical_coordinate(x: pyct.NDArray) -> pyct.NDArray:
         if (N_dim := x.ndim) == 1:
@@ -938,13 +945,6 @@ class _NUFFT1(NUFFT):
         A = xp.array(pycu.to_NUMPY(_A), dtype=dtype)
         return A
 
-    def to_sciop(self, **kwargs):
-        # _NUFFT1.apply/adjoint() only support the precision provided at init-time.
-        if not self._direct_eval:
-            kwargs.update(dtype=self._x.dtype)  # silently drop user-provided `dtype`
-        op = pyca.LinOp.to_sciop(self, **kwargs)
-        return op
-
 
 class _NUFFT3(NUFFT):
     def __init__(self, **kwargs):
@@ -1104,13 +1104,6 @@ class _NUFFT3(NUFFT):
         dtype = kwargs.get("dtype", pycrt.getPrecision().value)
         A = xp.array(pycu.to_NUMPY(_A), dtype=dtype)
         return A
-
-    def to_sciop(self, **kwargs):
-        # _NUFFT3.apply/adjoint() only support the precision provided at init-time.
-        if not self._direct_eval:
-            kwargs.update(dtype=self._x.dtype)  # silently drop user-provided `dtype`
-        op = pyca.LinOp.to_sciop(self, **kwargs)
-        return op
 
 
 @numba.njit(parallel=True, fastmath=True, nogil=True)
