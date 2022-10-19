@@ -113,7 +113,7 @@ class _PrimalDualSplitting(pyca.Solver):
             norm=2,
             satisfy_all=True,
         )
-        return stop_crit_x & stop_crit_z
+        return stop_crit_x & stop_crit_z if self._h._name != "NullFunc" else stop_crit_x
 
     def solution(self, which: typ.Literal["primal", "dual"] = "primal") -> pyct.NDArray:
         data, _ = self.stats()
@@ -156,13 +156,10 @@ class _PrimalDualSplitting(pyca.Solver):
         NDArray
             Initialized dual variable.
         """
-        if self._h._name == "NullFunc":
-            return None
+        if z is None:
+            return self._K(self._mstate["x"].copy())
         else:
-            if z is None:
-                return self._K(self._mstate["x"].copy())
-            else:
-                return z if z.ndim > 1 else z.reshape(1, -1)
+            return z if z.ndim > 1 else z.reshape(1, -1)
 
     def _set_gamma(self, tuning_strategy: typ.Literal[1, 2, 3]) -> pyct.Real:
         r"""
