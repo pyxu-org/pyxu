@@ -234,7 +234,7 @@ class MapT:
         data: DataLike,
         dtype: pyct.DType = None,
     ):
-        sh_extra = (2, 1)  # prepend input/output shape by this amount.
+        sh_extra = (2, 1, 3)  # prepend input/output shape by this amount.
 
         in_ = data["in_"]
         arr = in_["arr"]
