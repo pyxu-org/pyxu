@@ -99,31 +99,8 @@ class NUFFT(pyca.LinOp):
     roles of :math:`\mathbf{z}_k` and :math:`\mathbf{x}_{j}` in (3).
 
     **Lipschitz Constants.**
-    The type-1 NUFFT can be interpreted as the truncated Fourier Series of a :math:`2\pi`-periodic
-    Dirac stream with innovations :math:`(w_{j}, \mathbf{x}_j)`.
-
-    From Parseval's equality, we have hence
-
-    .. math::
-
-       \|u_{\mathbf{n}}\|^2
-       =
-       \frac{1}{2\pi} \left\|\sum_{j=1}^{M} w_{j} d_{N_1,\ldots,N_d}(\cdot-\mathbf{x}_{j})\right\|_2^2
-       =
-       \frac{1}{2\pi}\mathbf{w}^{H} G \mathbf{w}
-       \leq
-       \frac{1}{2\pi} \|G\|_{2} \|\mathbf{w}\|_{2}^{2},
-
-    where :math:`d_{N_1,\ldots,N_d}:[-\pi, \pi)^{d} \to \mathbb{R}` is the :math:`d`-dimensional
-    Dirichlet kernel of bandwidth :math:`(N_1,\ldots,N_d)`, and :math:`G\in\mathbb{R}^{M \times M}`
-    is the Gram matrix with entries
-    :math:`G_{ij}=d_{N_1,\ldots,N_d}(\mathbf{x}_{i}-\mathbf{x}_{j})`.
-    The Lipschitz constant of the type-1 NUFFT is then proportional to the square root of the
-    largest singular value of :math:`G`.
-    Since the Gram is positive semi-definite, its largest eigenvalue is bounded by its trace, which
-    yields :math:`L = \sqrt{\|G\|_2/2\pi}\leq \sqrt{M\Pi_{i=1}^{d} N_i/2\pi}`.
-    For the type-3 NUFFT, we bound the Lipschitz constant by the Frobenius norm of the operator,
-    which yields :math:`L \leq \sqrt{NM}`.
+    We bound the Lipschitz constant by the Frobenius norm of the operators, which yields :math:`L
+    \leq \sqrt{NM}`.
     Note that these Lipschitz constants are cheap to compute but may be pessimistic. Tighter
     Lipschitz constants can be computed by calling :py:meth:`~pycsou.abc.operator.LinOp.lipschitz`.
 
@@ -567,6 +544,14 @@ class NUFFT(pyca.LinOp):
         """
         raise NotImplementedError
 
+    def lipschitz(self, **kwargs) -> pyct.Real:
+        # Analytical form known if algo="fro"
+        if kwargs.get("algo", "svds") == "fro":
+            self._lipschitz = np.sqrt(self._M * np.prod(self._N))
+        else:
+            self._lipschitz = pyca.LinOp.lipschitz(self, **kwargs)
+        return self._lipschitz
+
     @staticmethod
     def _as_canonical_coordinate(x: pyct.NDArray) -> pyct.NDArray:
         if (N_dim := x.ndim) == 1:
@@ -953,14 +938,6 @@ class _NUFFT1(NUFFT):
         A = xp.array(pycu.to_NUMPY(_A), dtype=dtype)
         return A
 
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        # Analytical form known if algo="fro"
-        if kwargs.get("algo", "svds") == "fro":
-            self._lipschitz = np.sqrt(self._M * self._N.prod() / (2 * np.pi))
-        else:
-            self._lipschitz = super().lipschitz(**kwargs)
-        return self._lipschitz
-
     def to_sciop(self, **kwargs):
         # _NUFFT1.apply/adjoint() only support the precision provided at init-time.
         if not self._direct_eval:
@@ -1127,14 +1104,6 @@ class _NUFFT3(NUFFT):
         dtype = kwargs.get("dtype", pycrt.getPrecision().value)
         A = xp.array(pycu.to_NUMPY(_A), dtype=dtype)
         return A
-
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        # Analytical form known if algo="fro"
-        if kwargs.get("algo", "svds") == "fro":
-            self._lipschitz = np.sqrt(self._M * self._N)
-        else:
-            self._lipschitz = super().lipschitz(**kwargs)
-        return self._lipschitz
 
     def to_sciop(self, **kwargs):
         # _NUFFT3.apply/adjoint() only support the precision provided at init-time.
