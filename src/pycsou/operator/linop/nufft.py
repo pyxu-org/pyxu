@@ -1,4 +1,5 @@
 import collections.abc as cabc
+import types
 import typing as typ
 import warnings
 
@@ -319,6 +320,110 @@ class NUFFT(pyca.LinOp):
             **kwargs,
         )
         return _NUFFT1(**init_kwargs).squeeze()
+
+    @staticmethod
+    @pycrt.enforce_precision(i="x", o=False, allow_None=False)
+    def type2(
+        x: pyct.NDArray,
+        N: typ.Union[pyct.Integer, tuple[pyct.Integer, ...]],
+        isign: SignT = sign_default,
+        eps: pyct.Real = eps_default,
+        real: bool = False,
+        **kwargs,
+    ) -> pyct.OpT:
+        r"""
+        Type-2 NUFFT (uniform to non-uniform).
+
+        Parameters
+        ----------
+        x: pyct.NDArray
+            (M, [d]) d-dimensional sample points :math:`\mathbf{x}_{j} \in [-\pi,\pi]^{d}`.
+        N: int | tuple[int]
+            ([d],) mesh size in each dimension :math:`(N_1, \ldots, N_d)`.
+
+            If `N` is an integer, then the mesh is assumed to have the same size in each dimension.
+        isign: 1 | -1
+            Sign :math:`\sigma` of the transform.
+        eps: float
+            Requested relative accuracy :math:`\varepsilon \geq 0`.
+
+            If ``eps=0``, the transform is computed exactly via direct evaluation of the exponential
+            sum using a Numba JIT-compiled kernel.
+        real: bool
+            If ``True``, assumes ``.apply()`` takes (..., N.prod()) inputs in :math:`\mathbb{R}^{N}`.
+
+            If ``False``, then ``.apply()`` takes (..., 2N.prod()) inputs, i.e. :math:`\mathbb{C}^{N}`
+            vectors viewed as bijections with :math:`\mathbb{R}^{2N}`.
+        **kwargs
+            Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
+            (Illegal keywords are dropped silently.)
+            Most useful are ``n_trans``, ``nthreads`` and ``debug``.
+
+        Returns
+        -------
+        op: :py:class:`~pycsou.abc.operator.LinOp`
+            (2M, N.prod()) or (2M, 2N.prod()) type-2 NUFFT.
+
+        Examples
+        --------
+
+        .. code-block:: python3
+
+           import numpy as np
+           import pycsou.operator.linop as pycl
+           import pycsou.runtime as pycrt
+           import pycsou.util as pycu
+
+           rng = np.random.default_rng(0)
+           D, M, N = 2, 200, 5  # D denotes the dimension of the data
+           N_full = (N,) * D
+           x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+
+           with pycrt.Precision(pycrt.Width.SINGLE):
+               # The NUFFT dimension (1/2/3) is inferred from the trailing dimension of x.
+               # Its precision is controlled by the context manager.
+               N_trans = 5
+               A = pycl.NUFFT.type2(
+                       x, N,
+                       n_trans=N_trans,
+                       isign=-1,
+                       eps=1e-3,
+                   )
+
+               # Pycsou operators only support real inputs/outputs, so we use the functions
+               # pycu.view_as_[complex/real] to interpret complex arrays as real arrays (and
+               # vice-versa).
+               arr = np.reshape(
+                          rng.normal(size=(3, N_trans, *N_full))
+                   + 1j * rng.normal(size=(3, N_trans, *N_full)),
+                   (3, N_trans, -1),
+               )
+               A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
+               A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
+        """
+        init_kwargs = _NUFFT1._sanitize_init_kwargs(
+            x=x,
+            N=N,
+            isign=-isign,
+            eps=eps,
+            real_in=False,
+            real_out=real,
+            **kwargs,
+        )
+        op_t1 = _NUFFT1(**init_kwargs)
+        op_t2 = op_t1.squeeze().T
+        op_t2._name = "_NUFFT2"
+
+        # Some methods need to be overloaded (even if non-arithmetic) since NUFFT interprets their
+        # calling parameters differently. (Ex: to_sciop's `dtype` discarded at times.)
+
+        def op_to_sciop(_, **kwargs):
+            op_s = op_t1.to_sciop(**kwargs)
+            return op_s.T
+
+        op_t2.to_sciop = types.MethodType(op_to_sciop, op_t2)  # non-arithmetic method
+        op_t2.lipschitz = types.MethodType(NUFFT.lipschitz, op_t1)
+        return op_t2
 
     @staticmethod
     @pycrt.enforce_precision(i=("x", "z"), o=False, allow_None=False)
