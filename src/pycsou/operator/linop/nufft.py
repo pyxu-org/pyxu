@@ -877,7 +877,24 @@ class NUFFT(pyca.LinOp):
         return w
 
     def _kernel_beta(self) -> pyct.Real:
-        raise NotImplementedError
+        # https://github.com/flatironinstitute/finufft/
+        #     ./src/spreadinterp.cpp::setup_spreader()
+        # [FINUFFT]_
+        #     eq   3.2
+        #     sect 4.2
+        u = self._upsample_factor()
+        w = self._kernel_width()
+        if np.isclose(u, 2):
+            scale = {
+                2: 2.20,
+                3: 2.26,
+                4: 2.38,
+            }.get(w, 2.30)
+        else:  # 1.25
+            gamma = 0.97
+            scale = gamma * np.pi * (1 - (0.5 / u))
+        beta = float(scale * w)
+        return beta
 
     def _fft_shape(self) -> cabc.Sequence[pyct.Integer]:
         raise NotImplementedError
