@@ -234,6 +234,93 @@ class NUFFT(pyca.LinOp):
         super().__init__(shape=shape)
 
     @staticmethod
+    @pycrt.enforce_precision(i="x", o=False, allow_None=False)
+    def type1(
+        x: pyct.NDArray,
+        N: typ.Union[pyct.Integer, tuple[pyct.Integer, ...]],
+        isign: SignT = sign_default,
+        eps: pyct.Real = eps_default,
+        real: bool = False,
+        **kwargs,
+    ) -> pyct.OpT:
+        r"""
+        Type-1 NUFFT (non-uniform to uniform).
+
+        Parameters
+        ----------
+        x: pyct.NDArray
+            (M, [d]) d-dimensional sample points :math:`\mathbf{x}_{j} \in [-\pi,\pi)^{d}`.
+        N: int | tuple[int]
+            ([d],) mesh size in each dimension :math:`(N_1, \ldots, N_d)`.
+
+            If `N` is an integer, then the mesh is assumed to have the same size in each dimension.
+        isign: 1 | -1
+            Sign :math:`\sigma` of the transform.
+        eps: float
+            Requested relative accuracy :math:`\varepsilon \geq 0`.
+
+            If ``eps=0``, the transform is computed exactly via direct evaluation of the exponential
+            sum using a Numba JIT-compiled kernel.
+        real: bool
+            If ``True``, assumes ``.apply()`` takes (..., M) inputs in :math:`\mathbb{R}^{M}`.
+
+            If ``False``, then ``.apply()`` takes (..., 2M) inputs, i.e. :math:`\mathbb{C}^{M}`
+            vectors viewed as bijections with :math:`\mathbb{R}^{2M}`.
+        **kwargs
+            Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
+            (Illegal keywords are dropped silently.)
+            Most useful are ``n_trans``, ``nthreads`` and ``debug``.
+
+        Returns
+        -------
+        op: :py:class:`~pycsou.abc.operator.LinOp`
+            (2N.prod(), M) or (2N.prod(), 2M) type-1 NUFFT.
+
+        Examples
+        --------
+
+        .. code-block:: python3
+
+           import numpy as np
+           import pycsou.operator.linop as pycl
+           import pycsou.runtime as pycrt
+           import pycsou.util as pycu
+
+           rng = np.random.default_rng(0)
+           D, M, N = 2, 200, 5  # D denotes the dimension of the data
+           x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+
+           with pycrt.Precision(pycrt.Width.SINGLE):
+               # The NUFFT dimension (1/2/3) is inferred from the trailing dimension of x.
+               # Its precision is controlled by the context manager.
+               N_trans = 5
+               A = pycl.NUFFT.type1(
+                       x, N,
+                       n_trans=N_trans,
+                       isign=-1,
+                       eps=1e-3,
+                   )
+
+               # Pycsou operators only support real inputs/outputs, so we use the functions
+               # pycu.view_as_[complex/real] to interpret complex arrays as real arrays (and
+               # vice-versa).
+               arr =        rng.normal(size=(3, N_trans, M)) \
+                     + 1j * rng.normal(size=(3, N_trans, M))
+               A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
+               A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
+        """
+        init_kwargs = _NUFFT1._sanitize_init_kwargs(
+            x=x,
+            N=N,
+            isign=isign,
+            eps=eps,
+            real_in=real,
+            real_out=False,
+            **kwargs,
+        )
+        return _NUFFT1(**init_kwargs).squeeze()
+
+    @staticmethod
     @pycrt.enforce_precision(i=("x", "z"), o=False, allow_None=False)
     def type3(
         x: pyct.NDArray,
@@ -569,6 +656,218 @@ class NUFFT(pyca.LinOp):
         #     Shape [apply|adjoint](arr) should have.
         xp = pycu.get_array_module(blks[0])
         return xp.concatenate(blks, axis=0)[:N].reshape(sh_out)
+
+
+class _NUFFT1(NUFFT):
+    def __init__(self, **kwargs):
+        self._M, self._D = kwargs["x"].shape  # Useful constants
+        self._N = kwargs["N"]
+        self._x = kwargs["x"]
+        self._isign = kwargs["isign"]
+
+        self._eps = kwargs.get("eps")
+        self._direct_eval = not (self._eps > 0)
+        self._real_in = kwargs.pop("real_in")
+        self._real_out = kwargs.pop("real_out")
+        if self._direct_eval:
+            self._plan = None
+            self._n = kwargs.get("n_trans", 1)
+        else:
+            self._plan = dict(
+                fw=self._plan_fw(**kwargs),
+                bw=self._plan_bw(**kwargs),
+            )
+            self._n = self._plan["fw"].n_trans
+
+        sh_op = [2 * np.prod(self._N), 2 * self._M]
+        sh_op[0] //= 2 if self._real_out else 1
+        sh_op[1] //= 2 if self._real_in else 1
+        super().__init__(shape=sh_op)
+        self._lipschitz = self.lipschitz(algo="fro")
+
+    @classmethod
+    def _sanitize_init_kwargs(cls, **kwargs) -> dict:
+        kwargs = kwargs.copy()
+        for k in ("nufft_type", "n_modes_or_dim", "dtype", "modeord"):
+            kwargs.pop(k, None)
+        x = kwargs["x"] = cls._as_canonical_coordinate(kwargs["x"])
+        N = kwargs["N"] = cls._as_canonical_mode(kwargs["N"])
+        kwargs["isign"] = int(np.sign(kwargs["isign"]))
+        kwargs["eps"] = float(kwargs["eps"])
+        kwargs["real_in"] = bool(kwargs["real_in"])
+        kwargs["real_out"] = bool(kwargs["real_out"])
+        if (D := x.shape[-1]) == len(N):
+            pass
+        elif len(N) == 1:
+            kwargs["N"] = N * D
+        else:
+            raise ValueError("x vs. N: dimensionality mis-match.")
+        return kwargs
+
+    @staticmethod
+    def _plan_fw(**kwargs) -> finufft.Plan:
+        kwargs = kwargs.copy()
+        x, N = [kwargs.pop(_) for _ in ("x", "N")]
+        _, N_dim = x.shape
+
+        plan = finufft.Plan(
+            nufft_type=1,
+            n_modes_or_dim=N,
+            dtype=pycrt.getPrecision().value,
+            eps=kwargs.pop("eps"),
+            n_trans=kwargs.pop("n_trans", 1),
+            isign=kwargs.pop("isign"),
+            modeord=0,
+            **kwargs,
+        )
+        plan.setpts(
+            **dict(
+                zip(
+                    "xyz"[:N_dim],
+                    pycu.compute(x.T[:N_dim]),
+                )
+            )
+        )
+        return plan
+
+    def _fw(self, arr: pyct.NDArray) -> pyct.NDArray:
+        if self._direct_eval:
+            A = np.meshgrid(
+                *[np.arange(-(n // 2), (n - 1) // 2 + 1, dtype=self._x.dtype) for n in self._N],
+                indexing="ij",
+            )
+            B = np.stack(A, axis=0).reshape((self._D, -1)).T
+
+            out = _nudft(
+                weight=arr,
+                source=self._x,
+                target=B,
+                isign=self._isign,
+                dtype=arr.dtype,
+            )
+        else:
+            if self._n == 1:  # finufft limitation: insists on having no
+                arr = arr[0]  # leading-dim if n_trans==1.
+            out = self._plan["fw"].execute(arr)  # ([n_trans], M) -> ([n_trans], N1,..., Nd)
+        return out.reshape((self._n, np.prod(self._N)))
+
+    @staticmethod
+    def _plan_bw(**kwargs) -> finufft.Plan:
+        kwargs = kwargs.copy()
+        x, N = [kwargs.pop(_) for _ in ("x", "N")]
+        _, N_dim = x.shape
+
+        plan = finufft.Plan(
+            nufft_type=2,
+            n_modes_or_dim=N,
+            dtype=pycrt.getPrecision().value,
+            eps=kwargs.pop("eps"),
+            n_trans=kwargs.pop("n_trans", 1),
+            isign=-kwargs.pop("isign"),
+            modeord=0,
+            **kwargs,
+        )
+        plan.setpts(
+            **dict(
+                zip(
+                    "xyz"[:N_dim],
+                    pycu.compute(x.T[:N_dim]),
+                )
+            )
+        )
+        return plan
+
+    def _bw(self, arr: pyct.NDArray) -> pyct.NDArray:
+        if self._direct_eval:
+            A = np.meshgrid(
+                *[np.arange(-(n // 2), (n - 1) // 2 + 1, dtype=self._x.dtype) for n in self._N],
+                indexing="ij",
+            )
+            B = np.stack(A, axis=0).reshape((self._D, -1)).T
+
+            out = _nudft(
+                weight=arr,
+                source=B,
+                target=self._x,
+                isign=-self._isign,
+                dtype=arr.dtype,
+            )
+        else:
+            arr = arr.reshape((self._n, *self._N))
+            if self._n == 1:  # finufft limitation: insists on having no
+                arr = arr[0]  # leading-dim if n_trans==1.
+            out = self._plan["bw"].execute(arr)  # ([n_trans], N1, ..., Nd) -> ([n_trans], M)
+        return out.reshape((self._n, self._M))
+
+    @pycrt.enforce_precision("arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        if self._real_in:
+            r_width = pycrt.Width(arr.dtype)
+            arr = arr.astype(r_width.complex.value)
+        else:
+            arr = pycu.view_as_complex(arr)
+
+        data, N, sh = self._preprocess(arr, self._n, np.prod(self._N))
+        blks = self._scan(self._fw, data, (self._n, np.prod(self._N)))
+        out = self._postprocess(blks, N, sh)
+
+        if self._real_out:
+            return out.real
+        else:
+            return pycu.view_as_real(out)
+
+    @pycrt.enforce_precision("arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        if self._real_out:
+            r_width = pycrt.Width(arr.dtype)
+            arr = arr.astype(r_width.complex.value)
+        else:
+            arr = pycu.view_as_complex(arr)
+
+        data, N, sh = self._preprocess(arr, self._n, self._M)
+        blks = self._scan(self._bw, data, (self._n, self._M))
+        out = self._postprocess(blks, N, sh)
+
+        if self._real_in:
+            return out.real
+        else:
+            return pycu.view_as_real(out)
+
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        # compute exact operator (using supported precision/backend)
+        xp = pycu.get_array_module(self._x)
+        mesh = xp.meshgrid(
+            *[xp.arange(-(n // 2), (n - 1) // 2 + 1, dtype=self._x.dtype) for n in self._N],
+            indexing="ij",
+        )
+        mesh = xp.stack(mesh, axis=0).reshape((self._D, -1)).T
+        _A = xp.exp(1j * self._isign * mesh @ self._x.T)
+        _A = pycu.view_as_real_mat(
+            _A,
+            real_input=self._real_in,
+            real_output=self._real_out,
+        )
+
+        # then comply with **kwargs()
+        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
+        dtype = kwargs.get("dtype", pycrt.getPrecision().value)
+        A = xp.array(pycu.to_NUMPY(_A), dtype=dtype)
+        return A
+
+    def lipschitz(self, **kwargs) -> pyct.Real:
+        # Analytical form known if algo="fro"
+        if kwargs.get("algo", "svds") == "fro":
+            self._lipschitz = np.sqrt(self._M * self._N.prod() / (2 * np.pi))
+        else:
+            self._lipschitz = super().lipschitz(**kwargs)
+        return self._lipschitz
+
+    def to_sciop(self, **kwargs):
+        # _NUFFT1.apply/adjoint() only support the precision provided at init-time.
+        if not self._direct_eval:
+            kwargs.update(dtype=self._x.dtype)  # silently drop user-provided `dtype`
+        op = pyca.LinOp.to_sciop(self, **kwargs)
+        return op
 
 
 class _NUFFT3(NUFFT):
