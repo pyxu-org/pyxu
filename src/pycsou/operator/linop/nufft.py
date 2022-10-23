@@ -25,6 +25,46 @@ sign_default = 1
 eps_default = 1e-4
 
 
+@pycrt.enforce_precision(i=("z", "beta"))
+def ES_kernel(z: pyct.NDArray, beta: pyct.Real) -> pyct.NDArray:
+    r"""
+    Evaluate the Exponential of Semi-Circle (ES) kernel.
+
+    Parameters
+    ----------
+    z: pyct.NDArray
+        (N,) evaluation points
+    beta: pyct.Real
+        cutoff-frequency
+
+    Returns
+    -------
+    phi: pyct.NDArray
+        (N,) kernel values at evaluation points.
+
+    Notes
+    -----
+    The Exponential of Semi-Circle (ES) kernel is defined as (see [FINUFFT]_ eq. (1.8)):
+
+    .. math::
+
+       \phi_\beta(z)
+       =
+       \begin{cases}
+           e^{\beta(\sqrt{1-z^2}-1)}, & |z|\leq 1,\\
+           0,                         &\text{otherwise.}
+       \end{cases}
+    """
+    assert beta > 0
+    xp = pycu.get_array_module(z)
+
+    phi = xp.zeros_like(z)
+    mask = xp.fabs(z) <= 1
+    phi[mask] = xp.exp(beta * (xp.sqrt(1 - z[mask] ** 2) - 1))
+
+    return phi
+
+
 class NUFFT(pyca.LinOp):
     r"""
     Non-Uniform Fast Fourier Transform (NUFFT) of Type 1/2/3 (for :math:`d=\{1,2,3\}`).
