@@ -1144,6 +1144,10 @@ class _NUFFT1(NUFFT):
             shape.append(n_opt)
         return tuple(shape)
 
+    def _dilation_factor(self) -> cabc.Sequence[pyct.Integer]:
+        # Undefined for type-1
+        return None
+
 
 class _NUFFT3(NUFFT):
     def __init__(self, **kwargs):
@@ -1343,6 +1347,17 @@ class _NUFFT3(NUFFT):
                 target = n_opt + 1
             shape.append(n_opt)
         return tuple(shape)
+
+    def _dilation_factor(self) -> cabc.Sequence[pyct.Integer]:
+        # https://github.com/flatironinstitute/finufft/
+        #     ./src/finufft.cpp::set_nhg_type3()
+        # [FINUFFT]_
+        #     eq 3.23
+        u = self._upsample_factor()
+        N = self._fft_shape()
+        S, _ = self.__shift_coords(self._z)  # (D,)
+        gamma = [n / (2 * u * s) for (n, s) in zip(N, S)]
+        return tuple(gamma)
 
     @staticmethod
     def __shift_coords(pts: pyct.NDArray) -> pyct.NDArray:
