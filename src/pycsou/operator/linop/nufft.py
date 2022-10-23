@@ -885,6 +885,7 @@ class _NUFFT1(NUFFT):
         self._direct_eval = not (self._eps > 0)
         self._real_in = kwargs.pop("real_in")
         self._real_out = kwargs.pop("real_out")
+        self._upsampfac = kwargs.get("upsampfac")
         if self._direct_eval:
             self._plan = None
             self._n = kwargs.get("n_trans", 1)
@@ -1081,6 +1082,23 @@ class _NUFFT1(NUFFT):
         )
         return A
 
+    def _upsample_factor(self) -> pyct.Real:
+        # https://github.com/flatironinstitute/finufft/
+        #     ./src/finufft.cpp::FINUFFT_MAKEPLAN()
+        if (u := self._upsampfac) is None:
+            precQ = self._eps >= 1e-9
+            dimQ = lambda d: self._D == d
+            cutoffQ = lambda cutoff: np.prod(self._N) > int(cutoff)
+            if precQ and dimQ(1) and cutoffQ(1e7):
+                u = 1.25
+            elif precQ and dimQ(2) and cutoffQ(3e5):
+                u = 1.25
+            elif precQ and dimQ(3) and cutoffQ(3e6):
+                u = 1.25
+            else:
+                u = 2
+        return u
+
 
 class _NUFFT3(NUFFT):
     def __init__(self, **kwargs):
@@ -1093,6 +1111,7 @@ class _NUFFT3(NUFFT):
         self._eps = kwargs.get("eps")
         self._direct_eval = not (self._eps > 0)
         self._real = kwargs.pop("real")
+        self._upsampfac = kwargs.get("upsampfac")
         if self._direct_eval:
             self._plan = None
             self._n = kwargs.get("n_trans", 1)
@@ -1251,6 +1270,16 @@ class _NUFFT3(NUFFT):
 
         A = pycu.view_as_real_mat(cmat=_A, real_input=self._real)
         return A
+
+    def _upsample_factor(self) -> pyct.Real:
+        # https://github.com/flatironinstitute/finufft/
+        #     ./src/finufft.cpp::FINUFFT_MAKEPLAN()
+        if (u := self._upsampfac) is None:
+            if self._eps >= 1e-9:
+                u = 1.25
+            else:
+                u = 2
+        return u
 
 
 @numba.njit(parallel=True, fastmath=True, nogil=True)
