@@ -861,8 +861,20 @@ class NUFFT(pyca.LinOp):
     def _upsample_factor(self) -> pyct.Real:
         raise NotImplementedError
 
-    def _kernel_width(self) -> pyct.Real:
-        raise NotImplementedError
+    def _kernel_width(self) -> pyct.Integer:
+        # https://github.com/flatironinstitute/finufft/
+        #     ./src/spreadinterp.cpp::setup_spreader()
+        # [FINUFFT]_
+        #     eq   3.2
+        #     sect 4.2
+        u = self._upsample_factor()
+        if np.isclose(u, 2):
+            w = np.ceil(-np.log10(self._eps) + 1)
+        else:  # 1.25
+            scale = np.pi * np.sqrt(1 - (1 / u))
+            w = np.ceil(-np.log(self._eps) / scale)
+        w = max(2, int(w))
+        return w
 
     def _kernel_beta(self) -> pyct.Real:
         raise NotImplementedError
