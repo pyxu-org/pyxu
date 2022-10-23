@@ -1,3 +1,4 @@
+import collections
 import collections.abc as cabc
 import types
 import typing as typ
@@ -812,6 +813,64 @@ class NUFFT(pyca.LinOp):
             - **Type 2:** (M, N.prod())
             - **Type 3:** (N, M)
         """
+        raise NotImplementedError
+
+    def params(self) -> collections.namedtuple:
+        r"""
+        Compute internal parameters of the [FINUFFT]_ implementation.
+
+        Returns
+        -------
+        p: namedtuple
+
+        Internal parameters of the FINUFFT implementation, with fields:
+
+        * upsample_factor: float
+            FFT upsampling factor > 1
+        * kernel_width: int
+            Width of the spreading/interpolation kernels (in number of samples).
+        * kernel_beta: float
+            Kernel decay parameter :math:`\beta > 0`.
+        * fft_shape: (d,) [int]
+            Size of the D-dimensional FFT(s) performed internally.
+        * dilation_factor: (d,) [float]
+            Dilation factor(s) :math:`\gamma_{d}`. (Type-3 only)
+        """
+        if self._direct_eval:
+            p = None
+        else:
+            FINUFFT_PARAMS = collections.namedtuple(
+                "finufft_params",
+                [
+                    "upsample_factor",
+                    "kernel_width",
+                    "kernel_beta",
+                    "fft_shape",
+                    "dilation_factor",
+                ],
+            )
+            p = FINUFFT_PARAMS(
+                upsample_factor=self._upsample_factor(),
+                kernel_width=self._kernel_width(),
+                kernel_beta=self._kernel_beta(),
+                fft_shape=self._fft_shape(),
+                dilation_factor=self._dilation_factor(),
+            )
+        return p
+
+    def _upsample_factor(self) -> pyct.Real:
+        raise NotImplementedError
+
+    def _kernel_width(self) -> pyct.Real:
+        raise NotImplementedError
+
+    def _kernel_beta(self) -> pyct.Real:
+        raise NotImplementedError
+
+    def _fft_shape(self) -> cabc.Sequence[pyct.Integer]:
+        raise NotImplementedError
+
+    def _dilation_factor(self) -> cabc.Sequence[pyct.Integer]:
         raise NotImplementedError
 
 
