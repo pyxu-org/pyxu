@@ -748,6 +748,32 @@ class NUFFT(pyca.LinOp):
         xp = pycu.get_array_module(blks[0])
         return xp.concatenate(blks, axis=0)[:N].reshape(sh_out)
 
+    def ascomplexarray(
+        self,
+        xp: pyct.ArrayModule = np,
+        dtype: pyct.DType = None,
+    ) -> pyct.NDArray:
+        r"""
+        Matrix representation (complex-valued) of the linear operator.
+
+        Parameters
+        ----------
+        xp: pyct.ArrayModule
+            Which array module to use to represent the output.
+        dtype: pyct.DType
+            Optional (complex-valued) type of the array.
+
+        Returns
+        -------
+        A: pyct.NDArray
+            Array representation of the operator (NUFFT type-dependant).
+
+            - **Type 1:** (N.prod(), M)
+            - **Type 2:** (M, N.prod())
+            - **Type 3:** (N, M)
+        """
+        raise NotImplementedError
+
 
 class _NUFFT1(NUFFT):
     def __init__(self, **kwargs):
@@ -924,7 +950,7 @@ class _NUFFT1(NUFFT):
         else:
             return pycu.view_as_real(out)
 
-    def asarray(self, **kwargs) -> pyct.NDArray:
+    def ascomplexarray(self, **kwargs) -> pyct.NDArray:
         # compute exact operator (using supported precision/backend)
         xp = pycu.get_array_module(self._x)
         mesh = xp.meshgrid(
@@ -933,16 +959,27 @@ class _NUFFT1(NUFFT):
         )
         mesh = xp.stack(mesh, axis=0).reshape((self._D, -1)).T
         _A = xp.exp(1j * self._isign * mesh @ self._x.T)
-        _A = pycu.view_as_real_mat(
-            _A,
-            real_input=self._real_in,
-            real_output=self._real_out,
-        )
 
         # then comply with **kwargs()
         xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
-        dtype = kwargs.get("dtype", pycrt.getPrecision().value)
-        A = xp.array(pycu.to_NUMPY(_A), dtype=dtype)
+        c_dtype = kwargs.get("dtype", pycrt.getPrecision().complex.value)
+        A = xp.array(pycu.to_NUMPY(_A), dtype=c_dtype)
+        return A
+
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
+        if (r_dtype := kwargs.get("dtype")) is None:
+            c_dtype = pycrt.getPrecision().complex.value
+        else:
+            r_width = pycrt.Width(r_dtype)
+            c_dtype = r_width.complex.value
+        _A = self.ascomplexarray(xp=xp, dtype=c_dtype)
+
+        A = pycu.view_as_real_mat(
+            cmat=_A,
+            real_input=self._real_in,
+            real_output=self._real_out,
+        )
         return A
 
 
@@ -1093,16 +1130,27 @@ class _NUFFT3(NUFFT):
         else:
             return pycu.view_as_real(out)
 
-    def asarray(self, **kwargs) -> pyct.NDArray:
+    def ascomplexarray(self, **kwargs) -> pyct.NDArray:
         # compute exact operator (using supported precision/backend)
         xp = pycu.get_array_module(self._x)
         _A = xp.exp(1j * self._isign * self._z @ self._x.T)
-        _A = pycu.view_as_real_mat(_A, real_input=self._real)
 
         # then comply with **kwargs()
         xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
-        dtype = kwargs.get("dtype", pycrt.getPrecision().value)
-        A = xp.array(pycu.to_NUMPY(_A), dtype=dtype)
+        c_dtype = kwargs.get("dtype", pycrt.getPrecision().complex.value)
+        A = xp.array(pycu.to_NUMPY(_A), dtype=c_dtype)
+        return A
+
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
+        if (r_dtype := kwargs.get("dtype")) is None:
+            c_dtype = pycrt.getPrecision().complex.value
+        else:
+            r_width = pycrt.Width(r_dtype)
+            c_dtype = r_width.complex.value
+        _A = self.ascomplexarray(xp=xp, dtype=c_dtype)
+
+        A = pycu.view_as_real_mat(cmat=_A, real_input=self._real)
         return A
 
 
