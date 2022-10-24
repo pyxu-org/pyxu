@@ -816,6 +816,67 @@ class NUFFT(pyca.LinOp):
         """
         raise NotImplementedError
 
+    def mesh(
+        self,
+        xp: pyct.ArrayModule = np,
+        dtype: pyct.DType = None,
+        scale: str = "unit",
+        upsampled: bool = False,
+    ) -> pyct.NDArray:
+        r"""
+        For type1/2 NUFFT: compute the transform's meshgrid
+        :math:`\mathcal{I}_{N_{1} \times \cdots \times N_{d}}
+        =
+        \mathcal{I}_{N_{1}} \times \cdots \times \mathcal{I}_{N_{d}}`.
+
+        For type-3 NUFFT: compute the meshgrid used for internal FFT computations.
+
+        Parameters
+        ----------
+        xp: pyct.ArrayModule
+            Which array module to use to represent the output.
+        dtype: pyct.DType
+            Optional type of the array.
+        scale: str
+            Grid scale. Options are:
+
+            - **Type1 and 2:**
+                * ``unit``, i.e. :math:`\mathcal{I} \in [[-N//2, \ldots, N//2 + 1]]^{d}`
+                * ``source``, i.e. :math:`\mathcal{I} \in [-\pi, \pi)^{d}`
+            - **Type 3:**
+                * ``unit``, i.e. :math:`\mathcal{I} \in [[-N//2, \ldots, N//2 + 1]]^{d}`
+                * ``source``, i.e. :math:`\mathcal{I}_{\text{source}} \in [-\pi, \pi)^{d}` (after dilation)
+                * ``target``, i.e. :math:`\mathcal{I}_{\text{target}} \in [-\pi, \pi)^{d}` (after dilation)
+        upsampled: bool
+            Use the upsampled meshgrid.
+            (See [FINUFFT]_ for details.)
+
+        Returns
+        -------
+        grid: pyct.NDArray
+            (N1, ..., Nd, d) grid.
+
+        Examples
+        --------
+        .. code-block:: python3
+
+           import numpy as np
+           import pycsou.operator.linop as pycl
+
+           rng = np.random.default_rng(0)
+           D, M, N = 1, 2, 3  # D denotes the dimension of the data
+           x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+           A = pycl.NUFFT.type1(
+               x, N,
+               isign=-1,
+               eps=1e-3
+           )
+           A.mesh()  # array([[-1.],
+                     #        [ 0.],
+                     #        [ 1.]])
+        """
+        raise NotImplementedError
+
     def params(self) -> collections.namedtuple:
         r"""
         Compute internal parameters of the [FINUFFT]_ implementation.
@@ -1096,6 +1157,25 @@ class _NUFFT1(NUFFT):
         A = xp.array(pycu.to_NUMPY(_A), dtype=c_dtype)
         return A
 
+    def mesh(self, **kwargs) -> pyct.NDArray:
+        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
+        dtype = kwargs.get("dtype", pycrt.getPrecision().value)
+        scale = kwargs.get("scale", "unit")
+        upsampled = kwargs.get("upsampled", False)
+
+        N = self._fft_shape() if upsampled else self._N
+        grid = xp.stack(  # (N1, ..., Nd, D)
+            xp.meshgrid(
+                *[xp.arange(-(n // 2), (n - 1) // 2 + 1, dtype=dtype) for n in N],
+                indexing="ij",
+            ),
+            axis=-1,
+        )
+        if scale == "source":
+            s = xp.array(2 * np.pi / np.array(N), dtype=dtype)
+            grid *= s
+        return grid
+
     def asarray(self, **kwargs) -> pyct.NDArray:
         xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
         if (r_dtype := kwargs.get("dtype")) is None:
@@ -1307,6 +1387,26 @@ class _NUFFT3(NUFFT):
         c_dtype = kwargs.get("dtype", pycrt.getPrecision().complex.value)
         A = xp.array(pycu.to_NUMPY(_A), dtype=c_dtype)
         return A
+
+    def mesh(self, **kwargs) -> pyct.NDArray:
+        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
+        dtype = kwargs.get("dtype", pycrt.getPrecision().value)
+        scale = kwargs.get("scale", "unit")
+        upsampled = True or kwargs.pop("upsampled", True)  # upsampled unsupported for type-3
+
+        if scale == "unit":
+            grid = _NUFFT1.mesh(
+                self,
+                xp=xp,
+                dtype=dtype,
+                scale=scale,
+                upsampled=upsampled,
+            )
+        elif scale == "source":
+            raise NotImplementedError("todo: discuss with Matthieu")
+        else:  # scale == "target":
+            raise NotImplementedError("todo: discuss with Matthieu")
+        return grid
 
     def asarray(self, **kwargs) -> pyct.NDArray:
         xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
