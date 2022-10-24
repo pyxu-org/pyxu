@@ -9,6 +9,7 @@ import dask.graph_manipulation as dgm
 import finufft
 import numba
 import numpy as np
+import scipy.fftpack as spf  # warning: scipy.fftpack.next_fast_len() != scipy.fft.next_fast_len()
 
 import pycsou.abc as pyca
 import pycsou.runtime as pycrt
@@ -1128,6 +1129,21 @@ class _NUFFT1(NUFFT):
                 u = 2
         return u
 
+    def _fft_shape(self) -> cabc.Sequence[pyct.Integer]:
+        # https://github.com/flatironinstitute/finufft/
+        #     ./src/finufft.cpp::SET_NF_TYPE12()
+        # [FINUFFT]_
+        #     sect 3.1.1
+        u = self._upsample_factor()
+        w = self._kernel_width()
+        shape = []
+        for n in self._N:
+            target = max(int(u * n), 2 * w)
+            while (n_opt := spf.next_fast_len(target)) % 2 != 0:
+                target = n_opt + 1
+            shape.append(n_opt)
+        return tuple(shape)
+
 
 class _NUFFT3(NUFFT):
     def __init__(self, **kwargs):
@@ -1309,6 +1325,52 @@ class _NUFFT3(NUFFT):
             else:
                 u = 2
         return u
+
+    def _fft_shape(self) -> cabc.Sequence[pyct.Integer]:
+        # https://github.com/flatironinstitute/finufft/
+        #     ./src/finufft.cpp::set_nhg_type3()
+        # [FINUFFT]_
+        #     eq 3.23
+        u = self._upsample_factor()
+        w = self._kernel_width()
+        X, _ = self.__shift_coords(self._x)  # (D,)
+        S, _ = self.__shift_coords(self._z)  # (D,)
+        shape = []
+        for d in range(self._D):
+            n = (2 * u * max(1, X[d] * S[d]) / np.pi) + (w + 1)
+            target = max(int(n), 2 * w)
+            while (n_opt := spf.next_fast_len(target)) % 2 != 0:
+                target = n_opt + 1
+            shape.append(n_opt)
+        return tuple(shape)
+
+    @staticmethod
+    def __shift_coords(pts: pyct.NDArray) -> pyct.NDArray:
+        # https://github.com/flatironinstitute/finufft/
+        #     ./src/utils.cpp::arraywidcen()
+        #     ./include/finufft/defs.h
+        #
+        # Parameters
+        # ----------
+        # pts: pyct.NDArray
+        #     (Q, D) coordinates.
+        #
+        # Returns
+        # -------
+        # h_width: np.ndarray
+        #     (D,) shifted half_width
+        # center: np.ndarray
+        #     (D,) shifted centroid
+        low = pycu.to_NUMPY(pts.min(axis=0))
+        high = pycu.to_NUMPY(pts.max(axis=0))
+        h_width = (high - low) / 2
+        center = (high + low) / 2
+        grow_frac = 0.1
+
+        mask = np.fabs(center) < h_width * grow_frac
+        h_width[mask] += np.fabs(center[mask])
+        center[mask] = 0
+        return h_width, center
 
 
 @numba.njit(parallel=True, fastmath=True, nogil=True)
