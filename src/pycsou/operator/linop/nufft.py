@@ -879,6 +879,50 @@ class NUFFT(pyca.LinOp):
         """
         raise NotImplementedError
 
+    def plot_kernel(self, ax=None, **kwargs):
+        """
+        Plot the spreading/interpolation kernel (along each dimension) on its support.
+
+        Parameters
+        ----------
+        ax: :py:class:`~matplotlib.axes.Axes`
+            Axes to draw on.
+            If :py:obj:`None`, a new axes is used.
+        **kwargs
+            Keyword arguments forwarded to :py:meth:`matplotlib.axes.Axes.plot`.
+
+        Returns
+        -------
+        ax : :py:class:`~matplotlib.axes.Axes`
+
+        Notes
+        -----
+        Requires `Matplotlib <https://matplotlib.org/>`_ to be installed.
+        """
+        try:
+            import matplotlib.pyplot as plt
+        except:
+            raise ImportError("This method requires matplotlib to be installed.")
+
+        if ax is None:
+            _, ax = plt.subplots()
+
+        width = self._kernel_width()
+        beta = self._kernel_beta()
+        N = self._fft_shape()
+
+        N_sample = 100
+        z = np.linspace(-1, 1, N_sample)
+        for d, n in zip(range(self._D), N):
+            alpha = np.pi * width / n
+            x = z / alpha
+            phi = ES_kernel(x, beta)
+            ax.plot(x, phi, label=rf"$\phi_{d}$", **kwargs)
+
+        if self._D > 1:
+            ax.legend()
+        return ax
+
     def params(self) -> collections.namedtuple:
         r"""
         Compute internal parameters of the [FINUFFT]_ implementation.
