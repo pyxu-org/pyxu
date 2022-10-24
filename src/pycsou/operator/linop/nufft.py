@@ -436,6 +436,8 @@ class NUFFT(pyca.LinOp):
 
         op_t2.to_sciop = types.MethodType(op_to_sciop, op_t2)  # non-arithmetic method
         op_t2.lipschitz = types.MethodType(NUFFT.lipschitz, op_t1)
+        # not strictly necessary, but users will probably want to access it.
+        op_t2.params = types.MethodType(_NUFFT1.params, op_t1)
         return op_t2
 
     @staticmethod
