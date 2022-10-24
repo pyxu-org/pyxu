@@ -1044,7 +1044,7 @@ class _NUFFT1(NUFFT):
         kwargs = kwargs.copy()
         for k in ("nufft_type", "n_modes_or_dim", "dtype", "modeord"):
             kwargs.pop(k, None)
-        x = kwargs["x"] = cls._as_canonical_coordinate(kwargs["x"])
+        x = kwargs["x"] = pycu.compute(cls._as_canonical_coordinate(kwargs["x"]))
         N = kwargs["N"] = cls._as_canonical_mode(kwargs["N"])
         kwargs["isign"] = int(np.sign(kwargs["isign"]))
         kwargs["eps"] = float(kwargs["eps"])
@@ -1074,14 +1074,7 @@ class _NUFFT1(NUFFT):
             modeord=0,
             **kwargs,
         )
-        plan.setpts(
-            **dict(
-                zip(
-                    "xyz"[:N_dim],
-                    pycu.compute(x.T[:N_dim]),
-                )
-            )
-        )
+        plan.setpts(**dict(zip("xyz"[:N_dim], x.T[:N_dim])))
         return plan
 
     def _fw(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1122,14 +1115,7 @@ class _NUFFT1(NUFFT):
             modeord=0,
             **kwargs,
         )
-        plan.setpts(
-            **dict(
-                zip(
-                    "xyz"[:N_dim],
-                    pycu.compute(x.T[:N_dim]),
-                )
-            )
-        )
+        plan.setpts(**dict(zip("xyz"[:N_dim], x.T[:N_dim])))
         return plan
 
     def _bw(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1310,8 +1296,8 @@ class _NUFFT3(NUFFT):
         kwargs = kwargs.copy()
         for k in ("nufft_type", "n_modes_or_dim", "dtype", "modeord"):
             kwargs.pop(k, None)
-        x = kwargs["x"] = cls._as_canonical_coordinate(kwargs["x"])
-        z = kwargs["z"] = cls._as_canonical_coordinate(kwargs["z"])
+        x = kwargs["x"] = pycu.compute(cls._as_canonical_coordinate(kwargs["x"]))
+        z = kwargs["z"] = pycu.compute(cls._as_canonical_coordinate(kwargs["z"]))
         assert x.shape[-1] == z.shape[-1], "x vs. z: dimensionality mis-match."
         assert pycu.get_array_module(x) == pycu.get_array_module(z)
         kwargs["isign"] = int(np.sign(kwargs["isign"]))
@@ -1338,7 +1324,7 @@ class _NUFFT3(NUFFT):
             **dict(
                 zip(
                     "xyz"[:N_dim] + "stu"[:N_dim],
-                    pycu.compute(*x.T[:N_dim], *z.T[:N_dim]),
+                    (*x.T[:N_dim], *z.T[:N_dim]),
                 )
             ),
         )
@@ -1378,7 +1364,7 @@ class _NUFFT3(NUFFT):
             **dict(
                 zip(
                     "xyz"[:N_dim] + "stu"[:N_dim],
-                    pycu.compute(*z.T[:N_dim], *x.T[:N_dim]),
+                    (*z.T[:N_dim], *x.T[:N_dim]),
                 )
             ),
         )
