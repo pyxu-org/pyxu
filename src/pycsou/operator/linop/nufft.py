@@ -1040,16 +1040,17 @@ class _NUFFT1(NUFFT):
 
     def _fw(self, arr: pyct.NDArray) -> pyct.NDArray:
         if self._direct_eval:
-            A = np.meshgrid(
-                *[np.arange(-(n // 2), (n - 1) // 2 + 1, dtype=self._x.dtype) for n in self._N],
-                indexing="ij",
-            )
-            B = np.stack(A, axis=0).reshape((self._D, -1)).T
+            target = self.mesh(
+                xp=pycd.NDArrayInfo.from_obj(arr).module(),
+                dtype=self._x.dtype,
+                scale="unit",
+                upsampled=False,
+            ).reshape((-1, self._D))
 
             out = _nudft(
                 weight=arr,
                 source=self._x,
-                target=B,
+                target=target,
                 isign=self._isign,
                 dtype=arr.dtype,
             )
@@ -1087,15 +1088,16 @@ class _NUFFT1(NUFFT):
 
     def _bw(self, arr: pyct.NDArray) -> pyct.NDArray:
         if self._direct_eval:
-            A = np.meshgrid(
-                *[np.arange(-(n // 2), (n - 1) // 2 + 1, dtype=self._x.dtype) for n in self._N],
-                indexing="ij",
-            )
-            B = np.stack(A, axis=0).reshape((self._D, -1)).T
+            target = self.mesh(
+                xp=pycd.NDArrayInfo.from_obj(arr).module(),
+                dtype=self._x.dtype,
+                scale="unit",
+                upsampled=False,
+            ).reshape((-1, self._D))
 
             out = _nudft(
                 weight=arr,
-                source=B,
+                source=target,
                 target=self._x,
                 isign=-self._isign,
                 dtype=arr.dtype,
@@ -1144,11 +1146,12 @@ class _NUFFT1(NUFFT):
     def ascomplexarray(self, **kwargs) -> pyct.NDArray:
         # compute exact operator (using supported precision/backend)
         xp = pycu.get_array_module(self._x)
-        mesh = xp.meshgrid(
-            *[xp.arange(-(n // 2), (n - 1) // 2 + 1, dtype=self._x.dtype) for n in self._N],
-            indexing="ij",
-        )
-        mesh = xp.stack(mesh, axis=0).reshape((self._D, -1)).T
+        mesh = self.mesh(
+            xp=xp,
+            dtype=self._x.dtype,
+            scale="unit",
+            upsampled=False,
+        ).reshape((-1, self._D))
         _A = xp.exp(1j * self._isign * mesh @ self._x.T)
 
         # then comply with **kwargs()
