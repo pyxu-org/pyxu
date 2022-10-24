@@ -1,3 +1,4 @@
+import cmath
 import collections
 import collections.abc as cabc
 import types
@@ -8,6 +9,7 @@ import dask
 import dask.graph_manipulation as dgm
 import finufft
 import numba
+import numba.cuda
 import numpy as np
 import scipy.fftpack as spf  # warning: scipy.fftpack.next_fast_len() != scipy.fft.next_fast_len()
 
@@ -1079,6 +1081,8 @@ class _NUFFT1(NUFFT):
 
     def _fw(self, arr: pyct.NDArray) -> pyct.NDArray:
         if self._direct_eval:
+            # Computing the target each time is wasteful (in comparison to the type-3 case where it
+            # is implicit.) We are ok with this since relying on NUDFT is a failsafe.
             target = self.mesh(
                 xp=pycd.NDArrayInfo.from_obj(arr).module(),
                 dtype=self._x.dtype,
@@ -1120,6 +1124,8 @@ class _NUFFT1(NUFFT):
 
     def _bw(self, arr: pyct.NDArray) -> pyct.NDArray:
         if self._direct_eval:
+            # Computing the target each time is wasteful (in comparison to the type-3 case where it
+            # is implicit.) We are ok with this since relying on NUDFT is a failsafe.
             target = self.mesh(
                 xp=pycd.NDArrayInfo.from_obj(arr).module(),
                 dtype=self._x.dtype,
@@ -1524,7 +1530,7 @@ class _NUFFT3(NUFFT):
 
 
 @numba.njit(parallel=True, fastmath=True, nogil=True)
-def _nudft(
+def _nudft_NUMPY(
     weight: pyct.NDArray,  # (Q, M) weights (n_trans=Q) [complex64/128]
     source: pyct.NDArray,  # (M, D) sample points [float32/64]
     target: pyct.NDArray,  # (N, D) query points [float32/64]
@@ -1541,3 +1547,26 @@ def _nudft(
             scale = np.exp(isign * 1j * np.dot(source[m, :], target[n, :]))
             out[:, n] += weight[:, m] * scale
     return out
+
+
+def _nudft_CUPY(
+    weight: pyct.NDArray,  # (Q, M) weights (n_trans=Q) [complex64/128]
+    source: pyct.NDArray,  # (M, D) sample points [float32/64]
+    target: pyct.NDArray,  # (N, D) query points [float32/64]
+    *,
+    isign: SignT,
+    dtype: pyct.DType,  # complex64/128
+) -> pyct.NDArray:  # (Q, N) complex64/128
+    raise NotImplementedError
+
+
+@pycu.redirect(i="weight", NUMPY=_nudft_NUMPY, CUPY=_nudft_CUPY)
+def _nudft(
+    weight: pyct.NDArray,  # (Q, M) weights (n_trans=Q) [complex64/128]
+    source: pyct.NDArray,  # (M, D) sample points [float32/64]
+    target: pyct.NDArray,  # (N, D) query points [float32/64]
+    *,
+    isign: SignT,
+    dtype: pyct.DType,  # complex64/128
+) -> pyct.NDArray:  # (Q, N) complex64/128
+    pass
