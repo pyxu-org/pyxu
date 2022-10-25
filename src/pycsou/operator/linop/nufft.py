@@ -616,7 +616,7 @@ class NUFFT(pyca.LinOp):
         return x
 
     @staticmethod
-    def _as_canonical_mode(N) -> tuple[pyct.Integer]:
+    def _as_canonical_mode(N) -> pyct.NDArrayShape:
         if not isinstance(N, cabc.Sequence):
             N = (N,)
         N = tuple(map(int, N))
@@ -675,7 +675,7 @@ class NUFFT(pyca.LinOp):
         #     as needed.
         # N: pyct.Integer
         #     Amount of "valid" data to extract from [_fw|_bw](). {For _postprocess()}
-        # sh_out: tuple[pyct.Integer]
+        # sh_out: pyct.NDArrayShape
         #     Shape [apply|adjoint](arr) should have. {For _postprocess()}
         sh_out = arr.shape[:-1] + (dim_out,)
         if arr.ndim == 1:
@@ -702,7 +702,7 @@ class NUFFT(pyca.LinOp):
     def _scan(
         func: cabc.Callable[[pyct.NDArray], pyct.NDArray],
         data: list[pyct.NDArray],
-        blk_shape: tuple[pyct.Integer] = None,
+        blk_shape: pyct.NDArrayShape = None,
     ) -> list[pyct.NDArray]:
         # Internal method for apply/adjoint.
         #
@@ -745,7 +745,7 @@ class NUFFT(pyca.LinOp):
         #     Function to apply to each element of `data`.
         # data: list[pyct.NDArray]
         #     (N_blk,) arrays of identical shape.
-        # blk_shape: tuple[pyct.Integer]
+        # blk_shape: pyct.NDArrayShape
         #     Shape of ``func(data[i])``.
         #
         #     This hint is only required if inputs are dask arrays.
@@ -779,7 +779,7 @@ class NUFFT(pyca.LinOp):
     def _postprocess(
         blks: list[pyct.NDArray],
         N: pyct.Integer,
-        sh_out: tuple[pyct.Integer],
+        sh_out: pyct.NDArrayShape,
     ) -> pyct.NDArray:
         # Internal method for apply/adjoint.
         #
@@ -789,7 +789,7 @@ class NUFFT(pyca.LinOp):
         #     (N_blk,) complex-valued outputs of [_fw|_bw]().
         # N: pyct.Integer
         #     Amount of "valid" data to extract from [_fw|_bw]()
-        # sh_out: tuple[pyct.Integer]
+        # sh_out: pyct.NDArrayShape
         #     Shape [apply|adjoint](arr) should have.
         xp = pycu.get_array_module(blks[0])
         return xp.concatenate(blks, axis=0)[:N].reshape(sh_out)
@@ -1006,7 +1006,7 @@ class NUFFT(pyca.LinOp):
         beta = float(scale * w)
         return beta
 
-    def _fft_shape(self) -> cabc.Sequence[pyct.Integer]:
+    def _fft_shape(self) -> pyct.NDArrayShape:
         raise NotImplementedError
 
     def _dilation_factor(self) -> cabc.Sequence[pyct.Integer]:
@@ -1250,7 +1250,7 @@ class _NUFFT1(NUFFT):
                 u = 2
         return u
 
-    def _fft_shape(self) -> cabc.Sequence[pyct.Integer]:
+    def _fft_shape(self) -> pyct.NDArrayShape:
         # https://github.com/flatironinstitute/finufft/
         #     ./src/finufft.cpp::SET_NF_TYPE12()
         # [FINUFFT]_
@@ -1471,7 +1471,7 @@ class _NUFFT3(NUFFT):
                 u = 2
         return u
 
-    def _fft_shape(self) -> cabc.Sequence[pyct.Integer]:
+    def _fft_shape(self) -> pyct.NDArrayShape:
         # https://github.com/flatironinstitute/finufft/
         #     ./src/finufft.cpp::set_nhg_type3()
         # [FINUFFT]_

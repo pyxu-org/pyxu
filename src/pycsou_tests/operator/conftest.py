@@ -155,7 +155,7 @@ class MapT:
     # Internal helpers --------------------------------------------------------
     @staticmethod
     def _random_array(
-        shape: tuple[int],
+        shape: pyct.NDArrayShape,
         seed: int = 0,
         xp: pyct.ArrayModule = np,
         width: pycrt.Width = pycrt.Width.DOUBLE,
