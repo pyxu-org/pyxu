@@ -73,7 +73,7 @@ class ArgShiftRuleMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_orig, op_shift) -> pyct.Shape:
+    def data_shape(self, op_orig, op_shift) -> pyct.OpShape:
         # Safe implementation in case `op_orig` is domain-agnostic.
         if isinstance(op_shift, pyct.Real):
             sh = op_orig.shape

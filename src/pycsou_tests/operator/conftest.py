@@ -358,7 +358,7 @@ class MapT:
         return request.param
 
     @pytest.fixture
-    def data_shape(self) -> pyct.Shape:
+    def data_shape(self) -> pyct.OpShape:
         # override in subclass with the shape of op.
         # Don't return `op.shape`: hard-code what you are expecting.
         raise NotImplementedError

@@ -193,7 +193,7 @@ class HStackMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_all) -> pyct.Shape:
+    def data_shape(self, op_all) -> pyct.OpShape:
         dim = sum(op.dim for op in op_all)
         codim = op_all[0].codim
         sh = (codim, dim)

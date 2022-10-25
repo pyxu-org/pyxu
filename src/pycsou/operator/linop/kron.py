@@ -63,7 +63,7 @@ def kron(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
     where :math:`\mathbf{A}`, :math:`\mathbf{B}`, and :math:`\mathbf{C}` are matrices.
     """
 
-    def _infer_op_shape(shA: pyct.Shape, shB: pyct.Shape) -> pyct.Shape:
+    def _infer_op_shape(shA: pyct.OpShape, shB: pyct.OpShape) -> pyct.OpShape:
         sh = (shA[0] * shB[0], shA[1] * shB[1])
         return sh
 
@@ -291,7 +291,7 @@ def khatri_rao(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
     :py:func:`~pycsou.operator.linop.kron.kron` and pruning its output.
     """
 
-    def _infer_op_shape(shA: pyct.Shape, shB: pyct.Shape) -> pyct.Shape:
+    def _infer_op_shape(shA: pyct.OpShape, shB: pyct.OpShape) -> pyct.OpShape:
         if shA[1] != shB[1]:
             raise ValueError(f"Khatri-Rao product of {shA} and {shB} operators forbidden.")
         sh = (shA[0] * shB[0], shA[1])

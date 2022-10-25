@@ -246,7 +246,7 @@ class NUFFT(pyca.LinOp):
     """
     # The goal of this wrapper class is to sanitize __init__() inputs.
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
 
     @staticmethod
