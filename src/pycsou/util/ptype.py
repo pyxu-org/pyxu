@@ -64,6 +64,6 @@ SolverM = typ.TypeVar("SolverM", bound="pycs.Mode")
 Integer = int  # [Sepand] `nb.Integral` seems to not work will with PyCharm...
 Real = nb.Real
 DType = npt.DTypeLike
-Shape = tuple[Integer, typ.Union[Integer, None]]
+OpShape = tuple[Integer, typ.Union[Integer, None]]
 Path = typ.Union[str, plib.Path]
 VarName = typ.Union[str, cabc.Collection[str]]
