@@ -617,9 +617,7 @@ class NUFFT(pyca.LinOp):
 
     @staticmethod
     def _as_canonical_mode(N) -> pyct.NDArrayShape:
-        if not isinstance(N, cabc.Sequence):
-            N = (N,)
-        N = tuple(map(int, N))
+        N = pycu.as_canonical_shape(N)
         assert all(_ > 0 for _ in N)
         assert 1 <= len(N) <= 3, "Only (1,2,3)-D transforms supported."
         return N
