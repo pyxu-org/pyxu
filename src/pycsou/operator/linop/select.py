@@ -109,18 +109,27 @@ class SubSample(pyca.LinOp):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
+        """
+        Sub-sample the data.
 
         Parameters
         ----------
-        arr: NDArray
-            Array the samples are extracted from.
+        arr: pyct.NDArray
+            (..., arg_shape.prod()) data
 
         Returns
         -------
-            A sub-sampled array.
+        out: pyct.NDArray
+            (..., sub_shape.prod()) sub-sampled data points.
         """
-        return arr[..., self.sampling_indices]
+        sh = arr.shape[:-1]
+        arr = arr.reshape(*sh, *self._arg_shape)
+
+        selector = (*[slice(None) for dim in sh], *self._idx)
+        out = arr[selector].reshape(*sh, -1)
+
+        out = pycu.read_only(out)
+        return out
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
