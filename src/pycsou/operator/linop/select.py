@@ -133,7 +133,26 @@ class SubSample(pyca.LinOp):
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        """
+        Up-sample the data.
+
+        Parameters
+        ----------
+        arr: pyct.NDArray
+            (..., sub_shape.prod()) data points.
+
+        Returns
+        -------
+        out: pyct.NDArray
+            (..., arg_shape.prod()) up-sampled data points. (Zero-filled.)
+        """
+        sh = arr.shape[:-1]
+        arr = arr.reshape(*sh, *self._sub_shape)
+
         xp = pycu.get_array_module(arr)
-        y = xp.zeros((*arr.shape[:-1], self.input_size), dtype=arr.dtype)
-        y[..., self.sampling_indices] = arr
-        return y
+        out = xp.zeros((*sh, *self._arg_shape), dtype=arr.dtype)
+        selector = (*[slice(None) for dim in sh], *self._idx)
+        out[selector] = arr
+
+        out = out.reshape(*sh, -1)
+        return out
