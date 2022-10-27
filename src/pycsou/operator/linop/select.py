@@ -1,4 +1,8 @@
+import collections.abc as cabc
+import types
 import typing as typ
+
+import numpy as np
 
 import pycsou.abc as pyca
 import pycsou.util as pycu
@@ -59,27 +63,32 @@ class SubSample(pyca.LinOp):
        y = S(x.reshape(-1)).reshape(1, mask.sum(), 4)  # array([[[ 0.,  1.,  2.,  3.],
                                                        #         [12., 13., 14., 15.]]])
     """
+    IndexSpec = typ.Union[
+        pyct.Integer,
+        cabc.Sequence[pyct.Integer],
+        slice,
+        pyct.NDArray,  # ints or boolean mask (per dimension)
+    ]
 
-    def __init__(self, M: int, sampling_indices: typ.Union[pyct.NDArray, list]):
-        r"""
+    def __init__(
+        self,
+        arg_shape: pyct.NDArrayShape,
+        *indices: IndexSpec,
+    ):
+        self._arg_shape = pycu.as_canonical_shape(arg_shape)
 
-        Parameters
-        ----------
-        M: int
-            Dimension of the ambient space from which the samples are taken.
-        sampling_indices: NDArray | list
-            Indices of the samples that should be extracted.
-        """
-        if isinstance(sampling_indices, list):
-            import numpy as xp
-        else:
-            xp = pycu.get_array_module(sampling_indices)
+        assert 1 <= len(indices) <= len(self._arg_shape)
+        self._idx = [slice(None)] * len(self._arg_shape)
+        for i, idx in enumerate(indices):
+            if isinstance(idx, pyct.Integer):
+                idx = slice(idx, idx + 1)
+            self._idx[i] = idx
+        self._idx = tuple(self._idx)
 
-        self.sampling_indices = xp.asarray(sampling_indices).reshape(-1)
-        self.input_size = M
-        self.nb_of_samples = self.sampling_indices.size
-        super(SubSample, self).__init__(shape=(self.nb_of_samples, self.input_size))
-        self._lipschitz = 1.0
+        output = np.broadcast_to(0, self._arg_shape)[self._idx]
+        self._sub_shape = np.atleast_1d(output).shape
+
+        super().__init__(shape=(np.prod(self._sub_shape), np.prod(self._arg_shape)))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
