@@ -1562,7 +1562,39 @@ def _nudft_CUPY(
     isign: SignT,
     dtype: pyct.DType,  # complex64/128
 ) -> pyct.NDArray:  # (Q, N) complex64/128
-    raise NotImplementedError
+    @numba.cuda.jit(device=True)
+    def _cexp(s, a, b):  # [(1,), (D,), (D,)] -> (1,)
+        # np.exp(1j * s * (a @ b))
+        D, c = len(a), 0
+        for d in range(D):
+            c += a[d] * b[d]
+        out = cmath.exp(1j * s * c)
+        return out
+
+    @numba.cuda.jit(fastmath=True, opt=True, cache=True)
+    def _kernel(weight, source, target, isign, out):
+        Q, M = weight.shape[:2]
+        N, D = target.shape[:2]
+        q, n = numba.cuda.grid(2)
+        if (q < Q) and (n < N):
+            for m in range(M):
+                scale = _cexp(isign, source[m, :], target[n, :])
+                out[q, n] += weight[q, m] * scale
+
+    Q = weight.shape[0]
+    N = target.shape[0]
+    xp = pycu.get_array_module(weight)
+    out = xp.zeros((Q, N), dtype=dtype)
+
+    ceil = lambda _: int(np.ceil(_))
+    t_max = weight.device.attributes["MaxThreadsPerBlock"]
+    tpb = [min(Q, t_max // 2), None]  # thread_per_block
+    tpb[1] = t_max // tpb[0]
+    bpg = [ceil(Q / tpb[0]), ceil(N / tpb[1])]  # block_per_grid
+
+    config = _kernel[tuple(bpg), tuple(tpb)]
+    config(weight, source, target, isign, out)
+    return out
 
 
 @pycu.redirect(i="weight", NUMPY=_nudft_NUMPY, CUPY=_nudft_CUPY)
