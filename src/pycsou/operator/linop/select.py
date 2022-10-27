@@ -75,6 +75,23 @@ class SubSample(pyca.LinOp):
         arg_shape: pyct.NDArrayShape,
         *indices: IndexSpec,
     ):
+        """
+        Parameters
+        ----------
+        arg_shape: pyct.NDArrayShape
+            Shape of the data to be sub-sampled.
+        indices: IndexSpec
+            Sub-sample specifier per dimension. (See examples.)
+
+            Valid specifiers are:
+
+            * integers
+            * lists (or arrays) of indices
+            * slices
+            * 1D boolean masks
+
+            Unspecified trailing dimensions are not sub-sampled.
+        """
         self._arg_shape = pycu.as_canonical_shape(arg_shape)
 
         assert 1 <= len(indices) <= len(self._arg_shape)
