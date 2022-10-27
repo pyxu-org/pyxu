@@ -5,7 +5,9 @@ import typing as typ
 import numpy as np
 
 import pycsou.abc as pyca
+import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
 __all__ = [
@@ -156,3 +158,40 @@ class SubSample(pyca.LinOp):
 
         out = out.reshape(*sh, -1)
         return out
+
+    def lipschitz(self, **kwargs) -> pyct.Real:
+        self._lipschitz = 1
+        return self._lipschitz
+
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        D = pyca.UnitOp.svdvals(self, **kwargs)
+        return D
+
+    def gram(self) -> pyct.OpT:
+        @pycrt.enforce_precision(i="arr")
+        def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
+            _op = _._op
+            out = _op.adjoint(_op.apply(arr))
+            return out
+
+        op = pyca.OrthProjOp(shape=(self.dim, self.dim))
+        op._op = self
+        op.apply = types.MethodType(op_apply, op)
+        return op
+
+    def cogram(self) -> pyct.OpT:
+        from pycsou.operator.linop.base import IdentityOp
+
+        CG = IdentityOp(dim=self.codim)
+        return CG.squeeze()
+
+    @pycrt.enforce_precision(i="arr")
+    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+        out = self.adjoint(arr)
+        if not np.isclose(damp := kwargs.get("damp", 0), 0):
+            out /= 1 + damp
+        return out
+
+    def dagger(self, **kwargs) -> pyct.OpT:
+        op = self.T / (1 + kwargs.get("damp", 0))
+        return op
