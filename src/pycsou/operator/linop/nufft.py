@@ -11,7 +11,6 @@ import finufft
 import numba
 import numba.cuda
 import numpy as np
-import scipy.fftpack as spf  # warning: scipy.fftpack.next_fast_len() != scipy.fft.next_fast_len()
 
 import pycsou.abc as pyca
 import pycsou.runtime as pycrt
@@ -1258,8 +1257,7 @@ class _NUFFT1(NUFFT):
         shape = []
         for n in self._N:
             target = max(int(u * n), 2 * w)
-            while (n_opt := spf.next_fast_len(target)) % 2 != 0:
-                target = n_opt + 1
+            n_opt = pycu.next_fast_len(target, even=True)
             shape.append(n_opt)
         return tuple(shape)
 
@@ -1482,8 +1480,7 @@ class _NUFFT3(NUFFT):
         for d in range(self._D):
             n = (2 * u * max(1, X[d] * S[d]) / np.pi) + (w + 1)
             target = max(int(n), 2 * w)
-            while (n_opt := spf.next_fast_len(target)) % 2 != 0:
-                target = n_opt + 1
+            n_opt = pycu.next_fast_len(target, even=True)
             shape.append(n_opt)
         return tuple(shape)
 
