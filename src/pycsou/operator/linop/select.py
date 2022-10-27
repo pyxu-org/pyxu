@@ -5,11 +5,11 @@ import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 __all__ = [
-    "SubSampling",
+    "SubSample",
 ]
 
 
-class SubSampling(pyca.LinOp):
+class SubSample(pyca.LinOp):
     r"""
     Given a set of indices :math: `\mathcal{I} \subset \{1, \dots, M\}` of size :math: `L`, the *subsampling
     linear operator* extracts a sub array from an input array :math:`\mathbf{x} \in \mathbb{R}^M` corresponding
@@ -22,7 +22,7 @@ class SubSampling(pyca.LinOp):
 
     Notes
     -----
-    :py:func:`~pycsou.operator.linop.select.SubSampling` instances are **not arraymodule-agnostic**: they will only
+    :py:func:`~pycsou.operator.linop.select.SubSample` instances are **not arraymodule-agnostic**: they will only
     work with NDArrays belonging to the same module as the ``sampling_indices`` array.
     """
 
@@ -44,7 +44,7 @@ class SubSampling(pyca.LinOp):
         self.sampling_indices = xp.asarray(sampling_indices).reshape(-1)
         self.input_size = M
         self.nb_of_samples = self.sampling_indices.size
-        super(SubSampling, self).__init__(shape=(self.nb_of_samples, self.input_size))
+        super(SubSample, self).__init__(shape=(self.nb_of_samples, self.input_size))
         self._lipschitz = 1.0
 
     @pycrt.enforce_precision(i="arr")
