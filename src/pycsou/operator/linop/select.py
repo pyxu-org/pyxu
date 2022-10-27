@@ -11,19 +11,53 @@ __all__ = [
 
 class SubSample(pyca.LinOp):
     r"""
-    Given a set of indices :math: `\mathcal{I} \subset \{1, \dots, M\}` of size :math: `L`, the *subsampling
-    linear operator* extracts a sub array from an input array :math:`\mathbf{x} \in \mathbb{R}^M` corresponding
-    to the associated indices. Its Lipschitz constant is 1.
+    Multi-dimensional sub-sampling operator.
 
-    The adjoint operator embeds an array of size :math: `L` within a larger array of size :math: `M` by filling
-    the provided indices with the inut array values.
+    This operator extracts a subset of the input matching the provided subset specifier.
+    Its Lipschitz constant is 1.
 
-    The dimension of the input space :math: `M` needs to be specified.
+    Examples
+    --------
+    .. code-block:: python3
 
-    Notes
-    -----
-    :py:func:`~pycsou.operator.linop.select.SubSample` instances are **not arraymodule-agnostic**: they will only
-    work with NDArrays belonging to the same module as the ``sampling_indices`` array.
+       ### Extract even samples of a 1D signal.
+       import pycsou.operator.linop as pycl
+       x = np.arange(10)
+       S = pycl.SubSample(
+             x.shape,
+             slice(0, None, 2),
+       )
+       y = S(x)  # array([0, 2, 4, 6, 8])
+
+
+    .. code-block:: python3
+
+       ### Extract columns[1, 3, -1] from a 2D matrix
+       import pycsou.operator.linop as pycl
+       x = np.arange(3 * 40).reshape(3, 40)  # the input
+       S = pycl.SubSample(
+             x.shape,
+             slice(None),  # take all rows
+             [1, 3, -1],   # and these columns
+       )
+       y = S(x.reshape(-1)).reshape(3, 3)  # array([[  1.,   3.,  39.],
+                                           #        [ 41.,  43.,  79.],
+                                           #        [ 81.,  83., 119.]])
+
+    .. code-block:: python3
+
+       ### Extract all red rows of an (D,H,W) RGB image matching a boolean mask.
+       import pycsou.operator.linop as pycl
+       x = np.arange(3 * 5 * 4).reshape(3, 5, 4)
+       mask = np.r_[True, False, False, True, False]
+       S = pycl.SubSample(
+             x.shape,
+             0,            # red channel
+             mask,         # row selector
+             slice(None),  # all columns; this field can be omitted.
+       )
+       y = S(x.reshape(-1)).reshape(1, mask.sum(), 4)  # array([[[ 0.,  1.,  2.,  3.],
+                                                       #         [12., 13., 14., 15.]]])
     """
 
     def __init__(self, M: int, sampling_indices: typ.Union[pyct.NDArray, list]):
