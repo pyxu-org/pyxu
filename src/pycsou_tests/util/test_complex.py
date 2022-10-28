@@ -93,9 +93,9 @@ class ViewAs:
         sh_extra = (2, 1)  # prepend input/output shape by this amount.
 
         in_ = _valid_data[0]
-        in_ = np.broadcast_to(in_, (*sh_extra, *in_.shape)).copy()
+        in_ = np.broadcast_to(in_, (*sh_extra, *in_.shape))
         out_gt = _valid_data[1]
-        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape)).copy()
+        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
         out = pycu.compute(func(in_))
 
         assert out.ndim == out_gt.ndim

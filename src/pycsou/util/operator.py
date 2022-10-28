@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 
-def infer_sum_shape(sh1: pyct.Shape, sh2: pyct.Shape) -> pyct.Shape:
+def infer_sum_shape(sh1: pyct.OpShape, sh2: pyct.OpShape) -> pyct.OpShape:
     A, B, C, D = *sh1, *sh2
     if None in (A, C):
         raise ValueError("Addition of codomain-dimension-agnostic operators is not supported.")
@@ -34,7 +34,7 @@ def infer_sum_shape(sh1: pyct.Shape, sh2: pyct.Shape) -> pyct.Shape:
         raise ValueError(f"Addition of {sh1} and {sh2} operators forbidden.")
 
 
-def infer_composition_shape(sh1: pyct.Shape, sh2: pyct.Shape) -> pyct.Shape:
+def infer_composition_shape(sh1: pyct.OpShape, sh2: pyct.OpShape) -> pyct.OpShape:
     A, B, C, D = *sh1, *sh2
     if None in (A, C):
         raise ValueError("Composition of codomain-dimension-agnostic operators is not supported.")

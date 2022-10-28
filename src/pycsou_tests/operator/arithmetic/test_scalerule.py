@@ -62,7 +62,7 @@ class ScaleRuleMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_orig) -> pyct.Shape:
+    def data_shape(self, op_orig) -> pyct.OpShape:
         return op_orig.shape
 
     @pytest.fixture

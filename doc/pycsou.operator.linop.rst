@@ -35,3 +35,11 @@ pycsou.operator.linop.nufft module
    :members:
    :undoc-members:
    :show-inheritance:
+
+pycsou.operator.linop.select module
+-----------------------------------
+
+.. automodule:: pycsou.operator.linop.select
+   :members:
+   :undoc-members:
+   :show-inheritance:
