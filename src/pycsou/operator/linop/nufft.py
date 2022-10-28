@@ -830,7 +830,7 @@ class NUFFT(pyca.LinOp):
         =
         \mathcal{I}_{N_{1}} \times \cdots \times \mathcal{I}_{N_{d}}`.
 
-        For type-3 NUFFT: compute the meshgrid used for internal FFT computations.
+        For type-3 NUFFT: compute the (shifted) meshgrid used for internal FFT computations.
 
         Parameters
         ----------
@@ -842,12 +842,14 @@ class NUFFT(pyca.LinOp):
             Grid scale. Options are:
 
             - **Type1 and 2:**
-                * ``unit``, i.e. :math:`\mathcal{I} \in [[-N//2, \ldots, N//2 + 1]]^{d}`
+                * ``unit``, i.e. :math:`\mathcal{I} \in [[-N_{d}//2, \ldots, N_{d}//2 + 1]]^{d}`
                 * ``source``, i.e. :math:`\mathcal{I} \in [-\pi, \pi)^{d}`
             - **Type 3:**
-                * ``unit``, i.e. :math:`\mathcal{I} \in [[-N//2, \ldots, N//2 + 1]]^{d}`
-                * ``source``, i.e. :math:`\mathcal{I}_{\text{source}} \in [-\pi, \pi)^{d}` (after dilation)
-                * ``target``, i.e. :math:`\mathcal{I}_{\text{target}} \in [-\pi, \pi)^{d}` (after dilation)
+                * ``unit``, i.e. :math:`\mathcal{I} \in [[-N_{d}//2, \ldots, N_{d}//2 + 1]]^{d}`
+                * ``source``, i.e. :math:`\mathcal{I}_{\text{source}} \in x_{d}^{c} + [-X_{d}, X_{d})^{d}`
+                * ``target``, i.e. :math:`\mathcal{I}_{\text{target}} \in z_{d}^{c} + [-Z_{d}, Z_{d})^{d}`,
+                  where :math:`x^{c}`, :math:`z^{c}` denote the data centroids, and :math:`X`,
+                  :math:`Z` the data half-widths.
         upsampled: bool
             Use the upsampled meshgrid.
             (See [FINUFFT]_ for details.)
@@ -1430,19 +1432,27 @@ class _NUFFT3(NUFFT):
         dtype = kwargs.get("dtype", pycrt.getPrecision().value)
         scale = kwargs.get("scale", "unit")
         upsampled = True or kwargs.pop("upsampled", True)  # upsampled unsupported for type-3
+        kwargs = dict(
+            xp=xp,
+            dtype=dtype,
+            upsampled=upsampled,
+        )
 
         if scale == "unit":
-            grid = _NUFFT1.mesh(
-                self,
-                xp=xp,
-                dtype=dtype,
-                scale=scale,
-                upsampled=upsampled,
-            )
-        elif scale == "source":
-            raise NotImplementedError("todo: discuss with Matthieu")
-        else:  # scale == "target":
-            raise NotImplementedError("todo: discuss with Matthieu")
+            grid = _NUFFT1.mesh(self, scale="unit", **kwargs)
+        else:
+            grid = _NUFFT1.mesh(self, scale="source", **kwargs)
+            f = lambda _: xp.array(_, dtype=dtype)
+            if scale == "source":
+                s = f(self._dilation_factor())
+                grid *= s
+                _, center = self.__shift_coords(self._x)
+            else:  # target
+                s = f(self._dilation_factor()) / f(self._fft_shape())
+                s *= f(2 * np.pi * self._upsample_factor())
+                grid /= s
+                _, center = self.__shift_coords(self._z)
+            grid += f(center)
         return grid
 
     def asarray(self, **kwargs) -> pyct.NDArray:
