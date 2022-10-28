@@ -163,16 +163,15 @@ class VStackMixin:
         params=itertools.product(
             pycd.NDArrayInfo,
             pycrt.Width,
-            [True, False],  # parallel
         )
     )
     def spec(self, op_all, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
-        ndi, width, parallel = request.param
-        op = pycb.vstack(op_all, parallel=parallel)
+        ndi, width = request.param
+        op = pycb.vstack(op_all)
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_all) -> pyct.Shape:
+    def data_shape(self, op_all) -> pyct.OpShape:
         dim = op_all[0].dim
         codim = sum(op.codim for op in op_all)
         sh = (codim, dim)

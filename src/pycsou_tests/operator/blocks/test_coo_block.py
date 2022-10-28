@@ -178,7 +178,7 @@ class COOBlockMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_gt) -> pyct.Shape:
+    def data_shape(self, op_gt) -> pyct.OpShape:
         return op_gt.shape
 
     @pytest.fixture

@@ -550,7 +550,7 @@ class ArgShiftRule(Rule):
         klass = pyco.Operator._infer_operator_type(properties)
         return klass
 
-    def _infer_op_shape(self) -> pyct.Shape:
+    def _infer_op_shape(self) -> pyct.OpShape:
         if self._scalar:
             return self._op.shape
         else:  # pyct.NDArray

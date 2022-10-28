@@ -416,7 +416,7 @@ def coo_block(
             cabc.Sequence[pyct.Integer],
         ],
     ],
-    grid_shape: pyct.Shape,
+    grid_shape: pyct.OpShape,
     *,
     parallel: bool = False,
 ) -> pyct.OpT:
@@ -435,7 +435,7 @@ def coo_block(
         * `i[:]` are the row indices of the block entries on the coarse grid.
         * `j[:]` are the column indices of the block entries on the coarse grid.
 
-    grid_shape: pyct.Shape
+    grid_shape: pyct.OpShape
         (M, N) shape of the coarse grid.
 
     parallel: bool
@@ -529,7 +529,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
                 cabc.Sequence[pyct.Integer],
             ],
         ],
-        grid_shape: pyct.Shape,
+        grid_shape: pyct.OpShape,
         parallel: bool,
     ):
         self._grid_shape = tuple(grid_shape)

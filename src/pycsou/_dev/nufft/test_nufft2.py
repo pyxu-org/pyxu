@@ -1,64 +1,66 @@
 import dask.array as da
-import dask.distributed as dad
+import distributed
 import numpy as np
 
 import pycsou.operator.linop.nufft as nufft
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 
-
-def NUFFT1_array(x, N, isign) -> np.ndarray:
-    D = x.shape[-1]
-    if isinstance(N, int):
-        N = (N,) * D
-    A = np.meshgrid(*[np.arange(-(m // 2), (m - 1) // 2 + 1) for m in N], indexing="ij")
-    B = np.stack(A, axis=0).reshape((D, -1)).T
-    return np.exp(1j * np.sign(isign) * B @ x.T)
+# client = distributed.Client(processes=False)
+use_dask = True
 
 
 def NUFFT2_array(x, N, isign) -> np.ndarray:
-    A = NUFFT1_array(x, N, isign).T
-    return A
+    D = x.shape[-1]
+    if isinstance(N, int):
+        N = (N,) * D
+    A = np.meshgrid(
+        *[np.arange(-(n // 2), (n - 1) // 2 + 1) for n in N],
+        indexing="ij",
+    )
+    B = np.stack(A, axis=0).reshape((D, -1)).T
+    return np.exp(1j * np.sign(isign) * B @ x.T).T
 
 
-if __name__ == "__main__":
+rng = np.random.default_rng(0)
+D, M, N = 3, 200, (5, 3, 4)
+x = rng.normal(size=(M, D))
 
-    use_dask = True
-    real = True
+with pycrt.Precision(pycrt.Width.DOUBLE):
+    N_trans, isign, real = 10, -1, True
+    A = nufft.NUFFT.type2(
+        x=x,
+        N=N,
+        n_trans=N_trans,
+        isign=isign,
+        eps=1e-6,
+        real=real,
+        debug=2,
+    )
+    B = NUFFT2_array(x, N, isign)
 
-    rng = np.random.default_rng(0)
-    D, M, N = 2, 200, 5
-    N_full = (N,) * D if isinstance(N, int) else N
-    x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+    sh_pad = (2, 3, 4)
+    arr = rng.normal(size=(*sh_pad, *N))
+    if not real:
+        arr = arr + 1j * rng.normal(size=arr.shape)
     if use_dask:
-        client = dad.Client(processes=False)  # processes=True yields a serialization error.
-        x = da.from_array(x)
+        arr = da.array(arr)
 
-    with pycrt.Precision(pycrt.Width.SINGLE):
-        N_trans, isign = 50, -1
-        A = nufft.NUFFT.type2(x, N, n_trans=N_trans, isign=isign, eps=1e-2, real=real)
-        B = NUFFT2_array(x, N, isign)
+    A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr.reshape(*sh_pad, -1))))
+    B_out_fw = np.tensordot((arr.compute() if use_dask else arr).reshape(*sh_pad, -1), B, axes=[[-1], [-1]])
 
-        arr = rng.normal(size=(13, N_trans, *N_full))
-        if not real:
-            arr = arr + 1j * rng.normal(size=arr.shape)
-        arr = arr.reshape(13, N_trans, -1)
-        if use_dask:
-            arr = da.from_array(arr)
+    A_out_bw = A.adjoint(pycu.view_as_real(A_out_fw))
+    if not real:
+        A_out_bw = pycu.view_as_complex(A_out_bw)
+    A_out_bw = A_out_bw.reshape(*sh_pad, *N)
+    B_out_bw = np.tensordot(B_out_fw, B.conj().T, axes=[[-1], [-1]]).reshape(*sh_pad, *N)
+    if real:
+        B_out_bw = B_out_bw.real
 
-        A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
-        B_out_fw = np.tensordot(arr, B, axes=[[2], [1]])
-
-        A_out_bw = A.adjoint(pycu.view_as_real(A_out_fw))
-        if not real:
-            A_out_bw = pycu.view_as_complex(A_out_bw)
-        B_out_bw = np.tensordot(B_out_fw, B.conj().T, axes=[[2], [1]])
-        if real:
-            B_out_bw = B_out_bw.real
-
-        res_fw = (np.linalg.norm(A_out_fw - B_out_fw, axis=-1) / np.linalg.norm(B_out_fw, axis=-1)).max()
-        res_bw = (np.linalg.norm(A_out_bw - B_out_bw, axis=-1) / np.linalg.norm(B_out_bw, axis=-1)).max()
-        if use_dask:
-            res_fw, res_bw = pycu.compute(res_fw, res_bw)
-        print(res_fw)
-        print(res_bw)
+    res_fw = (np.linalg.norm(A_out_fw - B_out_fw, axis=-1) / np.linalg.norm(B_out_fw, axis=-1)).max()
+    res_bw = (
+        np.linalg.norm((A_out_bw - B_out_bw).reshape(*sh_pad, -1), axis=-1)
+        / np.linalg.norm(B_out_bw.reshape(*sh_pad, -1), axis=-1)
+    ).max()
+    print(float(res_fw))
+    print(float(res_bw))

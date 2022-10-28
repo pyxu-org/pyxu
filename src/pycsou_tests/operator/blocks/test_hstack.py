@@ -185,16 +185,15 @@ class HStackMixin:
         params=itertools.product(
             pycd.NDArrayInfo,
             pycrt.Width,
-            [True, False],  # parallel
         )
     )
     def spec(self, op_all, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
-        ndi, width, parallel = request.param
-        op = pycb.hstack(op_all, parallel=parallel)
+        ndi, width = request.param
+        op = pycb.hstack(op_all)
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_all) -> pyct.Shape:
+    def data_shape(self, op_all) -> pyct.OpShape:
         dim = sum(op.dim for op in op_all)
         codim = op_all[0].codim
         sh = (codim, dim)
