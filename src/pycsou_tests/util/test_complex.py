@@ -6,6 +6,8 @@ import pytest
 
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
+import pycsou.util.ptype as pyct
 
 
 class ViewAs:
@@ -91,9 +93,9 @@ class ViewAs:
         sh_extra = (2, 1)  # prepend input/output shape by this amount.
 
         in_ = _valid_data[0]
-        in_ = np.broadcast_to(in_, (*sh_extra, *in_.shape)).copy()
+        in_ = np.broadcast_to(in_, (*sh_extra, *in_.shape))
         out_gt = _valid_data[1]
-        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape)).copy()
+        out_gt = np.broadcast_to(out_gt, (*sh_extra, *out_gt.shape))
         out = pycu.compute(func(in_))
 
         assert out.ndim == out_gt.ndim
@@ -155,3 +157,112 @@ class TestViewAsReal(ViewAs):
     @pytest.fixture(params=[_.value for _ in list(pycrt.Width)])
     def no_op_dtype(self, request):
         return request.param
+
+
+class TestViewAsMat:
+    @pytest.fixture(
+        params=[
+            np.reshape(np.r_[:6] + 1j * np.r_[2:8], (2, 3)),
+        ]
+    )
+    def input(self, request) -> np.ndarray:
+        # (M,N) NumPy input to test. Will be transformed to different backend/precisions via _input().
+        return request.param
+
+    @pytest.fixture(params=pycd.supported_array_modules())
+    def xp(self, request) -> pyct.ArrayModule:
+        return request.param
+
+    @pytest.fixture(params=pycrt._CWidth)
+    def cwidth(self, request) -> pycrt._CWidth:
+        return request.param
+
+    @pytest.fixture
+    def width(self, cwidth) -> pycrt.Width:
+        return cwidth.real
+
+    @pytest.fixture
+    def _input(self, input, xp, cwidth) -> pyct.NDArray:
+        in_ = xp.array(input, dtype=cwidth.value)
+        return in_
+
+    @pytest.fixture(params=[True, False])
+    def real_input(self, request) -> bool:
+        return request.param
+
+    @pytest.fixture(params=[True, False])
+    def real_output(self, request) -> bool:
+        return request.param
+
+    def test_backend_asmat(self, _input, real_input, real_output):
+        out = pycu.view_as_real_mat(
+            _input,
+            real_input=real_input,
+            real_output=real_output,
+        )
+        assert type(out) == type(_input)
+
+    def test_prec_asmat(self, _input, real_input, real_output):
+        out = pycu.view_as_real_mat(
+            _input,
+            real_input=real_input,
+            real_output=real_output,
+        )
+        in_prec = pycrt._CWidth(_input.dtype)
+        out_prec = pycrt.Width(out.dtype).complex
+        assert in_prec == out_prec
+
+    def test_shape_asmat(self, _input, real_input, real_output):
+        if real_input and real_output:
+            sh_gt = _input.shape
+        elif (not real_input) and real_output:
+            sh_gt = (_input.shape[0], 2 * _input.shape[1])
+        elif real_input and (not real_output):
+            sh_gt = (2 * _input.shape[0], _input.shape[1])
+        else:  # (not real_input) and (not real_output)
+            sh_gt = (2 * _input.shape[0], 2 * _input.shape[1])
+
+        out = pycu.view_as_real_mat(
+            _input,
+            real_input=real_input,
+            real_output=real_output,
+        )
+        assert out.shape == sh_gt
+
+    def test_math_asmat(self, xp, cwidth, real_input, real_output):
+        # view_as_real(A @ x) = view_as_real_mat(A) @ view_as_real(x)
+        rng = np.random.default_rng(seed=3)  # random seed for reproducibility
+
+        M, N = 5, 3
+        A = xp.array(rng.normal(size=(M, N)) + 1j * rng.normal(size=(M, N)), dtype=cwidth.value)
+        x = xp.array(rng.normal(size=(N,)) + 1j * rng.normal(size=(N,)), dtype=cwidth.value)
+        if real_input:
+            x = x.real
+
+        lhs = pycu.view_as_real(A @ x)
+        if real_output:
+            lhs = lhs[::2]
+
+        Ar = pycu.view_as_real_mat(A, real_input=real_input, real_output=real_output)
+        rhs = Ar @ pycu.view_as_real(x)
+        assert np.allclose(lhs, rhs)
+
+    def test_round_trip(self, _input, real_input, real_output):
+        # view_as_complex \compose view_as_real = Id
+        x = _input
+        y = pycu.view_as_real_mat(
+            x,
+            real_input=real_input,
+            real_output=real_output,
+        )
+        z = pycu.view_as_complex_mat(
+            y,
+            real_input=real_input,
+            real_output=real_output,
+        )
+
+        assert np.allclose(x.real, z.real)
+        if real_input and real_output:
+            assert np.allclose(z.imag, 0)
+        else:
+            assert np.allclose(x.imag, z.imag)

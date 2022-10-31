@@ -27,7 +27,7 @@ class ConstantValueMixin:
         return _spec[0]
 
     @pytest.fixture
-    def data_shape(self, _spec) -> pyct.Shape:
+    def data_shape(self, _spec) -> pyct.OpShape:
         return _spec[1]
 
     @pytest.fixture

@@ -101,15 +101,15 @@ class Operator:
     # This is achieved by increasing __array_priority__ for all operators.
     __array_priority__ = np.inf
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         r"""
         Parameters
         ----------
-        shape: pyct.Shape
+        shape: pyct.OpShape
             (N, M) operator shape.
             Shapes of the form (N, None) denote domain-agnostic maps.
         """
-        assert len(shape) == 2, f"shape: expected {pyct.Shape}, got {shape}."
+        assert len(shape) == 2, f"shape: expected {pyct.OpShape}, got {shape}."
         assert shape[0] is not None, "shape: codomain-agnostic operators are not supported."
         intify = lambda _: int(_) if (_ is not None) else _
         self._shape = tuple(map(intify, shape))
@@ -117,7 +117,7 @@ class Operator:
 
     # Public Interface --------------------------------------------------------
     @property
-    def shape(self) -> pyct.Shape:
+    def shape(self) -> pyct.OpShape:
         r"""
         Return (N, M) operator shape.
         """
@@ -537,7 +537,7 @@ class Map(Operator):
         p.add(Property.CAN_EVAL)
         return frozenset(p)
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
         self._lipschitz = np.inf
 
@@ -615,7 +615,7 @@ class Func(Map):
         p.add(Property.FUNCTIONAL)
         return frozenset(p)
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
         assert self.codim == 1, f"shape: expected (1, n), got {shape}."
 
@@ -657,7 +657,7 @@ class DiffMap(Map):
         p.add(Property.DIFFERENTIABLE)
         return frozenset(p)
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
         self._diff_lipschitz = np.inf
 
@@ -759,7 +759,7 @@ class ProxFunc(Func):
         p.add(Property.PROXIMABLE)
         return frozenset(p)
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
 
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
@@ -989,7 +989,7 @@ class DiffFunc(DiffMap, Func):
         p.add(Property.DIFFERENTIABLE_FUNCTION)
         return frozenset(p)
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         DiffMap.__init__(self, shape)
         Func.__init__(self, shape)
 
@@ -1056,7 +1056,7 @@ class ProxDiffFunc(ProxFunc, DiffFunc):
             p |= klass.properties()
         return frozenset(p)
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         ProxFunc.__init__(self, shape)
         DiffFunc.__init__(self, shape)
 
@@ -1116,7 +1116,7 @@ class LinOp(DiffMap):
         p.add(Property.LINEAR)
         return frozenset(p)
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
         self._diff_lipschitz = 0
 
@@ -1698,7 +1698,7 @@ class SquareOp(LinOp):
         p.add(Property.LINEAR_SQUARE)
         return frozenset(p)
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
         assert self.dim == self.codim, f"shape: expected (M, M), got {self.shape}."
 
@@ -1858,7 +1858,7 @@ class UnitOp(NormalOp):
         p.add(Property.LINEAR_UNITARY)
         return frozenset(p)
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
         self._lipschitz = 1
 
@@ -1918,7 +1918,7 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
             p |= klass.properties()
         return frozenset(p)
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
         self._lipschitz = 1
 
@@ -1977,7 +1977,7 @@ class LinFunc(ProxDiffFunc, LinOp):
             p |= klass.properties()
         return frozenset(p)
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
         ProxDiffFunc.__init__(self, shape)
         LinOp.__init__(self, shape)

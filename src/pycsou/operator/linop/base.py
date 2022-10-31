@@ -68,7 +68,7 @@ class NullOp(pyca.LinOp):
     This operator maps any input vector on the null vector.
     """
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
         self._lipschitz = 0
 

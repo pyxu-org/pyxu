@@ -113,7 +113,7 @@ class _PrimalDualSplitting(pyca.Solver):
             norm=2,
             satisfy_all=True,
         )
-        return stop_crit_x & stop_crit_z
+        return stop_crit_x & stop_crit_z if self._h._name != "NullFunc" else stop_crit_x
 
     def solution(self, which: typ.Literal["primal", "dual"] = "primal") -> pyct.NDArray:
         data, _ = self.stats()
@@ -156,13 +156,10 @@ class _PrimalDualSplitting(pyca.Solver):
         NDArray
             Initialized dual variable.
         """
-        if self._h._name == "NullFunc":
-            return None
+        if z is None:
+            return self._K(self._mstate["x"].copy())
         else:
-            if z is None:
-                return self._K(self._mstate["x"].copy())
-            else:
-                return z if z.ndim > 1 else z.reshape(1, -1)
+            return z if z.ndim > 1 else z.reshape(1, -1)
 
     def _set_gamma(self, tuning_strategy: typ.Literal[1, 2, 3]) -> pyct.Real:
         r"""
@@ -687,7 +684,7 @@ class PD3O(_PrimalDualSplitting):
         rho: typ.Optional[pyct.Real] = None,
         tuning_strategy: typ.Literal[1, 2, 3] = 1,
     ):
-        super(PD3O, self).m_init(x0=x0, z0=z0, tau=tau, sigma=sigma, rho=rho, tuning_strategy=tuning_strategy)
+        super().m_init(x0=x0, z0=z0, tau=tau, sigma=sigma, rho=rho, tuning_strategy=tuning_strategy)
         self._mstate["u"] = x0 if x0.ndim > 1 else x0.reshape(1, -1)
 
     def m_step(
@@ -978,7 +975,7 @@ class LorisVerhoeven(PD3O):
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
-        super(LorisVerhoeven).__init__(
+        super().__init__(
             f=f,
             g=None,
             h=h,
@@ -998,7 +995,7 @@ class LorisVerhoeven(PD3O):
         Tuple[Real, Real, Real]
             Sensible primal/dual step sizes and value of the parameter :math:`delta`.
         """
-        tau, sigma, _ = super(LorisVerhoeven, self)._set_step_sizes(tau=tau, sigma=sigma, gamma=gamma)
+        tau, sigma, _ = super()._set_step_sizes(tau=tau, sigma=sigma, gamma=gamma)
         delta = 2 if (self._beta == 0 or isinstance(self._f, pycf.QuadraticFunc)) else 2 - self._beta / (2 * gamma)
         return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
 
@@ -1078,7 +1075,7 @@ class DavisYin(PD3O):
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
-        super(DavisYin).__init__(
+        super().__init__(
             f=f,
             g=g,
             h=h,
@@ -1245,7 +1242,7 @@ class ADMM(_PDS):
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x", "u", "z")))
-        super(ADMM).__init__(
+        super().__init__(
             f=None,
             g=g,
             h=h,
@@ -1263,7 +1260,7 @@ class ADMM(_PDS):
         rho: typ.Optional[pyct.Real] = None,
         tuning_strategy: typ.Literal[1, 2, 3] = 1,
     ):
-        super(ADMM, self).m_init(x0=x0, z0=z0, tau=tau, sigma=None, rho=rho, tuning_strategy=tuning_strategy)
+        super().m_init(x0=x0, z0=z0, tau=tau, sigma=None, rho=rho, tuning_strategy=tuning_strategy)
         self._mstate["u"] = x0 if x0.ndim > 1 else x0.reshape(1, -1)
 
     def m_step(
@@ -1369,7 +1366,7 @@ class QuadraticADMM(_PDS):
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x", "u", "z")))
-        super(QuadraticADMM, self).__init__(
+        super().__init__(
             f=f,
             g=None,
             h=h,
@@ -1387,7 +1384,7 @@ class QuadraticADMM(_PDS):
         rho: typ.Optional[pyct.Real] = None,
         tuning_strategy: typ.Literal[1, 2, 3] = 1,
     ):
-        super(QuadraticADMM, self).m_init(x0=x0, z0=z0, tau=tau, sigma=None, rho=rho, tuning_strategy=tuning_strategy)
+        super().m_init(x0=x0, z0=z0, tau=tau, sigma=None, rho=rho, tuning_strategy=tuning_strategy)
         self._mstate["u"] = self._K(x0) if x0.ndim > 1 else self._K(x0).reshape(1, -1)
 
     def m_step(
@@ -1501,7 +1498,7 @@ class ForwardBackward(CondatVu):
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x",)))
-        super(ForwardBackward).__init__(
+        super().__init__(
             f=f,
             g=g,
             h=None,

@@ -193,7 +193,7 @@ class HStackMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_all) -> pyct.Shape:
+    def data_shape(self, op_all) -> pyct.OpShape:
         dim = sum(op.dim for op in op_all)
         codim = op_all[0].codim
         sh = (codim, dim)
@@ -274,6 +274,8 @@ class HStackMixin:
         N_test, dim = 5, data_shape[1]
         return self._random_array((N_test, dim))
 
+
+class HStackFuncMixin(HStackMixin):
     # Tests -------------------------------------------------------------------
     def test_interface_asloss(self, op, xp, width):
         self._skip_if_disabled()
@@ -308,37 +310,37 @@ class TestHStackSquareOp(HStackMixin, conftest.SquareOpT):
 
 
 # Test classes (Funcs) --------------------------------------------------------
-class TestHStackFunc(HStackMixin, conftest.FuncT):
+class TestHStackFunc(HStackFuncMixin, conftest.FuncT):
     @pytest.fixture(params=spec_op_func(pyco.Func))
     def op_all(self, request):
         return request.param
 
 
-class TestHStackProxFunc(HStackMixin, conftest.ProxFuncT):
+class TestHStackProxFunc(HStackFuncMixin, conftest.ProxFuncT):
     @pytest.fixture(params=spec_op_func(pyco.ProxFunc))
     def op_all(self, request):
         return request.param
 
 
-class TestHStackDiffFunc(HStackMixin, conftest.DiffFuncT):
+class TestHStackDiffFunc(HStackFuncMixin, conftest.DiffFuncT):
     @pytest.fixture(params=spec_op_func(pyco.DiffFunc))
     def op_all(self, request):
         return request.param
 
 
-class TestHStackProxDiffFunc(HStackMixin, conftest.ProxDiffFuncT):
+class TestHStackProxDiffFunc(HStackFuncMixin, conftest.ProxDiffFuncT):
     @pytest.fixture(params=spec_op_func(pyco.ProxDiffFunc))
     def op_all(self, request):
         return request.param
 
 
-class TestHStackQuadraticFunc(HStackMixin, conftest._QuadraticFuncT):
+class TestHStackQuadraticFunc(HStackFuncMixin, conftest._QuadraticFuncT):
     @pytest.fixture(params=spec_op_func(pyco._QuadraticFunc))
     def op_all(self, request):
         return request.param
 
 
-class TestHStackLinFunc(HStackMixin, conftest.LinFuncT):
+class TestHStackLinFunc(HStackFuncMixin, conftest.LinFuncT):
     @pytest.fixture(params=spec_op_func(pyco.LinFunc))
     def op_all(self, request):
         return request.param

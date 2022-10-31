@@ -171,7 +171,7 @@ class VStackMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_all) -> pyct.Shape:
+    def data_shape(self, op_all) -> pyct.OpShape:
         dim = op_all[0].dim
         codim = sum(op.codim for op in op_all)
         sh = (codim, dim)
