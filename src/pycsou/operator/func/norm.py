@@ -191,3 +191,33 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
             return self._prox_root(arr, tau)
         elif self.prox_computation == "sort":
             return self._prox_sort(arr, tau)
+
+
+class LInftyNorm(ShiftLossMixin, pyca.ProxFunc):
+    r"""
+    :math:`\ell_{\infty}`-norm, :math:`\Vert\mathbf{x}\Vert_2:=\max_{i=1,.,N} |x_i|`.
+    """
+
+    def __init__(self, dim: pyct.Integer = None):
+        super().__init__(shape=(1, dim))
+        if dim is None:
+            self._lipschitz = np.inf
+        else:
+            self._lipschitz = np.sqrt(dim)
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        y = xp.max(xp.fabs(arr), axis=-1)
+        return y
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    @pycu.vectorize("arr")
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        mu_max = self.apply(arr)
+        func = lambda mu: xp.sum(xp.fmax(xp.fabs(arr) - mu, 0)) - tau
+        mu_star = sciop.brentq(func, a=0, b=mu_max)
+        y = xp.fmin(xp.fabs(arr), mu_star)
+        y *= xp.sign(arr)
+        return y
