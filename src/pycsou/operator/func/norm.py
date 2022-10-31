@@ -186,7 +186,7 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
 
     @pycu.vectorize("arr")
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        arr = arr.flatten()
+        arr = arr.ravel()
         if self.prox_computation == "root":
             return self._prox_root(arr, tau)
         elif self.prox_computation == "sort":
