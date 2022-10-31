@@ -144,8 +144,6 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
 
         Notes
         -----
-        The operator's Lipschitz constant is set to :math:`\infty` if domain-agnostic.
-        It is recommended to set `dim` explicitly to compute a tight closed-form.
         If module of input array is dask, algorithm 'root' is used independently of the user choice (sorting is not recommended in dask).
         """
         super().__init__(shape=(1, dim))
@@ -199,6 +197,17 @@ class LInftyNorm(ShiftLossMixin, pyca.ProxFunc):
     """
 
     def __init__(self, dim: pyct.Integer = None):
+        r"""
+        Parameters
+        ----------
+        dim: pyct.Integer
+            Dimension size. (Default: domain-agnostic.)
+
+        Notes
+        -----
+        The operator's Lipschitz constant is set to :math:`\infty` if domain-agnostic.
+        It is recommended to set `dim` explicitly to compute a tight closed-form.
+        """
         super().__init__(shape=(1, dim))
         if dim is None:
             self._lipschitz = np.inf
@@ -238,6 +247,18 @@ class L1Ball(ShiftLossMixin, pyca.ProxFunc):
     """
 
     def __init__(self, dim: pyct.Integer = None, radius: pyct.Real = 1):
+        r"""
+        Parameters
+        ----------
+        dim: pyct.Integer
+            Dimension size. (Default: domain-agnostic.)
+        radius: pyct.Real
+            Radius of ball. (Default: unit ball.)
+
+        Notes
+        -----
+        The scale parameter in the proximal operator can be set by the user, but it does not affect the computation. Indeed, the prox only depends on the ball radius.
+        """
         super().__init__(shape=(1, dim))
         self._radius = radius
         self._lipschitz = np.inf
@@ -279,6 +300,18 @@ class L2Ball(ShiftLossMixin, pyca.ProxFunc):
     """
 
     def __init__(self, dim: pyct.Integer = None, radius: pyct.Real = 1):
+        r"""
+        Parameters
+        ----------
+        dim: pyct.Integer
+            Dimension size. (Default: domain-agnostic.)
+        radius: pyct.Real
+            Radius of ball. (Default: unit ball.)
+
+        Notes
+        -----
+        The scale parameter in the proximal operator can be set by the user, but it does not affect the computation. Indeed, the prox only depends on the ball radius.
+        """
         super().__init__(shape=(1, dim))
         self._radius = radius
         self._lipschitz = np.inf
@@ -316,6 +349,18 @@ class LInftyBall(ShiftLossMixin, pyca.ProxFunc):
     """
 
     def __init__(self, dim: pyct.Integer = None, radius: pyct.Real = 1):
+        r"""
+        Parameters
+        ----------
+        dim: pyct.Integer
+            Dimension size. (Default: domain-agnostic.)
+        radius: pyct.Real
+            Radius of ball. (Default: unit ball.)
+
+        Notes
+        -----
+        The scale parameter in the proximal operator can be set by the user, but it does not affect the computation. Indeed, the prox only depends on the ball radius.
+        """
         super().__init__(shape=(1, dim))
         self._radius = radius
         self._lipschitz = np.inf
