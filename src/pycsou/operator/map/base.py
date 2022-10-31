@@ -13,7 +13,7 @@ __all__ = [
 
 
 def ConstantValued(
-    shape: pyct.Shape,
+    shape: pyct.OpShape,
     cst: pyct.Real,
 ) -> pyct.OpT:
     r"""

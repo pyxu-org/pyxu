@@ -8,7 +8,7 @@ import pycsou.util.ptype as pyct
 
 
 class SquaredL2Norm(pyco.DiffFunc):
-    def __init__(self, shape: pyct.Shape = None):
+    def __init__(self, shape: pyct.OpShape = None):
         super(SquaredL2Norm, self).__init__(shape=(1, None))
         self._diff_lipschitz = 2
 

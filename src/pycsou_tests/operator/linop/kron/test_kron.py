@@ -108,7 +108,7 @@ class KronMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_A, op_B) -> pyct.Shape:
+    def data_shape(self, op_A, op_B) -> pyct.OpShape:
         sh = (op_A.codim * op_B.codim, op_A.dim * op_B.dim)
         return sh
 

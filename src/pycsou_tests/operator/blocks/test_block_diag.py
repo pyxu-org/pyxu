@@ -183,7 +183,7 @@ class BlockDiagMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_all) -> pyct.Shape:
+    def data_shape(self, op_all) -> pyct.OpShape:
         dim = sum(op.dim for op in op_all)
         codim = sum(op.codim for op in op_all)
         sh = (codim, dim)

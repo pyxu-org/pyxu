@@ -165,7 +165,7 @@ class AddRuleMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_lhs, op_rhs) -> pyct.Shape:
+    def data_shape(self, op_lhs, op_rhs) -> pyct.OpShape:
         sh = pycu.infer_sum_shape(op_lhs.shape, op_rhs.shape)
         return sh
 
