@@ -3,7 +3,6 @@ import datetime as dt
 import typing as typ
 import warnings
 
-import codecarbon
 import numpy as np
 
 import pycsou.abc as pyca
@@ -128,6 +127,7 @@ class MaxCarbon(pyca.StoppingCriterion):
     resources used to execute the optimization.
 
     .. warning::
+        Codecarbon is not a core dependency of Pycsou and needs to be installed separately.
         On Windows and Mac `codecarbon` tracks Intel processors power consumption using the `Intel Power Gadget
         <https://www.intel.com/content/www/us/en/developer/articles/tool/power-gadget.html>`_.
         You need to install it independently and, on MacOS, also ensure that it has the required security permissions.
@@ -145,6 +145,8 @@ class MaxCarbon(pyca.StoppingCriterion):
             self._co2_max = float(co2)
         except:
             raise ValueError(f"co2: expected positive carbon quantity, got {co2}.")
+        import codecarbon
+
         self.tracker = codecarbon.EmissionsTracker(
             api_call_interval=-1,
             save_to_file=False,
