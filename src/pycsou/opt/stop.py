@@ -123,25 +123,28 @@ class MaxDuration(pyca.StoppingCriterion):
 
 class MaxCarbon(pyca.StoppingCriterion):
     """
-    Stop iterative solver after a specified amount of carbon dioxide (CO2) produced by the cloud or personal computing
+    Stop iterative solver after a threshold amount of carbon dioxide (CO2) was produced by computing
     resources used to execute the optimization.
 
     .. warning::
-        Codecarbon is not a core dependency of Pycsou and needs to be installed separately.
-        On Windows and Mac `codecarbon` tracks Intel processors power consumption using the `Intel Power Gadget
-        <https://www.intel.com/content/www/us/en/developer/articles/tool/power-gadget.html>`_.
-        You need to install it independently and, on MacOS, also ensure that it has the required security permissions.
+
+       Codecarbon is not a core dependency of Pycsou and must be installed separately.
+
+       On Windows and MacOS, `codecarbon` tracks power consumption of Intel processors using the
+       `Intel Power Gadget (IPG) <https://www.intel.com/content/www/us/en/developer/articles/tool/power-gadget.html>`_.
+       IPG must be installed independently.
+       (MacOS-specific: IPG must also have correct security permissions.)
     """
 
-    def __init__(self, co2: float):
+    def __init__(self, co2: pyct.Real):
         """
         Parameters
         ----------
-        co2: float
-            Max CO2 emissions in kgs allowed.
+        co2: pyct.Real
+            Max allowed CO2 emissions [Kg].
         """
         try:
-            assert float(co2) > 0.0
+            assert float(co2) > 0
             self._co2_max = float(co2)
         except:
             raise ValueError(f"co2: expected positive carbon quantity, got {co2}.")
