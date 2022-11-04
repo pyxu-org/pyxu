@@ -135,7 +135,7 @@ class NonNegativeOrthant(pyco.ProxFunc):
     Indicator funciton of the non-negative orthant (positivity constraint).
     """
 
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
 
     @pycrt.enforce_precision(i="arr")
@@ -161,7 +161,7 @@ class NonNegativeOrthant(pyco.ProxFunc):
 
 
 class L1NormPositivityConstraint(pyco.ProxFunc):
-    def __init__(self, shape: pyct.Shape):
+    def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
 
     @pycrt.enforce_precision(i="arr")

@@ -1,10 +1,13 @@
+import datetime as dt
 import typing as typ
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 import pycsou._dev.fw_utils as pycdevu
 import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pycs
+import pycsou.operator as pycop
 import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
@@ -70,12 +73,12 @@ class GenericFWforLasso(pycs.Solver):
         self.data = pycrt.coerce(data)
 
         self._data_fidelity = (
-            0.5 * pycdevu.SquaredL2Norm(M=self.forwardOp.shape[0]).argshift(-self.data) * self.forwardOp
+            0.5 * pycop.SquaredL2Norm(dim=self.forwardOp.shape[0]).argshift(-self.data) * self.forwardOp
         )
-        self._penalty = self.lambda_ * pycdevu.L1Norm(M=self.forwardOp.shape[1])
+        self._penalty = self.lambda_ * pycop.L1Norm(dim=self.forwardOp.shape[1])
         # QfR: Vocabulary question: penalty or regul ?
 
-        self._bound = 0.5 * pycdevu.SquaredL2Norm()(data)[0] / self.lambda_  # todo [0]
+        self._bound = 0.5 * pycop.SquaredL2Norm().apply(data)[0] / self.lambda_  # todo [0]
 
     def m_init(self, **kwargs):
         xp = pycu.get_array_module(self.data)
@@ -229,15 +232,15 @@ class VanillaFWforLasso(GenericFWforLasso):
             gamma = -xp.dot(mgrad, mst["x"]).real
             if abs(dcv) > 1.0:
                 gamma += self.lambda_ * (mst["lift_variable"] + (abs(dcv) - 1.0) * self._bound)
-                injection = pycdevu.SubSampling(self.forwardOp.shape[1], xp.array(new_ind)).T
-                gamma /= pycdevu.SquaredL2Norm()(
+                injection = pycop.SubSample(self.forwardOp.shape[1], xp.array(new_ind)).T
+                gamma /= pycop.SquaredL2Norm().apply(
                     self._bound * np.sign(dcv) * self.forwardOp(injection(xp.array(1.0))) - self.forwardOp(mst["x"])
                 )[
                     0
                 ]  # we can use numpy (np) as dcv is a float
             else:
                 gamma += self.lambda_ * mst["lift_variable"]
-                gamma /= pycdevu.SquaredL2Norm()(self.forwardOp(mst["x"]))[0]
+                gamma /= pycop.SquaredL2Norm().apply(self.forwardOp(mst["x"]))[0]
 
         if not 0 < gamma < 1:
             print("Warning, gamma value not valid: {}".format(gamma))
@@ -372,21 +375,26 @@ class PolyatomicFWforLasso(GenericFWforLasso):
 
     def m_step(self):
         mst = self._mstate  # shorthand
-        mgrad = -self._data_fidelity.grad(mst["x"])
+        mgrad = -self._data_fidelity.grad(mst["x"]) / self.lambda_
         if self._astate["positivity_c"]:
-            mst["dcv"] = mgrad.max() / self.lambda_
+            mst["dcv"] = mgrad.max()  # / self.lambda_
             maxi = mst["dcv"]
         else:
-            mst["dcv"] = max(mgrad.max(), mgrad.min(), key=abs) / self.lambda_  # todo [0]
+            mst["dcv"] = max(mgrad.max(), mgrad.min(), key=abs)  # / self.lambda_  # todo [0]
             # mst["dcv"] is stored as a float in this case and does not handle stacked multidimensional inputs.
             maxi = abs(mst["dcv"])
         if self._astate["idx"] == 1:
             mst["delta"] = maxi * (1.0 - self._ms_threshold)
-        thresh = maxi - (2 / self._astate["idx"] + 1) * mst["delta"]
+            mst["N_indices"] = []
+            mst["N_candidates"] = []
+            mst["correction_iterations"] = []
+            mst["correction_durations"] = []
+        thresh = maxi - (2 / (self._astate["idx"] + 1)) * mst["delta"]
         if self._astate["positivity_c"]:
             new_indices = (mgrad > max(thresh, 1.0)).nonzero()[0]
         else:
             new_indices = (abs(mgrad) > max(thresh, 1.0)).nonzero()[0]
+        mst["N_candidates"].append(new_indices.size)
 
         xp = pycu.get_array_module(mst["x"])
         if new_indices.size > 0:
@@ -397,6 +405,9 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         elif self._remove_positions:
             mst["positions"] = (mst["x"] > 1e-5).nonzero()[0]
         # else would correspond to empty new_indices, in this case the set of active indices does not change
+        mst["N_indices"].append(mst["positions"].size)
+
+        # print(mst["positions"][:30])
 
         mst["correction_prec"] = max(self._init_correction_prec / self._astate["idx"], self._final_correction_prec)
         if mst["positions"].size > 1:
@@ -409,16 +420,16 @@ class PolyatomicFWforLasso(GenericFWforLasso):
             if abs(corr) <= self.lambda_:
                 mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
             elif corr > self.lambda_:
-                mst["x"] = ((corr - self.lambda_) / pycdevu.SquaredL2Norm()(column)[0]) * tmp
+                mst["x"] = ((corr - self.lambda_) / pycop.SquaredL2Norm().apply(column)[0]) * tmp
             else:
-                mst["x"] = ((corr + self.lambda_) / pycdevu.SquaredL2Norm()(column)[0]) * tmp
+                mst["x"] = ((corr + self.lambda_) / pycop.SquaredL2Norm().apply(column)[0]) * tmp
         else:
             mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
 
     def rs_correction(self, support_indices: pyct.NDArray) -> pyct.NDArray:
         r"""
         Method to update the weights after the selection of the new atoms. It solves a LASSO problem with a
-        restricted support corresponding to the current set of active indices (active atoms). As mentionned,
+        restricted support corresponding to the current set of active indices (active atoms). As mentioned,
         this method should be overriden in a child class for case-specific improved implementation.
 
         Parameters
@@ -442,17 +453,24 @@ class PolyatomicFWforLasso(GenericFWforLasso):
             )
             return stop_crit
 
-        injection = pycdevu.SubSampling(size=self.forwardOp.shape[1], sampling_indices=support_indices).T
+        injection = pycop.SubSample(self.forwardOp.shape[1], support_indices).T
+        # print(injection.shape)
         rs_data_fid = self._data_fidelity * injection
         rs_data_fid.diff_lipschitz()  # todo this was not necessary earlier, change of API to be expected later on ?
         x0 = injection.T(self._mstate["x"])
         if self._astate["positivity_c"]:
             penalty = pycdevu.L1NormPositivityConstraint(shape=(1, None))
         else:
-            penalty = self._penalty
-        apgd = PGD(rs_data_fid, penalty, show_progress=False)
+            penalty = pycop.L1Norm()
+        apgd = PGD(rs_data_fid, self.lambda_ * penalty, show_progress=False)
         # The penalty is agnostic to the dimension in this implementation (L1Norm()).
-        apgd.fit(x0=x0, stop_crit=correction_stop_crit(self._mstate["correction_prec"]))
+        apgd.fit(
+            x0=x0,
+            stop_crit=correction_stop_crit(self._mstate["correction_prec"])
+            | pycos.MaxDuration(t=dt.timedelta(seconds=1000)),
+        )  # & pycos.MaxIter(n=10))
+        self._mstate["correction_iterations"].append(apgd.stats()[1]["iteration"][-1])
+        self._mstate["correction_durations"].append(apgd.stats()[1]["duration"][-1])
         sol, _ = apgd.stats()
         return injection(sol["x"])
 
