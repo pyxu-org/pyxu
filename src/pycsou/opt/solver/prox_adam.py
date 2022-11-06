@@ -257,20 +257,6 @@ class ProxAdam(pyca.Solver):
         from pycsou.operator.linop import DiagonalOp
         from pycsou.opt.solver import PGD
 
-        class __FlattenedProxFunc(pyca.ProxFunc):
-            def __init__(self, r: pyca.ProxFunc, dim: pyct.Integer):
-                super().__init__((1, dim))
-                self.__inner = r
-
-            def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-                return self.__inner.prox(arr, tau).ravel()
-
-            def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
-                return self.__inner.asloss(data)
-
-            def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-                return self.__inner.apply(arr).ravel()
-
         mst = self._mstate  # shorthand
         x, m, v = mst["x"], mst["mean"], mst["variance"]
 
@@ -305,7 +291,7 @@ class ProxAdam(pyca.Solver):
 
         sqrt_psi = xp.sqrt(psi)
         h = (0.5 / a) * SquaredL2Norm().asloss((sqrt_psi * x).ravel()) * DiagonalOp(sqrt_psi.ravel())
-        pgd_sub = PGD(h, __FlattenedProxFunc(self._g, x.size), show_progress=False)
+        pgd_sub = PGD(h, self._g, show_progress=False)
         pgd_sub.fit(x0=x.ravel(), tau=gamma, stop_crit=mst["subproblem_stop_crit"])
         x = pgd_sub.solution().reshape(x.shape)
 
