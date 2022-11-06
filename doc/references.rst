@@ -1,6 +1,7 @@
 References
 ==========
 
+.. [ProxAdam] Melchior, Joseph, Moolekamp. "Proximal Adam: Robust Adaptive Update Scheme for Constrained Optimization" (2020).
 .. [ProxAlg] Parikh, Neal, and Stephen Boyd. "Proximal algorithms." Foundations and Trends in optimization 1.3 (2014): 127-239.
 .. [FirstOrd] Beck, Amir. First-order methods in optimization. Society for Industrial and Applied Mathematics, 2017.
 .. [OnKerLearn] Martins, André FT, et al. "Online multiple kernel learning for structured prediction." arXiv preprint arXiv:1010.2770 (2010).

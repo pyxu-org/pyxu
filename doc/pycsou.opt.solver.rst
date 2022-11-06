@@ -28,6 +28,14 @@ pycsou.opt.solver.nlcg module
    :undoc-members:
    :show-inheritance:
 
+pycsou.opt.solver.prox_adam module
+----------------------------------
+
+.. automodule:: pycsou.opt.solver.prox_adam
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 pycsou.opt.solver.pds module
 ----------------------------
 
