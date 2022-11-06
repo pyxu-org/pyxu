@@ -15,13 +15,15 @@ class NLCG(pyca.Solver):
     r"""
     Nonlinear Conjugate Gradient Method.
 
-    The Nonlinear Conjugate Gradient method finds local minima of the problem
+    The Nonlinear Conjugate Gradient method accumulates at local minima of the problem
 
     .. math::
 
        \min_{x\in\mathbb{R}^{N}} f(x),
 
-    where :math:`f: \mathbb{R}^{N} \to \mathbb{R}` is a *differentiable* functional.
+    where :math:`f: \mathbb{R}^{N} \to \mathbb{R}` is a *differentiable* functional. When :math:`f`
+    is convex and has a minimum, the method converges to that minimum. Further details and proofs in
+    [PolakRibi]_.
 
     The norm of the `gradient <https://www.wikiwand.com/en/Nonlinear_conjugate_gradient_method>`_
     :math:`\nabla f_k = \nabla f(x_k)` is used as the default stopping criterion.
@@ -75,6 +77,34 @@ class NLCG(pyca.Solver):
         (See: :py:mod:`~pycsou.math.linesearch`.)
 
         Users are expected to set `a0` if its value cannot be auto-inferred.
+
+    Example
+    --------
+    Consider the following quadratic optimisation problem:
+
+    ..math:
+
+       \min_{\mathbf{x}} \Vert{A\mathbf{x}-\mathbf{b}}\Vert_2^2
+
+    The Conjugate Gradient method applies to these problems with less overhead, as it does not perform a
+    linesearch. How much faster CG is with respect to NLCG highly depends on the operator :math:`A`, as it
+    can go from three or four times faster to forty.
+
+    >>> import numpy as np
+
+    >>> from pycsou.operator.linop import DiagonalOp
+    >>> from pycsou.operator import SquaredL2Norm, shift_loss
+    >>> from pycsou.opt.solver import NLCG
+
+    >>> N = 3
+    >>> f = shift_loss(SquaredL2Norm(dim=N), np.ones((N,))) * (2 * DiagonalOp(np.ones((N,))))
+
+    >>> nlcg_alg = NLCG(f)
+    >>> x0 = np.zeros((N,))
+    >>> nlcg_alg.fit(x0=x0, variant="FR")
+    >>> x_star = nlcg_alg.solution()
+    >>> assert np.allclose(x_star, 0.5 * np.ones((N,)))
+
     """
 
     def __init__(self, f: pyca.DiffFunc, **kwargs):
