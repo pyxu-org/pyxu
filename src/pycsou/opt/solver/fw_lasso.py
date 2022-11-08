@@ -411,7 +411,7 @@ class PolyatomicFWforLasso(GenericFWforLasso):
 
         mst["correction_prec"] = max(self._init_correction_prec / self._astate["idx"], self._final_correction_prec)
         if mst["positions"].size > 1:
-            mst["x"] = self.rs_correction(mst["positions"])
+            mst["x"] = self.rs_correction(mst["positions"], self._mstate["correction_prec"])
         elif mst["positions"].size == 1:  # case 1-sparse solution => the solution can be computed explicitly
             tmp = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
             tmp[mst["positions"]] = 1.0
@@ -426,7 +426,7 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         else:
             mst["x"] = xp.zeros(self.forwardOp.shape[1], dtype=pycrt.getPrecision().value)
 
-    def rs_correction(self, support_indices: pyct.NDArray) -> pyct.NDArray:
+    def rs_correction(self, support_indices: pyct.NDArray, precision: float) -> pyct.NDArray:
         r"""
         Method to update the weights after the selection of the new atoms. It solves a LASSO problem with a
         restricted support corresponding to the current set of active indices (active atoms). As mentioned,
@@ -436,6 +436,8 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         ----------
         support_indices: NDArray
             Set of active indices.
+        precision: float
+            Value of the stopping criterion for the correction.
 
         Returns
         -------
@@ -466,13 +468,17 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         # The penalty is agnostic to the dimension in this implementation (L1Norm()).
         apgd.fit(
             x0=x0,
-            stop_crit=correction_stop_crit(self._mstate["correction_prec"])
-            | pycos.MaxDuration(t=dt.timedelta(seconds=1000)),
-        )  # & pycos.MaxIter(n=10))
+            stop_crit=(correction_stop_crit(precision) | pycos.MaxDuration(t=dt.timedelta(seconds=1000)))
+            & pycos.MaxIter(n=5),
+        )  # & pycos.MaxIter(n=10)
         self._mstate["correction_iterations"].append(apgd.stats()[1]["iteration"][-1])
         self._mstate["correction_durations"].append(apgd.stats()[1]["duration"][-1])
         sol, _ = apgd.stats()
         return injection(sol["x"])
+
+    def post_process(self):
+        mst = self._mstate
+        mst["x"] = self.rs_correction(mst["positions"], self._final_correction_prec)
 
 
 def dcvStoppingCrit(eps: float = 1e-2) -> pycs.StoppingCriterion:
