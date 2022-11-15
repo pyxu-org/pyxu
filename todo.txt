@@ -50,3 +50,9 @@ Joan
   - Stochastic solvers -> Alec
   - Second order solvers -> Kaan
   - LSQR/LSMR -> Kaan
+
+
+
+ Daniele
+----
+- In test_math_lipschitz, if the functional has L=np.inf and if it can take the value np.inf (as it happens for indicator functionals), then nan=np.inf-np.inf < np.inf returns False and the test fails.

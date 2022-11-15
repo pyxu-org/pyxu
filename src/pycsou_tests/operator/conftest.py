@@ -464,6 +464,7 @@ class MapT:
         self._skip_if_disabled()
         self._check_no_side_effect(op.__call__, _data_apply)
 
+    # todo: nan=(np.inf-np.inf)<np.inf returns False
     def test_math_lipschitz(
         self,
         op,
