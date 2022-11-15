@@ -156,7 +156,6 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
         y **= 2
         return y
 
-    @pycrt.enforce_precision(i=("arr", "tau"))
     def _prox_root(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         if xp.linalg.norm(arr) > 0:
@@ -165,24 +164,29 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
             func = lambda mu: xp.sum(xp.fmax(xp.fabs(arr) * xp.sqrt(tau / mu) - 2 * tau, 0)) - 1
             mu_star = sciop.brentq(func, a=mu_min, b=mu_max)
             lambda_ = xp.fmax(xp.abs(arr) * xp.sqrt(tau / mu_star) - 2 * tau, 0)
-            return lambda_ * arr / (lambda_ + 2 * tau)
+            lambda_ = lambda_.astype(arr.dtype)
+            return arr * lambda_ / (lambda_ + 2 * tau)
         else:
             return arr
 
-    @pycrt.enforce_precision(i=("arr", "tau"))
     @pycam.redirect("arr", DASK=_prox_root)
     def _prox_sort(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         z = xp.sort(xp.abs(arr))[::-1]
         cumsum_z = xp.cumsum(z)
         test_array = z - (2 * tau / (1 + (xp.arange(z.size) + 1) * 2 * tau)) * cumsum_z
-        max_nzi = xp.max(xp.nonzero(test_array.reshape(-1) > 0)[0])
-        threshold = (2 * tau / (1 + (max_nzi + 1) * 2 * tau)) * cumsum_z[max_nzi]
+        if self.apply(arr) == 0:
+            max_nzi = 0
+        else:
+            max_nzi = xp.max(xp.nonzero(test_array.reshape(-1) > 0)[0])
+        threshold = cumsum_z[max_nzi]
+        threshold *= 2 * tau / (1 + (max_nzi + 1) * 2 * tau)
         y = xp.fmax(0, xp.fabs(arr) - threshold)
         y *= xp.sign(arr)
         return y
 
     @pycu.vectorize("arr")
+    @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         arr = arr.ravel()
         if self.prox_computation == "root":
@@ -202,22 +206,14 @@ class LInftyNorm(ShiftLossMixin, pyca.ProxFunc):
         ----------
         dim: pyct.Integer
             Dimension size. (Default: domain-agnostic.)
-
-        Notes
-        -----
-        The operator's Lipschitz constant is set to :math:`\infty` if domain-agnostic.
-        It is recommended to set `dim` explicitly to compute a tight closed-form.
         """
         super().__init__(shape=(1, dim))
-        if dim is None:
-            self._lipschitz = np.inf
-        else:
-            self._lipschitz = np.sqrt(dim)
+        self._lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        y = xp.max(xp.fabs(arr), axis=-1)
+        y = xp.max(xp.fabs(arr), axis=-1, keepdims=True)
         return y
 
     @pycrt.enforce_precision(i=("arr", "tau"))
@@ -225,11 +221,14 @@ class LInftyNorm(ShiftLossMixin, pyca.ProxFunc):
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         mu_max = self.apply(arr)
-        func = lambda mu: xp.sum(xp.fmax(xp.fabs(arr) - mu, 0)) - tau
-        mu_star = sciop.brentq(func, a=0, b=mu_max)
-        y = xp.fmin(xp.fabs(arr), mu_star)
-        y *= xp.sign(arr)
-        return y
+        if mu_max == 0:
+            return arr
+        else:
+            func = lambda mu: xp.sum(xp.fmax(xp.fabs(arr) - mu, 0)) - tau
+            mu_star = sciop.brentq(func, a=0, b=mu_max)
+            y = xp.fmin(xp.fabs(arr), mu_star)
+            y *= xp.sign(arr)
+            return y
 
 
 class L1Ball(ShiftLossMixin, pyca.ProxFunc):
@@ -268,7 +267,7 @@ class L1Ball(ShiftLossMixin, pyca.ProxFunc):
     def apply(self, arr: pyct.NDArray) -> pyct.Real:
         xp = pycu.get_array_module(arr)
         condition = pylinalg.norm(arr, ord=1) <= self._radius
-        return xp.zeros(1) if condition else np.inf * xp.ones(1)
+        return xp.zeros(1, dtype=arr.dtype) if condition else np.inf * xp.ones(1, dtype=arr.dtype)
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     @pycu.vectorize("arr")
@@ -321,13 +320,13 @@ class L2Ball(ShiftLossMixin, pyca.ProxFunc):
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         condition = xp.linalg.norm(arr) <= self._radius
-        return xp.zeros(1) if condition else np.inf * xp.ones(1)
+        return xp.zeros(1, dtype=arr.dtype) if condition else np.inf * xp.ones(1, dtype=arr.dtype)
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     @pycu.vectorize("arr")
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        arr_norm = xp.linalg.norm(arr)
+        arr_norm = xp.linalg.norm(arr).astype(arr.dtype)
         if arr_norm <= self._radius:
             return arr
         else:
@@ -370,7 +369,7 @@ class LInftyBall(ShiftLossMixin, pyca.ProxFunc):
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         condition = xp.max(xp.fabs(arr)) <= self._radius
-        return xp.zeros(1) if condition else np.inf * xp.ones(1)
+        return xp.zeros(1, dtype=arr.dtype) if condition else np.inf * xp.ones(1, dtype=arr.dtype)
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     @pycu.vectorize("arr")
