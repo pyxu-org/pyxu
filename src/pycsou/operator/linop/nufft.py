@@ -1,9 +1,9 @@
 import cmath
 import collections
 import collections.abc as cabc
+import itertools
 import types
 import typing as typ
-import warnings
 
 import dask
 import dask.graph_manipulation as dgm
@@ -13,11 +13,12 @@ import numba.cuda
 import numpy as np
 
 import pycsou.abc as pyca
+import pycsou.operator.blocks as pycb
+import pycsou.operator.linop.select as pycs
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
-import pycsou.util.warning as pycuw
 
 __all__ = [
     "NUFFT",
@@ -449,6 +450,7 @@ class NUFFT(pyca.LinOp):
         isign: SignT = sign_default,
         eps: pyct.Real = eps_default,
         real: bool = False,
+        chunked: bool = False,
         **kwargs,
     ) -> pyct.OpT:
         r"""
@@ -472,6 +474,8 @@ class NUFFT(pyca.LinOp):
 
             If ``False``, then ``.apply()`` takes (..., 2M) inputs, i.e. :math:`\mathbb{C}^{M}`
             vectors viewed as bijections with :math:`\mathbb{R}^{2M}`.
+        chunked: bool
+            If ``True``, the transform is performed in small chunks.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
@@ -506,6 +510,16 @@ class NUFFT(pyca.LinOp):
                        isign=-1,
                        eps=1e-6,
                     )
+               # A = pycl.NUFFT.type3(  # Chunked NUFFT
+               #         x, z,
+               #         n_trans=N_trans,
+               #         isign=-1,
+               #         eps=1e-6,
+               #         chunked=True,
+               #      )
+               # x_chunks = A.auto_chunk('x', max_radius=0.5, max_pts=None)  # Auto-chunk input
+               # z_chunks = A.auto_chunk('z', max_radius=None, max_pts=30)  # Auto-chunk input
+               # A.allocate(x_chunks, z_chunks)  # But [x/z]_chunks can be specified manually if preferred.
 
                # Pycsou operators only support real inputs/outputs, so we use the functions
                # pycu.view_as_[complex/real] to interpret complex arrays as real arrays (and
@@ -523,7 +537,9 @@ class NUFFT(pyca.LinOp):
             real=real,
             **kwargs,
         )
-        return _NUFFT3(**init_kwargs).squeeze()
+
+        klass = {False: _NUFFT3, True: _NUFFT3_chunked}[chunked]
+        return klass(**init_kwargs).squeeze()
 
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         r"""
@@ -1532,6 +1548,140 @@ class _NUFFT3(NUFFT):
         h_width[mask] += np.fabs(center[mask])
         center[mask] = 0
         return h_width, center
+
+
+class _NUFFT3_chunked(pyca.LinOp):
+    def __init__(self, **kwargs):
+        eps = kwargs.get("eps")
+        kwargs.update(eps=0)  # to skip planning
+        op = _NUFFT3(**kwargs)
+        kwargs.update(eps=eps)
+
+        super().__init__(shape=op.shape)
+        self._lipschitz = op._lipschitz
+
+        self._kwargs = kwargs  # buffered until allocate() called.
+        self._parallel = True  # for _wrap_if_dask()
+        self._initialized = False
+
+    def allocate(
+        self,
+        x_chunks: cabc.Collection[np.ndarray],
+        z_chunks: cabc.Collection[np.ndarray],
+        direct_eval_threshold: pyct.Integer = 0,
+    ):
+        """
+        Allocate NUFFT sub-problems based on chunk specification.
+
+        Parameters
+        ----------
+        x_chunks: list[np.ndarray[int]]
+            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
+            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
+        z_chunks: list[np.ndarray[int]]
+            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
+            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
+        direct_eval_threshold: int
+            If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
+            replaced with direct-evaluation (eps=0) for performance reasons.
+        """
+        x = self._kwargs.pop("x")
+        z = self._kwargs.pop("z")
+
+        self._ops = []
+        _r2c = lambda idx: np.stack([2 * idx, 2 * idx + 1], axis=1).reshape(-1)
+        for x_idx, z_idx in itertools.product(x_chunks, z_chunks):
+            down_idx = x_idx if self._kwargs.get("real") else _r2c(x_idx)
+            down = pycs.SubSample((self.dim,), down_idx)
+
+            _kwargs = self._kwargs.copy()
+            if len(x_idx) * len(z_idx) < direct_eval_threshold:
+                _kwargs.update(eps=0)  # force direct evaluation
+            nufft = _NUFFT3(x=x[x_idx], z=z[z_idx], **_kwargs)
+
+            up_idx = _r2c(z_idx)
+            up = pycs.SubSample((self.codim,), up_idx)
+
+            self._ops.append((down, nufft, up))
+
+        del self._kwargs  # not needed anymore
+        self._initialized = True
+
+    @pycb._wrap_if_dask
+    @pycrt.enforce_precision("arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        assert self._initialized
+        out = []
+        for (down, nufft, up) in self._ops:
+            x = down.apply(arr)
+            y = nufft.apply(x)
+            z = up.adjoint(y)
+            out.append(z)
+        out = self._tree_sum(out)
+        return out
+
+    @pycb._wrap_if_dask
+    @pycrt.enforce_precision("arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        assert self._initialized
+        out = []
+        for (down, nufft, up) in self._ops:
+            z = up.apply(arr)
+            y = nufft.adjoint(z)
+            x = down.adjoint(y)
+            out.append(x)
+        out = self._tree_sum(out)
+        return out
+
+    def auto_chunk(
+        var: str,
+        max_radius: pyct.Real = None,
+        max_pts: pyct.Integer = None,
+    ) -> cabc.Collection[np.ndarray]:
+        """
+        Auto-determine chunk indices per domain.
+
+        Use this function if you don't know how to optimally 'cut' x/z manually.
+
+        Parameters
+        ----------
+        var: str ('x' or 'z')
+            Domain to auto-chunk.
+        max_radius: pyct.Real
+            Maximum radius of the bounding box around x/z.
+            No max radius enforced if unspecified.
+        max_pts: pyct.Integer
+            Maximum number of points per bounding box around x/z.
+            No max cardinality enforced if unspecified.
+
+        Returns
+        -------
+        chunks: cabc.Collection[np.ndarray]
+            (idx[0], ..., idx[Q-1]) domain chunk specifiers.
+            `idx[k]` contains indices of domain `var` which participate in the k-th NUFFT sub-problem.
+        """
+        var = var.strip().lower()
+        assert var in {"x", "z"}
+        if radius_specified := (max_radius is not None):
+            max_radius = float(max_radius)
+            assert max_radius > 0
+        if pts_specified := (max_pts is not None):
+            max_pts = int(max_pts)
+            assert max_pts > 0
+        assert radius_specified or pts_specified
+
+        raise NotImplementedError  # todo
+
+    @classmethod
+    def _tree_sum(cls, data: cabc.Collection[pyct.NDArray]) -> pyct.NDArray:
+        # computes sum(data) via a binary tree reduction.
+        if (N := len(data)) == 1:
+            return data[0]
+        else:
+            compressed = [data[2 * i] + data[2 * i + 1] for i in range(N // 2)]
+            if N % 2 == 1:
+                compressed.append(data[-1])
+            return cls._tree_sum(compressed)
 
 
 @numba.njit(parallel=True, fastmath=True, nogil=True)
