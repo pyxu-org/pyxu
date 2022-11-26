@@ -1676,8 +1676,8 @@ class _NUFFT3_chunked(pyca.LinOp):
         raise NotImplementedError  # todo
 
     @classmethod
-    def _tree_sum(cls, data: cabc.Collection[pyct.NDArray]) -> pyct.NDArray:
-        # computes sum(data) via a binary tree reduction.
+    def _tree_sum(cls, data: cabc.Sequence[pyct.NDArray]) -> pyct.NDArray:
+        # computes (data[0] + ... + data[N-1]) via a binary tree reduction.
         if (N := len(data)) == 1:
             return data[0]
         else:
