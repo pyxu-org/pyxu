@@ -1,7 +1,6 @@
 import cmath
 import collections
 import collections.abc as cabc
-import itertools
 import types
 import typing as typ
 
@@ -1585,24 +1584,28 @@ class _NUFFT3_chunked(pyca.LinOp):
             If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
             replaced with direct-evaluation (eps=0) for performance reasons.
         """
+        x_chunks, z_chunks = map(list, (x_chunks, z_chunks))  # traversal order matters below
+        _r2c = lambda idx: np.stack([2 * idx, 2 * idx + 1], axis=1).reshape(-1)
+
+        self._down = dict()
+        for i, x_idx in enumerate(x_chunks):
+            idx = x_idx if self._kwargs.get("real") else _r2c(x_idx)
+            self._down[i] = pycs.SubSample((self.dim,), idx)
+
+        self._up = dict()
+        for j, z_idx in enumerate(z_chunks):
+            idx = _r2c(z_idx)
+            self._up[j] = pycs.SubSample((self.codim,), idx).T
+
+        self._nufft = dict()
         x = self._kwargs.pop("x")
         z = self._kwargs.pop("z")
-
-        self._ops = []
-        _r2c = lambda idx: np.stack([2 * idx, 2 * idx + 1], axis=1).reshape(-1)
-        for x_idx, z_idx in itertools.product(x_chunks, z_chunks):
-            down_idx = x_idx if self._kwargs.get("real") else _r2c(x_idx)
-            down = pycs.SubSample((self.dim,), down_idx)
-
-            _kwargs = self._kwargs.copy()
-            if len(x_idx) * len(z_idx) < direct_eval_threshold:
-                _kwargs.update(eps=0)  # force direct evaluation
-            nufft = _NUFFT3(x=x[x_idx], z=z[z_idx], **_kwargs)
-
-            up_idx = _r2c(z_idx)
-            up = pycs.SubSample((self.codim,), up_idx)
-
-            self._ops.append((down, nufft, up))
+        for i, z_idx in enumerate(z_chunks):
+            for j, x_idx in enumerate(x_chunks):
+                _kwargs = self._kwargs.copy()
+                if len(x_idx) * len(z_idx) < direct_eval_threshold:
+                    _kwargs.update(eps=0)  # force direct evaluation
+                self._nufft[i, j] = _NUFFT3(x=x[x_idx], z=z[z_idx], **_kwargs)
 
         del self._kwargs  # not needed anymore
         self._initialized = True
