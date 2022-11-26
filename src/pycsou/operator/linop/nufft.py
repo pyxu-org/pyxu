@@ -1614,26 +1614,32 @@ class _NUFFT3_chunked(pyca.LinOp):
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         assert self._initialized
-        out = []
-        for (down, nufft, up) in self._ops:
-            x = down.apply(arr)
-            y = nufft.apply(x)
-            z = up.adjoint(y)
-            out.append(z)
-        out = self._tree_sum(out)
+        outer = []
+        for i, up in self._up.items():
+            inner = []
+            for j, down in self._down.items():
+                x = down.apply(arr)
+                y = self._nufft[i, j].apply(x)
+                inner.append(y)
+            z = up.apply(self._tree_sum(inner))
+            outer.append(z)
+        out = self._tree_sum(outer)
         return out
 
     @pycb._wrap_if_dask
     @pycrt.enforce_precision("arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         assert self._initialized
-        out = []
-        for (down, nufft, up) in self._ops:
-            z = up.apply(arr)
-            y = nufft.adjoint(z)
-            x = down.adjoint(y)
-            out.append(x)
-        out = self._tree_sum(out)
+        outer = []
+        for j, down in self._down.items():
+            inner = []
+            for i, up in self._up.items():
+                z = up.adjoint(arr)
+                y = self._nufft[i, j].adjoint(z)
+                inner.append(y)
+            z = down.adjoint(self._tree_sum(inner))
+            outer.append(z)
+        out = self._tree_sum(outer)
         return out
 
     def auto_chunk(
