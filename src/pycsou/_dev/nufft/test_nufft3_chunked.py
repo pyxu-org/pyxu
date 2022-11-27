@@ -14,7 +14,7 @@ if __name__ == "__main__":
     use_dask = True
 
     rng = np.random.default_rng(0)
-    D, M, N = 3, 5000, 2000
+    D, M, N = 3, 5001, 2000
     x = np.sort(rng.normal(size=(M, D), scale=3))
     z = np.sort(rng.normal(size=(N, D), scale=5))
 
@@ -29,11 +29,8 @@ if __name__ == "__main__":
             nthreads=1,
         )
         A = nufft.NUFFT.type3(**kwargs, chunked=True)
-        # Manual chunking (for now) ------------------------------------
-        x_chunks = np.array_split(np.arange(len(kwargs.get("x"))), 5)
-        z_chunks = np.array_split(np.arange(len(kwargs.get("z"))), 6)
-        A.allocate(x_chunks, z_chunks)
-        # --------------------------------------------------------------
+        x_chunks, z_chunks = A.auto_chunk(max_mem=100, max_anisotropy=2)
+        A.allocate(x_chunks, z_chunks, direct_eval_threshold=50)
         B = nufft.NUFFT.type3(**kwargs)
 
         arr = rng.normal(size=(kwargs.get("n_trans") * 3, M))
@@ -42,6 +39,7 @@ if __name__ == "__main__":
         if use_dask:
             arr = da.array(arr)
 
+    with pycrt.Precision(pycrt.Width.SINGLE):
         t = time.time()
         A_out_fw = A.apply(pycu.view_as_real(arr))
         t_A = time.time() - t
@@ -63,7 +61,8 @@ if __name__ == "__main__":
         res_fw = (np.linalg.norm(A_out_fw - B_out_fw, axis=-1) / np.linalg.norm(B_out_fw, axis=-1)).max()
         res_bw = (np.linalg.norm(A_out_bw - B_out_bw, axis=-1) / np.linalg.norm(B_out_bw, axis=-1)).max()
         if use_dask:
-            res_fw, res_bw = pycu.compute(res_fw, res_bw)
+            ptr = client.compute([res_fw, res_bw])
+            res_fw, res_bw = client.gather(ptr)
         print()
         print(res_fw)
         print(res_bw)
