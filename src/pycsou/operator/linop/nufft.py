@@ -1681,6 +1681,63 @@ class _NUFFT3_chunked(pyca.LinOp):
 
         raise NotImplementedError  # todo
 
+    def stats(self) -> collections.namedtuple:
+        """
+        Gather internal statistics.
+
+        Returns
+        -------
+        p: namedtuple
+
+        Statistics on the NUFFT sub-blocks, with fields:
+
+        * blk_count: int
+            Number of NUFFT sub-blocks.
+        * dEval_count: int
+            Number of sub-blocks evaluated via the NUDFT.
+        * blk_fft_mem: None | dict
+            Memory consumption summary (MiB), with fields:
+
+            * min/mean/median/max: min/mean/median/max FFT memory among sub-blocks.
+            * total: FFT memory consumed by all sub-blocks.
+
+            (Note: FFT memory consumption is 2x higher than listed by `blk_fft_mem` since
+            apply/adjoint() each have their own allocated FFTs.)
+        """
+        BLOCK_STATS = collections.namedtuple(
+            "block_stats",
+            [
+                "blk_count",
+                "dEval_count",
+                "blk_fft_mem",
+            ],
+        )
+
+        _bytes = []
+        for _, nufft in self._nufft.items():
+            if not nufft._direct_eval:
+                # We don't get the FFT shape via the public interface `nufft.params()` since a
+                # warning may trigger if x/z are single-points.
+                nbytes = np.prod(nufft._fft_shape()) * nufft._x.dtype.itemsize
+                _bytes.append(nbytes)
+        _mbytes = np.array(_bytes) / 2**20
+
+        p = BLOCK_STATS(
+            blk_count=len(self._nufft),
+            dEval_count=sum(1 for v in self._nufft.values() if v._direct_eval),
+            blk_fft_mem=None
+            if (len(_mbytes) == 0)
+            else dict(
+                min=_mbytes.min(),
+                mean=_mbytes.mean(),
+                median=np.median(_mbytes),
+                max=_mbytes.max(),
+                std=_mbytes.std(),
+                total=_mbytes.sum(),
+            ),
+        )
+        return p
+
     @classmethod
     def _tree_sum(cls, data: cabc.Sequence[pyct.NDArray]) -> pyct.NDArray:
         # computes (data[0] + ... + data[N-1]) via a binary tree reduction.
