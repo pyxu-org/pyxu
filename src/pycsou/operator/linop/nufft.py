@@ -1,6 +1,7 @@
 import cmath
 import collections
 import collections.abc as cabc
+import math
 import types
 import typing as typ
 
@@ -10,6 +11,8 @@ import finufft
 import numba
 import numba.cuda
 import numpy as np
+import numpy.linalg as npl
+import scipy.optimize as sopt
 
 import pycsou.abc as pyca
 import pycsou.operator.blocks as pycb
@@ -516,8 +519,7 @@ class NUFFT(pyca.LinOp):
                #         eps=1e-6,
                #         chunked=True,
                #      )
-               # x_chunks = A.auto_chunk('x', max_radius=0.5, max_pts=None)  # Auto-chunk input
-               # z_chunks = A.auto_chunk('z', max_radius=None, max_pts=30)  # Auto-chunk input
+               # x_chunks, z_chunks = A.auto_chunk()  # Auto-chunk input
                # A.allocate(x_chunks, z_chunks)  # But [x/z]_chunks can be specified manually if preferred.
 
                # Pycsou operators only support real inputs/outputs, so we use the functions
@@ -1643,10 +1645,11 @@ class _NUFFT3_chunked(pyca.LinOp):
         return out
 
     def auto_chunk(
-        var: str,
-        max_radius: pyct.Real = None,
-        max_pts: pyct.Integer = None,
-    ) -> cabc.Collection[np.ndarray]:
+        self,
+        max_mem: pyct.Real = 100,
+        max_anisotropy: pyct.Real = 5,
+        **kwargs,
+    ) -> tuple[cabc.Collection[np.ndarray], cabc.Collection[np.ndarray],]:
         """
         Auto-determine chunk indices per domain.
 
@@ -1654,32 +1657,37 @@ class _NUFFT3_chunked(pyca.LinOp):
 
         Parameters
         ----------
-        var: str ('x' or 'z')
-            Domain to auto-chunk.
-        max_radius: pyct.Real
-            Maximum radius of the bounding box around x/z.
-            No max radius enforced if unspecified.
-        max_pts: pyct.Integer
-            Maximum number of points per bounding box around x/z.
-            No max cardinality enforced if unspecified.
+        max_mem: pyct.Real
+            Max FFT memory (MiB) allowed per sub-block. (Default = 100 MiB)
+        max_anisotropy: pyct.Real
+            Max tolerated (normalized) anisotropy ratio >= 1.
+
+            * Setting close to 1 favors cubeoid-shaped partitions of x/z space.
+            * Setting large allows x/z-partitions to be highly-rectangular.
+        kwargs: dict
+            Extra kwargs passed to _tesselate().
+            See docstring below for options.
 
         Returns
         -------
-        chunks: cabc.Collection[np.ndarray]
-            (idx[0], ..., idx[Q-1]) domain chunk specifiers.
-            `idx[k]` contains indices of domain `var` which participate in the k-th NUFFT sub-problem.
+        x_chunks: list[np.ndarray[int]]
+            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
+            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
+        z_chunks: list[np.ndarray[int]]
+            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
+            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
         """
-        var = var.strip().lower()
-        assert var in {"x", "z"}
-        if radius_specified := (max_radius is not None):
-            max_radius = float(max_radius)
-            assert max_radius > 0
-        if pts_specified := (max_pts is not None):
-            max_pts = int(max_pts)
-            assert max_pts > 0
-        assert radius_specified or pts_specified
+        max_mem = float(max_mem)
+        assert max_mem > 0
+        max_mem *= 2**20  # MiB -> B
 
-        raise NotImplementedError  # todo
+        max_anisotropy = float(max_anisotropy)
+        assert max_anisotropy >= 1
+
+        T, B = self._box_dimensions(max_mem, max_anisotropy, **self._kwargs.copy())
+        x_chunks = self._tesselate(self._kwargs.get("x"), T, **kwargs)
+        z_chunks = self._tesselate(self._kwargs.get("z"), B, **kwargs)
+        return x_chunks, z_chunks
 
     def stats(self) -> collections.namedtuple:
         """
@@ -1748,6 +1756,280 @@ class _NUFFT3_chunked(pyca.LinOp):
             if N % 2 == 1:
                 compressed.append(data[-1])
             return cls._tree_sum(compressed)
+
+    @staticmethod
+    def _box_dimensions(
+        fft_bytes: float,
+        alpha: float,
+        **kwargs,  # self._kwargs; passed here to be stateless.
+    ) -> tuple[np.ndarray, np.ndarray]:
+        r"""
+        Find X box dimensions (T_1,...,T_D) and Z box dimensions (B_1,...,B_D) such that:
+
+        * number of NUFFT sub-problems is minimized;
+        * NUFFT sub-problems limited to user-specified memory budget;
+        * box dimensions are not too rectangular, i.e. anisotropic. (Also user-specified.)
+
+        Given that
+
+            FFT_memory \approx (\prod_{k=1..D} \sigma_k T_k B_k) * (2 \pi)^{-D} * element_itemsize,
+
+        we can solve an optimization problem to find the optimal (T_k, B_k) values.
+
+
+        Mathematical Formulation
+        ------------------------
+
+        User input:
+            1. FFT_memory: max memory budget per sub-problem
+            2. alpha: max anisotropy >= 1
+
+        minimize (objective_func)
+            \prod_{k=1..D} T_k^{tot} / T_k                                               # X-domain box-count
+            *                                                                            #       \times
+            \prod_{k=1..D} B_k^{tot} / B_k                                               # Z-domain box-count
+        subject to
+            1. \prod_{k=1..D} s_k T_k B_k <= (2\pi)^{D} * FFT_memory / element_itemsize  # sub-problem memory limit
+            2. T_k <= T_k^{tot}                                                          # X-domain box size limited to X_k's spread
+            3. B_k <= B_k^{tot}                                                          # Z-domain box size limited to Z_k's spread
+            4. objective_func >= 1                                                       # at least 1 NUFFT sub-problem necessary
+            5. 1/alpha <= (T_k / T_k^{tot}) / (T_q / T_q^{tot}) <= alpha                 # X-domain box size anisotropy limited
+            6. 1/alpha <= (B_k / B_k^{tot}) / (B_q / B_q^{tot}) <= alpha                 # Z-domain box size anisotropy limited
+            7. 1/alpha <= (T_l / T_l^{tot}) / (B_m / B_m^{tot}) <= alpha                 # XZ-domain box size cross-anisotropy limited
+
+        Constraint (7) ensures (T_k, B_k) partitions the X/Z-domains uniformly. (Not including this
+        term may give rise to solutions where X/Z-domains are partitioned finely/coarsely, or not at
+        all.)
+
+        The problem above can be recast as a small LP and easily solved.
+
+
+        Mathematical Formulation (LinProg)
+        ----------------------------------
+
+        minimize
+            c^{T} x
+        subject to
+            A x <= b
+              x <= u
+        where
+            x = [ln(T_1) ... ln(T_D), ln(B_1) ... ln(B_D)] \in \bR^{2D}
+            c = [-1 ... -1]
+            u = [ln(T_1^{tot}) ... ln(T_D^{tot}), ln(B_1^{tot}) ... ln(B_D^{tot})]
+            [A | b] = [
+                    [  -c   | ln(FFT_memory/element_itemsize) + \sum_{k=1..D} ln(2 \pi / s_k)   ],  # sub-problem memory limit
+                    [  -c   | \sum_{k=1..D} ln(T_k^{tot}) + \sum_{k=1..D} ln(B_k^{tot}) ],          # at least 1 NUFFT sub-problem necessary
+               (L1) [ M1, Z | ln(alpha) + ln(T_k^{tot}) - ln(T_q^{tot})                 ],          # X-domain box size anisotropy limited (upper limit, vector form)
+               (L2) [-M1, Z | ln(alpha) - ln(T_k^{tot}) + ln(T_q^{tot})                 ],          # X-domain box size anisotropy limited (lower limit, vector form)
+               (L3) [ Z, M1 | ln(alpha) + ln(B_k^{tot}) - ln(B_q^{tot})                 ],          # Z-domain box size anisotropy limited (upper limit, vector form)
+               (L4) [ Z,-M1 | ln(alpha) - ln(B_k^{tot}) + ln(B_q^{tot})                 ],          # Z-domain box size anisotropy limited (lower limit, vector form)
+               (L5) [  M2   | ln(alpha) + ln(T_l^{tot}) - ln(B_m^{tot})                 ],          # XZ-domain box size cross-anisotropy limited (upper limit, vector form)
+               (L6) [ -M2   | ln(alpha) - ln(T_l^{tot}) + ln(B_m^{tot})                 ],          # XZ-domain box size cross-anisotropy limited (lower limit, vector form)
+            ]
+            Z = zeros(D_choose_2, D)
+            M1 = (D_choose_2, D) (M)ask containing:
+                D = 1 => drop L1..4 in [A | b]
+                D = 2 => [[ 1 -1]
+                          [-1  1]]
+                D = 3 => [[ 1 -1  0]
+                          [ 1  0 -1]
+                          [ 0  1 -1]]
+            M2 = (D^{2}, 2 D) (M)ask containing:
+                D = 1 => [1 -1]
+                D = 2 => [[ 1  0 -1  0]
+                          [ 1  0  0 -1]
+                          [ 0  1 -1  0]
+                          [ 0  1  0 -1]]
+                D = 3 => [[ 1  0  0 -1  0  0]
+                          [ 1  0  0  0 -1  0]
+                          [ 1  0  0  0  0 -1]
+                          [ 0  1  0 -1  0  0]
+                          [ 0  1  0  0 -1  0]
+                          [ 0  1  0  0  0 -1]
+                          [ 0  0  1 -1  0  0]
+                          [ 0  0  1  0 -1  0]
+                          [ 0  0  1  0  0 -1]]
+        """
+        kwargs.update(eps=0)  # no planning
+        op = _NUFFT3(**kwargs)  # to extract some parameter values
+
+        # NUFFT parameters
+        D = op._D
+        T_tot = op._x.ptp(axis=0)
+        B_tot = op._z.ptp(axis=0)
+        sigma = np.array((op._upsample_factor(),) * D)
+        c_width = pycrt.Width(op._x.dtype).complex
+        c_itemsize = c_width.value.itemsize
+
+        # (M)ask, (Z)ero and (R)ange arrays to simplify LinProg spec
+        R = np.arange(D)
+        Z = np.zeros((math.comb(D, 2), D))
+        M1 = Z.copy()
+        _k, _q = np.triu_indices(n=D, k=1)
+        for i, (__k, __q) in enumerate(zip(_k, _q)):
+            M1[i, __k] = 1
+            M1[i, __q] = -1
+        _l, _m = np.kron(R, np.ones(D, dtype=int)), np.tile(R, D)
+        M2 = np.zeros((D**2, 2 * D))
+        for i, (__l, __m) in enumerate(zip(_l, _m)):
+            M2[i, __l] = 1
+            M2[i, D + __m] = -1
+
+        # LinProg parameters
+        c = -np.ones(2 * D)  # maximize box volumes / minimize #sub-problems
+        A = np.block(
+            [
+                [-c],  # memory limit
+                [-c],  # at least 1 box
+                [M1, Z],  # T_k anisotropy upper-bound
+                [-M1, Z],  # T_k anisotropy lower-bound
+                [Z, M1],  # B_k anisotropy upper-bound
+                [Z, -M1],  # B_k anisotropy lower-bound
+                [M2],  # T_k/B_k cross-anisotropy upper-bound
+                [-M2],  # T_k/B_k cross-anisotropy lower-bound
+            ]
+        )
+        b = np.r_[
+            np.log(fft_bytes / c_itemsize) + np.log(2 * np.pi / sigma).sum(),  # memory limit
+            np.log(T_tot).sum() + np.log(B_tot).sum(),  # at least 1 box
+            np.log(alpha) + np.log(T_tot)[_k] - np.log(T_tot)[_q],  # T_k anisotropy upper-bound
+            np.log(alpha) - np.log(T_tot)[_k] + np.log(T_tot)[_q],  # T_k anisotropy lower-bound
+            np.log(alpha) + np.log(B_tot)[_k] - np.log(B_tot)[_q],  # B_k anisotropy upper-bound
+            np.log(alpha) - np.log(B_tot)[_k] + np.log(B_tot)[_q],  # B_k anisotropy lower-bound
+            np.log(alpha) + np.log(T_tot)[_l] - np.log(B_tot)[_m],  # T_k/B_k cross-anisotropy upper-bound
+            np.log(alpha) - np.log(T_tot)[_l] + np.log(B_tot)[_m],  # T_k/B_k cross-anisotropy lower-bound
+        ]
+        lb = -np.inf * np.ones(2 * D)  # T_k, B_k lower limit (None)
+        ub = np.r_[np.log(T_tot), np.log(B_tot)]  # T_k, B_k upper limit
+
+        res = sopt.linprog(
+            c=c,
+            A_ub=A,
+            b_ub=b,
+            bounds=np.stack([lb, ub], axis=1),
+            method="highs",
+        )
+        if res.success:
+            T = np.exp(res.x[:D])
+            B = np.exp(res.x[D:])
+            return T, B
+        else:
+            msg = "Auto-chunking failed given memory/anisotropy constraints."
+            raise ValueError(msg)
+
+    @staticmethod
+    def _tesselate(
+        data: np.ndarray,
+        box_dim: np.ndarray,
+        **kwargs,
+    ) -> cabc.Collection[np.ndarray]:
+        """
+        Split point-cloud into disjoint rectangular regions.
+
+        Parameters
+        ----------
+        data: np.ndarray
+            (M, D) point cloud.
+        box_dim: np.ndarray
+            (D,) box dimensions.
+        kwargs: dict
+            * diagnostic_plot: bool (only for D=2)
+                Plot data + tesselation structure.
+            * method: str
+                Algorithm used to assign data points to different chunks.
+                Supported: "border_search", "tree_search"
+
+        Returns
+        -------
+        chunks: list[np.ndarray[int]]
+            (idx[0], ..., idx[C-1]) chunk specifiers.
+            `idx[k]` contains indices of `data` which lie in the same box.
+        """
+        M, D = data.shape
+        N_box = np.ceil(data.ptp(axis=0) / box_dim).astype(int)
+        centroid = np.stack(  # (N1, ..., Nd, D)
+            np.meshgrid(
+                *[np.arange(-(n // 2), (n // 2) + 1, dtype=data.dtype) for n in N_box],
+                indexing="ij",
+            ),
+            axis=-1,
+        )
+        centroid *= box_dim
+        centroid += (data.min(axis=0) + data.max(axis=0)) / 2
+        centroid = centroid.reshape(-1, D)
+
+        method = kwargs.get("method", "border_search").lower().strip()
+        if method == "border_search":
+            idx_all, idx_seen = set(range(len(data))), set()
+            chunks, center = [], []
+            for c in centroid:
+                lb = c - box_dim / 2
+                ub = c + box_dim / 2
+                idx = np.flatnonzero(np.all((lb < data) & (data <= ub), axis=1))
+                idx = set(idx) - idx_seen  # safeguard against points on box border.
+                if len(idx) > 0:
+                    idx_seen |= idx
+                    idx_all -= idx
+                    chunks.append(idx)
+                    center.append(c)
+            centroid = np.array(center, dtype=centroid.dtype)
+            if len(idx_all) > 0:
+                # Some points were not placed due to rounding errors.
+                # Allocate them to the nearest centroid.
+                idx_all = list(idx_all)
+                idx = npl.norm(
+                    data[idx_all].reshape(-1, 1, D) - centroid.reshape(1, -1, D),
+                    axis=-1,
+                ).argmin(axis=1)
+                for _idx_centroid, _idx_data in zip(idx, idx_all):
+                    chunks[_idx_centroid].add(_idx_data)
+            chunks = [np.array(list(_), dtype=int) for _ in chunks]
+        elif method == "tree_search":
+            # define `chunks` and `centroid`
+            raise NotImplementedError
+        else:
+            raise ValueError(f"unknown method '{method}'.")
+
+        if kwargs.get("diagnostic_plot", False):
+            assert D == 2, "diagnostic_plot only supported for 2D data."
+
+            try:
+                import matplotlib.patches as mpl_p
+                import matplotlib.pyplot as plt
+            except:
+                raise ImportError("This method requires matplotlib to be installed.")
+
+            fig, ax = plt.subplots()
+            ax.plot(
+                data[:, 0],
+                data[:, 1],
+                "x",
+                color="b",
+                label="data",
+            )
+            ax.plot(
+                centroid[:, 0],
+                centroid[:, 1],
+                ".",
+                color="r",
+                label="chunk centroid",
+            )
+            for c in centroid:
+                rect = mpl_p.Rectangle(
+                    xy=c - box_dim / 2,
+                    width=box_dim[0],
+                    height=box_dim[1],
+                    fill=False,
+                    edgecolor="g",
+                    facecolor=None,
+                    alpha=1,
+                )
+                ax.add_patch(rect)
+            ax.axis("equal")
+            ax.legend()
+            fig.show()
+
+        return chunks
 
 
 @numba.njit(parallel=True, fastmath=True, nogil=True)
