@@ -1726,7 +1726,7 @@ class _NUFFT3_chunked(pyca.LinOp):
             if not nufft._direct_eval:
                 # We don't get the FFT shape via the public interface `nufft.params()` since a
                 # warning may trigger if x/z are single-points.
-                nbytes = np.prod(nufft._fft_shape()) * nufft._x.dtype.itemsize
+                nbytes = np.prod(nufft._fft_shape()) * (2 * nufft._x.dtype.itemsize)
                 _bytes.append(nbytes)
         _mbytes = np.array(_bytes) / 2**20
 
