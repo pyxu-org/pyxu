@@ -1605,32 +1605,27 @@ class _NUFFT3_chunked(pyca.LinOp):
                 idx = np.stack([2 * idx_spec, 2 * idx_spec + 1], axis=1).reshape(-1)
             return idx
 
-        def _len(idx_spec):
-            if isinstance(idx_spec, slice):
-                l = idx_spec.stop - idx_spec.start
-            else:
-                l = len(idx_spec)
-            return l
-
         self._down = dict()
-        for i, x_idx in enumerate(x_chunks):
+        for j, x_idx in enumerate(x_chunks):
             idx = x_idx if self._kwargs.get("real") else _r2c(x_idx)
-            self._down[i] = pycs.SubSample((self.dim,), idx)
+            self._down[j] = pycs.SubSample((self.dim,), idx)
 
         self._up = dict()
-        for j, z_idx in enumerate(z_chunks):
+        for i, z_idx in enumerate(z_chunks):
             idx = _r2c(z_idx)
-            self._up[j] = pycs.SubSample((self.codim,), idx).T
+            self._up[i] = pycs.SubSample((self.codim,), idx).T
 
         self._nufft = dict()
         x = self._kwargs.pop("x")
+        x = {j: x[x_idx] for (j, x_idx) in enumerate(x_chunks)}
         z = self._kwargs.pop("z")
-        for i, z_idx in enumerate(z_chunks):
-            for j, x_idx in enumerate(x_chunks):
+        z = {i: z[z_idx] for (i, z_idx) in enumerate(z_chunks)}
+        for i, _z in z.items():
+            for j, _x in x.items():
                 _kwargs = self._kwargs.copy()
-                if _len(x_idx) * _len(z_idx) < direct_eval_threshold:
+                if len(_x) * len(_z) < direct_eval_threshold:
                     _kwargs.update(eps=0)  # force direct evaluation
-                self._nufft[i, j] = _NUFFT3(x=x[x_idx], z=z[z_idx], **_kwargs)
+                self._nufft[i, j] = _NUFFT3(x=_x, z=_z, **_kwargs)
         del self._kwargs  # not needed anymore
         self._initialized = True
 
