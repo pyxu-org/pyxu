@@ -1961,16 +1961,22 @@ class _NUFFT3_chunked(pyca.LinOp):
             `idx[k]` contains indices of `data` which lie in the same box.
         """
         M, D = data.shape
-        N_box = np.ceil(data.ptp(axis=0) / box_dim).astype(int)
-        centroid = np.stack(  # (N1, ..., Nd, D)
-            np.meshgrid(
-                *[np.arange(-(n // 2), (n // 2) + 1, dtype=data.dtype) for n in N_box],
-                indexing="ij",
-            ),
-            axis=-1,
-        )
+        data_min = data.min(axis=0)
+        data_max = data.max(axis=0)
+        data_spread = data_max - data_min
+        N_box = np.ceil(data_spread / box_dim).astype(int)
+        box_dim = data_spread / N_box
+
+        range_spec = []
+        for n in N_box:
+            is_odd = n % 2 == 1
+            lb, ub = -(n // 2), n // 2 + (1 if is_odd else 0)
+            offset = 0 if is_odd else 1 / 2
+            s = np.arange(lb, ub, dtype=data.dtype) + offset
+            range_spec.append(s)
+        centroid = np.stack(np.meshgrid(*range_spec, indexing="ij"), axis=-1)  # (N1, ..., Nd, D)
         centroid *= box_dim
-        centroid += (data.min(axis=0) + data.max(axis=0)) / 2
+        centroid += (data_min + data_max) / 2
         centroid = centroid.reshape(-1, D)
 
         method = kwargs.get("method", "border_search").lower().strip()
