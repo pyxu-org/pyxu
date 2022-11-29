@@ -1772,7 +1772,9 @@ class _NUFFT3_chunked(pyca.LinOp):
 
         Given that
 
-            FFT_memory \approx (\prod_{k=1..D} \sigma_k T_k B_k) * (2 \pi)^{-D} * element_itemsize,
+            FFT_memory / (element_itemsize * N_transform)
+            \approx
+            \prod_{k=1..D} (\sigma_k T_k B_k) / (2 \pi),
 
         we can solve an optimization problem to find the optimal (T_k, B_k) values.
 
@@ -1785,17 +1787,17 @@ class _NUFFT3_chunked(pyca.LinOp):
             2. alpha: max anisotropy >= 1
 
         minimize (objective_func)
-            \prod_{k=1..D} T_k^{tot} / T_k                                               # X-domain box-count
-            *                                                                            #       \times
-            \prod_{k=1..D} B_k^{tot} / B_k                                               # Z-domain box-count
+            \prod_{k=1..D} T_k^{tot} / T_k                                                    # X-domain box-count
+            *                                                                                 #       \times
+            \prod_{k=1..D} B_k^{tot} / B_k                                                    # Z-domain box-count
         subject to
-            1. \prod_{k=1..D} s_k T_k B_k <= (2\pi)^{D} * FFT_memory / element_itemsize  # sub-problem memory limit
-            2. T_k <= T_k^{tot}                                                          # X-domain box size limited to X_k's spread
-            3. B_k <= B_k^{tot}                                                          # Z-domain box size limited to Z_k's spread
-            4. objective_func >= 1                                                       # at least 1 NUFFT sub-problem necessary
-            5. 1/alpha <= (T_k / T_k^{tot}) / (T_q / T_q^{tot}) <= alpha                 # X-domain box size anisotropy limited
-            6. 1/alpha <= (B_k / B_k^{tot}) / (B_q / B_q^{tot}) <= alpha                 # Z-domain box size anisotropy limited
-            7. 1/alpha <= (T_l / T_l^{tot}) / (B_m / B_m^{tot}) <= alpha                 # XZ-domain box size cross-anisotropy limited
+            1. \prod_{k=1..D} s_k T_k B_k <= FFT_mem / (elem_size * N_trans) * (2 \pi)^{D}    # sub-problem memory limit
+            2. T_k <= T_k^{tot}                                                               # X-domain box size limited to X_k's spread
+            3. B_k <= B_k^{tot}                                                               # Z-domain box size limited to Z_k's spread
+            4. objective_func >= 1                                                            # at least 1 NUFFT sub-problem necessary
+            5. 1/alpha <= (T_k / T_k^{tot}) / (T_q / T_q^{tot}) <= alpha                      # X-domain box size anisotropy limited
+            6. 1/alpha <= (B_k / B_k^{tot}) / (B_q / B_q^{tot}) <= alpha                      # Z-domain box size anisotropy limited
+            7. 1/alpha <= (T_l / T_l^{tot}) / (B_m / B_m^{tot}) <= alpha                      # XZ-domain box size cross-anisotropy limited
 
         Constraint (7) ensures (T_k, B_k) partitions the X/Z-domains uniformly. (Not including this
         term may give rise to solutions where X/Z-domains are partitioned finely/coarsely, or not at
@@ -1817,14 +1819,14 @@ class _NUFFT3_chunked(pyca.LinOp):
             c = [-1 ... -1]
             u = [ln(T_1^{tot}) ... ln(T_D^{tot}), ln(B_1^{tot}) ... ln(B_D^{tot})]
             [A | b] = [
-                    [  -c   | ln(FFT_memory/element_itemsize) + \sum_{k=1..D} ln(2 \pi / s_k)   ],  # sub-problem memory limit
-                    [  -c   | \sum_{k=1..D} ln(T_k^{tot}) + \sum_{k=1..D} ln(B_k^{tot}) ],          # at least 1 NUFFT sub-problem necessary
-               (L1) [ M1, Z | ln(alpha) + ln(T_k^{tot}) - ln(T_q^{tot})                 ],          # X-domain box size anisotropy limited (upper limit, vector form)
-               (L2) [-M1, Z | ln(alpha) - ln(T_k^{tot}) + ln(T_q^{tot})                 ],          # X-domain box size anisotropy limited (lower limit, vector form)
-               (L3) [ Z, M1 | ln(alpha) + ln(B_k^{tot}) - ln(B_q^{tot})                 ],          # Z-domain box size anisotropy limited (upper limit, vector form)
-               (L4) [ Z,-M1 | ln(alpha) - ln(B_k^{tot}) + ln(B_q^{tot})                 ],          # Z-domain box size anisotropy limited (lower limit, vector form)
-               (L5) [  M2   | ln(alpha) + ln(T_l^{tot}) - ln(B_m^{tot})                 ],          # XZ-domain box size cross-anisotropy limited (upper limit, vector form)
-               (L6) [ -M2   | ln(alpha) - ln(T_l^{tot}) + ln(B_m^{tot})                 ],          # XZ-domain box size cross-anisotropy limited (lower limit, vector form)
+                    [  -c   | ln(FFT_mem / (elem_size * N_trans)) + \sum_{k=1..D} ln(2 \pi / s_k) ],  # sub-problem memory limit
+                    [  -c   | \sum_{k=1..D} ln(T_k^{tot}) + \sum_{k=1..D} ln(B_k^{tot})           ],  # at least 1 NUFFT sub-problem necessary
+               (L1) [ M1, Z | ln(alpha) + ln(T_k^{tot}) - ln(T_q^{tot})                           ],  # X-domain box size anisotropy limited (upper limit, vector form)
+               (L2) [-M1, Z | ln(alpha) - ln(T_k^{tot}) + ln(T_q^{tot})                           ],  # X-domain box size anisotropy limited (lower limit, vector form)
+               (L3) [ Z, M1 | ln(alpha) + ln(B_k^{tot}) - ln(B_q^{tot})                           ],  # Z-domain box size anisotropy limited (upper limit, vector form)
+               (L4) [ Z,-M1 | ln(alpha) - ln(B_k^{tot}) + ln(B_q^{tot})                           ],  # Z-domain box size anisotropy limited (lower limit, vector form)
+               (L5) [  M2   | ln(alpha) + ln(T_l^{tot}) - ln(B_m^{tot})                           ],  # XZ-domain box size cross-anisotropy limited (upper limit, vector form)
+               (L6) [ -M2   | ln(alpha) - ln(T_l^{tot}) + ln(B_m^{tot})                           ],  # XZ-domain box size cross-anisotropy limited (lower limit, vector form)
             ]
             Z = zeros(D_choose_2, D)
             M1 = (D_choose_2, D) (M)ask containing:
@@ -1860,6 +1862,7 @@ class _NUFFT3_chunked(pyca.LinOp):
         sigma = np.array((op._upsample_factor(),) * D)
         c_width = pycrt.Width(op._x.dtype).complex
         c_itemsize = c_width.value.itemsize
+        n_trans = op._n * 2  # 2x since fw/bw allocate their own FFT memory.
 
         # (M)ask, (Z)ero and (R)ange arrays to simplify LinProg spec
         R = np.arange(D)
@@ -1890,7 +1893,7 @@ class _NUFFT3_chunked(pyca.LinOp):
             ]
         )
         b = np.r_[
-            np.log(fft_bytes / c_itemsize) + np.log(2 * np.pi / sigma).sum(),  # memory limit
+            np.log(fft_bytes / (c_itemsize * n_trans)) + np.log(2 * np.pi / sigma).sum(),  # memory limit
             np.log(T_tot).sum() + np.log(B_tot).sum(),  # at least 1 box
             np.log(alpha) + np.log(T_tot)[_k] - np.log(T_tot)[_q],  # T_k anisotropy upper-bound
             np.log(alpha) - np.log(T_tot)[_k] + np.log(T_tot)[_q],  # T_k anisotropy lower-bound
