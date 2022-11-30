@@ -2041,7 +2041,7 @@ class _NUFFT3_chunked(pyca.LinOp):
         data: np.ndarray,
         box_dim: np.ndarray,
         **kwargs,
-    ) -> cabc.Collection[typ.Union[np.ndarray, slice]]:
+    ) -> cabc.Collection[np.ndarray]:
         """
         Split point-cloud into disjoint rectangular regions.
 
@@ -2110,15 +2110,7 @@ class _NUFFT3_chunked(pyca.LinOp):
                 ).argmin(axis=1)
                 for _idx_centroid, _idx_data in zip(idx, idx_all):
                     chunks[_idx_centroid].add(_idx_data)
-
-            # choose between slice/array
-            chunks = [sorted(_) for _ in chunks]
-            for i, c in enumerate(chunks):
-                lb, ub = c[0], c[-1]
-                if len(c) == (ub - lb + 1):
-                    chunks[i] = slice(lb, ub + 1)
-                else:
-                    chunks[i] = np.array(c, dtype=int)
+            chunks = [np.array(list(_), dtype=int) for _ in chunks]
         elif method == "tree_search":
             # define `chunks` and `centroid`
             raise NotImplementedError
