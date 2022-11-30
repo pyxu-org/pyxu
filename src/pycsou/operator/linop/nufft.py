@@ -1736,8 +1736,8 @@ class _NUFFT3_chunked(pyca.LinOp):
 
     def allocate(
         self,
-        x_chunks: cabc.Collection[typ.Union[np.ndarray, slice]],
-        z_chunks: cabc.Collection[typ.Union[np.ndarray, slice]],
+        x_chunks: cabc.Collection[np.ndarray],
+        z_chunks: cabc.Collection[np.ndarray],
         direct_eval_threshold: pyct.Integer = 0,
     ):
         """
@@ -1745,10 +1745,10 @@ class _NUFFT3_chunked(pyca.LinOp):
 
         Parameters
         ----------
-        x_chunks: list[np.ndarray[int] | slice]
+        x_chunks: list[np.ndarray[int]]
             (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
             `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
-        z_chunks: list[np.ndarray[int] | slice]
+        z_chunks: list[np.ndarray[int]]
             (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
             `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
         direct_eval_threshold: int
