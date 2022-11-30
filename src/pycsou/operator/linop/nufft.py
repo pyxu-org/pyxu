@@ -1782,13 +1782,15 @@ class _NUFFT3_chunked(pyca.LinOp):
         * dEval_count: int
             Number of sub-blocks evaluated via the NUDFT.
         * blk_fft_mem: None | dict
-            Memory consumption summary (MiB), with fields:
+            FFT memory consumption summary (MiB), with fields:
 
             * min/mean/median/max: min/mean/median/max FFT memory among sub-blocks.
             * total: FFT memory consumed by all sub-blocks.
+        * blk_aux_mem: dict
+            (AUX)iliary memory consumption summary (MiB), with fields:
 
-            (Note: FFT memory consumption is 2x higher than listed by `blk_fft_mem` since
-            apply/adjoint() each have their own allocated FFTs.)
+            * min/mean/median/max: min/mean/median/max AUX memory among sub-blocks.
+            * total: AUX memory consumed by all sub-blocks.
         """
         BLOCK_STATS = collections.namedtuple(
             "block_stats",
@@ -1796,30 +1798,45 @@ class _NUFFT3_chunked(pyca.LinOp):
                 "blk_count",
                 "dEval_count",
                 "blk_fft_mem",
+                "blk_aux_mem",
             ],
         )
 
-        _bytes = []
+        _fft_bytes = []
         for _, nufft in self._nufft.items():
             if not nufft._direct_eval:
                 # We don't get the FFT shape via the public interface `nufft.params()` since a
                 # warning may trigger if x/z are single-points.
                 nbytes = np.prod(nufft._fft_shape()) * (2 * nufft._x.dtype.itemsize)
-                _bytes.append(nbytes)
-        _mbytes = np.array(_bytes) / 2**20
+                _fft_bytes.append(nbytes)
+        _fft_mbytes = np.array(_fft_bytes) / 2**20
+
+        _aux_bytes = []
+        for _, nufft in self._nufft.items():
+            nbytes = nufft._x.nbytes + nufft._z.nbytes
+            _aux_bytes.append(nbytes)
+        _aux_mbytes = np.array(_aux_bytes) / 2**20
 
         p = BLOCK_STATS(
             blk_count=len(self._nufft),
             dEval_count=sum(1 for v in self._nufft.values() if v._direct_eval),
             blk_fft_mem=None
-            if (len(_mbytes) == 0)
+            if (len(_fft_mbytes) == 0)
             else dict(
-                min=_mbytes.min(),
-                mean=_mbytes.mean(),
-                median=np.median(_mbytes),
-                max=_mbytes.max(),
-                std=_mbytes.std(),
-                total=_mbytes.sum(),
+                min=_fft_mbytes.min(),
+                mean=_fft_mbytes.mean(),
+                median=np.median(_fft_mbytes),
+                max=_fft_mbytes.max(),
+                std=_fft_mbytes.std(),
+                total=_fft_mbytes.sum(),
+            ),
+            blk_aux_mem=dict(
+                min=_aux_mbytes.min(),
+                mean=_aux_mbytes.mean(),
+                median=np.median(_aux_mbytes),
+                max=_aux_mbytes.max(),
+                std=_aux_mbytes.std(),
+                total=_aux_mbytes.sum(),
             ),
         )
         return p
