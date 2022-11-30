@@ -1657,60 +1657,6 @@ class _NUFFT3_chunked(pyca.LinOp):
         )
         raise NotImplementedError(msg)
 
-    def allocate(
-        self,
-        x_chunks: cabc.Collection[typ.Union[np.ndarray, slice]],
-        z_chunks: cabc.Collection[typ.Union[np.ndarray, slice]],
-        direct_eval_threshold: pyct.Integer = 0,
-    ):
-        """
-        Allocate NUFFT sub-problems based on chunk specification.
-
-        Parameters
-        ----------
-        x_chunks: list[np.ndarray[int] | slice]
-            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
-            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
-        z_chunks: list[np.ndarray[int] | slice]
-            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
-            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
-        direct_eval_threshold: int
-            If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
-            replaced with direct-evaluation (eps=0) for performance reasons.
-        """
-        x_chunks, z_chunks = map(list, (x_chunks, z_chunks))  # traversal order matters below
-
-        def _r2c(idx_spec):
-            if isinstance(idx_spec, slice):
-                idx = slice(2 * idx_spec.start, 2 * idx_spec.stop)
-            else:
-                idx = np.stack([2 * idx_spec, 2 * idx_spec + 1], axis=1).reshape(-1)
-            return idx
-
-        self._down = dict()
-        for j, x_idx in enumerate(x_chunks):
-            idx = x_idx if self._kwargs.get("real") else _r2c(x_idx)
-            self._down[j] = pycs.SubSample((self.dim,), idx)
-
-        self._up = dict()
-        for i, z_idx in enumerate(z_chunks):
-            idx = _r2c(z_idx)
-            self._up[i] = pycs.SubSample((self.codim,), idx).T
-
-        self._nufft = dict()
-        x = self._kwargs.pop("x")
-        x = {j: x[x_idx] for (j, x_idx) in enumerate(x_chunks)}
-        z = self._kwargs.pop("z")
-        z = {i: z[z_idx] for (i, z_idx) in enumerate(z_chunks)}
-        for i, _z in z.items():
-            for j, _x in x.items():
-                _kwargs = self._kwargs.copy()
-                if len(_x) * len(_z) < direct_eval_threshold:
-                    _kwargs.update(eps=0)  # force direct evaluation
-                self._nufft[i, j] = _NUFFT3(x=_x, z=_z, **_kwargs)
-        del self._kwargs  # not needed anymore
-        self._initialized = True
-
     @pycb._wrap_if_dask
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1787,6 +1733,60 @@ class _NUFFT3_chunked(pyca.LinOp):
         x_chunks = self._tesselate(self._kwargs.get("x"), T, **kwargs)
         z_chunks = self._tesselate(self._kwargs.get("z"), B, **kwargs)
         return x_chunks, z_chunks
+
+    def allocate(
+        self,
+        x_chunks: cabc.Collection[typ.Union[np.ndarray, slice]],
+        z_chunks: cabc.Collection[typ.Union[np.ndarray, slice]],
+        direct_eval_threshold: pyct.Integer = 0,
+    ):
+        """
+        Allocate NUFFT sub-problems based on chunk specification.
+
+        Parameters
+        ----------
+        x_chunks: list[np.ndarray[int] | slice]
+            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
+            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
+        z_chunks: list[np.ndarray[int] | slice]
+            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
+            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
+        direct_eval_threshold: int
+            If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
+            replaced with direct-evaluation (eps=0) for performance reasons.
+        """
+        x_chunks, z_chunks = map(list, (x_chunks, z_chunks))  # traversal order matters below
+
+        def _r2c(idx_spec):
+            if isinstance(idx_spec, slice):
+                idx = slice(2 * idx_spec.start, 2 * idx_spec.stop)
+            else:
+                idx = np.stack([2 * idx_spec, 2 * idx_spec + 1], axis=1).reshape(-1)
+            return idx
+
+        self._down = dict()
+        for j, x_idx in enumerate(x_chunks):
+            idx = x_idx if self._kwargs.get("real") else _r2c(x_idx)
+            self._down[j] = pycs.SubSample((self.dim,), idx)
+
+        self._up = dict()
+        for i, z_idx in enumerate(z_chunks):
+            idx = _r2c(z_idx)
+            self._up[i] = pycs.SubSample((self.codim,), idx).T
+
+        self._nufft = dict()
+        x = self._kwargs.pop("x")
+        x = {j: x[x_idx] for (j, x_idx) in enumerate(x_chunks)}
+        z = self._kwargs.pop("z")
+        z = {i: z[z_idx] for (i, z_idx) in enumerate(z_chunks)}
+        for i, _z in z.items():
+            for j, _x in x.items():
+                _kwargs = self._kwargs.copy()
+                if len(_x) * len(_z) < direct_eval_threshold:
+                    _kwargs.update(eps=0)  # force direct evaluation
+                self._nufft[i, j] = _NUFFT3(x=_x, z=_z, **_kwargs)
+        del self._kwargs  # not needed anymore
+        self._initialized = True
 
     def stats(self) -> collections.namedtuple:
         """
