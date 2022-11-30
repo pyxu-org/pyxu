@@ -259,6 +259,8 @@ class NUFFT(pyca.LinOp):
         isign: SignT = sign_default,
         eps: pyct.Real = eps_default,
         real: bool = False,
+        plan_fw: bool = True,
+        plan_bw: bool = True,
         **kwargs,
     ) -> pyct.OpT:
         r"""
@@ -284,6 +286,13 @@ class NUFFT(pyca.LinOp):
 
             If ``False``, then ``.apply()`` takes (..., 2M) inputs, i.e. :math:`\mathbb{C}^{M}`
             vectors viewed as bijections with :math:`\mathbb{R}^{2M}`.
+        plan_fw/bw: bool
+            If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw)
+            transform.
+            These are advanced options: use them with care.
+            Some public methods in the :py:class:`~pycsou.abc.operator.LinOp` interface may not work
+            if fw/bw transforms are disabled.
+            These options only take effect if ``eps > 0``.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
@@ -334,6 +343,8 @@ class NUFFT(pyca.LinOp):
             eps=eps,
             real_in=real,
             real_out=False,
+            plan_fw=plan_fw,
+            plan_bw=plan_bw,
             **kwargs,
         )
         return _NUFFT1(**init_kwargs).squeeze()
@@ -346,6 +357,8 @@ class NUFFT(pyca.LinOp):
         isign: SignT = sign_default,
         eps: pyct.Real = eps_default,
         real: bool = False,
+        plan_fw: bool = True,
+        plan_bw: bool = True,
         **kwargs,
     ) -> pyct.OpT:
         r"""
@@ -371,6 +384,13 @@ class NUFFT(pyca.LinOp):
 
             If ``False``, then ``.apply()`` takes (..., 2N.prod()) inputs, i.e. :math:`\mathbb{C}^{N}`
             vectors viewed as bijections with :math:`\mathbb{R}^{2N}`.
+        plan_fw/bw: bool
+            If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw)
+            transform.
+            These are advanced options: use them with care.
+            Some public methods in the :py:class:`~pycsou.abc.operator.LinOp` interface may not work
+            if fw/bw transforms are disabled.
+            These options only take effect if ``eps > 0``.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
@@ -425,6 +445,8 @@ class NUFFT(pyca.LinOp):
             eps=eps,
             real_in=False,
             real_out=real,
+            plan_fw=plan_bw,  # note the reversal
+            plan_bw=plan_fw,  # here
             **kwargs,
         )
         op_t1 = _NUFFT1(**init_kwargs)
@@ -452,6 +474,8 @@ class NUFFT(pyca.LinOp):
         isign: SignT = sign_default,
         eps: pyct.Real = eps_default,
         real: bool = False,
+        plan_fw: bool = True,
+        plan_bw: bool = True,
         chunked: bool = False,
         **kwargs,
     ) -> pyct.OpT:
@@ -476,6 +500,13 @@ class NUFFT(pyca.LinOp):
 
             If ``False``, then ``.apply()`` takes (..., 2M) inputs, i.e. :math:`\mathbb{C}^{M}`
             vectors viewed as bijections with :math:`\mathbb{R}^{2M}`.
+        plan_fw/bw: bool
+            If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw)
+            transform.
+            These are advanced options: use them with care.
+            Some public methods in the :py:class:`~pycsou.abc.operator.LinOp` interface may not work
+            if fw/bw transforms are disabled.
+            These options only take effect if ``eps > 0``.
         chunked: bool
             If ``True``, the transform is performed in small chunks.
         **kwargs
@@ -536,6 +567,8 @@ class NUFFT(pyca.LinOp):
             isign=isign,
             eps=eps,
             real=real,
+            plan_fw=plan_fw,
+            plan_bw=plan_bw,
             **kwargs,
         )
 
@@ -1064,15 +1097,16 @@ class _NUFFT1(NUFFT):
         self._real_in = kwargs.pop("real_in")
         self._real_out = kwargs.pop("real_out")
         self._upsampfac = kwargs.get("upsampfac")
+        self._n = kwargs.get("n_trans", 1)
         if self._direct_eval:
             self._plan = None
-            self._n = kwargs.get("n_trans", 1)
         else:
+            _pfw = kwargs.pop("plan_fw")
+            _pbw = kwargs.pop("plan_bw")
             self._plan = dict(
-                fw=self._plan_fw(**kwargs),
-                bw=self._plan_bw(**kwargs),
+                fw=self._plan_fw(**kwargs) if _pfw else None,
+                bw=self._plan_bw(**kwargs) if _pbw else None,
             )
-            self._n = self._plan["fw"].n_trans
 
         sh_op = [2 * np.prod(self._N), 2 * self._M]
         sh_op[0] //= 2 if self._real_out else 1
@@ -1091,6 +1125,8 @@ class _NUFFT1(NUFFT):
         kwargs["eps"] = float(kwargs["eps"])
         kwargs["real_in"] = bool(kwargs["real_in"])
         kwargs["real_out"] = bool(kwargs["real_out"])
+        kwargs["plan_fw"] = bool(kwargs["plan_fw"])
+        kwargs["plan_bw"] = bool(kwargs["plan_bw"])
         if (D := x.shape[-1]) == len(N):
             pass
         elif len(N) == 1:
@@ -1330,16 +1366,16 @@ class _NUFFT3(NUFFT):
         self._direct_eval = not (self._eps > 0)
         self._real = kwargs.pop("real")
         self._upsampfac = kwargs.get("upsampfac")
+        self._n = kwargs.get("n_trans", 1)
         if self._direct_eval:
             self._plan = None
-            self._n = kwargs.get("n_trans", 1)
         else:
+            _pfw = kwargs.pop("plan_fw")
+            _pbw = kwargs.pop("plan_bw")
             self._plan = dict(
-                fw=self._plan_fw(**kwargs),
-                bw=self._plan_bw(**kwargs),
+                fw=self._plan_fw(**kwargs) if _pfw else None,
+                bw=self._plan_bw(**kwargs) if _pbw else None,
             )
-            self._n = self._plan["fw"].n_trans
-
         sh_op = [2 * self._N, 2 * self._M]
         sh_op[1] //= 2 if self._real else 1
         super().__init__(shape=sh_op)
@@ -1357,6 +1393,8 @@ class _NUFFT3(NUFFT):
         kwargs["isign"] = int(np.sign(kwargs["isign"]))
         kwargs["eps"] = float(kwargs["eps"])
         kwargs["real"] = bool(kwargs["real"])
+        kwargs["plan_fw"] = bool(kwargs["plan_fw"])
+        kwargs["plan_bw"] = bool(kwargs["plan_bw"])
         return kwargs
 
     @staticmethod
