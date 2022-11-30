@@ -1623,6 +1623,9 @@ class _NUFFT3(NUFFT):
 
 
 class _NUFFT3_chunked(pyca.LinOp):
+    # We do not subclass NUFFT or _NUFFT3 directly since mesh(), plot_kernel(), params(), etc. don't
+    # make sense here.
+
     def __init__(self, **kwargs):
         eps = kwargs.get("eps")
         kwargs.update(eps=0)  # to skip planning
@@ -1631,10 +1634,28 @@ class _NUFFT3_chunked(pyca.LinOp):
 
         super().__init__(shape=op.shape)
         self._lipschitz = op._lipschitz
+        self._dtype = kwargs.get("x").dtype
 
         self._kwargs = kwargs  # buffered until allocate() called.
         self._parallel = True  # for _wrap_if_dask()
         self._initialized = False
+
+    def lipschitz(self, **kwargs) -> pyct.Real:  # See NUFFT.lipschitz() for more context
+        return NUFFT.lipschitz(self, **kwargs)
+
+    def to_sciop(self, **kwargs):  # See NUFFT.to_sciop() for more context
+        kwargs.update(dtype=self._dtype)  # silently drop user-provided `dtype`
+        op = pyca.LinOp.to_sciop(self, **kwargs)
+        return op
+
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        msg = "\n".join(
+            [
+                "Efficient implementation of .asarray() requires significant auxiliary storage at scale.",
+                "Call NUFFT.type3().asarray() manually if needed.",
+            ]
+        )
+        raise NotImplementedError(msg)
 
     def allocate(
         self,
