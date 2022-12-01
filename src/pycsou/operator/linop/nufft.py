@@ -1692,7 +1692,7 @@ class _NUFFT3_chunked(pyca.LinOp):
 
     def auto_chunk(
         self,
-        max_mem: pyct.Real = 100,
+        max_mem: pyct.Real = 10,
         max_anisotropy: pyct.Real = 5,
     ) -> tuple[cabc.Collection[np.ndarray], cabc.Collection[np.ndarray],]:
         """
@@ -1703,7 +1703,7 @@ class _NUFFT3_chunked(pyca.LinOp):
         Parameters
         ----------
         max_mem: pyct.Real
-            Max FFT memory (MiB) allowed per sub-block. (Default = 100 MiB)
+            Max FFT memory (MiB) allowed per sub-block. (Default = 10 MiB)
         max_anisotropy: pyct.Real
             Max tolerated (normalized) anisotropy ratio >= 1.
 
