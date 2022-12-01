@@ -13,6 +13,7 @@ import numba.cuda
 import numpy as np
 import numpy.linalg as npl
 import scipy.optimize as sopt
+import scipy.spatial as spl
 
 import pycsou.abc as pyca
 import pycsou.operator.blocks as pycb
@@ -2054,9 +2055,6 @@ class _NUFFT3_chunked(pyca.LinOp):
         kwargs: dict
             * diagnostic_plot: bool (only for D=2)
                 Plot data + tesselation structure.
-            * method: str
-                Algorithm used to assign data points to different chunks.
-                Supported: "border_search", "tree_search"
 
         Returns
         -------
@@ -2065,12 +2063,28 @@ class _NUFFT3_chunked(pyca.LinOp):
             `idx[k]` contains indices of `data` which lie in the same box.
         """
         M, D = data.shape
+
+        # Center data-points around origin
+        data = data.copy()
         data_min = data.min(axis=0)
         data_max = data.max(axis=0)
+        data -= (data_min + data_max) / 2
+
+        # Compute optimal box_[dim, count]
         data_spread = data_max - data_min
         N_box = np.ceil(data_spread / box_dim).astype(int)
         box_dim = data_spread / N_box
 
+        # Rescale data to have equal spread in each dimension.
+        # Reason: KDTree only accepts scalar-valued radii.
+        scale = box_dim
+        data /= scale
+        data_min /= scale
+        data_max /= scale
+        data_spread /= scale
+        box_dim = np.ones_like(box_dim)
+
+        # Compute gridded centroids
         range_spec = []
         for n in N_box:
             is_odd = n % 2 == 1
@@ -2078,44 +2092,60 @@ class _NUFFT3_chunked(pyca.LinOp):
             offset = 0 if is_odd else 1 / 2
             s = np.arange(lb, ub, dtype=data.dtype) + offset
             range_spec.append(s)
-        centroid = np.stack(np.meshgrid(*range_spec, indexing="ij"), axis=-1)  # (N1, ..., Nd, D)
-        centroid *= box_dim
-        centroid += (data_min + data_max) / 2
-        centroid = centroid.reshape(-1, D)
+        centroid = np.meshgrid(*range_spec, indexing="ij")
+        centroid = np.stack(centroid, axis=-1).reshape(-1, D)
 
-        method = kwargs.get("method", "border_search").lower().strip()
-        if method == "border_search":
-            idx_all, idx_seen = set(range(len(data))), set()
-            chunks, center = [], []
-            for c in centroid:
-                lb = c - box_dim / 2
-                ub = c + box_dim / 2
-                idx = np.flatnonzero(np.all((lb < data) & (data <= ub), axis=1))
-                idx = set(idx) - idx_seen  # safeguard against points on box border.
-                if len(idx) > 0:
-                    idx_seen |= idx
-                    idx_all -= idx
-                    chunks.append(idx)
-                    center.append(c)
-            centroid = np.array(center, dtype=centroid.dtype)
+        # Allocate data points to gridded centroids
+        c_tree = spl.KDTree(centroid)  # centroid_tree
+        dist, c_idx = c_tree.query(
+            data,
+            k=1,
+            eps=1e-2,  # approximate NN-search for speed
+            p=np.inf,  # L-infinity norm
+        )
+        idx = np.argsort(c_idx)
+        count = collections.Counter(c_idx[idx])  # sort + count occurence
+        chunks, start = [], 0
+        for c_idx, step in sorted(count.items()):
+            chk = idx[start : start + step]
+            chunks.append(chk)
+            start += step
+        centroid = centroid[sorted(count.keys())]
 
-            # Boundary effect correction
-            if len(idx_all) > 0:
-                # Some points were not placed due to rounding errors.
-                # Allocate them to the nearest centroid.
-                idx_all = list(idx_all)
-                idx = npl.norm(
-                    data[idx_all].reshape(-1, 1, D) - centroid.reshape(1, -1, D),
-                    axis=-1,
-                ).argmin(axis=1)
-                for _idx_centroid, _idx_data in zip(idx, idx_all):
-                    chunks[_idx_centroid].add(_idx_data)
-            chunks = [np.array(list(_), dtype=int) for _ in chunks]
-        elif method == "tree_search":
-            # define `chunks` and `centroid`
-            raise NotImplementedError
-        else:
-            raise ValueError(f"unknown method '{method}'.")
+        # Compute true centroids + tight box boundaries seen by FINUFFT
+        tbox_dim = np.zeros((len(centroid), D))  # tight box_dim(s)
+        for i in range(len(centroid)):
+            _data = data[chunks[i]]
+            _data_min = _data.min(axis=0)
+            _data_max = _data.max(axis=0)
+            centroid[i] = (_data_min + _data_max) / 2
+            tbox_dim[i] = _data_max - _data_min
+
+        # Fuse chunks which are closely-spaced & small-enough
+        fuse_chunks = True
+        while fuse_chunks:
+            c_tree = spl.KDTree(centroid)  # centroid_tree
+            candidates = c_tree.query_pairs(r=box_dim[0] / 2, p=np.inf)
+            if len(candidates) > 0:
+                _i, _j = candidates.pop()
+
+                c_spacing = np.abs(centroid[_i] - centroid[_j])
+                offset = (tbox_dim[_i] + tbox_dim[_j]) / 2
+                if np.all(c_spacing + offset < box_dim):  # points are close enough
+                    chunks[_i] = np.r_[chunks[_i], chunks[_j]]
+                    chunks.pop(_j)
+
+                    _data = data[chunks[_i]]
+                    _data_min = _data.min(axis=0)
+                    _data_max = _data.max(axis=0)
+
+                    centroid[_i] = (_data_min + _data_max) / 2
+                    centroid = np.delete(centroid, _j, axis=0)
+
+                    tbox_dim[_i] = _data_max - _data_min
+                    tbox_dim = np.delete(tbox_dim, _j, axis=0)
+            else:
+                fuse_chunks = False
 
         if kwargs.get("diagnostic_plot", False):
             assert D == 2, "diagnostic_plot only supported for 2D data."
