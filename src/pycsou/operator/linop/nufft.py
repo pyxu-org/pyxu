@@ -2127,33 +2127,58 @@ class _NUFFT3_chunked(pyca.LinOp):
                 raise ImportError("This method requires matplotlib to be installed.")
 
             fig, ax = plt.subplots()
-            ax.plot(
+            data_pts = ax.plot(  # data points
                 data[:, 0],
                 data[:, 1],
-                "x",
+                "1",  # small triangle
                 color="b",
                 label="data",
             )
-            ax.plot(
+            centroid_pts = ax.plot(  # cluster centroids
                 centroid[:, 0],
                 centroid[:, 1],
-                ".",
+                "s",  # square
                 color="r",
                 label="chunk centroid",
             )
-            for c in centroid:
+            for c in centroid:  # box_dim-sized rectangle around centroids.
                 rect = mpl_p.Rectangle(
                     xy=c - box_dim / 2,
                     width=box_dim[0],
                     height=box_dim[1],
-                    fill=False,
+                    fill=True,
                     edgecolor="g",
-                    facecolor=None,
-                    alpha=1,
+                    facecolor="g",
+                    alpha=0.5,
+                    label="centroid box",
                 )
                 ax.add_patch(rect)
+                centroid_rect = rect  # ref to populate the legend
+            for idx in chunks:  # actual box-sizes seen by FINUFFT.
+                _pts = data[idx]
+                corner = _pts.min(axis=0)
+                w, h = _pts.ptp(axis=0)
+                rect = mpl_p.Rectangle(
+                    xy=corner,
+                    width=w,
+                    height=h,
+                    fill=True,
+                    edgecolor="r",
+                    facecolor="r",
+                    alpha=0.5,
+                    label="data box",
+                )
+                ax.add_patch(rect)
+                data_rect = rect  # ref to populate the legend
             ax.axis("equal")
-            ax.legend()
+            ax.legend(
+                handles=[
+                    *data_pts,
+                    *centroid_pts,
+                    centroid_rect,
+                    data_rect,
+                ]
+            )
             fig.show()
 
         return chunks
