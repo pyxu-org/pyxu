@@ -1623,40 +1623,22 @@ class _NUFFT3(NUFFT):
         return h_width, center
 
 
-class _NUFFT3_chunked(pyca.LinOp):
-    # We do not subclass NUFFT or _NUFFT3 directly since mesh(), plot_kernel(), params(), etc. don't
-    # make sense here.
+class _NUFFT3_chunked(_NUFFT3):
+    # params() in this context returns equivalent parameters of one single huge NUFFT3 block.
 
     def __init__(self, **kwargs):
-        eps = kwargs.get("eps")
-        kwargs.update(eps=0)  # to skip planning
-        op = _NUFFT3(**kwargs)
-        kwargs.update(eps=eps)
+        pfw, pbw = kwargs["plan_fw"], kwargs["plan_bw"]
+        kwargs.update(plan_fw=False, plan_bw=False)  # don't plan a huge NUFFT
+        super().__init__(**kwargs)
+        kwargs.update(plan_fw=pfw, plan_bw=pbw)
 
-        super().__init__(shape=op.shape)
-        self._lipschitz = op._lipschitz
-        self._dtype = kwargs.get("x").dtype
+        self._kwargs = kwargs.copy()  # extra FINUFFT planning args
+        for k in ["x", "z"]:
+            self._kwargs.pop(k, None)
 
-        self._kwargs = kwargs  # buffered until allocate() called.
+        self._disable_unsupported_methods()
         self._parallel = True  # for _wrap_if_dask()
         self._initialized = False
-
-    def lipschitz(self, **kwargs) -> pyct.Real:  # See NUFFT.lipschitz() for more context
-        return NUFFT.lipschitz(self, **kwargs)
-
-    def to_sciop(self, **kwargs):  # See NUFFT.to_sciop() for more context
-        kwargs.update(dtype=self._dtype)  # silently drop user-provided `dtype`
-        op = pyca.LinOp.to_sciop(self, **kwargs)
-        return op
-
-    def asarray(self, **kwargs) -> pyct.NDArray:
-        msg = "\n".join(
-            [
-                "Efficient implementation of .asarray() requires significant auxiliary storage at scale.",
-                "Call NUFFT.type3().asarray() manually if needed.",
-            ]
-        )
-        raise NotImplementedError(msg)
 
     @pycb._wrap_if_dask
     @pycrt.enforce_precision("arr")
@@ -1726,9 +1708,9 @@ class _NUFFT3_chunked(pyca.LinOp):
         max_anisotropy = float(max_anisotropy)
         assert max_anisotropy >= 1
 
-        T, B = self._box_dimensions(max_mem, max_anisotropy, **self._kwargs.copy())
-        x_chunks = self._tesselate(self._kwargs.get("x"), T)
-        z_chunks = self._tesselate(self._kwargs.get("z"), B)
+        T, B = self._box_dimensions(max_mem, max_anisotropy)
+        x_chunks = self._tesselate(self._x, T)
+        z_chunks = self._tesselate(self._z, B)
         return x_chunks, z_chunks
 
     def allocate(
@@ -1763,7 +1745,7 @@ class _NUFFT3_chunked(pyca.LinOp):
 
         self._down = dict()
         for j, x_idx in enumerate(x_chunks):
-            idx = x_idx if self._kwargs.get("real") else _r2c(x_idx)
+            idx = x_idx if self._real else _r2c(x_idx)
             self._down[j] = pycs.SubSample((self.dim,), idx)
 
         self._up = dict()
@@ -1772,17 +1754,15 @@ class _NUFFT3_chunked(pyca.LinOp):
             self._up[i] = pycs.SubSample((self.codim,), idx).T
 
         self._nufft = dict()
-        x = self._kwargs.pop("x")
-        x = {j: x[x_idx] for (j, x_idx) in enumerate(x_chunks)}
-        z = self._kwargs.pop("z")
-        z = {i: z[z_idx] for (i, z_idx) in enumerate(z_chunks)}
+        x = {j: self._x[x_idx] for (j, x_idx) in enumerate(x_chunks)}
+        z = {i: self._z[z_idx] for (i, z_idx) in enumerate(z_chunks)}
         for i, _z in z.items():
             for j, _x in x.items():
                 _kwargs = self._kwargs.copy()
                 if len(_x) * len(_z) < direct_eval_threshold:
                     _kwargs.update(eps=0)  # force direct evaluation
                 self._nufft[i, j] = _NUFFT3(x=_x, z=_z, **_kwargs)
-        del self._kwargs  # not needed anymore
+
         self._initialized = True
 
     def stats(self) -> collections.namedtuple:
@@ -1859,6 +1839,21 @@ class _NUFFT3_chunked(pyca.LinOp):
         )
         return p
 
+    def _disable_unsupported_methods(self):
+        # Despite being a child-class of _NUFFT3, some methods are not supported because they don't
+        # make sense in the chunked context.
+        # This method overrides problematic methods to avoid erroneous use.
+        def unsupported(_, **kwargs):
+            raise NotImplementedError
+
+        unsupported_fields = [
+            "mesh",
+            "plot_kernel",
+        ]
+        for f in unsupported_fields:
+            override = types.MethodType(unsupported, self)
+            setattr(self, f, override)
+
     @classmethod
     def _tree_sum(cls, data: cabc.Sequence[pyct.NDArray]) -> pyct.NDArray:
         # computes (data[0] + ... + data[N-1]) via a binary tree reduction.
@@ -1870,19 +1865,23 @@ class _NUFFT3_chunked(pyca.LinOp):
                 compressed.append(data[-1])
             return cls._tree_sum(compressed)
 
-    @staticmethod
-    def _box_dimensions(
-        fft_bytes: float,
-        alpha: float,
-        **kwargs,  # self._kwargs; passed here to be stateless.
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def _box_dimensions(self, fft_bytes: float, alpha: float) -> tuple[np.ndarray, np.ndarray]:
         r"""
         Find X box dimensions (T_1,...,T_D) and Z box dimensions (B_1,...,B_D) such that:
 
         * number of NUFFT sub-problems is minimized;
         * NUFFT sub-problems limited to user-specified memory budget;
-        * box dimensions are not too rectangular, i.e. anisotropic. (Also user-specified.)
+        * box dimensions are not too rectangular, i.e. anisotropic.
 
+        Parameters
+        ----------
+        fft_bytes: pyct.Real
+            Max FFT memory (B) allowed per sub-block.
+        alpha: pyct.Real
+            Max tolerated (normalized) anisotropy ratio >= 1.
+
+        Notes
+        -----
         Given that
 
             FFT_memory / (element_itemsize * N_transform)
@@ -1965,17 +1964,14 @@ class _NUFFT3_chunked(pyca.LinOp):
                           [ 0  0  1  0 -1  0]
                           [ 0  0  1  0  0 -1]]
         """
-        kwargs.update(eps=0)  # no planning
-        op = _NUFFT3(**kwargs)  # to extract some parameter values
-
         # NUFFT parameters
-        D = op._D
-        T_tot = op._x.ptp(axis=0)
-        B_tot = op._z.ptp(axis=0)
-        sigma = np.array((op._upsample_factor(),) * D)
-        c_width = pycrt.Width(op._x.dtype).complex
+        D = self._D
+        T_tot = self._x.ptp(axis=0)
+        B_tot = self._z.ptp(axis=0)
+        sigma = np.array((self._upsample_factor(),) * D)
+        c_width = pycrt.Width(self._x.dtype).complex
         c_itemsize = c_width.value.itemsize
-        n_trans = op._n * 2  # 2x since fw/bw allocate their own FFT memory.
+        n_trans = self._n
 
         # (M)ask, (Z)ero and (R)ange arrays to simplify LinProg spec
         R = np.arange(D)
@@ -2033,11 +2029,7 @@ class _NUFFT3_chunked(pyca.LinOp):
             msg = "Auto-chunking failed given memory/anisotropy constraints."
             raise ValueError(msg)
 
-    @staticmethod
-    def _tesselate(
-        data: np.ndarray,
-        box_dim: np.ndarray,
-    ) -> cabc.Collection[np.ndarray]:
+    def _tesselate(self, data: np.ndarray, box_dim: np.ndarray) -> cabc.Collection[np.ndarray]:
         """
         Split point-cloud into disjoint rectangular regions.
 
