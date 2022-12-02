@@ -1020,7 +1020,7 @@ class NUFFT(pyca.LinOp):
                 4: 2.38,
             }.get(w, 2.30)
         else:  # 1.25
-            gamma = 0.97
+            gamma = 0.976
             scale = gamma * np.pi * (1 - (0.5 / u))
         beta = float(scale * w)
         return beta
@@ -1224,16 +1224,26 @@ class _NUFFT1(NUFFT):
         upsampled = kwargs.get("upsampled", False)
 
         N = self._fft_shape() if upsampled else self._N
-        grid = xp.stack(  # (N1, ..., Nd, D)
-            xp.meshgrid(
-                *[xp.arange(-(n // 2), (n - 1) // 2 + 1, dtype=dtype) for n in N],
-                indexing="ij",
-            ),
-            axis=-1,
-        )
-        if scale == "source":
-            s = xp.array(2 * np.pi / np.array(N), dtype=dtype)
-            grid *= s
+        if scale == "unit":
+            grid = xp.stack(  # (N1, ..., Nd, D)
+                xp.meshgrid(
+                    *[xp.arange(-(n // 2), (n - 1) // 2 + 1, dtype=dtype) for n in N],
+                    indexing="ij",
+                ),
+                axis=-1,
+            )
+        elif (
+            scale == "source"
+        ):  # As per eq. 3.12, the source grid is of the form: 2*pi*l/n, l=0,...,n-1, that is n points over [0, 2* pi[ (or [-pi, pi[ if shifted by pi).
+            grid = xp.stack(  # (N1, ..., Nd, D)
+                xp.meshgrid(
+                    *[xp.linspace(-np.pi, np.pi, num=n, endpoint=False, dtype=dtype) for n in N],
+                    indexing="ij",
+                ),
+                axis=-1,
+            )
+        else:
+            raise NotImplementedError
         return grid
 
     def asarray(self, **kwargs) -> pyct.NDArray:
