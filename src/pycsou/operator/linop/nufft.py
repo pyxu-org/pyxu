@@ -842,7 +842,7 @@ class NUFFT(pyca.LinOp):
         upsampled: bool = False,
     ) -> pyct.NDArray:
         r"""
-        For type1/2 NUFFT: compute the transform's meshgrid
+        For type-1/2 NUFFT: compute the transform's meshgrid
         :math:`\mathcal{I}_{N_{1} \times \cdots \times N_{d}}
         =
         \mathcal{I}_{N_{1}} \times \cdots \times \mathcal{I}_{N_{d}}`.
@@ -859,14 +859,14 @@ class NUFFT(pyca.LinOp):
             Grid scale. Options are:
 
             - **Type1 and 2:**
-                * ``unit``, i.e. :math:`\mathcal{I} \in [[-N_{d}//2, \ldots, N_{d}//2 + 1]]^{d}`
-                * ``source``, i.e. :math:`\mathcal{I} \in [-\pi, \pi)^{d}`
+                * ``unit``, i.e. :math:`\mathcal{I} = [[-N_{d}//2, \ldots, (N_{d}-1)//2 + 1))^{d}`
+                * ``source``, i.e. :math:`\mathcal{I} \subset [-\pi, \pi)^{d}`
             - **Type 3:**
-                * ``unit``, i.e. :math:`\mathcal{I} \in [[-N_{d}//2, \ldots, N_{d}//2 + 1]]^{d}`
-                * ``source``, i.e. :math:`\mathcal{I}_{\text{source}} \in x_{d}^{c} + [-X_{d}, X_{d})^{d}`
-                * ``target``, i.e. :math:`\mathcal{I}_{\text{target}} \in z_{d}^{c} + [-Z_{d}, Z_{d})^{d}`,
-                  where :math:`x^{c}`, :math:`z^{c}` denote the data centroids, and :math:`X`,
-                  :math:`Z` the data half-widths.
+                * ``unit``, i.e. :math:`\mathcal{I} = [[-N_{d}//2, \ldots, (N_{d}-1)//2 + 1))^{d}`
+                * ``source``, i.e. :math:`\mathcal{I}_{\text{source}} \subset x^{c} + [-X_{d}, X_{d})^{d}`
+                * ``target``, i.e. :math:`\mathcal{I}_{\text{target}} \subset z^{c} + [-Z_{d}, Z_{d})^{d}`,
+              where :math:`x^{c}`, :math:`z^{c}` denote the source/target centroids, and :math:`X`,
+              :math:`Z` the source/target half-widths.
         upsampled: bool
             Use the upsampled meshgrid.
             (See [FINUFFT]_ for details.)
@@ -1289,7 +1289,7 @@ class _NUFFT1(NUFFT):
         shape = []
         for n in self._N:
             target = max(int(u * n), 2 * w)
-            n_opt = pycu.next_fast_len(target, even=True)
+            n_opt = pycu.next_fast_len(target, even=True)  # Why even? Not specified in the paper, comes from the code?
             shape.append(n_opt)
         return tuple(shape)
 
@@ -1473,13 +1473,13 @@ class _NUFFT3(NUFFT):
         else:
             grid = _NUFFT1.mesh(self, scale="source", **kwargs)
             f = lambda _: xp.array(_, dtype=dtype)
-            if scale == "source":
+            if scale == "source":  # Sect 3.3 Step 1., the sources are rescaled to lie on [-pi, pi[
                 s = f(self._dilation_factor())
                 grid *= s
                 _, center = self.__shift_coords(self._x)
             else:  # target
                 s = f(self._dilation_factor()) / f(self._fft_shape())
-                s *= f(2 * np.pi * self._upsample_factor())
+                s *= f(2 * np.pi)
                 grid /= s
                 _, center = self.__shift_coords(self._z)
             grid += f(center)
@@ -1518,7 +1518,7 @@ class _NUFFT3(NUFFT):
         S, _ = self.__shift_coords(self._z)  # (D,)
         shape = []
         for d in range(self._D):
-            n = (2 * u * max(1, X[d] * S[d]) / np.pi) + (w + 1)
+            n = (2 * u * max(1, X[d] * S[d]) / np.pi) + w
             target = max(int(n), 2 * w)
             n_opt = pycu.next_fast_len(target, even=True)
             shape.append(n_opt)
