@@ -1694,7 +1694,6 @@ class _NUFFT3_chunked(pyca.LinOp):
         self,
         max_mem: pyct.Real = 100,
         max_anisotropy: pyct.Real = 5,
-        **kwargs,
     ) -> tuple[cabc.Collection[np.ndarray], cabc.Collection[np.ndarray],]:
         """
         Auto-determine chunk indices per domain.
@@ -1710,9 +1709,6 @@ class _NUFFT3_chunked(pyca.LinOp):
 
             * Setting close to 1 favors cubeoid-shaped partitions of x/z space.
             * Setting large allows x/z-partitions to be highly-rectangular.
-        kwargs: dict
-            Extra kwargs passed to _tesselate().
-            See docstring below for options.
 
         Returns
         -------
@@ -1731,8 +1727,8 @@ class _NUFFT3_chunked(pyca.LinOp):
         assert max_anisotropy >= 1
 
         T, B = self._box_dimensions(max_mem, max_anisotropy, **self._kwargs.copy())
-        x_chunks = self._tesselate(self._kwargs.get("x"), T, **kwargs)
-        z_chunks = self._tesselate(self._kwargs.get("z"), B, **kwargs)
+        x_chunks = self._tesselate(self._kwargs.get("x"), T)
+        z_chunks = self._tesselate(self._kwargs.get("z"), B)
         return x_chunks, z_chunks
 
     def allocate(
@@ -2041,7 +2037,6 @@ class _NUFFT3_chunked(pyca.LinOp):
     def _tesselate(
         data: np.ndarray,
         box_dim: np.ndarray,
-        **kwargs,
     ) -> cabc.Collection[np.ndarray]:
         """
         Split point-cloud into disjoint rectangular regions.
@@ -2052,9 +2047,6 @@ class _NUFFT3_chunked(pyca.LinOp):
             (M, D) point cloud.
         box_dim: np.ndarray
             (D,) box dimensions.
-        kwargs: dict
-            * diagnostic_plot: bool (only for D=2)
-                Plot data + tesselation structure.
 
         Returns
         -------
@@ -2147,31 +2139,60 @@ class _NUFFT3_chunked(pyca.LinOp):
             else:
                 fuse_chunks = False
 
-        if kwargs.get("diagnostic_plot", False):
-            assert D == 2, "diagnostic_plot only supported for 2D data."
+        return chunks
 
-            try:
-                import matplotlib.patches as mpl_p
-                import matplotlib.pyplot as plt
-            except:
-                raise ImportError("This method requires matplotlib to be installed.")
+    @staticmethod
+    def _diagnostic_plot(
+        data: np.ndarray,
+        box_dim: np.ndarray,
+        chunks: cabc.Collection[np.ndarray],
+    ):
+        """
+        Plot data + tesselation structure for diagnostic purposes.
 
-            fig, ax = plt.subplots()
-            data_pts = ax.plot(  # data points
-                data[:, 0],
-                data[:, 1],
+        Parameters
+        ----------
+        data: np.ndarray
+            (M, D) point cloud
+        box_dim: np.ndarray
+            (D,) box dimensions.
+        chunks: list[np.ndarray[int]]
+            (idx[0], ..., idx[C-1]) chunk specifiers.
+            `idx[k]` contains indices of `data` which lie in the same box.
+
+        Returns
+        -------
+        fig: plt.Figure
+            Diagnostic plot.
+        """
+        try:
+            import matplotlib.patches as mpl_p
+            import matplotlib.pyplot as plt
+        except:
+            raise ImportError("This method requires matplotlib to be installed.")
+
+        def _plot(
+            points,  # (N, 2) data points
+            center,  # (N_c, 2) cluster centroids
+            tbox_dim,  # (N_c, 2) tight-box dimensions around centroids
+            box_dim,  # (2,)  coarse-box dimension around centroids
+            ax,
+        ):
+            data_pts = ax.plot(
+                points[:, 0],
+                points[:, 1],
                 "1",  # small triangle
                 color="b",
                 label="data",
             )
-            centroid_pts = ax.plot(  # cluster centroids
-                centroid[:, 0],
-                centroid[:, 1],
+            centroid_pts = ax.plot(
+                center[:, 0],
+                center[:, 1],
                 "s",  # square
                 color="r",
                 label="chunk centroid",
             )
-            for c in centroid:  # box_dim-sized rectangle around centroids.
+            for _tbox, c in zip(tbox_dim, center):
                 rect = mpl_p.Rectangle(
                     xy=c - box_dim / 2,
                     width=box_dim[0],
@@ -2184,14 +2205,11 @@ class _NUFFT3_chunked(pyca.LinOp):
                 )
                 ax.add_patch(rect)
                 centroid_rect = rect  # ref to populate the legend
-            for idx in chunks:  # actual box-sizes seen by FINUFFT.
-                _pts = data[idx]
-                corner = _pts.min(axis=0)
-                w, h = _pts.ptp(axis=0)
+
                 rect = mpl_p.Rectangle(
-                    xy=corner,
-                    width=w,
-                    height=h,
+                    xy=c - _tbox / 2,
+                    width=_tbox[0],
+                    height=_tbox[1],
                     fill=True,
                     edgecolor="r",
                     facecolor="r",
@@ -2200,6 +2218,7 @@ class _NUFFT3_chunked(pyca.LinOp):
                 )
                 ax.add_patch(rect)
                 data_rect = rect  # ref to populate the legend
+
             ax.axis("equal")
             ax.legend(
                 handles=[
@@ -2207,11 +2226,61 @@ class _NUFFT3_chunked(pyca.LinOp):
                     *centroid_pts,
                     centroid_rect,
                     data_rect,
-                ]
+                ],
+                loc="upper right",
             )
-            fig.show()
 
-        return chunks
+        M, D = data.shape
+        N_chk = len(chunks)
+
+        # Compute chunk centroids & tight-box_dims
+        centroid, tbox_dim = np.zeros((2, N_chk, D))
+        for i, chk in enumerate(chunks):
+            _data = data[chk]
+            _data_min = _data.min(axis=0)
+            _data_max = _data.max(axis=0)
+            centroid[i] = (_data_min + _data_max) / 2
+            tbox_dim[i] = _data_max - _data_min
+
+        fig = plt.figure()
+        if D == 1:
+            # embed in 2D and read the diagonal
+            ax = fig.add_subplot(1, 1, 1)
+            trans = lambda _: np.stack([_, _], axis=-1)
+            _plot(
+                points=trans(data[:, 0]),
+                center=trans(centroid[:, 0]),
+                tbox_dim=trans(tbox_dim[:, 0]),
+                box_dim=trans(box_dim)[0],
+                ax=ax,
+            )
+            ax.set_title("data/chunk distribution (XY-plane)")
+        elif D == 2:
+            ax = fig.add_subplot(1, 1, 1)
+            _plot(
+                points=data,
+                center=centroid,
+                tbox_dim=tbox_dim,
+                box_dim=box_dim,
+                ax=ax,
+            )
+            ax.set_title("data/chunk distribution (XY-plane)")
+        else:  # D == 3
+            for i, idx, title in [
+                (0, [0, 1], "data/chunk distribution (XY-plane)"),
+                (1, [0, 2], "data/chunk distribution (XZ-plane)"),
+                (2, [1, 2], "data/chunk distribution (YZ-plane)"),
+            ]:
+                ax = fig.add_subplot(1, 3, i + 1)
+                _plot(
+                    points=data[:, idx],
+                    center=centroid[:, idx],
+                    tbox_dim=tbox_dim[:, idx],
+                    box_dim=box_dim[idx],
+                    ax=ax,
+                )
+                ax.set_title(title)
+        return fig
 
 
 @numba.njit(parallel=True, fastmath=True, nogil=True)
