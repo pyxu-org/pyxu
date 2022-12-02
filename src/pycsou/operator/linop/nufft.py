@@ -1476,12 +1476,12 @@ class _NUFFT3(NUFFT):
             if scale == "source":  # Sect 3.3 Step 1., the sources are rescaled to lie on [-pi, pi[
                 s = f(self._dilation_factor())
                 grid *= s
-                _, center = self.__shift_coords(self._x)
+                _, center = self._shift_coords(self._x)
             else:  # target
                 s = f(self._dilation_factor()) / f(self._fft_shape())
                 s *= f(2 * np.pi)
                 grid /= s
-                _, center = self.__shift_coords(self._z)
+                _, center = self._shift_coords(self._z)
             grid += f(center)
         return grid
 
@@ -1514,8 +1514,8 @@ class _NUFFT3(NUFFT):
         #     eq 3.23
         u = self._upsample_factor()
         w = self._kernel_width()
-        X, _ = self.__shift_coords(self._x)  # (D,)
-        S, _ = self.__shift_coords(self._z)  # (D,)
+        X, _ = self._shift_coords(self._x)  # (D,)
+        S, _ = self._shift_coords(self._z)  # (D,)
         shape = []
         for d in range(self._D):
             n = (2 * u * max(1, X[d] * S[d]) / np.pi) + w
@@ -1531,12 +1531,12 @@ class _NUFFT3(NUFFT):
         #     eq 3.23
         u = self._upsample_factor()
         N = self._fft_shape()
-        S, _ = self.__shift_coords(self._z)  # (D,)
+        S, _ = self._shift_coords(self._z)  # (D,)
         gamma = [n / (2 * u * s) for (n, s) in zip(N, S)]
         return tuple(gamma)
 
     @staticmethod
-    def __shift_coords(pts: pyct.NDArray) -> pyct.NDArray:
+    def _shift_coords(pts: pyct.NDArray) -> pyct.NDArray:
         # https://github.com/flatironinstitute/finufft/
         #     ./src/utils.cpp::arraywidcen()
         #     ./include/finufft/defs.h
