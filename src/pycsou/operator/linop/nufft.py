@@ -995,10 +995,13 @@ class NUFFT(pyca.LinOp):
         #     sect 4.2
         u = self._upsample_factor()
         if np.isclose(u, 2):
-            w = np.ceil(-np.log10(self._eps) + 1)
+            w = np.ceil(-np.log10(self._eps)) + 1
         else:  # 1.25
-            scale = np.pi * np.sqrt(1 - (1 / u))
-            w = np.ceil(-np.log(self._eps) / scale)
+            gamma = 0.976  # gamma=1 would simplify things but gives worse typical error as explained in sect 4.2
+            scale = np.pi * gamma * np.sqrt(1 - (1 / u) - ((1 / gamma) ** 2 - 1) / (4 * u**2))
+            w = (
+                np.ceil(-np.log(self._eps) / scale) + 1
+            )  # cst is not specified in sect. 4.2 so I'm putting the same as for u==2?
         w = max(2, int(w))
         return w
 
