@@ -1,6 +1,7 @@
 import cmath
 import collections
 import collections.abc as cabc
+import itertools
 import math
 import types
 import typing as typ
@@ -1632,13 +1633,18 @@ class _NUFFT3_chunked(_NUFFT3):
         super().__init__(**kwargs)
         kwargs.update(plan_fw=pfw, plan_bw=pbw)
 
-        self._kwargs = kwargs.copy()  # extra FINUFFT planning args
+        # extra FINUFFT planning args
+        self._kwargs = kwargs.copy()
         for k in ["x", "z"]:
             self._kwargs.pop(k, None)
 
         self._disable_unsupported_methods()
         self._parallel = True  # for _wrap_if_dask()
+
+        # variables set by allocate()
         self._initialized = False
+        for attr in ["_up", "_down", "_nufft", "_dEval_threshold"]:
+            setattr(self, attr, None)
 
     @pycb._wrap_if_dask
     @pycrt.enforce_precision("arr")
@@ -1754,12 +1760,13 @@ class _NUFFT3_chunked(_NUFFT3):
             self._up[i] = pycs.SubSample((self.codim,), idx).T
 
         self._nufft = dict()
+        self._dEval_threshold = int(direct_eval_threshold)
         x = {j: self._x[x_idx] for (j, x_idx) in enumerate(x_chunks)}
         z = {i: self._z[z_idx] for (i, z_idx) in enumerate(z_chunks)}
         for i, _z in z.items():
             for j, _x in x.items():
                 _kwargs = self._kwargs.copy()
-                if len(_x) * len(_z) < direct_eval_threshold:
+                if len(_x) * len(_z) < self._dEval_threshold:
                     _kwargs.update(eps=0)  # force direct evaluation
                 self._nufft[i, j] = _NUFFT3(x=_x, z=_z, **_kwargs)
 
@@ -1779,64 +1786,21 @@ class _NUFFT3_chunked(_NUFFT3):
             Number of NUFFT sub-blocks.
         * dEval_count: int
             Number of sub-blocks evaluated via the NUDFT.
-        * blk_fft_mem: None | dict
-            FFT memory consumption summary (MiB), with fields:
-
-            * min/mean/median/max: min/mean/median/max FFT memory among sub-blocks.
-            * total: FFT memory consumed by all sub-blocks.
-        * blk_aux_mem: dict
-            (AUX)iliary memory consumption summary (MiB), with fields:
-
-            * min/mean/median/max: min/mean/median/max AUX memory among sub-blocks.
-            * total: AUX memory consumed by all sub-blocks.
         """
         BLOCK_STATS = collections.namedtuple(
             "block_stats",
             [
                 "blk_count",
                 "dEval_count",
-                "blk_fft_mem",
-                "blk_aux_mem",
             ],
         )
 
-        _fft_bytes = []
-        for _, nufft in self._nufft.items():
-            if not nufft._direct_eval:
-                # We don't get the FFT shape via the public interface `nufft.params()` since a
-                # warning may trigger if x/z are single-points.
-                nbytes = np.prod(nufft._fft_shape()) * (2 * nufft._x.dtype.itemsize)
-                _fft_bytes.append(nbytes)
-        _fft_mbytes = np.array(_fft_bytes) / 2**20
+        N_up = [u.dim // 2 for u in self._up.values()]
+        N_down = [d.codim // (1 if self._real else 2) for d in self._down.values()]
+        blk_count = len(N_up) * len(N_down)
+        dEval = sum(1 for (u, d) in itertools.product(N_up, N_down) if (u * d) <= self._dEval_threshold)
 
-        _aux_bytes = []
-        for _, nufft in self._nufft.items():
-            nbytes = nufft._x.nbytes + nufft._z.nbytes
-            _aux_bytes.append(nbytes)
-        _aux_mbytes = np.array(_aux_bytes) / 2**20
-
-        p = BLOCK_STATS(
-            blk_count=len(self._nufft),
-            dEval_count=sum(1 for v in self._nufft.values() if v._direct_eval),
-            blk_fft_mem=None
-            if (len(_fft_mbytes) == 0)
-            else dict(
-                min=_fft_mbytes.min(),
-                mean=_fft_mbytes.mean(),
-                median=np.median(_fft_mbytes),
-                max=_fft_mbytes.max(),
-                std=_fft_mbytes.std(),
-                total=_fft_mbytes.sum(),
-            ),
-            blk_aux_mem=dict(
-                min=_aux_mbytes.min(),
-                mean=_aux_mbytes.mean(),
-                median=np.median(_aux_mbytes),
-                max=_aux_mbytes.max(),
-                std=_aux_mbytes.std(),
-                total=_aux_mbytes.sum(),
-            ),
-        )
+        p = BLOCK_STATS(blk_count=blk_count, dEval_count=dEval)
         return p
 
     def _disable_unsupported_methods(self):
