@@ -995,13 +995,10 @@ class NUFFT(pyca.LinOp):
         #     sect 4.2
         u = self._upsample_factor()
         if np.isclose(u, 2):
-            w = np.ceil(-np.log10(self._eps)) + 1
-        else:  # 1.25
-            gamma = 0.976  # gamma=1 would simplify things but gives worse typical error as explained in sect 4.2
-            scale = np.pi * gamma * np.sqrt(1 - (1 / u) - ((1 / gamma) ** 2 - 1) / (4 * u**2))
-            w = (
-                np.ceil(-np.log(self._eps) / scale) + 1
-            )  # cst is not specified in sect. 4.2 so I'm putting the same as for u==2?
+            w = np.ceil(-np.log10(self._eps) + 1)
+        else:  # 1.25 Consistent with setup_spreader() but not sect 4.2 (safety factor gamma=1 instead of 0.976)
+            scale = np.pi * np.sqrt(1 - (1 / u))
+            w = np.ceil(-np.log(self._eps) / scale)
         w = max(2, int(w))
         return w
 
@@ -1020,7 +1017,7 @@ class NUFFT(pyca.LinOp):
                 4: 2.38,
             }.get(w, 2.30)
         else:  # 1.25
-            gamma = 0.976
+            gamma = 0.97  # 0.976 in paper
             scale = gamma * np.pi * (1 - (0.5 / u))
         beta = float(scale * w)
         return beta
@@ -1479,7 +1476,7 @@ class _NUFFT3(NUFFT):
                 _, center = self._shift_coords(self._x)
             else:  # target
                 s = f(self._dilation_factor()) / f(self._fft_shape())
-                s *= f(2 * np.pi)
+                s *= f(2 * np.pi * self._upsample_factor())
                 grid /= s
                 _, center = self._shift_coords(self._z)
             grid += f(center)
@@ -1518,7 +1515,7 @@ class _NUFFT3(NUFFT):
         S, _ = self._shift_coords(self._z)  # (D,)
         shape = []
         for d in range(self._D):
-            n = (2 * u * max(1, X[d] * S[d]) / np.pi) + w
+            n = (2 * u * max(1, X[d] * S[d]) / np.pi) + (w + 1)
             target = max(int(n), 2 * w)
             n_opt = pycu.next_fast_len(target, even=True)
             shape.append(n_opt)
