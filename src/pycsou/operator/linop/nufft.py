@@ -713,11 +713,7 @@ class NUFFT(pyca.LinOp):
         return x, N, sh_out
 
     @staticmethod
-    def _scan(
-        func: cabc.Callable[[pyct.NDArray], pyct.NDArray],
-        data: list[pyct.NDArray],
-        blk_shape: pyct.NDArrayShape = None,
-    ) -> list[pyct.NDArray]:
+    def _scan(func, data, blk_shape=None) -> list:
         # Internal method for apply/adjoint.
         #
         # Computes the equivalent of ``map(func, data)``, with the constraint that `func` is applied
@@ -755,39 +751,66 @@ class NUFFT(pyca.LinOp):
         #
         # Parameters
         # ----------
-        # func: callable
-        #     Function to apply to each element of `data`.
+        # func: callable | list(callable)
+        #     Function(s) to apply to each element of `data`.
+        #     If several functions are provided, then `func[i]` is applied to `data[i]`.
         # data: list[pyct.NDArray]
-        #     (N_blk,) arrays of identical shape.
+        #     (N_data,) arrays to act on.
         # blk_shape: pyct.NDArrayShape
-        #     Shape of ``func(data[i])``.
-        #
-        #     This hint is only required if inputs are dask arrays.
+        #     If provided and inputs are Dask-arrays, then `blks` will contain Dask-arrays of shape
+        #     `blk_shape`. (I.e. transform delayed objects back to array form.)
         #
         # Returns
         # -------
-        # blks: list[pyct.NDArray]
-        #     (N_blk,) arrays of shape `blk_shape`.
+        # blks: list[obj]
+        #     (N_data,) objects acted upon.
+        #
+        #     If inputs were Dask-arrays, then `blks` contains Dask-delayed objects, unless
+        #     `blk_shape` is provided.
+        if callable(func):
+            func = (func,) * len(data)
+
         NDI = pycd.NDArrayInfo
-        if NDI.from_obj(data) == NDI.DASK:
-            assert blk_shape is not None
+        dask_input = lambda obj: NDI.from_obj(obj) == NDI.DASK
+        if all(map(dask_input, data)):
             xp = NDI.DASK.module()
 
             blks = []
             for i in range(len(data)):
                 _func = dgm.bind(
-                    children=dask.delayed(func, pure=True),
+                    children=dask.delayed(func[i], pure=True),
                     parents=blks[i - 1] if (i > 0) else [],
                 )
-                blk = xp.from_delayed(
-                    _func(data[i]),
-                    shape=blk_shape,
-                    dtype=data[i].dtype,
-                )
+                blk = _func(data[i])
+                if blk_shape is not None:
+                    blk = NUFFT._array_ize(
+                        blk,
+                        shape=blk_shape,
+                        dtype=data[i].dtype,
+                    )
                 blks.append(blk)
         else:
-            blks = [func(blk) for blk in data]
+            blks = [_func(blk) for (_func, blk) in zip(func, data)]
         return blks
+
+    @staticmethod
+    def _array_ize(data, shape: pyct.NDArrayShape, dtype: pyct.DType):
+        # Internal method for apply/adjoint.
+        #
+        # Transform a Dask-delayed object into its Dask-array counterpart.
+        # This function is a no-op if `data` is not a Dask-delayed object.
+        from dask.delayed import Delayed
+
+        if isinstance(data, Delayed):
+            xp = pycd.NDArrayInfo.DASK.module()
+            arr = xp.from_delayed(
+                data,
+                shape=shape,
+                dtype=dtype,
+            )
+        else:
+            arr = data
+        return arr
 
     @staticmethod
     def _postprocess(
