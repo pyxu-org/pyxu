@@ -1693,7 +1693,7 @@ class _NUFFT3_chunked(_NUFFT3):
         self,
         max_mem: pyct.Real = 10,
         max_anisotropy: pyct.Real = 5,
-    ) -> tuple[cabc.Collection[np.ndarray], cabc.Collection[np.ndarray],]:
+    ) -> tuple[list[pyct.NDArray], list[pyct.NDArray]]:
         """
         Auto-determine chunk indices per domain.
 
@@ -1711,10 +1711,10 @@ class _NUFFT3_chunked(_NUFFT3):
 
         Returns
         -------
-        x_chunks: list[np.ndarray[int]]
+        x_chunks: list[NDArray[int]]
             (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
             `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
-        z_chunks: list[np.ndarray[int]]
+        z_chunks: list[NDArray[int]]
             (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
             `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
         """
@@ -1732,8 +1732,8 @@ class _NUFFT3_chunked(_NUFFT3):
 
     def allocate(
         self,
-        x_chunks: cabc.Collection[np.ndarray],
-        z_chunks: cabc.Collection[np.ndarray],
+        x_chunks: list[pyct.NDArray],
+        z_chunks: list[pyct.NDArray],
         direct_eval_threshold: pyct.Integer = 0,
     ):
         """
@@ -1741,17 +1741,16 @@ class _NUFFT3_chunked(_NUFFT3):
 
         Parameters
         ----------
-        x_chunks: list[np.ndarray[int]]
+        x_chunks: list[NDArray[int]]
             (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
             `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
-        z_chunks: list[np.ndarray[int]]
+        z_chunks: list[NDArray[int]]
             (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
             `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
         direct_eval_threshold: int
             If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
             replaced with direct-evaluation (eps=0) for performance reasons.
         """
-        x_chunks, z_chunks = map(list, (x_chunks, z_chunks))  # traversal order matters below
 
         def _r2c(idx_spec):
             if isinstance(idx_spec, slice):
@@ -1862,7 +1861,7 @@ class _NUFFT3_chunked(_NUFFT3):
             setattr(self, f, override)
 
     @classmethod
-    def _tree_sum(cls, data: cabc.Sequence[pyct.NDArray]) -> pyct.NDArray:
+    def _tree_sum(cls, data: cabc.Sequence):
         # computes (data[0] + ... + data[N-1]) via a binary tree reduction.
         if (N := len(data)) == 1:
             return data[0]
@@ -1872,7 +1871,11 @@ class _NUFFT3_chunked(_NUFFT3):
                 compressed.append(data[-1])
             return cls._tree_sum(compressed)
 
-    def _box_dimensions(self, fft_bytes: float, alpha: float) -> tuple[np.ndarray, np.ndarray]:
+    def _box_dimensions(
+        self,
+        fft_bytes: float,
+        alpha: float,
+    ) -> tuple[tuple[pyct.Real], tuple[pyct.Real]]:
         r"""
         Find X box dimensions (T_1,...,T_D) and Z box dimensions (B_1,...,B_D) such that:
 
@@ -1886,6 +1889,13 @@ class _NUFFT3_chunked(_NUFFT3):
             Max FFT memory (B) allowed per sub-block.
         alpha: pyct.Real
             Max tolerated (normalized) anisotropy ratio >= 1.
+
+        Returns
+        -------
+        T: tuple[float]
+            X-box dimensions.
+        B: tuple[float]
+            Z-box dimensions.
 
         Notes
         -----
@@ -2031,25 +2041,29 @@ class _NUFFT3_chunked(_NUFFT3):
         if res.success:
             T = np.exp(res.x[:D])
             B = np.exp(res.x[D:])
-            return T, B
+            return tuple(T), tuple(B)
         else:
             msg = "Auto-chunking failed given memory/anisotropy constraints."
             raise ValueError(msg)
 
-    def _tesselate(self, data: np.ndarray, box_dim: np.ndarray) -> cabc.Collection[np.ndarray]:
+    def _tesselate(
+        self,
+        data: pyct.NDArray,
+        box_dim: tuple[pyct.Real],
+    ) -> list[pyct.NDArray]:
         """
         Split point-cloud into disjoint rectangular regions.
 
         Parameters
         ----------
-        data: np.ndarray
+        data: pyct.NDArray
             (M, D) point cloud.
-        box_dim: np.ndarray
+        box_dim: tuple[float]
             (D,) box dimensions.
 
         Returns
         -------
-        chunks: list[np.ndarray[int]]
+        chunks: list[NDArray[int]]
             (idx[0], ..., idx[C-1]) chunk specifiers.
             `idx[k]` contains indices of `data` which lie in the same box.
         """
@@ -2063,6 +2077,7 @@ class _NUFFT3_chunked(_NUFFT3):
 
         # Compute optimal box_[dim, count]
         data_spread = data_max - data_min
+        box_dim = np.array(box_dim, dtype=data.dtype)
         N_box = np.ceil(data_spread / box_dim).astype(int)
         box_dim = data_spread / N_box
 
@@ -2142,20 +2157,20 @@ class _NUFFT3_chunked(_NUFFT3):
 
     @staticmethod
     def _diagnostic_plot(
-        data: np.ndarray,
-        box_dim: np.ndarray,
-        chunks: cabc.Collection[np.ndarray],
+        data: pyct.NDArray,
+        box_dim: tuple[pyct.Real],
+        chunks: list[pyct.NDArray],
     ):
         """
         Plot data + tesselation structure for diagnostic purposes.
 
         Parameters
         ----------
-        data: np.ndarray
+        data: pyct.NDArray
             (M, D) point cloud
-        box_dim: np.ndarray
+        box_dim: tuple[float]
             (D,) box dimensions.
-        chunks: list[np.ndarray[int]]
+        chunks: list[NDArray[int]]
             (idx[0], ..., idx[C-1]) chunk specifiers.
             `idx[k]` contains indices of `data` which lie in the same box.
 
@@ -2231,6 +2246,7 @@ class _NUFFT3_chunked(_NUFFT3):
 
         M, D = data.shape
         N_chk = len(chunks)
+        box_dim = np.array(box_dim, dtype=data.dtype)
 
         # Compute chunk centroids & tight-box_dims
         centroid, tbox_dim = np.zeros((2, N_chk, D))
