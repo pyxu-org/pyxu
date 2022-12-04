@@ -480,6 +480,7 @@ class NUFFT(pyca.LinOp):
         plan_fw: bool = True,
         plan_bw: bool = True,
         chunked: bool = False,
+        parallel: bool = False,
         **kwargs,
     ) -> pyct.OpT:
         r"""
@@ -512,6 +513,9 @@ class NUFFT(pyca.LinOp):
             These options only take effect if ``eps > 0``.
         chunked: bool
             If ``True``, the transform is performed in small chunks.
+        parallel: bool
+            This option only applies to chunked transforms.
+            If ``True``, evaluate chunks in parallel.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
@@ -575,8 +579,13 @@ class NUFFT(pyca.LinOp):
             **kwargs,
         )
 
-        klass = {False: _NUFFT3, True: _NUFFT3_chunked}[chunked]
-        return klass(**init_kwargs).squeeze()
+        if chunked:
+            klass = _NUFFT3_chunked
+            op = klass(**init_kwargs, parallel=parallel)
+        else:
+            klass = _NUFFT3
+            op = klass(**init_kwargs)
+        return op.squeeze()
 
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         r"""
@@ -1629,6 +1638,9 @@ class _NUFFT3_chunked(_NUFFT3):
     # params() in this context returns equivalent parameters of one single huge NUFFT3 block.
 
     def __init__(self, **kwargs):
+        self._disable_unsupported_methods()
+        self._parallel = kwargs.pop("parallel")  # for _wrap_if_dask()
+
         pfw, pbw = kwargs["plan_fw"], kwargs["plan_bw"]
         kwargs.update(plan_fw=False, plan_bw=False)  # don't plan a huge NUFFT
         super().__init__(**kwargs)
@@ -1637,9 +1649,6 @@ class _NUFFT3_chunked(_NUFFT3):
         self._kwargs = kwargs.copy()  # extra FINUFFT planning args
         for k in ["x", "z"]:
             self._kwargs.pop(k, None)
-
-        self._disable_unsupported_methods()
-        self._parallel = True  # for _wrap_if_dask()
 
         # variables set by allocate()
         self._initialized = False
