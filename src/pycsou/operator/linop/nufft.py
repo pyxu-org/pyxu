@@ -1848,6 +1848,7 @@ class _NUFFT3_chunked(_NUFFT3):
         x_chunks: list[typ.Union[pyct.NDArray, slice]],
         z_chunks: list[typ.Union[pyct.NDArray, slice]],
         direct_eval_threshold: pyct.Integer = 0,
+        enable_warnings: bool = True,
     ):
         """
         Allocate NUFFT sub-problems based on chunk specification.
@@ -1863,6 +1864,8 @@ class _NUFFT3_chunked(_NUFFT3):
         direct_eval_threshold: int
             If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
             replaced with direct-evaluation (eps=0) for performance reasons.
+        enable_warnings: bool
+            If ``True``, emit a warning when x/z are re-ordered.
         """
 
         def _to_slice(idx_spec):
@@ -1926,7 +1929,7 @@ class _NUFFT3_chunked(_NUFFT3):
                 idx = np.stack([2 * idx_spec, 2 * idx_spec + 1], axis=1).reshape(-1)
             return idx
 
-        x_idx, x_chunks = _preprocess(x_chunks, warn=True, var="x")
+        x_idx, x_chunks = _preprocess(x_chunks, warn=enable_warnings, var="x")
         self._x = self._x[x_idx]
         self._x_reorder = pycs.SubSample(
             (self.dim,),
@@ -1941,7 +1944,7 @@ class _NUFFT3_chunked(_NUFFT3):
             for (j, x_idx) in enumerate(x_chunks)
         }
 
-        z_idx, z_chunks = _preprocess(z_chunks, warn=True, var="z")
+        z_idx, z_chunks = _preprocess(z_chunks, warn=enable_warnings, var="z")
         self._z = self._z[z_idx]
         self._z_reorder = pycs.SubSample(
             (self.codim,),
