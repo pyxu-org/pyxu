@@ -1838,6 +1838,14 @@ class _NUFFT3_chunked(_NUFFT3):
         p = BLOCK_STATS(blk_count=blk_count, dEval_count=dEval)
         return p
 
+    def ascomplexarray(self, **kwargs) -> pyct.NDArray:
+        cA = super().ascomplexarray(**kwargs)
+        rA = pycu.view_as_real_mat(cA, real_input=self._real)
+        rA = self._x_reorder.adjoint(rA)  # re-order rows
+        rA = self._z_reorder.apply(rA.T).T  # re-order columns
+        cA = pycu.view_as_complex_mat(rA, real_input=self._real)
+        return cA
+
     def _disable_unsupported_methods(self):
         # Despite being a child-class of _NUFFT3, some methods are not supported because they don't
         # make sense in the chunked context.
