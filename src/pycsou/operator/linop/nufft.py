@@ -1637,7 +1637,16 @@ class _NUFFT3(NUFFT):
 
 
 class _NUFFT3_chunked(_NUFFT3):
-    # params() in this context returns equivalent parameters of one single huge NUFFT3 block.
+    # Note:
+    # * params() in chunked-context returns equivalent parameters of one single huge NUFFT3 block.
+    #
+    # TODO:
+    # * Allow x/z to be stored internally as Dask arrays.
+    #   What needs to be changed:
+    #   * _NUFFT3._sanitize_init_kwargs() currently calls compute().
+    #     Needs to be disabled in chunked context.
+    #   * _tesselate() assumes x/z are in memory to find optimal chunks.
+    #     Do we want to support Dask arrays here so that users can auto-chunk disk-sized data?
 
     def __init__(self, **kwargs):
         self._disable_unsupported_methods()
