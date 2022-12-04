@@ -1643,13 +1643,21 @@ class _NUFFT3_chunked(_NUFFT3):
 
         # variables set by allocate()
         self._initialized = False
-        for attr in ["_up", "_down", "_nufft", "_dEval_threshold"]:
+        for attr in [
+            "_up",
+            "_down",
+            "_nufft",
+            "_dEval_threshold",
+            "_in_shuffle",
+            "_out_shuffle",
+        ]:
             setattr(self, attr, None)
 
     @pycb._wrap_if_dask
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         assert self._initialized
+        arr = self._in_shuffle.apply(arr)
         outer = []
         for i, up in self._up.items():
             inner = []
@@ -1660,12 +1668,14 @@ class _NUFFT3_chunked(_NUFFT3):
             z = up.apply(self._tree_sum(inner))
             outer.append(z)
         out = self._tree_sum(outer)
+        out = self._out_shuffle.apply(out)
         return out
 
     @pycb._wrap_if_dask
     @pycrt.enforce_precision("arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         assert self._initialized
+        arr = self._out_shuffle.adjoint(arr)
         outer = []
         for j, down in self._down.items():
             inner = []
@@ -1676,6 +1686,7 @@ class _NUFFT3_chunked(_NUFFT3):
             z = down.adjoint(self._tree_sum(inner))
             outer.append(z)
         out = self._tree_sum(outer)
+        out = self._in_shuffle.adjoint(out)
         return out
 
     def auto_chunk(
@@ -1748,6 +1759,30 @@ class _NUFFT3_chunked(_NUFFT3):
             else:
                 idx = np.stack([2 * idx_spec, 2 * idx_spec + 1], axis=1).reshape(-1)
             return idx
+
+        x_idx = np.concatenate(x_chunks)
+        self._x = self._x[x_idx]
+        self._in_shuffle = pycs.SubSample(
+            (self.dim,),
+            x_idx if self._real else _r2c(x_idx),
+        )
+        start = 0
+        for i, chk in enumerate(x_chunks):
+            s = slice(start, start + len(chk))
+            start += len(chk)
+            x_chunks[i] = s
+
+        z_idx = np.concatenate(z_chunks)
+        self._z = self._z[z_idx]
+        self._out_shuffle = pycs.SubSample(
+            (self.codim,),
+            _r2c(z_idx),  # not sure about this
+        ).T
+        start = 0
+        for i, chk in enumerate(z_chunks):
+            s = slice(start, start + len(chk))
+            start += len(chk)
+            z_chunks[i] = s
 
         self._down = dict()
         for j, x_idx in enumerate(x_chunks):
