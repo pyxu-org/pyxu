@@ -552,15 +552,6 @@ class NUFFT(pyca.LinOp):
                        isign=-1,
                        eps=1e-6,
                     )
-               # A = pycl.NUFFT.type3(  # Chunked NUFFT
-               #         x, z,
-               #         n_trans=N_trans,
-               #         isign=-1,
-               #         eps=1e-6,
-               #         chunked=True,
-               #      )
-               # x_chunks, z_chunks = A.auto_chunk()  # Auto-chunk input
-               # A.allocate(x_chunks, z_chunks)  # But [x/z]_chunks can be specified manually if preferred.
 
                # Pycsou operators only support real inputs/outputs, so we use the functions
                # pycu.view_as_[complex/real] to interpret complex arrays as real arrays (and
@@ -569,6 +560,74 @@ class NUFFT(pyca.LinOp):
                      + 1j * rng.normal(size=(3, N_trans, M))
                A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
                A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
+
+        Notes (chunked-transform)
+        -------------------------
+        * An extra initialization step is required before using a chunked-transform:
+
+          .. code-block:: python3
+
+             A = pycl.NUFFT.type3(
+                     x, z
+                     isign
+                     chunked=True,   # with chunk specified
+                     parallel=True,  # for extra speed (chunked-only)
+                     **finufft_kwargs,
+                  )
+             x_chunks, z_chunks = A.auto_chunk()  # auto-determine a good x/z chunking strategy
+             A.allocate(x_chunks, z_chunks)  # apply the chunking strategy.
+
+          :py:meth:`~pycsou.operator.linop.nufft._NUFFT3_chunked.auto_chunk` is a helper method to
+          auto-determine a good chunking strategy.
+
+          Its runtime is significant when the number of sub-problems grows large. (1000+)
+          In these contexts, assuming a good-enough x/z-split is known in advance, users can
+          directly supply them to :py:meth:`~pycsou.operator.linop.nufft._NUFFT3_chunked.allocate`.
+
+        * apply/adjoint() runtime is minimized when x/z are well-ordered, i.e. when sub-problems can
+          sub-sample inputs to apply/adjoint() via slice operators.
+
+          To reduce runtime of chunked transforms,
+          :py:meth:`~pycsou.operator.linop.nufft._NUFFT3_chunked.allocate` automatically re-orders
+          x/z when appropriate.
+
+          The side-effect is the cost of a permutation before/after calls to apply/adjoint().
+          This cost becomes significant when the number of non-uniform points x/z is large. (> 1e6)
+
+          To avoid paying the re-ordering cost at each transform, it is recommended to supply x/z
+          and apply/adjoint inputs in the "correct" order from the start.
+
+          A good re-ordering is computed automatically by
+          :py:meth:`~pycsou.operator.linop.nufft._NUFFT3_chunked.allocate` and can be used to
+          initialize a new chunked-transform with better runtime properties as such:
+
+          .. code-block:: python3
+
+             ### Initialize a chunked transform (1st try; as above)
+             A = pycl.NUFFT.type3(
+                     x, z
+                     isign
+                     chunked=True,
+                     parallel=True,
+                     **finufft_kwargs,
+                  )
+             x_chunks, z_chunks = A.auto_chunk()  # auto-determine a good x/z chunking strategy
+             A.allocate(x_chunks, z_chunks)  # will raise warning if bad x/z-order detected
+
+
+             ### Now initialize a better transform (2nd try)
+             x_idx, x_chunks = A.order("x")  # get a good x-ordering
+             z_idx, z_chunks = A.order("z")  # get a good z-ordering
+             A = pycl.NUFFT.type3(
+                     x[x_idx], z[z_idx]  # re-order x/z accordingly
+                     ...                 # same as before
+                  )
+             A.allocate(x_chunks, z_chunks)  # skip auto-chunking and apply
+                                             # optimal x/z_chunks provided.
+
+        * FINUFFT accepts an ``nthreads`` keyword parameter to fine-tune FFT performance. In the
+          context of chunked transforms, the FFTs performed are very small. As such it is often best
+          to set ``nthreads=1``.
         """
         init_kwargs = _NUFFT3._sanitize_init_kwargs(
             x=x,
@@ -1916,7 +1975,7 @@ class _NUFFT3_chunked(_NUFFT3):
                             f"'{var}' will be re-ordered internally to improve NUFFT performance.",
                             f"The cost of re-ordering apply/adjoint inputs is significant when the number of non-uniform points x/z is large.",
                             f"It is recommended to re-initialize {self.__class__} where x/z [and apply/adjoint() inputs] are re-ordered.",
-                            f"See the docstring of {self.__class__} for how to achieve this.",
+                            f"See notes/examples provided in docstring of {NUFFT.type3.__qualname__}() for how to achieve this.",
                         ]
                     )
                     warnings.warn(msg, pycuw.PerformanceWarning)
@@ -2001,6 +2060,9 @@ class _NUFFT3_chunked(_NUFFT3):
         rA = self._z_reorder.apply(rA.T).T  # re-order columns
         cA = pycu.view_as_complex_mat(rA, real_input=self._real)
         return cA
+
+    def order(self, var: str) -> tuple:
+        raise NotImplementedError  # TODO
 
     def _disable_unsupported_methods(self):
         # Despite being a child-class of _NUFFT3, some methods are not supported because they don't
