@@ -1229,9 +1229,9 @@ class _NUFFT1(NUFFT):
                 ),
                 axis=-1,
             )
-        elif (
-            scale == "source"
-        ):  # As per eq. 3.12, the source grid is of the form: 2*pi*l/n, l=0,...,n-1, that is n points over [0, 2* pi[ (or [-pi, pi[ if shifted by pi).
+        elif scale == "source":
+            # As per eq. 3.12, the source grid is of the form: 2*pi*l/n, l=0,...,n-1, that is n
+            # points over [0, 2* pi[ (or [-pi, pi[ if shifted by pi).
             grid = xp.stack(  # (N1, ..., Nd, D)
                 xp.meshgrid(
                     *[xp.linspace(-np.pi, np.pi, num=n, endpoint=False, dtype=dtype) for n in N],
@@ -1286,7 +1286,7 @@ class _NUFFT1(NUFFT):
         shape = []
         for n in self._N:
             target = max(int(u * n), 2 * w)
-            n_opt = pycu.next_fast_len(target, even=True)  # Why even? Not specified in the paper, comes from the code?
+            n_opt = pycu.next_fast_len(target, even=True)
             shape.append(n_opt)
         return tuple(shape)
 
