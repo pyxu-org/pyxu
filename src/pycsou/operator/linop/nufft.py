@@ -1644,12 +1644,13 @@ class _NUFFT3_chunked(_NUFFT3):
         # variables set by allocate()
         self._initialized = False
         for attr in [
-            "_up",
-            "_down",
-            "_nufft",
-            "_dEval_threshold",
-            "_in_shuffle",
-            "_out_shuffle",
+            "_up",  # up-sample ops
+            "_down",  # down-sample ops
+            "_dEval_threshold",  # direct-evaluation threshold
+            "_x_reorder",  # .apply() input re-order op
+            "_x_chunk",  # X-domain chunk slice-selectors
+            "_z_reorder",  # .adjoint() input re-order op
+            "_z_chunk",  # Z-domain chunk slice-selectors
         ]:
             setattr(self, attr, None)
 
@@ -1657,7 +1658,7 @@ class _NUFFT3_chunked(_NUFFT3):
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         assert self._initialized
-        arr = self._in_shuffle.apply(arr)
+        arr = self._x_reorder.apply(arr)
         outer = []
         for i, up in self._up.items():
             inner = []
@@ -1668,14 +1669,14 @@ class _NUFFT3_chunked(_NUFFT3):
             z = up.apply(self._tree_sum(inner))
             outer.append(z)
         out = self._tree_sum(outer)
-        out = self._out_shuffle.apply(out)
+        out = self._z_reorder.apply(out)
         return out
 
     @pycb._wrap_if_dask
     @pycrt.enforce_precision("arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         assert self._initialized
-        arr = self._out_shuffle.adjoint(arr)
+        arr = self._z_reorder.adjoint(arr)
         outer = []
         for j, down in self._down.items():
             inner = []
@@ -1686,7 +1687,7 @@ class _NUFFT3_chunked(_NUFFT3):
             z = down.adjoint(self._tree_sum(inner))
             outer.append(z)
         out = self._tree_sum(outer)
-        out = self._in_shuffle.adjoint(out)
+        out = self._x_reorder.adjoint(out)
         return out
 
     def auto_chunk(
@@ -1732,8 +1733,8 @@ class _NUFFT3_chunked(_NUFFT3):
 
     def allocate(
         self,
-        x_chunks: list[pyct.NDArray],
-        z_chunks: list[pyct.NDArray],
+        x_chunks: list[typ.Union[pyct.NDArray, slice]],
+        z_chunks: list[typ.Union[pyct.NDArray, slice]],
         direct_eval_threshold: pyct.Integer = 0,
     ):
         """
@@ -1741,16 +1742,62 @@ class _NUFFT3_chunked(_NUFFT3):
 
         Parameters
         ----------
-        x_chunks: list[NDArray[int]]
+        x_chunks: list[NDArray[int] | slice]
             (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
             `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
-        z_chunks: list[NDArray[int]]
+        z_chunks: list[NDArray[int] | slice]
             (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
             `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
         direct_eval_threshold: int
             If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
             replaced with direct-evaluation (eps=0) for performance reasons.
         """
+
+        def _to_slice(idx_spec):
+            out = idx_spec
+            if not isinstance(idx_spec, slice):
+                lb = idx_spec.min()
+                ub = idx_spec.max()
+                if ub - lb + 1 == len(idx_spec):
+                    out = slice(lb, ub + 1)
+            return out
+
+        def _preprocess(chunks, warn: bool):
+            # Analyze chunk specifiers and return:
+            #   * input re-ordering coordinates (if applicable)
+            #   * slice() objects identifying each sub-chunk data
+            chunks = list(map(_to_slice, chunks))
+            if all(isinstance(chk, slice) for chk in chunks):
+                # No re-ordering required: up/sub-sampling operators can slice-select themselves.
+                reorder_spec = slice(0, sum(chk.stop - chk.start for chk in chunks))
+                chunk_spec = chunks
+            else:
+                # Some chunks cannot be slice-indexed. To avoid expensive x/z copies when
+                # initializing NUFFT sub-problems, x/z will be re-ordered before/after
+                # down/up-sampling operators.
+                reorder_spec = []
+                for chk in chunks:
+                    if isinstance(chk, slice):
+                        _chk = np.arange(chk.start, chk.stop)
+                    else:
+                        _chk = chk
+                    reorder_spec.append(_chk)
+                reorder_spec = np.concatenate(reorder_spec)
+
+                chunk_spec, start = [], 0
+                for chk in chunks:
+                    if isinstance(chk, slice):
+                        _len = chk.stop - chk.start
+                    else:
+                        _len = len(chk)
+                    s = slice(start, start + _len)
+                    start += _len
+                    chunk_spec.append(s)
+
+                if warn:
+                    pass  # warning + recommendations
+                    print("warning")
+            return reorder_spec, chunk_spec
 
         def _r2c(idx_spec):
             if isinstance(idx_spec, slice):
@@ -1759,41 +1806,36 @@ class _NUFFT3_chunked(_NUFFT3):
                 idx = np.stack([2 * idx_spec, 2 * idx_spec + 1], axis=1).reshape(-1)
             return idx
 
-        x_idx = np.concatenate(x_chunks)
+        x_idx, x_chunks = _preprocess(x_chunks, warn=True)
         self._x = self._x[x_idx]
-        self._in_shuffle = pycs.SubSample(
+        self._x_reorder = pycs.SubSample(
             (self.dim,),
             x_idx if self._real else _r2c(x_idx),
         )
-        start = 0
-        for i, chk in enumerate(x_chunks):
-            s = slice(start, start + len(chk))
-            start += len(chk)
-            x_chunks[i] = s
+        self._x_chunk = x_chunks
+        self._down = {
+            j: pycs.SubSample(
+                (self.dim,),
+                x_idx if self._real else _r2c(x_idx),
+            )
+            for (j, x_idx) in enumerate(x_chunks)
+        }
 
-        z_idx = np.concatenate(z_chunks)
+        z_idx, z_chunks = _preprocess(z_chunks, warn=True)
         self._z = self._z[z_idx]
-        self._out_shuffle = pycs.SubSample(
+        self._z_reorder = pycs.SubSample(
             (self.codim,),
-            _r2c(z_idx),  # not sure about this
+            _r2c(z_idx),
         ).T
-        start = 0
-        for i, chk in enumerate(z_chunks):
-            s = slice(start, start + len(chk))
-            start += len(chk)
-            z_chunks[i] = s
+        self._z_chunk = z_chunks
+        self._up = {
+            i: pycs.SubSample(
+                (self.codim,),
+                _r2c(z_idx),
+            ).T
+            for (i, z_idx) in enumerate(z_chunks)
+        }
 
-        self._down = dict()
-        for j, x_idx in enumerate(x_chunks):
-            idx = x_idx if self._real else _r2c(x_idx)
-            self._down[j] = pycs.SubSample((self.dim,), idx)
-
-        self._up = dict()
-        for i, z_idx in enumerate(z_chunks):
-            idx = _r2c(z_idx)
-            self._up[i] = pycs.SubSample((self.codim,), idx).T
-
-        self._nufft = dict()
         self._dEval_threshold = int(direct_eval_threshold)
         x = {j: self._x[x_idx] for (j, x_idx) in enumerate(x_chunks)}
         z = {i: self._z[z_idx] for (i, z_idx) in enumerate(z_chunks)}
