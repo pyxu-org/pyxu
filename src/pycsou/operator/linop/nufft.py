@@ -6,6 +6,7 @@ import math
 import threading
 import types
 import typing as typ
+import warnings
 
 import dask
 import dask.graph_manipulation as dgm
@@ -24,6 +25,7 @@ import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
 
 __all__ = [
     "NUFFT",
@@ -1863,7 +1865,7 @@ class _NUFFT3_chunked(_NUFFT3):
                     out = slice(lb, ub + 1)
             return out
 
-        def _preprocess(chunks, warn: bool):
+        def _preprocess(chunks, warn: bool, var: str):
             # Analyze chunk specifiers and return:
             #   * input re-ordering coordinates (if applicable)
             #   * slice() objects identifying each sub-chunk data
@@ -1896,8 +1898,16 @@ class _NUFFT3_chunked(_NUFFT3):
                     chunk_spec.append(s)
 
                 if warn:
-                    pass  # warning + recommendations
-                    print("warning")
+                    msg = "\n".join(
+                        [
+                            f"'{var}' order is sub-optimal given provided chunk specifiers.",
+                            f"'{var}' will be re-ordered internally to improve NUFFT performance.",
+                            f"The cost of re-ordering apply/adjoint inputs is significant when the number of non-uniform points x/z is large.",
+                            f"It is recommended to re-initialize {self.__class__} where x/z [and apply/adjoint() inputs] are re-ordered.",
+                            f"See the docstring of {self.__class__} for how to achieve this.",
+                        ]
+                    )
+                    warnings.warn(msg, pycuw.PerformanceWarning)
             return reorder_spec, chunk_spec
 
         def _r2c(idx_spec):
@@ -1907,7 +1917,7 @@ class _NUFFT3_chunked(_NUFFT3):
                 idx = np.stack([2 * idx_spec, 2 * idx_spec + 1], axis=1).reshape(-1)
             return idx
 
-        x_idx, x_chunks = _preprocess(x_chunks, warn=True)
+        x_idx, x_chunks = _preprocess(x_chunks, warn=True, var="x")
         self._x = self._x[x_idx]
         self._x_reorder = pycs.SubSample(
             (self.dim,),
@@ -1922,7 +1932,7 @@ class _NUFFT3_chunked(_NUFFT3):
             for (j, x_idx) in enumerate(x_chunks)
         }
 
-        z_idx, z_chunks = _preprocess(z_chunks, warn=True)
+        z_idx, z_chunks = _preprocess(z_chunks, warn=True, var="z")
         self._z = self._z[z_idx]
         self._z_reorder = pycs.SubSample(
             (self.codim,),
