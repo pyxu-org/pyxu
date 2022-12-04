@@ -2118,8 +2118,9 @@ class _NUFFT3_chunked(_NUFFT3):
         """
         # NUFFT parameters
         D = self._D
-        T_tot = self._x.ptp(axis=0)
-        B_tot = self._z.ptp(axis=0)
+        xp = pycu.get_array_module(self._x)
+        T_tot = pycu.compute(xp.ptp(self._x, axis=0))
+        B_tot = pycu.compute(xp.ptp(self._z, axis=0))
         sigma = np.array((self._upsample_factor(),) * D)
         c_width = pycrt.Width(self._x.dtype).complex
         c_itemsize = c_width.value.itemsize
@@ -2292,20 +2293,20 @@ class _NUFFT3_chunked(_NUFFT3):
 
     @staticmethod
     def _diagnostic_plot(
-        data: pyct.NDArray,
+        data: np.ndarray,
         box_dim: tuple[pyct.Real],
-        chunks: list[pyct.NDArray],
+        chunks: list[typ.Union[np.ndarray, slice]],
     ):
         """
         Plot data + tesselation structure for diagnostic purposes.
 
         Parameters
         ----------
-        data: pyct.NDArray
+        data: np.ndarray
             (M, D) point cloud
         box_dim: tuple[float]
             (D,) box dimensions.
-        chunks: list[NDArray[int]]
+        chunks: list[ndarray[int] | slice]
             (idx[0], ..., idx[C-1]) chunk specifiers.
             `idx[k]` contains indices of `data` which lie in the same box.
 
