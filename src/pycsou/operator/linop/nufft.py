@@ -3,6 +3,7 @@ import collections
 import collections.abc as cabc
 import itertools
 import math
+import threading
 import types
 import typing as typ
 
@@ -1633,8 +1634,7 @@ class _NUFFT3_chunked(_NUFFT3):
         super().__init__(**kwargs)
         kwargs.update(plan_fw=pfw, plan_bw=pbw)
 
-        # extra FINUFFT planning args
-        self._kwargs = kwargs.copy()
+        self._kwargs = kwargs.copy()  # extra FINUFFT planning args
         for k in ["x", "z"]:
             self._kwargs.pop(k, None)
 
@@ -1644,6 +1644,7 @@ class _NUFFT3_chunked(_NUFFT3):
         # variables set by allocate()
         self._initialized = False
         for attr in [
+            "_plan_lock",  # FFTW planner lock; see _transform() for details
             "_up",  # up-sample ops
             "_down",  # down-sample ops
             "_dEval_threshold",  # direct-evaluation threshold
@@ -1659,16 +1660,24 @@ class _NUFFT3_chunked(_NUFFT3):
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         assert self._initialized
         arr = self._x_reorder.apply(arr)
+
         outer = []
+        nufft = self._get_transform(arr)
         for i, up in self._up.items():
             inner = []
             for j, down in self._down.items():
                 x = down.apply(arr)
-                y = self._nufft[i, j].apply(x)
+                y = self._array_ize(
+                    nufft(j, i, "fw", x),
+                    shape=(*arr.shape[:-1], up.dim),
+                    dtype=arr.dtype,
+                )
                 inner.append(y)
-            z = up.apply(self._tree_sum(inner))
+            inner = self._tree_sum(inner)
+            z = up.apply(inner)
             outer.append(z)
         out = self._tree_sum(outer)
+
         out = self._z_reorder.apply(out)
         return out
 
@@ -1677,17 +1686,100 @@ class _NUFFT3_chunked(_NUFFT3):
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         assert self._initialized
         arr = self._z_reorder.adjoint(arr)
+
         outer = []
+        nufft = self._get_transform(arr)
         for j, down in self._down.items():
             inner = []
             for i, up in self._up.items():
                 z = up.adjoint(arr)
-                y = self._nufft[i, j].adjoint(z)
+                y = self._array_ize(
+                    nufft(j, i, "bw", z),
+                    shape=(*arr.shape[:-1], down.codim),
+                    dtype=arr.dtype,
+                )
                 inner.append(y)
-            z = down.adjoint(self._tree_sum(inner))
-            outer.append(z)
+            inner = self._tree_sum(inner)
+            x = down.adjoint(inner)
+            outer.append(x)
         out = self._tree_sum(outer)
+
         out = self._x_reorder.adjoint(out)
+        return out
+
+    def _get_transform(self, arr: pyct.NDArray) -> cabc.Callable:
+        NDI = pycd.NDArrayInfo
+        dask_input = NDI.from_obj(arr) == NDI.DASK
+
+        if self._parallel or dask_input:
+            func = dask.delayed(
+                self._transform,
+                pure=True,
+                traverse=False,
+            )
+        else:
+            func = self._transform
+        return func
+
+    def _transform(
+        self,
+        x_idx: int,
+        z_idx: int,
+        mode: str,
+        arr: pyct.NDArray,
+    ) -> pyct.NDArray:
+        # Internal method for apply/adjoint.
+        #
+        # Parameters
+        # ----------
+        # x_idx: int
+        #     Index into _x_chunk.
+        #     Identifies the X-region participating in the transform.
+        # z_idx: int
+        #     Index into _z_chunk.
+        #     Identifies the Z-region participating in the transform.
+        # mode: str
+        #     Transform direction:
+        #
+        #     * 'fw': _NUFFT3.apply
+        #     * 'bw': _NUFFT3.adjoint
+        # arr: pyct.NDArray
+        #     (...,) array fed to apply/adjoint().
+        #
+        # Returns
+        # -------
+        # out: pyct.NDArray
+        #     (...,) output of _NUFFT3.[apply|adjoint](arr)
+        kwargs = self._kwargs.copy()
+
+        x = self._x[self._x_chunk[x_idx]]
+        z = self._z[self._z_chunk[z_idx]]
+        kwargs.update(x=x, z=z)
+
+        if mode == "fw":
+            kwargs.update(plan_fw=True, plan_bw=False)
+            func = "apply"
+        else:  # bw
+            kwargs.update(plan_fw=False, plan_bw=True)
+            func = "adjoint"
+
+        if len(x) * len(z) <= self._dEval_threshold:
+            kwargs.update(eps=0)
+
+        # NUFFT.apply/adjoint() requires inputs to be C-contiguous.
+        # This is not guaranteed in chunked context given chain of operations preceding
+        # apply/adjoint().
+        # Chunks are small however, so the overhead is minimal.
+        xp = pycu.get_array_module(arr)
+        arr = xp.require(arr, requirements="C")
+
+        with self._plan_lock:
+            # FINUFFT uses FFTW to compute FFTs.
+            # FFTW's planner is not thread-safe. [http://www.fftw.org/fftw3_doc/Thread-safety.html]
+            # Not coordinating the planning stage with other workers/tasks leads to segmentation faults.
+            op = _NUFFT3(**kwargs)
+
+        out = getattr(op, func)(arr)
         return out
 
     def auto_chunk(
@@ -1836,16 +1928,8 @@ class _NUFFT3_chunked(_NUFFT3):
             for (i, z_idx) in enumerate(z_chunks)
         }
 
+        self._plan_lock = threading.Lock()
         self._dEval_threshold = int(direct_eval_threshold)
-        x = {j: self._x[x_idx] for (j, x_idx) in enumerate(x_chunks)}
-        z = {i: self._z[z_idx] for (i, z_idx) in enumerate(z_chunks)}
-        for i, _z in z.items():
-            for j, _x in x.items():
-                _kwargs = self._kwargs.copy()
-                if len(_x) * len(_z) < self._dEval_threshold:
-                    _kwargs.update(eps=0)  # force direct evaluation
-                self._nufft[i, j] = _NUFFT3(x=_x, z=_z, **_kwargs)
-
         self._initialized = True
 
     def stats(self) -> collections.namedtuple:
