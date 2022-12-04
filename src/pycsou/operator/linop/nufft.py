@@ -1938,7 +1938,7 @@ class _NUFFT3_chunked(_NUFFT3):
         }
 
         self._plan_lock = threading.Lock()
-        self._dEval_threshold = int(direct_eval_threshold)
+        self._dEval_threshold = float(direct_eval_threshold)
         self._initialized = True
 
     def stats(self) -> collections.namedtuple:
