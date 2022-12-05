@@ -2214,8 +2214,8 @@ class _NUFFT3_chunked(_NUFFT3):
         # NUFFT parameters
         D = self._D
         xp = pycu.get_array_module(self._x)
-        T_tot = pycu.compute(xp.ptp(self._x, axis=0))
-        B_tot = pycu.compute(xp.ptp(self._z, axis=0))
+        T_tot = pycu.to_NUMPY(xp.ptp(self._x, axis=0))
+        B_tot = pycu.to_NUMPY(xp.ptp(self._z, axis=0))
         sigma = np.array((self._upsample_factor(),) * D)
         c_width = pycrt.Width(self._x.dtype).complex
         c_itemsize = c_width.value.itemsize
