@@ -2277,8 +2277,8 @@ class _NUFFT3_chunked(_NUFFT3):
             msg = "Auto-chunking failed given memory/anisotropy constraints."
             raise ValueError(msg)
 
+    @staticmethod
     def _tesselate(
-        self,
         data: pyct.NDArray,
         box_dim: tuple[pyct.Real],
     ) -> list[pyct.NDArray]:
