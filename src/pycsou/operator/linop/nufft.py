@@ -2301,7 +2301,7 @@ class _NUFFT3_chunked(_NUFFT3):
         M, D = data.shape
 
         # Center data-points around origin
-        data = data.copy()
+        data = pycu.to_NUMPY(data.copy())
         data_min = data.min(axis=0)
         data_max = data.max(axis=0)
         data -= (data_min + data_max) / 2
@@ -2347,7 +2347,7 @@ class _NUFFT3_chunked(_NUFFT3):
             chk = idx[start : start + step]
             chunks.append(chk)
             start += step
-        centroid = centroid[sorted(count.keys())]
+        centroid = centroid[sorted(count.keys())]  # drop boxes with no data-points
 
         # Compute true centroids + tight box boundaries seen by FINUFFT
         tbox_dim = np.zeros((len(centroid), D))  # tight box_dim(s)
