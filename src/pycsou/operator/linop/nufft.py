@@ -637,15 +637,21 @@ class NUFFT(pyca.LinOp):
             real=real,
             plan_fw=plan_fw,
             plan_bw=plan_bw,
+            chunked=chunked,
+            parallel=parallel,
             **kwargs,
         )
 
-        if chunked:
+        if chunked := init_kwargs.pop("chunked", False):
             klass = _NUFFT3_chunked
-            op = klass(**init_kwargs, parallel=parallel)
         else:
             klass = _NUFFT3
-            op = klass(**init_kwargs)
+            for k in [  # kwargs only valid for chunked-transforms
+                "parallel",
+            ]:
+                init_kwargs.pop(k, None)
+
+        op = klass(**init_kwargs)
         return op.squeeze()
 
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1459,15 +1465,23 @@ class _NUFFT3(NUFFT):
         kwargs = kwargs.copy()
         for k in ("nufft_type", "n_modes_or_dim", "dtype", "modeord"):
             kwargs.pop(k, None)
-        x = kwargs["x"] = pycu.compute(cls._as_canonical_coordinate(kwargs["x"]))
-        z = kwargs["z"] = pycu.compute(cls._as_canonical_coordinate(kwargs["z"]))
-        assert x.shape[-1] == z.shape[-1], "x vs. z: dimensionality mis-match."
-        assert pycu.get_array_module(x) == pycu.get_array_module(z)
+
         kwargs["isign"] = int(np.sign(kwargs["isign"]))
         kwargs["eps"] = float(kwargs["eps"])
         kwargs["real"] = bool(kwargs["real"])
         kwargs["plan_fw"] = bool(kwargs["plan_fw"])
         kwargs["plan_bw"] = bool(kwargs["plan_bw"])
+        kwargs["parallel"] = bool(kwargs["parallel"])
+        kwargs["chunked"] = bool(kwargs["chunked"])
+
+        x = kwargs["x"] = cls._as_canonical_coordinate(kwargs["x"])
+        z = kwargs["z"] = cls._as_canonical_coordinate(kwargs["z"])
+        if not kwargs["chunked"]:
+            x = kwargs["x"] = pycu.compute(kwargs["x"])
+            z = kwargs["z"] = pycu.compute(kwargs["z"])
+        assert x.shape[-1] == z.shape[-1], "x vs. z: dimensionality mis-match."
+        assert pycu.get_array_module(x) == pycu.get_array_module(z)
+
         return kwargs
 
     @staticmethod
@@ -1700,10 +1714,7 @@ class _NUFFT3_chunked(_NUFFT3):
     # * params() in chunked-context returns equivalent parameters of one single huge NUFFT3 block.
     #
     # TODO:
-    # * Allow x/z to be stored internally as Dask arrays.
     #   What needs to be changed:
-    #   * _NUFFT3._sanitize_init_kwargs() currently calls compute().
-    #     Needs to be disabled in chunked context.
     #   * _tesselate() assumes x/z are in memory to find optimal chunks.
     #     Do we want to support Dask arrays here so that users can auto-chunk disk-sized data?
 
@@ -1856,7 +1867,7 @@ class _NUFFT3_chunked(_NUFFT3):
             # FINUFFT uses FFTW to compute FFTs.
             # FFTW's planner is not thread-safe. [http://www.fftw.org/fftw3_doc/Thread-safety.html]
             # Not coordinating the planning stage with other workers/tasks leads to segmentation faults.
-            op = _NUFFT3(**kwargs)
+            op = NUFFT.type3(**kwargs)
 
         out = getattr(op, func)(arr)
         return out
