@@ -2073,7 +2073,26 @@ class _NUFFT3_chunked(_NUFFT3):
         return cA
 
     def order(self, var: str) -> tuple:
-        raise NotImplementedError  # TODO
+        var = var.strip().lower()
+        assert var in ("x", "z")
+
+        def _c2r(idx_spec):
+            if isinstance(idx_spec, slice):
+                idx = slice(idx_spec.start // 2, idx_spec.stop // 2 + 1)
+            else:
+                idx = idx_spec[::2] // 2
+            return idx
+
+        if var == "x":
+            idx = self._x_reorder._idx[0]
+            idx = idx if self._real else _c2r(idx)
+            chunks = self._x_chunk
+        else:  # "z"
+            idx = self._z_reorder._core._op._idx[0]  # _z_reorder = SubSampleOp.T.squeeze()
+            idx = _c2r(idx)
+            chunks = self._z_chunk
+
+        return idx, chunks
 
     def _disable_unsupported_methods(self):
         # Despite being a child-class of _NUFFT3, some methods are not supported because they don't
