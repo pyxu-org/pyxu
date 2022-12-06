@@ -1275,6 +1275,16 @@ class ADMM(_PDS):
         Momentum parameter.
     tuning_strategy: [1, 2, 3]
         Strategy to be employed when setting the hyperparameters (default to 1). See base class for more details.
+    cg_kwargs: dict | None
+        Initialization parameters of the inner-loop :py:class:`~pycsou.opt.solver.cg.CG` algorithm (see Remark 2).
+    cg_fit_kwargs: dict | None
+        Parameters of the ``fit()`` method of the inner-loop :py:class:`~pycsou.opt.solver.cg.CG` algorithm (see Remark
+        2).
+    nlcg_kwargs: dict | None
+        Initialization parameters of the inner-loop :py:class:`~pycsou.opt.solver.nlcg.NLCG` algorithm (see Remark 2).
+    nlcg_fit_kwargs: dict | None
+        Parameters of the ``fit()`` method of the inner-loop :py:class:`~pycsou.opt.solver.nlcg.NLCG` algorithm (see
+        Remark 2).
 
     See Also
     --------
