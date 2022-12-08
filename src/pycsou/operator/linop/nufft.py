@@ -1870,6 +1870,31 @@ class _NUFFT3_chunked(_NUFFT3):
             # Not coordinating the planning stage with other workers/tasks leads to segmentation faults.
             op = NUFFT.type3(**kwargs)
 
+        # The complexity of _NUFFT3.[apply|adjoint]() is
+        #     N_F \ln N_F   +   (N_x + N_z) w^d
+        #        N_F = FFT size
+        #        N_x = # x-domain points
+        #        N_z = # z-domain points
+        #        w = spread/interpolation kernel size
+        #
+        #
+        # The complexity of _NUFFT3_chunked.[apply|adjoint]() is
+        # (1) \sum_{i,j} N_F_ij \ln N_F_ij   +   N_z_blk N_x w^d   +   N_x_blk N_z w^d,
+        #         N_F_ij = FFT size in (i,j)-th sub-problem
+        #         N_x_blk = # x-domain chunks
+        #         N_z_blk = # z-domain chunks
+        # Assuming N_x_blk ~= N_z_blk, the term above simplifies to
+        #     \sum_{i,j} N_F_ij \ln N_F_ij   +   (N_x w^d + N_z w^d) \sqrt(N_x_blk * N_z_blk),
+        # i.e. the spread/interpolation cost grows proportional to \sqrt{# sub-problems}
+        #
+        #
+        # It is possible to share the spread/interpolation costs amongst sub-problems so as to bring
+        # the complexity of _NUFFT3_chunked.[apply|adjoint]() down to
+        # (2) (N_x_blk * N_z_blk) * N_F \ln N_F   +   (N_x + N_z) w^d.
+        #
+        # The philosophies of computing via (1) and (2) differ:
+        #   (1) optimal FFT-size per sub-problem + \sqrt{N_xz_blk} spread/interpolation overhead
+        #   (2) largest FFT-size per sub-problem + no spread/interpolation overhead w.r.t. _NUFFT3.[apply|adjoint]()
         out = getattr(op, func)(arr)
         return out
 
