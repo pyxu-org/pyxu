@@ -19,6 +19,7 @@ __all__ = [
     "SquaredL2Norm",
     "SquaredL1Norm",
     "LInfinityNorm",
+    "L21Norm",
 ]
 
 
@@ -346,3 +347,52 @@ class LInfinityNorm(ShiftLossMixin, pyca.ProxFunc):
             y *= xp.sign(arr)
 
         return y
+
+
+class L21Norm(ShiftLossMixin, pyca.ProxFunc):
+    r"""
+    Mixed :math:`\ell_2-\ell_1` norm :math:`\Vert\mathbf{x}\Vert_{2, 1}:=\sum_{i=1}^N \sqrt{ \sum_{j=1}^M x_{i, j}^2}`,
+    for arrays of dimension :math:`\geq 2`.
+    Notes
+    _____
+    The input array need not be 2-dimensional: the :math:`\ell_2` norm is applied along a predefined subset of the
+    dimensions, and the :math:`\ell_1` norm on the remaining ones.
+    """
+
+    def __init__(self, arg_shape: tuple[int, int], l2_axis: typ.Union[int, tuple[int, ...]] = (0,)):
+        r"""
+        Parameters
+        ----------
+        arg_shape: tuple[int, ...]
+            Shape of the multidimensional input array.
+        l2_axis: int or tuple[int, ...], optional
+            Dimension(s) along which the :math:`\ell_2` norm is applied.
+        """
+        super().__init__(shape=(1, np.prod(arg_shape)))
+        self.arg_shape = arg_shape
+        if isinstance(l2_axis, int):
+            l2_axis = (l2_axis,)
+        self.l2_axis = l2_axis
+        ax_l2 = [a if a < 0 else (a - len(arg_shape)) for a in l2_axis]
+        self._l1_axis = np.setdiff1d(np.arange(-len(arg_shape), 0), ax_l2)  # Axes where l1 norm is applied
+        self._lipschitz = np.inf
+
+    @pycrt.enforce_precision("arr")
+    def apply(self, arr: pyct.NDArray):
+        xp = pycu.get_array_module(arr)
+        x = arr.copy().reshape(arr.shape[:-1] + self.arg_shape)
+        x = xp.moveaxis(x, self._l1_axis, np.arange(-len(self._l1_axis), 0))  # Move l1 axis to trailing dimensions
+        # Reshape so that l1 and l2 are a single dimension
+        x = x.reshape(arr.shape[:-1] + (np.prod([self.arg_shape[a] for a in self.l2_axis]),) + (-1,))
+        return pylinalg.norm(pylinalg.norm(x, ord=2, axis=-2), ord=1, axis=-1, keepdims=True)
+
+    @pycrt.enforce_precision(["arr", "tau"])
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real):
+        xp = pycu.get_array_module(arr)
+        x = arr.copy().reshape(arr.shape[:-1] + self.arg_shape)
+        x = xp.moveaxis(x, self._l1_axis, range(-len(self._l1_axis), 0))  # Move l1 axis to trailing dimensions
+        # Reshape so that l1 and l2 are a single dimension
+        x = x.reshape(arr.shape[:-1] + (np.prod([self.arg_shape[a] for a in self.l2_axis]),) + (-1,))
+        x = (1 - tau / xp.fmax(pylinalg.norm(x, ord=2, axis=-2, keepdims=True), tau)) * x
+        x = xp.moveaxis(x, range(-len(self._l1_axis), 0), self._l1_axis)  # Move back dimensions to their original place
+        return x.reshape(arr.shape[:-1] + (-1,))
