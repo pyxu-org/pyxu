@@ -13,17 +13,18 @@ __all__ = [
 
 class NLCG(pyca.Solver):
     r"""
-    Nonlinear Conjugate Gradient Method.
+    Nonlinear Conjugate Gradient Method (NLCG).
 
-    The Nonlinear Conjugate Gradient method accumulates at local minima of the problem
+    The Nonlinear Conjugate Gradient method finds a local minimum of the problem
 
     .. math::
 
        \min_{x\in\mathbb{R}^{N}} f(x),
 
-    where :math:`f: \mathbb{R}^{N} \to \mathbb{R}` is a *differentiable* functional. When :math:`f`
-    is convex and has a minimum, the method converges to that minimum. Further details and proofs in
-    [PolakRibi]_.
+    where :math:`f: \mathbb{R}^{N} \to \mathbb{R}` is a *differentiable* functional.
+    When :math:`f` is quadratic, NLCG is equivalent to the Conjugate Gradient (CG) method.
+    NLCG hence has similar convergence behaviour to CG if :math:`f` is locally-quadratic.
+    The converge speed may be slower however due to its line-search overhead [NumOpt_NocWri]_.
 
     The norm of the `gradient <https://www.wikiwand.com/en/Nonlinear_conjugate_gradient_method>`_
     :math:`\nabla f_k = \nabla f(x_k)` is used as the default stopping criterion.
