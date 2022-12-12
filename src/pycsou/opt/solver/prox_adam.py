@@ -316,7 +316,7 @@ class ProxAdam(pyca.Solver):
         psi = self.__psi(t=self._astate["idx"])
         ## =====================================================
 
-
+        ## Part 2: setup + eval PGD sub-problems ===============
         a = mst["a"]
         x = x - a * (phi / psi)
 
@@ -328,6 +328,7 @@ class ProxAdam(pyca.Solver):
         pgd_sub = pycos.PGD(h, self._g, show_progress=False)
         pgd_sub.fit(x0=x.ravel(), tau=gamma, stop_crit=mst["subproblem_stop_crit"])
         x = pgd_sub.solution().reshape(x.shape)
+        ## =====================================================
 
         mst["x"] = x
 
