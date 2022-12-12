@@ -80,31 +80,32 @@ class NLCG(pyca.Solver):
 
     Example
     --------
-    Consider the following quadratic optimisation problem:
+    Consider the following quadratic optimization problem:
 
-    ..math:
+    .. math:
 
        \min_{\mathbf{x}} \Vert{A\mathbf{x}-\mathbf{b}}\Vert_2^2
 
-    The Conjugate Gradient method applies to these problems with less overhead, as it does not perform a
-    linesearch. How much faster CG is with respect to NLCG highly depends on the operator :math:`A`, as it
-    can go from three or four times faster to forty.
 
-    >>> import numpy as np
+    This problem is strictly convex, hence NLCG will converge to the optimal solution:
 
-    >>> from pycsou.operator.linop import DiagonalOp
-    >>> from pycsou.operator import SquaredL2Norm, shift_loss
-    >>> from pycsou.opt.solver import NLCG
+    .. code-block:: python3
 
-    >>> N = 3
-    >>> f = shift_loss(SquaredL2Norm(dim=N), np.ones((N,))) * (2 * DiagonalOp(np.ones((N,))))
+       import numpy as np
 
-    >>> nlcg_alg = NLCG(f)
-    >>> x0 = np.zeros((N,))
-    >>> nlcg_alg.fit(x0=x0, variant="FR")
-    >>> x_star = nlcg_alg.solution()
-    >>> assert np.allclose(x_star, 0.5 * np.ones((N,)))
+       import pycsou.operator as pyco
+       import pycsou.opt.solver as pycs
 
+       N, a, b = 5, 3, 1
+       f = pyco.SquaredL2Norm(N).asloss(b).argscale(a)  # \norm(Ax - b)**2
+
+       nlcg = pycs.NLCG(f)
+       nlcg.fit(x0=np.zeros((N,)), variant="FR")
+       x_opt = nlcg.solution()
+       np.allclose(x_opt, 1/a)  # True
+
+    Note however that the CG method is preferable in this context since it omits the linesearch
+    overhead. The former depends on the cost of applying :math:`A`, and may be significant.
     """
 
     def __init__(self, f: pyca.DiffFunc, **kwargs):
