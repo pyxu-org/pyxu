@@ -1,6 +1,9 @@
 import warnings
 
 import pycsou.abc as pyca
+import pycsou.operator.func as pycof
+import pycsou.operator.linop as pycl
+import pycsou.opt.solver as pycos
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
@@ -281,10 +284,6 @@ class ProxAdam(pyca.Solver):
         mst["b2"] = b2
 
     def m_step(self):
-        from pycsou.operator import SquaredL2Norm
-        from pycsou.operator.linop import DiagonalOp
-        from pycsou.opt.solver import PGD
-
         mst = self._mstate  # shorthand
         x, m, v = mst["x"], mst["mean"], mst["variance"]
 
@@ -318,8 +317,8 @@ class ProxAdam(pyca.Solver):
         gamma = pycrt.coerce(a / xp.max(psi))
 
         sqrt_psi = xp.sqrt(psi)
-        h = (0.5 / a) * SquaredL2Norm().asloss((sqrt_psi * x).ravel()) * DiagonalOp(sqrt_psi.ravel())
-        pgd_sub = PGD(h, self._g, show_progress=False)
+        h = (0.5 / a) * pycof.SquaredL2Norm().asloss((sqrt_psi * x).ravel()) * pycl.DiagonalOp(sqrt_psi.ravel())
+        pgd_sub = pycos.PGD(h, self._g, show_progress=False)
         pgd_sub.fit(x0=x.ravel(), tau=gamma, stop_crit=mst["subproblem_stop_crit"])
         x = pgd_sub.solution().reshape(x.shape)
 
