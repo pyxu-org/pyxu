@@ -328,7 +328,8 @@ class ProxAdam(pyca.Solver):
     def default_stop_crit(self) -> pyca.StoppingCriterion:
         from pycsou.opt.stop import RelError
 
-        # Used in https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.py as well as corresp. paper
+        # Described in [ProxAdam]_ and used in their implementation:
+        # https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.py
         stop_crit = RelError(
             eps=1e-4,
             var="x",
