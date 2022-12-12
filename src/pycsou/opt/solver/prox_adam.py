@@ -226,11 +226,11 @@ class ProxAdam(pyca.Solver):
                 mst["a"] = pycrt.coerce(1 / self._f.diff_lipschitz())
             except ZeroDivisionError as exc:
                 # _f is constant-valued: a is a free parameter.
-                mst["a"] = 1.0
+                mst["a"] = pycrt.coerce(1)
                 msg = "\n".join(
                     [
-                        rf"[ProxAdam] The gradient/proximal step size a is auto-set to {mst['a']}.",
-                        r"           Choosing a manually may lead to faster convergence.",
+                        rf"The gradient step size `a` is auto-set to {mst['a']}.",
+                        r"Choosing a manually may lead to faster convergence.",
                     ]
                 )
                 warnings.warn(msg, pycuw.AutoInferenceWarning)
@@ -239,7 +239,7 @@ class ProxAdam(pyca.Solver):
                 assert a > 0
                 mst["a"] = a
             except:
-                raise ValueError(f"[ProxAdam] a must be positive, got {a}.")
+                raise ValueError(f"`a` must be positive, got {a}.")
 
         mst["variant"] = self.__parse_variant(variant)
 
