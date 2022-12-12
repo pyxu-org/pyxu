@@ -266,7 +266,10 @@ class ProxAdam(pyca.Solver):
 
         mst["subproblem_stop_crit"] = stop_crit_sub
 
+        assert 0 <= b1 < 1, f"b1: expected value in [0, 1), got {b1}."
         mst["b1"] = b1
+
+        assert 0 <= b2 < 1, f"b2: expected value in [0, 1), got {b2}."
         mst["b2"] = b2
 
         mst["variance_hat"] = mst["variance"]
