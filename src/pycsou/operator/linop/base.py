@@ -1,3 +1,4 @@
+import functools
 import types
 import typing as typ
 import warnings
@@ -17,6 +18,7 @@ __all__ = [
     "NullFunc",
     "HomothetyOp",
     "DiagonalOp",
+    "PadOp",
 ]
 
 
@@ -614,3 +616,154 @@ class _Pad1D(pyca.LinOp):
                     out[tuple(slices_out[i])] += arr.reshape(*arr_shape)[tuple(slice_)]
 
         return out.reshape(*arr.shape[:-1], -1)
+
+
+def PadOp(arg_shape: pyct.OpShape, pad_width: typ.Tuple, mode: typ.Union[typ.Tuple, str] = "constant") -> pyct.OpT:
+    r"""
+    Pad operator.
+
+    Parameters
+    ----------
+    arg_shape: tuple
+        Shape of the input array.
+    pad_width: tuple( tuple(int, int), ... )
+        Number of values padded to the edges of each axis. ((before_1, after_1), … (before_N, after_N)) unique pad
+        widths for each axis.
+    mode: str, tuple
+        Supported padding modes are 'constant' (which adds zeroes), 'wrap', 'reflect', 'symmetric', and 'edge'
+        (see :py:func:`numpy.pad` for details).
+
+    Returns
+    -------
+    op: pyct.OpT
+        Padding operator.
+
+    Notes
+    -----
+    Padding can be performed in one or multiple directions to any multidimensional input arrays.
+
+    The *adjoint* of the padding operator performs a cumulative summation on the original positions used to pad. Its
+    effect is very clear from its matrix form, for example, the matrix-form of the 'wrap'-padding of a
+    three-element vector with a width of (1, 1) would be:
+
+    .. math::
+
+       \mathbf{A}
+       =
+       \left[
+           \begin{array}{ccc}
+               0 & 0 & 1 \\
+               1 & 0 & 0\\
+               0 & 1 & 0\\
+               0 & 0 & 1 \\
+               1 & 0 & 0\\
+           \end{array}
+       \right].
+
+    The adjoint of :math:`\mathbf{A}` corresponds to its matrix transpose:
+
+    .. math::
+
+       \mathbf{A}^{\ast}
+       =
+       \left[
+           \begin{array}{ccccc}
+               0 & 1 & 0 & 0 & 1 \\
+               0 & 0 & 1 & 0 & 0 \\
+               1 & 0 & 0 & 1 & 0 \\
+           \end{array}
+       \right].
+
+    This operation can be seen as a trimming (:math:`\mathbf{T}`) plus a cumulative summation (:math:`\mathbf{S}`):
+
+    .. math::
+
+       \mathbf{A}^{\ast} = \mathbf{T} + \mathbf{S} = \left[\begin{array}{ccccc}
+       0 & 1 & 0 & 0 & 0 \\
+       0 & 0 & 1 & 0 & 0 \\
+       0 & 0 & 0 & 1 & 0
+       \end{array}\right]  + \left[\begin{array}{ccccc}
+       0 & 0 & 0 & 0 & 1 \\
+       0 & 0 & 0 & 0 & 0 \\
+       1 & 0 & 0 & 0 & 0
+       \end{array}\right],
+
+    where both :math:`\mathbf{T}` and :math:`\mathbf{S}` are efficiently implemented in matrix-free form.
+
+
+    *Lipschitz constants*. The Lipschitz constant of the multidimensional padding operator is estimated based on the
+    composition of the corresponding unidimensional paddings, i.e.:
+
+    .. math::
+
+       L = \prod_i L_{i} \hspace{1cm} \text{for} i \in [0, \dots, N-1],
+
+    where an upper-bound of :math:`L^{i}` is estimated depending on the boundary condition at the :math:`i`-th axis:
+
+    .. math::
+
+       \| P_{i}(\mathbf{x}) - P_{i}(\mathbf{y}) \|^{2}_{2} \leq L_{i} \| \mathbf{x} - \mathbf{y} \|^{2}_{2}
+
+    - In the case of 'constant' padding (which adds zeroes), since only zeroes are added in the original signal, the
+    norm does not change, and thus:
+
+        .. math::
+
+           \| P_{i}(\mathbf{x}) - P_{i}(\mathbf{y}) \|^{2}_{2} = \| \mathbf{x} - \mathbf{y} \|^{2}_{2} \Longleftrightarrow L_{i} = 1
+
+    - In the case of 'wrap', 'reflect', 'symmetric', the padding operator is adding :math:`p` elements from the input signal:
+
+        .. math::
+
+           \| P_{i}(\mathbf{x}) - P_{i}(\mathbf{y}) \|^{2}_{2} \leq \| \mathbf{x} - \mathbf{y} \|^{2}_{2} + \| \mathbf{x}_{p} - \mathbf{y}_{p} \|^{2}_{2},
+
+
+        where :math:`\mathbf{x}_{p}` contains the :math:`p` elements of :math:`\mathbf{x}` used for padding. The
+        right-hand-side of the inequality is itself bounded by the distance of the two original vectors:
+
+        .. math::
+
+           \| \mathbf{x} - \mathbf{y} \|^{2}_{2} + \| \mathbf{x}_{p} - \mathbf{y}_{p} \|^{2}_{2} \leq 2 \| \mathbf{x} - \mathbf{y} \|^{2}_{2}  \Longrightarrow  L_{i} = \sqrt{2}
+
+    - In the case of 'edge',  the padding operator is adding :math:`p = \sum{\text{'pad_width'}}` times the elements
+    at the extremes. In this case, the upper bound is:
+
+        .. math::
+
+           \| P_{i}(\mathbf{x}) - P_{i}(\mathbf{y}) \|^{2}_{2} \leq \| \mathbf{x} - \mathbf{y} \|^{2}_{2} + p^{2}  \| \mathbf{x} - \mathbf{y} \|^{2}_{\infty},
+
+        where :math:`\|\mathbf{x}\|_{\infty} \leq \|\mathbf{x}\|_{2}`, thus
+
+        .. math::
+
+           \| P_{i}(\mathbf{x}) - P_{i}(\mathbf{y}) \|^{2}_{2} \leq (1 + p^{2}) \| \mathbf{x} - \mathbf{y} \|^{2}_{2}  \Longrightarrow  L_{i} = \sqrt{1 + p^{2}}
+
+    """
+
+    ndim = len(arg_shape)
+
+    # Careful! Using NumPy's private function to format pad_width. This can lead to problems if NumPy's API changes.
+    from numpy.lib.arraypad import _as_pairs
+
+    pad_width = _as_pairs(pad_width, ndim, as_index=True)
+
+    if mode is None:
+        mode = "constant"
+    if isinstance(mode, str):
+        mode = (mode,) * ndim
+    if isinstance(mode, tuple):
+        assert len(mode) == ndim
+    if not isinstance(mode, tuple):
+        raise ValueError(f"Incorrect type {type(mode)} for `mode`.")
+
+    # Create a list with 1d padding operators in each dimension
+    arg_shape_ = list(arg_shape)
+    op_list = []
+    for d in range(ndim):
+        op_list.append(_Pad1D(arg_shape=arg_shape_.copy(), axis=d, pad_width=pad_width[d], mode=mode[d]))
+        arg_shape_[d] += np.sum(pad_width[d])
+
+    # Compose 1d padding operators into a single multidimensional padding operator
+    op = functools.reduce(lambda x, y: x * y, op_list[::-1])
+    op._name = "PadOp"
+    return op
