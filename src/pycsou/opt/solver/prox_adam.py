@@ -153,6 +153,9 @@ class ProxAdam(pyca.Solver):
         This term is used exclusively if `variant="adam"`.
         Defaults to 1e-6.
 
+    **Remark 4:**
+    If provided, 'm0' and 'v0' must be broadcastable with 'x0'.
+
     Example
     --------
     Consider the following optimization problem:
@@ -239,17 +242,24 @@ class ProxAdam(pyca.Solver):
 
         xp = pycu.get_array_module(x0)
 
-        if m0 is not None:
-            assert m0.shape == x0.shape
+        if m0 is None:
+            mst["mean"] = xp.zeros_like(x0)
+        elif m0.shape == x0.shape:
+            # No broadcasting involved
             mst["mean"] = m0
         else:
-            mst["mean"] = xp.full(shape=x0.shape, fill_value=0.0, dtype=x0.dtype)
+            x0, m0 = xp.broadcast_arrays(x0, m0)
+            mst["mean"] = m0.copy()
 
-        if v0 is not None:
-            assert v0.shape == x0.shape
+        if v0 is None:
+            mst["variance"] = xp.zeros_like(x0)
+        elif v0.shape == x0.shape:
+            # No broadcasting involved
             mst["variance"] = v0
         else:
-            mst["variance"] = xp.full(shape=x0.shape, fill_value=0.0, dtype=x0.dtype)
+            x0, v0 = xp.broadcast_arrays(x0, v0)
+            mst["variance"] = v0.copy()
+        mst["variance_hat"] = mst["variance"]
 
         if stop_crit_sub is None:
             stop_crit_sub = self.default_stop_crit()
