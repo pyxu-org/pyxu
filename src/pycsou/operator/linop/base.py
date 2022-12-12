@@ -516,3 +516,101 @@ def _ExplicitLinOp(
     op.trace = types.MethodType(op_trace, op)
     op._name = "_ExplicitLinOp"
     return op
+
+
+class _Pad1D(pyca.LinOp):
+    def __init__(self, arg_shape, axis, pad_width, mode):
+
+        self.codom_shape = tuple([s + np.sum(pad_width) * (i == axis) for i, s in enumerate(arg_shape)])
+        self.arg_shape = tuple(arg_shape)
+        self.axis = axis
+        self.mode = mode
+
+        # Create multidimensional padding tuple, with padding defined only for axis
+        self.pad_width = [
+            (0, 0),
+        ] * (len(arg_shape) + 1)
+        self.pad_width[axis + 1] = pad_width
+
+        # Check that extended boundaries do not overlap
+        if np.sum(pad_width) > arg_shape[axis]:
+            warnings.warn(
+                f"The default Lipschitz constant is estimated assuming that the number of padded elements "
+                f"({np.sum(pad_width)})is smaller than the size of the input array ({arg_shape[axis]}). "
+                f"For a better estimate call the method `op.lipschitz(recompute=True)`."
+            )
+            if (np.array(pad_width) > arg_shape[axis]).any():
+                raise ValueError(
+                    f"The number of padded elements in each side {pad_width} must not be larger than the "
+                    f"size of the input array ({arg_shape[axis]}) at axis {axis}."
+                )
+
+        super().__init__(shape=(np.prod(self.codom_shape).item(), np.prod(arg_shape).item()))
+        # Define Lipschitz constant (see `Notes` in PadOp)
+        if self.mode == "constant":
+            self._lipschitz = 1.0
+        elif self.mode == "edge":
+            self._lipschitz = np.sqrt(1 + np.sum(pad_width) ** 2)
+        else:
+            np.sqrt(2)
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr):
+        """
+        Pad input array in the one dimension defined by `axis`.
+        """
+        return np.pad(arr.reshape(-1, *self.arg_shape), self.pad_width, self.mode).reshape(*arr.shape[:-1], self.codim)
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr):
+        """
+        Adjoint of padding in one dimension.
+
+        The adjoint method is performed in two steps, trimming and cumulative summation (see `Notes` in PadOp).
+        """
+
+        # Trim
+        arr_shape = (-1,) + self.codom_shape
+        out_shape = (-1,) + self.arg_shape
+        slices = []
+        for i, (start, end) in enumerate(self.pad_width):
+            end = out_shape[i] + self.pad_width[i][0] if arr_shape[i] != -1 else None
+            slices.append(slice(start, end))
+        out = arr.reshape(*arr_shape)[tuple(slices)].copy()
+
+        # cumulative sum
+        if self.mode == "constant":
+            return out.reshape(*arr.shape[:-1], self.dim)
+
+        # Slices of output onto which the input (padded) elements are summed to.
+        slices_out = [np.copy(slices), np.copy(slices)]
+        if self.mode == "wrap":
+            slices_out[0][self.axis + 1] = slice(-self.pad_width[self.axis + 1][0], None)
+            slices_out[1][self.axis + 1] = slice(0, self.pad_width[self.axis + 1][1])
+        elif self.mode in ["reflect", "symmetric"]:
+            # reflect and symmetric only differ by a 1 element displacement, captured by the following `aux` variable.
+            aux = self.mode == "reflect"
+            slices_out[0][self.axis + 1] = slice(self.pad_width[self.axis + 1][0] + aux - 1, (0 if aux else None), -1)
+            slices_out[1][self.axis + 1] = slice(-(1 + aux), -(self.pad_width[self.axis + 1][1] + 1 + aux), -1)
+        elif self.mode == "edge":
+            slices_out[0][self.axis + 1] = slice(0, 1)
+            slices_out[1][self.axis + 1] = slice(-1, None)
+        else:
+            raise NotImplementedError(f"mode {self.mode} is not supported. ")
+
+        # Slices of input array to be summed to output
+        slices_arr = [np.copy(slices), np.copy(slices)]
+        slices_arr[0][self.axis + 1] = slice(0, self.pad_width[self.axis + 1][0])
+        slices_arr[1][self.axis + 1] = slice(self.codom_shape[self.axis] - (self.pad_width[self.axis + 1][1]), None)
+
+        # Perform cumulative summation
+        for i, slice_ in enumerate(slices_arr):
+            if arr.reshape(*arr_shape)[tuple(slice_)].size:
+                if self.mode == "edge":
+                    out[tuple(slices_out[i])] += arr.reshape(*arr_shape)[tuple(slice_)].sum(
+                        axis=self.axis + 1, keepdims=True
+                    )
+                else:
+                    out[tuple(slices_out[i])] += arr.reshape(*arr_shape)[tuple(slice_)]
+
+        return out.reshape(*arr.shape[:-1], -1)
