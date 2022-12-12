@@ -145,14 +145,13 @@ class ProxAdam(pyca.Solver):
     stop_crit_sub: pyca.solver.StoppingCriterion
         Sub-problem stopping criterion.
         Default: use same stopping criterion as main problem.
-    **kwargs
-        p: pyct.Real
-            PAdam power parameter :math:`p \in [0, 0.5]`.
-            Must be specified for PAdam, unused otherwise.
-        eps_adam: pyct.Real
-            Adam noise parameter :math:`\epsilon`.
-            This term is used exclusively if `variant="adam"`.
-            Defaults to 1e-6.
+    p: pyct.Real
+        PAdam power parameter :math:`p \in (0, 0.5]`.
+        Must be specified for PAdam, unused otherwise.
+    eps: pyct.Real
+        Adam noise parameter :math:`\epsilon`.
+        This term is used exclusively if `variant="adam"`.
+        Defaults to 1e-6.
 
     Example
     --------
@@ -182,7 +181,6 @@ class ProxAdam(pyca.Solver):
        x_opt = prox_adam.solution()
        np.allclose(x_opt, 1)  # True
     """
-    __eps_adam_default = 1e-6
 
     def __init__(self, f: pyca.DiffFunc, g: pyca.ProxFunc, **kwargs):
         kwargs.update(
@@ -193,7 +191,7 @@ class ProxAdam(pyca.Solver):
         self._f = f
         self._g = g
 
-    @pycrt.enforce_precision(i=("x0", "a", "b1", "b2", "m0", "v0"))
+    @pycrt.enforce_precision(i=("x0", "a", "b1", "b2", "m0", "v0", "p", "eps"))
     def m_init(
         self,
         x0: pyct.NDArray,
@@ -203,8 +201,9 @@ class ProxAdam(pyca.Solver):
         b2: pyct.Real = 0.999,  # https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.
         m0: pyct.NDArray = None,  # warm start for mean
         v0: pyct.NDArray = None,  # warm start for variance
-        stop_crit_sub: pyca.solver.StoppingCriterion = None,  # sub-problem stopping criterion
-        **kwargs,  # p for padam, eps_adam for adam with eps_adam defaulting to some value > 0
+        stop_crit_sub: pyca.solver.StoppingCriterion = None,
+        p: pyct.Real = 0.5,
+        eps: pyct.Real = 1e-6,
     ):
         mst = self._mstate  # shorthand
 
@@ -232,15 +231,11 @@ class ProxAdam(pyca.Solver):
 
         mst["variant"] = self.__parse_variant(variant)
 
-        if mst["variant"] == "padam":
-            if (p := kwargs.get("p")) is None:
-                raise ValueError("[ProxAdam] To use PAdam, specify the power p as a kwarg in ProxAdam.fit()")
-            else:
-                mst["padam_p"] = p
+        assert 0 < p <= 0.5, f"p: expected value in (0, 0.5], got {p}."
+        mst["padam_p"] = p
 
-        if mst["variant"] == "adam":
-            eps_adam = kwargs.get("eps_adam")
-            mst["eps_adam"] = self.__eps_adam_default if eps_adam is None else eps_adam
+        assert eps > 0, f"eps: expected positive value, got {eps}."
+        mst["eps_adam"] = eps
 
         xp = pycu.get_array_module(x0)
 
