@@ -185,13 +185,20 @@ class ProxAdam(pyca.Solver):
        np.allclose(x_opt, 1)  # True
     """
 
-    def __init__(self, f: pyca.DiffFunc, g: pyca.ProxFunc, **kwargs):
+    def __init__(
+        self,
+        f: pyca.DiffFunc,
+        g: pyca.ProxFunc = None,
+        **kwargs,
+    ):
         kwargs.update(
             log_var=kwargs.get("log_var", ("x",)),
         )
         super().__init__(**kwargs)
 
         self._f = f
+        # If f is domain-agnostic and g is unspecified, cannot auto-infer NullFunc dimension.
+        # Solution: delay initialization of g to m_init(), where x0's shape can be used.
         self._g = g
 
     @pycrt.enforce_precision(i=("x0", "a", "b1", "b2", "m0", "v0", "p", "eps"))
@@ -211,6 +218,9 @@ class ProxAdam(pyca.Solver):
         mst = self._mstate  # shorthand
 
         mst["x"] = x0
+
+        if self._g is None:
+            self._g = pycof.NullFunc(dim=x0.shape[-1])
 
         if a is None:
             try:
