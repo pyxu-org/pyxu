@@ -202,15 +202,15 @@ class ProxAdam(pyca.Solver):
         self._g = g
 
     @pycrt.enforce_precision(i=("x0", "a", "b1", "b2", "m0", "v0", "p", "eps"))
-    def m_init(
+    def m_init(  # default values from https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.
         self,
         x0: pyct.NDArray,
         variant: str = "adam",
         a: pyct.Real = None,
-        b1: pyct.Real = 0.9,  # default values from:
-        b2: pyct.Real = 0.999,  # https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.
-        m0: pyct.NDArray = None,  # warm start for mean
-        v0: pyct.NDArray = None,  # warm start for variance
+        b1: pyct.Real = 0.9,
+        b2: pyct.Real = 0.999,
+        m0: pyct.NDArray = None,
+        v0: pyct.NDArray = None,
         stop_crit_sub: pyca.solver.StoppingCriterion = None,
         p: pyct.Real = 0.5,
         eps: pyct.Real = 1e-6,
