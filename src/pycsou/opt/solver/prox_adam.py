@@ -286,7 +286,7 @@ class ProxAdam(pyca.Solver):
     def m_step(self):
         mst = self._mstate  # shorthand
 
-        x = mst["x"]
+        x, a = mst["x"], mst["a"]
         xp = pycu.get_array_module(x)
         gm = self._f.grad(x)
         gv = gm.copy()
@@ -317,10 +317,12 @@ class ProxAdam(pyca.Solver):
         ## =====================================================
 
         ## Part 2: setup + eval PGD sub-problems ===============
-        a = mst["a"]
-        x = x - a * (phi / psi)
-
-        xp = pycu.get_array_module(x)
+        # In-place implementation of -----------------
+        #   x = x - a * (phi / psi)
+        phi /= psi
+        phi *= a
+        x -= phi
+        # --------------------------------------------
         gamma = pycrt.coerce(a / xp.max(psi))
 
         sqrt_psi = xp.sqrt(psi)
