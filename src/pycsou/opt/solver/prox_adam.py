@@ -216,7 +216,6 @@ class ProxAdam(pyca.Solver):
         eps: pyct.Real = 1e-6,
     ):
         mst = self._mstate  # shorthand
-
         mst["x"] = x0
 
         if self._g is None:
@@ -273,7 +272,6 @@ class ProxAdam(pyca.Solver):
 
         if stop_crit_sub is None:
             stop_crit_sub = self.default_stop_crit()
-
         mst["subproblem_stop_crit"] = stop_crit_sub
 
         assert 0 <= b1 < 1, f"b1: expected value in [0, 1), got {b1}."
@@ -281,11 +279,6 @@ class ProxAdam(pyca.Solver):
 
         assert 0 <= b2 < 1, f"b2: expected value in [0, 1), got {b2}."
         mst["b2"] = b2
-
-        mst["variance_hat"] = mst["variance"]
-
-        mst["phi"] = self.__compute__phi(1)
-        mst["psi"] = self.__compute__psi(1)
 
     def m_step(self):
         from pycsou.operator import SquaredL2Norm
@@ -330,7 +323,7 @@ class ProxAdam(pyca.Solver):
         pgd_sub.fit(x0=x.ravel(), tau=gamma, stop_crit=mst["subproblem_stop_crit"])
         x = pgd_sub.solution().reshape(x.shape)
 
-        mst["x"], mst["phi"], mst["psi"] = x, phi, psi
+        mst["x"] = x
 
     def default_stop_crit(self) -> pyca.StoppingCriterion:
         from pycsou.opt.stop import RelError
