@@ -12,6 +12,14 @@ pycsou.opt.solver.pgd module
    :undoc-members:
    :show-inheritance:
 
+pycsou.opt.solver.prox_adam module
+----------------------------------
+
+.. automodule:: pycsou.opt.solver.prox_adam
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 pycsou.opt.solver.cg module
 ---------------------------
 
@@ -24,14 +32,6 @@ pycsou.opt.solver.nlcg module
 -----------------------------
 
 .. automodule:: pycsou.opt.solver.nlcg
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-pycsou.opt.solver.prox_adam module
-----------------------------------
-
-.. automodule:: pycsou.opt.solver.prox_adam
    :members:
    :undoc-members:
    :show-inheritance:
