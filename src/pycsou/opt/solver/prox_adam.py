@@ -308,8 +308,8 @@ class ProxAdam(pyca.Solver):
         xp = pycu.get_array_module(x)
         mst["variance_hat"] = xp.maximum(mst["variance_hat"], v)
 
-        phi = self.__compute__phi(self._astate["idx"])
-        psi = self.__compute__psi(self._astate["idx"])
+        phi = self.__phi(t=self._astate["idx"])
+        psi = self.__psi(t=self._astate["idx"])
 
         a = mst["a"]
         x = x - a * (phi / psi)
@@ -354,25 +354,29 @@ class ProxAdam(pyca.Solver):
         data, _ = self.stats()
         return data.get("x")
 
-    def __compute__phi(self, t):
+    def __phi(self, t: int):
         mst = self._mstate
-        v = mst["variant"]
-        m = mst["mean"]
-        if v == "adam":
-            return m / (1 - (mst["b1"] ** t))
-        elif v in ["amsgrad", "padam"]:
-            return m
+        var = mst["variant"]
+        if var == "adam":
+            out = mst["mean"].copy()
+            out /= 1 - (mst["b1"] ** t)
+        elif var in ["amsgrad", "padam"]:
+            out = mst["mean"].copy()  # to allow in-place updates outside __compute_phi()
+        return out
 
-    def __compute__psi(self, t):
+    def __psi(self, t: int):
         mst = self._mstate
         xp = pycu.get_array_module(mst["x"])
-        v = mst["variant"]
-        if v == "adam":
-            return xp.sqrt(mst["variance"] / (1 - (mst["b2"] ** t))) + mst["eps_adam"]
-        elif v == "amsgrad":
-            return xp.sqrt(mst["variance_hat"])
-        elif v == "padam":
-            return mst["variance_hat"] ** mst["padam_p"]
+        var = mst["variant"]
+        if var == "adam":
+            out = xp.sqrt(mst["variance"])
+            out /= xp.sqrt(1 - mst["b2"] ** t)
+            out += mst["eps_adam"]
+        elif var == "amsgrad":
+            out = xp.sqrt(mst["variance_hat"])
+        elif var == "padam":
+            out = mst["variance_hat"] ** mst["padam_p"]
+        return out
 
     def __parse_variant(self, variant: str) -> str:
         supported_variants = {"adam", "amsgrad", "padam"}
