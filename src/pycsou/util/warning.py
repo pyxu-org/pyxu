@@ -19,6 +19,12 @@ class AutoInferenceWarning(PycsouWarning):
     pass
 
 
+class PerformanceWarning(PycsouWarning):
+    """
+    Use for performance-related warnings.
+    """
+
+
 class PrecisionWarning(PycsouWarning):
     """
     Use for precision-related warnings.

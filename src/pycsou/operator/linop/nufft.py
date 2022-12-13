@@ -1,6 +1,9 @@
 import cmath
 import collections
 import collections.abc as cabc
+import itertools
+import math
+import threading
 import types
 import typing as typ
 import warnings
@@ -11,8 +14,13 @@ import finufft
 import numba
 import numba.cuda
 import numpy as np
+import numpy.linalg as npl
+import scipy.optimize as sopt
+import scipy.spatial as spl
 
 import pycsou.abc as pyca
+import pycsou.operator.blocks as pycb
+import pycsou.operator.linop.select as pycs
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
@@ -256,6 +264,8 @@ class NUFFT(pyca.LinOp):
         isign: SignT = sign_default,
         eps: pyct.Real = eps_default,
         real: bool = False,
+        plan_fw: bool = True,
+        plan_bw: bool = True,
         **kwargs,
     ) -> pyct.OpT:
         r"""
@@ -281,6 +291,13 @@ class NUFFT(pyca.LinOp):
 
             If ``False``, then ``.apply()`` takes (..., 2M) inputs, i.e. :math:`\mathbb{C}^{M}`
             vectors viewed as bijections with :math:`\mathbb{R}^{2M}`.
+        plan_fw/bw: bool
+            If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw)
+            transform.
+            These are advanced options: use them with care.
+            Some public methods in the :py:class:`~pycsou.abc.operator.LinOp` interface may not work
+            if fw/bw transforms are disabled.
+            These options only take effect if ``eps > 0``.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
@@ -331,6 +348,8 @@ class NUFFT(pyca.LinOp):
             eps=eps,
             real_in=real,
             real_out=False,
+            plan_fw=plan_fw,
+            plan_bw=plan_bw,
             **kwargs,
         )
         return _NUFFT1(**init_kwargs).squeeze()
@@ -343,6 +362,8 @@ class NUFFT(pyca.LinOp):
         isign: SignT = sign_default,
         eps: pyct.Real = eps_default,
         real: bool = False,
+        plan_fw: bool = True,
+        plan_bw: bool = True,
         **kwargs,
     ) -> pyct.OpT:
         r"""
@@ -368,6 +389,13 @@ class NUFFT(pyca.LinOp):
 
             If ``False``, then ``.apply()`` takes (..., 2N.prod()) inputs, i.e. :math:`\mathbb{C}^{N}`
             vectors viewed as bijections with :math:`\mathbb{R}^{2N}`.
+        plan_fw/bw: bool
+            If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw)
+            transform.
+            These are advanced options: use them with care.
+            Some public methods in the :py:class:`~pycsou.abc.operator.LinOp` interface may not work
+            if fw/bw transforms are disabled.
+            These options only take effect if ``eps > 0``.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
@@ -422,6 +450,8 @@ class NUFFT(pyca.LinOp):
             eps=eps,
             real_in=False,
             real_out=real,
+            plan_fw=plan_bw,  # note the reversal
+            plan_bw=plan_fw,  # here
             **kwargs,
         )
         op_t1 = _NUFFT1(**init_kwargs)
@@ -449,6 +479,10 @@ class NUFFT(pyca.LinOp):
         isign: SignT = sign_default,
         eps: pyct.Real = eps_default,
         real: bool = False,
+        plan_fw: bool = True,
+        plan_bw: bool = True,
+        chunked: bool = False,
+        parallel: bool = False,
         **kwargs,
     ) -> pyct.OpT:
         r"""
@@ -472,6 +506,18 @@ class NUFFT(pyca.LinOp):
 
             If ``False``, then ``.apply()`` takes (..., 2M) inputs, i.e. :math:`\mathbb{C}^{M}`
             vectors viewed as bijections with :math:`\mathbb{R}^{2M}`.
+        plan_fw/bw: bool
+            If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw)
+            transform.
+            These are advanced options: use them with care.
+            Some public methods in the :py:class:`~pycsou.abc.operator.LinOp` interface may not work
+            if fw/bw transforms are disabled.
+            These options only take effect if ``eps > 0``.
+        chunked: bool
+            If ``True``, the transform is performed in small chunks.
+        parallel: bool
+            This option only applies to chunked transforms.
+            If ``True``, evaluate chunks in parallel.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
@@ -514,6 +560,75 @@ class NUFFT(pyca.LinOp):
                      + 1j * rng.normal(size=(3, N_trans, M))
                A_out_fw = pycu.view_as_complex(A.apply(pycu.view_as_real(arr)))
                A_out_bw = pycu.view_as_complex(A.adjoint(pycu.view_as_real(A_out_fw)))
+
+        Notes (chunked-transform)
+        -------------------------
+        * An extra initialization step is required before using a chunked-transform:
+
+          .. code-block:: python3
+
+             A = pycl.NUFFT.type3(
+                     x, z
+                     isign
+                     chunked=True,   # with chunk specified
+                     parallel=True,  # for extra speed (chunked-only)
+                     **finufft_kwargs,
+                  )
+             x_chunks, z_chunks = A.auto_chunk()  # auto-determine a good x/z chunking strategy
+             A.allocate(x_chunks, z_chunks)  # apply the chunking strategy.
+
+          :py:meth:`~pycsou.operator.linop.nufft._NUFFT3_chunked.auto_chunk` is a helper method to
+          auto-determine a good chunking strategy.
+
+          Its runtime is significant when the number of sub-problems grows large. (1000+)
+          In these contexts, assuming a good-enough x/z-split is known in advance, users can
+          directly supply them to :py:meth:`~pycsou.operator.linop.nufft._NUFFT3_chunked.allocate`.
+
+        * apply/adjoint() runtime is minimized when x/z are well-ordered, i.e. when sub-problems can
+          sub-sample inputs to apply/adjoint() via slice operators.
+
+          To reduce runtime of chunked transforms,
+          :py:meth:`~pycsou.operator.linop.nufft._NUFFT3_chunked.allocate` automatically re-orders
+          x/z when appropriate.
+
+          The side-effect is the cost of a permutation before/after calls to apply/adjoint().
+          This cost becomes significant when the number of non-uniform points x/z is large. (> 1e6)
+
+          To avoid paying the re-ordering cost at each transform, it is recommended to supply x/z
+          and apply/adjoint inputs in the "correct" order from the start.
+
+          A good re-ordering is computed automatically by
+          :py:meth:`~pycsou.operator.linop.nufft._NUFFT3_chunked.allocate` and can be used to
+          initialize a new chunked-transform with better runtime properties as such:
+
+          .. code-block:: python3
+
+             ### Initialize a chunked transform (1st try; as above)
+             A = pycl.NUFFT.type3(
+                     x, z
+                     isign
+                     chunked=True,
+                     parallel=True,
+                     **finufft_kwargs,
+                  )
+             x_chunks, z_chunks = A.auto_chunk()  # auto-determine a good x/z chunking strategy
+             A.allocate(x_chunks, z_chunks)  # will raise warning if bad x/z-order detected
+
+
+             ### Now initialize a better transform (2nd try)
+             x_idx, x_chunks = A.order("x")  # get a good x-ordering
+             z_idx, z_chunks = A.order("z")  # get a good z-ordering
+             A = pycl.NUFFT.type3(
+                     x[x_idx], z[z_idx]  # re-order x/z accordingly
+                     ...                 # same as before
+                  )
+             A.allocate(x_chunks, z_chunks)  # skip auto-chunking and apply
+                                             # optimal x/z_chunks provided.
+
+        * FINUFFT accepts an ``nthreads`` keyword parameter.
+          This sets the thread-count used in FFTW, bin-sorting, and spreading/interpolation steps.
+          In the context of chunked transforms, since each chunk operates on small quantities, it is
+          often best to set ``nthreads=1``.
         """
         init_kwargs = _NUFFT3._sanitize_init_kwargs(
             x=x,
@@ -521,9 +636,24 @@ class NUFFT(pyca.LinOp):
             isign=isign,
             eps=eps,
             real=real,
+            plan_fw=plan_fw,
+            plan_bw=plan_bw,
+            chunked=chunked,
+            parallel=parallel,
             **kwargs,
         )
-        return _NUFFT3(**init_kwargs).squeeze()
+
+        if chunked := init_kwargs.pop("chunked", False):
+            klass = _NUFFT3_chunked
+        else:
+            klass = _NUFFT3
+            for k in [  # kwargs only valid for chunked-transforms
+                "parallel",
+            ]:
+                init_kwargs.pop(k, None)
+
+        op = klass(**init_kwargs)
+        return op.squeeze()
 
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         r"""
@@ -696,11 +826,7 @@ class NUFFT(pyca.LinOp):
         return x, N, sh_out
 
     @staticmethod
-    def _scan(
-        func: cabc.Callable[[pyct.NDArray], pyct.NDArray],
-        data: list[pyct.NDArray],
-        blk_shape: pyct.NDArrayShape = None,
-    ) -> list[pyct.NDArray]:
+    def _scan(func, data, blk_shape=None) -> list:
         # Internal method for apply/adjoint.
         #
         # Computes the equivalent of ``map(func, data)``, with the constraint that `func` is applied
@@ -738,39 +864,66 @@ class NUFFT(pyca.LinOp):
         #
         # Parameters
         # ----------
-        # func: callable
-        #     Function to apply to each element of `data`.
+        # func: callable | list(callable)
+        #     Function(s) to apply to each element of `data`.
+        #     If several functions are provided, then `func[i]` is applied to `data[i]`.
         # data: list[pyct.NDArray]
-        #     (N_blk,) arrays of identical shape.
+        #     (N_data,) arrays to act on.
         # blk_shape: pyct.NDArrayShape
-        #     Shape of ``func(data[i])``.
-        #
-        #     This hint is only required if inputs are dask arrays.
+        #     If provided and inputs are Dask-arrays, then `blks` will contain Dask-arrays of shape
+        #     `blk_shape`. (I.e. transform delayed objects back to array form.)
         #
         # Returns
         # -------
-        # blks: list[pyct.NDArray]
-        #     (N_blk,) arrays of shape `blk_shape`.
+        # blks: list[obj]
+        #     (N_data,) objects acted upon.
+        #
+        #     If inputs were Dask-arrays, then `blks` contains Dask-delayed objects, unless
+        #     `blk_shape` is provided.
+        if callable(func):
+            func = (func,) * len(data)
+
         NDI = pycd.NDArrayInfo
-        if NDI.from_obj(data) == NDI.DASK:
-            assert blk_shape is not None
+        dask_input = lambda obj: NDI.from_obj(obj) == NDI.DASK
+        if all(map(dask_input, data)):
             xp = NDI.DASK.module()
 
             blks = []
             for i in range(len(data)):
                 _func = dgm.bind(
-                    children=dask.delayed(func, pure=True),
+                    children=dask.delayed(func[i], pure=True),
                     parents=blks[i - 1] if (i > 0) else [],
                 )
-                blk = xp.from_delayed(
-                    _func(data[i]),
-                    shape=blk_shape,
-                    dtype=data[i].dtype,
-                )
+                blk = _func(data[i])
+                if blk_shape is not None:
+                    blk = NUFFT._array_ize(
+                        blk,
+                        shape=blk_shape,
+                        dtype=data[i].dtype,
+                    )
                 blks.append(blk)
         else:
-            blks = [func(blk) for blk in data]
+            blks = [_func(blk) for (_func, blk) in zip(func, data)]
         return blks
+
+    @staticmethod
+    def _array_ize(data, shape: pyct.NDArrayShape, dtype: pyct.DType):
+        # Internal method for apply/adjoint.
+        #
+        # Transform a Dask-delayed object into its Dask-array counterpart.
+        # This function is a no-op if `data` is not a Dask-delayed object.
+        from dask.delayed import Delayed
+
+        if isinstance(data, Delayed):
+            xp = pycd.NDArrayInfo.DASK.module()
+            arr = xp.from_delayed(
+                data,
+                shape=shape,
+                dtype=dtype,
+            )
+        else:
+            arr = data
+        return arr
 
     @staticmethod
     def _postprocess(
@@ -825,12 +978,12 @@ class NUFFT(pyca.LinOp):
         upsampled: bool = False,
     ) -> pyct.NDArray:
         r"""
-        For type1/2 NUFFT: compute the transform's meshgrid
+        For type-1/2 NUFFT: compute the transform's meshgrid
         :math:`\mathcal{I}_{N_{1} \times \cdots \times N_{d}}
         =
         \mathcal{I}_{N_{1}} \times \cdots \times \mathcal{I}_{N_{d}}`.
 
-        For type-3 NUFFT: compute the meshgrid used for internal FFT computations.
+        For type-3 NUFFT: compute the (shifted) meshgrid used for internal FFT computations.
 
         Parameters
         ----------
@@ -842,12 +995,14 @@ class NUFFT(pyca.LinOp):
             Grid scale. Options are:
 
             - **Type1 and 2:**
-                * ``unit``, i.e. :math:`\mathcal{I} \in [[-N//2, \ldots, N//2 + 1]]^{d}`
-                * ``source``, i.e. :math:`\mathcal{I} \in [-\pi, \pi)^{d}`
+                * ``unit``, i.e. :math:`\mathcal{I} = [[-N_{d}//2, \ldots, (N_{d}-1)//2 + 1))^{d}`
+                * ``source``, i.e. :math:`\mathcal{I} \subset [-\pi, \pi)^{d}`
             - **Type 3:**
-                * ``unit``, i.e. :math:`\mathcal{I} \in [[-N//2, \ldots, N//2 + 1]]^{d}`
-                * ``source``, i.e. :math:`\mathcal{I}_{\text{source}} \in [-\pi, \pi)^{d}` (after dilation)
-                * ``target``, i.e. :math:`\mathcal{I}_{\text{target}} \in [-\pi, \pi)^{d}` (after dilation)
+                * ``unit``, i.e. :math:`\mathcal{I} = [[-N_{d}//2, \ldots, (N_{d}-1)//2 + 1))^{d}`
+                * ``source``, i.e. :math:`\mathcal{I}_{\text{source}} \subset x^{c} + [-X_{d}, X_{d})^{d}`
+                * ``target``, i.e. :math:`\mathcal{I}_{\text{target}} \subset z^{c} + [-Z_{d}, Z_{d})^{d}`,
+              where :math:`x^{c}`, :math:`z^{c}` denote the source/target centroids, and :math:`X`,
+              :math:`Z` the source/target half-widths.
         upsampled: bool
             Use the upsampled meshgrid.
             (See [FINUFFT]_ for details.)
@@ -977,7 +1132,7 @@ class NUFFT(pyca.LinOp):
         u = self._upsample_factor()
         if np.isclose(u, 2):
             w = np.ceil(-np.log10(self._eps) + 1)
-        else:  # 1.25
+        else:  # 1.25 Consistent with setup_spreader() but not sect 4.2 (safety factor gamma=1 instead of 0.976)
             scale = np.pi * np.sqrt(1 - (1 / u))
             w = np.ceil(-np.log(self._eps) / scale)
         w = max(2, int(w))
@@ -998,7 +1153,7 @@ class NUFFT(pyca.LinOp):
                 4: 2.38,
             }.get(w, 2.30)
         else:  # 1.25
-            gamma = 0.97
+            gamma = 0.97  # 0.976 in paper
             scale = gamma * np.pi * (1 - (0.5 / u))
         beta = float(scale * w)
         return beta
@@ -1022,15 +1177,16 @@ class _NUFFT1(NUFFT):
         self._real_in = kwargs.pop("real_in")
         self._real_out = kwargs.pop("real_out")
         self._upsampfac = kwargs.get("upsampfac")
+        self._n = kwargs.get("n_trans", 1)
         if self._direct_eval:
             self._plan = None
-            self._n = kwargs.get("n_trans", 1)
         else:
+            _pfw = kwargs.pop("plan_fw")
+            _pbw = kwargs.pop("plan_bw")
             self._plan = dict(
-                fw=self._plan_fw(**kwargs),
-                bw=self._plan_bw(**kwargs),
+                fw=self._plan_fw(**kwargs) if _pfw else None,
+                bw=self._plan_bw(**kwargs) if _pbw else None,
             )
-            self._n = self._plan["fw"].n_trans
 
         sh_op = [2 * np.prod(self._N), 2 * self._M]
         sh_op[0] //= 2 if self._real_out else 1
@@ -1049,6 +1205,8 @@ class _NUFFT1(NUFFT):
         kwargs["eps"] = float(kwargs["eps"])
         kwargs["real_in"] = bool(kwargs["real_in"])
         kwargs["real_out"] = bool(kwargs["real_out"])
+        kwargs["plan_fw"] = bool(kwargs["plan_fw"])
+        kwargs["plan_bw"] = bool(kwargs["plan_bw"])
         if (D := x.shape[-1]) == len(N):
             pass
         elif len(N) == 1:
@@ -1202,16 +1360,26 @@ class _NUFFT1(NUFFT):
         upsampled = kwargs.get("upsampled", False)
 
         N = self._fft_shape() if upsampled else self._N
-        grid = xp.stack(  # (N1, ..., Nd, D)
-            xp.meshgrid(
-                *[xp.arange(-(n // 2), (n - 1) // 2 + 1, dtype=dtype) for n in N],
-                indexing="ij",
-            ),
-            axis=-1,
-        )
-        if scale == "source":
-            s = xp.array(2 * np.pi / np.array(N), dtype=dtype)
-            grid *= s
+        if scale == "unit":
+            grid = xp.stack(  # (N1, ..., Nd, D)
+                xp.meshgrid(
+                    *[xp.arange(-(n // 2), (n - 1) // 2 + 1, dtype=dtype) for n in N],
+                    indexing="ij",
+                ),
+                axis=-1,
+            )
+        elif scale == "source":
+            # As per eq. 3.12, the source grid is of the form: 2*pi*l/n, l=0,...,n-1, that is n
+            # points over [0, 2* pi[ (or [-pi, pi[ if shifted by pi).
+            grid = xp.stack(  # (N1, ..., Nd, D)
+                xp.meshgrid(
+                    *[xp.linspace(-np.pi, np.pi, num=n, endpoint=False, dtype=dtype) for n in N],
+                    indexing="ij",
+                ),
+                axis=-1,
+            )
+        else:
+            raise NotImplementedError
         return grid
 
     def asarray(self, **kwargs) -> pyct.NDArray:
@@ -1278,16 +1446,16 @@ class _NUFFT3(NUFFT):
         self._direct_eval = not (self._eps > 0)
         self._real = kwargs.pop("real")
         self._upsampfac = kwargs.get("upsampfac")
+        self._n = kwargs.get("n_trans", 1)
         if self._direct_eval:
             self._plan = None
-            self._n = kwargs.get("n_trans", 1)
         else:
+            _pfw = kwargs.pop("plan_fw")
+            _pbw = kwargs.pop("plan_bw")
             self._plan = dict(
-                fw=self._plan_fw(**kwargs),
-                bw=self._plan_bw(**kwargs),
+                fw=self._plan_fw(**kwargs) if _pfw else None,
+                bw=self._plan_bw(**kwargs) if _pbw else None,
             )
-            self._n = self._plan["fw"].n_trans
-
         sh_op = [2 * self._N, 2 * self._M]
         sh_op[1] //= 2 if self._real else 1
         super().__init__(shape=sh_op)
@@ -1298,13 +1466,23 @@ class _NUFFT3(NUFFT):
         kwargs = kwargs.copy()
         for k in ("nufft_type", "n_modes_or_dim", "dtype", "modeord"):
             kwargs.pop(k, None)
-        x = kwargs["x"] = pycu.compute(cls._as_canonical_coordinate(kwargs["x"]))
-        z = kwargs["z"] = pycu.compute(cls._as_canonical_coordinate(kwargs["z"]))
-        assert x.shape[-1] == z.shape[-1], "x vs. z: dimensionality mis-match."
-        assert pycu.get_array_module(x) == pycu.get_array_module(z)
+
         kwargs["isign"] = int(np.sign(kwargs["isign"]))
         kwargs["eps"] = float(kwargs["eps"])
         kwargs["real"] = bool(kwargs["real"])
+        kwargs["plan_fw"] = bool(kwargs["plan_fw"])
+        kwargs["plan_bw"] = bool(kwargs["plan_bw"])
+        kwargs["parallel"] = bool(kwargs["parallel"])
+        kwargs["chunked"] = bool(kwargs["chunked"])
+
+        x = kwargs["x"] = cls._as_canonical_coordinate(kwargs["x"])
+        z = kwargs["z"] = cls._as_canonical_coordinate(kwargs["z"])
+        if not kwargs["chunked"]:
+            x = kwargs["x"] = pycu.compute(kwargs["x"])
+            z = kwargs["z"] = pycu.compute(kwargs["z"])
+        assert x.shape[-1] == z.shape[-1], "x vs. z: dimensionality mis-match."
+        assert pycu.get_array_module(x) == pycu.get_array_module(z)
+
         return kwargs
 
     @staticmethod
@@ -1430,19 +1608,27 @@ class _NUFFT3(NUFFT):
         dtype = kwargs.get("dtype", pycrt.getPrecision().value)
         scale = kwargs.get("scale", "unit")
         upsampled = True or kwargs.pop("upsampled", True)  # upsampled unsupported for type-3
+        kwargs = dict(
+            xp=xp,
+            dtype=dtype,
+            upsampled=upsampled,
+        )
 
         if scale == "unit":
-            grid = _NUFFT1.mesh(
-                self,
-                xp=xp,
-                dtype=dtype,
-                scale=scale,
-                upsampled=upsampled,
-            )
-        elif scale == "source":
-            raise NotImplementedError("todo: discuss with Matthieu")
-        else:  # scale == "target":
-            raise NotImplementedError("todo: discuss with Matthieu")
+            grid = _NUFFT1.mesh(self, scale="unit", **kwargs)
+        else:
+            grid = _NUFFT1.mesh(self, scale="source", **kwargs)
+            f = lambda _: xp.array(_, dtype=dtype)
+            if scale == "source":  # Sect 3.3 Step 1., the sources are rescaled to lie on [-pi, pi[
+                s = f(self._dilation_factor())
+                grid *= s
+                _, center = self._shift_coords(self._x)
+            else:  # target
+                s = f(self._dilation_factor()) / f(self._fft_shape())
+                s *= f(2 * np.pi * self._upsample_factor())
+                grid /= s
+                _, center = self._shift_coords(self._z)
+            grid += f(center)
         return grid
 
     def asarray(self, **kwargs) -> pyct.NDArray:
@@ -1474,8 +1660,8 @@ class _NUFFT3(NUFFT):
         #     eq 3.23
         u = self._upsample_factor()
         w = self._kernel_width()
-        X, _ = self.__shift_coords(self._x)  # (D,)
-        S, _ = self.__shift_coords(self._z)  # (D,)
+        X, _ = self._shift_coords(self._x)  # (D,)
+        S, _ = self._shift_coords(self._z)  # (D,)
         shape = []
         for d in range(self._D):
             n = (2 * u * max(1, X[d] * S[d]) / np.pi) + (w + 1)
@@ -1491,12 +1677,12 @@ class _NUFFT3(NUFFT):
         #     eq 3.23
         u = self._upsample_factor()
         N = self._fft_shape()
-        S, _ = self.__shift_coords(self._z)  # (D,)
+        S, _ = self._shift_coords(self._z)  # (D,)
         gamma = [n / (2 * u * s) for (n, s) in zip(N, S)]
         return tuple(gamma)
 
     @staticmethod
-    def __shift_coords(pts: pyct.NDArray) -> pyct.NDArray:
+    def _shift_coords(pts: pyct.NDArray) -> pyct.NDArray:
         # https://github.com/flatironinstitute/finufft/
         #     ./src/utils.cpp::arraywidcen()
         #     ./include/finufft/defs.h
@@ -1522,6 +1708,845 @@ class _NUFFT3(NUFFT):
         h_width[mask] += np.fabs(center[mask])
         center[mask] = 0
         return h_width, center
+
+
+class _NUFFT3_chunked(_NUFFT3):
+    # Note:
+    # * params() in chunked-context returns equivalent parameters of one single huge NUFFT3 block.
+    #
+    # TODO:
+    #   What needs to be changed:
+    #   * _tesselate() assumes x/z are in memory to find optimal chunks.
+    #     Do we want to support Dask arrays here so that users can auto-chunk disk-sized data?
+
+    def __init__(self, **kwargs):
+        self._disable_unsupported_methods()
+        self._parallel = kwargs.pop("parallel")  # for _wrap_if_dask()
+
+        pfw, pbw = kwargs["plan_fw"], kwargs["plan_bw"]
+        kwargs.update(plan_fw=False, plan_bw=False)  # don't plan a huge NUFFT
+        super().__init__(**kwargs)
+        kwargs.update(plan_fw=pfw, plan_bw=pbw)
+
+        self._kwargs = kwargs.copy()  # extra FINUFFT planning args
+        for k in ["x", "z"]:
+            self._kwargs.pop(k, None)
+
+        # variables set by allocate()
+        self._initialized = False
+        for attr in [
+            "_plan_lock",  # FFTW planner lock; see _transform() for details
+            "_up",  # up-sample ops
+            "_down",  # down-sample ops
+            "_dEval_threshold",  # direct-evaluation threshold
+            "_x_reorder",  # .apply() input re-order op
+            "_x_chunk",  # X-domain chunk slice-selectors
+            "_z_reorder",  # .adjoint() input re-order op
+            "_z_chunk",  # Z-domain chunk slice-selectors
+        ]:
+            setattr(self, attr, None)
+
+    @pycb._wrap_if_dask
+    @pycrt.enforce_precision("arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        assert self._initialized
+        arr = self._x_reorder.apply(arr)
+
+        outer = []
+        nufft = self._get_transform(arr)
+        for i, up in self._up.items():
+            inner = []
+            for j, down in self._down.items():
+                x = down.apply(arr)
+                y = self._array_ize(
+                    nufft(j, i, "fw", x),
+                    shape=(*arr.shape[:-1], up.dim),
+                    dtype=arr.dtype,
+                )
+                inner.append(y)
+            inner = self._tree_sum(inner)
+            z = up.apply(inner)
+            outer.append(z)
+        out = self._tree_sum(outer)
+
+        out = self._z_reorder.apply(out)
+        return out
+
+    @pycb._wrap_if_dask
+    @pycrt.enforce_precision("arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        assert self._initialized
+        arr = self._z_reorder.adjoint(arr)
+
+        outer = []
+        nufft = self._get_transform(arr)
+        for j, down in self._down.items():
+            inner = []
+            for i, up in self._up.items():
+                z = up.adjoint(arr)
+                y = self._array_ize(
+                    nufft(j, i, "bw", z),
+                    shape=(*arr.shape[:-1], down.codim),
+                    dtype=arr.dtype,
+                )
+                inner.append(y)
+            inner = self._tree_sum(inner)
+            x = down.adjoint(inner)
+            outer.append(x)
+        out = self._tree_sum(outer)
+
+        out = self._x_reorder.adjoint(out)
+        return out
+
+    def _get_transform(self, arr: pyct.NDArray) -> cabc.Callable:
+        NDI = pycd.NDArrayInfo
+        dask_input = NDI.from_obj(arr) == NDI.DASK
+
+        if self._parallel or dask_input:
+            func = dask.delayed(
+                self._transform,
+                pure=True,
+                traverse=False,
+            )
+        else:
+            func = self._transform
+        return func
+
+    def _transform(
+        self,
+        x_idx: int,
+        z_idx: int,
+        mode: str,
+        arr: pyct.NDArray,
+    ) -> pyct.NDArray:
+        # Internal method for apply/adjoint.
+        #
+        # Parameters
+        # ----------
+        # x_idx: int
+        #     Index into _x_chunk.
+        #     Identifies the X-region participating in the transform.
+        # z_idx: int
+        #     Index into _z_chunk.
+        #     Identifies the Z-region participating in the transform.
+        # mode: str
+        #     Transform direction:
+        #
+        #     * 'fw': _NUFFT3.apply
+        #     * 'bw': _NUFFT3.adjoint
+        # arr: pyct.NDArray
+        #     (...,) array fed to apply/adjoint().
+        #
+        # Returns
+        # -------
+        # out: pyct.NDArray
+        #     (...,) output of _NUFFT3.[apply|adjoint](arr)
+        kwargs = self._kwargs.copy()
+
+        x = self._x[self._x_chunk[x_idx]]
+        z = self._z[self._z_chunk[z_idx]]
+        kwargs.update(x=x, z=z)
+
+        if mode == "fw":
+            kwargs.update(plan_fw=True, plan_bw=False)
+            func = "apply"
+        else:  # bw
+            kwargs.update(plan_fw=False, plan_bw=True)
+            func = "adjoint"
+
+        if len(x) * len(z) <= self._dEval_threshold:
+            kwargs.update(eps=0)
+
+        # NUFFT.apply/adjoint() requires inputs to be C-contiguous.
+        # This is not guaranteed in chunked context given chain of operations preceding
+        # apply/adjoint().
+        # Chunks are small however, so the overhead is minimal.
+        xp = pycu.get_array_module(arr)
+        arr = xp.require(arr, requirements="C")
+
+        with self._plan_lock:
+            # FINUFFT uses FFTW to compute FFTs.
+            # FFTW's planner is not thread-safe. [http://www.fftw.org/fftw3_doc/Thread-safety.html]
+            # Not coordinating the planning stage with other workers/tasks leads to segmentation faults.
+            op = NUFFT.type3(**kwargs)
+
+        out = getattr(op, func)(arr)
+        return out
+
+    def auto_chunk(
+        self,
+        max_mem: pyct.Real = 10,
+        max_anisotropy: pyct.Real = 5,
+    ) -> tuple[list[pyct.NDArray], list[pyct.NDArray]]:
+        """
+        Auto-determine chunk indices per domain.
+
+        Use this function if you don't know how to optimally 'cut' x/z manually.
+
+        Parameters
+        ----------
+        max_mem: pyct.Real
+            Max FFT memory (MiB) allowed per sub-block. (Default = 10 MiB)
+        max_anisotropy: pyct.Real
+            Max tolerated (normalized) anisotropy ratio >= 1.
+
+            * Setting close to 1 favors cubeoid-shaped partitions of x/z space.
+            * Setting large allows x/z-partitions to be highly-rectangular.
+
+        Returns
+        -------
+        x_chunks: list[NDArray[int]]
+            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
+            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
+        z_chunks: list[NDArray[int]]
+            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
+            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
+        """
+        max_mem = float(max_mem)
+        assert max_mem > 0
+        max_mem *= 2**20  # MiB -> B
+
+        max_anisotropy = float(max_anisotropy)
+        assert max_anisotropy >= 1
+
+        T, B = self._box_dimensions(max_mem, max_anisotropy)
+        x_chunks = self._tesselate(self._x, T)
+        z_chunks = self._tesselate(self._z, B)
+        return x_chunks, z_chunks
+
+    def allocate(
+        self,
+        x_chunks: list[typ.Union[pyct.NDArray, slice]],
+        z_chunks: list[typ.Union[pyct.NDArray, slice]],
+        direct_eval_threshold: pyct.Integer = 0,
+        enable_warnings: bool = True,
+    ):
+        """
+        Allocate NUFFT sub-problems based on chunk specification.
+
+        Parameters
+        ----------
+        x_chunks: list[NDArray[int] | slice]
+            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
+            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
+        z_chunks: list[NDArray[int] | slice]
+            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
+            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
+        direct_eval_threshold: int
+            If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
+            replaced with direct-evaluation (eps=0) for performance reasons.
+        enable_warnings: bool
+            If ``True``, emit a warning when x/z are re-ordered.
+        """
+
+        def _to_slice(idx_spec):
+            out = idx_spec
+            if not isinstance(idx_spec, slice):
+                lb = idx_spec.min()
+                ub = idx_spec.max()
+                if ub - lb + 1 == len(idx_spec):
+                    out = slice(lb, ub + 1)
+            return out
+
+        def _preprocess(chunks, warn: bool, var: str):
+            # Analyze chunk specifiers and return:
+            #   * input re-ordering coordinates (if applicable)
+            #   * slice() objects identifying each sub-chunk data
+            chunks = list(map(_to_slice, chunks))
+            if all(isinstance(chk, slice) for chk in chunks):
+                # No re-ordering required: up/sub-sampling operators can slice-select themselves.
+                reorder_spec = slice(0, sum(chk.stop - chk.start for chk in chunks))
+                chunk_spec = chunks
+            else:
+                # Some chunks cannot be slice-indexed. To avoid expensive x/z copies when
+                # initializing NUFFT sub-problems, x/z will be re-ordered before/after
+                # down/up-sampling operators.
+                reorder_spec = []
+                for chk in chunks:
+                    if isinstance(chk, slice):
+                        _chk = np.arange(chk.start, chk.stop)
+                    else:
+                        _chk = chk
+                    reorder_spec.append(_chk)
+                reorder_spec = np.concatenate(reorder_spec)
+
+                chunk_spec, start = [], 0
+                for chk in chunks:
+                    if isinstance(chk, slice):
+                        _len = chk.stop - chk.start
+                    else:
+                        _len = len(chk)
+                    s = slice(start, start + _len)
+                    start += _len
+                    chunk_spec.append(s)
+
+                if warn:
+                    msg = "\n".join(
+                        [
+                            f"'{var}' order is sub-optimal given provided chunk specifiers.",
+                            f"'{var}' will be re-ordered internally to improve NUFFT performance.",
+                            f"The cost of re-ordering apply/adjoint inputs is significant when the number of non-uniform points x/z is large.",
+                            f"It is recommended to re-initialize {self.__class__} where x/z [and apply/adjoint() inputs] are re-ordered.",
+                            f"See notes/examples provided in docstring of {NUFFT.type3.__qualname__}() for how to achieve this.",
+                        ]
+                    )
+                    warnings.warn(msg, pycuw.PerformanceWarning)
+            return reorder_spec, chunk_spec
+
+        def _r2c(idx_spec):
+            if isinstance(idx_spec, slice):
+                idx = slice(2 * idx_spec.start, 2 * idx_spec.stop)
+            else:
+                idx = np.stack([2 * idx_spec, 2 * idx_spec + 1], axis=1).reshape(-1)
+            return idx
+
+        x_idx, x_chunks = _preprocess(x_chunks, warn=enable_warnings, var="x")
+        self._x = self._x[x_idx]
+        self._x_reorder = pycs.SubSample(
+            (self.dim,),
+            x_idx if self._real else _r2c(x_idx),
+        )
+        self._x_chunk = x_chunks
+        self._down = {
+            j: pycs.SubSample(
+                (self.dim,),
+                x_idx if self._real else _r2c(x_idx),
+            )
+            for (j, x_idx) in enumerate(x_chunks)
+        }
+
+        z_idx, z_chunks = _preprocess(z_chunks, warn=enable_warnings, var="z")
+        self._z = self._z[z_idx]
+        self._z_reorder = pycs.SubSample(
+            (self.codim,),
+            _r2c(z_idx),
+        ).T
+        self._z_chunk = z_chunks
+        self._up = {
+            i: pycs.SubSample(
+                (self.codim,),
+                _r2c(z_idx),
+            ).T
+            for (i, z_idx) in enumerate(z_chunks)
+        }
+
+        self._plan_lock = threading.Lock()
+        self._dEval_threshold = float(direct_eval_threshold)
+        self._initialized = True
+
+    def stats(self) -> collections.namedtuple:
+        """
+        Gather internal statistics.
+
+        Returns
+        -------
+        p: namedtuple
+
+        Statistics on the NUFFT sub-blocks, with fields:
+
+        * blk_count: int
+            Number of NUFFT sub-blocks.
+        * dEval_count: int
+            Number of sub-blocks evaluated via the NUDFT.
+        """
+        BLOCK_STATS = collections.namedtuple(
+            "block_stats",
+            [
+                "blk_count",
+                "dEval_count",
+            ],
+        )
+
+        N_up = [u.dim // 2 for u in self._up.values()]
+        N_down = [d.codim // (1 if self._real else 2) for d in self._down.values()]
+        blk_count = len(N_up) * len(N_down)
+        dEval = sum(1 for (u, d) in itertools.product(N_up, N_down) if (u * d) <= self._dEval_threshold)
+
+        p = BLOCK_STATS(blk_count=blk_count, dEval_count=dEval)
+        return p
+
+    def ascomplexarray(self, **kwargs) -> pyct.NDArray:
+        cA = super().ascomplexarray(**kwargs)
+        rA = pycu.view_as_real_mat(cA, real_input=self._real)
+        rA = self._x_reorder.adjoint(rA)  # re-order rows
+        rA = self._z_reorder.apply(rA.T).T  # re-order columns
+        cA = pycu.view_as_complex_mat(rA, real_input=self._real)
+        return cA
+
+    def order(self, var: str) -> tuple:
+        var = var.strip().lower()
+        assert var in ("x", "z")
+
+        def _c2r(idx_spec):
+            if isinstance(idx_spec, slice):
+                idx = slice(idx_spec.start // 2, idx_spec.stop // 2 + 1)
+            else:
+                idx = idx_spec[::2] // 2
+            return idx
+
+        if var == "x":
+            idx = self._x_reorder._idx[0]
+            idx = idx if self._real else _c2r(idx)
+            chunks = self._x_chunk
+        else:  # "z"
+            idx = self._z_reorder._core._op._idx[0]  # _z_reorder = SubSampleOp.T.squeeze()
+            idx = _c2r(idx)
+            chunks = self._z_chunk
+
+        return idx, chunks
+
+    def _disable_unsupported_methods(self):
+        # Despite being a child-class of _NUFFT3, some methods are not supported because they don't
+        # make sense in the chunked context.
+        # This method overrides problematic methods to avoid erroneous use.
+        def unsupported(_, **kwargs):
+            raise NotImplementedError
+
+        unsupported_fields = [
+            "mesh",
+            "plot_kernel",
+        ]
+        for f in unsupported_fields:
+            override = types.MethodType(unsupported, self)
+            setattr(self, f, override)
+
+    @classmethod
+    def _tree_sum(cls, data: cabc.Sequence):
+        # computes (data[0] + ... + data[N-1]) via a binary tree reduction.
+        if (N := len(data)) == 1:
+            return data[0]
+        else:
+            compressed = [data[2 * i] + data[2 * i + 1] for i in range(N // 2)]
+            if N % 2 == 1:
+                compressed.append(data[-1])
+            return cls._tree_sum(compressed)
+
+    def _box_dimensions(
+        self,
+        fft_bytes: float,
+        alpha: float,
+    ) -> tuple[tuple[pyct.Real], tuple[pyct.Real]]:
+        r"""
+        Find X box dimensions (T_1,...,T_D) and Z box dimensions (B_1,...,B_D) such that:
+
+        * number of NUFFT sub-problems is minimized;
+        * NUFFT sub-problems limited to user-specified memory budget;
+        * box dimensions are not too rectangular, i.e. anisotropic.
+
+        Parameters
+        ----------
+        fft_bytes: pyct.Real
+            Max FFT memory (B) allowed per sub-block.
+        alpha: pyct.Real
+            Max tolerated (normalized) anisotropy ratio >= 1.
+
+        Returns
+        -------
+        T: tuple[float]
+            X-box dimensions.
+        B: tuple[float]
+            Z-box dimensions.
+
+        Notes
+        -----
+        Given that
+
+            FFT_memory / (element_itemsize * N_transform)
+            \approx
+            \prod_{k=1..D} (\sigma_k T_k B_k) / (2 \pi),
+
+        we can solve an optimization problem to find the optimal (T_k, B_k) values.
+
+
+        Mathematical Formulation
+        ------------------------
+
+        User input:
+            1. FFT_memory: max memory budget per sub-problem
+            2. alpha: max anisotropy >= 1
+
+        minimize (objective_func)
+            \prod_{k=1..D} T_k^{tot} / T_k                                                    # X-domain box-count
+            *                                                                                 #       \times
+            \prod_{k=1..D} B_k^{tot} / B_k                                                    # Z-domain box-count
+        subject to
+            1. \prod_{k=1..D} s_k T_k B_k <= FFT_mem / (elem_size * N_trans) * (2 \pi)^{D}    # sub-problem memory limit
+            2. T_k <= T_k^{tot}                                                               # X-domain box size limited to X_k's spread
+            3. B_k <= B_k^{tot}                                                               # Z-domain box size limited to Z_k's spread
+            4. objective_func >= 1                                                            # at least 1 NUFFT sub-problem necessary
+            5. 1/alpha <= (T_k / T_k^{tot}) / (T_q / T_q^{tot}) <= alpha                      # X-domain box size anisotropy limited
+            6. 1/alpha <= (B_k / B_k^{tot}) / (B_q / B_q^{tot}) <= alpha                      # Z-domain box size anisotropy limited
+            7. 1/alpha <= (T_l / T_l^{tot}) / (B_m / B_m^{tot}) <= alpha                      # XZ-domain box size cross-anisotropy limited
+
+        Constraint (7) ensures (T_k, B_k) partitions the X/Z-domains uniformly. (Not including this
+        term may give rise to solutions where X/Z-domains are partitioned finely/coarsely, or not at
+        all.)
+
+        The problem above can be recast as a small LP and easily solved.
+
+
+        Mathematical Formulation (LinProg)
+        ----------------------------------
+
+        minimize
+            c^{T} x
+        subject to
+            A x <= b
+              x <= u
+        where
+            x = [ln(T_1) ... ln(T_D), ln(B_1) ... ln(B_D)] \in \bR^{2D}
+            c = [-1 ... -1]
+            u = [ln(T_1^{tot}) ... ln(T_D^{tot}), ln(B_1^{tot}) ... ln(B_D^{tot})]
+            [A | b] = [
+                    [  -c   | ln(FFT_mem / (elem_size * N_trans)) + \sum_{k=1..D} ln(2 \pi / s_k) ],  # sub-problem memory limit
+                    [  -c   | \sum_{k=1..D} ln(T_k^{tot}) + \sum_{k=1..D} ln(B_k^{tot})           ],  # at least 1 NUFFT sub-problem necessary
+               (L1) [ M1, Z | ln(alpha) + ln(T_k^{tot}) - ln(T_q^{tot})                           ],  # X-domain box size anisotropy limited (upper limit, vector form)
+               (L2) [-M1, Z | ln(alpha) - ln(T_k^{tot}) + ln(T_q^{tot})                           ],  # X-domain box size anisotropy limited (lower limit, vector form)
+               (L3) [ Z, M1 | ln(alpha) + ln(B_k^{tot}) - ln(B_q^{tot})                           ],  # Z-domain box size anisotropy limited (upper limit, vector form)
+               (L4) [ Z,-M1 | ln(alpha) - ln(B_k^{tot}) + ln(B_q^{tot})                           ],  # Z-domain box size anisotropy limited (lower limit, vector form)
+               (L5) [  M2   | ln(alpha) + ln(T_l^{tot}) - ln(B_m^{tot})                           ],  # XZ-domain box size cross-anisotropy limited (upper limit, vector form)
+               (L6) [ -M2   | ln(alpha) - ln(T_l^{tot}) + ln(B_m^{tot})                           ],  # XZ-domain box size cross-anisotropy limited (lower limit, vector form)
+            ]
+            Z = zeros(D_choose_2, D)
+            M1 = (D_choose_2, D) (M)ask containing:
+                D = 1 => drop L1..4 in [A | b]
+                D = 2 => [[ 1 -1]
+                          [-1  1]]
+                D = 3 => [[ 1 -1  0]
+                          [ 1  0 -1]
+                          [ 0  1 -1]]
+            M2 = (D^{2}, 2 D) (M)ask containing:
+                D = 1 => [1 -1]
+                D = 2 => [[ 1  0 -1  0]
+                          [ 1  0  0 -1]
+                          [ 0  1 -1  0]
+                          [ 0  1  0 -1]]
+                D = 3 => [[ 1  0  0 -1  0  0]
+                          [ 1  0  0  0 -1  0]
+                          [ 1  0  0  0  0 -1]
+                          [ 0  1  0 -1  0  0]
+                          [ 0  1  0  0 -1  0]
+                          [ 0  1  0  0  0 -1]
+                          [ 0  0  1 -1  0  0]
+                          [ 0  0  1  0 -1  0]
+                          [ 0  0  1  0  0 -1]]
+        """
+        # NUFFT parameters
+        D = self._D
+        xp = pycu.get_array_module(self._x)
+        T_tot = pycu.to_NUMPY(xp.ptp(self._x, axis=0))
+        B_tot = pycu.to_NUMPY(xp.ptp(self._z, axis=0))
+        sigma = np.array((self._upsample_factor(),) * D)
+        c_width = pycrt.Width(self._x.dtype).complex
+        c_itemsize = c_width.value.itemsize
+        n_trans = self._n
+
+        # (M)ask, (Z)ero and (R)ange arrays to simplify LinProg spec
+        R = np.arange(D)
+        Z = np.zeros((math.comb(D, 2), D))
+        M1 = Z.copy()
+        _k, _q = np.triu_indices(n=D, k=1)
+        for i, (__k, __q) in enumerate(zip(_k, _q)):
+            M1[i, __k] = 1
+            M1[i, __q] = -1
+        _l, _m = np.kron(R, np.ones(D, dtype=int)), np.tile(R, D)
+        M2 = np.zeros((D**2, 2 * D))
+        for i, (__l, __m) in enumerate(zip(_l, _m)):
+            M2[i, __l] = 1
+            M2[i, D + __m] = -1
+
+        # LinProg parameters
+        c = -np.ones(2 * D)  # maximize box volumes / minimize #sub-problems
+        A = np.block(
+            [
+                [-c],  # memory limit
+                [-c],  # at least 1 box
+                [M1, Z],  # T_k anisotropy upper-bound
+                [-M1, Z],  # T_k anisotropy lower-bound
+                [Z, M1],  # B_k anisotropy upper-bound
+                [Z, -M1],  # B_k anisotropy lower-bound
+                [M2],  # T_k/B_k cross-anisotropy upper-bound
+                [-M2],  # T_k/B_k cross-anisotropy lower-bound
+            ]
+        )
+        b = np.r_[
+            np.log(fft_bytes / (c_itemsize * n_trans)) + np.log(2 * np.pi / sigma).sum(),  # memory limit
+            np.log(T_tot).sum() + np.log(B_tot).sum(),  # at least 1 box
+            np.log(alpha) + np.log(T_tot)[_k] - np.log(T_tot)[_q],  # T_k anisotropy upper-bound
+            np.log(alpha) - np.log(T_tot)[_k] + np.log(T_tot)[_q],  # T_k anisotropy lower-bound
+            np.log(alpha) + np.log(B_tot)[_k] - np.log(B_tot)[_q],  # B_k anisotropy upper-bound
+            np.log(alpha) - np.log(B_tot)[_k] + np.log(B_tot)[_q],  # B_k anisotropy lower-bound
+            np.log(alpha) + np.log(T_tot)[_l] - np.log(B_tot)[_m],  # T_k/B_k cross-anisotropy upper-bound
+            np.log(alpha) - np.log(T_tot)[_l] + np.log(B_tot)[_m],  # T_k/B_k cross-anisotropy lower-bound
+        ]
+        lb = -np.inf * np.ones(2 * D)  # T_k, B_k lower limit (None)
+        ub = np.r_[np.log(T_tot), np.log(B_tot)]  # T_k, B_k upper limit
+
+        res = sopt.linprog(
+            c=c,
+            A_ub=A,
+            b_ub=b,
+            bounds=np.stack([lb, ub], axis=1),
+            method="highs",
+        )
+        if res.success:
+            T = np.exp(res.x[:D])
+            B = np.exp(res.x[D:])
+            return tuple(T), tuple(B)
+        else:
+            msg = "Auto-chunking failed given memory/anisotropy constraints."
+            raise ValueError(msg)
+
+    @staticmethod
+    def _tesselate(
+        data: pyct.NDArray,
+        box_dim: tuple[pyct.Real],
+    ) -> list[pyct.NDArray]:
+        """
+        Split point-cloud into disjoint rectangular regions.
+
+        Parameters
+        ----------
+        data: pyct.NDArray
+            (M, D) point cloud.
+        box_dim: tuple[float]
+            (D,) box dimensions.
+
+        Returns
+        -------
+        chunks: list[NDArray[int]]
+            (idx[0], ..., idx[C-1]) chunk specifiers.
+            `idx[k]` contains indices of `data` which lie in the same box.
+        """
+        M, D = data.shape
+
+        # Center data-points around origin
+        data = pycu.to_NUMPY(data.copy())
+        data_min = data.min(axis=0)
+        data_max = data.max(axis=0)
+        data -= (data_min + data_max) / 2
+
+        # Compute optimal box_[dim, count]
+        data_spread = data_max - data_min
+        box_dim = np.array(box_dim, dtype=data.dtype)
+        N_box = np.ceil(data_spread / box_dim).astype(int)
+        box_dim = data_spread / N_box
+
+        # Rescale data to have equal spread in each dimension.
+        # Reason: KDTree only accepts scalar-valued radii.
+        scale = box_dim
+        data /= scale
+        data_min /= scale
+        data_max /= scale
+        data_spread /= scale
+        box_dim = np.ones_like(box_dim)
+
+        # Compute gridded centroids
+        range_spec = []
+        for n in N_box:
+            is_odd = n % 2 == 1
+            lb, ub = -(n // 2), n // 2 + (1 if is_odd else 0)
+            offset = 0 if is_odd else 1 / 2
+            s = np.arange(lb, ub, dtype=data.dtype) + offset
+            range_spec.append(s)
+        centroid = np.meshgrid(*range_spec, indexing="ij")
+        centroid = np.stack(centroid, axis=-1).reshape(-1, D)
+
+        # Allocate data points to gridded centroids
+        c_tree = spl.KDTree(centroid)  # centroid_tree
+        dist, c_idx = c_tree.query(
+            data,
+            k=1,
+            eps=1e-2,  # approximate NN-search for speed
+            p=np.inf,  # L-infinity norm
+        )
+        idx = np.argsort(c_idx)
+        count = collections.Counter(c_idx[idx])  # sort + count occurence
+        chunks, start = [], 0
+        for c_idx, step in sorted(count.items()):
+            chk = idx[start : start + step]
+            chunks.append(chk)
+            start += step
+        centroid = centroid[sorted(count.keys())]  # drop boxes with no data-points
+
+        # Compute true centroids + tight box boundaries seen by FINUFFT
+        tbox_dim = np.zeros((len(centroid), D))  # tight box_dim(s)
+        for i in range(len(centroid)):
+            _data = data[chunks[i]]
+            _data_min = _data.min(axis=0)
+            _data_max = _data.max(axis=0)
+            centroid[i] = (_data_min + _data_max) / 2
+            tbox_dim[i] = _data_max - _data_min
+
+        # Fuse chunks which are closely-spaced & small-enough
+        fuse_chunks = True
+        while fuse_chunks:
+            c_tree = spl.KDTree(centroid)  # centroid_tree
+            candidates = c_tree.query_pairs(r=box_dim[0] / 2, p=np.inf)
+            if len(candidates) > 0:
+                _i, _j = candidates.pop()
+
+                c_spacing = np.abs(centroid[_i] - centroid[_j])
+                offset = (tbox_dim[_i] + tbox_dim[_j]) / 2
+                if np.all(c_spacing + offset < box_dim):  # points are close enough
+                    chunks[_i] = np.r_[chunks[_i], chunks[_j]]
+                    chunks.pop(_j)
+
+                    _data = data[chunks[_i]]
+                    _data_min = _data.min(axis=0)
+                    _data_max = _data.max(axis=0)
+
+                    centroid[_i] = (_data_min + _data_max) / 2
+                    centroid = np.delete(centroid, _j, axis=0)
+
+                    tbox_dim[_i] = _data_max - _data_min
+                    tbox_dim = np.delete(tbox_dim, _j, axis=0)
+            else:
+                fuse_chunks = False
+
+        return chunks
+
+    @staticmethod
+    def _diagnostic_plot(
+        data: np.ndarray,
+        box_dim: tuple[pyct.Real],
+        chunks: list[typ.Union[np.ndarray, slice]],
+    ):
+        """
+        Plot data + tesselation structure for diagnostic purposes.
+
+        Parameters
+        ----------
+        data: np.ndarray
+            (M, D) point cloud
+        box_dim: tuple[float]
+            (D,) box dimensions.
+        chunks: list[ndarray[int] | slice]
+            (idx[0], ..., idx[C-1]) chunk specifiers.
+            `idx[k]` contains indices of `data` which lie in the same box.
+
+        Returns
+        -------
+        fig: plt.Figure
+            Diagnostic plot.
+        """
+        try:
+            import matplotlib.patches as mpl_p
+            import matplotlib.pyplot as plt
+        except:
+            raise ImportError("This method requires matplotlib to be installed.")
+
+        def _plot(
+            points,  # (N, 2) data points
+            center,  # (N_c, 2) cluster centroids
+            tbox_dim,  # (N_c, 2) tight-box dimensions around centroids
+            box_dim,  # (2,)  coarse-box dimension around centroids
+            ax,
+        ):
+            data_pts = ax.plot(
+                points[:, 0],
+                points[:, 1],
+                "1",  # small triangle
+                color="b",
+                label="data",
+            )
+            centroid_pts = ax.plot(
+                center[:, 0],
+                center[:, 1],
+                "s",  # square
+                color="r",
+                label="chunk centroid",
+            )
+            for _tbox, c in zip(tbox_dim, center):
+                rect = mpl_p.Rectangle(
+                    xy=c - box_dim / 2,
+                    width=box_dim[0],
+                    height=box_dim[1],
+                    fill=True,
+                    edgecolor="g",
+                    facecolor="g",
+                    alpha=0.5,
+                    label="centroid box",
+                )
+                ax.add_patch(rect)
+                centroid_rect = rect  # ref to populate the legend
+
+                rect = mpl_p.Rectangle(
+                    xy=c - _tbox / 2,
+                    width=_tbox[0],
+                    height=_tbox[1],
+                    fill=True,
+                    edgecolor="r",
+                    facecolor="r",
+                    alpha=0.5,
+                    label="data box",
+                )
+                ax.add_patch(rect)
+                data_rect = rect  # ref to populate the legend
+
+            ax.axis("equal")
+            ax.legend(
+                handles=[
+                    *data_pts,
+                    *centroid_pts,
+                    centroid_rect,
+                    data_rect,
+                ],
+                loc="upper right",
+            )
+
+        M, D = data.shape
+        N_chk = len(chunks)
+        box_dim = np.array(box_dim, dtype=data.dtype)
+
+        # Compute chunk centroids & tight-box_dims
+        centroid, tbox_dim = np.zeros((2, N_chk, D))
+        for i, chk in enumerate(chunks):
+            _data = data[chk]
+            _data_min = _data.min(axis=0)
+            _data_max = _data.max(axis=0)
+            centroid[i] = (_data_min + _data_max) / 2
+            tbox_dim[i] = _data_max - _data_min
+
+        fig = plt.figure()
+        if D == 1:
+            # embed in 2D and read the diagonal
+            ax = fig.add_subplot(1, 1, 1)
+            trans = lambda _: np.stack([_, _], axis=-1)
+            _plot(
+                points=trans(data[:, 0]),
+                center=trans(centroid[:, 0]),
+                tbox_dim=trans(tbox_dim[:, 0]),
+                box_dim=trans(box_dim)[0],
+                ax=ax,
+            )
+            ax.set_title("data/chunk distribution (XY-plane)")
+        elif D == 2:
+            ax = fig.add_subplot(1, 1, 1)
+            _plot(
+                points=data,
+                center=centroid,
+                tbox_dim=tbox_dim,
+                box_dim=box_dim,
+                ax=ax,
+            )
+            ax.set_title("data/chunk distribution (XY-plane)")
+        else:  # D == 3
+            for i, idx, title in [
+                (0, [0, 1], "data/chunk distribution (XY-plane)"),
+                (1, [0, 2], "data/chunk distribution (XZ-plane)"),
+                (2, [1, 2], "data/chunk distribution (YZ-plane)"),
+            ]:
+                ax = fig.add_subplot(1, 3, i + 1)
+                _plot(
+                    points=data[:, idx],
+                    center=centroid[:, idx],
+                    tbox_dim=tbox_dim[:, idx],
+                    box_dim=box_dim[idx],
+                    ax=ax,
+                )
+                ax.set_title(title)
+        return fig
 
 
 @numba.njit(parallel=True, fastmath=True, nogil=True)
@@ -1552,7 +2577,39 @@ def _nudft_CUPY(
     isign: SignT,
     dtype: pyct.DType,  # complex64/128
 ) -> pyct.NDArray:  # (Q, N) complex64/128
-    raise NotImplementedError
+    @numba.cuda.jit(device=True)
+    def _cexp(s, a, b):  # [(1,), (D,), (D,)] -> (1,)
+        # np.exp(1j * s * (a @ b))
+        D, c = len(a), 0
+        for d in range(D):
+            c += a[d] * b[d]
+        out = cmath.exp(1j * s * c)
+        return out
+
+    @numba.cuda.jit(fastmath=True, opt=True, cache=True)
+    def _kernel(weight, source, target, isign, out):
+        Q, M = weight.shape[:2]
+        N, D = target.shape[:2]
+        q, n = numba.cuda.grid(2)
+        if (q < Q) and (n < N):
+            for m in range(M):
+                scale = _cexp(isign, source[m, :], target[n, :])
+                out[q, n] += weight[q, m] * scale
+
+    Q = weight.shape[0]
+    N = target.shape[0]
+    xp = pycu.get_array_module(weight)
+    out = xp.zeros((Q, N), dtype=dtype)
+
+    ceil = lambda _: int(np.ceil(_))
+    t_max = weight.device.attributes["MaxThreadsPerBlock"]
+    tpb = [min(Q, t_max // 2), None]  # thread_per_block
+    tpb[1] = t_max // tpb[0]
+    bpg = [ceil(Q / tpb[0]), ceil(N / tpb[1])]  # block_per_grid
+
+    config = _kernel[tuple(bpg), tuple(tpb)]
+    config(weight, source, target, isign, out)
+    return out
 
 
 @pycu.redirect(i="weight", NUMPY=_nudft_NUMPY, CUPY=_nudft_CUPY)
