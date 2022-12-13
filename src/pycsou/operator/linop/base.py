@@ -429,9 +429,9 @@ def _ExplicitLinOp(
         try:  # Sparse arrays
             info = S.from_obj(_.mat)
             if info in (S.SCIPY_SPARSE, S.CUPY_SPARSE):
-                f = lambda _: _.toarray()
+                f = lambda _: pycu.compute(_).toarray()
             elif info == S.PYDATA_SPARSE:
-                f = lambda _: _.todense()
+                f = lambda _: pycu.compute(_).todense()
             A = f(_.mat.astype(dtype))  # `copy` field not ubiquitous
         except:  # Dense arrays
             info = N.from_obj(_.mat)
