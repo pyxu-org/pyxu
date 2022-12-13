@@ -1225,7 +1225,7 @@ class ADMM(_PDS):
       initialized with such a solver, then the latter is used to solve :math:numref:`eq:x_minimization` regardless of
       whether one of the following cases is met.
 
-    * :math:`\mathbf{K}` is None (`i.e.`, the identity operator) and :math:`\mathcal{F}` is a
+    * :math:`\mathbf{K}` is ``None`` (`i.e.`, the identity operator) and :math:`\mathcal{F}` is a
       :py:class:`~pycsou.abc.operator.ProxFunc`. Then, :math:numref:`eq:x_minimization` amounts to an application of the
       proximal operator of :math:`\mathcal{F}`. This case amounts to the classical ADMM algorithm described in Section
       5.3 of [PSA]_ (without the postcomposition trick).
@@ -1330,7 +1330,7 @@ class ADMM(_PDS):
                 )
             else:
                 raise TypeError(
-                    "Unsupported scenario: f must either be a ProxFunc (in which case K must be ``None``), a"
+                    "Unsupported scenario: f must either be a ProxFunc (in which case K must be None), a"
                     "QuadraticFunc, or a DiffMap. If neither of these scenarios hold, a solver must be provided for the"
                     "x-minimization step of ADMM."
                 )
