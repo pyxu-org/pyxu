@@ -14,6 +14,7 @@ __all__ = [
     "ManualStop",
     "MaxDuration",
     "MaxIter",
+    "MaxCarbon",
     "Memorize",
     "RelError",
 ]
@@ -118,6 +119,60 @@ class MaxDuration(pyca.StoppingCriterion):
     def clear(self):
         self._t_start = dt.datetime.now()
         self._t_now = self._t_start
+
+
+class MaxCarbon(pyca.StoppingCriterion):
+    """
+    Stop iterative solver after a threshold amount of carbon dioxide (CO2) was produced by computing
+    resources used to execute the optimization.
+
+    .. warning::
+
+       Codecarbon is not a core dependency of Pycsou and must be installed separately.
+
+       On Windows and MacOS, `codecarbon` tracks power consumption of Intel processors using the
+       `Intel Power Gadget (IPG) <https://www.intel.com/content/www/us/en/developer/articles/tool/power-gadget.html>`_.
+       IPG must be installed independently.
+       (MacOS-specific: IPG must also have correct security permissions.)
+    """
+
+    def __init__(self, co2: pyct.Real):
+        """
+        Parameters
+        ----------
+        co2: pyct.Real
+            Max allowed CO2 emissions [Kg].
+        """
+        try:
+            assert float(co2) > 0
+            self._co2_max = float(co2)
+        except:
+            raise ValueError(f"co2: expected positive carbon quantity, got {co2}.")
+        import codecarbon
+
+        self.tracker = codecarbon.EmissionsTracker(
+            api_call_interval=-1,
+            save_to_file=False,
+            log_level="warning",
+        )
+        self.tracker.start()
+        self._co2_start = self.tracker.flush()
+        self._co2_now = self._co2_start
+
+    def stop(self, state: cabc.Mapping) -> bool:
+        self._co2_now = self.tracker.flush()
+        decision = (self._co2_now - self._co2_start) > self._co2_max
+        if decision:
+            self.tracker.stop()
+        return decision
+
+    def info(self) -> cabc.Mapping[str, float]:
+        return dict(co2=self._co2_now)
+
+    def clear(self):
+        self.tracker.start()
+        self._co2_start = self.tracker.flush()
+        self._co2_now = self._co2_start
 
 
 class Memorize(pyca.StoppingCriterion):
