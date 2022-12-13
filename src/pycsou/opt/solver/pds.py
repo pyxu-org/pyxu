@@ -4,6 +4,7 @@ import typing as typ
 import warnings
 
 import pycsou.abc as pyca
+import pycsou.abc.operator as pyco
 import pycsou.operator.func as pycf
 import pycsou.operator.linop as pyclo
 import pycsou.opt.stop as pycos
@@ -1224,7 +1225,7 @@ class ADMM(_PDS):
       initialized with such a solver, then the latter is used to solve :math:numref:`eq:x_minimization` regardless of
       whether one of the following cases is met.
 
-    * :math:`\mathbf{K}` is an :py:class:`~pycsou.operator.linop.base.IdentityOp` and :math:`\mathcal{F}` is a
+    * :math:`\mathbf{K}` is None (`i.e.`, the identity operator) and :math:`\mathcal{F}` is a
       :py:class:`~pycsou.abc.operator.ProxFunc`. Then, :math:numref:`eq:x_minimization` amounts to an application of the
       proximal operator of :math:`\mathcal{F}`. This case amounts to the classical ADMM algorithm described in Section
       5.3 of [PSA]_ (without the postcomposition trick).
@@ -1258,6 +1259,8 @@ class ADMM(_PDS):
         Functional, instance of :py:class:`~pycsou.abc.operator.Func`.
     h: ProxFunc | None
         Proximable functional, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
+    K: LinOp | None
+        Linear operator, instance of :py:class:`~pycsou.abc.operator.LinOp`.
     solver: Callable[ndarray, float] | None
         Callable that solves the x-minimization step :math:numref:`eq:x_minimization`.
 
@@ -1306,8 +1309,7 @@ class ADMM(_PDS):
         g = None
         beta = 1  # The value of beta is irrelevant in the cg and nlcg scenarios
         if solver is None:
-            if isinstance(f, pyca.ProxFunc) and isinstance(K, (type(None), pyclo.IdentityOp)):
-                # TODO include diagonal operators K
+            if f.has(pyco.Property.PROXIMABLE) and K is None:
                 x_update_method = "prox"
                 g = f  # In this case, f corresponds to g in the _PDS terminology
                 f = None
@@ -1319,7 +1321,7 @@ class ADMM(_PDS):
                     "of ADMM. This might lead to slow convergence.",
                     UserWarning,
                 )
-            elif isinstance(f, pyca.DiffMap):
+            elif f.has(pyco.Property.DIFFERENTIABLE_FUNCTION):
                 x_update_method = "nlcg"
                 warnings.warn(
                     "An inner-loop non-linear conjugate gradient algorithm will be applied for the "
@@ -1328,9 +1330,9 @@ class ADMM(_PDS):
                 )
             else:
                 raise TypeError(
-                    "Unsupported scenario: f must either be a ProxFunc (in which case K must be a"
-                    "DiagonalOp), a QuadraticFunc, or a DiffMap. If neither of these scenarios hold, a"
-                    "solver must be provided for the x-minimization step of ADMM."
+                    "Unsupported scenario: f must either be a ProxFunc (in which case K must be ``None``), a"
+                    "QuadraticFunc, or a DiffMap. If neither of these scenarios hold, a solver must be provided for the"
+                    "x-minimization step of ADMM."
                 )
         self.solver = solver
         self.x_update_method = x_update_method
