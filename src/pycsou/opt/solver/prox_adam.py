@@ -145,6 +145,9 @@ class ProxAdam(pyca.Solver):
     v0: pyct.NDArray
         (..., N) initial 2nd-order gradient estimate corresponding to each initial point.
         Defaults to the null vector if unspecified.
+    kwargs_sub: dict[str]
+        Keyword parameters used to initialize :py:meth:`~pycsou.opt.solver.pgd.PGD.__init__` in
+        sub-problems. This is an advanced option: use it with care.
     stop_crit_sub: pyca.solver.StoppingCriterion
         Sub-problem stopping criterion.
         Default: use same stopping criterion as main problem.
@@ -214,6 +217,7 @@ class ProxAdam(pyca.Solver):
         b2: pyct.Real = 0.999,
         m0: pyct.NDArray = None,
         v0: pyct.NDArray = None,
+        kwargs_sub: dict = None,
         stop_crit_sub: pyca.solver.StoppingCriterion = None,
         p: pyct.Real = 0.5,
         eps: pyct.Real = 1e-6,
@@ -273,6 +277,9 @@ class ProxAdam(pyca.Solver):
             mst["variance"] = v0.copy()
         mst["variance_hat"] = mst["variance"]
 
+        if kwargs_sub is None:
+            kwargs_sub = dict()
+        mst["subproblem_init_kwargs"] = kwargs_sub
         if stop_crit_sub is None:
             stop_crit_sub = self.default_stop_crit()
         mst["subproblem_stop_crit"] = stop_crit_sub
@@ -323,13 +330,45 @@ class ProxAdam(pyca.Solver):
         phi *= a
         x -= phi
         # --------------------------------------------
-        gamma = pycrt.coerce(a / xp.max(psi))
 
-        sqrt_psi = xp.sqrt(psi)
-        h = (0.5 / a) * pycof.SquaredL2Norm().asloss((sqrt_psi * x).ravel()) * pycl.DiagonalOp(sqrt_psi.ravel())
-        pgd_sub = pycos.PGD(h, self._g, show_progress=False)
-        pgd_sub.fit(x0=x.ravel(), tau=gamma, stop_crit=mst["subproblem_stop_crit"])
-        x = pgd_sub.solution().reshape(x.shape)
+        # Assume N initial points were provided in fit().
+        # We need to solve a PGD sub-problem for each of them.
+        #
+        # Option 1: solve one large PGD(f, g) sub-problem, with
+        #    f = hstack(f1, ..., fN)
+        #    g = hstack(g, ..., g)
+        # Option 2: solve N small PGD(f, g) sub-problems, with
+        #    f = fn
+        #    g = g
+        #
+        # The former (1) is more convenient since all sub-problems are solved in parallel, but:
+        # * convergence will be slower since diff-Lipschitz constant of hstack(f1, ..., fN) is
+        #   larger than those of fn. (Moreover the diff-Lipschitz constants of the fn may be spread
+        #   out.)
+        # * in the event `stop_crit_sub` is provided, we cannot always intercept/adapt it to apply
+        #   block-wise on `_mstate`.
+        #
+        # Each sub-problem in the latter (2) converges fast, but sub-problems may execute in
+        # sequence depending on the array backend used.
+        #
+        # In light of the above, we opt for Option 2.
+        *x_sh, N = x.shape
+        x_sub = []  # sub-problem solutions
+        for _x, _psi in zip(x.reshape(-1, N), psi.reshape(-1, N)):
+            scale = pycrt.coerce(0.5 / a)
+            h_half = pycl.DiagonalOp(xp.sqrt(_psi))
+            f = ((scale * pycof.SquaredL2Norm()) * h_half).asloss(_x)
+
+            kwargs = mst["subproblem_init_kwargs"].copy()
+            kwargs.update(show_progress=False)
+            slvr = pycos.PGD(f=f, g=self._g, **kwargs)
+
+            slvr.fit(
+                x0=_x,
+                stop_crit=mst["subproblem_stop_crit"],
+            )
+            x_sub.append(slvr.solution())
+        x = xp.stack(x_sub, axis=0).reshape(*x_sh, N)  # (..., N) original shape
         ## =====================================================
 
         mst["x"] = x
