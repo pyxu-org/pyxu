@@ -143,33 +143,33 @@ class L21Norm(ShiftLossMixin, pyca.ProxFunc):
         arg_shape: tuple[int, ...]
             Shape of the multidimensional input array.
         l2_axis: int or tuple[int, ...], optional
-            Dimensions along which the :math:`\ell_2` norm is applied.
+            Dimension(s) along which the :math:`\ell_2` norm is applied.
         """
         super().__init__(shape=(1, np.prod(arg_shape)))
         self.arg_shape = arg_shape
         if isinstance(l2_axis, int):
             l2_axis = (l2_axis,)
         self.l2_axis = l2_axis
+        ax_l2 = [a if a < 0 else (a - len(arg_shape)) for a in l2_axis]
+        self._l1_axis = np.setdiff1d(np.arange(-len(arg_shape), 0), ax_l2)  # Axes where l1 norm is applied
         self._lipschitz = np.inf
 
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray):
         xp = pycu.get_array_module(arr)
-        ax = [a if a < 0 else (a + len(arr.shape[:-1])) for a in self.l2_axis]  # Axes where l2 norm is applied
         x = arr.copy().reshape(arr.shape[:-1] + self.arg_shape)
-        x = xp.moveaxis(x, ax, range(-len(ax), 0))  # Move all l2 dimensions to trailing dimensions
+        x = xp.moveaxis(x, self._l1_axis, np.arange(-len(self._l1_axis), 0))  # Move l1 axis to trailing dimensions
         # Reshape so that l1 and l2 are a single dimension
-        x = x.reshape(arr.shape[:-1] + (-1,) + (np.prod([self.arg_shape[a] for a in self.l2_axis]),))
-        return pylinalg.norm(pylinalg.norm(x, ord=2, axis=-1), ord=1, axis=-1, keepdims=True)
+        x = x.reshape(arr.shape[:-1] + (np.prod([self.arg_shape[a] for a in self.l2_axis]),) + (-1,))
+        return pylinalg.norm(pylinalg.norm(x, ord=2, axis=-2), ord=1, axis=-1, keepdims=True)
 
     @pycrt.enforce_precision(["arr", "tau"])
     def prox(self, arr: pyct.NDArray, tau: pyct.Real):
         xp = pycu.get_array_module(arr)
-        ax = [a if a < 0 else (a + len(arr.shape[:-1])) for a in self.l2_axis]  # Axes where l2 norm is applied
         x = arr.copy().reshape(arr.shape[:-1] + self.arg_shape)
-        x = xp.moveaxis(x, ax, range(-len(ax), 0))  # Move all l2 dimensions to trailing dimensions
+        x = xp.moveaxis(x, self._l1_axis, range(-len(self._l1_axis), 0))  # Move l1 axis to trailing dimensions
         # Reshape so that l1 and l2 are a single dimension
-        x = x.reshape(arr.shape[:-1] + (-1,) + (np.prod([self.arg_shape[a] for a in self.l2_axis]),))
-        x = (1 - tau / xp.fmax(pylinalg.norm(x, ord=2, axis=-1, keepdims=True), tau)) * x
-        x = xp.moveaxis(x, range(-len(ax), 0), ax)  # Move back dimensions to their original place
+        x = x.reshape(arr.shape[:-1] + (np.prod([self.arg_shape[a] for a in self.l2_axis]),) + (-1,))
+        x = (1 - tau / xp.fmax(pylinalg.norm(x, ord=2, axis=-2, keepdims=True), tau)) * x
+        x = xp.moveaxis(x, range(-len(self._l1_axis), 0), self._l1_axis)  # Move back dimensions to their original place
         return x.reshape(arr.shape[:-1] + (-1,))
