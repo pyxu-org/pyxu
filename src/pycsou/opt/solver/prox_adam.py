@@ -285,30 +285,37 @@ class ProxAdam(pyca.Solver):
 
     def m_step(self):
         mst = self._mstate  # shorthand
-        x, m, v = mst["x"], mst["mean"], mst["variance"]
 
-        g = self._f.grad(x)
+        x = mst["x"]
+        xp = pycu.get_array_module(x)
+        gm = self._f.grad(x)
+        gv = gm.copy()
 
-        b1 = mst["b1"]
+        ## Part 1: evaluate phi/psi ============================
+        m, b1 = mst["mean"], mst["b1"]
         # In-place implementation of -----------------
         #   m = b1 * m + (1 - b1) * g
-        m = b1 * m
-        m += (1 - b1) * g
+        m *= b1
+        gm *= 1 - b1
+        m += gm
         # --------------------------------------------
+        mst["mean"] = m
 
-        b2 = mst["b2"]
+        v, b2 = mst["variance"], mst["b2"]
         # In-place implementation of -----------------
         #   v = b2 * v + (1 - b2) * (g ** 2)
-        v = b2 * v
-        v += (1 - b2) * (g**2)
+        v *= b2
+        gv **= 2
+        gv *= 1 - b2
+        v += gv
         # --------------------------------------------
-
-        mst["mean"], mst["variance"] = m, v
-        xp = pycu.get_array_module(x)
+        mst["variance"] = v
         mst["variance_hat"] = xp.maximum(mst["variance_hat"], v)
 
         phi = self.__phi(t=self._astate["idx"])
         psi = self.__psi(t=self._astate["idx"])
+        ## =====================================================
+
 
         a = mst["a"]
         x = x - a * (phi / psi)
