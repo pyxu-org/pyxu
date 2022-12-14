@@ -2430,24 +2430,19 @@ class _NUFFT3_chunked(_NUFFT3):
 
         return chunks
 
-    @staticmethod
-    def _diagnostic_plot(
-        data: np.ndarray,
-        box_dim: tuple[pyct.Real],
-        chunks: list[typ.Union[np.ndarray, slice]],
-    ):
+    def diagnostic_plot(self, domain: str):
         """
         Plot data + tesselation structure for diagnostic purposes.
 
+        This method can only be called after
+        :py:meth:`~pycsou.operator.linop.nufft._NUFFT3_chunked.allocate`.
+
+        This method only works for 2D/3D domains.
+
         Parameters
         ----------
-        data: np.ndarray
-            (M, D) point cloud
-        box_dim: tuple[float]
-            (D,) box dimensions.
-        chunks: list[ndarray[int] | slice]
-            (idx[0], ..., idx[C-1]) chunk specifiers.
-            `idx[k]` contains indices of `data` which lie in the same box.
+        domain: 'x', 'z'
+            Plot x-domain or z-domain data.
 
         Returns
         -------
@@ -2462,41 +2457,26 @@ class _NUFFT3_chunked(_NUFFT3):
 
         def _plot(
             points,  # (N, 2) data points
-            center,  # (N_c, 2) cluster centroids
-            tbox_dim,  # (N_c, 2) tight-box dimensions around centroids
-            box_dim,  # (2,)  coarse-box dimension around centroids
+            chunks,  # (N_c,) chunk specifiers
             ax,
         ):
-            data_pts = ax.plot(
-                points[:, 0],
-                points[:, 1],
-                "1",  # small triangle
-                color="b",
-                label="data",
-            )
-            centroid_pts = ax.plot(
-                center[:, 0],
-                center[:, 1],
-                "s",  # square
-                color="r",
-                label="chunk centroid",
-            )
-            for _tbox, c in zip(tbox_dim, center):
-                rect = mpl_p.Rectangle(
-                    xy=c - box_dim / 2,
-                    width=box_dim[0],
-                    height=box_dim[1],
-                    fill=True,
-                    edgecolor="g",
-                    facecolor="g",
-                    alpha=0.5,
-                    label="centroid box",
-                )
-                ax.add_patch(rect)
-                centroid_rect = rect  # ref to populate the legend
+            # Compute chunk centroids, tight-box_dims, cvx hulls
+            N_chk = len(chunks)
+            centroid = np.zeros((N_chk, 2))
+            tbox_dim = np.zeros((N_chk, 2))
+            hull = []  # (N_c,) hulls
+            for i, chk in enumerate(chunks):
+                _pts = points[chk]
+                _pts_min = _pts.min(axis=0)
+                _pts_max = _pts.max(axis=0)
+                centroid[i] = (_pts_min + _pts_max) / 2
+                tbox_dim[i] = _pts_max - _pts_min
+                _hull = _pts[spl.ConvexHull(_pts).vertices]
+                hull.append(_hull)
 
-                rect = mpl_p.Rectangle(
-                    xy=c - _tbox / 2,
+            for _tbox, _c in zip(tbox_dim, centroid):
+                data_rect = mpl_p.Rectangle(  # sub-problem bounding-box
+                    xy=_c - _tbox / 2,
                     width=_tbox[0],
                     height=_tbox[1],
                     fill=True,
@@ -2505,53 +2485,54 @@ class _NUFFT3_chunked(_NUFFT3):
                     alpha=0.5,
                     label="data box",
                 )
-                ax.add_patch(rect)
-                data_rect = rect  # ref to populate the legend
-
+                ax.add_patch(data_rect)
+            for _hull in hull:
+                data_poly = mpl_p.Polygon(  # sub-problem data support
+                    xy=_hull,
+                    fill=True,
+                    edgecolor="b",
+                    facecolor="b",
+                    alpha=0.5,
+                    label="data cvx hull",
+                )
+                ax.add_patch(data_poly)
+            centroid_pts = ax.plot(  # sub-problem bounding-box centers
+                centroid[:, 0],
+                centroid[:, 1],
+                "x",  # cross
+                color="k",
+                label="chunk centroid",
+            )
             ax.axis("equal")
             ax.legend(
                 handles=[
-                    *data_pts,
                     *centroid_pts,
-                    centroid_rect,
+                    data_poly,
                     data_rect,
                 ],
                 loc="upper right",
             )
 
-        M, D = data.shape
-        N_chk = len(chunks)
-        box_dim = np.array(box_dim, dtype=data.dtype)
+        domain = domain.strip().lower()
+        if domain == "x":
+            data = self._x
+            chunks = self._x_chunk
+        elif domain == "z":
+            data = self._z
+            chunks = self._z_chunk
+        else:
+            raise ValueError(f"Unknown domain '{domain}'.")
 
-        # Compute chunk centroids & tight-box_dims
-        centroid, tbox_dim = np.zeros((2, N_chk, D))
-        for i, chk in enumerate(chunks):
-            _data = data[chk]
-            _data_min = _data.min(axis=0)
-            _data_max = _data.max(axis=0)
-            centroid[i] = (_data_min + _data_max) / 2
-            tbox_dim[i] = _data_max - _data_min
+        _, D = data.shape
+        if D == 1:
+            raise NotImplementedError
 
         fig = plt.figure()
-        if D == 1:
-            # embed in 2D and read the diagonal
-            ax = fig.add_subplot(1, 1, 1)
-            trans = lambda _: np.stack([_, _], axis=-1)
-            _plot(
-                points=trans(data[:, 0]),
-                center=trans(centroid[:, 0]),
-                tbox_dim=trans(tbox_dim[:, 0]),
-                box_dim=trans(box_dim)[0],
-                ax=ax,
-            )
-            ax.set_title("data/chunk distribution (XY-plane)")
-        elif D == 2:
+        if D == 2:
             ax = fig.add_subplot(1, 1, 1)
             _plot(
                 points=data,
-                center=centroid,
-                tbox_dim=tbox_dim,
-                box_dim=box_dim,
+                chunks=chunks,
                 ax=ax,
             )
             ax.set_title("data/chunk distribution (XY-plane)")
@@ -2564,9 +2545,7 @@ class _NUFFT3_chunked(_NUFFT3):
                 ax = fig.add_subplot(1, 3, i + 1)
                 _plot(
                     points=data[:, idx],
-                    center=centroid[:, idx],
-                    tbox_dim=tbox_dim[:, idx],
-                    box_dim=box_dim[idx],
+                    chunks=chunks,
                     ax=ax,
                 )
                 ax.set_title(title)
