@@ -624,11 +624,6 @@ class NUFFT(pyca.LinOp):
                   )
              A.allocate(x_chunks, z_chunks)  # skip auto-chunking and apply
                                              # optimal x/z_chunks provided.
-
-        * FINUFFT accepts an ``nthreads`` keyword parameter.
-          This sets the thread-count used in FFTW, bin-sorting, and spreading/interpolation steps.
-          In the context of chunked transforms, since each chunk operates on small quantities, it is
-          often best to set ``nthreads=1``.
         """
         init_kwargs = _NUFFT3._sanitize_init_kwargs(
             x=x,
