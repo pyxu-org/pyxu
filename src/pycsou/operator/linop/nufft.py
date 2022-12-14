@@ -1173,6 +1173,7 @@ class _NUFFT1(NUFFT):
         self._real_out = kwargs.pop("real_out")
         self._upsampfac = kwargs.get("upsampfac")
         self._n = kwargs.get("n_trans", 1)
+        self._modeord = kwargs.get("modeord", 0)
         if self._direct_eval:
             self._plan = None
         else:
@@ -1192,7 +1193,7 @@ class _NUFFT1(NUFFT):
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:
         kwargs = kwargs.copy()
-        for k in ("nufft_type", "n_modes_or_dim", "dtype", "modeord"):
+        for k in ("nufft_type", "n_modes_or_dim", "dtype"):
             kwargs.pop(k, None)
         x = kwargs["x"] = pycu.compute(cls._as_canonical_coordinate(kwargs["x"]))
         N = kwargs["N"] = cls._as_canonical_mode(kwargs["N"])
@@ -1223,7 +1224,6 @@ class _NUFFT1(NUFFT):
             eps=kwargs.pop("eps"),
             n_trans=kwargs.pop("n_trans", 1),
             isign=kwargs.pop("isign"),
-            modeord=0,
             **kwargs,
         )
         plan.setpts(**dict(zip("xyz"[:N_dim], x.T[:N_dim])))
@@ -1266,7 +1266,6 @@ class _NUFFT1(NUFFT):
             eps=kwargs.pop("eps"),
             n_trans=kwargs.pop("n_trans", 1),
             isign=-kwargs.pop("isign"),
-            modeord=0,
             **kwargs,
         )
         plan.setpts(**dict(zip("xyz"[:N_dim], x.T[:N_dim])))
@@ -1375,6 +1374,9 @@ class _NUFFT1(NUFFT):
             )
         else:
             raise NotImplementedError
+
+        if self._modeord == 1:  # FFT-order
+            grid = xp.fft.ifftshift(grid)
         return grid
 
     def asarray(self, **kwargs) -> pyct.NDArray:
@@ -1442,6 +1444,7 @@ class _NUFFT3(NUFFT):
         self._real = kwargs.pop("real")
         self._upsampfac = kwargs.get("upsampfac")
         self._n = kwargs.get("n_trans", 1)
+        self._modeord = 0  # in case _NUFFT1 methods are called
         if self._direct_eval:
             self._plan = None
         else:
