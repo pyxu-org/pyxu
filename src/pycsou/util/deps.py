@@ -41,12 +41,8 @@ class NDArrayInfo(enum.Enum):
     @classmethod
     def from_obj(cls, obj) -> "NDArrayInfo":
         if obj is not None:
-            try:
-                obj_ = obj._meta
-            except:
-                obj_ = obj
             for ndi in cls:
-                if isinstance(obj_, ndi.type()):
+                if isinstance(obj, ndi.type()):
                     return ndi
         raise ValueError(f"No known array type to match {obj}.")
 
@@ -89,14 +85,10 @@ class SparseArrayInfo(enum.Enum):
     @classmethod
     def from_obj(cls, obj) -> "SparseArrayInfo":
         if obj is not None:
-            try:
-                obj_ = obj._meta
-            except:
-                obj_ = obj
             for sai in cls:
-                if isinstance(obj_, sai.type()):
+                if isinstance(obj, sai.type()):
                     return sai
-        raise ValueError(f"No known array type to match {obj}.")
+        raise ValueError(f"No known array type to match {sai}.")
 
     def module(self, linalg: bool = False) -> types.ModuleType:
         if self.name == "SCIPY_SPARSE":
