@@ -1081,19 +1081,18 @@ class NUFFT(pyca.LinOp):
         Returns
         -------
         p: namedtuple
+            Internal parameters of the FINUFFT implementation, with fields:
 
-        Internal parameters of the FINUFFT implementation, with fields:
-
-        * upsample_factor: float
-            FFT upsampling factor > 1
-        * kernel_width: int
-            Width of the spreading/interpolation kernels (in number of samples).
-        * kernel_beta: float
-            Kernel decay parameter :math:`\beta > 0`.
-        * fft_shape: (d,) [int]
-            Size of the D-dimensional FFT(s) performed internally.
-        * dilation_factor: (d,) [float]
-            Dilation factor(s) :math:`\gamma_{d}`. (Type-3 only)
+            * upsample_factor: float
+                FFT upsampling factor > 1
+            * kernel_width: int
+                Width of the spreading/interpolation kernels (in number of samples).
+            * kernel_beta: float
+                Kernel decay parameter :math:`\beta > 0`.
+            * fft_shape: (d,) [int]
+                Size of the D-dimensional FFT(s) performed internally.
+            * dilation_factor: (d,) [float]
+                Dilation factor(s) :math:`\gamma_{d}`. (Type-3 only)
         """
         if self._direct_eval:
             p = None
@@ -1619,11 +1618,11 @@ class _NUFFT3(NUFFT):
         else:
             grid = _NUFFT1.mesh(self, scale="source", **kwargs)
             f = lambda _: xp.array(_, dtype=dtype)
-            if scale == "source":  # Sect 3.3 Step 1., the sources are rescaled to lie on [-pi, pi[
-                s = f(self._dilation_factor())
+            if scale == "source":  # Sect 3.3 Eq 3.18.
+                s = f(self._dilation_factor()) * (1 - self._kernel_width() / f(self._fft_shape()))
                 grid *= s
                 _, center = self._shift_coords(self._x)
-            else:  # target
+            else:  # target, Sect 3.3 Eq 3.22.
                 s = f(self._dilation_factor()) / f(self._fft_shape())
                 s *= f(2 * np.pi * self._upsample_factor())
                 grid /= s
