@@ -307,6 +307,7 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         init_correction_prec: float = 0.2,
         final_correction_prec: float = 1e-4,
         remove_positions: bool = False,
+        min_correction_steps: int = 5,
         *,
         folder=None,  # : typ.Optional[pyct.PathLike] = None,
         exist_ok: bool = False,
@@ -349,6 +350,7 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         self._init_correction_prec = init_correction_prec
         self._final_correction_prec = final_correction_prec
         self._remove_positions = remove_positions
+        self._min_correction_steps = min_correction_steps
         super().__init__(
             data=data,
             forwardOp=forwardOp,
@@ -455,11 +457,12 @@ class PolyatomicFWforLasso(GenericFWforLasso):
             )
             return stop_crit
 
-        injection = pycop.SubSample(self.forwardOp.shape[1], support_indices).T
+        subsample = pycop.SubSample(self.forwardOp.shape[1], support_indices)
         # print(injection.shape)
-        rs_data_fid = self._data_fidelity * injection
-        rs_data_fid.diff_lipschitz()  # todo this was not necessary earlier, change of API to be expected later on ?
-        x0 = injection.T(self._mstate["x"])
+        # rs_data_fid = self._data_fidelity * injection
+        # rs_data_fid.diff_lipschitz()
+        rs_data_fid = self.rs_data_fid(support_indices)
+        x0 = subsample(self._mstate["x"])
         if self._astate["positivity_c"]:
             penalty = pycdevu.L1NormPositivityConstraint(shape=(1, None))
         else:
@@ -468,13 +471,18 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         # The penalty is agnostic to the dimension in this implementation (L1Norm()).
         apgd.fit(
             x0=x0,
+            tau=1 / self._data_fidelity._diff_lipschitz,
             stop_crit=(correction_stop_crit(precision) | pycos.MaxDuration(t=dt.timedelta(seconds=1000)))
-            & pycos.MaxIter(n=5),
-        )  # & pycos.MaxIter(n=10)
+            & pycos.MaxIter(n=self._min_correction_steps),
+        )
         self._mstate["correction_iterations"].append(apgd.stats()[1]["iteration"][-1])
         self._mstate["correction_durations"].append(apgd.stats()[1]["duration"][-1])
         sol, _ = apgd.stats()
-        return injection(sol["x"])
+        return subsample.adjoint(sol["x"])
+
+    def rs_data_fid(self, support_indices: pyct.NDArray) -> pyco.DiffFunc:
+        injection = pycop.SubSample(self.forwardOp.shape[1], support_indices).T
+        return 0.5 * pycop.SquaredL2Norm(dim=self.forwardOp.shape[0]).argshift(-self.data) * self.forwardOp * injection
 
     def post_process(self):
         mst = self._mstate
