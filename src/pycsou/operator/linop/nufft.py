@@ -625,6 +625,7 @@ class NUFFT(pyca.LinOp):
              A.allocate(x_chunks, z_chunks)  # skip auto-chunking and apply
                                              # optimal x/z_chunks provided.
 
+
         """
         init_kwargs = _NUFFT3._sanitize_init_kwargs(
             x=x,
@@ -1174,6 +1175,7 @@ class _NUFFT1(NUFFT):
         self._real_out = kwargs.pop("real_out")
         self._upsampfac = kwargs.get("upsampfac")
         self._n = kwargs.get("n_trans", 1)
+        self._modeord = kwargs.get("modeord", 0)
         if self._direct_eval:
             self._plan = None
         else:
@@ -1193,7 +1195,7 @@ class _NUFFT1(NUFFT):
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:
         kwargs = kwargs.copy()
-        for k in ("nufft_type", "n_modes_or_dim", "dtype", "modeord"):
+        for k in ("nufft_type", "n_modes_or_dim", "dtype"):
             kwargs.pop(k, None)
         x = kwargs["x"] = pycu.compute(cls._as_canonical_coordinate(kwargs["x"]))
         N = kwargs["N"] = cls._as_canonical_mode(kwargs["N"])
@@ -1224,7 +1226,6 @@ class _NUFFT1(NUFFT):
             eps=kwargs.pop("eps"),
             n_trans=kwargs.pop("n_trans", 1),
             isign=kwargs.pop("isign"),
-            modeord=0,
             **kwargs,
         )
         plan.setpts(**dict(zip("xyz"[:N_dim], x.T[:N_dim])))
@@ -1267,7 +1268,6 @@ class _NUFFT1(NUFFT):
             eps=kwargs.pop("eps"),
             n_trans=kwargs.pop("n_trans", 1),
             isign=-kwargs.pop("isign"),
-            modeord=0,
             **kwargs,
         )
         plan.setpts(**dict(zip("xyz"[:N_dim], x.T[:N_dim])))
@@ -1376,6 +1376,9 @@ class _NUFFT1(NUFFT):
             )
         else:
             raise NotImplementedError
+
+        if self._modeord == 1:  # FFT-order
+            grid = xp.fft.ifftshift(grid)
         return grid
 
     def asarray(self, **kwargs) -> pyct.NDArray:
@@ -1443,6 +1446,7 @@ class _NUFFT3(NUFFT):
         self._real = kwargs.pop("real")
         self._upsampfac = kwargs.get("upsampfac")
         self._n = kwargs.get("n_trans", 1)
+        self._modeord = 0  # in case _NUFFT1 methods are called
         if self._direct_eval:
             self._plan = None
         else:
@@ -1866,6 +1870,31 @@ class _NUFFT3_chunked(_NUFFT3):
             # Not coordinating the planning stage with other workers/tasks leads to segmentation faults.
             op = NUFFT.type3(**kwargs)
 
+        # The complexity of _NUFFT3.[apply|adjoint]() is
+        #     N_F \ln N_F   +   (N_x + N_z) w^d
+        #        N_F = FFT size
+        #        N_x = # x-domain points
+        #        N_z = # z-domain points
+        #        w = spread/interpolation kernel size
+        #
+        #
+        # The complexity of _NUFFT3_chunked.[apply|adjoint]() is
+        # (1) \sum_{i,j} N_F_ij \ln N_F_ij   +   N_z_blk N_x w^d   +   N_x_blk N_z w^d,
+        #         N_F_ij = FFT size in (i,j)-th sub-problem
+        #         N_x_blk = # x-domain chunks
+        #         N_z_blk = # z-domain chunks
+        # Assuming N_x_blk ~= N_z_blk, the term above simplifies to
+        #     \sum_{i,j} N_F_ij \ln N_F_ij   +   (N_x w^d + N_z w^d) \sqrt(N_x_blk * N_z_blk),
+        # i.e. the spread/interpolation cost grows proportional to \sqrt{# sub-problems}
+        #
+        #
+        # It is possible to share the spread/interpolation costs amongst sub-problems so as to bring
+        # the complexity of _NUFFT3_chunked.[apply|adjoint]() down to
+        # (2) (N_x_blk * N_z_blk) * N_F \ln N_F   +   (N_x + N_z) w^d.
+        #
+        # The philosophies of computing via (1) and (2) differ:
+        #   (1) optimal FFT-size per sub-problem + \sqrt{N_xz_blk} spread/interpolation overhead
+        #   (2) largest FFT-size per sub-problem + no spread/interpolation overhead w.r.t. _NUFFT3.[apply|adjoint]()
         out = getattr(op, func)(arr)
         return out
 

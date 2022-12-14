@@ -436,6 +436,12 @@ def _ExplicitLinOp(
         except:  # Dense arrays
             info = N.from_obj(_.mat)
             A = pycu.compute(_.mat.astype(dtype, copy=False))
+
+            if info == N.DASK:
+                # Chunks may have been mapped to sparse arrays.
+                # Call .asarray() again for a 2nd pass.
+                _op = _ExplicitLinOp(_.__class__, mat=A)
+                A = _op.asarray(xp=N.NUMPY.module(), dtype=A.dtype)
         finally:
             A = pycu.to_NUMPY(A)
 
