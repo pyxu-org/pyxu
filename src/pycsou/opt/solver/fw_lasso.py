@@ -1,4 +1,5 @@
 import datetime as dt
+import time
 import typing as typ
 
 import matplotlib.pyplot as plt
@@ -374,6 +375,13 @@ class PolyatomicFWforLasso(GenericFWforLasso):
         # storing it as a np array instead of a xp array ?
         mst["delta"] = None  # initial buffer for multi spike thresholding
         mst["correction_prec"] = self._init_correction_prec
+        l_constant = kwargs.pop("diff_lipschitz", None)
+        if l_constant is None:
+            lipschitz_time = time.time()
+            self._data_fidelity.diff_lipschitz(tol=1e-3)
+            print("Computation of diff_lipschitz takes {:.4f}".format(time.time() - lipschitz_time))
+        else:
+            self._data_fidelity._diff_lipschitz = l_constant
 
     def m_step(self):
         mst = self._mstate  # shorthand
