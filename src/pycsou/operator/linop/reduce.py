@@ -18,30 +18,26 @@ def Sum(
     axis: pyct.NDArrayAxis = None,
 ) -> pyct.OpT:
     r"""
-    Summation Operator.
+    Multi-dimensional sum reduction.
 
-    This operator re-arranges the input array to a multidimensional array of shape ``arg_shape`` and then reduces the
-    array via summation across one or more ``axis``.
+    This operator re-arranges the input array to a multidimensional array of shape ``arg_shape``,
+    then reduces it via summation across one or more ``axis``.
 
-    If the input array :math:`\mathbf{x}` consists on a 3D array, and ``axis=-1``:
-
-    .. math::
-        \mathbf{y}_{i,j} = \sum_{k}{\mathbf{x}_{i,j,k}}
-
-    **Adjoint**
-    The adjoint of the sum introduces new dimensions via spreading along the specified ``axes``:
-    If the input array :math:`\mathbf{x}` consists on a 2D array, and ``axis=-1``:
+    For example, assuming the input array :math:`\mathbf{x} \in \mathbb{R}^{N_1 \times N_2 \times
+    N_3}` and ``axis=-1``, then
 
     .. math::
-        \mathbf{y}_{i,j,k} = \mathbf{x}_{i,j}
+
+       \mathbf{y}_{i,j} = \sum_{k}{\mathbf{x}_{i,j,k}}.
 
     Parameters
     ----------
     arg_shape: pyct.NDArrayShape
         Shape of the data to be reduced.
     axis: pyct.NDArrayAxis
-        Axis or axes along which a sum is performed. The default, axis=None, will sum all the elements of the input
-        array. If axis is negative it counts from the last to the first axis.
+        Axis or axes along which a sum is performed.
+        The default, axis=None, will sum all the elements of the input array.
+        If axis is negative it counts from the last to the first axis.
 
     Notes
     -----
