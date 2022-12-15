@@ -1,3 +1,4 @@
+import collections.abc as cabc
 import types
 
 import numpy as np
@@ -55,26 +56,25 @@ def Sum(
     elements reduced by the summation (all elements in this example).
     """
 
+    def as_array(obj) -> np.ndarray:
+        if isinstance(obj, cabc.Sequence):
+            pass
+        else:
+            obj = [obj]
+        return np.array(obj, dtype=int)
+
+    arg_shape = as_array(arg_shape)
+    assert np.all(arg_shape > 0)
+    N_dim = len(arg_shape)
+
     if axis is None:
-        axis = np.arange(len(arg_shape))
-    elif not isinstance(axis, (list, tuple)):
-        axis = [
-            axis,
-        ]
-    elif isinstance(axis, tuple):
-        axis = list(axis)
-    for i in range(len(axis)):
-        axis[i] = len(arg_shape) - 1 if axis[i] == -1 else axis[i]
+        axis = np.arange(N_dim)
+    axis = np.unique(as_array(axis))  # drop potential duplicates
+    assert np.all((-N_dim <= axis) & (axis < N_dim))  # all axes in valid range
+    axis = (axis + N_dim) % N_dim  # get rid of negative axes
 
-    arg_shape, axis = np.array(arg_shape), np.array(axis)
-    adjoint_shape = [d for i, d in enumerate(arg_shape) if i not in axis]
-
-    dim = int(np.prod(arg_shape).item())
-    codim = int((np.prod(arg_shape) / np.prod(arg_shape[axis])).item())
-
-    # Create array of ones with arg_shape dims for adjoint
-    tile = np.ones(len(arg_shape) + 1, dtype=int)
-    tile[axis + 1] = arg_shape[axis]
+    sum_shape = arg_shape.copy()  # array shape after reduction
+    sum_shape[axis] = 1
 
     @pycrt.enforce_precision(i="arr")
     def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
