@@ -74,17 +74,33 @@ def Sum(
 
     @pycrt.enforce_precision(i="arr")
     def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
-        return arr.reshape(-1, *arg_shape).sum(axis=tuple(axis + 1)).reshape(arr.shape[:-1] + (codim,))
+        sh = arr.shape[:-1]
+        arr = arr.reshape(sh + _._arg_shape)
+
+        axis = tuple(ax + len(sh) for ax in _._axis)
+        out = arr.sum(axis=axis).reshape(*sh, -1)
+
+        return out
 
     @pycrt.enforce_precision(i="arr")
     def op_adjoint(_, arr: pyct.NDArray) -> pyct.NDArray:
+        sh = arr.shape[:-1]
+        arr = arr.reshape(sh + _._sum_shape)
+
         xp = pycu.get_array_module(arr)
-        out = xp.expand_dims(arr.reshape(-1, *adjoint_shape), tuple(axis + 1))
-        out = xp.tile(out, tile).reshape(arr.shape[:-1] + (dim,))
+        out = xp.broadcast_to(arr, sh + _._arg_shape)
+
+        out = out.reshape(*sh, -1)
         return out
 
-    klass = pyca.LinOp if codim != 1 else pyca.LinFunc
+    dim = arg_shape.prod()
+    codim = dim // arg_shape[axis].prod()
+
+    klass = pyca.LinOp if codim > 1 else pyca.LinFunc
     op = klass(shape=(codim, dim))
+    op._axis = tuple(axis)
+    op._arg_shape = tuple(arg_shape)
+    op._sum_shape = tuple(sum_shape)
 
     op._lipschitz = np.sqrt(np.prod(arg_shape[axis]))
     op.apply = types.MethodType(op_apply, op)
