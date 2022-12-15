@@ -352,7 +352,7 @@ class NUFFT(pyca.LinOp):
             plan_bw=plan_bw,
             **kwargs,
         )
-        return _NUFFT1(**init_kwargs).squeeze()
+        return _NUFFT1(**init_kwargs)
 
     @staticmethod
     @pycrt.enforce_precision(i="x", o=False, allow_None=False)
@@ -455,7 +455,7 @@ class NUFFT(pyca.LinOp):
             **kwargs,
         )
         op_t1 = _NUFFT1(**init_kwargs)
-        op_t2 = op_t1.squeeze().T
+        op_t2 = op_t1.T
         op_t2._name = "_NUFFT2"
 
         # Some methods need to be overloaded (even if non-arithmetic) since NUFFT interprets their
@@ -650,7 +650,7 @@ class NUFFT(pyca.LinOp):
                 init_kwargs.pop(k, None)
 
         op = klass(**init_kwargs)
-        return op.squeeze()
+        return op
 
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         r"""
@@ -2113,7 +2113,7 @@ class _NUFFT3_chunked(_NUFFT3):
             idx = idx if self._real else _c2r(idx)
             chunks = self._x_chunk
         else:  # "z"
-            idx = self._z_reorder._core._op._idx[0]  # _z_reorder = SubSampleOp.T.squeeze()
+            idx = self._z_reorder._core._op._idx[0]  # _z_reorder = SubSampleOp.T
             idx = _c2r(idx)
             chunks = self._z_chunk
 
