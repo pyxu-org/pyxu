@@ -2408,23 +2408,27 @@ class _NUFFT3_chunked(_NUFFT3):
             c_tree = spl.KDTree(centroid)  # centroid_tree
             candidates = c_tree.query_pairs(r=box_dim[0] / 2, p=np.inf)
             if len(candidates) > 0:
-                _i, _j = candidates.pop()
+                query_candidates = True
+                while query_candidates:
+                    _i, _j = candidates.pop()
 
-                c_spacing = np.abs(centroid[_i] - centroid[_j])
-                offset = (tbox_dim[_i] + tbox_dim[_j]) / 2
-                if np.all(c_spacing + offset < box_dim):  # points are close enough
-                    chunks[_i] = np.r_[chunks[_i], chunks[_j]]
-                    chunks.pop(_j)
+                    c_spacing = np.abs(centroid[_i] - centroid[_j])
+                    offset = (tbox_dim[_i] + tbox_dim[_j]) / 2
+                    if np.all(c_spacing + offset < box_dim):  # points are close enough
+                        chunks[_i] = np.r_[chunks[_i], chunks[_j]]
+                        chunks.pop(_j)
 
-                    _data = data[chunks[_i]]
-                    _data_min = _data.min(axis=0)
-                    _data_max = _data.max(axis=0)
+                        _data = data[chunks[_i]]
+                        _data_min = _data.min(axis=0)
+                        _data_max = _data.max(axis=0)
 
-                    centroid[_i] = (_data_min + _data_max) / 2
-                    centroid = np.delete(centroid, _j, axis=0)
+                        centroid[_i] = (_data_min + _data_max) / 2
+                        centroid = np.delete(centroid, _j, axis=0)
 
-                    tbox_dim[_i] = _data_max - _data_min
-                    tbox_dim = np.delete(tbox_dim, _j, axis=0)
+                        tbox_dim[_i] = _data_max - _data_min
+                        tbox_dim = np.delete(tbox_dim, _j, axis=0)
+
+                        query_candidates = False
             else:
                 fuse_chunks = False
 
