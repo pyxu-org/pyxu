@@ -2113,7 +2113,7 @@ class _NUFFT3_chunked(_NUFFT3):
             idx = idx if self._real else _c2r(idx)
             chunks = self._x_chunk
         else:  # "z"
-            idx = self._z_reorder._core._op._idx[0]  # _z_reorder = SubSampleOp.T
+            idx = self._z_reorder._core._op._idx[0]  # _z_reorder = SubSampleOp.T.squeeze()
             idx = _c2r(idx)
             chunks = self._z_chunk
 
