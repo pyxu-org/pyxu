@@ -3,8 +3,6 @@ import typing as typ
 import warnings
 
 import numpy as np
-import scipy.sparse as sp
-import sparse as ssp
 
 import pycsou.abc as pyca
 import pycsou.runtime as pycrt
