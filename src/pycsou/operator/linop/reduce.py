@@ -90,5 +90,4 @@ def Sum(arg_shape, axis=None) -> pyct.OpT:
     op.apply = types.MethodType(op_apply, op)
     op.adjoint = types.MethodType(op_adjoint, op)
     op._name = "Sum"
-
     return op
