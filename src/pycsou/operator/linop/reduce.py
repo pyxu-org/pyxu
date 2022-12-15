@@ -12,7 +12,7 @@ __all__ = [
 
 
 def Sum(arg_shape, axis=None) -> pyct.OpT:
-    """
+    r"""
     Summation Operator.
 
     This operator re-arranges the input array to a multidimensional array of shape ``arg_shape`` and then reduces the
