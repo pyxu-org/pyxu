@@ -5,13 +5,17 @@ import numpy as np
 import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.ptype as pyct
 
 __all__ = [
     "Sum",
 ]
 
 
-def Sum(arg_shape, axis=None) -> pyct.OpT:
+def Sum(
+    arg_shape: pyct.NDArrayShape,
+    axis: pyct.NDArrayAxis = None,
+) -> pyct.OpT:
     r"""
     Summation Operator.
 
@@ -34,7 +38,7 @@ def Sum(arg_shape, axis=None) -> pyct.OpT:
     ----------
     arg_shape: pyct.NDArrayShape
         Shape of the data to be reduced.
-    axis: int, tuple
+    axis: pyct.NDArrayAxis
         Axis or axes along which a sum is performed. The default, axis=None, will sum all the elements of the input
         array. If axis is negative it counts from the last to the first axis.
 
