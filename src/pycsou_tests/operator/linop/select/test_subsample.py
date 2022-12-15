@@ -71,15 +71,59 @@ class TestSubSample(SubSampleMixin, conftest.LinOpT):
         op = pycl.SubSample(arg_shape, *indices)
         return op, ndi, width
 
-    @pytest.fixture
-    def data_shape(self, arg_shape, sub_shape):
-        return (np.prod(sub_shape), np.prod(arg_shape))
+
+class TestTrim(SubSampleMixin, conftest.LinOpT):
+    @pytest.fixture(
+        params=[
+            (
+                (10, 5, 11),
+                0,  # no trimming
+                (slice(None), slice(None), slice(None)),
+            ),
+            (
+                (10, 5, 11),
+                1,  # equal trim/dimension
+                (slice(1, 9), slice(1, 4), slice(1, 10)),
+            ),
+            (
+                (10, 5, 11),
+                (1, 2, 3),  # different trim/dimension
+                (slice(1, 9), slice(2, 3), slice(3, 8)),
+            ),
+            (
+                (10, 5, 11),
+                ((0, 0), (1, 0), (2, 3)),  # different head/tail/dimension
+                (slice(None), slice(1, 5), slice(2, 8)),
+            ),
+        ]
+    )
+    def _spec(self, request):
+        # (arg_shape, trim_width, index_spec-equivalent) configs to test
+        arg_shape, trim_width, index_spec = request.param
+        return arg_shape, trim_width, index_spec
 
     @pytest.fixture
-    def data_apply(self, arg_shape, indices):
-        arr = np.arange(np.prod(arg_shape)).reshape(arg_shape)
-        out = arr[indices].reshape(-1)
-        return dict(
-            in_=dict(arr=arr.reshape(-1)),
-            out=out,
+    def arg_shape(self, _spec):
+        arg_shape, _, _ = _spec
+        return arg_shape
+
+    @pytest.fixture
+    def trim_width(self, _spec):
+        _, trim_width, _ = _spec
+        return trim_width
+
+    @pytest.fixture
+    def indices(self, _spec):
+        _, _, index = _spec
+        return index
+
+    @pytest.fixture(
+        params=itertools.product(
+            pycd.NDArrayInfo,
+            pycrt.Width,
         )
+    )
+    def spec(self, arg_shape, trim_width, request):
+        ndi, width = request.param
+        op = pycl.Trim(arg_shape, trim_width)
+        return op, ndi, width
