@@ -43,3 +43,11 @@ pycsou.operator.linop.select module
    :members:
    :undoc-members:
    :show-inheritance:
+
+pycsou.operator.linop.reduce module
+-----------------------------------
+
+.. automodule:: pycsou.operator.linop.reduce
+   :members:
+   :undoc-members:
+   :show-inheritance:
