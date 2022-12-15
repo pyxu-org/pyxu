@@ -41,15 +41,23 @@ def Sum(
 
     Notes
     -----
-
-    The Lipschitz constant is defined via the following Cauchy-Schwartz inequality (using a vectorized view the input
-    array):
+    The matrix operator of a 1D reduction applied to :math:`\mathbf{x} \in \mathbb{R}^{N}` is given
+    by
 
     .. math::
-        \Vert s(\mathbf{x}) \Vert^{2}_{2} = \Vert \sum_{i}^{N} \mathbf{x}_{i} \Vert^{2}_{2} = (\sum_{i}^{N} \mathbf{x}_{i}) ^{2} \leq N \sum_{i}^{N} \mathbf{x}_{i}^{2},
 
-    which suggest an upper bound of the Lipschitz constant of :math:`\sqrt{N}`, where :math:`N` is the total number of
-    elements reduced by the summation (all elements in this example).
+       \mathbf{A}(x) = \mathbf{1}^{T} \mathbf{x},
+
+    where :math:`\sigma_{\max}(\mathbf{A}) = \sqrt{N}`.
+    An ND reduction is a chain of 1D reductions in orthogonal dimensions.
+    Hence the Lipschitz constant of an ND reduction is the product of Lipschitz constants of all
+    1D reductions involved, i.e.:
+
+    .. math::
+
+       L = \sqrt{\prod_{i_{k}} N_{i_{k}}},
+
+    where :math:`\{i_{k}\}_{k}` denotes the axes being summed over.
     """
 
     def as_array(obj) -> np.ndarray:
@@ -93,6 +101,11 @@ def Sum(
         out = out.reshape(*sh, -1)
         return out
 
+    def op_lipschitz(_, **kwargs) -> pyct.Real:
+        N = np.prod(_._arg_shape) / np.prod(_._sum_shape)
+        _._lipschitz = np.sqrt(N)
+        return _._lipschitz
+
     dim = arg_shape.prod()
     codim = dim // arg_shape[axis].prod()
 
@@ -102,8 +115,8 @@ def Sum(
     op._arg_shape = tuple(arg_shape)
     op._sum_shape = tuple(sum_shape)
 
-    op._lipschitz = np.sqrt(np.prod(arg_shape[axis]))
     op.apply = types.MethodType(op_apply, op)
     op.adjoint = types.MethodType(op_adjoint, op)
+    op.lipschitz = types.MethodType(op_lipschitz, op)
     op._name = "Sum"
     return op
