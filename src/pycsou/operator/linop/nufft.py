@@ -2404,9 +2404,12 @@ class _NUFFT3_chunked(_NUFFT3):
 
         # Fuse chunks which are closely-spaced & small-enough
         fuse_chunks = True
+
+        remove_candidates = set()
         while fuse_chunks:
             c_tree = spl.KDTree(centroid)  # centroid_tree
             candidates = c_tree.query_pairs(r=box_dim[0] / 2, p=np.inf)
+            candidates = candidates.difference(remove_candidates)
             if len(candidates) > 0:
                 query_candidates = True
                 while query_candidates:
@@ -2424,10 +2427,18 @@ class _NUFFT3_chunked(_NUFFT3):
 
                         centroid[_i] = (_data_min + _data_max) / 2
                         centroid = np.delete(centroid, _j, axis=0)
+                        # centroids changed, start over
+                        query_candidates = False
+                        remove_candidates = set()
 
                         tbox_dim[_i] = _data_max - _data_min
                         tbox_dim = np.delete(tbox_dim, _j, axis=0)
 
+                    else:
+                        # avoid checking this candidate again
+                        remove_candidates.add((_i, _j))
+
+                    if len(candidates) == 0:
                         query_candidates = False
             else:
                 fuse_chunks = False
