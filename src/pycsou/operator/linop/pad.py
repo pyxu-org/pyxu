@@ -328,15 +328,14 @@ def Pad(
     # 1d padding operators in each dimension.
     arg_shape_ = list(arg_shape)
     op_list = []
-    for d in range(ndim):
-        op_list.append(
-            _Pad1D(
-                arg_shape=arg_shape_.copy(),
-                axis=d,
-                pad_width=pad_width[d],
-                mode=mode[d],
-            )
+    for d in range(N_dim):
+        _op = _Pad1D(
+            arg_shape=arg_shape_.copy(),
+            axis=d,
+            pad_width=pad_width[d],
+            mode=mode[d],
         )
+        op_list.append(_op)
         arg_shape_[d] += np.sum(pad_width[d])
 
     # Compose 1d padding operators into multi-dimensional padding operator.
