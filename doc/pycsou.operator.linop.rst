@@ -51,3 +51,11 @@ pycsou.operator.linop.reduce module
    :members:
    :undoc-members:
    :show-inheritance:
+
+pycsou.operator.linop.pad module
+--------------------------------
+
+.. automodule:: pycsou.operator.linop.pad
+   :members:
+   :undoc-members:
+   :show-inheritance:
