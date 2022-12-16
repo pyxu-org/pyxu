@@ -1,3 +1,4 @@
+import collections.abc as cabc
 import functools
 import typing as typ
 import warnings
@@ -11,6 +12,13 @@ import pycsou.util.ptype as pyct
 __all__ = [
     "Pad",
 ]
+
+WidthSpec = typ.Union[
+    pyct.Integer,
+    cabc.Sequence[pyct.Integer],
+    cabc.Sequence[tuple[pyct.Integer, pyct.Integer]],
+]
+ModeSpec = typ.Union[str, cabc.Sequence[str]]
 
 
 class _Pad1D(pyca.LinOp):
@@ -127,21 +135,21 @@ class _Pad1D(pyca.LinOp):
 
 
 def Pad(
-    arg_shape: pyct.OpShape,
-    pad_width: typ.Tuple,
-    mode: typ.Union[typ.Tuple, str] = "constant",
+    arg_shape: pyct.NDArrayShape,
+    pad_width: WidthSpec,
+    mode: ModeSpec = "constant",
 ) -> pyct.OpT:
     r"""
     Pad operator.
 
     Parameters
     ----------
-    arg_shape: tuple
+    arg_shape: pyct.NDArrayShape
         Shape of the input array.
-    pad_width: tuple( tuple(int, int), ... )
+    pad_width: WidthSpec
         Number of values padded to the edges of each axis.
         ((before_1, after_1), … (before_N, after_N)) unique pad widths for each axis.
-    mode: str, tuple
+    mode: str | list(str)
         Supported padding modes are 'constant' (which adds zeroes), 'wrap', 'reflect', 'symmetric',
         and 'edge'.
         (See :py:func:`numpy.pad` for details.)
