@@ -207,7 +207,7 @@ class SubSample(pyca.LinOp):
 def Trim(
     arg_shape: pyct.NDArrayShape,
     trim_width: SubSample.TrimSpec,
-) -> SubSample:
+) -> pyct.OpT:
     """
     Multi-dimensional trimming operator.
 
@@ -228,7 +228,7 @@ def Trim(
 
     Returns
     -------
-    op: SubSample
+    op: pyct.OpT
     """
     arg_shape = tuple(arg_shape)
     N_dim = len(arg_shape)
