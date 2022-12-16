@@ -296,12 +296,18 @@ def Pad(
                  \sqrt{1 + p^{2}}
              \end{align*}
     """
-    # Careful! Using NumPy's private function to format pad_width.
-    # This can lead to problems if NumPy's API changes.
-    from numpy.lib.arraypad import _as_pairs
+    arg_shape = tuple(arg_shape)
+    N_dim = len(arg_shape)
 
-    ndim = len(arg_shape)
-    pad_width = _as_pairs(pad_width, ndim, as_index=True)
+    # transform `pad_width` to canonical form tuple[tuple[int, int]]
+    is_seq = lambda _: isinstance(_, cabc.Sequence)
+    if not is_seq(pad_width):  # int-form
+        pad_width = ((pad_width, pad_width),) * N_dim
+    assert len(pad_width) == N_dim, f"arg_shape/pad_width are length-mismatched."
+    if not is_seq(pad_width[0]):  # tuple[int, ...] form
+        pad_width = tuple((w, w) for w in pad_width)
+    else:  # tuple[tulpe[int, int], ...] form
+        pass
 
     if mode is None:
         mode = "constant"
