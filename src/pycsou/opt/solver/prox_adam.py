@@ -357,7 +357,11 @@ class ProxAdam(pyca.Solver):
         for _x, _psi in zip(x.reshape(-1, N), psi.reshape(-1, N)):
             scale = pycrt.coerce(0.5 / a)
             h_half = pycl.DiagonalOp(xp.sqrt(_psi))
-            f = ((scale * pycof.SquaredL2Norm()) * h_half).asloss(_x)
+
+            f1 = pycof.SquaredL2Norm().asloss(h_half.apply(_x)) * h_half
+            f2 = (pycof.SquaredL2Norm() * h_half).asloss(_x)
+            f = f1 * scale  # gives correct results
+            # f = f2 * scale  # gives wrong results
 
             kwargs = mst["subproblem_init_kwargs"].copy()
             kwargs.update(show_progress=False)
