@@ -8,7 +8,7 @@ import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
 
-class TestPadOp(conftest.LinOpT):
+class TestPad(conftest.LinOpT):
     @pytest.fixture(params=[1, 3])
     def ndim(self, request):
         return request.param
@@ -39,7 +39,7 @@ class TestPadOp(conftest.LinOpT):
 
     @pytest.fixture
     def spec(self, arg_shape, pad_width, pad_mode, ndi, width) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
-        op = pycob.PadOp(arg_shape=arg_shape, pad_width=pad_width, mode=pad_mode)
+        op = pycob.Pad(arg_shape=arg_shape, pad_width=pad_width, mode=pad_mode)
         return op, ndi, width
 
     @pytest.fixture

@@ -9,7 +9,7 @@ import pycsou.runtime as pycrt
 import pycsou.util.ptype as pyct
 
 __all__ = [
-    "PadOp",
+    "Pad",
 ]
 
 
@@ -126,7 +126,7 @@ class _Pad1D(pyca.LinOp):
         return out.reshape(*arr.shape[:-1], -1)
 
 
-def PadOp(
+def Pad(
     arg_shape: pyct.OpShape,
     pad_width: typ.Tuple,
     mode: typ.Union[typ.Tuple, str] = "constant",
@@ -314,5 +314,5 @@ def PadOp(
 
     # Compose 1d padding operators into a single multidimensional padding operator.
     op = functools.reduce(lambda x, y: x * y, op_list[::-1])
-    op._name = "PadOp"
+    op._name = "Pad"
     return op
