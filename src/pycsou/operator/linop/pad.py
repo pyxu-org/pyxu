@@ -240,8 +240,34 @@ class Pad(pyca.LinOp):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        # todo: implement
-        pass
+        sh = arr.shape[:-1]
+        arr = arr.reshape(*sh, *self._arg_shape)
+        N_dim = len(self._arg_shape)
+
+        xp = pycu.get_array_module(arr)
+        pad_width_sh = ((0, 0),) * len(sh)  # don't pad stack-dims
+
+        if len(set(self._mode)) == 1:  # mono-mode: one-shot padding
+            out = xp.pad(
+                array=arr,
+                pad_width=pad_width_sh + self._pad_width,
+                mode=self._mode[0],
+            )
+        else:  # multi-mode: pad iteratively
+            out = arr
+            for i in range(N_dim):
+                pad_width = [(0, 0)] * N_dim
+                pad_width[i] = self._pad_width[i]
+                pad_width = tuple(pad_width)
+
+                out = xp.pad(
+                    array=out,
+                    pad_width=pad_width_sh + pad_width,
+                    mode=self._mode[i],
+                )
+
+        out = out.reshape(*sh, self.codim)
+        return out
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
