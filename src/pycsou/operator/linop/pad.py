@@ -309,14 +309,21 @@ def Pad(
     else:  # tuple[tulpe[int, int], ...] form
         pass
 
-    if mode is None:
-        mode = "constant"
-    if isinstance(mode, str):
-        mode = (mode,) * ndim
-    if isinstance(mode, tuple):
-        assert len(mode) == ndim
-    if not isinstance(mode, tuple):
-        raise ValueError(f"Incorrect type {type(mode)} for `mode`.")
+    if isinstance(mode, str):  # shared mode
+        mode = (mode,) * N_dim
+    elif isinstance(mode, cabc.Sequence):  # tuple[str, ...]: different modes
+        assert len(mode) == N_dim, "arg_shape/mode are length-mismatched."
+        mode = tuple(mode)
+    else:
+        raise ValueError(f"Unkwown mode encountered: {mode}.")
+    mode = tuple(map(lambda _: _.strip().lower(), mode))
+    assert set(mode) <= {
+        "constant",
+        "wrap",
+        "reflect",
+        "symmetric",
+        "edge",
+    }, "Unknown mode(s) encountered."
 
     # 1d padding operators in each dimension.
     arg_shape_ = list(arg_shape)
