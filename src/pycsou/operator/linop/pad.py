@@ -271,8 +271,73 @@ class Pad(pyca.LinOp):
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        # todo: implement
-        pass
+        sh = arr.shape[:-1]
+        arr = arr.reshape(*sh, *self._pad_shape)
+        N_dim = len(self._arg_shape)
+
+        # Part 1: apply correction terms (if any)
+        out = arr.copy()  # in-place updates below
+        for i in range(1, N_dim + 1):
+            mode = self._mode[-i]
+            lhs, rhs = self._pad_width[-i]
+            N = self._pad_shape[-i]
+
+            r_s = [slice(None)] * (len(sh) + N_dim)  # read axial selector
+            w_s = [slice(None)] * (len(sh) + N_dim)  # write axial selector
+
+            if mode == "constant":
+                # no correction required
+                pass
+            elif mode == "wrap":
+                # Fix LHS
+                r_s[-i] = slice(0, lhs)
+                w_s[-i] = slice(N - rhs - lhs, N - rhs)
+                out[tuple(w_s)] += out[tuple(r_s)]
+
+                # Fix RHS
+                r_s[-i] = slice(N - rhs, N)
+                w_s[-i] = slice(lhs, lhs + rhs)
+                out[tuple(w_s)] += out[tuple(r_s)]
+            elif mode == "reflect":
+                if lhs > 0:  # Fix LHS  Todo fix
+                    r_s[-i] = slice(lhs - 1, None, -1)
+                    w_s[-i] = slice(lhs + 1, 2 * lhs + 1)
+                    out[tuple(w_s)] += out[tuple(r_s)]
+
+                # Fix RHS
+                r_s[-i] = slice(N - 1, N - rhs - 1, -1)
+                w_s[-i] = slice(N - 2 * rhs - 1, N - rhs - 1)
+                out[tuple(w_s)] += out[tuple(r_s)]
+            elif mode == "symmetric":
+                if lhs > 0:  # Fix LHS
+                    r_s[-i] = slice(lhs - 1, None, -1)
+                    w_s[-i] = slice(lhs, 2 * lhs)
+                    out[tuple(w_s)] += out[tuple(r_s)]
+
+                # Fix RHS
+                r_s[-i] = slice(N - 1, N - rhs - 1, -1)
+                w_s[-i] = slice(N - 2 * rhs, N - rhs)
+                out[tuple(w_s)] += out[tuple(r_s)]
+            elif mode == "edge":
+                if lhs > 0:  # Fix LHS
+                    r_s[-i] = slice(0, lhs)
+                    w_s[-i] = slice(lhs, lhs + 1)
+                    out[tuple(w_s)] += out[tuple(r_s)].sum(axis=-i, keepdims=True)
+
+                if rhs > 0:  # Fix RHS
+                    r_s[-i] = slice(N - rhs, N)
+                    w_s[-i] = slice(N - rhs - 1, N - rhs)
+                    out[tuple(w_s)] += out[tuple(r_s)].sum(axis=-i, keepdims=True)
+
+        # Part 2: extract the core
+        selector = [slice(None)] * len(sh)
+        for N, (lhs, rhs) in zip(self._pad_shape, self._pad_width):
+            s = slice(lhs, N - rhs)
+            selector.append(s)
+        out = out[tuple(selector)]
+
+        out = out.reshape(*sh, self.dim)
+        return out
 
     def lipschitz(self, **kwargs) -> pyct.Real:
         if kwargs.get("recompute", False):
