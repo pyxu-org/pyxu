@@ -224,6 +224,20 @@ class Pad(pyca.LinOp):
         dim = np.prod(self._arg_shape)
         super().__init__(shape=(codim, dim))
 
+        # Some modes have awkward interpretations when pad-widths cross certain thresholds.
+        # Supported pad-widths are thus limited to sensible regions.
+        for i in range(N_dim):
+            N = self._arg_shape[i]
+            w_max = dict(
+                constant=np.inf,
+                wrap=N,
+                reflect=N - 1,
+                symmetric=N,
+                edge=N,  # Lipschitz constant known analytically up to this limit
+            )[self._mode[i]]
+            lhs, rhs = self._pad_width[i]
+            assert max(lhs, rhs) <= w_max, f"pad_width along dim-{i} is limited to {w_max}."
+
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         # todo: implement
