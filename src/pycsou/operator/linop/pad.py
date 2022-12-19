@@ -1,181 +1,24 @@
 import collections.abc as cabc
-import functools
+import types
 import typing as typ
-import warnings
 
 import numpy as np
 
 import pycsou.abc as pyca
 import pycsou.runtime as pycrt
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 __all__ = [
     "Pad",
 ]
 
-WidthSpec = typ.Union[
-    pyct.Integer,
-    cabc.Sequence[pyct.Integer],
-    cabc.Sequence[tuple[pyct.Integer, pyct.Integer]],
-]
-ModeSpec = typ.Union[str, cabc.Sequence[str]]
 
-
-class _Pad1D(pyca.LinOp):
-    def __init__(
-        self,
-        arg_shape,
-        axis,
-        pad_width,
-        mode,
-    ):
-        self.codom_shape = tuple(s + np.sum(pad_width) * (i == axis) for i, s in enumerate(arg_shape))
-        self.arg_shape = tuple(arg_shape)
-        self.axis = axis
-        self.mode = mode
-
-        # Create multidimensional padding tuple, with padding defined only for axis
-        self.pad_width = [(0, 0)] * (len(arg_shape) + 1)
-        self.pad_width[axis + 1] = pad_width
-
-        # Check that extended boundaries do not overlap
-        if np.sum(pad_width) > arg_shape[axis]:
-            warnings.warn(
-                f"The default Lipschitz constant is estimated assuming that the number of padded elements "
-                f"({np.sum(pad_width)}) is smaller than the size of the input array ({arg_shape[axis]}). "
-                f"For a better estimate call the method `op.lipschitz(recompute=True)`."
-            )
-            if np.any(np.array(pad_width) > arg_shape[axis]):
-                raise ValueError(
-                    f"The number of padded elements in each side {pad_width} must not be larger than the "
-                    f"size of the input array ({arg_shape[axis]}) at axis {axis}."
-                )
-
-        super().__init__(
-            shape=(
-                np.prod(self.codom_shape).item(),
-                np.prod(arg_shape).item(),
-            )
-        )
-
-        # Define Lipschitz constant (see `Notes` in PadOp)
-        if self.mode == "constant":
-            self._lipschitz = 1.0
-        elif self.mode == "edge":
-            self._lipschitz = np.sqrt(1 + np.sum(pad_width) ** 2)
-        else:
-            np.sqrt(2)
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr):
-        """
-        Pad input array in the one dimension defined by `axis`.
-        """
-        return np.pad(
-            array=arr.reshape(-1, *self.arg_shape),
-            pad_width=self.pad_width,
-            mode=self.mode,
-        ).reshape(*arr.shape[:-1], self.codim)
-
-    @pycrt.enforce_precision(i="arr")
-    def adjoint(self, arr):
-        """
-        Adjoint of padding in one dimension.
-
-        The adjoint method is performed in two steps, trimming and cumulative summation (see `Notes`
-        in PadOp).
-        """
-        # Trim
-        arr_shape = (-1,) + self.codom_shape
-        out_shape = (-1,) + self.arg_shape
-        slices = []
-        for i, (start, end) in enumerate(self.pad_width):
-            end = out_shape[i] + self.pad_width[i][0] if arr_shape[i] != -1 else None
-            slices.append(slice(start, end))
-        out = arr.reshape(*arr_shape)[tuple(slices)].copy()
-
-        # Cumulative sum
-        if self.mode == "constant":
-            return out.reshape(*arr.shape[:-1], self.dim)
-
-        # Slices of output onto which the input (padded) elements are summed to.
-        slices_out = [np.copy(slices), np.copy(slices)]
-        if self.mode == "wrap":
-            slices_out[0][self.axis + 1] = slice(-self.pad_width[self.axis + 1][0], None)
-            slices_out[1][self.axis + 1] = slice(0, self.pad_width[self.axis + 1][1])
-        elif self.mode in ["reflect", "symmetric"]:
-            # reflect and symmetric only differ by a 1 element displacement, captured by the
-            # following `aux` variable.
-            aux = self.mode == "reflect"
-            slices_out[0][self.axis + 1] = slice(self.pad_width[self.axis + 1][0] + aux - 1, (0 if aux else None), -1)
-            slices_out[1][self.axis + 1] = slice(-(1 + aux), -(self.pad_width[self.axis + 1][1] + 1 + aux), -1)
-        elif self.mode == "edge":
-            slices_out[0][self.axis + 1] = slice(0, 1)
-            slices_out[1][self.axis + 1] = slice(-1, None)
-        else:
-            raise NotImplementedError(f"mode {self.mode} is not supported.")
-
-        # Slices of input array to be summed to output
-        slices_arr = [np.copy(slices), np.copy(slices)]
-        slices_arr[0][self.axis + 1] = slice(0, self.pad_width[self.axis + 1][0])
-        slices_arr[1][self.axis + 1] = slice(self.codom_shape[self.axis] - (self.pad_width[self.axis + 1][1]), None)
-
-        # Perform cumulative summation
-        for i, slice_ in enumerate(slices_arr):
-            if arr.reshape(*arr_shape)[tuple(slice_)].size:
-                if self.mode == "edge":
-                    out[tuple(slices_out[i])] += arr.reshape(*arr_shape)[tuple(slice_)].sum(
-                        axis=self.axis + 1,
-                        keepdims=True,
-                    )
-                else:
-                    out[tuple(slices_out[i])] += arr.reshape(*arr_shape)[tuple(slice_)]
-
-        return out.reshape(*arr.shape[:-1], -1)
-
-
-def Pad(
-    arg_shape: pyct.NDArrayShape,
-    pad_width: WidthSpec,
-    mode: ModeSpec = "constant",
-) -> pyct.OpT:
+class Pad(pyca.LinOp):
     r"""
     Multi-dimensional padding operator.
 
     This operator pads the input array in each dimension according to specified widths.
-
-    Parameters
-    ----------
-    arg_shape: pyct.NDArrayShape
-        Shape of the input array.
-    pad_width: WidthSpec
-        Number of values padded to the edges of each axis.
-        Multiple forms are accepted:
-
-        * int: pad each dimension's head/tail by `pad_width`.
-        * tuple[int, ...]: pad dimension[k]'s head/tail by `pad_width[k]`.
-        * tuple[tuple[int, int], ...]: pad dimension[k]'s head/tail by `pad_width[k][0]` /
-          `pad_width[k][1]` respectively.
-
-    mode: str | list(str)
-        Padding mode.
-        Multiple forms are accepted:
-
-        * str: unique mode shared amongst dimensions.
-          Must be one of:
-
-          * 'constant' (zero-padding)
-          * 'wrap'
-          * 'reflect'
-          * 'symmetric'
-          * 'edge'
-        * tuple[str, ...]: pad dimension[k] using `mode[k]`.
-
-        (See :py:func:`numpy.pad` for details.)
-
-    Returns
-    -------
-    op: pyct.OpT
 
     Notes
     -----
@@ -296,49 +139,172 @@ def Pad(
                  \sqrt{1 + p^{2}}
              \end{align*}
     """
-    arg_shape = tuple(arg_shape)
-    N_dim = len(arg_shape)
+    WidthSpec = typ.Union[
+        pyct.Integer,
+        cabc.Sequence[pyct.Integer],
+        cabc.Sequence[tuple[pyct.Integer, pyct.Integer]],
+    ]
+    ModeSpec = typ.Union[str, cabc.Sequence[str]]
 
-    # transform `pad_width` to canonical form tuple[tuple[int, int]]
-    is_seq = lambda _: isinstance(_, cabc.Sequence)
-    if not is_seq(pad_width):  # int-form
-        pad_width = ((pad_width, pad_width),) * N_dim
-    assert len(pad_width) == N_dim, f"arg_shape/pad_width are length-mismatched."
-    if not is_seq(pad_width[0]):  # tuple[int, ...] form
-        pad_width = tuple((w, w) for w in pad_width)
-    else:  # tuple[tulpe[int, int], ...] form
+    def __init__(
+        self,
+        arg_shape: pyct.NDArrayShape,
+        pad_width: WidthSpec,
+        mode: ModeSpec = "constant",
+    ):
+        r"""
+        Parameters
+        ----------
+        arg_shape: pyct.NDArrayShape
+            Shape of the input array.
+        pad_width: WidthSpec
+            Number of values padded to the edges of each axis.
+            Multiple forms are accepted:
+
+            * int: pad each dimension's head/tail by `pad_width`.
+            * tuple[int, ...]: pad dimension[k]'s head/tail by `pad_width[k]`.
+            * tuple[tuple[int, int], ...]: pad dimension[k]'s head/tail by `pad_width[k][0]` /
+              `pad_width[k][1]` respectively.
+        mode: str | list(str)
+            Padding mode.
+            Multiple forms are accepted:
+
+            * str: unique mode shared amongst dimensions.
+              Must be one of:
+
+              * 'constant' (zero-padding)
+              * 'wrap'
+              * 'reflect'
+              * 'symmetric'
+              * 'edge'
+            * tuple[str, ...]: pad dimension[k] using `mode[k]`.
+
+            (See :py:func:`numpy.pad` for details.)
+        """
+        self._arg_shape = tuple(arg_shape)
+        assert all(_ > 0 for _ in self._arg_shape)
+        N_dim = len(self._arg_shape)
+
+        # transform `pad_width` to canonical form tuple[tuple[int, int], ...]
+        is_seq = lambda _: isinstance(_, cabc.Sequence)
+        if not is_seq(pad_width):  # int-form
+            pad_width = ((pad_width, pad_width),) * N_dim
+        assert len(pad_width) == N_dim, f"arg_shape/pad_width are length-mismatched."
+        if not is_seq(pad_width[0]):  # tuple[int, ...] form
+            pad_width = tuple((w, w) for w in pad_width)
+        else:  # tuple[tulpe[int, int], ...] form
+            pass
+        assert all(0 <= min(lhs, rhs) for (lhs, rhs) in pad_width)
+        self._pad_width = pad_width
+
+        # transform `mode` to canonical form tuple[str, ...]
+        if isinstance(mode, str):  # shared mode
+            mode = (mode,) * N_dim
+        elif isinstance(mode, cabc.Sequence):  # tuple[str, ...]: different modes
+            assert len(mode) == N_dim, "arg_shape/mode are length-mismatched."
+            mode = tuple(mode)
+        else:
+            raise ValueError(f"Unkwown mode encountered: {mode}.")
+        self._mode = tuple(map(lambda _: _.strip().lower(), mode))
+        assert set(self._mode) <= {
+            "constant",
+            "wrap",
+            "reflect",
+            "symmetric",
+            "edge",
+        }, "Unknown mode(s) encountered."
+
+        # Useful constant: shape of padded outputs
+        self._pad_shape = list(self._arg_shape)
+        for i, (lhs, rhs) in enumerate(self._pad_width):
+            self._pad_shape[i] += lhs + rhs
+        self._pad_shape = tuple(self._pad_shape)
+
+        codim = np.prod(self._pad_shape)
+        dim = np.prod(self._arg_shape)
+        super().__init__(shape=(codim, dim))
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        # todo: implement
         pass
 
-    if isinstance(mode, str):  # shared mode
-        mode = (mode,) * N_dim
-    elif isinstance(mode, cabc.Sequence):  # tuple[str, ...]: different modes
-        assert len(mode) == N_dim, "arg_shape/mode are length-mismatched."
-        mode = tuple(mode)
-    else:
-        raise ValueError(f"Unkwown mode encountered: {mode}.")
-    mode = tuple(map(lambda _: _.strip().lower(), mode))
-    assert set(mode) <= {
-        "constant",
-        "wrap",
-        "reflect",
-        "symmetric",
-        "edge",
-    }, "Unknown mode(s) encountered."
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        # todo: implement
+        pass
 
-    # 1d padding operators in each dimension.
-    arg_shape_ = list(arg_shape)
-    op_list = []
-    for d in range(N_dim):
-        _op = _Pad1D(
-            arg_shape=arg_shape_.copy(),
-            axis=d,
-            pad_width=pad_width[d],
-            mode=mode[d],
-        )
-        op_list.append(_op)
-        arg_shape_[d] += np.sum(pad_width[d])
+    def lipschitz(self, **kwargs) -> pyct.Real:
+        if kwargs.get("recompute", False):
+            self._lipschitz = super().lipschitz(**kwargs)
+        else:
+            L = []  # 1D pad-op Lipschitz constants
+            for N, m, (lhs, rhs) in zip(self._arg_shape, self._mode, self._pad_width):
+                # Numbers obtained by evaluating L numerically over the entire range
+                # of supported (lhs, rhs) pad-widths.
+                p = lhs + rhs
+                if m == "constant":
+                    _L = 1
+                elif m in {"wrap", "symmetric"}:
+                    if p == 0:
+                        _L = 1
+                    elif 1 <= p <= N:
+                        _L = np.sqrt(2)
+                    else:  # N + 1 <= p <= 2 N
+                        _L = np.sqrt(3)
+                elif m == "reflect":
+                    if p == 0:
+                        _L = 1
+                    elif 1 <= p <= N - 2:
+                        _L = np.sqrt(2)
+                    else:  # N - 1 <= p <= 2 N - 2
+                        _L = np.sqrt(3)
+                elif m == "edge":
+                    _L = np.sqrt(1 + min(p, N))
+                L.append(_L)
+            self._lipschitz = np.prod(L)
+        return self._lipschitz
 
-    # Compose 1d padding operators into multi-dimensional padding operator.
-    op = functools.reduce(lambda x, y: x * y, op_list[::-1])
-    op._name = "Pad"
-    return op
+    def gram(self) -> pyct.OpT:
+        if all(m == "constant" for m in self._mode):
+            from pycsou.operator.linop.base import IdentityOp
+
+            op = IdentityOp(dim=self.dim)
+        else:
+            op = super().gram()
+        return op
+
+    def cogram(self) -> pyct.OpT:
+        if all(m == "constant" for m in self._mode):
+            # orthogonal projection
+            op = pyca.OrthProjOp(shape=(self.codim, self.codim))
+            op._op = self
+
+            @pycrt.enforce_precision(i="arr")
+            def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
+                sh = arr.shape[:-1]
+                pad_shape = _._op._pad_shape
+                arr = arr.reshape(*sh, *pad_shape)
+
+                pad_width = _._op._pad_width
+                selector = [slice(None)] * len(sh)
+                for N, (lhs, rhs) in zip(pad_shape, pad_width):
+                    s = slice(lhs, N - rhs)
+                    selector.append(s)
+                selector = tuple(selector)
+
+                pad_width_sh = ((0, 0),) * len(sh)  # don't pad stack-dims
+                xp = pycu.get_array_module(arr)
+                out = xp.pad(
+                    array=arr[selector],
+                    pad_width=pad_width_sh + pad_width,
+                    mode="constant",
+                )
+
+                out = out.reshape(*sh, _.codim)
+                return out
+
+            op.apply = types.MethodType(op_apply, op)
+        else:
+            op = super().cogram()
+        return op
