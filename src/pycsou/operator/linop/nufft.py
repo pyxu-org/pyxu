@@ -1093,14 +1093,6 @@ class NUFFT(pyca.LinOp):
                 Size of the D-dimensional FFT(s) performed internally.
             * dilation_factor: (d,) [float]
                 Dilation factor(s) :math:`\gamma_{d}`. (Type-3 only)
-
-        Notes
-        -----
-        When called from a chunked type-3 transform,
-        :py:meth:`~pycsou.operotar.linop.nufft.NUFFT.params` returns parameters of the equivalent
-        monolithic type-3 transform.
-        The monolithic transform is seldom instantiable due to its large memory requirements.
-        This method can hence be used to estimate the memory savings induced by chunking.
         """
         if self._direct_eval:
             p = None
@@ -1166,85 +1158,6 @@ class NUFFT(pyca.LinOp):
         raise NotImplementedError
 
     def _dilation_factor(self) -> cabc.Sequence[pyct.Integer]:
-        raise NotImplementedError
-
-    def auto_chunk(
-        self,
-        max_mem: pyct.Real = 10,
-        max_anisotropy: pyct.Real = 5,
-    ) -> tuple[list[pyct.NDArray], list[pyct.NDArray]]:
-        """
-        (Only applies to chunked type-3 transforms.)
-
-        Auto-determine chunk indices per domain.
-
-        Use this function if you don't know how to optimally 'cut' x/z manually.
-
-        Parameters
-        ----------
-        max_mem: pyct.Real
-            Max FFT memory (MiB) allowed per sub-block. (Default = 10 MiB)
-        max_anisotropy: pyct.Real
-            Max tolerated (normalized) anisotropy ratio >= 1.
-
-            * Setting close to 1 favors cubeoid-shaped partitions of x/z space.
-            * Setting large allows x/z-partitions to be highly-rectangular.
-
-        Returns
-        -------
-        x_chunks: list[NDArray[int]]
-            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
-            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
-        z_chunks: list[NDArray[int]]
-            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
-            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
-        """
-        raise NotImplementedError
-
-    def allocate(
-        self,
-        x_chunks: list[typ.Union[pyct.NDArray, slice]],
-        z_chunks: list[typ.Union[pyct.NDArray, slice]],
-        direct_eval_threshold: pyct.Integer = 0,
-        enable_warnings: bool = True,
-    ):
-        """
-        (Only applies to chunked type-3 transforms.)
-
-        Allocate NUFFT sub-problems based on chunk specification.
-
-        Parameters
-        ----------
-        x_chunks: list[NDArray[int] | slice]
-            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
-            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
-        z_chunks: list[NDArray[int] | slice]
-            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
-            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
-        direct_eval_threshold: int
-            If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
-            replaced with direct-evaluation (eps=0) for performance reasons.
-        enable_warnings: bool
-            If ``True``, emit a warning when x/z are re-ordered.
-        """
-        raise NotImplementedError
-
-    def stats(self) -> collections.namedtuple:
-        """
-        (Only applies to chunked type-3 transforms.)
-
-        Gather internal statistics.
-
-        Returns
-        -------
-        p: namedtuple
-            Statistics on the NUFFT sub-blocks, with fields:
-
-                * blk_count: int
-                      Number of NUFFT sub-blocks.
-                * dEval_count: int
-                      Number of sub-blocks evaluated via the NUDFT.
-        """
         raise NotImplementedError
 
 
@@ -1797,6 +1710,9 @@ class _NUFFT3(NUFFT):
 
 
 class _NUFFT3_chunked(_NUFFT3):
+    # Note:
+    # * params() in chunked-context returns equivalent parameters of one single huge NUFFT3 block.
+    #
     # TODO:
     #   What needs to be changed:
     #   * _tesselate() assumes x/z are in memory to find optimal chunks.
@@ -1986,6 +1902,30 @@ class _NUFFT3_chunked(_NUFFT3):
         max_mem: pyct.Real = 10,
         max_anisotropy: pyct.Real = 5,
     ) -> tuple[list[pyct.NDArray], list[pyct.NDArray]]:
+        """
+        Auto-determine chunk indices per domain.
+
+        Use this function if you don't know how to optimally 'cut' x/z manually.
+
+        Parameters
+        ----------
+        max_mem: pyct.Real
+            Max FFT memory (MiB) allowed per sub-block. (Default = 10 MiB)
+        max_anisotropy: pyct.Real
+            Max tolerated (normalized) anisotropy ratio >= 1.
+
+            * Setting close to 1 favors cubeoid-shaped partitions of x/z space.
+            * Setting large allows x/z-partitions to be highly-rectangular.
+
+        Returns
+        -------
+        x_chunks: list[NDArray[int]]
+            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
+            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
+        z_chunks: list[NDArray[int]]
+            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
+            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
+        """
         max_mem = float(max_mem)
         assert max_mem > 0
         max_mem *= 2**20  # MiB -> B
@@ -2005,6 +1945,24 @@ class _NUFFT3_chunked(_NUFFT3):
         direct_eval_threshold: pyct.Integer = 0,
         enable_warnings: bool = True,
     ):
+        """
+        Allocate NUFFT sub-problems based on chunk specification.
+
+        Parameters
+        ----------
+        x_chunks: list[NDArray[int] | slice]
+            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
+            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
+        z_chunks: list[NDArray[int] | slice]
+            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
+            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
+        direct_eval_threshold: int
+            If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
+            replaced with direct-evaluation (eps=0) for performance reasons.
+        enable_warnings: bool
+            If ``True``, emit a warning when x/z are re-ordered.
+        """
+
         def _to_slice(idx_spec):
             out = idx_spec
             if not isinstance(idx_spec, slice):
@@ -2101,6 +2059,20 @@ class _NUFFT3_chunked(_NUFFT3):
         self._initialized = True
 
     def stats(self) -> collections.namedtuple:
+        """
+        Gather internal statistics.
+
+        Returns
+        -------
+        p: namedtuple
+
+        Statistics on the NUFFT sub-blocks, with fields:
+
+        * blk_count: int
+            Number of NUFFT sub-blocks.
+        * dEval_count: int
+            Number of sub-blocks evaluated via the NUDFT.
+        """
         BLOCK_STATS = collections.namedtuple(
             "block_stats",
             [
