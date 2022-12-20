@@ -1,5 +1,4 @@
 import collections.abc as cabc
-import types
 import typing as typ
 
 import numpy as np
@@ -381,35 +380,13 @@ class Pad(pyca.LinOp):
 
     def cogram(self) -> pyct.OpT:
         if all(m == "constant" for m in self._mode):
-            # orthogonal projection
-            op = pyca.OrthProjOp(shape=(self.codim, self.codim))
-            op._op = self
+            from pycsou.operator.linop.select import Trim
 
-            @pycrt.enforce_precision(i="arr")
-            def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
-                sh = arr.shape[:-1]
-                pad_shape = _._op._pad_shape
-                arr = arr.reshape(*sh, *pad_shape)
-
-                pad_width = _._op._pad_width
-                selector = [slice(None)] * len(sh)
-                for N, (lhs, rhs) in zip(pad_shape, pad_width):
-                    s = slice(lhs, N - rhs)
-                    selector.append(s)
-                selector = tuple(selector)
-
-                pad_width_sh = ((0, 0),) * len(sh)  # don't pad stack-dims
-                xp = pycu.get_array_module(arr)
-                out = xp.pad(
-                    array=arr[selector],
-                    pad_width=pad_width_sh + pad_width,
-                    mode="constant",
-                )
-
-                out = out.reshape(*sh, _.codim)
-                return out
-
-            op.apply = types.MethodType(op_apply, op)
+            # Orthogonal projection
+            op = Trim(
+                arg_shape=self._pad_shape,
+                trim_width=self._pad_width,
+            ).gram()
         else:
             op = super().cogram()
         return op
