@@ -2624,30 +2624,43 @@ class _NUFFT3_chunked(_NUFFT3):
         # Fuse chunks which are closely-spaced & small-enough
         fuse_chunks = True
         while fuse_chunks:
+            # Find fuseable centroid pairs
             c_tree = spl.KDTree(centroid)  # centroid_tree
-            candidates = c_tree.query_pairs(r=box_dim[0] / 2, p=np.inf)
-            if len(candidates) > 0:
-                query_candidates = True
-                while query_candidates:
-                    _i, _j = candidates.pop()
+            candidates = c_tree.query_pairs(
+                r=box_dim[0] / 2,
+                p=np.inf,
+                output_type="ndarray",
+            )
+            _i, _j = candidates.T
+            c_spacing = np.abs(centroid[_i] - centroid[_j])
+            offset = (tbox_dim[_i] + tbox_dim[_j]) / 2
+            fuseable = np.all(c_spacing + offset < box_dim, axis=1)
+            candidates = candidates[fuseable]
 
-                    c_spacing = np.abs(centroid[_i] - centroid[_j])
-                    offset = (tbox_dim[_i] + tbox_dim[_j]) / 2
-                    if np.all(c_spacing + offset < box_dim):  # points are close enough
-                        chunks[_i] = np.r_[chunks[_i], chunks[_j]]
-                        chunks.pop(_j)
+            # If a centroid can be fused with multiple others, restrict choice to single pair
+            seen, fuse = set(), set()
+            for _i, _j in candidates:
+                if (_i not in seen) and (_j not in seen):
+                    seen |= {_i, _j}
+                    fuse.add((_i, _j))
 
-                        _data = data[chunks[_i]]
-                        _data_min = _data.min(axis=0)
-                        _data_max = _data.max(axis=0)
+            if len(fuse) > 0:
+                for _i, _j in fuse:
+                    chunks[_i] = np.r_[chunks[_i], chunks[_j]]
+                    _data = data[chunks[_i]]
+                    _data_min = _data.min(axis=0)
+                    _data_max = _data.max(axis=0)
+                    centroid[_i] = (_data_min + _data_max) / 2
+                    tbox_dim[_i] = _data_max - _data_min
 
-                        centroid[_i] = (_data_min + _data_max) / 2
-                        centroid = np.delete(centroid, _j, axis=0)
-
-                        tbox_dim[_i] = _data_max - _data_min
-                        tbox_dim = np.delete(tbox_dim, _j, axis=0)
-
-                        query_candidates = False
+                # Fuse cleanup: drop _j entries
+                c_idx = np.setdiff1d(  # indices to keep
+                    np.arange(len(centroid)),
+                    [_j for (_i, _j) in fuse],  # indices to drop
+                )
+                centroid = centroid[c_idx]
+                tbox_dim = tbox_dim[c_idx]
+                chunks = [chk for (i, chk) in enumerate(chunks) if (i in c_idx)]
             else:
                 fuse_chunks = False
 

@@ -20,3 +20,4 @@ References
 .. [SubGauss] Aziznejad, Shayan, and Michael Unser. "An L1 representer theorem for multiple-kernel regression." arXiv preprint arXiv:1811.00836 (2018).
 .. [FINUFFT] Barnett, Alexander H., Jeremy Magland, and Ludvig af Klinteberg. "A parallel nonuniform fast Fourier transform library based on an “Exponential of semicircle" kernel." SIAM Journal on Scientific Computing 41.5 (2019): C479-C504.
 .. [cuFINUFFT] Shih, Yu-hsuan, et al. "cuFINUFFT: a load-balanced GPU library for general-purpose nonuniform FFTs." 2021 IEEE International Parallel and Distributed Processing Symposium Workshops (IPDPSW). IEEE, 2021.
+.. [NumOpt_NocWri] Wright S, Nocedal J. "Numerical optimization". Springer Science. 1999 Apr 3;35(67-68):7.
