@@ -85,58 +85,53 @@ class Pad(pyca.LinOp):
       matrix-free form.
 
 
-    * The Lipschitz constant of the multi-dimensional padding operator is the product of Lipschitz
-      constants of the uni-dimensional paddings applied per dimension, i.e.:
+    * The Lipschitz constant of the multi-dimensional padding operator is upper-bounded by the
+      product of Lipschitz constants of the uni-dimensional paddings applied per dimension, i.e.:
 
       .. math::
 
-         L = \prod_{i} L_{i}, \qquad i \in \{0, \dots, N-1\},
+         L \le \prod_{i} L_{i}, \qquad i \in \{0, \dots, N-1\},
 
-      where an upper-bound to :math:`L_{i}` depends on the boundary condition at the :math:`i`-th
-      axis:
+      where :math:`L_{i}` depends on the boundary condition at the :math:`i`-th axis.
 
-      - mode='constant' corresponds to an up-sampling operator, hence :math:`L_{i} = 1`.
-      - In mode='wrap'/'reflect'/'symmetric', the padding operator is adding :math:`p` elements from
-        the input signal:
+      :math:`L_{i}^{2}` corresponds to the maximum singular value of the diagonal matrix
 
-          .. math::
+      .. math::
 
-             \| P_{i}(\mathbf{x}) - P_{i}(\mathbf{y}) \|^{2}_{2}
-             \leq
-             \| \mathbf{x} - \mathbf{y} \|^{2}_{2} + \| \mathbf{x}_{p} - \mathbf{y}_{p} \|^{2}_{2},
+         \mathbf{A}_{i}^{\ast} \mathbf{A}_{i}
+         =
+         \mathbf{T}_{i}^{\ast} \mathbf{T}_{i} + \mathbf{S}_{i}^{\ast} \mathbf{S}_{i}
+         =
+         \mathbf{I}_{N} + \mathbf{S}_{i}^{\ast} \mathbf{S}_{i}.
 
-          where :math:`\mathbf{x}_{p}` contains the :math:`p` elements of :math:`\mathbf{x}` used
-          for padding.
-          The right-hand-side of the inequality is itself bounded by the distance between the
-          original vectors:
+      - In mode="constant", :math:`\text{diag}(\mathbf{S}_{i}^{\ast} \mathbf{S}_{i}) = \mathbf{0}`,
+        hence :math:`L_{i} = 1`.
+      - In mode="edge",
 
-          .. math::
+        .. math::
 
-             \| \mathbf{x} - \mathbf{y} \|^{2}_{2} + \| \mathbf{x}_{p} - \mathbf{y}_{p} \|^{2}_{2}
-             \leq
-             2 \| \mathbf{x} - \mathbf{y} \|^{2}_{2}
-             \Longrightarrow
-             L_{i}
-             =
-             \sqrt{2}
+           \text{diag}(\mathbf{S}_{i}^{\ast} \mathbf{S}_{i})
+           =
+           \left[p_{lhs}, 0, \ldots, 0, p_{rhs} \right],
 
-      - In mode='edge', the padding operator is adding :math:`p = \sum{\text{pad_width}}` elements
-        at the extremes.
-        In this case, the upper bound is:
+        hence :math:`L_{i} = \sqrt{1 + \min(p_{lhs}, p_{rhs})}`.
+      - In mode="symmetric", "wrap", "reflect", :math:`\text{diag}(\mathbf{S}_{i}^{\ast}
+        \mathbf{S}_{i})` equals (up to a mode-dependant permutation)
 
-          .. math::
+        .. math::
 
-             \begin{align*}
-                 \| P_{i}(\mathbf{x}) - P_{i}(\mathbf{y}) \|^{2}_{2}
-                 & \leq
-                 \| \mathbf{x} - \mathbf{y} \|^{2}_{2} + p^{2}  \| \mathbf{x} - \mathbf{y} \|^{2}_{\infty} \\
-                 & \leq
-                 (1 + p^{2}) \| \mathbf{x} - \mathbf{y} \|^{2}_{2}
-                 \Longrightarrow
-                 L_{i}
-                 =
-                 \sqrt{1 + p^{2}}
-             \end{align*}
+           \text{diag}(\mathbf{S}_{i}^{\ast} \mathbf{S}_{i})
+           =
+           \left[1, \ldots, 1, 0, \ldots, 0\right]
+           +
+           \left[0, \ldots, 0, 1, \ldots, 1\right],
+
+        hence
+
+        .. math::
+
+           L^{\text{wrap, symmetric}}_{i} = \sqrt{1 + \lceil\frac{p_{lhs} + p_{rhs}}{N}\rceil}, \\
+           L^{\text{reflect}}_{i} = \sqrt{1 + \lceil\frac{p_{lhs} + p_{rhs}}{N-2}\rceil}.
     """
     WidthSpec = typ.Union[
         pyct.Integer,
@@ -232,7 +227,7 @@ class Pad(pyca.LinOp):
                 wrap=N,
                 reflect=N - 1,
                 symmetric=N,
-                edge=N,  # Lipschitz constant known analytically up to this limit
+                edge=np.inf,
             )[self._mode[i]]
             lhs, rhs = self._pad_width[i]
             assert max(lhs, rhs) <= w_max, f"pad_width along dim-{i} is limited to {w_max}."
@@ -344,27 +339,14 @@ class Pad(pyca.LinOp):
         else:
             L = []  # 1D pad-op Lipschitz constants
             for N, m, (lhs, rhs) in zip(self._arg_shape, self._mode, self._pad_width):
-                # Numbers obtained by evaluating L numerically over the entire range
-                # of supported (lhs, rhs) pad-widths.
-                p = lhs + rhs
                 if m == "constant":
                     _L = 1
                 elif m in {"wrap", "symmetric"}:
-                    if p == 0:
-                        _L = 1
-                    elif 1 <= p <= N:
-                        _L = np.sqrt(2)
-                    else:  # N + 1 <= p <= 2 N
-                        _L = np.sqrt(3)
+                    _L = np.sqrt(1 + np.ceil((lhs + rhs) / N))
                 elif m == "reflect":
-                    if p == 0:
-                        _L = 1
-                    elif 1 <= p <= N - 2:
-                        _L = np.sqrt(2)
-                    else:  # N - 1 <= p <= 2 N - 2
-                        _L = np.sqrt(3)
+                    _L = np.sqrt(1 + np.ceil((lhs + rhs) / (N - 2)))
                 elif m == "edge":
-                    _L = np.sqrt(1 + min(p, N))
+                    _L = np.sqrt(1 + max(lhs, rhs))
                 L.append(_L)
             self._lipschitz = np.prod(L)
         return self._lipschitz
