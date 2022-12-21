@@ -188,58 +188,94 @@ class NUFFT(pyca.LinOp):
     respectively.
 
     **Memory footprint.**
-    The complexity and memory footprint of the type-3 NUFFT can be arbitrarily large for poorly-centered/wide-spread data.
+    The complexity and memory footprint of the type-3 NUFFT can be arbitrarily large for
+    poorly-centered data, or for data with a large spread.
     An easy fix consists in centering the data before/after the NUFFT via pre/post-phasing
-    operations, as described in equation (3.24) of [FINUFFT]_. This optimization is automatically carried out by FINUFFT if the compute/memory gains are
+    operations, as described in equation (3.24) of [FINUFFT]_.
+    This optimization is automatically carried out by FINUFFT if the compute/memory gains are
     non-negligible.
 
-    An additional trick consists in partitioning the non-uniform samples :math:`x_j`,
-    :math:`z_k` and computing the sum (3) in chunks:
+    Additionally the type-3 summation (eq. 3) can be evaluated block-wise by partitioning the
+    non-uniform samples :math:`(x_{j}, z_{k})`:
 
     .. math::
 
        \begin{align}
-           (4)\;\; &v_{k} = \sum_{p=1}^P\sum_{j\in \mathcal{M}_p} w_{j} e^{\sigma i\langle \mathbf{z}_k, \mathbf{x}_{j} \rangle }, \quad &k\in \mathcal{N}_q, \quad q=1,\ldots, Q, \quad &\text{Type 3 (chunked)}
+           (4)\;\; &v_{k}
+           =
+           \sum_{p=1}^{P}
+           \sum_{j\in \mathcal{M}_{p}} w_{j}
+           e^{\sigma i\langle \mathbf{z}_{k}, \mathbf{x}_{j} \rangle },
+           \quad &
+           k\in \mathcal{N}_{q}, \quad q=1,\ldots, Q, \quad & \text{Type 3 (chunked)}
        \end{align}
 
-    where :math:`\{\mathcal{M}_1, \ldots, \mathcal{M}_P\}` and :math:`\{\mathcal{N}_1, \ldots, \mathcal{N}_Q\}` are *partitions* of the
-    sets :math:`\{1, \ldots, M\}` and  :math:`\{1, \ldots, N\}` respectively. In the chunked setting, the partial sums in (4)
+    where :math:`\{\mathcal{M}_1, \ldots, \mathcal{M}_P\}` and :math:`\{\mathcal{N}_1, \ldots,
+    \mathcal{N}_Q\}` are *partitions* of the sets :math:`\{1, \ldots, M\}` and  :math:`\{1, \ldots,
+    N\}` respectively.
+    In the chunked setting, the partial sums in (4)
 
     .. math::
 
         \left\{\sum_{j\in \mathcal{M}_p} w_{j} e^{\sigma i\langle \mathbf{z}_k, \mathbf{x}_{j} \rangle }, \, k\in \mathcal{N}_q\right\}_{p,q}
 
-    are evaluated (potentially in parallel) via multiple type-3 NUFFTs involving each a subset of the non-uniform samples. For wisely chosen
-    data partitions moreover (that is such that the "Heisenberg boxes" of each chunk pairs have small valume), the memory budget of the
-    smaller NUFFTs can be explicitly controlled and capped to a maximal value, allowing to perform out-of-core NUFFTs with (theoretically) no computational
-    complexity overhead (see note below however).
+    are each evaluated via a type-3 NUFFT involving a subset of the non-uniform samples.
+    Sub-problems can be evaluated in parallel.
+    Moreover, for wisely chosen data partitions, the memory budget of each NUFFT can be explicitly
+    controlled and capped to a maximal value.
+    This allows one to perform out-of-core NUFFTs with (theoretically) no complexity overhead w.r.t
+    a single large NUFFT. (See note below however.)
 
-    Chunking of the type-3 NUFFT is activated by passing ``chunked=True`` to :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3` (together with ``parallel=True`` for parallel computations).
-    Finally, the method :py:meth:`~pycsou.operator.linop.nufft.NUFFT.auto_chunk` can be used to compute data chunks with small (i.e., below a prescribed value) memory footprints.
+    Chunking of the type-3 NUFFT is activated by passing ``chunked=True`` to
+    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3` (together with ``parallel=True`` for
+    parallel computations).
+    Finally, :py:meth:`~pycsou.operator.linop.nufft.NUFFT.auto_chunk` can be used to
+    compute a good partition of the X/Z-domains.
 
     .. Hint::
 
-        Our current implementation of the chunked NUFFT has computational complexity:
+       The current implementation of the chunked type-3 NUFFT has computational complexity:
 
-        .. math::
+       .. math::
 
-           \mathcal{O}\left(\sum_{p,q=1}^P\Pi_{i=1}^dX^{(p)}_iZ^{(q)}_i\sum_{i=1}^d\log(X^{(p)}_iZ^{(q)}_i) + (M_p + N_q)|\log(\varepsilon)|^d\right)
+          \mathcal{O}\left(
+              \sum_{p,q=1}^{P}\Pi_{i=1}^{d} X^{(p)}_{i}Z^{(q)}_{i}
+              \sum_{i=1}^{d} \log(X^{(p)}_{i} Z^{(q)}_{i})
+              +
+              (M_p + N_q)|\log(\varepsilon)|^{d}
+          \right),
 
-        where :math:`X^{(p)}_i = \max_{j\in \mathcal{M}_p}|(\mathbf{x}_{j})_i|`,  :math:`Z^{(p)}_i =
-        \max_{k\in \mathcal{N}_q}|(\mathbf{z}_k)_i|` for :math:`i=1,\ldots,d` and :math:`M_p, N_q` denote the
-        number of elements in the sets :math:`\mathcal{M}_p, \mathcal{N}_q` respectively.
+       where
 
-        For perfectly balanced and uniform chunks (i.e. :math:`M_p=M/P`,  :math:`N_q=N/Q`,  :math:`X^{(p)}_i = X_i/P`, :math:`Z^{(q)}_i = Z_i/Q` and :math:`P=Q`)
-        the complexity reduces to
+       .. math::
 
-        .. math::
+          \begin{align*}
+              X^{(p)}_{i} & = \max_{j\in \mathcal{M}_{p}}|(\mathbf{x}_{j})_{i}|, \quad i = \{1,\ldots,d\} \\
+              Z^{(p)}_{i} & = \max_{k\in \mathcal{N}_{q}}|(\mathbf{z}_k)_{i}|, \quad i = \{1,\ldots,d\}
+          \end{align*}
+       and :math:`M_{p}, N_{q}` denote the number of elements in the sets :math:`\mathcal{M}_{p},
+       \mathcal{N}_{q}`, respectively.
 
-           \mathcal{O}\left(\Pi_{i=1}^d X_iZ_i\sum_{i=1}^d\log(X_iZ_i) + P(M + N)|\log(\varepsilon)|^d\right)
+       For perfectly balanced and uniform chunks (i.e. :math:`M_{p}=M/P`, :math:`N_{q}=N/Q`,
+       :math:`X^{(p)}_{i} = X_{i}/P`, :math:`Z^{(q)}_{i} = Z_{i}/Q` and :math:`P=Q`) the complexity reduces
+       to
 
-        which shows that the spreading/interpolation is :math:`P` times more expensive than in the non-chunked case. This overhead is
-        usually acceptable in practice if the number of chunks remains small. With explicit control on the spreading/interpolation steps
-        (which the FINUFFT backend does not currently offer), it is moreover possible to get rid of this multiplicative term
-        and obtain a computational complexity identical to that of the non-chunked type-3 NUFFT. This will be implemented in a future release.
+       .. math::
+
+          \mathcal{O}\left(
+              \Pi_{i=1}^{d} X_{i}Z_{i}\sum_{i=1}^{d}\log(X_{i}Z_{i})
+              +
+              P(M + N)|\log(\varepsilon)|^{d}
+          \right).
+
+       This shows that the spreading/interpolation is :math:`P` times more expensive than in the
+       non-chunked case.
+       This overhead is usually acceptable if the number of chunks remains small.
+       With explicit control on the spreading/interpolation steps (which the Python interface to the
+       FINUFFT backend does not currently offer), the spreading/interpolation overhead can be
+       removed so as to obtain a computational complexity on par to that of the non-chunked type-3
+       NUFFT.
+       This will be implemented in a future release.
 
     **Backend.**
     The NUFFT transforms are computed via Python wrappers to
@@ -289,7 +325,7 @@ class NUFFT(pyca.LinOp):
        * ``scheduler='synchronous'``
        * ``distributed.Client(processes=False)``
 
-       Batches of data are hence processed serially.
+       Batches are hence processed serially.
        (Each batch is multi-threaded however.)
 
     .. [#] :math:`\varepsilon= 0` means that no approximation is performed: the exponential sums
@@ -562,7 +598,7 @@ class NUFFT(pyca.LinOp):
             if fw/bw transforms are disabled.
             These options only take effect if ``eps > 0``.
         chunked: bool
-            If ``True``, the transform is performed in small chunks (see Notes for details).
+            If ``True``, the transform is performed in small chunks. (See Notes for details.)
         parallel: bool
             This option only applies to chunked transforms.
             If ``True``, evaluate chunks in parallel.
@@ -628,9 +664,9 @@ class NUFFT(pyca.LinOp):
           :py:meth:`~pycsou.operator.linop.nufft.NUFFT.auto_chunk` is a helper method to
           auto-determine a good chunking strategy.
 
-          Its runtime is significant when the number of sub-problems grows large. (1000+)
-          In these contexts, assuming a good-enough x/z-split is known in advance, users can
-          directly supply them to :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`.
+          Its runtime is significant when the number of sub-problems grows large. (1000+) In these
+          contexts, assuming a good-enough x/z-split is known in advance, users can directly supply
+          them to :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`.
 
         * apply/adjoint() runtime is minimized when x/z are well-ordered, i.e. when sub-problems can
           sub-sample inputs to apply/adjoint() via slice operators.
@@ -646,8 +682,8 @@ class NUFFT(pyca.LinOp):
           and apply/adjoint inputs in the "correct" order from the start.
 
           A good re-ordering is computed automatically by
-          :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate` and can be used to
-          initialize a new chunked-transform with better runtime properties as such:
+          :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate` and can be used to initialize a new
+          chunked-transform with better runtime properties as such:
 
           .. code-block:: python3
 
@@ -675,7 +711,10 @@ class NUFFT(pyca.LinOp):
 
         See Also
         --------
-        NUFFT.auto_chunk, NUFFT.allocate, NUFFT.diagnostic_plot, NUFFT.stats
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.auto_chunk`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.diagnostic_plot`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.stats`
         """
         init_kwargs = _NUFFT3._sanitize_init_kwargs(
             x=x,
@@ -1116,7 +1155,6 @@ class NUFFT(pyca.LinOp):
            A.plot_kernel()
            plt.show()
 
-
         Notes
         -----
         Requires `Matplotlib <https://matplotlib.org/>`_ to be installed.
@@ -1167,7 +1205,11 @@ class NUFFT(pyca.LinOp):
 
         Notes
         -----
-        In chunked-context returns equivalent parameters of one single huge NUFFT3 block.
+        When called from a chunked type-3 transform,
+        :py:meth:`~pycsou.operotar.linop.nufft.NUFFT.params` returns parameters of the equivalent
+        monolithic type-3 transform.
+        The monolithic transform is seldom instantiable due to its large memory requirements.
+        This method can hence be used to estimate the memory savings induced by chunking.
         """
         if self._direct_eval:
             p = None
@@ -1197,7 +1239,9 @@ class NUFFT(pyca.LinOp):
         max_anisotropy: pyct.Real = 5,
     ) -> tuple[list[pyct.NDArray], list[pyct.NDArray]]:
         r"""
-        Auto-determine chunk indices per domain (for chunked type-3 NUFFTs only).
+        (Only applies to chunked type-3 transforms.)
+
+        Auto-determine chunk indices per domain.
 
         Use this function if you don't know how to optimally 'cut' x/z manually.
 
@@ -1222,46 +1266,85 @@ class NUFFT(pyca.LinOp):
 
         Notes
         -----
-        Data chunks are computed by a custom hierarchical clustering method proceeding as follows:
+        Chunks are identified by a custom hierarchical clustering method, with main steps:
 
-        1. **Partitioning of the NUFFT domains.**
-           Given a maximum FFT memory budget :math:`B>0` and chunk anisotropy :math:`\alpha\geq 1`, partition the source/target
-           domains in uniform rectangular cells. The (half) widths of the source/target cells :math:`h_k>0` and :math:`\eta_k>0` in each dimension
-           :math:`k=1,\ldots d` are chosen so as to:
+        1. **Partition the NUFFT domains.**
+           Given a maximum FFT memory budget :math:`B>0` and chunk anisotropy :math:`\alpha\geq 1`,
+           partition the source/target domains into uniform rectangular cells.
+           The (half) widths of the source/target cells :math:`h_{k}>0` and :math:`\eta_{k}>0` in
+           each dimension :math:`k=\{1,\ldots d\}` are chosen so as to:
 
            Minimize the total number of partitions:
 
            .. math::
 
-              N_{c} = \underbrace{\prod_{k=1}^d \frac{X_k}{h_k}}_{\text{Source partition count}}\times \underbrace{\prod_{k=1}^d \frac{Z_k}{\eta_k}}_{\text{Target partition count}}
+              N_{c}
+              =
+              \underbrace{\prod_{k=1}^{d} \frac{X_k}{h_k}}_{\text{Source partition count}}
+              \times
+              \underbrace{\prod_{k=1}^{d} \frac{Z_k}{\eta_k}}_{\text{Target partition count}}
 
            subject to:
 
-           a. :math:`\prod_{k=1}^d \eta_k h_k \leq (\pi/2\upsilon)^d B (\delta \times \texttt{n_trans})^{-1}`, where :math:`\upsilon, \delta, \texttt{n_trans}` are
-              the NUFFT's upsampling parameter, floating-point precision (in number of bytes), and number
-              of simultaneous transforms respectively.
-           b. :math:`h_k \leq X_k,\, \eta_k \leq Z_k,  \quad k=1,\ldots,d`.
-           c. :math:`N_{c} \geq 1`.
-           d. :math:`1/\alpha \leq (h_k / h_j) \times (X_j/X_k) \leq \alpha,` and
-              :math:`1/\alpha \leq (\eta_k / \eta_j) \times (Z_j / Z_k) \leq \alpha,` for :math:`k=1,\ldots, d-1,` and :math:`j=k+1,\ldots, d`.
-           e. :math:`1/\alpha \leq (h_k / \eta_j) \times (Z_j/X_k) \leq \alpha`, for :math:`k=1,\ldots, d-1, \,j=k+1,\ldots, d`.
+             (a) .. math::
 
-           Constraint a. ensures that type-3 NUFFTs defined over the partitions do not exceed the FFT memory budget, constraints b-c. ensure that
-           the partitions are non-degenerate/non-trivial respectively, and constraints d-e. limit the anisotropy of the partitioning cells in each domain and across domains.
-        2. **Pre-chunking.** Pre-chunk the data by assigning the non-uniform samples to their enclosing cell in the partition. Empty partitions are dropped and non-empty ones are tightened
-           to the actual spread of the enclosed data (i.e., partitions are redefined as the bounding box of the data they contain).
-        3. **Chunk Fusing.** Since step 1. is data-independent, the data chunks obtained in step 2. can separate data clusters in mutliple chunks, which is undesirable.
-           We therefore fuse/tighten hierarchically all chunks below a certain distance, until all data chunks are well separated.
+                    \prod_{k=1}^{d} \eta_k h_k
+                    \leq
+                    (\pi/2\upsilon)^{d} \frac{B}{\delta \; \texttt{n_trans}},
+
+                 where
+
+                   * :math:`\upsilon` denotes the NUFFT's grid upsampling factor,
+                   * :math:`\delta` the number of bytes occupied by a complex number,
+                   * :math:`\texttt{n_trans}` the number of simultaneous transforms performed.
+             (b) .. math::
+
+                    \begin{align*}
+                        h_{k} & \leq X_{k}, \quad k=\{1,\ldots,d\} \\
+                        \eta_{k} & \leq Z_{k}, \quad k=\{1,\ldots,d\}
+                    \end{align*}
+             (c) .. math::
+
+                    N_{c} \ge 1.
+             (d) .. math::
+
+                    \begin{align*}
+                        \frac{1}{\alpha} & \leq \frac{h_{k}}{h_{j}} \frac{X_{j}}{X_{k}} \leq \alpha, \quad k \ne j, \\
+                        \frac{1}{\alpha} & \leq \frac{\eta_{k}}{\eta_{j}} \frac{Z_{j}}{Z_{k}} \leq \alpha, \quad k \ne j.
+                    \end{align*}
+             (e) .. math::
+
+                    \begin{align*}
+                        \frac{1}{\alpha} & \leq \frac{h_{k}}{\eta_{j}} \frac{Z_{j}}{X_{k}} \leq \alpha, \quad (j, k) = \{1,\ldots,d\}^{2}.
+                    \end{align*}
+
+           Constraint (a) ensures type-3 NUFFTs performed in each sub-problem do not exceed the FFT
+           memory budget.
+           Constraints (b-c) ensure that partitions are non-degenerate/non-trivial respectively.
+           Constraints (d-e) limit the anisotropy of the partitioning cells in each domain and
+           across domains.
+        2. **Data-independent Chunking.**
+           Chunk the data by assigning non-uniform samples to their enclosing cell in the partition.
+           Empty partitions are dropped.
+        3. **Data-dependent Chunk Fusion.**
+           Since (1) is data-independent, data chunks obtained in (2) may split clusters among
+           adjacent chunks, which is undesirable.
+           Clusters whose joint-spread is small enough are hence fused hierarchically.
 
         .. Warning::
 
-            This procedure tends to yield a small number of uniform, memory capped and well-separated data chunks in the source/target domains. It may however
-            result in unbalanced chunks with some chunks containing much more data points than other (since the number of data points per chunks is not explicitely controlled by the above
-            procedure). This issue is addressed by the FINUFFT backend, which spawns mutiple threads per data chunk so as that to balance the workload of the effective workers.
+           This procedure yields a small number of memory-capped and well-separated data chunks in
+           source/target domains.
+           However, it may result in unbalanced chunks, with some chunks containing significantly
+           more data-points than others.
+           FINUFFT mitigates the unbalanced-chunk problem by spawning multiple threads to process
+           dense clusters.
 
         See Also
         --------
-        NUFFT.allocate, NUFFT.diagnostic_plot, NUFFT.stats
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.diagnostic_plot`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.stats`
         """
         raise NotImplementedError
 
@@ -1273,7 +1356,9 @@ class NUFFT(pyca.LinOp):
         enable_warnings: bool = True,
     ):
         """
-        Allocate NUFFT sub-problems based on chunk specification (for chunked type-3 NUFFTs only).
+        (Only applies to chunked type-3 transforms.)
+
+        Allocate NUFFT sub-problems based on chunk specification.
 
         Parameters
         ----------
@@ -1285,24 +1370,26 @@ class NUFFT(pyca.LinOp):
             `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
         direct_eval_threshold: int
             If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
-            replaced with direct-evaluation (eps=0) for performance reasons (defaults to 10,000 as per the `FINUFFT guidelines <https://finufft.readthedocs.io/en/latest/#do-i-even-need-a-nufft>`_).
+            replaced with direct-evaluation (eps=0) for performance reasons.
+
+            (Defaults to 10k as per the `FINUFFT guidelines
+            <https://finufft.readthedocs.io/en/latest/#do-i-even-need-a-nufft>`_.)
         enable_warnings: bool
             If ``True``, emit a warning when x/z are re-ordered.
 
         See Also
         --------
-        NUFFT.auto_chunk, NUFFT.diagnostic_plot, NUFFT.stats
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.auto_chunk`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.diagnostic_plot`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.stats`
         """
         raise NotImplementedError
 
     def diagnostic_plot(self, domain: str):
         r"""
-        Plot data + tesselation structure for diagnostic purposes (for chunked type-3 NUFFTs only).
+        (Only applies to chunked type-3 transforms.)
 
-        This method can only be called after
-        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`.
-
-        This method only works for 2D/3D domains.
+        Plot data + tesselation structure for diagnostic purposes.
 
         Parameters
         ----------
@@ -1314,16 +1401,19 @@ class NUFFT(pyca.LinOp):
         fig: plt.Figure
             Diagnostic plot.
 
+        Notes
+        -----
+        * This method can only be called after
+          :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`.
+        * This method only works for 2D/3D domains.
+
         Examples
         --------
 
         .. plot::
 
             import numpy as np
-            import matplotlib.pyplot as plt
             import pycsou.operator.linop.nufft as nufft
-            import pycsou.runtime as pycrt
-            import pycsou.util as pycu
 
             rng = np.random.default_rng(2)
             D, M, N = 2, 500, 200
@@ -1350,7 +1440,6 @@ class NUFFT(pyca.LinOp):
                 ],
                 axis=0,
             )
-            M, N = map(len, [x, z])
 
             kwargs = dict(
                 x=x,
@@ -1363,10 +1452,9 @@ class NUFFT(pyca.LinOp):
                 max_mem=.1,
                 max_anisotropy=1,
             )
-            A.allocate(x_chunks, z_chunks, direct_eval_threshold=50**2)
-            A.diagnostic_plot('x')
-            plt.show()
-
+            A.allocate(x_chunks, z_chunks)
+            fig = A.diagnostic_plot('x')
+            fig.show()
 
         Notes
         -----
@@ -1376,18 +1464,19 @@ class NUFFT(pyca.LinOp):
 
     def stats(self):
         """
+        (Only applies to chunked type-3 transforms.)
+
         Gather internal statistics about a chunked type-3 NUFFT.
 
         Returns
         -------
         p: namedtuple
+            Statistics on the NUFFT chunks, with fields:
 
-        Statistics on the NUFFT chunks, with fields:
-
-        * blk_count: int
-            Number of NUFFT chunks.
-        * dEval_count: int
-            Number of chunks directly evaluated via the NUDFT.
+            * blk_count: int
+                Number of NUFFT chunks.
+            * dEval_count: int
+                Number of chunks directly evaluated via the NUDFT.
         """
         raise NotImplementedError
 
