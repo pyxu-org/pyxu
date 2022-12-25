@@ -208,7 +208,7 @@ class ProxAdam(pyca.Solver):
         self._g = g
 
     @pycrt.enforce_precision(i=("x0", "a", "b1", "b2", "m0", "v0", "p", "eps"))
-    def m_init(  # default values from https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.
+    def m_init(  # default values from https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.py
         self,
         x0: pyct.NDArray,
         variant: str = "adam",
