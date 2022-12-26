@@ -274,10 +274,6 @@ class Pad(pyca.LinOp):
         for i in range(1, N_dim + 1):
             mode = self._mode[-i]
             lhs, rhs = self._pad_width[-i]
-
-            if (lhs + rhs) == 0:  # no padding intended
-                continue
-
             N = self._pad_shape[-i]
 
             r_s = [slice(None)] * (len(sh) + N_dim)  # read axial selector
@@ -297,7 +293,7 @@ class Pad(pyca.LinOp):
                 w_s[-i] = slice(lhs, lhs + rhs)
                 out[tuple(w_s)] += out[tuple(r_s)]
             elif mode == "reflect":
-                if lhs > 0:  # Fix LHS  Todo fix
+                if lhs > 0:  # Fix LHS
                     r_s[-i] = slice(lhs - 1, None, -1)
                     w_s[-i] = slice(lhs + 1, 2 * lhs + 1)
                     out[tuple(w_s)] += out[tuple(r_s)]
