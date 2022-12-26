@@ -189,7 +189,7 @@ class Pad(pyca.LinOp):
         else:  # tuple[tulpe[int, int], ...] form
             pass
         assert all(0 <= min(lhs, rhs) for (lhs, rhs) in pad_width)
-        self._pad_width = pad_width
+        self._pad_width = tuple(pad_width)
 
         # transform `mode` to canonical form tuple[str, ...]
         if isinstance(mode, str):  # shared mode
