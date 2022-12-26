@@ -354,8 +354,8 @@ class ProxAdam(pyca.Solver):
         # In light of the above, we opt for Option 2.
         *x_sh, N = x.shape
         x_sub = []  # sub-problem solutions
+        scale = pycrt.coerce(0.5 / a)
         for _x, _psi in zip(x.reshape(-1, N), psi.reshape(-1, N)):
-            scale = pycrt.coerce(0.5 / a)
             h_half = pycl.DiagonalOp(xp.sqrt(_psi))
 
             f1 = pycof.SquaredL2Norm().asloss(h_half.apply(_x)) * h_half
