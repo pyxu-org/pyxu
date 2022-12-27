@@ -18,16 +18,14 @@ class TestProxAdam(conftest.SolverT):
             pycos.ProxAdam,
         ]
         kwargs_init = [
-            dict(f=shift_loss(SquaredL2Norm(dim=N), np.full((N,), 3.0)), g=L1Norm(dim=N)),
+            dict(f=SquaredL2Norm(), g=L1Norm()),
         ]
 
         kwargs_fit = []
         param_sweep = dict(
             x0=[
-                np.full((N,), 0.0),
-                np.full((1, N), 0.0),
-                np.full((3, 4, 2, N), 0.0),
-                np.full((2, N), 0.0),  # multiple initial points
+                np.zeros((N,)),
+                np.zeros((3, 4, 2, N)),  # multiple initial points
             ],
             variant=["adam", "amsgrad", "padam"],
             p=[0.25],
