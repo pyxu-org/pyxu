@@ -356,6 +356,7 @@ class ProxAdam(pyca.Solver):
         x_sub = []  # sub-problem solutions
         scale = pycrt.coerce(0.5 / a)
         for _x, _psi in zip(x.reshape(-1, N), psi.reshape(-1, N)):
+            gamma = pycrt.coerce(a / xp.max(_psi))
             h_half = pycl.DiagonalOp(xp.sqrt(_psi))
 
             f1 = pycof.SquaredL2Norm().asloss(h_half.apply(_x)) * h_half
@@ -367,6 +368,7 @@ class ProxAdam(pyca.Solver):
 
             slvr.fit(
                 x0=_x,
+                tau=gamma,
                 stop_crit=mst["subproblem_stop_crit"],
             )
             x_sub.append(slvr.solution())
