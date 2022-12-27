@@ -43,6 +43,7 @@ def hutchpp(
     op: pyca.SquareOp,
     m: pyct.Integer = 4002,
     xp: pyct.ArrayModule = np,
+    dtype: pyct.DType = None,
     seed: pyct.Integer = 0,
     enable_warnings: bool = True,
     **kwargs,
@@ -63,6 +64,9 @@ def hutchpp(
         0.9.
     xp: pyct.ArrayModule
         Array module used for internal computations.
+    dtype: pyct.DType
+        Precision to use for internal computations.
+        (Default: infer from runtime.)
     seed: pyct.Integer
         Seed for the random number generator.
     kwargs: dict
@@ -73,29 +77,36 @@ def hutchpp(
     tr: pyct.Real
         Stochastic estimate of tr(op).
     """
-    if m >= op.dim:
-        if enable_warnings:
-            msg = "Number of queries >= dim(op): fallback to deterministic trace eval."
-            warnings.warn(msg, pycuw.DenseWarning)
-        tr = 0
-        for i in range(op.dim):
-            e = xp.zeros(op.dim)
-            e[i] = 1
-            tr += op.apply(e)[i]
-    else:
-        rng = np.random.default_rng(seed=seed)
-        s = xp.asarray(rng.standard_normal(size=(op.dim, (m + 2) // 4)))
-        g = xp.asarray(rng.choice((1, -1), size=(op.dim, (m - 2) // 2)))
+    import pycsou.runtime as pycrt
 
-        data = op.apply(s.T).T
-        kwargs = dict(mode="reduced")
-        if xp == pycd.NDArrayInfo.DASK.module():
-            data = data.rechunk({0: "auto", 1: -1})
-            kwargs.pop("mode")
+    if dtype is None:
+        dtype = pycrt.getPrecision().value
+    width = pycrt.Width(dtype)
 
-        q, _ = xp.linalg.qr(data, **kwargs)
-        proj = g - q @ (q.T @ g)
+    with pycrt.Precision(width):
+        if m >= op.dim:
+            if enable_warnings:
+                msg = "Number of queries >= dim(op): fallback to deterministic trace eval."
+                warnings.warn(msg, pycuw.DenseWarning)
+            tr = 0
+            for i in range(op.dim):
+                e = xp.zeros(op.dim, dtype=dtype)
+                e[i] = 1
+                tr += op.apply(e)[i]
+        else:
+            rng = np.random.default_rng(seed=seed)
+            s = xp.asarray(rng.standard_normal(size=(op.dim, (m + 2) // 4)), dtype=dtype)
+            g = xp.asarray(rng.choice((1, -1), size=(op.dim, (m - 2) // 2)), dtype=dtype)
 
-        tr = (op.apply(q.T) @ q).trace()
-        tr += (2 / (m - 2)) * (op.apply(proj.T) @ proj).trace()
+            data = op.apply(s.T).T
+            kwargs = dict(mode="reduced")
+            if xp == pycd.NDArrayInfo.DASK.module():
+                data = data.rechunk({0: "auto", 1: -1})
+                kwargs.pop("mode")
+
+            q, _ = xp.linalg.qr(data, **kwargs)
+            proj = g - q @ (q.T @ g)
+
+            tr = (op.apply(q.T) @ q).trace()
+            tr += (2 / (m - 2)) * (op.apply(proj.T) @ proj).trace()
     return float(tr)
