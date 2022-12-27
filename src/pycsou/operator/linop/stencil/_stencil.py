@@ -149,9 +149,9 @@ class _Stencil:
         Parameters
         ----------
         arr: pyct.NDArray
-            (..., N_1, ..., N_D) C-contiguous data to process.
+            (..., N_1, ..., N_D) data to process.
         out: pyct.NDArray
-            (..., N_1, ..., N_D) C-contiguous array to which outputs are written.
+            (..., N_1, ..., N_D) array to which outputs are written.
         kwargs: dict
             Extra kwargs to configure `f_jit()`, the Dispatcher instance created by Numba.
 
@@ -183,7 +183,10 @@ class _Stencil:
         """
         assert arr.dtype == out.dtype == self._kernel.dtype
         assert arr.shape == out.shape
-        assert arr.flags.c_contiguous and out.flags.c_contiguous
+        # assert arr.flags.c_contiguous and out.flags.c_contiguous
+        # [2022.12.25, Sepand]
+        #   Preferable to explicitly enforce C-contiguity for better performance, but then
+        #   LinOp.to_sciop() is partially broken.
 
         K_dim = len(self._kernel.shape)
         arg_shape = arr.shape[-K_dim:]
@@ -269,7 +272,7 @@ def f_jit(arr, out):
         return self._dispatch
 
     def __sig_spec(self) -> str:
-        sig_spec = (self._kernel.dtype, self._kernel.ndim + 1, True)
+        sig_spec = (self._kernel.dtype, self._kernel.ndim + 1, False)
         signature = _signature([sig_spec, sig_spec], None)
         return signature
 
@@ -403,7 +406,7 @@ def f_jit(arr, out):
         return self._dispatch[bpg, tpb]
 
     def __sig_spec(self) -> str:
-        sig_spec = (self._kernel.dtype, self._kernel.ndim + 1, True)
+        sig_spec = (self._kernel.dtype, self._kernel.ndim + 1, False)
         signature = _signature([sig_spec, sig_spec], None)
         return signature
 
