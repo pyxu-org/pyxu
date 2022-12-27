@@ -67,3 +67,8 @@ pycsou.operator.linop.stencil module
    :members:
    :undoc-members:
    :show-inheritance:
+
+.. autoclass:: pycsou.operator.linop.stencil._stencil._Stencil
+   :members:
+   :undoc-members:
+   :show-inheritance:
