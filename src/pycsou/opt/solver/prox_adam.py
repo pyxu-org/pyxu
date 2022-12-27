@@ -154,9 +154,12 @@ class ProxAdam(pyca.Solver):
     p: pyct.Real
         PAdam power parameter :math:`p \in (0, 0.5]`.
         Must be specified for PAdam, unused otherwise.
-    eps: pyct.Real
+    eps_adam: pyct.Real
         Adam noise parameter :math:`\epsilon`.
         This term is used exclusively if `variant="adam"`.
+        Defaults to 1e-6.
+    eps_var: pyct.Real
+        Avoids division by zero if estimated gradient variance is too small.
         Defaults to 1e-6.
 
     **Remark 4:**
@@ -207,7 +210,7 @@ class ProxAdam(pyca.Solver):
         # Solution: delay initialization of g to m_init(), where x0's shape can be used.
         self._g = g
 
-    @pycrt.enforce_precision(i=("x0", "a", "b1", "b2", "m0", "v0", "p", "eps"))
+    @pycrt.enforce_precision(i=("x0", "a", "b1", "b2", "m0", "v0", "p", "eps_adam", "eps_var"))
     def m_init(  # default values from https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.py
         self,
         x0: pyct.NDArray,
@@ -220,7 +223,8 @@ class ProxAdam(pyca.Solver):
         kwargs_sub: dict = None,
         stop_crit_sub: pyca.solver.StoppingCriterion = None,
         p: pyct.Real = 0.5,
-        eps: pyct.Real = 1e-6,
+        eps_adam: pyct.Real = 1e-6,
+        eps_var: pyct.Real = 1e-6,
     ):
         mst = self._mstate  # shorthand
         mst["x"] = x0
@@ -253,8 +257,8 @@ class ProxAdam(pyca.Solver):
         assert 0 < p <= 0.5, f"p: expected value in (0, 0.5], got {p}."
         mst["padam_p"] = p
 
-        assert eps > 0, f"eps: expected positive value, got {eps}."
-        mst["eps_adam"] = eps
+        assert eps_adam > 0, f"eps_adam: expected positive value, got {eps_adam}."
+        mst["eps_adam"] = eps_adam
 
         xp = pycu.get_array_module(x0)
 
@@ -290,6 +294,9 @@ class ProxAdam(pyca.Solver):
         assert 0 <= b2 < 1, f"b2: expected value in [0, 1), got {b2}."
         mst["b2"] = b2
 
+        assert eps_var > 0, f"eps_var: expected positive value, got {eps_var}."
+        mst["eps_variance"] = eps_var
+
     def m_step(self):
         mst = self._mstate  # shorthand
 
@@ -318,6 +325,7 @@ class ProxAdam(pyca.Solver):
         # --------------------------------------------
         mst["variance"] = v
         mst["variance_hat"] = xp.maximum(mst["variance_hat"], v)
+        mst["variance_hat"] = xp.maximum(mst["variance_hat"], mst["eps_variance"])  # avoid division by zero
 
         phi = self.__phi(t=self._astate["idx"])
         psi = self.__psi(t=self._astate["idx"])
