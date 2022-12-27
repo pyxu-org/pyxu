@@ -1,197 +1,474 @@
+"""
+Low-level functions used to define user-facing stencils.
+"""
+import collections.abc as cabc
+import itertools
 import string
-import typing as typ
 
-import numba
-import numba.cuda
 import numpy as np
 
-import pycsou.util as pycu
+import pycsou.runtime as pycrt
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
 
-def make_nd_stencil(coefficients: pyct.NDArray, center: pyct.NDArray) -> typ.Callable:
-    r"""
-    Create a multidimensional Just-In-Time (JIT) compiled stencil from a given set of coefficients.
-    The stencil computation is based on Numba's stencils, which work through kernels that look like standard Python
-    function definitions but with different semantics with respect to array indexing. Numba stencils allow clearer,
-    more concise code and enable higher performance through parallelization of the stencil execution (see
-    `Numba stencils <https://numba.pydata.org/numba-doc/latest/user/stencil.html>`_ for further reference).
-    Parameters
-    ----------
-    coefficients: NDArray
-        Kernel coefficients. Must have the same number of dimensions as the input array's shape (without the
-        stacking dimensions).
-    center: NDArray
-        Index of the kernel's center. Must be a 1-dimensional array with one element per dimension in ``coefficients``.
-    Returns
-    -------
-    stencil
-        JIT-ted stencil.
-    Examples
-    ________
-    .. code-block:: python3
-        import dask.array as da
-        import numpy as np
-        from pycsou.math.stencil import make_nd_stencil
-        D = np.array([[1, 0, 1], [1, 0, 1], [1, 0, 1]])
-        center = np.array([1, 1])
-        # NUMPY
-        img = np.random.normal(0, 10, size=(1000, 100, 100))
-        stencil = make_nd_stencil(D, center)
-        out = stencil(img)
-        # BOUNDARY CONDITIONS DASK
-        depth_post = D.shape - center - 1
-        depth_pre = center
-        depth = {0: 0}
-        depth.update({i + 1: (depth_pre[i], depth_post[i]) for i in range(D.ndim)})
-        boundary = {i: "none" for i in range(D.ndim + 1)}
-        # DASK
-        img_da = da.asarray(img, chunks=(100, 10, 10))
-        out_da = img_da.map_overlap(stencil, depth=depth, boundary=boundary, dtype=D.dtype)
-        # Need to handle equally the borders
-        print(np.allclose(out[1:-1, 1:-1, 1:-1], out_da.compute()[1:-1, 1:-1, 1:-1]))
-    See also
-    ________
-    :py:func:`~pycsou.math.stencil.make_nd_stencil_gpu`
-    :py:class:`~pycsou.operator.linop.base._StencilOp
-    """
+def _signature(params, returns) -> str:
+    # Translate a signature of the form
+    #     [in_1_spec, ..., in_N_spec] -> out_spec
+    # to Numba's string representation.
+    #
+    # Parameters
+    # ----------
+    # params: list(spec)
+    # returns: spec | None
+    #
+    # Returns
+    # -------
+    # sig: str
+    #
+    # Notes
+    # -----
+    # A parameter spec is characterized by the triplet
+    #     (dtype[single/double], ndim[int], c_contiguous[bool])
+    def fmt(spec) -> str:
+        dtype, ndim, c_contiguous = spec
 
-    indices = np.indices(coefficients.shape).reshape(coefficients.ndim, -1).T - center[None, ...]
-    coefficients = pycu.compute(coefficients).ravel()
-    kernel_string = _create_kernel_string(coefficients, indices)
-    exec(_stencil_string.substitute(kernel=kernel_string, dtype=coefficients.dtype), globals())
-    return my_stencil
+        _dtype_spec = {
+            pycrt.Width.SINGLE: "float32",
+            pycrt.Width.DOUBLE: "float64",
+        }[pycrt.Width(dtype)]
 
+        dim_spec = [":"] * ndim
+        if c_contiguous and (ndim > 0):
+            dim_spec[-1] = "::1"
+        dim_spec = "[" + ",".join(dim_spec) + "]"
 
-def make_nd_stencil_gpu(coefficients: pyct.NDArray, center: pyct.NDArray, func_name: str) -> typ.Callable:
-    r"""
-    Create a multidimensional Just-In-Time (JIT) compiled GPU stencil from a given set of coefficients.
-    Numba supports a JIT compilation of stencil computations (see :py:func:`~pycsou.math.stencil.make_nd_stencil`)
-    with CUDA on compatible GPU devices.
-    Parameters
-    ----------
-    coefficients: NDArray
-        Kernel coefficients. Must have the same number of dimensions as the input array's shape (without the
-        stacking dimensions).
-    center: NDArray
-        Index of the kernel's center. Must be a 1-dimensional array with one element per dimension in ``coefficients``.
-    Returns
-    -------
-    gpu-stencil
-        JIT-ted CUDA kernel
-    Examples
-    ________
-    .. code-block:: python3
-        import cupy as cp
-        import numpy as np
-        from pycsou.math.stencil import make_nd_stencil, make_nd_stencil_gpu
-        D = np.array([[1, 0, 1], [1, 0, 1], [1, 0, 1]])
-        center = np.array([1, 1])
-        # NUMPY
-        img = np.random.normal(0, 10, size=(1000, 100, 100))
-        stencil = make_nd_stencil(D, center)
-        out = stencil(img)
-        # CUPY
-        img_cp = cp.asarray(img)
-        stencil_cp = make_nd_stencil_gpu(cp.asarray(D), center)
-        out_cp = cp.zeros_like(img_cp)
-        threadsperblock = (10, 10, 10)
-        blockspergrid_x = math.ceil(img_cp.shape[0] / threadsperblock[0])
-        blockspergrid_y = math.ceil(img_cp.shape[1] / threadsperblock[1])
-        blockspergrid_z = math.ceil(img_cp.shape[2] / threadsperblock[2])
-        blockspergrid = (blockspergrid_x, blockspergrid_y, blockspergrid_z)
-        stencil_cp[blockspergrid, threadsperblock](img_cp, out_cp)
-        print(np.allclose(out[1:-1, 1:-1, 1:-1], out_cp.get()[1:-1, 1:-1, 1:-1]))
-        print("Done")
-    See also
-    ________
-    :py:func:`~pycsou.math.stencil.make_nd_stencil`
-    :py:class:`~pycsou.operator.linop.base._StencilOp`
-    """
-    # If kernel is 3D, then the computation has to loop over samples (numba cuda grid can have at maximum 3 dimensions)
-    if coefficients.ndim > 3:
-        raise ValueError("The Stencil operator does not support GPU kernels with more than 3D dims.")
+        _repr = _dtype_spec
+        if ndim > 0:
+            _repr += dim_spec
+        return _repr
 
-    stacking_dim = 1 if coefficients.ndim < 3 else 0
-    letters1 = list(string.ascii_lowercase)[: coefficients.ndim + stacking_dim]
-    letters2 = list(string.ascii_lowercase)[coefficients.ndim + stacking_dim : 2 * (coefficients.ndim + stacking_dim)]
-
-    indices = np.indices(coefficients.shape).reshape(coefficients.ndim, -1).T - center
-    kernel_string = _create_kernel_string_gpu(letters1, coefficients.ravel(), indices, stacking_dim)
-    if_statement = _create_if_statement_gpu(letters1, letters2, indices, coefficients, stacking_dim)
-
-    exec(
-        _stencil_string_gpu.substitute(
-            func_name=func_name,
-            letters1=", ".join(letters1),
-            letters2=", ".join(letters2),
-            len_letters=str(len(letters1)),
-            if_statement=if_statement,
-            kernel=kernel_string,
-            dtype=f"{coefficients.dtype}["
-            + ",".join(
-                [
-                    ":",
-                ]
-                * (coefficients.ndim + stacking_dim)
-            )
-            + "]",
-        ),
-        globals(),
-    )
-    return globals()[f"kernel_cupy_{func_name}"]
-
-
-def _create_kernel_string(coefficients: pyct.NDArray, indices: pyct.NDArray) -> str:
-    return " + ".join(
+    sig = "".join(
         [
-            f"a[0, {', '.join([str(elem) for elem in ids_])}] * np.{coefficients.dtype}({str(coefficients[i])})"
-            for i, ids_ in enumerate(indices)
+            "void" if (returns is None) else fmt(returns),
+            "(",
+            ", ".join(map(fmt, params)),
+            ")",
         ]
     )
+    return sig
 
 
-def _create_kernel_string_gpu(letters1: typ.List, coefficients: pyct.NDArray, indices: pyct.NDArray, stacking_dim: int):
-    stacking_str = f"{letters1[0]}, " if stacking_dim else ""
-    return f" + ".join(
-        [
-            f"arr[{stacking_str}{', '.join(['+'.join([letters1[e + stacking_dim], str(elem)]) for e, elem in enumerate(ids_)])}] * cp.{coefficients.dtype}({str(coefficients[i])})"
-            for i, ids_ in enumerate(indices)
-        ]
-    )
+class _Stencil:
+    """
+    Multi-dimensional JIT-compiled stencil.
+
+    This low-level class creates a gu-vectorized stencil applicable on multiple inputs
+    simultaneously.
+
+    Create instances via factory method `_Stencil.init()`.
+
+    Example
+    -------
+    Correlate a stack of images `A` with a (3, 3) kernel such that:
+
+    .. math::
+
+       B[n, m] = A[n-1, m] + A[n, m-1] + A[n, m+1] + A[n+1, m]
+
+    .. code-block:: python3
+
+       import numpy as np
+       from pycsou.operator.linop.stencil._stencil import _Stencil
+
+       # create the stencil
+       kernel = np.array([[0, 1, 0],
+                          [1, 0, 1],
+                          [0, 1, 0]], dtype=np.float64)
+       center = (1, 1)
+       stencil = _Stencil.init(kernel, center)
+
+       # apply it to the data
+       rng = np.random.default_rng()
+       A = rng.normal(size=(2, 3, 4, 30, 30))  # 24 images of size (30, 30)
+       B = np.zeros_like(A)
+       stencil.apply(A, B)  # (2, 3, 4, 30, 30)
+    """
+
+    IndexSpec = cabc.Sequence[pyct.Integer]
+
+    @staticmethod
+    def init(
+        kernel: pyct.NDArray,
+        center: IndexSpec,
+    ):
+        """
+        Parameters
+        ----------
+        kernel: pyct.NDArray
+            (k_1, ..., k_D) kernel coefficients.
+
+            Only float32/64 kernels are supported.
+        center: IndexSpec
+            (D,) index of the kernel's center.
+
+        Returns
+        -------
+        st: _Stencil
+            Rank-D stencil.
+        """
+        dtype = kernel.dtype
+        if dtype not in {_.value for _ in pycrt.Width}:
+            raise ValueError(f"Unsupported kernel precision {dtype}.")
+
+        center = np.array(center, dtype=int)
+        assert center.size == kernel.ndim
+        assert np.all(0 <= center) and np.all(center < kernel.shape)
+
+        N = pycd.NDArrayInfo
+        ndi = N.from_obj(kernel)
+        if ndi == N.NUMPY:
+            klass = _Stencil_NP
+        elif ndi == N.CUPY:
+            klass = _Stencil_CP
+        else:
+            raise NotImplementedError
+
+        st = klass(kernel, center)
+        return st
+
+    def apply(
+        self,
+        arr: pyct.NDArray,
+        out: pyct.NDArray,
+        **kwargs,
+    ) -> pyct.NDArray:
+        """
+        Evaluate stencil on multiple inputs.
+
+        Parameters
+        ----------
+        arr: pyct.NDArray
+            (..., N_1, ..., N_D) C-contiguous data to process.
+        out: pyct.NDArray
+            (..., N_1, ..., N_D) C-contiguous array to which outputs are written.
+        kwargs: dict
+            Extra kwargs to configure `f_jit()`, the Dispatcher instance created by Numba.
+
+            Only relevant for GPU stencils, with values:
+
+                * blockspergrid: int
+                * threadsperblock: int
+
+            Default values are chosen if unspecified.
+
+        Returns
+        -------
+        out: pyct.NDArray
+            (..., N_1, ..., N_D) outputs.
+
+        Notes
+        -----
+        * `arr` and `out` must have the same type/dtype as the kernel used during instantiation.
+        * Index regions in `out` where the stencil is not fully supported are set to 0.
+        * .apply() may raise CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES when the number of GPU registers
+          required exceeds resource limits.
+          There are 2 solutions to this problem:
+
+            (1) Pass the `max_registers` kwarg to f_jit()'s decorator; or
+            (2) Limit the number of threads per block. (https://stackoverflow.com/a/68659008)
+
+          (1) must be set at compile time; it is thus left unbounded.
+          (2) is accessible through .apply(**kwargs).
+        """
+        assert arr.dtype == out.dtype == self._kernel.dtype
+        assert arr.shape == out.shape
+        assert arr.flags.c_contiguous and out.flags.c_contiguous
+
+        K_dim = len(self._kernel.shape)
+        arg_shape = arr.shape[-K_dim:]
+
+        stencil = self._configure_dispatcher(arr.size, **kwargs)
+        stencil(
+            arr.reshape(-1, *arg_shape),
+            out.reshape(-1, *arg_shape),
+        )
+        return out
+
+    def __init__(
+        self,
+        kernel: pyct.NDArray,
+        center: pyct.NDArray,
+    ):
+        self._kernel = kernel
+        self._center = center
+        self._code = self._gen_code()
+
+        exec(self._code, locals())  # compile stencil
+        self._dispatch = eval("f_jit")  # keep track of JIT Dispatcher
+
+    def _gen_code(self) -> str:
+        # Generate code which creates `f_jit()` after execution.
+        raise NotImplementedError
+
+    def _configure_dispatcher(self, pb_size: int, **kwargs) -> cabc.Callable:
+        # Configure `f_jit()`, the Numba Dispatcher instance.
+        #
+        # Parameters
+        # ----------
+        # pb_size: int
+        #     Number of stencil evaluations.
+        # **kwargs: dict
+        #
+        # Returns
+        # -------
+        # f: callable
+        #     Configured Numba Dispatcher.
+        raise NotImplementedError
 
 
-def _create_if_statement_gpu(
-    letters1: typ.List, letters2: typ.List, indices: pyct.NDArray, coefficients: pyct.NDArray, stacking_dim: int
+class _Stencil_NP(_Stencil):
+    def _gen_code(self) -> str:
+        _template = string.Template(
+            r"""
+import numba
+
+@numba.stencil(
+    func_or_mode="constant",
+    cval=0,
+)
+def f_stencil(a):
+    # rank-D kernel [specified as rank-(D+1) to work across stacked dimension].
+    return ${stencil_spec}
+
+@numba.jit(
+    "${signature}",
+    nopython=True,
+    nogil=True,
+    forceobj=False,
+    parallel=True,
+    error_model="numpy",
+    cache=False,  # not applicable to dynamically-defined functions (https://github.com/numba/numba/issues/3501)
+    fastmath=True,
+    boundscheck=False,
+)
+def f_jit(arr, out):
+    # arr: (N_stack, N_1, ..., N_D)
+    # out: (N_stack, N_1, ..., N_D)
+    f_stencil(arr, out=out)
+"""
+        )
+        code = _template.substitute(
+            signature=self.__sig_spec(),
+            stencil_spec=self.__stencil_spec(),
+        )
+        return code
+
+    def _configure_dispatcher(self, pb_size: int, **kwargs) -> cabc.Callable:
+        # Nothing to do for CPU targets.
+        return self._dispatch
+
+    def __sig_spec(self) -> str:
+        sig_spec = (self._kernel.dtype, self._kernel.ndim + 1, True)
+        signature = _signature([sig_spec, sig_spec], None)
+        return signature
+
+    def __stencil_spec(self) -> str:
+        f_fmt = {  # coef float-formatter
+            pycrt.Width.SINGLE: "1.8e",
+            pycrt.Width.DOUBLE: "1.16e",
+        }[pycrt.Width(self._kernel.dtype)]
+
+        entry = []
+        _range = list(map(range, self._kernel.shape))
+        for idx in itertools.product(*_range):
+            idx_c = [i - c for (i, c) in zip(idx, self._center)]
+            idx_c = ",".join(map(str, idx_c))
+
+            cst = self._kernel[idx]
+            if np.isclose(cst, 0):
+                # no useless look-ups at runtime
+                e = None
+            elif np.isclose(cst, 1):
+                # no multiplication required
+                e = f"a[0,{idx_c}]"
+            else:
+                # general case
+                e = f"({cst:{f_fmt}} * a[0,{idx_c}])"
+
+            if e is not None:
+                entry.append(e)
+
+        spec = " + ".join(entry)
+        return spec
+
+
+class _Stencil_CP(_Stencil):
+    def _gen_code(self) -> str:
+        _template = string.Template(
+            r"""
+import numba.cuda
+
+@numba.cuda.jit(
+    device=True,
+    inline=True,
+    fastmath=True,
+    opt=True,
+    cache=False,
+)
+def unravel_offset(
+    offset,  # int
+    shape,  # (D+1,)
 ):
-    stacking_str = f"(0 <= {letters1[0]} < {letters2[0]}) and " if stacking_dim else ""
-    return stacking_str + " and ".join(
-        [
-            f"({-np.min(indices, axis=0)[i]} <= {letters1[i + stacking_dim]} < ({letters2[i+ stacking_dim]} - {np.max(indices, axis=0)[i]}))"
-            for i in range(coefficients.ndim)
-        ]
-    )
+    # Compile-time-equivalent of np.unravel_index(offset, shape, order='C').
+    ${unravel_spec}
+    return idx
 
 
-# Cache cannot be used with string defined functions (see https://github.com/numba/numba/issues/3501 for workaround)
-_stencil_string = string.Template(
-    r"""
-@numba.njit(parallel=True, fastmath=True, nogil=True)
-def my_stencil(arr):
-    stencil = numba.stencil(
-    lambda a: ${kernel},
-    signature=["${dtype}(${dtype})"]
-    )(arr)
-    return stencil"""
+@numba.cuda.jit(
+    device=True,
+    inline=True,
+    fastmath=True,
+    opt=True,
+    cache=False,
 )
-_stencil_string_gpu = string.Template(
-    r"""
-import cupy as cp
-#@numba.cuda.jit('void(${dtype},${dtype})') # fails for float32
-@numba.cuda.jit
-def kernel_cupy_${func_name}(arr, out):
-    $letters1 = numba.cuda.grid(${len_letters}) # j, k
-    $letters2 = arr.shape # n, m
-    if $if_statement:
-        out[$letters1] = ${kernel}"""
+def full_overlap(
+    idx,  # (D+1,)
+    dimensions,  # (D+1,)
+):
+    # Computes intersection of:
+    # * idx[0] < dimensions[0]
+    # * 0 <= idx[1:] - kernel_center
+    # * idx[1:] - kernel_center <= dimensions[1:] - kernel_width
+    if not (idx[0] < dimensions[0]):
+        # went beyond stack-dim limit
+        return False
+
+    kernel_width = ${kernel_width}
+    kernel_center = ${kernel_center}
+    for i, w, c, n in zip(
+        idx[1:],
+        kernel_width,
+        kernel_center,
+        dimensions[1:],
+    ):
+        if not (0 <= i - c <= n - w):
+            # kernel partially overlaps ROI around `idx`
+            return False
+
+    # kernel fully overlaps ROI around `idx`
+    return True
+
+
+@numba.cuda.jit(
+    func_or_sig="${signature}",
+    device=False,
+    inline=False,
+    fastmath=True,
+    opt=True,
+    cache=False,  # not applicable to dynamically-defined functions (https://github.com/numba/numba/issues/3501)
+    # max_registers=None,  # see .apply() notes
 )
+def f_jit(arr, out):
+    # arr: (N_stack, N_1, ..., N_D)
+    # out: (N_stack, N_1, ..., N_D)
+    offset = numba.cuda.grid(1)
+    if offset < arr.size:
+        idx = unravel_offset(offset, arr.shape)
+        if full_overlap(idx, arr.shape):
+            out[idx] = ${stencil_spec}
+        else:
+            out[idx] = 0
+"""
+        )
+        code = _template.substitute(
+            kernel_center=str(tuple(self._center)),
+            kernel_width=str(self._kernel.shape),
+            signature=self.__sig_spec(),
+            stencil_spec=self.__stencil_spec(),
+            unravel_spec=self.__unravel_spec(),
+        )
+        return code
+
+    def _configure_dispatcher(self, pb_size: int, **kwargs) -> cabc.Callable:
+        # Set (`threadsperblock`, `blockspergrid`)
+        assert set(kwargs.keys()) <= {
+            "threadsperblock",
+            "blockspergrid",
+        }
+
+        attr = self._kernel.device.attributes
+        tpb = kwargs.get("threadsperblock", attr["MaxThreadsPerBlock"])
+        bpg = kwargs.get("blockspergrid", (pb_size // tpb) + 1)
+        return self._dispatch[bpg, tpb]
+
+    def __sig_spec(self) -> str:
+        sig_spec = (self._kernel.dtype, self._kernel.ndim + 1, True)
+        signature = _signature([sig_spec, sig_spec], None)
+        return signature
+
+    def __stencil_spec(self) -> str:
+        f_fmt = {  # coef float-formatter
+            pycrt.Width.SINGLE: "1.8e",
+            pycrt.Width.DOUBLE: "1.16e",
+        }[pycrt.Width(self._kernel.dtype)]
+
+        entry = []
+        _range = list(map(range, self._kernel.shape))
+        for idx in itertools.product(*_range):
+            # create string of form "idx[1]+i1,...,idx[K]+iK"
+            idx_c = [i - c for (i, c) in zip(idx, self._center)]
+            idx_c = [f"idx[{i1}]{i2:+d}" for (i1, i2) in enumerate(idx_c, start=1)]
+            idx_c = ",".join(idx_c)
+
+            cst = self._kernel[idx]
+            if np.isclose(cst, 0):
+                # no useless look-ups at runtime
+                e = None
+            elif np.isclose(cst, 1):
+                # no multiplication required
+                e = f"arr[idx[0],{idx_c}]"
+            else:
+                # general case
+                e = f"({cst:{f_fmt}} * arr[idx[0],{idx_c}])"
+
+            if e is not None:
+                entry.append(e)
+
+        spec = " + ".join(entry)
+        return spec
+
+    def __unravel_spec(self) -> str:
+        N = self._kernel.ndim + 1  # 1 stack-dim
+        entry = []
+
+        # left = offset
+        e = "left = offset"
+        entry.append(e)
+
+        # blk = prod(shape)
+        e = "blk = " + " * ".join([f"shape[{n}]" for n in range(N)])
+        entry.append(e)
+
+        for n in range(N):
+            # blk //= shape[n]
+            e = f"blk //= shape[{n}]"
+            entry.append(e)
+
+            # i{n} = left // blk
+            e = f"i{n} = left // blk"
+            entry.append(e)
+
+            # left -= i{n} * blk
+            e = f"left -= i{n} * blk"
+            entry.append(e)
+
+        # idx = (i0, ..., i{N})
+        e = "idx = (" + ", ".join([f"i{n}" for n in range(N)]) + ")"
+        entry.append(e)
+
+        # indent each entry by 4, then concatenate
+        for i in range(1, len(entry)):  # 1st line skipped
+            entry[i] = "    " + entry[i]
+        spec = "\n".join(entry)
+        return spec
