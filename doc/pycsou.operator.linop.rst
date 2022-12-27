@@ -61,9 +61,9 @@ pycsou.operator.linop.pad module
    :show-inheritance:
 
 pycsou.operator.linop.stencil module
---------------------------------
+------------------------------------
 
-.. automodule:: pycsou.operator.linop.stencil
+.. automodule:: pycsou.operator.linop.stencil.stencil
    :members:
    :undoc-members:
    :show-inheritance:

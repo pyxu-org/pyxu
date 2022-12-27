@@ -5,8 +5,8 @@ import warnings
 import numpy as np
 
 import pycsou.abc as pyca
-import pycsou.math.stencil as pycstencil
 import pycsou.operator.linop as pycl
+import pycsou.operator.linop.stencil._stencil as pycstencil
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
