@@ -1,500 +1,513 @@
-import math
-import types
-import warnings
+import collections.abc as cabc
+import functools
+import operator
+import typing as typ
 
 import numpy as np
 
 import pycsou.abc as pyca
-import pycsou.operator.linop as pycl
-import pycsou.operator.linop.stencil._stencil as pycstencil
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
-import pycsou.util.warning as pycuw
+from pycsou.operator.linop.pad import Pad
+from pycsou.operator.linop.select import Trim
+from pycsou.operator.linop.stencil._stencil import _Stencil
 
 __all__ = [
-    "Correlation",
-    "Convolution",
+    "Stencil",
 ]
 
 
-def asarray(self, **kwargs) -> pyct.NDArray:
+class Stencil(pyca.SquareOp):
     r"""
-    Make a matrix representation of the operator based on the stencil coefficients backend and dtype.
+    Multi-dimensional JIT-compiled stencil.
+
+    Stencils are a class of linear operators where output :math:`(i_{1},\ldots,i_{d})` is given by a
+    weighted linear combination of inputs surrounding :math:`(i_{1},\ldots,i_{d})`.
+    Notable examples include multi-dimensional convolution and correlation.
+
+    Stencils can be evaluated efficiently on CPU/GPU architectures.
+
+    Several boundary conditions are supported.
+    Moreover boundary conditions may differ per axis.
+
+    Implementation Notes
+    --------------------
+    * Numba is used behind the scenes to compile efficient machine code from a stencil kernel
+      specification.
+      This has 2 consequences:
+
+      * :py:class:`~pycsou.operator.linop.stencil.stencil.Stencil` instances are **not
+        arraymodule-agnostic**: they will only work with NDArrays belonging to the same array module
+        as ``kernel``.
+      * Compiled stencils are not **precision-agnostic**: they will only work on NDArrays with the
+        same dtype as ``kernel``.
+    * Stencil kernels can be specified in two forms:
+      (See :py:meth:`~pycsou.operator.linop.stencil.stencil.Stencil.__init__` for details.)
+
+      * A single non-seperable :math:`D`-dimensional kernel :math:`k[i_{1},\ldots,i_{D}]` of shape
+        :math:`(k_{1},\ldots,k_{D})`.
+      * A sequence of seperable :math:`1`-dimensional kernel(s) :math:`k_{d}[i]` of shapes
+        :math:`(k_{1},),\ldots,(k_{D},)` such that :math:`k[i_{1},\ldots,i_{D}] = \Pi_{d=1}^{D}
+        k_{d}[i_{d}]`.
+
+    Example
+    -------
+
+    * **Moving average of a 1D signal**
+
+      Let :math:`x[n]` denote a 1D signal.
+      The weighted moving average
+
+      .. math::
+
+         y[n] = x[n-2] + 2 x[n-1] + 3 x[n]
+
+      can be viewed as the output of the 3-point stencil of kernel :math:`h = [1, 2, 3]`.
+
+      .. code-block:: python3
+
+         import numpy as np
+         from pycsou.operator.linop import Stencil
+
+         x = np.arange(10)  # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+         op = Stencil(
+             arg_shape=x.shape,
+             kernel=np.array([1., 2, 3]),
+             center=(2,),  # h[2] applies on x[n]
+         )
+
+         y = op.apply(x)  # [0, 3, 8, 14, 20, 26, 32, 38, 44, 50]
+
+
+    * **Image filtering 1**
+
+      Let :math:`x[n, m]` denote a 2D image.
+      The blurred image
+
+      .. math::
+
+         y[n, m] = \frac{1}{4} x[n-1,m-1] + \frac{1}{4} x[n-1,m+1] + \frac{1}{4} x[n+1,m-1] +
+         \frac{1}{4} x[n+1,m+1]
+
+      can be viewed as the output of the 9-point stencil
+
+      .. math::
+
+         h =
+         \left[
+         \begin{array}{ccc}
+            \frac{1}{4} & 0 & \frac{1}{4} \\
+            0 & 0 & 0 \\
+            \frac{1}{4} & 0 & \frac{1}{4}
+         \end{array}
+         \right].
+
+      .. code-block:: python3
+
+         import numpy as np
+         from pycsou.operator.linop import Stencil
+
+         x = np.arange(64).reshape(8, 8)  # square image
+         # [[ 0,  1,  2,  3,  4,  5,  6,  7]
+         #  [ 8,  9, 10, 11, 12, 13, 14, 15]
+         #  [16, 17, 18, 19, 20, 21, 22, 23]
+         #  [24, 25, 26, 27, 28, 29, 30, 31]
+         #  [32, 33, 34, 35, 36, 37, 38, 39]
+         #  [40, 41, 42, 43, 44, 45, 46, 47]
+         #  [48, 49, 50, 51, 52, 53, 54, 55]
+         #  [56, 57, 58, 59, 60, 61, 62, 63]]
+
+         c = 0.25
+         op = Stencil(
+             arg_shape=x.shape,
+             kernel=np.array(
+                 [[c, 0, c],
+                  [0, 0, 0],
+                  [c, 0, c]]),
+             center=(1, 1),  # h[1, 1] applies on x[n, m]
+         )
+
+         y = op.apply(x.reshape(-1)).reshape(8, 8)
+         # [[ 2.25,  4.5 ,  5.  ,  5.5 ,  6.  ,  6.5 ,  7.  ,  3.5 ]
+         #  [ 4.5 ,  9.  , 10.  , 11.  , 12.  , 13.  , 14.  ,  7.  ]
+         #  [ 8.5 , 17.  , 18.  , 19.  , 20.  , 21.  , 22.  , 11.  ]
+         #  [12.5 , 25.  , 26.  , 27.  , 28.  , 29.  , 30.  , 15.  ]
+         #  [16.5 , 33.  , 34.  , 35.  , 36.  , 37.  , 38.  , 19.  ]
+         #  [20.5 , 41.  , 42.  , 43.  , 44.  , 45.  , 46.  , 23.  ]
+         #  [24.5 , 49.  , 50.  , 51.  , 52.  , 53.  , 54.  , 27.  ]
+         #  [12.25, 24.5 , 25.  , 25.5 , 26.  , 26.5 , 27.  , 13.5 ]]
+
+    * **Image filtering 2**
+
+      Following the example above, notice that :math:`y[n, m]` can be implemented more efficiently
+      by factoring the 9-point stencil as a cascade of two 3-point stencils:
+
+      .. math::
+
+         h =
+         \left[
+         \begin{array}{ccc}
+            \frac{1}{2} & 0 & \frac{1}{2}
+         \end{array}
+         \right]
+         \left[
+         \begin{array}{c}
+            \frac{1}{2} \\ 0 \\ \frac{1}{2}
+         \end{array}
+         \right].
+
+      Seperable stencils are supported and should be preferred when applicable.
+
+      .. code-block:: python3
+
+         import numpy as np
+         from pycsou.operator.linop import Stencil
+
+         x = np.arange(64).reshape(8, 8)  # square image
+         # [[ 0,  1,  2,  3,  4,  5,  6,  7]
+         #  [ 8,  9, 10, 11, 12, 13, 14, 15]
+         #  [16, 17, 18, 19, 20, 21, 22, 23]
+         #  [24, 25, 26, 27, 28, 29, 30, 31]
+         #  [32, 33, 34, 35, 36, 37, 38, 39]
+         #  [40, 41, 42, 43, 44, 45, 46, 47]
+         #  [48, 49, 50, 51, 52, 53, 54, 55]
+         #  [56, 57, 58, 59, 60, 61, 62, 63]]
+
+         c = 0.5
+         op = Stencil(
+             arg_shape=x.shape,
+             kernel=[
+                 np.array([c, 0, c]),  # h1: stencil along 1st axis (rows)
+                 np.array([c, 0, c]),  # h2: stencil along 2nd axis (columns)
+             ],
+             center=(1, 1),  # h1[1] * h2[1] applies on x[n, m]
+         )
+
+         y = op.apply(x.reshape(-1)).reshape(8, 8)
+         # [[ 2.25,  4.5 ,  5.  ,  5.5 ,  6.  ,  6.5 ,  7.  ,  3.5 ]
+         #  [ 4.5 ,  9.  , 10.  , 11.  , 12.  , 13.  , 14.  ,  7.  ]
+         #  [ 8.5 , 17.  , 18.  , 19.  , 20.  , 21.  , 22.  , 11.  ]
+         #  [12.5 , 25.  , 26.  , 27.  , 28.  , 29.  , 30.  , 15.  ]
+         #  [16.5 , 33.  , 34.  , 35.  , 36.  , 37.  , 38.  , 19.  ]
+         #  [20.5 , 41.  , 42.  , 43.  , 44.  , 45.  , 46.  , 23.  ]
+         #  [24.5 , 49.  , 50.  , 51.  , 52.  , 53.  , 54.  , 27.  ]
+         #  [12.25, 24.5 , 25.  , 25.5 , 26.  , 26.5 , 27.  , 13.5 ]]
     """
-    dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
-    xp = kwargs.pop("xp", pycd.NDArrayInfo.NUMPY.module())
-    dtype_ = self.stencil_coefs.dtype
-    xp_ = pycu.get_array_module(self.stencil_coefs)
-    E = xp_.eye(self.dim, dtype=dtype_)
-    A = self.apply(E).T
-    A = pycu.to_NUMPY(A) if xp_.__name__ == "cupy" and xp.__name__ != "cupy" else A
 
-    return xp.array(A, dtype=dtype)
-
-
-def lipschitz(self, **kwargs) -> pyct.Real:
-    r"""
-    Compute a Lipschitz constant of the stencil operator based on the stencil coefficients backend.
-    """
-    N = pycd.NDArrayInfo
-    info = N.from_obj(self.stencil_coefs)
-    kwargs.update(
-        xp=info.module(),
-        gpu=info == N.CUPY,
-    )
-    return pyca.LinOp.lipschitz(self, **kwargs)
-
-
-class _Stencil(pyca.SquareOp):
-    r"""
-    Base class for NDArray computing functions that operate only on a local region of the NDArray through a
-    multidimensional kernel, namely through correlation and convolution.
-    This class leverages the :py:func:`numba.stencil` decorator, which allows to JIT (Just-In-Time) compile these
-    functions to run more quickly.
-
-    Parameters
-    ----------
-    stencil_coefs: NDArray
-        Stencil coefficients. Must have the same number of dimensions as the input array's arg_shape (i.e., without the
-        stacking dimension).
-    center: NDArray
-        Index of the kernel's center. Must be a 1-dimensional array with one element per dimension in ``stencil_coefs``.
-    arg_shape: tuple
-        Shape of the input array.
-    enable_warnings: bool
-        If ``True``, emit a warning in case of precision mismatch issues.
-    """
+    KernelSpec = typ.Union[
+        pyct.NDArray,  # (k1, ..., kD) non-seperable kernel
+        cabc.Sequence[pyct.NDArray],  # [(k1,), ..., (kD,)] seperable kernels
+    ]
 
     def __init__(
         self,
-        stencil_coefs: pyct.NDArray,
-        center: pyct.NDArray,
         arg_shape: pyct.NDArrayShape,
-        enable_warnings: bool = True,
+        kernel: KernelSpec,
+        center: _Stencil.IndexSpec,
+        mode: Pad.ModeSpec = "constant",
     ):
-        size = np.prod(arg_shape).item()
+        r"""
+        Parameters
+        ----------
+        arg_shape: pyct.NDArrayShape
+            Shape of the rank-:math:`D` input array.
+        kernel: KernelSpec
+            Stencil coefficients.
+            Two forms are accepted:
 
-        super().__init__((size, size))
+            * NDArray of rank-:math:`D`: denotes a non-seperable stencil.
+            * tuple[NDArray_1, ..., NDArray_D]: a sequence of 1D stencils such that dimension[k]
+              is filtered by stencil `kernel[k]`.
+        center: IndexSpec
+            (i_1, ..., i_D) index of the stencil's center.
 
-        self.arg_shape = arg_shape
-        self.ndim = len(arg_shape)
-        self._sanitize_inputs(stencil_coefs, center)
-        self._make_stencils(self.stencil_coefs)
-        self._lipschitz = 2 * abs(self.stencil_coefs).max()
-        self._enable_warnings = bool(enable_warnings)
+            `center` defines how a kernel is overlaid on inputs to produce outputs.
 
-    @pycrt.enforce_precision(i="arr", o=True)
+            .. math::
+
+               y[i_{1},\ldots,i_{D}]
+               =
+               \sum_{q_{1},\ldots,q_{D}=0}^{k_{1},\ldots,k_{D}}
+               x[i_{1} - c_{1} + q_{1},\ldots,i_{D} - c_{D} + q_{D}]
+               \,\cdot\,
+               k[q_{1},\ldots,q_{D}]
+        mode: str | list(str)
+            Boundary conditions.
+            Multiple forms are accepted:
+
+            * str: unique mode shared amongst dimensions.
+              Must be one of:
+
+              * 'constant' (zero-padding)
+              * 'wrap'
+              * 'reflect'
+              * 'symmetric'
+              * 'edge'
+            * tuple[str, ...]: dimension[k] uses `mode[k]` as boundary condition.
+
+            (See :py:func:`numpy.pad` for details.)
+        """
+        arg_shape, _kernel, _center, _mode = self._canonical_repr(arg_shape, kernel, center, mode)
+        codim = dim = np.prod(arg_shape)
+        super().__init__(shape=(codim, dim))
+
+        # Pad/Trim operators
+        pad_width = self._compute_pad_width(_kernel, _center, _mode)
+        self._pad = Pad(
+            arg_shape=arg_shape,
+            pad_width=pad_width,
+            mode=_mode,
+        )
+        self._trim = Trim(
+            arg_shape=self._pad._pad_shape,
+            trim_width=pad_width,
+        )
+
+        # Stencil operators used in .apply()
+        self._st_fw = [None] * len(_kernel)
+        for i, (k_fw, c_fw) in enumerate(zip(_kernel, _center)):
+            self._st_fw[i] = _Stencil.init(kernel=k_fw, center=c_fw)
+
+        # Stencil operators used in .adjoint()
+        self._st_bw = [None] * len(_kernel)
+        _kernel, _center = self._bw_equivalent(_kernel, _center)
+        for i, (k_bw, c_bw) in enumerate(zip(_kernel, _center)):
+            self._st_bw[i] = _Stencil.init(kernel=k_bw, center=c_bw)
+
+        self._dispatch_params = dict()  # Extra kwargs passed to _Stencil.apply()
+        self._dtype = _kernel[0].dtype  # useful constant
+
+    @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Array to be correlated with the kernel.
-        Returns
-        -------
-        out: NDArray
-            NDArray with same shape as the input NDArray, correlated with kernel.
-        """
-        if (arr.dtype != self.stencil_coefs.dtype) and self._enable_warnings:
-            msg = "Computation may not be performed at the requested precision."
-            warnings.warn(msg, pycuw.PrecisionWarning)
+        x = self._pad.apply(arr)
+        x = x.reshape(-1, *self._pad._pad_shape)
 
-        return self._apply_dispatch(arr)
+        y = self._stencil_chain(x, self._st_fw)
+        y = y.reshape(*arr.shape[:-1], -1)
 
-    @pycrt.enforce_precision(i="arr", o=True)
+        out = self._trim.apply(y)
+        return out
+
+    @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        r"""
-        Parameters
-        ----------
-        arr: NDArray
-            Array to be convolved with the kernel.
-        Returns
-        -------
-        out: NDArray
-            NDArray with same shape as the input NDArray, convolved with kernel.
+        x = self._trim.adjoint(arr)
+        x = x.reshape(-1, *self._pad._pad_shape)
+
+        y = self._stencil_chain(x, self._st_bw)
+        y = y.reshape(*arr.shape[:-1], -1)
+
+        out = self._pad.adjoint(y)
+        return out
+
+    def configure_dispatcher(self, **kwargs):
         """
-        if (arr.dtype != self.stencil_coefs.dtype) and self._enable_warnings:
-            msg = "Computation may not be performed at the requested precision."
-            warnings.warn(msg, pycuw.PrecisionWarning)
+        (Only applies if `kernel` is a CuPy array.)
 
-        return self._adjoint_dispatch(arr)
+        Configure stencil Dispatcher.
 
-    def asarray(self, **kwargs) -> pyct.NDArray:
-        # need to overwrite as stencils are not (hardware/precision) agnostic
-        return asarray(self, **kwargs)
+        See :py:meth:`~pycsou.operator.linop.stencil._stencil._Stencil.apply` for accepted options.
+
+        Example
+        -------
+        .. code-block:: python3
+
+           import cupy as cp
+           from pycsou.operator.linop import Stencil
+
+           x = cp.arange(10)
+
+           op = Stencil(
+               arg_shape=x.shape,
+               kernel=np.array([1, 2, 3]),
+               center=(1,),
+           )
+
+           y = op.apply(x)  # uses default threadsperblock/blockspergrid values
+
+           op.configure_dispatcher(
+               threadsperblock=50,
+               blockspergrid=3,
+           )
+           y = op.apply(x)  # supplied values used instead
+        """
+        for k, v in kwargs.items():
+            self._dispatch_params.update(k=v)
+
+    @staticmethod
+    def _canonical_repr(arg_shape, kernel, center, mode):
+        # Create canonical representations
+        #   * `arg_shape`: tuple[int]
+        #   * `_kernel`: list[ndarray[float], ...]
+        #   * `_center`: list[ndarray[int], ...]
+        #   * `_mode`: list[str, ...]
+        if not isinstance(arg_shape, cabc.Sequence):
+            arg_shape = (arg_shape,)
+        arg_shape = tuple(arg_shape)
+
+        N = len(arg_shape)
+        assert len(center) == N
+
+        kernel = pycu.compute(kernel, traverse=True)
+        try:
+            # array input -> non-seperable filter
+            pycu.get_array_module(kernel)
+            assert kernel.ndim == N
+
+            _kernel = [pycrt.coerce(kernel)]
+            _center = [np.array(center, dtype=int)]
+        except:
+            # sequence input -> seperable filter(s)
+            assert len(kernel) == N  # one filter per dimension
+
+            _kernel = [None] * N
+            for i in range(N):
+                sh = [1] * N
+                sh[i] = -1
+                _kernel[i] = pycrt.coerce(kernel[i]).reshape(sh)
+
+            _center = np.zeros((N, N), dtype=int)
+            _center[np.diag_indices(N)] = center
+
+        _mode = Pad(  # get `mode` in canonical form
+            (2,) * _kernel[0].ndim,
+            pad_width=1,
+            mode=mode,
+        )._mode
+
+        return arg_shape, _kernel, _center, _mode
+
+    @staticmethod
+    def _compute_pad_width(_kernel, _center, _mode) -> Pad.WidthSpec:
+        N = _kernel[0].ndim
+        pad_width = [None] * N
+        for i in range(N):
+            if len(_kernel) == 1:  # non-seperable filter
+                c = _center[0][i]
+                n = _kernel[0].shape[i]
+            else:  # seperable filter(s)
+                c = _center[i][i]
+                n = _kernel[i].size
+
+            # 1. Pad/Trim operators are shared amongst [apply,adjoint]():
+            #    lhs/rhs are thus padded equally.
+            # 2. When mode != "constant", pad width must match kernel dimensions to retain border
+            #    effects.
+            if _mode[i] == "constant":
+                p = max(c, n - c - 1)
+            else:  # anything else supported by Pad()
+                p = n - 1
+            pad_width[i] = (p, p)
+        return tuple(pad_width)
+
+    @staticmethod
+    def _bw_equivalent(_kernel, _center):
+        # Transform FW kernel/center specification to BW variant.
+        k_bw = [np.flip(k_fw) for k_fw in _kernel]
+
+        if len(_kernel) == 1:  # non-seperable filter
+            c_bw = [(_kernel[0].shape - _center[0]) - 1]
+        else:  # seperable filter(s)
+            N = _kernel[0].ndim
+            c_bw = np.zeros((N, N), dtype=int)
+            for i in range(N):
+                c_bw[i, i] = _kernel[i].shape[i] - _center[i][i] - 1
+
+        return k_bw, c_bw
+
+    def _stencil_chain_DASK(self, x: pyct.NDArray, stencils: list) -> pyct.NDArray:
+        # Apply sequence of stencils to `x`.
+        #
+        # x: (N_stack, N_1, ..., N_D)
+        # y: (N_stack, N_1, ..., N_D)
+        #
+        # [2022.12.28, Sepand]
+        #   For some unknown reason, .map_overlap() gives incorrect results when inputs to
+        #   .map_overlap() contain stacking dimensions.
+        #   Workaround: call .map_overlap() on each stack-dim seperately, then re-assemble.
+
+        # _compute_pad_width(): LHS/RHS padded equally, so choose either one
+        depth = [lhs for (lhs, rhs) in self._pad._pad_width]
+        y = [
+            _.map_overlap(
+                self._stencil_chain,
+                depth=depth,
+                boundary=0,
+                trim=True,
+                dtype=x.dtype,
+                meta=x._meta,
+                stencils=self._st_fw,
+            )
+            for _ in x
+        ]
+
+        xp = pycu.get_array_module(x)
+        y = xp.stack(y, axis=0)
+        return y
+
+    @pycu.redirect("x", DASK=_stencil_chain_DASK)
+    def _stencil_chain(self, x: pyct.NDArray, stencils: list) -> pyct.NDArray:
+        # Apply sequence of stencils to `x`.
+        # (For Dask inputs, see _stencil_chain_DASK().)
+        #
+        # x: (N_stack, N_1, ..., N_D)
+        # y: (N_stack, N_1, ..., N_D)
+        #
+        # Caution: `x` is modified in-place.
+        y = x.copy()
+        for st in stencils:
+            st.apply(x, y, **self._dispatch_params)
+            x, y = y, x
+        y = x
+        return y
 
     def lipschitz(self, **kwargs) -> pyct.Real:
-        # need to overwrite as stencils are not (hardware/precision) agnostic
-        return lipschitz(self, **kwargs)
+        if kwargs.get("recompute", False):
+            if kwargs.get("algo", "svds") == "fro":
+                # inform hutchpp() to run at specific precision
+                kwargs.update(dtype=self._dtype)
+            self._lipschitz = pyca.SquareOp.lipschitz(self, **kwargs)
+        else:
+            # An analytic upper bound:
+            #     \norm{A x}{2}^{2}
+            #  =  \sum_{n} [A x]_{n}^{2}
+            #  =  \sum_{n} |<h_n, x>|^{2}
+            # \le \sum_{n} \norm{h_n}{2}^{2} \norm{x}{2}^{2}
+            # \le \norm{h}{2}^{2} \sum_{n} \norm{x}{2}^{2}
+            # \le \norm{h}{2}^{2} N \norm{x}{2}^{2}
+            #
+            # -> L \le \sqrt{N} \norm{h}{2}
+            kernels = [st._kernel for st in self._st_fw]
+            kernel = functools.reduce(operator.mul, kernels, 1)
+            L_st = np.linalg.norm(pycu.to_NUMPY(kernel).reshape(-1))
+            L_st *= np.sqrt(self.dim)
 
-    def _apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self.stencil(arr.reshape(-1, *self.arg_shape)).reshape(*arr.shape)
+            L_pad = self._pad.lipschitz()
+            L_trim = self._trim.lipschitz()
 
-    def _apply_dask(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return (
-            arr.reshape(-1, *self.arg_shape)
-            .map_overlap(self.stencil, depth=self.width, dtype=arr.dtype)
-            .reshape(arr.shape)
-        )
+            self._lipschitz = L_trim * L_st * L_pad
+        return self._lipschitz
 
-    def _apply_cupy(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        arr_shape = arr.shape
-        arr = arr.reshape(-1, *self.arg_shape)
-        out = xp.zeros_like(arr)
-        # Cuda grid cannot have more than 3D. In the case of arg_shape with 3D, the cuda grid loops across the 3D and
-        # looping over stacking dimension is done within the following Python list comprehension.
-        tbp, bpg = self._get_gpu_config(arr)
-        self.stencil[bpg, tbp](arr, out) if len(self.arg_shape) < 3 else [
-            self.stencil[bpg, tbp](arr[i], out[i]) for i in range(arr.shape[0])
-        ]
-        return out.reshape(arr_shape)
+    def to_sciop(self, **kwargs):
+        # Stencil.apply/adjoint() only support the precision provided at init-time.
+        kwargs.update(dtype=self._dtype)
+        op = pyca.SquareOp.to_sciop(self, **kwargs)
+        return op
 
-    def _adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self.stencil_adjoint(arr.reshape(-1, *self.arg_shape)).reshape(arr.shape)
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        # Stencil.apply() only supports the precision provided at init-time.
+        xp = pycu.get_array_module(self._st_fw[0]._kernel)
+        _A = super().asarray(xp=xp, dtype=self._dtype)
 
-    def _adjoint_dask(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return (
-            arr.reshape(-1, *self.arg_shape)
-            .map_overlap(
-                self.stencil_adjoint,
-                depth=self.width,
-                dtype=arr.dtype,
-            )
-            .reshape(arr.shape)
-        )
+        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
+        dtype = kwargs.get("dtype", pycrt.getPrecision().value)
+        A = xp.array(pycu.to_NUMPY(_A), dtype=dtype)
+        return A
 
-    def _adjoint_cupy(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        arr_shape = arr.shape
-        arr = arr.reshape(-1, *self.arg_shape)
-        out = xp.zeros_like(arr)
-        tbp, bpg = self._get_gpu_config(arr)
-        self.stencil_adjoint[bpg, tbp](arr, out) if len(self.arg_shape) < 3 else [
-            self.stencil_adjoint[bpg, tbp](arr[i], out[i]) for i in range(arr.shape[0])
-        ]
-        return out.reshape(arr_shape)
-
-    @pycu.redirect("arr", DASK=_apply_dask, CUPY=_apply_cupy)
-    def _apply_dispatch(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self._apply(arr)
-
-    @pycu.redirect("arr", DASK=_adjoint_dask, CUPY=_adjoint_cupy)
-    def _adjoint_dispatch(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self._adjoint(arr)
-
-    def _make_stencils_cpu(self, stencil_coefs: pyct.NDArray, **kwargs) -> None:
-        # Create numba JIT-ted stencil functions for apply and adjoint methods.
-        self.stencil = pycstencil.make_nd_stencil(coefficients=self.stencil_coefs, center=self.center)
-        self.stencil_adjoint = pycstencil.make_nd_stencil(
-            coefficients=self.stencil_coefs_adjoint, center=self.center_adjoint
-        )
-
-    def _make_stencils_gpu(self, stencil_coefs: pyct.NDArray, **kwargs) -> None:
-        # Create numba.cuda JIT-ted functions for apply and adjoint methods.
-        self.stencil = pycstencil.make_nd_stencil_gpu(
-            coefficients=self.stencil_coefs, center=self.center, func_name="apply"
-        )
-        self.stencil_adjoint = pycstencil.make_nd_stencil_gpu(
-            coefficients=self.stencil_coefs_adjoint, center=self.center_adjoint, func_name="adjoint"
-        )
-
-    @pycu.redirect("stencil_coefs", CUPY=_make_stencils_gpu)
-    def _make_stencils(self, stencil_coefs: pyct.NDArray) -> None:
-        self._make_stencils_cpu(stencil_coefs)
-
-    def _sanitize_inputs(self, stencil_coefs: pyct.NDArray, center: pyct.NDArray):
-        # Check that inputs have the correct shape and correctly handle the boundary conditions.
-        assert len(center) == stencil_coefs.ndim == self.ndim, (
-            "The stencil coefficients should have the same"
-            " number of dimensions as `arg_shape` and the "
-            "same length as `center`."
-        )
-        self.xp = xp = pycu.get_array_module(stencil_coefs)
-        self.stencil_coefs = stencil_coefs
-        self.center = np.atleast_1d(center)
-        self.stencil_coefs_adjoint = xp.flip(stencil_coefs)
-        self.center_adjoint = np.array(stencil_coefs.shape) - 1 - np.atleast_1d(center)
-        self.width = self._set_width(stencil_coefs.ndim)
-
-    def _set_width(self, ndim):
-        # set appropriate padding depth for different backends
-        width_right = np.atleast_1d(self.stencil_coefs.shape) - self.center - 1
-        return tuple([(0, 0)] + [(self.center[i].item(), width_right[i].item()) for i in range(ndim)])
-
-    def _get_gpu_config(self, arr):
-        # Get max number of threads in device
-        t_max = arr.device.attributes["MaxThreadsPerBlock"]
-        # Set at least as many threads as kernel elements per dimension
-        _next_power_of_2 = lambda x: 1 if x == 0 else 2 ** (x - 1).bit_length()
-        kernel_shape = self.stencil_coefs.shape
-        tpb = [int(_next_power_of_2(kernel_shape[d])) for d in range(len(kernel_shape))]
-        # Set maximum number of threads in the row-major order
-        tpb[-1] = int(t_max / (np.prod(tpb) / tpb[-1]))
-        # If kernel has less than 3D, add stacking dimension
-        if len(self.arg_shape) < 3:
-            tpb = [1] + tpb
-        # If nthreads larger than a given array dimension size, use threads in other dimensions
-        # This maximizes locality of cached memory (row-major order) to improve performance
-        for i in range(len(tpb) - 1, -1, -1):
-            while tpb[i] > self.arg_shape[i - 1] + np.sum(self.width[i]):
-                tpb[i] = int(tpb[i] / 2)
-                if i > 0:
-                    tpb[i - 1] = int(tpb[i - 1] * 2)
-
-        threadsperblock = tuple(tpb)
-
-        # Define blockspergrid based on input array shape and threadsperblock
-        aux_stacking = 0 if len(self.arg_shape) < 3 else 1
-        blockspergrid = tuple([math.ceil(arr.shape[i + aux_stacking] / tpb) for i, tpb in enumerate(threadsperblock)])
-        return threadsperblock, blockspergrid
-
-
-def Correlation(
-    stencil_coefs: pyct.NDArray,
-    center: pyct.NDArray,
-    arg_shape: pyct.NDArrayShape,
-    mode: pycl.Pad.ModeSpec = "constant",
-    enable_warnings: bool = True,
-):
-    r"""
-    Parameters
-    ----------
-    stencil_coefs: NDArray
-        Stencil coefficients. Must have the same number of dimensions as the input array's arg_shape (i.e., without the
-        stacking dimension).
-    center: NDArray
-        Index of the kernel's center. Must be a 1-dimensional array with one element per dimension in ``stencil_coefs``.
-    arg_shape: tuple
-        Shape of the input array.
-    mode: str | list(str)
-        Padding mode.
-        Multiple forms are accepted:
-
-        * str: unique mode shared amongst dimensions.
-          Must be one of:
-
-          * 'constant' (zero-padding)
-          * 'wrap'
-          * 'reflect'
-          * 'symmetric'
-          * 'edge'
-        * tuple[str, ...]: pad dimension[k] using `mode[k]`.
-
-        (See :py:func:`numpy.pad` for details.)
-    enable_warnings: bool
-        If ``True``, emit a warning in case of precision mismatch issues.
-
-
-    Examples
-    --------
-    The following example creates a Correlation operator based on a 2-dimensional kernel.
-
-    .. code-block:: python3
-
-       from pycsou.operator.linop.stencil import Correlation
-       import numpy as np
-       import cupy as cp
-       import dask.array as da
-       nsamples = 2
-       data_shape = (500, 100)
-       da_blocks = (50, 10)
-       # Numpy
-       data_np = np.ones((nsamples, *data_shape)).reshape(nsamples, -1)
-       # Cupy
-       data_cp = cp.ones((nsamples, *data_shape)).reshape(nsamples, -1)
-       # Dask
-       data_da = da.from_array(data, chunks=da_blocks).reshape(nsamples, -1)
-       kernel = np.array([[0.5, 0.0, 0.5],
-                          [0.0, 0.0, 0.0],
-                          [0.5, 0.0, 0.5]])
-       center = np.array([1, 0])
-       stencil = StencilOp(stencil_coefs=kernel, center=center, arg_shape=data_shape, boundary=0.)
-       stencil_cp = StencilOp(stencil_coefs=cp.asarray(kernel), center=center, arg_shape=data_shape, boundary=0.)
-       # Correlate images with kernels
-       out_np = stencil(data_np).reshape(nsamples, *data_shape)
-       out_da = stencil(data_da).reshape(nsamples, *data_shape).compute()
-       out_cp = stencil_cu(data_cp).reshape(nsamples, *data_shape).get()
-
-
-    Notes
-    -----
-    Note that to perform correlation operations on GPU NDArrays, the operator has to be instantiated with GPU kernel
-    coefficients.
-
-    - **Remark 1**. When instantiated with a multi-dimensional kernel, the
-    :py:class:`~pycsou.operator.linop.stencil.Correlate` performs correlation operations as non-separable filters.
-    When possible, the user can decide whether to separate the filtering operation by composing different operators for
-    different axis to accelerate performance. This approach is not guaranteed to improve performance due to the repeated
-    copying of arrays associated to internal padding operations.
-
-
-    - **Remark 2**. By default, for GPU computing, the ``threadsperblock`` argument is set according to the following criteria:
-
-        - Number of the  GPU's threads per block (:math:`c`), i.e.,:
-
-            .. math::
-                \prod_{i=0}^{D-1} t_{i} \leq c
-
-            where :math:`t_{i}` is the number of threads per block in dimension :math:`i`, :math:`D` is the number of dimensions
-            of the kernel.
-
-        - Maximum number of contiguous threads as possible:
-            Because arrays are stored in row-major order, a larger number of threads per block in the last axis of the CuPy
-            array benefits the spatial locality in memory caching. For this reason ``threadsperblock`` is set to the maximum
-            number in the last axis, and to the minimum possible (respecting the kernel shape) in the other axes.
-
-            .. math::
-               t_{i} = 2^{j} \leq k_{i}, s.t., 2^{j+1} > k_{i} \quad \text{for} \quad i\in[0, \dots, D-2],
-
-
-    .. warning::
-       Due to code compilation the stencil methods assume arrays are in row-major or C order. If the input array is in
-       Fortran or F order, a copy in C order is created automatically, which can lead to increased time and memory
-       usage.
-    """
-
-    width_right = np.atleast_1d(stencil_coefs.shape) - center - 1
-    widths = tuple([(max(center[i].item(), width_right[i].item()),) * 2 for i in range(len(arg_shape))])
-    pad_shape = list(arg_shape)
-    for i, (lhs, rhs) in enumerate(widths):
-        pad_shape[i] += lhs + rhs
-    pad_shape = tuple(pad_shape)
-    padder = pycl.Pad(arg_shape=arg_shape, pad_width=widths, mode=mode)
-    stencil = _Stencil(stencil_coefs=stencil_coefs, center=center, arg_shape=pad_shape, enable_warnings=enable_warnings)
-    trimmer = pycl.Trim(arg_shape=pad_shape, trim_width=widths)
-
-    op = trimmer * stencil * padder
-    op.asarray = types.MethodType(asarray, op)
-    op.lipschitz = types.MethodType(lipschitz, op)
-    op._name = "Correlation"
-    # store for testing
-    op.arg_shape = arg_shape
-    op.stencil_coefs = stencil.stencil_coefs
-    op.center = stencil.center
-    op._mode = padder._mode
-    return op
-
-
-def Convolution(
-    stencil_coefs: pyct.NDArray,
-    center: pyct.NDArray,
-    arg_shape: pyct.NDArrayShape,
-    mode: pycl.Pad.ModeSpec = "constant",
-    enable_warnings: bool = True,
-):
-    r"""
-    Parameters
-    ----------
-    stencil_coefs: NDArray
-        Stencil coefficients. Must have the same number of dimensions as the input array's arg_shape (i.e., without the
-        stacking dimension).
-    center: NDArray
-        Index of the kernel's center. Must be a 1-dimensional array with one element per dimension in ``stencil_coefs``.
-    arg_shape: tuple
-        Shape of the input array.
-    mode: str | list(str)
-        Padding mode.
-        Multiple forms are accepted:
-
-        * str: unique mode shared amongst dimensions.
-          Must be one of:
-
-          * 'constant' (zero-padding)
-          * 'wrap'
-          * 'reflect'
-          * 'symmetric'
-          * 'edge'
-        * tuple[str, ...]: pad dimension[k] using `mode[k]`.
-
-        (See :py:func:`numpy.pad` for details.)
-    enable_warnings: bool
-        If ``True``, emit a warning in case of precision mismatch issues.
-
-
-    Examples
-    --------
-    The following example creates a Convolution operator based on a 2-dimensional kernel.
-
-    .. code-block:: python3
-
-       from pycsou.operator.linop.stencil import Convolution
-       import numpy as np
-       import cupy as cp
-       import dask.array as da
-       nsamples = 2
-       data_shape = (500, 100)
-       da_blocks = (50, 10)
-       # Numpy
-       data_np = np.ones((nsamples, *data_shape)).reshape(nsamples, -1)
-       # Cupy
-       data_cp = cp.ones((nsamples, *data_shape)).reshape(nsamples, -1)
-       # Dask
-       data_da = da.from_array(data, chunks=da_blocks).reshape(nsamples, -1)
-       kernel = np.array([[0.5, 0.0, 0.5],
-                          [0.0, 0.0, 0.0],
-                          [0.5, 0.0, 0.5]])
-       center = np.array([1, 0])
-       stencil = StencilOp(stencil_coefs=kernel, center=center, arg_shape=data_shape, boundary=0.)
-       stencil_cp = StencilOp(stencil_coefs=cp.asarray(kernel), center=center, arg_shape=data_shape, boundary=0.)
-       # Correlate images with kernels
-       out_np = stencil(data_np).reshape(nsamples, *data_shape)
-       out_da = stencil(data_da).reshape(nsamples, *data_shape).compute()
-       out_cp = stencil_cu(data_cp).reshape(nsamples, *data_shape).get()
-
-
-    Notes
-    -----
-    Note that to perform convolution operations on GPU NDArrays, the operator has to be instantiated with GPU kernel
-    coefficients.
-
-    - **Remark 1**. When instantiated with a multi-dimensional kernel, the
-    :py:class:`~pycsou.operator.linop.stencil.Convolve` performs convolution operations as non-separable filters.
-    When possible, the user can decide whether to separate the filtering operation by composing different operators for
-    different axis to accelerate performance. This approach is not guaranteed to improve performance due to the repeated
-    copying of arrays associated to internal padding operations.
-
-
-    - **Remark 2**. By default, for GPU computing, the ``threadsperblock`` argument is set according to the following criteria:
-
-        - Number of the  GPU's threads per block (:math:`c`), i.e.,:
-
-            .. math::
-                \prod_{i=0}^{D-1} t_{i} \leq c
-
-            where :math:`t_{i}` is the number of threads per block in dimension :math:`i`, :math:`D` is the number of dimensions
-            of the kernel.
-
-        - Maximum number of contiguous threads as possible:
-            Because arrays are stored in row-major order, a larger number of threads per block in the last axis of the CuPy
-            array benefits the spatial locality in memory caching. For this reason ``threadsperblock`` is set to the maximum
-            number in the last axis, and to the minimum possible (respecting the kernel shape) in the other axes.
-
-
-    .. warning::
-       Due to code compilation the stencil methods assume arrays are in row-major or C order. If the input array is in
-       Fortran or F order, a copy in C order is created automatically, which can lead to increased time and memory
-       usage.
-    """
-    width_right = np.atleast_1d(stencil_coefs.shape) - center - 1
-    widths = tuple([(max(center[i].item(), width_right[i].item()),) * 2 for i in range(len(arg_shape))])
-    pad_shape = list(arg_shape)
-    for i, (lhs, rhs) in enumerate(widths):
-        pad_shape[i] += lhs + rhs
-    pad_shape = tuple(pad_shape)
-    padder = pycl.Pad(arg_shape=arg_shape, pad_width=widths, mode=mode)
-    stencil = _Stencil(stencil_coefs=stencil_coefs, center=center, arg_shape=pad_shape, enable_warnings=enable_warnings)
-    trimmer = pycl.Trim(arg_shape=pad_shape, trim_width=widths)
-
-    op = trimmer * stencil.T * padder
-    op.asarray = types.MethodType(asarray, op)
-    op.lipschitz = types.MethodType(lipschitz, op)
-    op._name = "Convolution"
-    # store for testing
-    op.arg_shape = arg_shape
-    op.stencil_coefs = stencil.stencil_coefs
-    op.center = stencil.center
-    op._mode = padder._mode
-    return op
+    def trace(self, **kwargs) -> pyct.Real:
+        # Stencil.apply() only supports the precision provided at init-time.
+        kwargs.update(dtype=self._dtype)
+        tr = super().trace(**kwargs)
+        return tr
