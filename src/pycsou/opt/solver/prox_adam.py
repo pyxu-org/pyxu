@@ -323,9 +323,8 @@ class ProxAdam(pyca.Solver):
         gv *= 1 - b2
         v += gv
         # --------------------------------------------
-        mst["variance"] = v
-        mst["variance_hat"] = xp.maximum(mst["variance_hat"], v)
-        mst["variance_hat"] = xp.maximum(mst["variance_hat"], mst["eps_variance"])  # avoid division by zero
+        mst["variance"] = v.clip(mst["eps_variance"], None)  # avoid division-by-zero
+        mst["variance_hat"] = xp.maximum(mst["variance_hat"], mst["variance"])
 
         phi = self.__phi(t=self._astate["idx"])
         psi = self.__psi(t=self._astate["idx"])
