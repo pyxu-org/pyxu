@@ -119,11 +119,13 @@ class ProxAdam(pyca.Solver):
     The convergence is guaranteed for step sizes :math:`\alpha\leq 2/\beta`.
 
     **Remark 3:**
-    The relative norm change of the primal variable is used as the default stopping criterion.
+    The default stopping criterion (after 50 iterations) is the relative norm change of the primal
+    variable.
     By default, the algorithm stops when the norm of the difference between two consecutive iterates
     :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4.
     Different stopping criteria can be used. (see :py:mod:`~pycsou.opt.solver.stop`.)
     By default, the same stopping criterion is used for the proximal sub-problem.
+    (A minimum number of iterations is enforced to avoid premature stopping on slow starts.)
 
     ``ProxAdam.fit()`` **Parameterization**
 
@@ -385,18 +387,19 @@ class ProxAdam(pyca.Solver):
         mst["x"] = x
 
     def default_stop_crit(self) -> pyca.StoppingCriterion:
-        from pycsou.opt.stop import RelError
+        from pycsou.opt.stop import MaxIter, RelError
 
         # Described in [ProxAdam]_ and used in their implementation:
         # https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.py
-        stop_crit = RelError(
+        rel_error = RelError(
             eps=1e-4,
             var="x",
             f=None,
             norm=2,
             satisfy_all=True,
         )
-        return stop_crit
+        min_steps = MaxIter(n=50)
+        return min_steps & rel_error
 
     def objective_func(self) -> pyct.NDArray:
         func = lambda x: self._f.apply(x) + self._g.apply(x)
