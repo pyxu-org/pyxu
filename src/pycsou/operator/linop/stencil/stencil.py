@@ -487,7 +487,8 @@ class Stencil(pyca.SquareOp):
             L_pad = self._pad.lipschitz()
             L_trim = self._trim.lipschitz()
 
-            self._lipschitz = L_trim * L_st * L_pad
+            L_ub = L_trim * L_st * L_pad
+            self._lipschitz = min(L_ub, self._lipschitz)
         return self._lipschitz
 
     def to_sciop(self, **kwargs):
