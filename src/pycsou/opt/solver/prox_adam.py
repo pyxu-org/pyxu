@@ -119,13 +119,12 @@ class ProxAdam(pyca.Solver):
     The convergence is guaranteed for step sizes :math:`\alpha\leq 2/\beta`.
 
     **Remark 3:**
-    The default stopping criterion (after 50 iterations) is the relative norm change of the primal
-    variable.
+    The default stopping criterion is the relative norm change of the primal variable.
     By default, the algorithm stops when the norm of the difference between two consecutive iterates
     :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4.
-    Different stopping criteria can be used. (see :py:mod:`~pycsou.opt.solver.stop`.)
+    Different stopping criteria can be used. (see :py:mod:`~pycsou.opt.solver.stop`.) It is recommended
+    to change the stopping criterion when using the PAdam and AMSGrad variants to avoid premature stops.
     By default, the same stopping criterion is used for the proximal sub-problem.
-    (A minimum number of iterations is enforced to avoid premature stopping on slow starts.)
 
     ``ProxAdam.fit()`` **Parameterization**
 
