@@ -238,27 +238,68 @@ class Pad(pyca.LinOp):
         arr = arr.reshape(*sh, *self._arg_shape)
         N_dim = len(self._arg_shape)
 
+        # Part 1: extend the core
         xp = pycu.get_array_module(arr)
         pad_width_sh = ((0, 0),) * len(sh)  # don't pad stack-dims
+        out = xp.pad(
+            array=arr,
+            pad_width=pad_width_sh + self._pad_width,
+            mode="constant",
+            constant_values=0,
+        )
 
-        if len(set(self._mode)) == 1:  # mono-mode: one-shot padding
-            out = xp.pad(
-                array=arr,
-                pad_width=pad_width_sh + self._pad_width,
-                mode=self._mode[0],
-            )
-        else:  # multi-mode: pad iteratively
-            out = arr
-            for i in range(N_dim):
-                pad_width = [(0, 0)] * N_dim
-                pad_width[i] = self._pad_width[i]
-                pad_width = tuple(pad_width)
+        # Part 2: apply border effects (if any)
+        for i in range(N_dim, 0, -1):
+            mode = self._mode[-i]
+            lhs, rhs = self._pad_width[-i]
+            N = self._pad_shape[-i]
 
-                out = xp.pad(
-                    array=out,
-                    pad_width=pad_width_sh + pad_width,
-                    mode=self._mode[i],
-                )
+            r_s = [slice(None)] * (len(sh) + N_dim)  # read axial selector
+            w_s = [slice(None)] * (len(sh) + N_dim)  # write axial selector
+
+            if mode == "constant":
+                # no border effects
+                pass
+            elif mode == "wrap":
+                # Fix LHS
+                r_s[-i] = slice(N - rhs - lhs, N - rhs)
+                w_s[-i] = slice(0, lhs)
+                out[tuple(w_s)] = out[tuple(r_s)]
+
+                # Fix RHS
+                r_s[-i] = slice(lhs, lhs + rhs)
+                w_s[-i] = slice(N - rhs, N)
+                out[tuple(w_s)] = out[tuple(r_s)]
+            elif mode == "reflect":
+                # Fix LHS
+                r_s[-i] = slice(2 * lhs, lhs, -1)
+                w_s[-i] = slice(0, lhs)
+                out[tuple(w_s)] = out[tuple(r_s)]
+
+                # Fix RHS
+                r_s[-i] = slice(N - rhs - 2, N - 2 * rhs - 2, -1)
+                w_s[-i] = slice(N - rhs, N)
+                out[tuple(w_s)] = out[tuple(r_s)]
+            elif mode == "symmetric":
+                # Fix LHS
+                r_s[-i] = slice(2 * lhs - 1, lhs - 1, -1)
+                w_s[-i] = slice(0, lhs)
+                out[tuple(w_s)] = out[tuple(r_s)]
+
+                # Fix RHS
+                r_s[-i] = slice(N - rhs - 1, N - 2 * rhs - 1, -1)
+                w_s[-i] = slice(N - rhs, N)
+                out[tuple(w_s)] = out[tuple(r_s)]
+            elif mode == "edge":
+                if lhs > 0:  # Fix LHS
+                    r_s[-i] = slice(lhs, lhs + 1)
+                    w_s[-i] = slice(0, lhs)
+                    out[tuple(w_s)] = out[tuple(r_s)]
+
+                if rhs > 0:  # Fix RHS
+                    r_s[-i] = slice(N - rhs - 1, N - rhs)
+                    w_s[-i] = slice(N - rhs, N)
+                    out[tuple(w_s)] = out[tuple(r_s)]
 
         out = out.reshape(*sh, self.codim)
         return out
