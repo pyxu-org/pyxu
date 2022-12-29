@@ -5,6 +5,7 @@ Operator Arithmetic.
 import copy
 import types
 import typing as typ
+import warnings
 
 import numpy as np
 
@@ -12,6 +13,7 @@ import pycsou.abc.operator as pyco
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
 
 
 class Rule:
@@ -648,6 +650,7 @@ class AddRule(Rule):
 
     * FUNCTIONAL
         op.asloss(\beta) = _lhs.asloss(\beta) + _rhs.asloss(\beta)
+                           may be ambiguous -> warning
 
     * PROXIMABLE
         op.prox(arr, tau) = _lhs.prox(arr - tau * _rhs.grad(arr), tau)
@@ -931,6 +934,15 @@ class AddRule(Rule):
 
     def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
         if self.has(pyco.Property.FUNCTIONAL):
+            msg = "\n".join(
+                [
+                    "The meaning of (lhs + rhs).asloss() may be ambiguous if the loss-notion differs among functionals involved.",
+                    "It is recommended to call asloss() prior to adding functionals instead:",
+                    "    lhs.asloss(data) + rhs.asloss(data)",
+                ]
+            )
+            warnings.warn(msg, pycuw.AutoInferenceWarning)
+
             if data is None:
                 op = self
             else:
@@ -978,7 +990,7 @@ class ChainRule(Rule):
             + update op._lipschitz
 
     * FUNCTIONAL
-        op.asloss(\beta) = _lhs.asloss(\beta) * _rhs
+        op.asloss(\beta) = ambiguous -> disabled
 
     * PROXIMABLE (RHS Unitary only)
         op.prox(arr, tau) = _rhs.adjoint(_lhs.prox(_rhs.apply(arr), tau))
@@ -1233,12 +1245,15 @@ class ChainRule(Rule):
 
     def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
         if self.has(pyco.Property.FUNCTIONAL):
-            if data is None:
-                op = self
-            else:
-                op_lhs = self._lhs.asloss(data=data)
-                op = op_lhs * self._rhs
-            return op
+            msg = "\n".join(
+                [
+                    "The meaning of (lhs * rhs).asloss() is ambiguous:",
+                    "    (1) (lhs * rhs).asloss(data) ?= lhs.asloss(data) * rhs",
+                    "    (2) (lhs * rhs).asloss(data) ?= lhs * g.[unknown_transform](data)",
+                    "Rewrite the expression differently to clarify the intent.",
+                ]
+            )
+            raise ArithmeticError(msg)
         else:
             raise NotImplementedError
 

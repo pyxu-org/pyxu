@@ -250,13 +250,8 @@ class ChainRuleMixin:
         return self._random_array((N_test, dim))
 
     # Tests -------------------------------------------------------------------
-    @pytest.mark.skip("See test body for context.")
+    @pytest.mark.skip("undefined for composition.")
     def test_interface_asloss(self, op_lhs):
-        # Test cases defined in `op_lrhs` below were not designed to test asloss(). [domain-agnostic
-        # operators lose this property after .asloss(), etc.]
-        #
-        # [2022.08.27][Sepand Kashani] Manual testing shows that desired .asloss() behavior is
-        # achieved with the implementation in ChainRule.
         pass
 
 
