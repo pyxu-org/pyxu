@@ -387,7 +387,7 @@ class ProxAdam(pyca.Solver):
         mst["x"] = x
 
     def default_stop_crit(self) -> pyca.StoppingCriterion:
-        from pycsou.opt.stop import MaxIter, RelError
+        from pycsou.opt.stop import RelError
 
         # Described in [ProxAdam]_ and used in their implementation:
         # https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.py
@@ -398,8 +398,7 @@ class ProxAdam(pyca.Solver):
             norm=2,
             satisfy_all=True,
         )
-        min_steps = MaxIter(n=50)
-        return min_steps & rel_error
+        return rel_error
 
     def objective_func(self) -> pyct.NDArray:
         func = lambda x: self._f.apply(x) + self._g.apply(x)
