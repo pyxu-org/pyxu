@@ -143,7 +143,8 @@ class TestStencil(conftest.SquareOpT):
         arg_shape, kernel, center, mode = _spec[0]  # user-provided form
 
         # transform kernel to right backend
-        xp = ndi.module()
+        if (xp := ndi.module()) is None:
+            pytest.skip(f"{ndi} unsupported on this machine.")
         try:
             pycd.NDArrayInfo.from_obj(kernel)  # passes if array object
             kernel = xp.array(kernel)
