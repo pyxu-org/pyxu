@@ -438,7 +438,7 @@ class Stencil(pyca.SquareOp):
                 trim=True,
                 dtype=x.dtype,
                 meta=x._meta,
-                stencils=self._st_fw,
+                stencils=stencils,
             )
             for _ in x
         ]
