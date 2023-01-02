@@ -464,7 +464,8 @@ class MapT:
         self._skip_if_disabled()
         self._check_no_side_effect(op.__call__, _data_apply)
 
-    # todo: nan=(np.inf-np.inf)<np.inf returns False
+    # We disable RuntimeWarnings which may arise due to NaNs. (See comment below.)
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_math_lipschitz(
         self,
         op,
@@ -483,6 +484,11 @@ class MapT:
             y = xp.stack([_[1] for _ in data], axis=0)
 
             lhs = pylinalg.norm(op.apply(x) - op.apply(y), axis=-1)
+            # .apply() may return INFs, in which case `INF-INF=NaN` may arise above.
+            # less_equal() is not able to handle NaNs, so the former are overwritten by a sensible
+            # value in this context, i.e. 0.
+            lhs[xp.isnan(lhs)] = 0
+
             rhs = L * pylinalg.norm(x - y, axis=-1)
             success = less_equal(lhs, rhs, as_dtype=width.value)
             assert all(success)
