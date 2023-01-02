@@ -1,3 +1,7 @@
+import functools
+import warnings
+
+import dask
 import numpy as np
 import scipy.optimize as sopt
 
@@ -5,7 +9,9 @@ import pycsou.abc as pyca
 import pycsou.math.linalg as pylinalg
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
 
 __all__ = [
     "L1Norm",
@@ -167,42 +173,117 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
         return y
 
     def _prox_root(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        *sh, dim = arr.shape
+        arr = arr.reshape(-1, dim)  # (N_stack, N)
+        N_stack, N = arr.shape
+
+        # Restrict processing to non-zero inputs
         xp = pycu.get_array_module(arr)
-        if xp.linalg.norm(arr) > 0:
-            mu_max = xp.max(xp.fabs(arr) ** 2) / (4 * tau)
+        idx = xp.arange(N_stack)[xp.linalg.norm(arr, axis=-1) > 0]
+
+        def f(i: pyct.Integer, mu: pyct.Real) -> pyct.Real:
+            # Proxy function to compute \mu_opt
+            #
+            # Inplace implementation of
+            #     f(i, mu) = clip(|arr[i]| * sqrt(tau / mu) - 2 * tau, 0, None).sum() - 1
+            x = xp.fabs(arr[i])
+            x *= xp.sqrt(tau / mu)
+            x -= 2 * tau
+            xp.clip(x, 0, None, out=x)
+            y = x.sum()
+            y -= 1
+
+            return y
+
+        # Part 1 below is not vectorized, hence the loop.
+        out = xp.zeros((N_stack, N), dtype=arr.dtype)
+        for i in idx:
+            # Part 1: Compute \mu_opt -----------------------------------------
             mu_min = 1e-12
-            func = lambda mu: xp.sum(xp.fmax(xp.fabs(arr) * xp.sqrt(tau / mu) - 2 * tau, 0)) - 1
-            mu_star = sopt.brentq(func, a=mu_min, b=mu_max)
-            lambda_ = xp.fmax(xp.abs(arr) * xp.sqrt(tau / mu_star) - 2 * tau, 0)
-            lambda_ = lambda_.astype(arr.dtype)
-            return arr * lambda_ / (lambda_ + 2 * tau)
-        else:
-            return arr
+            mu_max = xp.fabs(arr[i]).max() ** 2 / (4 * tau)  # todo: where does this come from?
+            mu_opt, res = sopt.brentq(
+                f=functools.partial(f, i),
+                a=mu_min,
+                b=mu_max,
+                full_output=True,
+                disp=False,
+            )
+            if not res.converged:
+                msg = "Computing mu_opt did not converge."
+                raise ValueError(msg)
 
-    @pycu.redirect("arr", DASK=_prox_root)
+            # Part 2: Compute \lambda -----------------------------------------
+            # Inplace implementation of
+            #     lambda_ = clip(|arr[i]| * sqrt(tau / mu_opt) - 2 * tau, 0, None)
+            lambda_ = xp.fabs(arr[i])
+            lambda_ *= xp.sqrt(tau / mu_opt)
+            lambda_ -= 2 * tau
+            xp.clip(lambda_, 0, None, out=lambda_)
+
+            # Part 3: Compute \prox -------------------------------------------
+            # Inplace implementation of
+            #     out[i] = arr[i] * lambda_ / (lambda_ + 2 * tau)
+            out[i] = arr[i]
+            out[i] *= lambda_
+            lambda_ += 2 * tau
+            out[i] /= lambda_
+
+        out = out.reshape(*sh, dim)
+        return out
+
     def _prox_sort(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        z = xp.sort(xp.abs(arr))[::-1]
-        cumsum_z = xp.cumsum(z)
-        test_array = z - (2 * tau / (1 + (xp.arange(z.size) + 1) * 2 * tau)) * cumsum_z
-        if self.apply(arr) == 0:
-            max_nzi = 0
-        else:
-            max_nzi = xp.max(xp.nonzero(test_array.reshape(-1) > 0)[0])
-        threshold = cumsum_z[max_nzi]
-        threshold *= 2 * tau / (1 + (max_nzi + 1) * 2 * tau)
-        y = xp.fmax(0, xp.fabs(arr) - threshold)
-        y *= xp.sign(arr)
-        return y
+        *sh, dim = arr.shape
+        arr = arr.reshape(-1, dim)  # (N_stack, N)
+        N_stack, N = arr.shape
 
-    @pycu.vectorize("arr")
+        xp = pycu.get_array_module(arr)
+
+        # Inplace implementation of
+        #     y = sort(|arr|, axis=-1)[..., ::-1]
+        y = xp.fabs(arr)
+        y.sort(axis=-1)
+        y = y[..., ::-1]
+
+        out = xp.zeros((N_stack, N), dtype=arr.dtype)
+        z = y.cumsum(axis=-1)
+        z *= tau / (0.5 + tau * xp.arange(1, N + 1, dtype=z.dtype))
+        for i in range(N_stack):
+            p = max(xp.flatnonzero(y[i] > z[i]), default=0)
+            tau2 = z[i, p]
+            out[i] = L1Norm().prox(arr[i], tau2)
+
+        out = out.reshape(*sh, N)
+        return out
+
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        arr = arr.ravel()
-        if self._algo == "root":
-            return self._prox_root(arr, tau)
-        elif self._algo == "sort":
-            return self._prox_sort(arr, tau)
+        f = dict(
+            root=self._prox_root,
+            sort=self._prox_sort,
+        ).get(self._algo)
+
+        N = pycd.NDArrayInfo
+        is_dask = N.from_obj(arr) == N.DASK
+        if is_dask:
+            f = dask.delayed(f, pure=True)
+            if self._algo == "sort":
+                msg = "\n".join(
+                    [
+                        "Using prox_algo='sort' on Dask inputs is inefficient.",
+                        "Consider using prox_algo='root' instead.",
+                    ]
+                )
+                warnings.warn(msg, pycuw.PerformanceWarning)
+
+        out = f(arr, tau)
+        if is_dask:
+            xp = N.DASK.module()
+            out = xp.from_delayed(
+                out,
+                shape=arr.shape,
+                dtype=arr.dtype,
+            )
+        return out
 
 
 class LInftyNorm(ShiftLossMixin, pyca.ProxFunc):
