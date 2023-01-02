@@ -35,3 +35,11 @@ pycsou.operator.func.norm module
    :members:
    :undoc-members:
    :show-inheritance:
+
+pycsou.operator.func.indicator module
+-------------------------------------
+
+.. automodule:: pycsou.operator.func.indicator
+   :members:
+   :undoc-members:
+   :show-inheritance:
