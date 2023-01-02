@@ -303,8 +303,7 @@ class LInfinityNorm(ShiftLossMixin, pyca.ProxFunc):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        y = xp.max(xp.fabs(arr), axis=-1, keepdims=True)
+        y = pylinalg.norm(arr, ord=np.inf, axis=-1, keepdims=True)
         return y
 
     @pycrt.enforce_precision(i=("arr", "tau"))
