@@ -17,16 +17,18 @@ __all__ = [
 
 class L1Ball(ShiftLossMixin, pyca.ProxFunc):
     r"""
-    Indicator function of the :math:`\ell_1`-ball :math:`\{\mathbf{x}\in\mathbb{R}^N: \|\mathbf{x}\|_1\leq \text{radius}\}`
+    Indicator function of the :math:`\ell_1`-ball.
 
     It is defined as:
 
     .. math::
 
-       \iota(\mathbf{x}):=\begin{cases}
-        0 \,\text{if} \,\|\mathbf{x}\|_1\leq \text{radius},\\
-         \, +\infty\,\text{ortherwise}.
-         \end{cases}
+       \iota_{1}^{r}(\mathbf{x})
+       :=
+       \begin{cases}
+           0 & \|\mathbf{x}\|_{1} \le r \\
+           \infty & \text{otherwise}.
+       \end{cases}
     """
 
     def __init__(self, dim: pyct.Integer = None, radius: pyct.Real = 1):
@@ -36,11 +38,7 @@ class L1Ball(ShiftLossMixin, pyca.ProxFunc):
         dim: pyct.Integer
             Dimension size. (Default: domain-agnostic.)
         radius: pyct.Real
-            Radius of ball. (Default: unit ball.)
-
-        Notes
-        -----
-        The scale parameter in the proximal operator can be set by the user, but it does not affect the computation. Indeed, the prox only depends on the ball radius.
+            Ball radius. (Default: unit ball.)
         """
         super().__init__(shape=(1, dim))
         self._radius = radius
@@ -70,16 +68,18 @@ class L1Ball(ShiftLossMixin, pyca.ProxFunc):
 
 class L2Ball(ShiftLossMixin, pyca.ProxFunc):
     r"""
-    Indicator function of the :math:`\ell_2`-ball :math:`\{\mathbf{x}\in\mathbb{R}^N: \|\mathbf{x}\|_2\leq \text{radius}\}`
+    Indicator function of the :math:`\ell_2`-ball.
 
     It is defined as:
 
     .. math::
 
-       \iota(\mathbf{x}):=\begin{cases}
-        0 \,\text{if} \,\|\mathbf{x}\|_2\leq \text{radius},\\
-         \, +\infty\,\text{ortherwise}.
-         \end{cases}
+       \iota_{2}^{r}(\mathbf{x})
+       :=
+       \begin{cases}
+           0 & \|\mathbf{x}\|_{2} \le r \\
+           \infty & \text{otherwise}.
+       \end{cases}
     """
 
     def __init__(self, dim: pyct.Integer = None, radius: pyct.Real = 1):
@@ -89,11 +89,7 @@ class L2Ball(ShiftLossMixin, pyca.ProxFunc):
         dim: pyct.Integer
             Dimension size. (Default: domain-agnostic.)
         radius: pyct.Real
-            Radius of ball. (Default: unit ball.)
-
-        Notes
-        -----
-        The scale parameter in the proximal operator can be set by the user, but it does not affect the computation. Indeed, the prox only depends on the ball radius.
+            Ball radius. (Default: unit ball.)
         """
         super().__init__(shape=(1, dim))
         self._radius = radius
@@ -119,16 +115,18 @@ class L2Ball(ShiftLossMixin, pyca.ProxFunc):
 
 class LInfinityBall(ShiftLossMixin, pyca.ProxFunc):
     r"""
-    Indicator function of the :math:`\ell_\infty`-ball :math:`\{\mathbf{x}\in\mathbb{R}^N: \|\mathbf{x}\|_\infty\leq \text{radius}\}`
+    Indicator function of the :math:`\ell_\infty`-ball.
 
     It is defined as:
 
     .. math::
 
-       \iota(\mathbf{x}):=\begin{cases}
-        0 \,\text{if} \,\|\mathbf{x}\|_\infty\leq \text{radius},\\
-         \, +\infty\,\text{ortherwise}.
-         \end{cases}
+       \iota_{\infty}^{r}(\mathbf{x})
+       :=
+       \begin{cases}
+           0 & \|\mathbf{x}\|_{\infty} \le r \\
+           \infty & \text{otherwise}.
+       \end{cases}
     """
 
     def __init__(self, dim: pyct.Integer = None, radius: pyct.Real = 1):
@@ -138,11 +136,7 @@ class LInfinityBall(ShiftLossMixin, pyca.ProxFunc):
         dim: pyct.Integer
             Dimension size. (Default: domain-agnostic.)
         radius: pyct.Real
-            Radius of ball. (Default: unit ball.)
-
-        Notes
-        -----
-        The scale parameter in the proximal operator can be set by the user, but it does not affect the computation. Indeed, the prox only depends on the ball radius.
+            Ball radius. (Default: unit ball.)
         """
         super().__init__(shape=(1, dim))
         self._radius = radius
