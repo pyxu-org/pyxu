@@ -295,12 +295,12 @@ class TestSquaredL1Norm(conftest.ProxFuncT):
         return self._random_array((N_test, dim))
 
 
-class TestLInftyNorm(conftest.ProxFuncT):
+class TestLInfinityNorm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
             (  # dim, op
-                (5, pycof.LInftyNorm(dim=5)),
-                (None, pycof.LInftyNorm(dim=None)),
+                (5, pycof.LInfinityNorm(dim=5)),
+                (None, pycof.LInfinityNorm(dim=None)),
             ),
             pycd.NDArrayInfo,
             pycrt.Width,

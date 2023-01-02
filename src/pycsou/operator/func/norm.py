@@ -18,7 +18,7 @@ __all__ = [
     "L2Norm",
     "SquaredL2Norm",
     "SquaredL1Norm",
-    "LInftyNorm",
+    "LInfinityNorm",
 ]
 
 
@@ -286,9 +286,9 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
         return out
 
 
-class LInftyNorm(ShiftLossMixin, pyca.ProxFunc):
+class LInfinityNorm(ShiftLossMixin, pyca.ProxFunc):
     r"""
-    :math:`\ell_{\infty}`-norm, :math:`\Vert\mathbf{x}\Vert_2:=\max_{i=1,.,N} |x_i|`.
+    :math:`\ell_{\infty}`-norm, :math:`\Vert\mathbf{x}\Vert_\infty:=\max_{i=1,\ldots,N} |x_i|`.
     """
 
     def __init__(self, dim: pyct.Integer = None):
