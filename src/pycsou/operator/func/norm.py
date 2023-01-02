@@ -306,16 +306,43 @@ class LInfinityNorm(ShiftLossMixin, pyca.ProxFunc):
         y = pylinalg.norm(arr, ord=np.inf, axis=-1, keepdims=True)
         return y
 
+    def _prox_dask(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        xp = pycd.NDArrayInfo.DASK.module()
+        f = dask.delayed(self.prox, pure=True)
+        out = xp.from_delayed(
+            f(arr, tau),
+            shape=arr.shape,
+            dtype=arr.dtype,
+        )
+        return out
+
     @pycrt.enforce_precision(i=("arr", "tau"))
+    @pycu.redirect("arr", DASK=_prox_dask)
     @pycu.vectorize("arr")
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        mu_max = self.apply(arr)
-        if mu_max == 0:
-            return arr
-        else:
-            func = lambda mu: xp.sum(xp.fmax(xp.fabs(arr) - mu, 0)) - tau
-            mu_star = sopt.brentq(func, a=0, b=mu_max)
-            y = xp.fmin(xp.fabs(arr), mu_star)
-            y *= xp.sign(arr)
+        y = xp.zeros(arr.shape, dtype=arr.dtype)
+
+        def f(mu: pyct.Real) -> pyct.Real:
+            # Proxy function to compute \mu_opt
+            #
+            # Inplace implementation of
+            #     f(mu) = clip(xp.fabs(arr) - mu, 0, None).sum() - tau
+            x = xp.fabs(arr)
+            x -= mu
+            xp.clip(x, 0, None, out=x)
+            y = x.sum()
+            y -= tau
             return y
+
+        mu_max = self.apply(arr)
+        if (mu_max > 0).all():
+            mu_opt = sopt.brentq(f, a=0, b=mu_max)
+
+            # Inplace implementation of
+            #     y = sgn(arr) * fmin(|arr|, mu_opt)
+            xp.fabs(arr, out=y)
+            xp.fmin(y, mu_opt, out=y)
+            y *= xp.sign(arr)
+
+        return y
