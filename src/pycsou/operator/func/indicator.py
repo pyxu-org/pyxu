@@ -1,12 +1,11 @@
 import numpy as np
-import scipy.optimize as sopt
 
 import pycsou.abc as pyca
 import pycsou.math.linalg as pylinalg
+import pycsou.operator.func.norm as pycofn
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
-from pycsou.operator.func.norm import ShiftLossMixin
 
 __all__ = [
     "L1Ball",
@@ -15,7 +14,7 @@ __all__ = [
 ]
 
 
-class L1Ball(ShiftLossMixin, pyca.ProxFunc):
+class L1Ball(pycofn.ShiftLossMixin, pyca.ProxFunc):
     r"""
     Indicator function of the :math:`\ell_1`-ball.
 
@@ -45,28 +44,21 @@ class L1Ball(ShiftLossMixin, pyca.ProxFunc):
         self._lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
-    @pycu.vectorize("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.Real:
         xp = pycu.get_array_module(arr)
-        condition = pylinalg.norm(arr, ord=1) <= self._radius
-        return xp.zeros(1, dtype=arr.dtype) if condition else np.inf * xp.ones(1, dtype=arr.dtype)
+        out = xp.zeros((*arr.shape[:-1], self.codim), dtype=arr.dtype)
+        norm = pylinalg.norm(arr, ord=1, axis=-1, keepdims=True)
+        out[norm > self._radius] = np.inf
+        return out
 
     @pycrt.enforce_precision(i=("arr", "tau"))
-    @pycu.vectorize("arr")
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        if pylinalg.norm(arr, ord=1) <= self._radius:
-            return arr
-        else:
-            mu_max = xp.max(xp.fabs(arr))
-            func = lambda mu: xp.sum(xp.fmax(xp.fabs(arr) - mu, 0)) - self._radius
-            mu_star = sopt.brentq(func, a=0, b=mu_max)
-            y = xp.fmax(0, xp.fabs(arr) - mu_star)
-            y *= xp.sign(arr)
-        return y
+        out = arr.copy()
+        out -= pycofn.LInfinityNorm().prox(arr, tau=self._radius)
+        return out
 
 
-class L2Ball(ShiftLossMixin, pyca.ProxFunc):
+class L2Ball(pycofn.ShiftLossMixin, pyca.ProxFunc):
     r"""
     Indicator function of the :math:`\ell_2`-ball.
 
@@ -96,24 +88,21 @@ class L2Ball(ShiftLossMixin, pyca.ProxFunc):
         self._lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
-    @pycu.vectorize("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        condition = xp.linalg.norm(arr) <= self._radius
-        return xp.zeros(1, dtype=arr.dtype) if condition else np.inf * xp.ones(1, dtype=arr.dtype)
+        out = xp.zeros((*arr.shape[:-1], self.codim), dtype=arr.dtype)
+        norm = pylinalg.norm(arr, ord=2, axis=-1, keepdims=True)
+        out[norm > self._radius] = np.inf
+        return out
 
     @pycrt.enforce_precision(i=("arr", "tau"))
-    @pycu.vectorize("arr")
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        arr_norm = xp.linalg.norm(arr).astype(arr.dtype)
-        if arr_norm <= self._radius:
-            return arr
-        else:
-            return self._radius * arr / arr_norm
+        out = arr.copy()
+        out -= pycofn.L2Norm().prox(arr, tau=self._radius)
+        return out
 
 
-class LInfinityBall(ShiftLossMixin, pyca.ProxFunc):
+class LInfinityBall(pycofn.ShiftLossMixin, pyca.ProxFunc):
     r"""
     Indicator function of the :math:`\ell_\infty`-ball.
 
@@ -143,19 +132,14 @@ class LInfinityBall(ShiftLossMixin, pyca.ProxFunc):
         self._lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
-    @pycu.vectorize("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        condition = xp.max(xp.fabs(arr)) <= self._radius
-        return xp.zeros(1, dtype=arr.dtype) if condition else np.inf * xp.ones(1, dtype=arr.dtype)
+        out = xp.zeros((*arr.shape[:-1], self.codim), dtype=arr.dtype)
+        norm = pylinalg.norm(arr, ord=np.inf, axis=-1, keepdims=True)
+        out[norm > self._radius] = np.inf
+        return out
 
     @pycrt.enforce_precision(i=("arr", "tau"))
-    @pycu.vectorize("arr")
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        if xp.max(xp.fabs(arr)) <= self._radius:
-            return arr
-        else:
-            y = xp.fmin(xp.fabs(arr), self._radius)
-            y *= xp.sign(arr)
-            return y
+        y = arr.clip(-self._radius, self._radius)
+        return y
