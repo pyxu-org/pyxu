@@ -145,12 +145,12 @@ class TestL2Ball(conftest.ProxFuncT):
         return self._random_array((N_test, dim))
 
 
-class TestLInftyBall(conftest.ProxFuncT):
+class TestLInfinityBall(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
             (  # dim, op
-                (5, pycof.LInftyBall(dim=5, radius=1)),
-                (None, pycof.LInftyBall(dim=None, radius=1)),
+                (5, pycof.LInfinityBall(dim=5, radius=1)),
+                (None, pycof.LInfinityBall(dim=None, radius=1)),
             ),
             pycd.NDArrayInfo,
             pycrt.Width,

@@ -11,7 +11,7 @@ from pycsou.operator.func.norm import ShiftLossMixin
 __all__ = [
     "L1Ball",
     "L2Ball",
-    "LInftyBall",
+    "LInfinityBall",
 ]
 
 
@@ -117,7 +117,7 @@ class L2Ball(ShiftLossMixin, pyca.ProxFunc):
             return self._radius * arr / arr_norm
 
 
-class LInftyBall(ShiftLossMixin, pyca.ProxFunc):
+class LInfinityBall(ShiftLossMixin, pyca.ProxFunc):
     r"""
     Indicator function of the :math:`\ell_\infty`-ball :math:`\{\mathbf{x}\in\mathbb{R}^N: \|\mathbf{x}\|_\infty\leq \text{radius}\}`
 
