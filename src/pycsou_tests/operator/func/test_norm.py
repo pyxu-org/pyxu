@@ -227,10 +227,10 @@ class TestSquaredL1Norm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
             (  # dim, op
-                (5, pycof.SquaredL1Norm(dim=5, prox_computation="sort")),
-                (5, pycof.SquaredL1Norm(dim=5, prox_computation="root")),
-                (None, pycof.SquaredL1Norm(dim=None, prox_computation="sort")),
-                (None, pycof.SquaredL1Norm(dim=None, prox_computation="root")),
+                (5, pycof.SquaredL1Norm(dim=5, prox_algo="sort")),
+                (5, pycof.SquaredL1Norm(dim=5, prox_algo="root")),
+                (None, pycof.SquaredL1Norm(dim=None, prox_algo="sort")),
+                (None, pycof.SquaredL1Norm(dim=None, prox_algo="root")),
             ),
             pycd.NDArrayInfo,
             pycrt.Width,

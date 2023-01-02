@@ -136,22 +136,29 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
     :math:`\ell^2_1`-norm, :math:`\Vert\mathbf{x}\Vert^2_1:=(\sum_{i=1}^N |x_i|)^2`.
     """
 
-    def __init__(self, dim: pyct.Integer = None, prox_computation: str = "sort"):
+    def __init__(self, dim: pyct.Integer = None, prox_algo: str = "sort"):
         r"""
         Parameters
         ----------
         dim: pyct.Integer
             Dimension size. (Default: domain-agnostic.)
-        prox_computation: str
-            Algorithm for computing the proximal operator: 'root' uses [FirstOrd]_ Lemma 6.70, while 'sort' uses [OnKerLearn]_ Algorithm 2 (faster). (Default : 'sort'.)
+        prox_algo: str
+            Algorithm used for computing the proximal operator:
+
+            * 'root' uses [FirstOrd]_ Lemma 6.70
+            * 'sort' uses [OnKerLearn]_ Algorithm 2 (faster).
 
         Notes
         -----
-        If module of input array is dask, algorithm 'root' is used independently of the user choice (sorting is not recommended in dask).
+        :py:meth:`~pycsou.operator.func.norm.SquaredL1Norm.prox` will always use the root method
+        when applied on Dask inputs. (Reason: sorting Dask inputs at scale is discouraged.)
         """
         super().__init__(shape=(1, dim))
         self._lipschitz = np.inf
-        self.prox_computation = prox_computation
+
+        algo = prox_algo.strip().lower()
+        assert algo in ("root", "sort")
+        self._algo = algo
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -192,9 +199,9 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         arr = arr.ravel()
-        if self.prox_computation == "root":
+        if self._algo == "root":
             return self._prox_root(arr, tau)
-        elif self.prox_computation == "sort":
+        elif self._algo == "sort":
             return self._prox_sort(arr, tau)
 
 
