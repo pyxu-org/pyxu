@@ -508,7 +508,17 @@ class Stencil(pyca.SquareOp):
         return A
 
     def trace(self, **kwargs) -> pyct.Real:
-        # Stencil.apply() only supports the precision provided at init-time.
-        kwargs.update(dtype=self._dtype)
-        tr = super().trace(**kwargs)
+        if all(m == "constant" for m in self._pad._mode):
+            # tr = (kernel center coefficient) * N
+            tr = functools.reduce(
+                operator.mul,
+                [st._kernel[tuple(st._center)] for st in self._st_fw],
+                1,
+            )
+            tr *= self.dim
+        else:
+            # Standard algorithm, with computations restricted to precision supported by
+            # Stencil.apply().
+            kwargs.update(dtype=self._dtype)
+            tr = super().trace(**kwargs)
         return tr
