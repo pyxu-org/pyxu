@@ -1,13 +1,10 @@
-import cupy as cp
-import dask.array as ds
 import numpy as np
-import scipy.optimize as sciop
+import scipy.optimize as sopt
 
 import pycsou.abc as pyca
 import pycsou.math.linalg as pylinalg
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.array_module as pycam
 import pycsou.util.ptype as pyct
 
 __all__ = ["L1Norm", "L2Norm", "SquaredL2Norm", "SquaredL1Norm", "LInftyNorm", "L1Ball", "L2Ball", "LInftyBall"]
@@ -162,14 +159,14 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
             mu_max = xp.max(xp.fabs(arr) ** 2) / (4 * tau)
             mu_min = 1e-12
             func = lambda mu: xp.sum(xp.fmax(xp.fabs(arr) * xp.sqrt(tau / mu) - 2 * tau, 0)) - 1
-            mu_star = sciop.brentq(func, a=mu_min, b=mu_max)
+            mu_star = sopt.brentq(func, a=mu_min, b=mu_max)
             lambda_ = xp.fmax(xp.abs(arr) * xp.sqrt(tau / mu_star) - 2 * tau, 0)
             lambda_ = lambda_.astype(arr.dtype)
             return arr * lambda_ / (lambda_ + 2 * tau)
         else:
             return arr
 
-    @pycam.redirect("arr", DASK=_prox_root)
+    @pycu.redirect("arr", DASK=_prox_root)
     def _prox_sort(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         z = xp.sort(xp.abs(arr))[::-1]
@@ -225,7 +222,7 @@ class LInftyNorm(ShiftLossMixin, pyca.ProxFunc):
             return arr
         else:
             func = lambda mu: xp.sum(xp.fmax(xp.fabs(arr) - mu, 0)) - tau
-            mu_star = sciop.brentq(func, a=0, b=mu_max)
+            mu_star = sopt.brentq(func, a=0, b=mu_max)
             y = xp.fmin(xp.fabs(arr), mu_star)
             y *= xp.sign(arr)
             return y
