@@ -14,11 +14,44 @@ __all__ = [
 ]
 
 
-class L1Ball(pycofn.ShiftLossMixin, pyca.ProxFunc):
+class _NormBall(pycofn.ShiftLossMixin, pyca.ProxFunc):
+    def __init__(
+        self,
+        dim: pyct.Integer,
+        ord: pyct.Integer,
+        radius: pyct.Real,
+    ):
+        super().__init__(shape=(1, dim))
+        self._ord = ord
+        self._radius = float(radius)
+        self._lipschitz = np.inf
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        norm = pylinalg.norm(arr, ord=self._ord, axis=-1, keepdims=True)
+        cast = lambda _: np.array(_, dtype=arr.dtype)[()]
+
+        xp = pycu.get_array_module(arr)
+        out = xp.where(norm <= self._radius, cast(0), cast(np.inf))
+        return out
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        klass = {  # class of proximal operator to use
+            1: pycofn.LInfinityNorm,
+            2: pycofn.L2Norm,
+            np.inf: pycofn.L1Norm,
+        }[self._ord]
+        op = klass()
+
+        out = arr.copy()
+        out -= op.prox(arr, tau=self._radius)
+        return out
+
+
+def L1Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
     r"""
     Indicator function of the :math:`\ell_1`-ball.
-
-    It is defined as:
 
     .. math::
 
@@ -28,41 +61,26 @@ class L1Ball(pycofn.ShiftLossMixin, pyca.ProxFunc):
            0 & \|\mathbf{x}\|_{1} \le r \\
            \infty & \text{otherwise}.
        \end{cases}
+
+    Parameters
+    ----------
+    dim: pyct.Integer
+        Dimension size. (Default: domain-agnostic.)
+    radius: pyct.Real
+        Ball radius. (Default: unit ball.)
+
+    Returns
+    -------
+    op: pyct.OpT
     """
-
-    def __init__(self, dim: pyct.Integer = None, radius: pyct.Real = 1):
-        r"""
-        Parameters
-        ----------
-        dim: pyct.Integer
-            Dimension size. (Default: domain-agnostic.)
-        radius: pyct.Real
-            Ball radius. (Default: unit ball.)
-        """
-        super().__init__(shape=(1, dim))
-        self._radius = radius
-        self._lipschitz = np.inf
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.Real:
-        xp = pycu.get_array_module(arr)
-        out = xp.zeros((*arr.shape[:-1], self.codim), dtype=arr.dtype)
-        norm = pylinalg.norm(arr, ord=1, axis=-1, keepdims=True)
-        out[norm > self._radius] = np.inf
-        return out
-
-    @pycrt.enforce_precision(i=("arr", "tau"))
-    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        out = arr.copy()
-        out -= pycofn.LInfinityNorm().prox(arr, tau=self._radius)
-        return out
+    op = _NormBall(dim=dim, ord=1, radius=radius)
+    op._name = "L1Ball"
+    return op
 
 
-class L2Ball(pycofn.ShiftLossMixin, pyca.ProxFunc):
+def L2Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
     r"""
     Indicator function of the :math:`\ell_2`-ball.
-
-    It is defined as:
 
     .. math::
 
@@ -72,41 +90,26 @@ class L2Ball(pycofn.ShiftLossMixin, pyca.ProxFunc):
            0 & \|\mathbf{x}\|_{2} \le r \\
            \infty & \text{otherwise}.
        \end{cases}
+
+    Parameters
+    ----------
+    dim: pyct.Integer
+        Dimension size. (Default: domain-agnostic.)
+    radius: pyct.Real
+        Ball radius. (Default: unit ball.)
+
+    Returns
+    -------
+    op: pyct.OpT
     """
-
-    def __init__(self, dim: pyct.Integer = None, radius: pyct.Real = 1):
-        r"""
-        Parameters
-        ----------
-        dim: pyct.Integer
-            Dimension size. (Default: domain-agnostic.)
-        radius: pyct.Real
-            Ball radius. (Default: unit ball.)
-        """
-        super().__init__(shape=(1, dim))
-        self._radius = radius
-        self._lipschitz = np.inf
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        out = xp.zeros((*arr.shape[:-1], self.codim), dtype=arr.dtype)
-        norm = pylinalg.norm(arr, ord=2, axis=-1, keepdims=True)
-        out[norm > self._radius] = np.inf
-        return out
-
-    @pycrt.enforce_precision(i=("arr", "tau"))
-    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        out = arr.copy()
-        out -= pycofn.L2Norm().prox(arr, tau=self._radius)
-        return out
+    op = _NormBall(dim=dim, ord=2, radius=radius)
+    op._name = "L2Ball"
+    return op
 
 
-class LInfinityBall(pycofn.ShiftLossMixin, pyca.ProxFunc):
+def LInfinityBall(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
     r"""
     Indicator function of the :math:`\ell_\infty`-ball.
-
-    It is defined as:
 
     .. math::
 
@@ -116,30 +119,18 @@ class LInfinityBall(pycofn.ShiftLossMixin, pyca.ProxFunc):
            0 & \|\mathbf{x}\|_{\infty} \le r \\
            \infty & \text{otherwise}.
        \end{cases}
+
+    Parameters
+    ----------
+    dim: pyct.Integer
+        Dimension size. (Default: domain-agnostic.)
+    radius: pyct.Real
+        Ball radius. (Default: unit ball.)
+
+    Returns
+    -------
+    op: pyct.OpT
     """
-
-    def __init__(self, dim: pyct.Integer = None, radius: pyct.Real = 1):
-        r"""
-        Parameters
-        ----------
-        dim: pyct.Integer
-            Dimension size. (Default: domain-agnostic.)
-        radius: pyct.Real
-            Ball radius. (Default: unit ball.)
-        """
-        super().__init__(shape=(1, dim))
-        self._radius = radius
-        self._lipschitz = np.inf
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        out = xp.zeros((*arr.shape[:-1], self.codim), dtype=arr.dtype)
-        norm = pylinalg.norm(arr, ord=np.inf, axis=-1, keepdims=True)
-        out[norm > self._radius] = np.inf
-        return out
-
-    @pycrt.enforce_precision(i=("arr", "tau"))
-    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        y = arr.clip(-self._radius, self._radius)
-        return y
+    op = _NormBall(dim=dim, ord=np.inf, radius=radius)
+    op._name = "LInfinityBall"
+    return op
