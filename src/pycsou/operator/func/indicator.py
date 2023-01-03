@@ -62,6 +62,12 @@ def L1Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
            \infty & \text{otherwise}.
        \end{cases}
 
+    .. math::
+
+       \text{prox}_{\tau\, \iota_{1}^{r}}(\mathbf{x})
+       :=
+       \mathbf{x} - \text{prox}_{r\, \ell_{\infty}}(\mathbf{x})
+
     Parameters
     ----------
     dim: pyct.Integer
@@ -91,6 +97,12 @@ def L2Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
            \infty & \text{otherwise}.
        \end{cases}
 
+    .. math::
+
+       \text{prox}_{\tau\, \iota_{2}^{r}}(\mathbf{x})
+       :=
+       \mathbf{x} - \text{prox}_{r\, \ell_{2}}(\mathbf{x})
+
     Parameters
     ----------
     dim: pyct.Integer
@@ -119,6 +131,12 @@ def LInfinityBall(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
            0 & \|\mathbf{x}\|_{\infty} \le r \\
            \infty & \text{otherwise}.
        \end{cases}
+
+    .. math::
+
+       \text{prox}_{\tau\, \iota_{\infty}^{r}}(\mathbf{x})
+       :=
+       \mathbf{x} - \text{prox}_{r\, \ell_{1}}(\mathbf{x})
 
     Parameters
     ----------
