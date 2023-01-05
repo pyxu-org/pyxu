@@ -209,6 +209,7 @@ class ProxAdam(pyca.Solver):
         self._f = f
         # If f is domain-agnostic and g is unspecified, cannot auto-infer NullFunc dimension.
         # Solution: delay initialization of g to m_init(), where x0's shape can be used.
+        self._prox_required = g is not None
         self._g = g
 
     @pycrt.enforce_precision(i=("x0", "a", "b1", "b2", "m0", "v0", "p", "eps_adam", "eps_var"))
@@ -331,56 +332,58 @@ class ProxAdam(pyca.Solver):
         psi = self.__psi(t=self._astate["idx"])
         ## =====================================================
 
-        ## Part 2: setup + eval PGD sub-problems ===============
+        ## Part 2: take a step in the gradient's direction =====
         # In-place implementation of -----------------
         #   x = x - a * (phi / psi)
         phi /= psi
         phi *= a
         x -= phi
-        # --------------------------------------------
+        ## =====================================================
 
-        # Assume N initial points were provided in fit().
-        # We need to solve a PGD sub-problem for each of them.
-        #
-        # Option 1: solve one large PGD(f, g) sub-problem, with
-        #    f = hstack(f1, ..., fN)
-        #    g = hstack(g, ..., g)
-        # Option 2: solve N small PGD(f, g) sub-problems, with
-        #    f = fn
-        #    g = g
-        #
-        # The former (1) is more convenient since all sub-problems are solved in parallel, but:
-        # * convergence will be slower since diff-Lipschitz constant of hstack(f1, ..., fN) is
-        #   larger than those of fn. (Moreover the diff-Lipschitz constants of the fn may be spread
-        #   out.)
-        # * in the event `stop_crit_sub` is provided, we cannot always intercept/adapt it to apply
-        #   block-wise on `_mstate`.
-        #
-        # Each sub-problem in the latter (2) converges fast, but sub-problems may execute in
-        # sequence depending on the array backend used.
-        #
-        # In light of the above, we opt for Option 2.
-        *x_sh, N = x.shape
-        x_sub = []  # sub-problem solutions
-        scale = pycrt.coerce(0.5 / a)
-        for _x, _psi in zip(x.reshape(-1, N), psi.reshape(-1, N)):
-            gamma = pycrt.coerce(a / xp.max(_psi))
-            h_half = pycl.DiagonalOp(xp.sqrt(_psi))
+        ## Part 3: eval PGD sub-problems =======================
+        if self._prox_required:
+            # Assume N initial points were provided in fit().
+            # We need to solve a PGD sub-problem for each of them.
+            #
+            # Option 1: solve one large PGD(f, g) sub-problem, with
+            #    f = hstack(f1, ..., fN)
+            #    g = hstack(g, ..., g)
+            # Option 2: solve N small PGD(f, g) sub-problems, with
+            #    f = fn
+            #    g = g
+            #
+            # The former (1) is more convenient since all sub-problems are solved in parallel, but:
+            # * convergence will be slower since diff-Lipschitz constant of hstack(f1, ..., fN) is
+            #   larger than those of fn. (Moreover the diff-Lipschitz constants of the fn may be
+            #   spread out.)
+            # * in the event `stop_crit_sub` is provided, we cannot always intercept/adapt it to
+            #   apply block-wise on `_mstate`.
+            #
+            # Each sub-problem in the latter (2) converges fast, but sub-problems may execute in
+            # sequence depending on the array backend used.
+            #
+            # In light of the above, we opt for Option 2.
+            *x_sh, N = x.shape
+            x_sub = []  # sub-problem solutions
+            scale = pycrt.coerce(0.5 / a)
+            for _x, _psi in zip(x.reshape(-1, N), psi.reshape(-1, N)):
+                gamma = pycrt.coerce(a / xp.max(_psi))
+                h_half = pycl.DiagonalOp(xp.sqrt(_psi))
 
-            f1 = pycof.SquaredL2Norm().asloss(h_half.apply(_x)) * h_half
-            f = f1 * scale
+                f1 = pycof.SquaredL2Norm().asloss(h_half.apply(_x)) * h_half
+                f = f1 * scale
 
-            kwargs = mst["subproblem_init_kwargs"].copy()
-            kwargs.update(show_progress=False)
-            slvr = pycos.PGD(f=f, g=self._g, **kwargs)
+                kwargs = mst["subproblem_init_kwargs"].copy()
+                kwargs.update(show_progress=False)
+                slvr = pycos.PGD(f=f, g=self._g, **kwargs)
 
-            slvr.fit(
-                x0=_x,
-                tau=gamma,
-                stop_crit=mst["subproblem_stop_crit"],
-            )
-            x_sub.append(slvr.solution())
-        x = xp.stack(x_sub, axis=0).reshape(*x_sh, N)  # (..., N) original shape
+                slvr.fit(
+                    x0=_x,
+                    tau=gamma,
+                    stop_crit=mst["subproblem_stop_crit"],
+                )
+                x_sub.append(slvr.solution())
+            x = xp.stack(x_sub, axis=0).reshape(*x_sh, N)  # (..., N) original shape
         ## =====================================================
 
         mst["x"] = x

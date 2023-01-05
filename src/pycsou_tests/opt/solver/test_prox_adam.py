@@ -19,6 +19,7 @@ class TestProxAdam(conftest.SolverT):
         ]
         kwargs_init = [
             dict(f=SquaredL2Norm(), g=L1Norm()),
+            dict(f=SquaredL2Norm()),
         ]
 
         kwargs_fit = []
