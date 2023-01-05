@@ -2,7 +2,7 @@ Matthieu
 --------
 
 * [doc] Fix missing reference warnings. (See build/html/WARNINGS.log)
-* use pycrt.coerce() where it makes sense. [PDS only; the CG/PGD ok.]
+* use pycrt.coerce() where it makes sense. [PDS only]
 * use **kwargs to simplify signatures
 
 
@@ -10,12 +10,38 @@ Matthieu
 Sepand
 ------
 
-* Solver tests
-  Remaining: opt/solver/pds.py
-* Go over all code: refactor docstrings, type hints, etc.
-  Remaining: opt/solver/pds.py
-             compound/
-
+* Solver Tests
+    Remaining: opt/solver/pds.py
+* Refactor docstrings, type hints, etc.
+    Remaining: opt/solver/pds.py
+* Known Bugs
+  * General
+    * test_svdvals[SM, non-rectangular operators]
+      Returned values always wrong (esp. for fat arrays).
+      Probable cause: np.linalg.svd does not return the "true" singular values.
+  * Stencil
+    * test_value1D_svdvals[SM]
+      Always incorrect for ND kernels (seperable & non-seperable)
+      Did an experiment on NumPy backend:
+        Changing svds() seed gives different results.
+        Hunch: obtaining one of the smallest singular values, but not the smallest.
+      Values are not extravagant however: the failure is acceptable.
+    * test_valueND_adjoint_dagger()
+      Did not investigate yet.
+  * NUFFT
+    * type[123]()
+      Some tests fail only with DASK inputs.
+      Reason unknown.
+* Test Suite Enhancements
+  * General
+    * Add @slow_test tags.
+    * Add alternative tox instance to run non-@slow_test tests.
+    * Add DASK_CUPY mode.
+      [Only to the test suite. Need to figure out how to introduce /w breaking deps.py]
+  * NUFFT
+    * CuPy backend currently not tested since only kicks in/works when eps=0.
+      Enable CuPy backend once eps>0 case also becomes CuPy-capable.
+    * `modeord` is not tested
 
    
 
@@ -53,6 +79,5 @@ Joan
 
 
 
- Daniele
-----
-- In test_math_lipschitz, if the functional has L=np.inf and if it can take the value np.inf (as it happens for indicator functionals), then nan=np.inf-np.inf < np.inf returns False and the test fails.
+Daniele
+-------
