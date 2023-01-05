@@ -3,9 +3,11 @@ import itertools
 import numpy as np
 import pytest
 
+import pycsou.abc as pyca
 import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util.deps as pycd
+import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
 
@@ -562,4 +564,64 @@ class TestAffineSet(conftest.ProxFuncT):
     @pytest.fixture
     def data_math_lipschitz(self, A):
         N_test, dim = 10, A.shape[1]
+        return self._random_array((N_test, dim))
+
+
+class TestConvexSetIntersection(conftest.ProxFuncT):
+    @pytest.fixture(
+        params=itertools.product(
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def spec(self, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
+        ndi, width = request.param
+        # Intersection of L2/L-inf balls = L2 ball
+        op = pycof.ConvexSetIntersection(
+            pycof.L2Ball(),
+            pycof.LInfinityBall(),
+        )
+        return op, ndi, width
+
+    @pytest.fixture
+    def data_shape(self) -> pyct.OpShape:
+        return (1, None)
+
+    @pytest.fixture(
+        params=[
+            (np.r_[0, 0], np.r_[0]),
+            (np.r_[2, 0], np.r_[np.inf]),
+            (np.r_[-1, 0], np.r_[0]),
+            (np.r_[0, 2], np.r_[np.inf]),
+            (np.r_[0, -1], np.r_[0]),
+            (np.r_[1.05, 1.05], np.r_[np.inf]),
+            (np.r_[-0.5, -0.6], np.r_[0]),
+        ]
+    )
+    def data_apply(self, request) -> conftest.DataLike:
+        arr, out = request.param
+        return dict(
+            in_=dict(arr=arr),
+            out=out,
+        )
+
+    @pytest.fixture(
+        params=[
+            (np.zeros(5), np.zeros(5)),
+            (np.arange(-3, 2), np.arange(-3, 2) / np.sqrt(15)),
+        ]
+    )
+    def data_prox(self, request) -> conftest.DataLike:
+        arr, out = request.param
+        return dict(
+            in_=dict(
+                arr=arr,
+                tau=0.75,  # some random value; doesn't affect prox outcome
+            ),
+            out=out,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self):
+        N_test, dim = 10, 3
         return self._random_array((N_test, dim))
