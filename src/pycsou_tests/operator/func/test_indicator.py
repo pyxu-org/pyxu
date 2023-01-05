@@ -279,3 +279,67 @@ class TestPositiveOrthant(conftest.ProxFuncT):
     def data_math_lipschitz(self, dim):
         N_test, dim = 10, self._sanitize(dim, 3)
         return self._random_array((N_test, dim))
+
+
+class TestHyperSlab(conftest.ProxFuncT):
+    @pytest.fixture(
+        params=itertools.product(
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def spec(self, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
+        ndi, width = request.param
+        if (xp := ndi.module()) is None:
+            pytest.skip(f"{ndi} unsupported on this machine.")
+
+        v = xp.array([1, 1], dtype=width.value)
+        a = pyca.LinFunc.from_array(v, enable_warnings=False)
+        op = pycof.HyperSlab(a, l=-1, u=2)
+
+        return op, ndi, width
+
+    @pytest.fixture
+    def data_shape(self) -> pyct.OpShape:
+        return (1, 2)
+
+    @pytest.fixture(
+        params=[
+            (np.r_[0, 0], np.r_[0]),
+            (np.r_[2, 0], np.r_[0]),
+            (np.r_[-1, 0], np.r_[0]),
+            (np.r_[0, 2], np.r_[0]),
+            (np.r_[0, -1], np.r_[0]),
+            (np.r_[1.05, 1.05], np.r_[np.inf]),
+            (np.r_[-0.5, -0.6], np.r_[np.inf]),
+        ]
+    )
+    def data_apply(self, request) -> conftest.DataLike:
+        arr, out = request.param
+        return dict(
+            in_=dict(arr=arr),
+            out=out,
+        )
+
+    @pytest.fixture(
+        params=[
+            (np.r_[0, 0], np.r_[0, 0]),
+            (np.r_[2.1, 3], np.r_[0.55, 1.45]),
+            (np.r_[-3, -2], np.r_[-1, 0]),
+            (np.r_[1, 0.5], np.r_[1, 0.5]),
+        ]
+    )
+    def data_prox(self, request) -> conftest.DataLike:
+        arr, out = request.param
+        return dict(
+            in_=dict(
+                arr=arr,
+                tau=0.75,  # some random value; doesn't affect prox outcome
+            ),
+            out=out,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self):
+        N_test, dim = 10, 2
+        return self._random_array((N_test, dim))

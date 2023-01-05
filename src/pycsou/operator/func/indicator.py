@@ -12,6 +12,7 @@ __all__ = [
     "L2Ball",
     "LInfinityBall",
     "PositiveOrthant",
+    "HyperSlab",
 ]
 
 
@@ -204,4 +205,75 @@ class PositiveOrthant(_IndicatorFunction):
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         out = arr.clip(0, None)
+        return out
+
+
+class HyperSlab(_IndicatorFunction):
+    r"""
+    Indicator function of a hyperslab.
+
+    .. math::
+
+       \iota_{\mathbf{a}}^{l,u}(\mathbf{x})
+       :=
+       \begin{cases}
+           0 & l \le \langle \mathbf{a}, \mathbf{x} \rangle \le u \\
+           \infty & \text{otherwise}.
+       \end{cases}
+
+    .. math::
+
+       \text{prox}_{\tau\, \iota_{\mathbf{a}}^{l,u}}(\mathbf{x})
+       :=
+       \begin{cases}
+           \mathbf{x} + \frac{l - \langle \mathbf{a}, \mathbf{x} \rangle}{\|\mathbf{a}\|^{2}} \mathbf{a} & \langle \mathbf{a}, \mathbf{x} \rangle < l, \\
+           \mathbf{x} + \frac{u - \langle \mathbf{a}, \mathbf{x} \rangle}{\|\mathbf{a}\|^{2}} \mathbf{a} & \langle \mathbf{a}, \mathbf{x} \rangle > u, \\
+           \mathbf{x} & \text{otherwise}.
+       \end{cases}
+    """
+
+    @pycrt.enforce_precision(i=("l", "u"))
+    def __init__(self, a: pyca.LinFunc, l: pyct.Real, u: pyct.Real):
+        """
+        Parameters
+        ----------
+        A: pyca.LinFunc
+            (N,) operator
+        l: pyct.Real
+            Lower bound
+        u: pyct.Real
+            Upper bound
+        """
+        assert l < u
+        super().__init__(dim=a.dim)
+
+        # Everything happens internally in normalized coordinates.
+        _norm = a.lipschitz()  # \norm{a}{2}
+        self._a = a / _norm
+        self._l = l / _norm
+        self._u = u / _norm
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        y = self._a.apply(arr)
+        in_set = ((self._l <= y) & (y <= self._u)).all(axis=-1, keepdims=True)
+        out = self._bool2indicator(in_set, arr.dtype)
+        return out
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+
+        a = self._a.adjoint(xp.ones(1, dtype=arr.dtype))  # slab direction
+        y = self._a.apply(arr)
+        out = arr.copy()
+
+        l_corr = self._l - y
+        l_corr[l_corr <= 0] = 0
+        out += l_corr * a
+
+        u_corr = self._u - y
+        u_corr[u_corr >= 0] = 0
+        out += u_corr * a
+
         return out
