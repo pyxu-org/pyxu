@@ -14,6 +14,7 @@ __all__ = [
     "PositiveOrthant",
     "HyperSlab",
     "RangeSet",
+    "AffineSet",
 ]
 
 
@@ -333,4 +334,71 @@ class RangeSet(_IndicatorFunction):
         # Temporary(/Permanent?) workaround: use @vectorize() to evaluate prox calls one at a time.
         y = self._A.pinv(arr)
         out = self._A.apply(y)
+        return out
+
+
+class AffineSet(_IndicatorFunction):
+    r"""
+    Indicator function of an affine set.
+
+    .. math::
+
+       \iota_{\mathbf{A}}^{\mathbf{b}}(\mathbf{x})
+       :=
+       \begin{cases}
+           0 & \mathbf{A} \mathbf{x} = \mathbf{b} \\
+           \infty & \text{otherwise}.
+       \end{cases}
+
+    .. math::
+
+       \text{prox}_{\tau\, \iota_{\mathbf{A}}^{\mathbf{b}}}(\mathbf{x})
+       :=
+       \mathbf{x} - \mathbf{A}^{T} (\mathbf{A}\mathbf{A}^{T})^{-1} (\mathbf{Ax - b})
+
+    Notes
+    -----
+    * Assumptions on :math:`\mathbf{A}` and :math:`\mathbf{b}`:
+
+      * :math:`\mathbf{b} \in \text{span}(\mathbf{A})`.
+      * :math:`\mathbf{A}` has full row-rank, i.e. :math:`\mathbf{A}` is square or fat.
+
+    * :py:class:`~pycsou.operator.func.indicator.AffineSet` instances are **not
+      arraymodule-agnostic**:
+      they will only work with NDArrays belonging to the same array module as ``A`` and ``b``.
+    """
+
+    @pycrt.enforce_precision(i="b")
+    def __init__(self, A: pyca.LinOp, b: pyct.NDArray):
+        """
+        Parameters
+        ----------
+        A: pyca.LinOp
+            (M, N) operator
+        b: pyct.NDArray
+            (M,)
+        """
+        assert A.codim <= A.dim, f"`A` must have full row-rank, but A.shape = {A.shape}."
+        assert (b.ndim == 1) and (b.size == A.codim)
+        super().__init__(dim=A.dim)
+
+        # Some approximate solution to A x = b, i.e x0.
+        # x0 must be a good estimate given assumptions on (A, b).
+        self._x0 = A.pinv(b)
+        self._b = A.apply(self._x0)  # fuzz `b` slightly to avoid numerical issues in .apply()
+        self._A = A
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        in_set = xp.isclose(self._A.apply(arr), self._b).all(axis=-1, keepdims=True)
+        out = self._bool2indicator(in_set, arr.dtype)
+        return out
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        op = RangeSet(self._A.T)
+
+        out = arr.copy()
+        out -= op.prox(arr - self._x0, tau=1)  # tau arbitrary
         return out
