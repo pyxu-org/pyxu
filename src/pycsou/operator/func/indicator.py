@@ -11,6 +11,7 @@ __all__ = [
     "L1Ball",
     "L2Ball",
     "LInfinityBall",
+    "PositiveOrthant",
 ]
 
 
@@ -163,3 +164,44 @@ def LInfinityBall(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
     op = _NormBall(dim=dim, ord=np.inf, radius=radius)
     op._name = "LInfinityBall"
     return op
+
+
+class PositiveOrthant(_IndicatorFunction):
+    r"""
+    Indicator function of the positive orthant.
+
+    .. math::
+
+       \iota_{+}(\mathbf{x})
+       :=
+       \begin{cases}
+           0 & \min{\mathbf{x}} \ge 0
+           \infty & \text{otherwise}.
+       \end{cases}
+
+    .. math::
+
+       \text{prox}_{\tau\, \iota_{+}}(\mathbf{x})
+       :=
+       \max(\mathbf{x}, \mathbf{0})
+    """
+
+    def __init__(self, dim: pyct.Integer = None):
+        """
+        Parameters
+        ----------
+        dim: pyct.Integer
+            Dimension size. (Default: domain-agnostic.)
+        """
+        super().__init__(dim=dim)
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        in_set = (arr >= 0).all(axis=-1, keepdims=True)
+        out = self._bool2indicator(in_set, arr.dtype)
+        return out
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        out = arr.clip(0, None)
+        return out
