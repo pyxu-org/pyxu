@@ -343,3 +343,107 @@ class TestHyperSlab(conftest.ProxFuncT):
     def data_math_lipschitz(self):
         N_test, dim = 10, 2
         return self._random_array((N_test, dim))
+
+
+class TestRangeSet(conftest.ProxFuncT):
+    @pytest.fixture(  # test matrices
+        params=[
+            np.array(  # tall matrix
+                [
+                    [1, 0],
+                    [0, 2],
+                    [3, 0],
+                    [0, 4],
+                ]
+            ),
+            np.diag([1, 2, 3, 4]),  # square matrix
+            np.array(  # fat matrix
+                [
+                    [1, 0, 3, 0],
+                    [0, 2, 0, 4],
+                ]
+            ),
+        ]
+    )
+    def A(self, request) -> np.ndarray:
+        return request.param
+
+    @pytest.fixture(
+        params=itertools.product(
+            pycd.NDArrayInfo,
+            pycrt.Width,
+        )
+    )
+    def spec(self, A, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
+        ndi, width = request.param
+        if (xp := ndi.module()) is None:
+            pytest.skip(f"{ndi} unsupported on this machine.")
+
+        A = xp.array(A, dtype=width.value)
+        A = pyca.LinOp.from_array(A, enable_warnings=False)
+
+        op = pycof.RangeSet(A)
+        return op, ndi, width
+
+    @pytest.fixture
+    def data_shape(self, A) -> pyct.OpShape:
+        return (1, A.shape[0])
+
+    @pytest.fixture(
+        params=[  # (seed, in_set)
+            (1, True),
+            (1, False),
+            (2, True),
+            (2, False),
+            (6, True),
+            (6, False),
+        ]
+    )
+    def data_apply(self, A, request):
+        seed, in_set = request.param
+        M, N = A.shape
+
+        u, s, vh = np.linalg.svd(A)
+        Q = u[(slice(None), *s.nonzero())]  # orth basis of range(A)
+        Qp = np.eye(M) - Q @ Q.T  # orth basis of range(A)^\perp
+
+        # override `in_set` if A is full rank.
+        if (s > 0).sum() == min(M, N):
+            in_set = True
+
+        if in_set:
+            # generate data point in range(A)
+            arr = (Q @ Q.T) @ self._random_array((M,), seed=seed)
+            out = np.r_[0]
+        else:
+            # generate data point in range(A)^\perp
+            seek = True
+            while seek:
+                arr = Qp @ self._random_array((M,), seed=seed)
+                seek = np.allclose(arr, 0)
+            out = np.r_[np.inf]
+
+        return dict(
+            in_=dict(arr=arr),
+            out=out,
+        )
+
+    @pytest.fixture(params=[0, 3, 7])  # seeds
+    def data_prox(self, A, request) -> conftest.DataLike:
+        M, _ = A.shape
+        arr = self._random_array((M,), seed=request.param)
+
+        Q, _ = np.linalg.qr(A)
+        out = Q @ Q.T @ arr
+        return dict(
+            in_=dict(
+                arr=arr,
+                tau=1,  # some random value; doesn't affect prox outcome
+            ),
+            out=out,
+        )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, A):
+        N_test, dim = 10, A.shape[0]
+        return self._random_array((N_test, dim))

@@ -13,6 +13,7 @@ __all__ = [
     "LInfinityBall",
     "PositiveOrthant",
     "HyperSlab",
+    "RangeSet",
 ]
 
 
@@ -276,4 +277,60 @@ class HyperSlab(_IndicatorFunction):
         u_corr[u_corr >= 0] = 0
         out += u_corr * a
 
+        return out
+
+
+class RangeSet(_IndicatorFunction):
+    r"""
+    Indicator function of a range set.
+
+    .. math::
+
+       \iota_{\mathbf{A}}^{R}(\mathbf{x})
+       :=
+       \begin{cases}
+           0 & \mathbf{x} \in \text{span}(\mathbf{A}) \\
+           \infty & \text{otherwise}.
+       \end{cases}
+
+    .. math::
+
+       \text{prox}_{\tau\, \iota_{\mathbf{A}}^{R}}(\mathbf{x})
+       :=
+       \mathbf{A} (\mathbf{A}^{T} \mathbf{A})^{-1} \mathbf{A}^{T} \mathbf{x}.
+    """
+
+    def __init__(self, A: pyca.LinOp):
+        """
+        Parameters
+        ----------
+        A: pyca.LinOp
+            (M, N) operator
+        """
+        super().__init__(dim=A.codim)
+        self._A = A
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        # I'm in range(A) if prox(x)==x.
+        xp = pycu.get_array_module(arr)
+        in_set = xp.isclose(self.prox(arr, tau=1), arr).all(axis=-1, keepdims=True)
+        out = self._bool2indicator(in_set, arr.dtype)
+        return out
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    @pycu.vectorize(i="arr")  # see comment below
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        # [2023.01.03 Sepand]
+        #
+        # When more than one input is provided, `A.pinv(arr)` may sometimes return NaNs.
+        # The problem is pinpointed to the instruction below from CG():
+        #     alpha = rr / (p * Ap).sum(axis=-1, keepdims=True)
+        #
+        # Oddly the problem does not occur when `arr` is 1D.
+        # Could not figure out why the CG line breaks down at times with multi-inputs.
+        #
+        # Temporary(/Permanent?) workaround: use @vectorize() to evaluate prox calls one at a time.
+        y = self._A.pinv(arr)
+        out = self._A.apply(y)
         return out
