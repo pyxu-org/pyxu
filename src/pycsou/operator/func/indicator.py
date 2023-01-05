@@ -14,25 +14,36 @@ __all__ = [
 ]
 
 
-class _NormBall(pycofn.ShiftLossMixin, pyca.ProxFunc):
+class _IndicatorFunction(pycofn.ShiftLossMixin, pyca.ProxFunc):
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(1, dim))
+        self._lipschitz = np.inf
+
+    @staticmethod
+    def _bool2indicator(x: pyct.NDArray, dtype: pyct.DType) -> pyct.NDArray:
+        # x: NDarray[bool]
+        # y: NDarray[(0, \inf), dtype]
+        xp = pycu.get_array_module(x)
+        cast = lambda _: np.array(_, dtype=dtype)[()]
+        y = xp.where(x, cast(0), cast(np.inf))
+        return y
+
+
+class _NormBall(_IndicatorFunction):
     def __init__(
         self,
         dim: pyct.Integer,
         ord: pyct.Integer,
         radius: pyct.Real,
     ):
-        super().__init__(shape=(1, dim))
+        super().__init__(dim=dim)
         self._ord = ord
         self._radius = float(radius)
-        self._lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         norm = pylinalg.norm(arr, ord=self._ord, axis=-1, keepdims=True)
-        cast = lambda _: np.array(_, dtype=arr.dtype)[()]
-
-        xp = pycu.get_array_module(arr)
-        out = xp.where(norm <= self._radius, cast(0), cast(np.inf))
+        out = self._bool2indicator(norm <= self._radius, arr.dtype)
         return out
 
     @pycrt.enforce_precision(i=("arr", "tau"))
