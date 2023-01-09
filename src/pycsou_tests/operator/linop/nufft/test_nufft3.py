@@ -101,3 +101,42 @@ class TestNUFFT3(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
             in_=dict(arr=w if transform_real else pycu.view_as_real(w)),
             out=pycu.view_as_real(v),
         )
+
+
+class TestNUFFT3_chunked(TestNUFFT3):
+    # Fixtures from conftest.LinOpT -------------------------------------------
+    @pytest.fixture(
+        params=itertools.product(
+            [
+                pycd.NDArrayInfo.NUMPY,
+                pycd.NDArrayInfo.DASK,
+            ],
+            pycrt.Width,
+            [True, False],
+        )
+    )
+    def spec(
+        self,
+        transform_x,
+        transform_z,
+        transform_sign,
+        transform_eps,
+        transform_real,
+        transform_ntrans,
+        transform_nthreads,
+        request,
+    ):
+        ndi, width, parallel = request.param
+        with pycrt.Precision(width):
+            op = pycl.NUFFT.type3(
+                x=transform_x,
+                z=transform_z,
+                isign=transform_sign,
+                eps=transform_eps,
+                real=transform_real,
+                n_trans=transform_ntrans,
+                nthreads=transform_nthreads,
+                chunked=True,
+                parallel=parallel,
+            )
+        return op, ndi, width
