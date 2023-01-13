@@ -1232,7 +1232,6 @@ def Gradient(
        import matplotlib.pyplot as plt
        from pycsou.operator.linop.diff import Gradient
        from pycsou.util.misc import peaks
-
        # Define input image
        n = 100
        x = np.linspace(-3, 3, n)
