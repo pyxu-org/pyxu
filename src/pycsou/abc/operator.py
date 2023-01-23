@@ -623,6 +623,9 @@ class Func(Map):
         """
         Transform a functional into a loss functional.
 
+        The meaning of ``asloss()`` is operator-dependent: always examine ``op.expr()`` to determine
+        the loss-notion involved.
+
         Parameters
         ----------
         data: pyct.NDArray

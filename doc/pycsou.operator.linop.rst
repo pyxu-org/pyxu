@@ -43,3 +43,32 @@ pycsou.operator.linop.select module
    :members:
    :undoc-members:
    :show-inheritance:
+
+pycsou.operator.linop.reduce module
+-----------------------------------
+
+.. automodule:: pycsou.operator.linop.reduce
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycsou.operator.linop.pad module
+--------------------------------
+
+.. automodule:: pycsou.operator.linop.pad
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+pycsou.operator.linop.stencil module
+------------------------------------
+
+.. automodule:: pycsou.operator.linop.stencil.stencil
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: pycsou.operator.linop.stencil._stencil._Stencil
+   :members:
+   :undoc-members:
+   :show-inheritance:

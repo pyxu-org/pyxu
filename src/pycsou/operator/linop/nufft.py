@@ -187,11 +187,95 @@ class NUFFT(pyca.LinOp):
     The terms above correspond to the complexities of the FFT and spreading/interpolation steps
     respectively.
 
-    The complexity of the type-3 NUFFT can be arbitrarily large for poorly-centered data.
+    **Memory footprint.**
+    The complexity and memory footprint of the type-3 NUFFT can be arbitrarily large for
+    poorly-centered data, or for data with a large spread.
     An easy fix consists in centering the data before/after the NUFFT via pre/post-phasing
     operations, as described in equation (3.24) of [FINUFFT]_.
     This optimization is automatically carried out by FINUFFT if the compute/memory gains are
-    significant.
+    non-negligible.
+
+    Additionally the type-3 summation (eq. 3) can be evaluated block-wise by partitioning the
+    non-uniform samples :math:`(x_{j}, z_{k})`:
+
+    .. math::
+
+       \begin{align}
+           (4)\;\; &v_{k}
+           =
+           \sum_{p=1}^{P}
+           \sum_{j\in \mathcal{M}_{p}} w_{j}
+           e^{\sigma i\langle \mathbf{z}_{k}, \mathbf{x}_{j} \rangle },
+           \quad &
+           k\in \mathcal{N}_{q}, \quad q=1,\ldots, Q, \quad & \text{Type 3 (chunked)}
+       \end{align}
+
+    where :math:`\{\mathcal{M}_1, \ldots, \mathcal{M}_P\}` and :math:`\{\mathcal{N}_1, \ldots,
+    \mathcal{N}_Q\}` are *partitions* of the sets :math:`\{1, \ldots, M\}` and  :math:`\{1, \ldots,
+    N\}` respectively.
+    In the chunked setting, the partial sums in (4)
+
+    .. math::
+
+        \left\{\sum_{j\in \mathcal{M}_p} w_{j} e^{\sigma i\langle \mathbf{z}_k, \mathbf{x}_{j} \rangle }, \, k\in \mathcal{N}_q\right\}_{p,q}
+
+    are each evaluated via a type-3 NUFFT involving a subset of the non-uniform samples.
+    Sub-problems can be evaluated in parallel.
+    Moreover, for wisely chosen data partitions, the memory budget of each NUFFT can be explicitly
+    controlled and capped to a maximal value.
+    This allows one to perform out-of-core NUFFTs with (theoretically) no complexity overhead w.r.t
+    a single large NUFFT. (See note below however.)
+
+    Chunking of the type-3 NUFFT is activated by passing ``chunked=True`` to
+    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3` (together with ``parallel=True`` for
+    parallel computations).
+    Finally, :py:meth:`~pycsou.operator.linop.nufft.NUFFT.auto_chunk` can be used to
+    compute a good partition of the X/Z-domains.
+
+    .. Hint::
+
+       The current implementation of the chunked type-3 NUFFT has computational complexity:
+
+       .. math::
+
+          \mathcal{O}\left(
+              \sum_{p,q=1}^{P}\Pi_{i=1}^{d} X^{(p)}_{i}Z^{(q)}_{i}
+              \sum_{i=1}^{d} \log(X^{(p)}_{i} Z^{(q)}_{i})
+              +
+              (M_p + N_q)|\log(\varepsilon)|^{d}
+          \right),
+
+       where
+
+       .. math::
+
+          \begin{align*}
+              X^{(p)}_{i} & = \max_{j\in \mathcal{M}_{p}}|(\mathbf{x}_{j})_{i}|, \quad i = \{1,\ldots,d\} \\
+              Z^{(p)}_{i} & = \max_{k\in \mathcal{N}_{q}}|(\mathbf{z}_k)_{i}|, \quad i = \{1,\ldots,d\}
+          \end{align*}
+       and :math:`M_{p}, N_{q}` denote the number of elements in the sets :math:`\mathcal{M}_{p},
+       \mathcal{N}_{q}`, respectively.
+
+       For perfectly balanced and uniform chunks (i.e. :math:`M_{p}=M/P`, :math:`N_{q}=N/Q`,
+       :math:`X^{(p)}_{i} = X_{i}/P`, :math:`Z^{(q)}_{i} = Z_{i}/Q` and :math:`P=Q`) the complexity reduces
+       to
+
+       .. math::
+
+          \mathcal{O}\left(
+              \Pi_{i=1}^{d} X_{i}Z_{i}\sum_{i=1}^{d}\log(X_{i}Z_{i})
+              +
+              P(M + N)|\log(\varepsilon)|^{d}
+          \right).
+
+       This shows that the spreading/interpolation is :math:`P` times more expensive than in the
+       non-chunked case.
+       This overhead is usually acceptable if the number of chunks remains small.
+       With explicit control on the spreading/interpolation steps (which the Python interface to the
+       FINUFFT backend does not currently offer), the spreading/interpolation overhead can be
+       removed so as to obtain a computational complexity on par to that of the non-chunked type-3
+       NUFFT.
+       This will be implemented in a future release.
 
     **Backend.**
     The NUFFT transforms are computed via Python wrappers to
@@ -222,11 +306,11 @@ class NUFFT(pyca.LinOp):
 
     .. Hint::
 
-       The NUFFT is performed in **chunks of (n_trans,)**, where `n_trans` denotes the number
+       The NUFFT is performed in **batches of (n_trans,)**, where `n_trans` denotes the number
        of simultaneous transforms requested.
        (See the ``n_trans`` parameter of `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.)
 
-       Good performance is obtained when each chunk fits easily in memory. This recommendation also
+       Good performance is obtained when each batch fits easily in memory. This recommendation also
        applies to Dask inputs which are re-chunked internally to be `n_trans`-compliant.
 
        This parameter also affects performance of the ``eps=0`` case: increasing ``n_trans`` may
@@ -241,8 +325,8 @@ class NUFFT(pyca.LinOp):
        * ``scheduler='synchronous'``
        * ``distributed.Client(processes=False)``
 
-       Chunks are hence processed serially.
-       (Each chunk is multi-threaded however.)
+       Batches are hence processed serially.
+       (Each batch is multi-threaded however.)
 
     .. [#] :math:`\varepsilon= 0` means that no approximation is performed: the exponential sums
            are naively computed by direct evaluation.
@@ -352,7 +436,7 @@ class NUFFT(pyca.LinOp):
             plan_bw=plan_bw,
             **kwargs,
         )
-        return _NUFFT1(**init_kwargs).squeeze()
+        return _NUFFT1(**init_kwargs)
 
     @staticmethod
     @pycrt.enforce_precision(i="x", o=False, allow_None=False)
@@ -455,7 +539,7 @@ class NUFFT(pyca.LinOp):
             **kwargs,
         )
         op_t1 = _NUFFT1(**init_kwargs)
-        op_t2 = op_t1.squeeze().T
+        op_t2 = op_t1.T
         op_t2._name = "_NUFFT2"
 
         # Some methods need to be overloaded (even if non-arithmetic) since NUFFT interprets their
@@ -514,7 +598,7 @@ class NUFFT(pyca.LinOp):
             if fw/bw transforms are disabled.
             These options only take effect if ``eps > 0``.
         chunked: bool
-            If ``True``, the transform is performed in small chunks.
+            If ``True``, the transform is performed in small chunks. (See Notes for details.)
         parallel: bool
             This option only applies to chunked transforms.
             If ``True``, evaluate chunks in parallel.
@@ -577,18 +661,18 @@ class NUFFT(pyca.LinOp):
              x_chunks, z_chunks = A.auto_chunk()  # auto-determine a good x/z chunking strategy
              A.allocate(x_chunks, z_chunks)  # apply the chunking strategy.
 
-          :py:meth:`~pycsou.operator.linop.nufft._NUFFT3_chunked.auto_chunk` is a helper method to
+          :py:meth:`~pycsou.operator.linop.nufft.NUFFT.auto_chunk` is a helper method to
           auto-determine a good chunking strategy.
 
-          Its runtime is significant when the number of sub-problems grows large. (1000+)
-          In these contexts, assuming a good-enough x/z-split is known in advance, users can
-          directly supply them to :py:meth:`~pycsou.operator.linop.nufft._NUFFT3_chunked.allocate`.
+          Its runtime is significant when the number of sub-problems grows large. (1000+) In these
+          contexts, assuming a good-enough x/z-split is known in advance, users can directly supply
+          them to :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`.
 
         * apply/adjoint() runtime is minimized when x/z are well-ordered, i.e. when sub-problems can
           sub-sample inputs to apply/adjoint() via slice operators.
 
           To reduce runtime of chunked transforms,
-          :py:meth:`~pycsou.operator.linop.nufft._NUFFT3_chunked.allocate` automatically re-orders
+          :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate` automatically re-orders
           x/z when appropriate.
 
           The side-effect is the cost of a permutation before/after calls to apply/adjoint().
@@ -598,8 +682,8 @@ class NUFFT(pyca.LinOp):
           and apply/adjoint inputs in the "correct" order from the start.
 
           A good re-ordering is computed automatically by
-          :py:meth:`~pycsou.operator.linop.nufft._NUFFT3_chunked.allocate` and can be used to
-          initialize a new chunked-transform with better runtime properties as such:
+          :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate` and can be used to initialize a new
+          chunked-transform with better runtime properties as such:
 
           .. code-block:: python3
 
@@ -625,10 +709,12 @@ class NUFFT(pyca.LinOp):
              A.allocate(x_chunks, z_chunks)  # skip auto-chunking and apply
                                              # optimal x/z_chunks provided.
 
-        * FINUFFT accepts an ``nthreads`` keyword parameter.
-          This sets the thread-count used in FFTW, bin-sorting, and spreading/interpolation steps.
-          In the context of chunked transforms, since each chunk operates on small quantities, it is
-          often best to set ``nthreads=1``.
+        See Also
+        --------
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.auto_chunk`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.diagnostic_plot`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.stats`
         """
         init_kwargs = _NUFFT3._sanitize_init_kwargs(
             x=x,
@@ -653,7 +739,7 @@ class NUFFT(pyca.LinOp):
                 init_kwargs.pop(k, None)
 
         op = klass(**init_kwargs)
-        return op.squeeze()
+        return op
 
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         r"""
@@ -1049,6 +1135,26 @@ class NUFFT(pyca.LinOp):
         -------
         ax : :py:class:`~matplotlib.axes.Axes`
 
+        Examples
+        --------
+
+        .. plot::
+
+           import numpy as np
+           import pycsou.operator.linop as pycl
+           import matplotlib.pyplot as plt
+
+           rng = np.random.default_rng(0)
+           D, M, N = 1, 2, 3  # D denotes the dimension of the data
+           x = np.fmod(rng.normal(size=(M, D)), 2 * np.pi)
+           A = pycl.NUFFT.type1(
+               x, N,
+               isign=-1,
+               eps=1e-9
+           )
+           A.plot_kernel()
+           plt.show()
+
         Notes
         -----
         Requires `Matplotlib <https://matplotlib.org/>`_ to be installed.
@@ -1084,19 +1190,26 @@ class NUFFT(pyca.LinOp):
         Returns
         -------
         p: namedtuple
+            Internal parameters of the FINUFFT implementation, with fields:
 
-        Internal parameters of the FINUFFT implementation, with fields:
+            * upsample_factor: float
+                FFT upsampling factor > 1
+            * kernel_width: int
+                Width of the spreading/interpolation kernels (in number of samples).
+            * kernel_beta: float
+                Kernel decay parameter :math:`\beta > 0`.
+            * fft_shape: (d,) [int]
+                Size of the D-dimensional FFT(s) performed internally.
+            * dilation_factor: (d,) [float]
+                Dilation factor(s) :math:`\gamma_{d}`. (Type-3 only)
 
-        * upsample_factor: float
-            FFT upsampling factor > 1
-        * kernel_width: int
-            Width of the spreading/interpolation kernels (in number of samples).
-        * kernel_beta: float
-            Kernel decay parameter :math:`\beta > 0`.
-        * fft_shape: (d,) [int]
-            Size of the D-dimensional FFT(s) performed internally.
-        * dilation_factor: (d,) [float]
-            Dilation factor(s) :math:`\gamma_{d}`. (Type-3 only)
+        Notes
+        -----
+        When called from a chunked type-3 transform,
+        :py:meth:`~pycsou.operotar.linop.nufft.NUFFT.params` returns parameters of the equivalent
+        monolithic type-3 transform.
+        The monolithic transform is seldom instantiable due to its large memory requirements.
+        This method can hence be used to estimate the memory savings induced by chunking.
         """
         if self._direct_eval:
             p = None
@@ -1119,6 +1232,253 @@ class NUFFT(pyca.LinOp):
                 dilation_factor=self._dilation_factor(),
             )
         return p
+
+    def auto_chunk(
+        self,
+        max_mem: pyct.Real = 10,
+        max_anisotropy: pyct.Real = 5,
+    ) -> tuple[list[pyct.NDArray], list[pyct.NDArray]]:
+        r"""
+        (Only applies to chunked type-3 transforms.)
+
+        Auto-determine chunk indices per domain.
+
+        Use this function if you don't know how to optimally 'cut' x/z manually.
+
+        Parameters
+        ----------
+        max_mem: pyct.Real
+            Max FFT memory (MiB) allowed per sub-block. (Default = 10 MiB)
+        max_anisotropy: pyct.Real
+            Max tolerated (normalized) anisotropy ratio >= 1.
+
+            * Setting close to 1 favors cubeoid-shaped partitions of x/z space.
+            * Setting large allows x/z-partitions to be highly-rectangular.
+
+        Returns
+        -------
+        x_chunks: list[NDArray[int]]
+            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
+            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
+        z_chunks: list[NDArray[int]]
+            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
+            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
+
+        Notes
+        -----
+        Chunks are identified by a custom hierarchical clustering method, with main steps:
+
+        1. **Partition the NUFFT domains.**
+           Given a maximum FFT memory budget :math:`B>0` and chunk anisotropy :math:`\alpha\geq 1`,
+           partition the source/target domains into uniform rectangular cells.
+           The (half) widths of the source/target cells :math:`h_{k}>0` and :math:`\eta_{k}>0` in
+           each dimension :math:`k=\{1,\ldots d\}` are chosen so as to:
+
+           Minimize the total number of partitions:
+
+           .. math::
+
+              N_{c}
+              =
+              \underbrace{\prod_{k=1}^{d} \frac{X_k}{h_k}}_{\text{Source partition count}}
+              \times
+              \underbrace{\prod_{k=1}^{d} \frac{Z_k}{\eta_k}}_{\text{Target partition count}}
+
+           subject to:
+
+             (a) .. math::
+
+                    \prod_{k=1}^{d} \eta_k h_k
+                    \leq
+                    (\pi/2\upsilon)^{d} \frac{B}{\delta \; \texttt{n_trans}},
+
+                 where
+
+                   * :math:`\upsilon` denotes the NUFFT's grid upsampling factor,
+                   * :math:`\delta` the number of bytes occupied by a complex number,
+                   * :math:`\texttt{n_trans}` the number of simultaneous transforms performed.
+             (b) .. math::
+
+                    \begin{align*}
+                        h_{k} & \leq X_{k}, \quad k=\{1,\ldots,d\} \\
+                        \eta_{k} & \leq Z_{k}, \quad k=\{1,\ldots,d\}
+                    \end{align*}
+             (c) .. math::
+
+                    N_{c} \ge 1.
+             (d) .. math::
+
+                    \begin{align*}
+                        \frac{1}{\alpha} & \leq \frac{h_{k}}{h_{j}} \frac{X_{j}}{X_{k}} \leq \alpha, \quad k \ne j, \\
+                        \frac{1}{\alpha} & \leq \frac{\eta_{k}}{\eta_{j}} \frac{Z_{j}}{Z_{k}} \leq \alpha, \quad k \ne j.
+                    \end{align*}
+             (e) .. math::
+
+                    \begin{align*}
+                        \frac{1}{\alpha} & \leq \frac{h_{k}}{\eta_{j}} \frac{Z_{j}}{X_{k}} \leq \alpha, \quad (j, k) = \{1,\ldots,d\}^{2}.
+                    \end{align*}
+
+           Constraint (a) ensures type-3 NUFFTs performed in each sub-problem do not exceed the FFT
+           memory budget.
+           Constraints (b-c) ensure that partitions are non-degenerate/non-trivial respectively.
+           Constraints (d-e) limit the anisotropy of the partitioning cells in each domain and
+           across domains.
+        2. **Data-independent Chunking.**
+           Chunk the data by assigning non-uniform samples to their enclosing cell in the partition.
+           Empty partitions are dropped.
+        3. **Data-dependent Chunk Fusion.**
+           Since (1) is data-independent, data chunks obtained in (2) may split clusters among
+           adjacent chunks, which is undesirable.
+           Clusters whose joint-spread is small enough are hence fused hierarchically.
+
+        .. Warning::
+
+           This procedure yields a small number of memory-capped and well-separated data chunks in
+           source/target domains.
+           However, it may result in unbalanced chunks, with some chunks containing significantly
+           more data-points than others.
+           FINUFFT mitigates the unbalanced-chunk problem by spawning multiple threads to process
+           dense clusters.
+
+        See Also
+        --------
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.diagnostic_plot`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.stats`
+        """
+        raise NotImplementedError
+
+    def allocate(
+        self,
+        x_chunks: list[typ.Union[pyct.NDArray, slice]],
+        z_chunks: list[typ.Union[pyct.NDArray, slice]],
+        direct_eval_threshold: pyct.Integer = 10_000,
+        enable_warnings: bool = True,
+    ):
+        """
+        (Only applies to chunked type-3 transforms.)
+
+        Allocate NUFFT sub-problems based on chunk specification.
+
+        Parameters
+        ----------
+        x_chunks: list[NDArray[int] | slice]
+            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
+            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
+        z_chunks: list[NDArray[int] | slice]
+            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
+            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
+        direct_eval_threshold: int
+            If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
+            replaced with direct-evaluation (eps=0) for performance reasons.
+
+            (Defaults to 10k as per the `FINUFFT guidelines
+            <https://finufft.readthedocs.io/en/latest/#do-i-even-need-a-nufft>`_.)
+        enable_warnings: bool
+            If ``True``, emit a warning when x/z are re-ordered.
+
+        See Also
+        --------
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.auto_chunk`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.diagnostic_plot`,
+        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.stats`
+        """
+        raise NotImplementedError
+
+    def diagnostic_plot(self, domain: str):
+        r"""
+        (Only applies to chunked type-3 transforms.)
+
+        Plot data + tesselation structure for diagnostic purposes.
+
+        Parameters
+        ----------
+        domain: 'x', 'z'
+            Plot x-domain or z-domain data.
+
+        Returns
+        -------
+        fig: plt.Figure
+            Diagnostic plot.
+
+        Notes
+        -----
+        * This method can only be called after
+          :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`.
+        * This method only works for 2D/3D domains.
+
+        Examples
+        --------
+
+        .. plot::
+
+            import numpy as np
+            import pycsou.operator.linop.nufft as nufft
+
+            rng = np.random.default_rng(2)
+            D, M, N = 2, 500, 200
+            rnd_points = lambda _: rng.normal(scale=rng.uniform(0.25, 0.5, size=(D,)), size=(_, D))
+            rnd_offset = lambda: rng.uniform(-1, 1, size=(D,))
+            scale = 20
+            x = np.concatenate(
+                [
+                    rnd_points(M) + rnd_offset() * scale,
+                    rnd_points(M) + rnd_offset() * scale,
+                    rnd_points(M) + rnd_offset() * scale,
+                    rnd_points(M) + rnd_offset() * scale,
+                    rnd_points(M) + rnd_offset() * scale,
+                ],
+                axis=0,
+            )
+            z = np.concatenate(
+                [
+                    rnd_points(N) + rnd_offset() * scale,
+                    rnd_points(N) + rnd_offset() * scale,
+                    rnd_points(N) + rnd_offset() * scale,
+                    rnd_points(N) + rnd_offset() * scale,
+                    rnd_points(N) + rnd_offset() * scale,
+                ],
+                axis=0,
+            )
+
+            kwargs = dict(
+                x=x,
+                z=z,
+                isign=-1,
+                eps=1e-3,
+            )
+            A = nufft.NUFFT.type3(**kwargs, chunked=True)
+            x_chunks, z_chunks = A.auto_chunk(
+                max_mem=.1,
+                max_anisotropy=1,
+            )
+            A.allocate(x_chunks, z_chunks)
+            fig = A.diagnostic_plot('x')
+            fig.show()
+
+        Notes
+        -----
+        Requires `Matplotlib <https://matplotlib.org/>`_ to be installed.
+        """
+        raise NotImplementedError
+
+    def stats(self):
+        """
+        (Only applies to chunked type-3 transforms.)
+
+        Gather internal statistics about a chunked type-3 NUFFT.
+
+        Returns
+        -------
+        p: namedtuple
+            Statistics on the NUFFT chunks, with fields:
+
+            * blk_count: int
+                Number of NUFFT chunks.
+            * dEval_count: int
+                Number of chunks directly evaluated via the NUDFT.
+        """
+        raise NotImplementedError
 
     def _upsample_factor(self) -> pyct.Real:
         raise NotImplementedError
@@ -1178,6 +1538,7 @@ class _NUFFT1(NUFFT):
         self._real_out = kwargs.pop("real_out")
         self._upsampfac = kwargs.get("upsampfac")
         self._n = kwargs.get("n_trans", 1)
+        self._modeord = kwargs.get("modeord", 0)
         if self._direct_eval:
             self._plan = None
         else:
@@ -1197,7 +1558,7 @@ class _NUFFT1(NUFFT):
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:
         kwargs = kwargs.copy()
-        for k in ("nufft_type", "n_modes_or_dim", "dtype", "modeord"):
+        for k in ("nufft_type", "n_modes_or_dim", "dtype"):
             kwargs.pop(k, None)
         x = kwargs["x"] = pycu.compute(cls._as_canonical_coordinate(kwargs["x"]))
         N = kwargs["N"] = cls._as_canonical_mode(kwargs["N"])
@@ -1228,7 +1589,6 @@ class _NUFFT1(NUFFT):
             eps=kwargs.pop("eps"),
             n_trans=kwargs.pop("n_trans", 1),
             isign=kwargs.pop("isign"),
-            modeord=0,
             **kwargs,
         )
         plan.setpts(**dict(zip("xyz"[:N_dim], x.T[:N_dim])))
@@ -1271,7 +1631,6 @@ class _NUFFT1(NUFFT):
             eps=kwargs.pop("eps"),
             n_trans=kwargs.pop("n_trans", 1),
             isign=-kwargs.pop("isign"),
-            modeord=0,
             **kwargs,
         )
         plan.setpts(**dict(zip("xyz"[:N_dim], x.T[:N_dim])))
@@ -1380,6 +1739,9 @@ class _NUFFT1(NUFFT):
             )
         else:
             raise NotImplementedError
+
+        if self._modeord == 1:  # FFT-order
+            grid = xp.fft.ifftshift(grid)
         return grid
 
     def asarray(self, **kwargs) -> pyct.NDArray:
@@ -1447,6 +1809,7 @@ class _NUFFT3(NUFFT):
         self._real = kwargs.pop("real")
         self._upsampfac = kwargs.get("upsampfac")
         self._n = kwargs.get("n_trans", 1)
+        self._modeord = 0  # in case _NUFFT1 methods are called
         if self._direct_eval:
             self._plan = None
         else:
@@ -1619,11 +1982,11 @@ class _NUFFT3(NUFFT):
         else:
             grid = _NUFFT1.mesh(self, scale="source", **kwargs)
             f = lambda _: xp.array(_, dtype=dtype)
-            if scale == "source":  # Sect 3.3 Step 1., the sources are rescaled to lie on [-pi, pi[
-                s = f(self._dilation_factor())
+            if scale == "source":  # Sect 3.3 Eq 3.18.
+                s = f(self._dilation_factor()) * (1 - self._kernel_width() / f(self._fft_shape()))
                 grid *= s
                 _, center = self._shift_coords(self._x)
-            else:  # target
+            else:  # target, Sect 3.3 Eq 3.22.
                 s = f(self._dilation_factor()) / f(self._fft_shape())
                 s *= f(2 * np.pi * self._upsample_factor())
                 grid /= s
@@ -1661,10 +2024,10 @@ class _NUFFT3(NUFFT):
         u = self._upsample_factor()
         w = self._kernel_width()
         X, _ = self._shift_coords(self._x)  # (D,)
-        S, _ = self._shift_coords(self._z)  # (D,)
+        Z, _ = self._shift_coords(self._z)  # (D,)
         shape = []
         for d in range(self._D):
-            n = (2 * u * max(1, X[d] * S[d]) / np.pi) + (w + 1)
+            n = (2 * u * max(1, X[d] * Z[d]) / np.pi) + (w + 1)
             target = max(int(n), 2 * w)
             n_opt = pycu.next_fast_len(target, even=True)
             shape.append(n_opt)
@@ -1677,8 +2040,8 @@ class _NUFFT3(NUFFT):
         #     eq 3.23
         u = self._upsample_factor()
         N = self._fft_shape()
-        S, _ = self._shift_coords(self._z)  # (D,)
-        gamma = [n / (2 * u * s) for (n, s) in zip(N, S)]
+        Z, _ = self._shift_coords(self._z)  # (D,)
+        gamma = [n / (2 * u * s) for (n, s) in zip(N, Z)]
         return tuple(gamma)
 
     @staticmethod
@@ -1870,6 +2233,31 @@ class _NUFFT3_chunked(_NUFFT3):
             # Not coordinating the planning stage with other workers/tasks leads to segmentation faults.
             op = NUFFT.type3(**kwargs)
 
+        # The complexity of _NUFFT3.[apply|adjoint]() is
+        #     N_F \ln N_F   +   (N_x + N_z) w^d
+        #        N_F = FFT size
+        #        N_x = # x-domain points
+        #        N_z = # z-domain points
+        #        w = spread/interpolation kernel size
+        #
+        #
+        # The complexity of _NUFFT3_chunked.[apply|adjoint]() is
+        # (1) \sum_{i,j} N_F_ij \ln N_F_ij   +   N_z_blk N_x w^d   +   N_x_blk N_z w^d,
+        #         N_F_ij = FFT size in (i,j)-th sub-problem
+        #         N_x_blk = # x-domain chunks
+        #         N_z_blk = # z-domain chunks
+        # Assuming N_x_blk ~= N_z_blk, the term above simplifies to
+        #     \sum_{i,j} N_F_ij \ln N_F_ij   +   (N_x w^d + N_z w^d) \sqrt(N_x_blk * N_z_blk),
+        # i.e. the spread/interpolation cost grows proportional to \sqrt{# sub-problems}
+        #
+        #
+        # It is possible to share the spread/interpolation costs amongst sub-problems so as to bring
+        # the complexity of _NUFFT3_chunked.[apply|adjoint]() down to
+        # (2) (N_x_blk * N_z_blk) * N_F \ln N_F   +   (N_x + N_z) w^d.
+        #
+        # The philosophies of computing via (1) and (2) differ:
+        #   (1) optimal FFT-size per sub-problem + \sqrt{N_xz_blk} spread/interpolation overhead
+        #   (2) largest FFT-size per sub-problem + no spread/interpolation overhead w.r.t. _NUFFT3.[apply|adjoint]()
         out = getattr(op, func)(arr)
         return out
 
@@ -1878,30 +2266,6 @@ class _NUFFT3_chunked(_NUFFT3):
         max_mem: pyct.Real = 10,
         max_anisotropy: pyct.Real = 5,
     ) -> tuple[list[pyct.NDArray], list[pyct.NDArray]]:
-        """
-        Auto-determine chunk indices per domain.
-
-        Use this function if you don't know how to optimally 'cut' x/z manually.
-
-        Parameters
-        ----------
-        max_mem: pyct.Real
-            Max FFT memory (MiB) allowed per sub-block. (Default = 10 MiB)
-        max_anisotropy: pyct.Real
-            Max tolerated (normalized) anisotropy ratio >= 1.
-
-            * Setting close to 1 favors cubeoid-shaped partitions of x/z space.
-            * Setting large allows x/z-partitions to be highly-rectangular.
-
-        Returns
-        -------
-        x_chunks: list[NDArray[int]]
-            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
-            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
-        z_chunks: list[NDArray[int]]
-            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
-            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
-        """
         max_mem = float(max_mem)
         assert max_mem > 0
         max_mem *= 2**20  # MiB -> B
@@ -1921,24 +2285,6 @@ class _NUFFT3_chunked(_NUFFT3):
         direct_eval_threshold: pyct.Integer = 0,
         enable_warnings: bool = True,
     ):
-        """
-        Allocate NUFFT sub-problems based on chunk specification.
-
-        Parameters
-        ----------
-        x_chunks: list[NDArray[int] | slice]
-            (x_idx[0], ..., x_idx[A-1]) x-coordinate chunk specifier.
-            `x_idx[k]` contains indices of `x` which participate in the k-th NUFFT sub-problem.
-        z_chunks: list[NDArray[int] | slice]
-            (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
-            `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
-        direct_eval_threshold: int
-            If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
-            replaced with direct-evaluation (eps=0) for performance reasons.
-        enable_warnings: bool
-            If ``True``, emit a warning when x/z are re-ordered.
-        """
-
         def _to_slice(idx_spec):
             out = idx_spec
             if not isinstance(idx_spec, slice):
@@ -2002,7 +2348,7 @@ class _NUFFT3_chunked(_NUFFT3):
 
         x_idx, x_chunks = _preprocess(x_chunks, warn=enable_warnings, var="x")
         self._x = self._x[x_idx]
-        self._x_reorder = pycs.SubSample(
+        self._x_reorder = pycs.SubSample(  # Permutation
             (self.dim,),
             x_idx if self._real else _r2c(x_idx),
         )
@@ -2035,20 +2381,6 @@ class _NUFFT3_chunked(_NUFFT3):
         self._initialized = True
 
     def stats(self) -> collections.namedtuple:
-        """
-        Gather internal statistics.
-
-        Returns
-        -------
-        p: namedtuple
-
-        Statistics on the NUFFT sub-blocks, with fields:
-
-        * blk_count: int
-            Number of NUFFT sub-blocks.
-        * dEval_count: int
-            Number of sub-blocks evaluated via the NUDFT.
-        """
         BLOCK_STATS = collections.namedtuple(
             "block_stats",
             [
@@ -2381,55 +2713,49 @@ class _NUFFT3_chunked(_NUFFT3):
         # Fuse chunks which are closely-spaced & small-enough
         fuse_chunks = True
         while fuse_chunks:
+            # Find fuseable centroid pairs
             c_tree = spl.KDTree(centroid)  # centroid_tree
-            candidates = c_tree.query_pairs(r=box_dim[0] / 2, p=np.inf)
-            if len(candidates) > 0:
-                _i, _j = candidates.pop()
+            candidates = c_tree.query_pairs(
+                r=box_dim[0] / 2,
+                p=np.inf,
+                output_type="ndarray",
+            )
+            _i, _j = candidates.T
+            c_spacing = np.abs(centroid[_i] - centroid[_j])
+            offset = (tbox_dim[_i] + tbox_dim[_j]) / 2
+            fuseable = np.all(c_spacing + offset < box_dim, axis=1)
+            candidates = candidates[fuseable]
 
-                c_spacing = np.abs(centroid[_i] - centroid[_j])
-                offset = (tbox_dim[_i] + tbox_dim[_j]) / 2
-                if np.all(c_spacing + offset < box_dim):  # points are close enough
+            # If a centroid can be fused with multiple others, restrict choice to single pair
+            seen, fuse = set(), set()
+            for _i, _j in candidates:
+                if (_i not in seen) and (_j not in seen):
+                    seen |= {_i, _j}
+                    fuse.add((_i, _j))
+
+            if len(fuse) > 0:
+                for _i, _j in fuse:
                     chunks[_i] = np.r_[chunks[_i], chunks[_j]]
-                    chunks.pop(_j)
-
                     _data = data[chunks[_i]]
                     _data_min = _data.min(axis=0)
                     _data_max = _data.max(axis=0)
-
                     centroid[_i] = (_data_min + _data_max) / 2
-                    centroid = np.delete(centroid, _j, axis=0)
-
                     tbox_dim[_i] = _data_max - _data_min
-                    tbox_dim = np.delete(tbox_dim, _j, axis=0)
+
+                # Fuse cleanup: drop _j entries
+                c_idx = np.setdiff1d(  # indices to keep
+                    np.arange(len(centroid)),
+                    [_j for (_i, _j) in fuse],  # indices to drop
+                )
+                centroid = centroid[c_idx]
+                tbox_dim = tbox_dim[c_idx]
+                chunks = [chk for (i, chk) in enumerate(chunks) if (i in c_idx)]
             else:
                 fuse_chunks = False
 
         return chunks
 
-    @staticmethod
-    def _diagnostic_plot(
-        data: np.ndarray,
-        box_dim: tuple[pyct.Real],
-        chunks: list[typ.Union[np.ndarray, slice]],
-    ):
-        """
-        Plot data + tesselation structure for diagnostic purposes.
-
-        Parameters
-        ----------
-        data: np.ndarray
-            (M, D) point cloud
-        box_dim: tuple[float]
-            (D,) box dimensions.
-        chunks: list[ndarray[int] | slice]
-            (idx[0], ..., idx[C-1]) chunk specifiers.
-            `idx[k]` contains indices of `data` which lie in the same box.
-
-        Returns
-        -------
-        fig: plt.Figure
-            Diagnostic plot.
-        """
+    def diagnostic_plot(self, domain: str):
         try:
             import matplotlib.patches as mpl_p
             import matplotlib.pyplot as plt
@@ -2438,41 +2764,26 @@ class _NUFFT3_chunked(_NUFFT3):
 
         def _plot(
             points,  # (N, 2) data points
-            center,  # (N_c, 2) cluster centroids
-            tbox_dim,  # (N_c, 2) tight-box dimensions around centroids
-            box_dim,  # (2,)  coarse-box dimension around centroids
+            chunks,  # (N_c,) chunk specifiers
             ax,
         ):
-            data_pts = ax.plot(
-                points[:, 0],
-                points[:, 1],
-                "1",  # small triangle
-                color="b",
-                label="data",
-            )
-            centroid_pts = ax.plot(
-                center[:, 0],
-                center[:, 1],
-                "s",  # square
-                color="r",
-                label="chunk centroid",
-            )
-            for _tbox, c in zip(tbox_dim, center):
-                rect = mpl_p.Rectangle(
-                    xy=c - box_dim / 2,
-                    width=box_dim[0],
-                    height=box_dim[1],
-                    fill=True,
-                    edgecolor="g",
-                    facecolor="g",
-                    alpha=0.5,
-                    label="centroid box",
-                )
-                ax.add_patch(rect)
-                centroid_rect = rect  # ref to populate the legend
+            # Compute chunk centroids, tight-box_dims, cvx hulls
+            N_chk = len(chunks)
+            centroid = np.zeros((N_chk, 2))
+            tbox_dim = np.zeros((N_chk, 2))
+            hull = []  # (N_c,) hulls
+            for i, chk in enumerate(chunks):
+                _pts = points[chk]
+                _pts_min = _pts.min(axis=0)
+                _pts_max = _pts.max(axis=0)
+                centroid[i] = (_pts_min + _pts_max) / 2
+                tbox_dim[i] = _pts_max - _pts_min
+                _hull = _pts[spl.ConvexHull(_pts).vertices]
+                hull.append(_hull)
 
-                rect = mpl_p.Rectangle(
-                    xy=c - _tbox / 2,
+            for _tbox, _c in zip(tbox_dim, centroid):
+                data_rect = mpl_p.Rectangle(  # sub-problem bounding-box
+                    xy=_c - _tbox / 2,
                     width=_tbox[0],
                     height=_tbox[1],
                     fill=True,
@@ -2481,53 +2792,54 @@ class _NUFFT3_chunked(_NUFFT3):
                     alpha=0.5,
                     label="data box",
                 )
-                ax.add_patch(rect)
-                data_rect = rect  # ref to populate the legend
-
+                ax.add_patch(data_rect)
+            for _hull in hull:
+                data_poly = mpl_p.Polygon(  # sub-problem data support
+                    xy=_hull,
+                    fill=True,
+                    edgecolor="b",
+                    facecolor="b",
+                    alpha=0.5,
+                    label="data cvx hull",
+                )
+                ax.add_patch(data_poly)
+            centroid_pts = ax.plot(  # sub-problem bounding-box centers
+                centroid[:, 0],
+                centroid[:, 1],
+                "x",  # cross
+                color="k",
+                label="chunk centroid",
+            )
             ax.axis("equal")
             ax.legend(
                 handles=[
-                    *data_pts,
                     *centroid_pts,
-                    centroid_rect,
+                    data_poly,
                     data_rect,
                 ],
                 loc="upper right",
             )
 
-        M, D = data.shape
-        N_chk = len(chunks)
-        box_dim = np.array(box_dim, dtype=data.dtype)
+        domain = domain.strip().lower()
+        if domain == "x":
+            data = self._x
+            chunks = self._x_chunk
+        elif domain == "z":
+            data = self._z
+            chunks = self._z_chunk
+        else:
+            raise ValueError(f"Unknown domain '{domain}'.")
 
-        # Compute chunk centroids & tight-box_dims
-        centroid, tbox_dim = np.zeros((2, N_chk, D))
-        for i, chk in enumerate(chunks):
-            _data = data[chk]
-            _data_min = _data.min(axis=0)
-            _data_max = _data.max(axis=0)
-            centroid[i] = (_data_min + _data_max) / 2
-            tbox_dim[i] = _data_max - _data_min
+        _, D = data.shape
+        if D == 1:
+            raise NotImplementedError
 
         fig = plt.figure()
-        if D == 1:
-            # embed in 2D and read the diagonal
-            ax = fig.add_subplot(1, 1, 1)
-            trans = lambda _: np.stack([_, _], axis=-1)
-            _plot(
-                points=trans(data[:, 0]),
-                center=trans(centroid[:, 0]),
-                tbox_dim=trans(tbox_dim[:, 0]),
-                box_dim=trans(box_dim)[0],
-                ax=ax,
-            )
-            ax.set_title("data/chunk distribution (XY-plane)")
-        elif D == 2:
+        if D == 2:
             ax = fig.add_subplot(1, 1, 1)
             _plot(
                 points=data,
-                center=centroid,
-                tbox_dim=tbox_dim,
-                box_dim=box_dim,
+                chunks=chunks,
                 ax=ax,
             )
             ax.set_title("data/chunk distribution (XY-plane)")
@@ -2540,9 +2852,7 @@ class _NUFFT3_chunked(_NUFFT3):
                 ax = fig.add_subplot(1, 3, i + 1)
                 _plot(
                     points=data[:, idx],
-                    center=centroid[:, idx],
-                    tbox_dim=tbox_dim[:, idx],
-                    box_dim=box_dim[idx],
+                    chunks=chunks,
                     ax=ax,
                 )
                 ax.set_title(title)

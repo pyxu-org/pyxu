@@ -13,15 +13,18 @@ __all__ = [
 
 class NLCG(pyca.Solver):
     r"""
-    Nonlinear Conjugate Gradient Method.
+    Nonlinear Conjugate Gradient Method (NLCG).
 
-    The Nonlinear Conjugate Gradient method finds local minima of the problem
+    The Nonlinear Conjugate Gradient method finds a local minimum of the problem
 
     .. math::
 
        \min_{x\in\mathbb{R}^{N}} f(x),
 
     where :math:`f: \mathbb{R}^{N} \to \mathbb{R}` is a *differentiable* functional.
+    When :math:`f` is quadratic, NLCG is equivalent to the Conjugate Gradient (CG) method.
+    NLCG hence has similar convergence behaviour to CG if :math:`f` is locally-quadratic.
+    The converge speed may be slower however due to its line-search overhead [NumOpt_NocWri]_.
 
     The norm of the `gradient <https://www.wikiwand.com/en/Nonlinear_conjugate_gradient_method>`_
     :math:`\nabla f_k = \nabla f(x_k)` is used as the default stopping criterion.
@@ -75,6 +78,35 @@ class NLCG(pyca.Solver):
         (See: :py:mod:`~pycsou.math.linesearch`.)
 
         Users are expected to set `a0` if its value cannot be auto-inferred.
+
+    Example
+    --------
+    Consider the following quadratic optimization problem:
+
+    .. math:
+
+       \min_{\mathbf{x}} \Vert{A\mathbf{x}-\mathbf{b}}\Vert_2^2
+
+
+    This problem is strictly convex, hence NLCG will converge to the optimal solution:
+
+    .. code-block:: python3
+
+       import numpy as np
+
+       import pycsou.operator as pyco
+       import pycsou.opt.solver as pycs
+
+       N, a, b = 5, 3, 1
+       f = pyco.SquaredL2Norm(N).asloss(b).argscale(a)  # \norm(Ax - b)**2
+
+       nlcg = pycs.NLCG(f)
+       nlcg.fit(x0=np.zeros((N,)), variant="FR")
+       x_opt = nlcg.solution()
+       np.allclose(x_opt, 1/a)  # True
+
+    Note however that the CG method is preferable in this context since it omits the linesearch
+    overhead. The former depends on the cost of applying :math:`A`, and may be significant.
     """
 
     def __init__(self, f: pyca.DiffFunc, **kwargs):
