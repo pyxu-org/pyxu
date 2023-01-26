@@ -1182,20 +1182,18 @@ DR = DouglasRachford  #: Alias of :py:class:`~pycsou.opt.solver.pds.DouglasRachf
 
 class ADMM(_PDS):
     r"""
-    Alternating Direction Method of Multipliers algorithm.
+    Alternating Direction Method of Multipliers.
 
-    TODO add example and test
-
-    The *Alternating Direction Method of Multipliers (ADMM)* method can be used to solve problems of the form:
+    The *Alternating Direction Method of Multipliers (ADMM)* can be used to solve problems of the form:
 
     .. math::
 
        \min_{\mathbf{x}\in\mathbb{R}^N} \quad \mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{K}\mathbf{x}),
 
-    where:
+    where (see Remark 2 for additional details on the assumptions):
 
-    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}_+` is a *convex functional* (see Remark 2 for additional
-      requirements),
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is a *proper*, *lower semicontinuous* and
+      *convex functional* potentially with *simple proximal operator* or *Lipschitz-differentiable*,
     * :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` is a *proper*, *lower semicontinuous* and
       *convex functional* with *simple proximal operator*,
     * :math:`\mathbf{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *linear operator* with **operator norm**:
@@ -1203,12 +1201,14 @@ class ADMM(_PDS):
     * The problem is *feasible* --i.e. there exists at least one solution.
 
     **Remark 1:**
-    The algorithm is still valid if one of the terms :math:`\mathcal{F}` or :math:`\mathcal{H}` is zero.
+    The algorithm is still valid if one of the terms :math:`\mathcal{F}`, :math:`\mathcal{H}` or :math:`\mathbf{K}` is
+    zero or identity.
 
     **Remark 2:**
     This is an implementation of the algorithm described in Section 5.4 of [PSA]_, which handles the non-smooth
     composite term :math:`\mathcal{H}(\mathbf{K}\mathbf{x})` by means of a change of variable and an infimal
-    postcomposition trick. This algorithm involves the :math:`\mathbf{x}`-minimization step
+    postcomposition trick. The update equation of this algorithm involves the following
+    :math:`\mathbf{x}`-minimization step
 
     .. math::
         :label: eq:x_minimization
@@ -1216,54 +1216,56 @@ class ADMM(_PDS):
         \mathcal{V} = \operatorname*{arg\,min}_{x \in \mathbb{R^N}} \quad \mathcal{F}(\mathbf{x}) + \frac1{2 \tau}
         \Vert \mathbf{K} \mathbf{x} - \mathbf{a} \Vert_2^2,
 
-    which must be solved at *every* iteration of ADMM, where :math:`\tau` is the primal step size and
-    :math:`\mathbf{a} \in \mathbb{R}^M` is an iteration-dependant vector. The following cases are covered in this
-    implementation:
-
-    * The user may provide a callable solver :math:`s: \mathbb{R}^M \times \mathbb{R} \to \mathbb{R}^N` to solve
-      :math:numref:`eq:x_minimization`, so that :math:`s(\mathbf{a}, \tau) \in \mathcal{V}`. If ADMM is
-      initialized with such a solver, then the latter is used to solve :math:numref:`eq:x_minimization` regardless of
-      whether one of the following cases is met.
+    where :math:`\tau` is the primal step size and :math:`\mathbf{a} \in \mathbb{R}^M` is an iteration-dependant vector.
+    The following cases are covered in this implementation:
 
     * :math:`\mathbf{K}` is ``None`` (`i.e.`, the identity operator) and :math:`\mathcal{F}` is a
-      :py:class:`~pycsou.abc.operator.ProxFunc`. Then, :math:numref:`eq:x_minimization` amounts to an application of the
-      proximal operator of :math:`\mathcal{F}`. This case amounts to the classical ADMM algorithm described in Section
-      5.3 of [PSA]_ (without the postcomposition trick).
+      :py:class:`~pycsou.abc.operator.ProxFunc`. Then, :math:numref:`eq:x_minimization` has a single solution provided by the
+      proximal operator of :math:`\mathcal{F}`. This yields the *classical ADMM algorithm* described in Section
+      5.3 of [PSA]_ (i.e. without the postcomposition trick).
 
-    * :math:`\mathcal{F}` is a :py:class:`~pycsou.operator.func.quadratic.QuadraticFunc`. Then,
-      :math:numref:`eq:x_minimization` amounts to solving the linear system
+    * :math:`\mathcal{F}` is a :py:class:`~pycsou.operator.func.quadratic.QuadraticFunc`, that is
+      :math:`\mathcal{F}(\mathbf{x})=\frac{1}{2} \langle\mathbf{x}, \mathbf{Q}\mathbf{x}\rangle + \mathbf{c}^T\mathbf{x} + t`,
+      where :math:`\mathbf{Q} \in \mathbb{R}^{N \times N}` is the Hessian of
+      :math:`\mathcal{F}`, :math:`\mathbf{b} \in \mathbb{R}^N` and :math:`t>0`. Then,
+      solutions to :math:numref:`eq:x_minimization` can be obtained by solving a linear system of the form
 
       .. math::
 
-          \underbrace{\Big( \mathbf{Q} + \frac1\tau \mathbf{K}^* \mathbf{K} \Big)}_{\mathbf{A}} \mathbf{x} =
-          \mathbf{b}
+          \Big( \mathbf{Q} + \frac1\tau \mathbf{K}^* \mathbf{K} \Big) \mathbf{x} =
+          \frac1\tau \mathbf{K}^\ast\mathbf{a}-\mathbf{c}, \qquad \mathbf{x} \in \mathbb{R}^N.
 
-      over :math:`\mathbf{x} \in \mathbb{R}^N`, where :math:`\mathbf{Q} \in \mathbb{R}^{N \times N}` is the Hessian of
-      :math:`\mathcal{F}` and :math:`\mathbf{b} \in \mathbb{R}^N` is an iteration-dependant vector. This linear system
-      is solved via an inner-loop :py:class:`~pycsou.opt.solver.cg.CG` algorithm that involves the repeated
-      application of the operator :math:`\mathbf{A}`, which consists of :math:`\mathbf{Q}` and of the Gramian of
-      :math:`\mathbf{K}`. Hence, this scenario can be costly if these operators cannot be evaluated with fast algorithms
-      .
+      This linear system
+      is solved via a sub-iterative :py:class:`~pycsou.opt.solver.cg.CG` algorithm involving the repeated
+      application of :math:`\mathbf{Q}` and of the Gramiam of :math:`\mathbf{K}`. This sub-iterative scheme can therefore
+      be computationally intensive if these operators do not admit fast matrix-free implementations.
 
-    * :math:`\mathcal{F}` is a :py:class:`~pycsou.abc.operator.DiffFunc`. Then, :math:numref:`eq:x_minimization` is
-      solved with an inner-loop :py:class:`~pycsou.opt.solver.nlcg.NLCG` algorithm, which involves the repeated
-      application of the gradient of :math:`\mathcal{F}` and of the Gramian of :math:`\mathbf{K}`. Hence, this scenario
+    * :math:`\mathcal{F}` is a :py:class:`~pycsou.abc.operator.DiffFunc`.
+      Then, :math:numref:`eq:x_minimization` is
+      solved via a sub-iterative :py:class:`~pycsou.opt.solver.nlcg.NLCG` algorithm, which involves the repeated
+      evaluation of the gradient of :math:`\mathcal{F}` and the Gramian of :math:`\mathbf{K}`. Again, this scenario
       can be costly if these operators cannot be evaluated with fast algorithms.
+
+    The user may provide a *custom* callable solver :math:`s: \mathbb{R}^M \times \mathbb{R} \to \mathbb{R}^N`, taking
+    as input :math:`(\mathbf{a}, \tau)` and solving
+    :math:numref:`eq:x_minimization`, i.e. :math:`s(\mathbf{a}, \tau) \in \mathcal{V}`.
+    If :py:class:`~pycsou.opt.solver.pds.ADMM` is initialized with such a solver, then the latter is used to solve
+    :math:numref:`eq:x_minimization` regardless of whether one of the above-mentioned cases is met.
+
 
     **Remark 3:**
     Note that this algorithm **does not require** the diff-lipschitz constant of :math:`\mathcal{F}` to be known!
 
     **Initialization parameters of the class:**
 
-    f: Func | None
-        Functional, instance of :py:class:`~pycsou.abc.operator.Func`.
+    f: ProxFunc | DiffFunc | None
+        Functional, instance of :py:class:`~pycsou.abc.operator.ProxFunc` or :py:class:`~pycsou.abc.operator.DiffFunc`.
     h: ProxFunc | None
         Proximable functional, instance of :py:class:`~pycsou.abc.operator.ProxFunc`.
     K: LinOp | None
         Linear operator, instance of :py:class:`~pycsou.abc.operator.LinOp`.
     solver: Callable[ndarray, float] | None
-        Callable that solves the x-minimization step :math:numref:`eq:x_minimization`.
-
+        Callable function that solves the x-minimization step :math:numref:`eq:x_minimization`.
 
     **Parameterization** of the ``fit()`` method:
 
