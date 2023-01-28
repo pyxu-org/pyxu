@@ -66,17 +66,20 @@ class NLCG(pyca.Solver):
     x0: pyct.NDArray
         (..., N) initial point(s).
     variant: str
-        Name of the NLCG variant to use.
-        Use "PR" for the Polak-Ribière+ variant.
-        Use "FR" for the Fletcher-Reeves variant.
+        Name of the NLCG variant to use:
+
+        * "PR" for the Polak-Ribière+ variant (default).
+        * "FR" for the Fletcher-Reeves variant.
     restart_rate: pyct.Integer
         Number of iterations after which restart is applied.
-        By default, restart is done after 'n' iterations, where 'n' corresponds to the dimension of
-        the inputs to :math:`f`.
+
+        By default, restart is done after :math:`N` iterations.
     **kwargs
         Optional parameters forwarded to :py:func:`~pycsou.math.linesearch.backtracking_linesearch`.
         (See: :py:mod:`~pycsou.math.linesearch`.)
 
+        If `a0` is unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a0`
+        is auto-chosen as :math:`\beta^{-1}`.
         Users are expected to set `a0` if its value cannot be auto-inferred.
 
     Example
