@@ -1218,7 +1218,7 @@ class ADMM(_PDS):
     .. math::
         :label: eq:x_minimization
 
-        \mathcal{V} = \operatorname*{arg\,min}_{x \in \mathbb{R^N}} \quad \mathcal{F}(\mathbf{x}) + \frac1{2 \tau}
+        \mathcal{V} = \operatorname*{arg\,min}_{\mathbf{x} \in \mathbb{R^N}} \quad \mathcal{F}(\mathbf{x}) + \frac1{2 \tau}
         \Vert \mathbf{K} \mathbf{x} - \mathbf{a} \Vert_2^2,
 
     where :math:`\tau` is the primal step size and :math:`\mathbf{a} \in \mathbb{R}^M` is an iteration-dependant vector.
@@ -1232,8 +1232,8 @@ class ADMM(_PDS):
     * :math:`\mathcal{F}` is a :py:class:`~pycsou.operator.func.quadratic.QuadraticFunc`, that is
       :math:`\mathcal{F}(\mathbf{x})=\frac{1}{2} \langle\mathbf{x}, \mathbf{Q}\mathbf{x}\rangle + \mathbf{c}^T\mathbf{x} + t`,
       where :math:`\mathbf{Q} \in \mathbb{R}^{N \times N}` is the Hessian of
-      :math:`\mathcal{F}`, :math:`\mathbf{b} \in \mathbb{R}^N` and :math:`t>0`. Then,
-      solutions to :math:numref:`eq:x_minimization` can be obtained by solving a linear system of the form
+      :math:`\mathcal{F}`, :math:`\mathbf{b} \in \mathbb{R}^N` and :math:`t>0`. Then, the unique
+      solution to :math:numref:`eq:x_minimization` can be obtained by solving a linear system of the form
 
       .. math::
 
@@ -1251,16 +1251,16 @@ class ADMM(_PDS):
       evaluation of the gradient of :math:`\mathcal{F}` and the Gramian of :math:`\mathbf{K}`. Again, this scenario
       can be costly if these operators cannot be evaluated with fast algorithms.
 
-    The user may provide a *custom* callable solver :math:`s: \mathbb{R}^M \times \mathbb{R} \to \mathbb{R}^N`, taking
+    The user may also provide a *custom* callable solver :math:`s: \mathbb{R}^M \times \mathbb{R} \to \mathbb{R}^N`, taking
     as input :math:`(\mathbf{a}, \tau)` and solving
-    :math:numref:`eq:x_minimization`, i.e. :math:`s(\mathbf{a}, \tau) \in \mathcal{V}`.
+    :math:numref:`eq:x_minimization`, i.e., :math:`s(\mathbf{a}, \tau) \in \mathcal{V}`.
     If :py:class:`~pycsou.opt.solver.pds.ADMM` is initialized with such a solver, then the latter is used to solve
     :math:numref:`eq:x_minimization` regardless of whether one of the above-mentioned cases is met.
 
 
     **Remark 3:**
     Note that, unlike traditional implementations of ADMM, this implementation supports the
-    possibility of relaxation (i.e. :math:`\rho\neq 1), .
+    possibility of relaxation (i.e. :math:`\rho\neq 1`), .
 
     **Initialization parameters of the class:**
 
@@ -1272,7 +1272,7 @@ class ADMM(_PDS):
         Linear operator, instance of :py:class:`~pycsou.abc.operator.LinOp`.
     solver: Callable[[NDArray, float], NDArray] | None
         Optional callable function (with `Numpy signature <https://numpy.org/neps/nep-0020-gufunc-signature-enhancement.html>`_
-        ``(n), (1) -> (n)`` ) that solves the x-minimization step :math:numref:`eq:x_minimization` with a custom solver.
+        ``(n), (1) -> (n)`` ) that solves the :math:`\mathbf{x}`-minimization step :math:numref:`eq:x_minimization` with a custom solver.
     solver_kwargs: dict | None
         Optional keyword arguments to be passed to the ``__init__`` method of the sub-iterative :py:class:`~pycsou.opt.solver.cg.CG` or
         :py:class:`~pycsou.opt.solver.cg.NLCG` solvers (see Remark 2). Ignored if custom ``solver`` is provided.
