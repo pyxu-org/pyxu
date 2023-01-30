@@ -1344,26 +1344,26 @@ class ADMM(_PDS):
         subsamp_mat = sp.sparse.csr_array((M, N))
         for i in range(M):
             subsamp_mat[i, x_samp[i]] = 1
-        subsamp_op = pyca.LinOp.from_array(subsamp_mat)
-        f = 1 / 2 * pycop.SquaredL2Norm().argshift(-y) * subsamp_op
+        G = pyca.LinOp.from_array(subsamp_mat)
+        f = 1 / 2 * pycop.SquaredL2Norm().argshift(-y) * G
         f.diff_lipschitz()
 
         # Regularization term (promotes sparse second derivatives)
-        sp.sparse.diags(diagonals=[1, -2, 1], offsets=[0, 1, 2], shape=(N-2, N))
-        reg_op = pyca.LinOp.from_array()
-        h = pycn.L1Norm(dim=reg_op.codim)
+        deriv_mat = sp.sparse.diags(diagonals=[1, -2, 1], offsets=[0, 1, 2], shape=(N - 2, N))
+        D = pyca.LinOp.from_array(deriv_mat)
         lamb = 1e-1  # Regularization parameter
+        h = lamb * pycn.L1Norm(dim=D.codim)
 
         # Solver for ADMM
         tau = 1 / lamb  # Internal ADMM parameter
         # Inverse operator to solve the linear system
-        A_inv = sp.linalg.inv(subsamp_op.gram().asarray() + (1 / tau) * reg_op.gram().asarray())
+        A_inv = sp.linalg.inv(G.gram().asarray() + (1 / tau) * D.gram().asarray())
         def solver_ADMM(arr, tau):
-            b = (1 / tau) * reg_op.adjoint(arr) + subsamp_op.adjoint(y)
+            b = (1 / tau) * D.adjoint(arr) + G.adjoint(y)
             return A_inv @ b.squeeze()
 
         # Solve optimization problem
-        admm = ADMM(f=f, h=lamb * h, K=reg_op, solver=solver_ADMM)  # With solver
+        admm = ADMM(f=f, h=h, K=D, solver=solver_ADMM)  # With solver
         admm.fit(**dict(x0=np.zeros(N), tau=tau))
         x_opt = admm.solution()  # Reconstructed signal
 
@@ -1409,15 +1409,15 @@ class ADMM(_PDS):
             elif f.has(pyco.Property.DIFFERENTIABLE_FUNCTION):
                 x_update_solver = "nlcg"
                 warnings.warn(
-                    "An sub-iterative non-linear conjugate gradient algorithm is used for the "
+                    "A sub-iterative non-linear conjugate gradient algorithm is used for the "
                     "x-minimization step of ADMM. This might be computationally expensive.",
                     UserWarning,
                 )
             else:
                 raise TypeError(
-                    "Unsupported scenario: f must either be a ProxFunc (in which case K must be None), a"
-                    "QuadraticFunc, or a DiffMap. If neither of these scenarios hold, a solver must be provided for the"
-                    "x-minimization step of ADMM."
+                    "Unsupported scenario: f must either be a ProxFunc (in which case K must be None), a "
+                    "QuadraticFunc, or a DiffMap. If neither of these scenarios hold, a solver must be provided for "
+                    "the x-minimization step of ADMM."
                 )
         self._solver = solver
         self._x_update_solver = x_update_solver
