@@ -1364,6 +1364,8 @@ class ADMM(_PDS):
         mst["u"] = self._K(x0) if x0.ndim > 1 else self._K(x0).reshape(1, -1)
 
         # Fit kwargs of sub-iterative solver
+        if solver_kwargs is None:
+            solver_kwargs = dict()
         self._fit_kwargs = solver_kwargs
 
     def m_step(
