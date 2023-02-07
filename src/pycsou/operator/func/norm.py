@@ -391,58 +391,30 @@ class L21Norm(ShiftLossMixin, pyca.ProxFunc):
         self._l1_axis = l1_axis
         self._l2_axis = l2_axis
 
-    @staticmethod
-    def _size(shape, axis) -> int:
-        return np.prod([shape[ax] for ax in axis])
-
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray):
         sh = arr.shape[:-1]
         arr = arr.reshape(sh + self._arg_shape)
 
+        l2_axis = tuple(len(sh) + self._l2_axis)
+        x = (arr**2).sum(axis=l2_axis, keepdims=True)
         xp = pycu.get_array_module(arr)
-        arr = xp.moveaxis(
-            arr,
-            len(sh) + self._l2_axis,
-            np.r_[-len(self._l2_axis) : 0],
-        )
-        arr = arr.reshape(
-            *sh,
-            self._size(self._arg_shape, self._l1_axis),
-            self._size(self._arg_shape, self._l2_axis),
-        )
+        xp.sqrt(x, out=x)
 
-        # Eval L21
-        out = pylinalg.norm(arr, ord=2, axis=-1)
-        out = pylinalg.norm(out, ord=1, axis=-1, keepdims=True)
-        return out
+        l1_axis = tuple(len(sh) + self._l1_axis)
+        out = x.sum(axis=l1_axis, keepdims=True)
+        return out.reshape(*sh, -1)
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real):
         sh = arr.shape[:-1]
         arr = arr.reshape(sh + self._arg_shape)
 
+        l2_axis = tuple(len(sh) + self._l2_axis)
+        n = (arr**2).sum(axis=l2_axis, keepdims=True)
         xp = pycu.get_array_module(arr)
-        arr = xp.moveaxis(
-            arr,
-            len(sh) + self._l2_axis,
-            np.r_[-len(self._l2_axis) : 0],
-        )
-        arr = arr.reshape(
-            *sh,
-            self._size(self._arg_shape, self._l1_axis),
-            self._size(self._arg_shape, self._l2_axis),
-        )
+        xp.sqrt(n, out=n)
 
-        # Eval prox
-        out = pycu.copy_if_unsafe(arr)
-        n = pylinalg.norm(out, ord=2, axis=-1, keepdims=True)
+        out = arr.copy()
         out *= 1 - tau / xp.fmax(n, tau)
-
-        # Move axes back to original position
-        out = xp.moveaxis(
-            out,
-            np.r_[-len(self._l2_axis) : 0],
-            len(sh) + self._l2_axis,
-        )
         return out.reshape(*sh, -1)
