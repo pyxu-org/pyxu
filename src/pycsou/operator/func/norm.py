@@ -375,14 +375,21 @@ class L21Norm(ShiftLossMixin, pyca.ProxFunc):
         l2_axis: pyct.NDArrayAxis
             Axis (or axes) along which the :math:`\ell_{2}` norm is applied.
         """
+        arg_shape = pycu.as_canonical_shape(arg_shape)
+        assert all(a > 0 for a in arg_shape)
+        N_dim = len(arg_shape)
+        assert N_dim >= 2
+
+        l2_axis = np.unique(pycu.as_canonical_shape(l2_axis))  # drop potential duplicates
+        assert np.all((-N_dim <= l2_axis) & (l2_axis < N_dim))  # all axes in valid range
+        l2_axis = (l2_axis + N_dim) % N_dim  # get rid of negative axes
+        l1_axis = np.setdiff1d(np.arange(N_dim), l2_axis)
+
         super().__init__(shape=(1, np.prod(arg_shape)))
-        self.arg_shape = arg_shape
-        if isinstance(l2_axis, int):
-            l2_axis = (l2_axis,)
-        self.l2_axis = l2_axis
-        ax_l2 = [a if a < 0 else (a - len(arg_shape)) for a in l2_axis]
-        self._l1_axis = np.setdiff1d(np.arange(-len(arg_shape), 0), ax_l2)  # Axes where l1 norm is applied
         self._lipschitz = np.inf
+        self._arg_shape = arg_shape
+        self._l1_axis = l1_axis
+        self._l2_axis = l2_axis
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray):
