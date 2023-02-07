@@ -391,22 +391,58 @@ class L21Norm(ShiftLossMixin, pyca.ProxFunc):
         self._l1_axis = l1_axis
         self._l2_axis = l2_axis
 
+    @staticmethod
+    def _size(shape, axis) -> int:
+        return np.prod([shape[ax] for ax in axis])
+
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray):
+        sh = arr.shape[:-1]
+        arr = arr.reshape(sh + self._arg_shape)
+
         xp = pycu.get_array_module(arr)
-        x = arr.copy().reshape(arr.shape[:-1] + self.arg_shape)
-        x = xp.moveaxis(x, self._l1_axis, np.arange(-len(self._l1_axis), 0))  # Move l1 axis to trailing dimensions
-        # Reshape so that l1 and l2 are a single dimension
-        x = x.reshape(arr.shape[:-1] + (np.prod([self.arg_shape[a] for a in self.l2_axis]),) + (-1,))
-        return pylinalg.norm(pylinalg.norm(x, ord=2, axis=-2), ord=1, axis=-1, keepdims=True)
+        arr = xp.moveaxis(
+            arr,
+            len(sh) + self._l2_axis,
+            np.r_[-len(self._l2_axis) : 0],
+        )
+        arr = arr.reshape(
+            *sh,
+            self._size(self._arg_shape, self._l1_axis),
+            self._size(self._arg_shape, self._l2_axis),
+        )
+
+        # Eval L21
+        out = pylinalg.norm(arr, ord=2, axis=-1)
+        out = pylinalg.norm(out, ord=1, axis=-1, keepdims=True)
+        return out
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real):
+        sh = arr.shape[:-1]
+        arr = arr.reshape(sh + self._arg_shape)
+
         xp = pycu.get_array_module(arr)
-        x = arr.copy().reshape(arr.shape[:-1] + self.arg_shape)
-        x = xp.moveaxis(x, self._l1_axis, range(-len(self._l1_axis), 0))  # Move l1 axis to trailing dimensions
-        # Reshape so that l1 and l2 are a single dimension
-        x = x.reshape(arr.shape[:-1] + (np.prod([self.arg_shape[a] for a in self.l2_axis]),) + (-1,))
-        x = (1 - tau / xp.fmax(pylinalg.norm(x, ord=2, axis=-2, keepdims=True), tau)) * x
-        x = xp.moveaxis(x, range(-len(self._l1_axis), 0), self._l1_axis)  # Move back dimensions to their original place
-        return x.reshape(arr.shape[:-1] + (-1,))
+        arr = xp.moveaxis(
+            arr,
+            len(sh) + self._l2_axis,
+            np.r_[-len(self._l2_axis) : 0],
+        )
+        arr = arr.reshape(
+            *sh,
+            self._size(self._arg_shape, self._l1_axis),
+            self._size(self._arg_shape, self._l2_axis),
+        )
+
+        # Eval prox
+        out = pycu.copy_if_unsafe(arr)
+        n = pylinalg.norm(out, ord=2, axis=-1, keepdims=True)
+        out *= 1 - tau / xp.fmax(n, tau)
+
+        # Move axes back to original position
+        out = xp.moveaxis(
+            out,
+            np.r_[-len(self._l2_axis) : 0],
+            len(sh) + self._l2_axis,
+        )
+        return out.reshape(*sh, -1)
