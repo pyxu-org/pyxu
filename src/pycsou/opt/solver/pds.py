@@ -1167,7 +1167,10 @@ def DouglasRachford(
     obj.__repr__ = lambda _: "DouglasRachford"
 
     def _set_step_sizes_custom(
-        tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real], gamma: pyct.Real
+        obj: typ.Type[_PrimalDualSplitting],
+        tau: typ.Optional[pyct.Real],
+        sigma: typ.Optional[pyct.Real],
+        gamma: pyct.Real,
     ) -> typ.Tuple[pyct.Real, pyct.Real, pyct.Real]:
         tau = 1.0 if tau is None else tau
         delta = 2.0
@@ -1552,7 +1555,7 @@ def ProximalPoint(
     --------
     :py:class:`~pycsou.opt.solver.pds.CondatVu`, :py:class:`~pycsou.opt.solver.pds.PD3O`,:py:class:`~pycsou.opt.solver.pgd.PGD`, :py:func:`~pycsou.opt.solver.pds.ChambollePock`, :py:func:`~pycsou.opt.solver.pds.DouglasRachford`"""
     kwargs.update(log_var=kwargs.get("log_var", ("x",)))
-    obj = base.__init__(
+    obj = base(
         f=None,
         g=g,
         h=None,
