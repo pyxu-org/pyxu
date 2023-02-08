@@ -8,21 +8,6 @@ import pycsou.util.ptype as pyct
 import pycsou_tests.opt.solver.conftest as conftest
 
 
-def op(N: int = 5) -> pyct.OpT:
-    # implements \norm{Ax - b}{2}^{2}, with
-    # * b = [1 ... 1] \in \bR^{N}
-    # * A \in \bR^{N \times N}
-    # * x \in \bR^{N}
-    from pycsou_tests.operator.examples.test_proxdifffunc import SquaredL2Norm
-    from pycsou_tests.operator.examples.test_unitop import Permutation
-
-    A = Permutation(N=N)
-    b = 1
-    L2 = SquaredL2Norm()
-    op_ = L2.asloss(b) * A
-    return op_
-
-
 # We disable AutoInferenceWarning since we do not test convergence speed.
 @pytest.mark.filterwarnings("ignore::pycsou.util.warning.AutoInferenceWarning")
 class TestPGD(conftest.SolverT):
@@ -31,10 +16,14 @@ class TestPGD(conftest.SolverT):
         klass = [
             pycos.PGD,
         ]
+
+        funcs = conftest.funcs(N, seed=3)
+        stream1 = conftest.generate_funcs(funcs, N_term=1)
+        stream2 = conftest.generate_funcs(funcs, N_term=2)
         kwargs_init = [
-            dict(f=op(N), g=None),
-            dict(f=None, g=op(N)),
-            dict(f=op(N), g=op(N)),
+            *[dict(f=f, g=None) for (f, *_) in stream1],
+            *[dict(f=None, g=g) for (g, *_) in stream1],
+            *[dict(f=f, g=g) for (f, g) in stream2],
         ]
 
         kwargs_fit = []
@@ -43,10 +32,7 @@ class TestPGD(conftest.SolverT):
                 np.zeros(N),
                 np.zeros((2, N)),  # multiple initial points
             ],
-            tau=[
-                None,
-                0.5 / op(N).diff_lipschitz(),  # below convergence limit -> ok
-            ],
+            tau=[None],
             acceleration=[True, False],
             d=[50, 75],
         )
@@ -61,3 +47,13 @@ class TestPGD(conftest.SolverT):
     def spec(self, request) -> tuple[pyct.SolverC, dict, dict]:
         klass, kwargs_init, kwargs_fit = request.param
         return klass, kwargs_init, kwargs_fit
+
+    @pytest.fixture
+    def cost_function(self, kwargs_init) -> dict[str, pyct.OpT]:
+        func = [kwargs_init[k] for k in ("f", "g")]
+        func = [f for f in func if f is not None]
+        if len(func) == 1:  # f or g
+            func = func[0]
+        else:  # f and g
+            func = func[0] + func[1]
+        return dict(x=func)
