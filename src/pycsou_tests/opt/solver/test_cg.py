@@ -50,3 +50,42 @@ class TestCG(conftest.SolverT):
     def spec(self, request) -> tuple[pyct.SolverC, dict, dict]:
         klass, kwargs_init, kwargs_fit = request.param
         return klass, kwargs_init, kwargs_fit
+
+    # Note the different signature compared to SolverT.cost_function:
+    # we need access to `b` from `kwargs_fit` to compute the cost function.
+    @pytest.fixture
+    def cost_function(self, kwargs_init, kwargs_fit) -> dict[str, pyct.OpT]:
+        import pycsou.abc as pyca
+        import pycsou.operator.blocks as pycb
+        import pycsou.operator.func as pycf
+
+        # The value of `b` determines the cost function.
+        # Moreover several `b` may be provided.
+        # A unique cost function is obtained by flattening `b` and block-expanding the quadratic
+        # cost accordingly.
+
+        A = kwargs_init["A"]
+        b = kwargs_fit["b"]
+        N_b = int(np.prod(b.shape[:-1]))
+        func = pycf.QuadraticFunc(
+            Q=pycb.block_diag((A,) * N_b),
+            c=pyca.LinFunc.from_array(-b.reshape(-1), enable_warnings=False),
+            t=0,
+            init_lipschitz=False,  # not needed for [apply|grad]() calls.
+        )
+        return dict(x=func)
+
+    def test_value_fit(self, solver, _kwargs_fit_xp, cost_function, ground_truth):
+        solver.fit(**_kwargs_fit_xp.copy())
+        data, _ = solver.stats()
+
+        # cost_function() expects a flattened `b`: we must reshape the solver's output.
+        b_dim = _kwargs_fit_xp["b"].ndim
+        x = data["x"]
+        x = x.reshape(
+            *x.shape[:-b_dim],
+            np.prod(x.shape[-b_dim:]),
+        )
+        data.update(x=x)
+
+        self._check_value_fit(data, cost_function, ground_truth)
