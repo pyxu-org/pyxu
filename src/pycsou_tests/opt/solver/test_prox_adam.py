@@ -12,14 +12,17 @@ from pycsou.operator import shift_loss
 class TestProxAdam(conftest.SolverT):
     @staticmethod
     def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
-        from pycsou.operator.func import L1Norm, SquaredL2Norm
-
         klass = [
             pycos.ProxAdam,
         ]
+
+        funcs = conftest.funcs(N, seed=5)
+        stream1 = conftest.generate_funcs(funcs, N_term=1)
+        stream2 = conftest.generate_funcs(funcs, N_term=2)
         kwargs_init = [
-            dict(f=SquaredL2Norm(), g=L1Norm()),
-            dict(f=SquaredL2Norm()),
+            *[dict(f=f, g=None) for (f, *_) in stream1],
+            # We do not test f=None case since unsupported by ProxAdam().
+            *[dict(f=f, g=g) for (f, g) in stream2],
         ]
 
         kwargs_fit = []
@@ -42,3 +45,13 @@ class TestProxAdam(conftest.SolverT):
     def spec(self, request) -> tuple[pyct.SolverC, dict, dict]:
         klass, kwargs_init, kwargs_fit = request.param
         return klass, kwargs_init, kwargs_fit
+
+    @pytest.fixture
+    def cost_function(self, kwargs_init) -> dict[str, pyct.OpT]:
+        func = [kwargs_init[k] for k in ("f", "g")]
+        func = [f for f in func if f is not None]
+        if len(func) == 1:  # f or g
+            func = func[0]
+        else:  # f and g
+            func = func[0] + func[1]
+        return dict(x=func)
