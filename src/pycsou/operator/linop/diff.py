@@ -2502,18 +2502,21 @@ class StructureTensor(pyco.DiffMap):
                 **diff_kwargs,
             )
 
-        kernel = [
-            np.array([1]),
-        ] * len(arg_shape)
-        center = np.zeros(len(arg_shape), dtype=int)
-        for i in range(len(arg_shape)):
-            radius = int(smooth_truncate[i] * float(smooth_sigma[i]) + 0.5)
-            kernel[axis[i]] = np.flip(scif._gaussian_kernel1d(smooth_sigma[i], 0, radius))
-            center[axis[i]] = radius
+        if smooth_sigma:
+            kernel = [
+                np.array([1]),
+            ] * len(arg_shape)
+            center = np.zeros(len(arg_shape), dtype=int)
+            for i in range(len(arg_shape)):
+                radius = int(smooth_truncate[i] * float(smooth_sigma[i]) + 0.5)
+                kernel[axis[i]] = np.flip(scif._gaussian_kernel1d(smooth_sigma[i], 0, radius))
+                center[axis[i]] = radius
 
-        self.smooth = _BaseDifferential(
-            kernel=kernel, center=center, arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype
-        )
+            self.smooth = _BaseDifferential(
+                kernel=kernel, center=center, arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype
+            )
+        else:
+            self.smooth = pycl.IdentityOp(dim=np.prod(arg_shape).item())
 
     def unravel(self, arr):
         return arr.reshape(-1, *arr.shape[:-1], *self.arg_shape).swapaxes(0, 1)
