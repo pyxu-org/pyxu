@@ -1091,6 +1091,15 @@ class _BaseVecDifferential:
         _param2 = np.empty(len(arg_shape), dtype=object)
         _param1[:] = param1
         _param2[:] = param2
+        if isinstance(mode, str):
+            mode = (mode,)
+        if isinstance(mode, cabc.Sequence):
+            if len(mode) != len(arg_shape):
+                assert len(mode) == 1
+                mode = mode * len(arg_shape)
+
+        else:
+            raise ValueError("mode has to be a string or a tuple")
         dif_op = []
         for i in range(0, len(directions)):
             _order = np.zeros_like(arg_shape)
