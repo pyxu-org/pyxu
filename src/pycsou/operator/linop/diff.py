@@ -2399,6 +2399,7 @@ class StructureTensor(pyco.DiffMap):
        import matplotlib.pyplot as plt
        from pycsou.operator.linop.diff import StructureTensor
        from pycsou.util.misc import peaks
+
        # Define input image
        n = 1000
        x = np.linspace(-3, 3, n)
@@ -2408,37 +2409,36 @@ class StructureTensor(pyco.DiffMap):
        arg_shape = image.shape  # (1000, 1000)
        images = np.tile(image, (nsamples, 1, 1)).reshape(nsamples, -1)
        print(images.shape)  # (2, 1000000)
-       # Instantiate hessian operator
-       directions = "all"
-       hessian = Hessian.gaussian_derivative(arg_shape=arg_shape, directions=directions)
-       # Compute Hessian
-       outputs = hessian(images)
+       # Instantiate structure tensor operator
+       structure_tensor = StructureTensor(arg_shape=arg_shape)
+
+       outputs = structure_tensor(images)
        print(outputs.shape)  # (2, 3000000)
        # Plot
-       outputs = hessian.unravel(outputs)
+       outputs = structure_tensor.unravel(outputs)
        print(outputs.shape)  # (2, 3, 1000, 1000)
-       d2f_dx2 = outputs[:, 0]
-       d2f_dxdy = outputs[:, 1]
-       d2f_dy2 = outputs[:, 2]
        plt.figure()
        plt.imshow(images[0].reshape(arg_shape))
        plt.colorbar()
        plt.title("Image")
        plt.axis("off")
+
        plt.figure()
-       plt.imshow(d2f_dx2[0].reshape(arg_shape))
+       plt.imshow(outputs[0][0].reshape(arg_shape))
        plt.colorbar()
-       plt.title(r"$\partial^{2} f/ \partial x^{2}$")
+       plt.title(r"$\hat{S}_{xx}$")
        plt.axis("off")
+
        plt.figure()
-       plt.imshow(d2f_dxdy[0].reshape(arg_shape))
+       plt.imshow(outputs[0][1].reshape(arg_shape))
        plt.colorbar()
-       plt.title(r"$\partial^{2} f/ \partial x\partial y$")
+       plt.title(r"$\hat{S}_{xy}$")
        plt.axis("off")
+       
        plt.figure()
-       plt.imshow(d2f_dy2[0].reshape(arg_shape))
+       plt.imshow(outputs[0][2].reshape(arg_shape))
        plt.colorbar()
-       plt.title(r"$\partial^{2} f/ \partial y^{2}$")
+       plt.title(r"$\hat{S}_{yy}$")
        plt.axis("off")
        
     See Also
