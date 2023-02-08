@@ -2491,6 +2491,7 @@ class StructureTensor(pyco.DiffMap):
        import matplotlib.pyplot as plt
        from pycsou.operator.linop.diff import StructureTensor
        from pycsou.util.misc import peaks
+
        # Define input image
        n = 1000
        x = np.linspace(-3, 3, n)
