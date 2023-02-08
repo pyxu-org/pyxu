@@ -1250,7 +1250,8 @@ class ADMM(_PDS):
       Then, :math:numref:`eq:x_minimization` is
       solved via a sub-iterative :py:class:`~pycsou.opt.solver.nlcg.NLCG` algorithm, which involves the repeated
       evaluation of the gradient of :math:`\mathcal{F}` and the Gramian of :math:`\mathbf{K}`. Again, this scenario
-      can be costly if these operators cannot be evaluated with fast algorithms.
+      can be costly if these operators cannot be evaluated with fast algorithms. In this scenario, the use of multiple
+      initial points in the ``fit()`` method is not supported.
 
     The user may also provide a *custom* callable solver :math:`s: \mathbb{R}^M \times \mathbb{R} \to \mathbb{R}^N`, taking
     as input :math:`(\mathbf{a}, \tau)` and solving
@@ -1401,6 +1402,7 @@ class ADMM(_PDS):
                 f = None
             elif isinstance(f, pycf.QuadraticFunc):
                 x_update_solver = "cg"
+                self._K_gram = K.gram()
                 warnings.warn(
                     "A sub-iterative conjugate gradient algorithm is used for the x-minimization step "
                     "of ADMM. This might be computationally expensive.",
@@ -1408,6 +1410,7 @@ class ADMM(_PDS):
                 )
             elif f.has(pyco.Property.DIFFERENTIABLE_FUNCTION):
                 x_update_solver = "nlcg"
+                self._K_gram = K.gram()
                 warnings.warn(
                     "A sub-iterative non-linear conjugate gradient algorithm is used for the "
                     "x-minimization step of ADMM. This might be computationally expensive.",
@@ -1470,16 +1473,16 @@ class ADMM(_PDS):
             from pycsou.opt.solver import CG
 
             b = (1 / tau) * self._K.adjoint(arr) - self._f._c.grad(arr)
-            A = self._f._Q + (1 / tau) * self._K.gram()
+            A = self._f._Q + (1 / tau) * self._K_gram
             slvr = CG(A=A, **self._init_kwargs)
-            slvr.fit(b=b, x0=self._mstate["x"], **self._fit_kwargs)  # Initialize CG with previous iterate
+            slvr.fit(b=b, x0=self._mstate["x"].copy(), **self._fit_kwargs)  # Initialize CG with previous iterate
             return slvr.solution()
         elif self._x_update_solver == "nlcg":
             from pycsou.opt.solver import NLCG
 
-            quad_func = pycf.QuadraticFunc(2 * self._K.gram(), pyca.LinFunc.from_array(-self._K.adjoint(arr)))
+            quad_func = pycf.QuadraticFunc(2 * self._K_gram, pyca.LinFunc.from_array(-self._K.adjoint(arr)))
             slvr = NLCG(f=self._f + (1 / tau) * quad_func, **self._init_kwargs)
-            slvr.fit(x0=self._mstate["x"], **self._fit_kwargs)  # Initialize NLCG with previous iterate
+            slvr.fit(x0=self._mstate["x"].copy(), **self._fit_kwargs)  # Initialize NLCG with previous iterate
             return slvr.solution()
 
     def solution(self, which: typ.Literal["primal", "primal_h", "dual"] = "primal") -> pyct.NDArray:
