@@ -1044,7 +1044,7 @@ class PartialDerivative:
                     sampling=sampling[i],
                     return_linop=False,
                 )
-                kernel[axis[i]] = k
+                kernel[axis[i]] = k[axis[i]]
                 center[axis[i]] = c[axis[i]]
 
         return _BaseDifferential(kernel=kernel, center=center, arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype)
