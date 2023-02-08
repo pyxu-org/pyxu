@@ -1054,10 +1054,14 @@ def _make_unravelable(op, arg_shape=None):
     def unravel(self, arr):
         return arr.reshape(*arr.shape[:-1], -1, *self.arg_shape)
 
+    def ravel(self, arr):
+        return arr.reshape(*arr.shape[: -1 - len(self.arg_shape)], -1)
+
     if arg_shape is not None:
         setattr(op, "arg_shape", arg_shape)
 
     setattr(op, "unravel", functools.partial(unravel, op))
+    setattr(op, "ravel", functools.partial(ravel, op))
     return op
 
 
@@ -2512,7 +2516,10 @@ class StructureTensor(pyco.DiffMap):
         )
 
     def unravel(self, arr):
-        return arr.reshape(*arr.shape[:-1], -1, *self.arg_shape)
+        return arr.reshape(-1, *arr.shape[:-1], *self.arg_shape).swapaxes(0, 1)
+
+    def ravel(self, arr):
+        return arr.swapaxes(0, 1).reshape(*arr.shape[: -1 - len(self.arg_shape)], -1)
 
     def apply(self, arr):
         xp = pycu.get_array_module(arr)
