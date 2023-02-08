@@ -11,20 +11,13 @@ import pycsou_tests.opt.solver.conftest as conftest
 class TestNLCG(conftest.SolverT):
     @staticmethod
     def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
-        from pycsou.operator.func import NullFunc, QuadraticFunc
-        from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
-
         klass = [
             pycos.NLCG,
         ]
-        kwargs_init = [
-            dict(
-                f=QuadraticFunc(
-                    Q=PSDConvolution(N=N),
-                    c=NullFunc(dim=N),
-                )
-            ),
-        ]
+
+        funcs = conftest.funcs(N, seed=4)
+        stream = conftest.generate_funcs(funcs, N_term=1)
+        kwargs_init = [dict(f=f) for (f, *_) in stream]
 
         kwargs_fit = []
         param_sweep = dict(
@@ -48,3 +41,8 @@ class TestNLCG(conftest.SolverT):
     def spec(self, request) -> tuple[pyct.SolverC, dict, dict]:
         klass, kwargs_init, kwargs_fit = request.param
         return klass, kwargs_init, kwargs_fit
+
+    @pytest.fixture
+    def cost_function(self, kwargs_init) -> dict[str, pyct.OpT]:
+        func = kwargs_init["f"]
+        return dict(x=func)
