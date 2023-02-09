@@ -8,6 +8,8 @@ import pycsou.util.ptype as pyct
 __all__ = [
     "as_canonical_shape",
     "next_fast_len",
+    "peaks",
+    "star_like_sample",
 ]
 
 
@@ -43,19 +45,23 @@ def peaks(x: pyct.NDArray, y: pyct.NDArray) -> pyct.NDArray:
     Matlab 2D peaks function.
     Peaks is a function of two variables, obtained by translating and scaling Gaussian distributions (see `Matlab's peaks function <https://www.mathworks.com/help/matlab/ref/peaks.html>`_).
     This function is useful for testing purposes.
+
     Parameters
     ----------
     x: NDArray
         X coordinates.
     y: NDArray
         Y coordinates.
+
     Returns
     -------
     NDArray
         Values of the 2D function ``peaks`` at the points specified by the entries of ``x`` and ``y``.
+
     Examples
     --------
     .. plot::
+
        import numpy as np
        import matplotlib.pyplot as plt
        from pycsou.util.misc import peaks
@@ -77,8 +83,8 @@ def peaks(x: pyct.NDArray, y: pyct.NDArray) -> pyct.NDArray:
 def star_like_sample(N: int, w: int, s: float, po: int, x0: float) -> pyct.NDArray:
     r"""
     Generates a NxN square image of a star-like object normalized between 0 and 1. Based on `GlobalBioIm's
-    StarLikeSample function <https://www.mathworks.com/help/matlab/ref/peaks.html>`_. This function is useful for
-    testing purposes as it contains high-frequency information.
+    StarLikeSample function <https://github.com/Biomedical-Imaging-Group/GlobalBioIm/blob/master/Util/StarLikeSample.m>`_.
+    This function is useful for testing purposes as it contains high-frequency information.
 
     Parameters
     ----------
@@ -97,6 +103,16 @@ def star_like_sample(N: int, w: int, s: float, po: int, x0: float) -> pyct.NDArr
     -------
     im: NDArray
         Image of star-like sample.
+
+    Examples
+    --------
+    .. plot::
+
+       import matplotlib.pyplot as plt
+       from pycsou.util.misc import star_like_sample
+       image = star_like_sample(1000, 8, 20, 3, 0.7)
+       plt.figure()
+       plt.imshow(image)
     """
     grid = np.linspace(-1, 1, N)
     x, y = np.meshgrid(grid, grid)
