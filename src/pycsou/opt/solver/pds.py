@@ -1396,6 +1396,19 @@ class ADMM(_PDS):
         x_update_solver = "custom"  # Method for the x-minimization step
         g = None
         if solver is None:
+            if f is None:
+                if h is None:
+                    msg = " ".join(
+                        [
+                            "Cannot minimize always-0 functional.",
+                            "At least one of Parameter[f, h] must be specified.",
+                        ]
+                    )
+                    raise ValueError(msg)
+                if K is None:  # Prox scenario (classical ADMM)
+                    f = pycf.NullFunc(h.dim)
+                else:  # Sub-iterative CG scenario
+                    f = pycf.QuadraticFunc(pyclo.NullOp(shape=(h.dim, h.dim)), pycf.NullFunc(dim=h.dim))
             if f.has(pyco.Property.PROXIMABLE) and K is None:
                 x_update_solver = "prox"
                 g = f  # In this case, f corresponds to g in the _PDS terminology
