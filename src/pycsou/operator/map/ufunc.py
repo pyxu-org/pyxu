@@ -39,9 +39,9 @@ Example
 .. doctest::
 
     >>> from pycsou.operator.map import sin
-    >>> from pycsou.operator.linop.base import ExplicitLinOp
+    >>> from pycsou.abc.operator import LinOp
     >>> x = np.random.randn(10)
-    >>> A = ExplicitLinOp(np.random.randn(10, 10))
+    >>> A = LinOp.from_array(np.random.randn(10, 10))
     >>> sin_A = sin(A)
     >>> res = sin_A.apply(x)
     >>> np.allclose(res, np.sin(A.apply(x)))
@@ -97,19 +97,19 @@ class Sin(pyca.DiffMap):
         return xp.sin(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(xp.cos(arr))
 
 
-def sin(op: pyca.Map) -> pyca.Map:
+def sin(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Sin`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -156,26 +156,26 @@ class Cos(pyca.DiffMap):
         return xp.cos(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(-xp.sin(arr))
 
 
-def cos(op: pyca.Map) -> pyca.Map:
+def cos(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Cos`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Cos(op.shape) * op
+    return Cos(op.dim) * op
 
 
 class Tan(pyca.DiffMap):
@@ -210,19 +210,19 @@ class Tan(pyca.DiffMap):
         return xp.tan(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(1 / xp.cos(arr) ** 2)
 
 
-def tan(op: pyca.Map) -> pyca.Map:
+def tan(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Tan`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -264,19 +264,19 @@ class Arcsin(pyca.DiffMap):
         return xp.arcsin(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(1 / xp.sqrt(1 - arr**2))
 
 
-def arcsin(op: pyca.Map) -> pyca.Map:
+def arcsin(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Arcsin`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -318,19 +318,19 @@ class Arccos(pyca.DiffMap):
         return xp.arccos(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(-1 / xp.sqrt(1 - arr**2))
 
 
-def arccos(op: pyca.Map) -> pyca.Map:
+def arccos(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Arccos`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -378,18 +378,18 @@ class Arctan(pyca.DiffMap):
         return xp.arctan(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return pyclb.DiagonalOp(1 / (1 + arr**2))
 
 
-def arctan(op: pyca.Map) -> pyca.Map:
+def arctan(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Arctan`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -400,8 +400,6 @@ def arctan(op: pyca.Map) -> pyca.Map:
 
 
 # Hyperbolic Functions
-
-
 class Sinh(pyca.DiffMap):
     r"""
     Hyperbolic sine, element-wise.
@@ -434,19 +432,19 @@ class Sinh(pyca.DiffMap):
         return xp.sinh(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(xp.cosh(arr))
 
 
-def sinh(op: pyca.Map) -> pyca.Map:
+def sinh(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Sinh`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -488,19 +486,19 @@ class Cosh(pyca.DiffMap):
         return xp.cosh(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(xp.sinh(arr))
 
 
-def cosh(op: pyca.Map) -> pyca.Map:
+def cosh(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Cosh`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -550,19 +548,19 @@ class Tanh(pyca.DiffMap):
         return xp.tanh(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(1 / xp.cosh(arr) ** 2)
 
 
-def tanh(op: pyca.Map) -> pyca.Map:
+def tanh(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Tanh`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -612,19 +610,19 @@ class Arcsinh(pyca.DiffMap):
         return xp.arcsinh(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(1 / (xp.sqrt(1 + arr**2)))
 
 
-def arcsinh(op: pyca.Map) -> pyca.Map:
+def arcsinh(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Arcsinh`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -666,19 +664,19 @@ class Arccosh(pyca.DiffMap):
         return xp.arccosh(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(1 / xp.sqrt(-1 + arr**2))
 
 
-def arccosh(op: pyca.Map) -> pyca.Map:
+def arccosh(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Arccosh`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -720,18 +718,18 @@ class Arctanh(pyca.DiffMap):
         return xp.arctanh(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return pyclb.DiagonalOp(1 / (1 - arr**2))
 
 
-def arctanh(op: pyca.Map) -> pyca.Map:
+def arctanh(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Arctanh`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -786,7 +784,7 @@ class Exp(pyca.DiffMap):
         return xp.exp(out)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         y = self.apply(arr)
         if self._base is not None:
@@ -794,14 +792,14 @@ class Exp(pyca.DiffMap):
         return pyclb.DiagonalOp(y)
 
 
-def exp(op: pyca.Map, base: pyct.Real = None) -> pyca.Map:
+def exp(op: pyct.OpT, base: pyct.Real = None) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Exp`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
     base: :py:class:`pyct.Real`
         Base parameter. Default is `None`, which results in base-E exponential.
 
@@ -854,7 +852,7 @@ class Log(pyca.DiffMap):
         return out
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         y = 1 / arr
         if self._base is not None:
@@ -862,16 +860,16 @@ class Log(pyca.DiffMap):
         return pyclb.DiagonalOp(y)
 
 
-def log(op: pyca.Map, base: pyct.Real = None) -> pyca.Map:
+def log(op: pyct.OpT, base: pyct.Real = None) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Log`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
     base: :py:class:`pyct.Real`
-        Base parameter. Default is`None`, which results in base-E logarithm.
+        Base parameter. Default is `None`, which results in base-E logarithm.
 
     Returns
     -------
@@ -1056,23 +1054,23 @@ class Cumprod(pyca.DiffMap):
         return xp.cumprod(arr, axis=-1)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.ExplicitLinOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         assert arr.ndim == 1  # Jacobian matrix is only valid for vectors.
         xp = pycu.get_array_module(arr)
-        g = xp.repeat(arr[:, None], arr.shape[-1], axis=-1)
+        g = xp.repeat(arr[:, None], self.dim, axis=-1)
         e = xp.eye(*g.shape[-2:]).astype(bool)
         g[e] = 1.0
-        return pyclb.ExplicitLinOp(xp.tri(*g.shape[-2:]) * xp.cumprod(g, axis=1))
+        return pyca.LinOp.from_array(xp.tri(*g.shape[-2:]) * xp.cumprod(g, axis=1))
 
 
-def cumprod(op: pyca.Map) -> pyca.Map:
+def cumprod(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Cumprod`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -1128,20 +1126,20 @@ class Cumsum(pyca.DiffMap):
         return xp.cumsum(arr, axis=-1)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.ExplicitLinOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         assert arr.ndim == 1  # Jacobian matrix is only valid for vectors.
         xp = pycu.get_array_module(arr)
-        return pyclb.ExplicitLinOp(xp.tri(self.shape[0]))
+        return pyca.LinOp.from_array(xp.tri(self.shape[0]))
 
 
-def cumsum(op: pyca.Map) -> pyca.Map:
+def cumsum(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Cumsum`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -1216,19 +1214,19 @@ class Clip(pyca.DiffMap):
         return arr.clip(self._llim, self._ulim)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(xp.where(xp.logical_and(arr <= self._ulim, arr >= self._llim), 1.0, 0.0))
 
 
-def clip(op: pyca.Map, a_min: pyct.Real = None, a_max: pyct.Real = None):
+def clip(op: pyct.OpT, a_min: pyct.Real = None, a_max: pyct.Real = None):
     r"""
     Functional interface of :py:class:`Clip`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
     a_min: :py:class:`pyct.Real`
         Minimum value. Default is None.
     a_max: :py:class:`pyct.Real`
@@ -1274,18 +1272,18 @@ class Sqrt(pyca.DiffMap):
         return xp.sqrt(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return pyclb.DiagonalOp(1.0 / (2.0 * self.apply(arr)))
 
 
-def sqrt(op: pyca.Map) -> pyca.Map:
+def sqrt(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Sqrt`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -1304,7 +1302,7 @@ class Cbrt(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d \sqrt[3]{x}}{d x} = \frac{1}{3\sqrt[3]{x^2}}
+        \frac{\partial \sqrt[3]{x}}{\partial x} = \frac{1}{3\sqrt[3]{x^2}}
 
     * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\frac{1}{3\sqrt[3]{x^2}}|` is :math:`\mathbb{R}^+`.
 
@@ -1327,18 +1325,18 @@ class Cbrt(pyca.DiffMap):
         return xp.cbrt(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return pyclb.DiagonalOp(1.0 / (3.0 * (self.apply(arr) ** 2.0)))
 
 
-def cbrt(op: pyca.Map) -> pyca.Map:
+def cbrt(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Cbrt`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -1381,18 +1379,18 @@ class Square(pyca.DiffMap):
         return xp.square(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return pyclb.DiagonalOp(2.0 * arr)
 
 
-def square(op: pyca.Map) -> pyca.Map:
+def square(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Square`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -1432,7 +1430,6 @@ class Abs(pyca.DiffMap):
     ):
         super().__init__((dim, dim))
         self._lipschitz = 1
-        self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1440,19 +1437,19 @@ class Abs(pyca.DiffMap):
         return xp.absolute(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(xp.sign(arr))
 
 
-def abs(op: pyca.Map) -> pyca.Map:
+def abs(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Abs`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -1507,19 +1504,19 @@ class Sign(pyca.DiffMap):
         return xp.sign(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(xp.zeros_like(arr))
 
 
-def sign(op: pyca.Map) -> pyca.Map:
+def sign(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Sign`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -1577,18 +1574,18 @@ class Sigmoid(pyca.DiffMap):
         return 1.0 / (1.0 + xp.exp(-arr))
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return pyclb.DiagonalOp(self.apply(arr) * (1.0 - self.apply(arr)))
 
 
-def sigmoid(op: pyca.Map) -> pyca.Map:
+def sigmoid(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Sigmoid`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -1634,14 +1631,14 @@ class ReLU(Clip):
         super().__init__(dim, a_min=0, a_max=None)
 
 
-def relu(op: pyca.Map) -> pyca.Map:
+def relu(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`ReLU`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -1713,7 +1710,7 @@ class GELU(pyca.DiffMap):
         return arr * (1.0 + xp.array(erf(arr).astype(arr_dtype)) / xp.sqrt(2.0)) / 2.0
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         arr_dtype = arr.dtype
         arr_erf = (
             arr.astype("float64") if arr_dtype == "float128" else arr
@@ -1725,14 +1722,14 @@ class GELU(pyca.DiffMap):
         return pyclb.DiagonalOp(op1 + op2)
 
 
-def gelu(op: pyca.Map) -> pyca.Map:
+def gelu(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`GELU`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -1785,19 +1782,19 @@ class Softplus(pyca.DiffMap):
         return xp.log(xp.exp(arr) + 1.0)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(1.0 / (1.0 + xp.exp(-arr)))
 
 
-def softplus(op: pyca.Map) -> pyca.Map:
+def softplus(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Softplus`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -1854,7 +1851,7 @@ class ELU(pyca.DiffMap):
             raise ValueError("Parameter[alpha] must be specified.")
         self._alpha = alpha
         self._lipschitz = max(1, np.abs(alpha))
-        self._diff_lipschitz = max(0, np.abs(alpha))
+        self._diff_lipschitz = np.abs(alpha)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1862,21 +1859,21 @@ class ELU(pyca.DiffMap):
         return xp.where(arr >= 0, arr, self._alpha * (xp.exp(arr) - 1.0))
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         elu = self.apply(arr)
         return pyclb.DiagonalOp(xp.where(elu >= 0, 1.0, elu + self._alpha))
 
 
-def elu(op: pyca.Map, alpha: pyct.Real) -> pyca.Map:
+def elu(op: pyct.OpT, alpha: pyct.Real) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`ELU`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
-    alpha: :py:class`pyct.Real`
+    op: pyct.OpT
+        Input operator.
+    alpha: :py:class:`pyct.Real`
         ELU parameter. Default is None, which results in error.
 
     Returns
@@ -1938,20 +1935,20 @@ class SELU(pyca.DiffMap):
         return self._lambda * xp.where(arr >= 0, arr, self._alpha * (xp.exp(arr) - 1.0))
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         elu = self.apply(arr)
         return pyclb.DiagonalOp(self._lambda * xp.where(elu >= 0, 1.0, elu + self._alpha))
 
 
-def selu(op: pyca.Map) -> pyca.Map:
+def selu(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`SELU`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -2018,19 +2015,19 @@ class LeakyReLU(pyca.DiffMap):
         return xp.where(arr >= 0, arr, arr * self._alpha)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(xp.where(arr >= 0, 1.0, self._alpha))
 
 
-def leakyrelu(op: pyca.Map) -> pyca.Map:
+def leakyrelu(op: pyct.OpT, alpha: pyct.Real = None) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`LeakyReLU`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
     alpha: :py:class:`pyct.Real`
         Leaky parameter. Default is `None`, which results in error.
 
@@ -2085,20 +2082,20 @@ class SiLU(pyca.DiffMap):
         return arr / (1.0 + xp.exp(-arr))
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         exp_arr = xp.exp(arr)
         return pyclb.DiagonalOp(((1 + exp_arr + arr) * exp_arr) / ((1 + exp_arr) ** 2))
 
 
-def silu(op: pyca.Map) -> pyca.Map:
+def silu(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`SiLU`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -2151,18 +2148,18 @@ class Gaussian(pyca.DiffMap):
         return xp.exp(-(arr**2.0))
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return pyclb.DiagonalOp(-2.0 * arr * self.apply(arr))
 
 
-def gaussian(op: pyca.Map) -> pyca.Map:
+def gaussian(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Gaussian`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -2209,19 +2206,19 @@ class GCU(pyca.DiffMap):
         return arr * xp.cos(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.DiagonalOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         return pyclb.DiagonalOp(xp.cos(arr) - arr * xp.sin(arr))
 
 
-def gcu(op: pyca.Map) -> pyca.Map:
+def gcu(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`GCU`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
@@ -2276,22 +2273,22 @@ class Softmax(pyca.DiffMap):
         return exp_arr / xp.sum(exp_arr, axis=-1)
 
     @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyclb.ExplicitLinOp:
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
         S = self.apply(arr)
         mtx = -S[:, None] * S[None, :]
         mtx = mtx + xp.eye(mtx.shape[0])
-        return pyclb.ExplicitLinOp(mtx)
+        return pyca.LinOp.from_array(mtx)
 
 
-def softmax(op: pyca.Map) -> pyca.Map:
+def softmax(op: pyct.OpT) -> pyct.OpT:
     r"""
     Functional interface of :py:class:`Softmax`.
 
     Parameters
     ----------
-    op: :py:class:`pycsou.abc.operator.Map`
-        Input map.
+    op: pyct.OpT
+        Input operator.
 
     Returns
     -------
