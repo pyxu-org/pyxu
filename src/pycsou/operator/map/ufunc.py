@@ -1180,7 +1180,8 @@ class Clip(pyca.DiffMap):
 
     * Lipschitz constant: :math:`1`.
 
-    * Differential Lipschitz constant: :math:`0`.
+    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of
+    :math:`\frac{\partial f(x, a_{min}, a_{max})}{\partial x}` is :math:`\{0, 1\}`.
 
     See Also
     --------
@@ -1415,7 +1416,8 @@ class Abs(pyca.DiffMap):
 
     * Lipschitz constant: :math:`1`.
 
-    * Differential Lipschitz constant: :math:`0`.
+    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of
+    :math:`\frac{\partial f(x)}{\partial x}` is :math:`\{-1, 1\}`.
 
     See Also
     --------
@@ -1482,7 +1484,8 @@ class Sign(pyca.DiffMap):
 
     * Lipschitz constant: :math:`0`.
 
-    * Differential Lipschitz constant: :math:`0`.
+    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of
+    :math:`\frac{\partial f(x)}{\partial x}` is :math:`\{0\}`.
 
     See Also
     --------
@@ -1984,7 +1987,8 @@ class LeakyReLU(pyca.DiffMap):
 
     * Lipschitz constant: :math:`\max(1, |\alpha|)`.
 
-    * Differential Lipschitz constant: :math:`0`.
+    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of
+    :math:`\frac{\partial f(x, \alpha)}{\partial x}` is :math:`\{\alpha, 1\}`.
 
     See Also
     --------
@@ -2005,7 +2009,6 @@ class LeakyReLU(pyca.DiffMap):
             raise ValueError("Parameter[alpha] must be specified.")
         self._alpha = alpha
         self._lipschitz = max(np.abs(alpha), 1)
-        self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
