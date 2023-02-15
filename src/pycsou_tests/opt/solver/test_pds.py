@@ -8,331 +8,180 @@ import pycsou.opt.solver as pycos
 import pycsou.opt.stop as pycstop
 import pycsou.util.ptype as pyct
 import pycsou_tests.opt.solver.conftest as conftest
+from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
 
-class TestCV(conftest.SolverT):
-    @staticmethod
-    def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
+class MixinPDS(conftest.SolverT):
+    @pytest.fixture
+    def spec(self, klass, init_kwargs, fit_kwargs) -> tuple[pyct.SolverC, dict, dict]:
+        return klass, init_kwargs, fit_kwargs
+
+    @pytest.fixture
+    def N(self) -> int:
+        return 7
+
+    @pytest.fixture(params=["1d", "nd"])
+    def x0(self, N, request) -> dict:
+        # Multiple initial points
+        return {"1d": np.full((N,), 3.0), "nd": np.full((2, N), 15.0)}[request.param]
+
+    @pytest.fixture
+    def klass(self) -> pyct.SolverC:
+        return NotImplementedError
+
+    @pytest.fixture
+    def init_kwargs(self) -> dict:
+        return NotImplementedError
+
+    @pytest.fixture
+    def fit_kwargs(self, x0) -> dict:
+        # Overriden only for ADMM
+        return dict(
+            x0=x0,
+        )
+
+
+class TestPD3O(MixinPDS):
+    @pytest.fixture
+    def klass(self) -> pyct.SolverC:
+        return pycos.PD3O
+
+    @pytest.fixture
+    def init_kwargs(self, N) -> dict:
         from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
-        klass = [
-            pycos.CV,
-        ]
         K = PSDConvolution(N=N)
         K.lipschitz()
-        kwargs_init = [
-            dict(  # Inner-loop NLCG (with prox)
-                f=pycf.SquaredL2Norm(dim=N), g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1), h=pycf.L1Norm(dim=N), K=K
-            ),
-        ]
-
-        kwargs_fit = []
-        param_sweep = dict(
-            x0=[
-                np.full((N,), 3.0),
-                np.full((2, N), 15.0),  # multiple initial points
-            ],
+        return dict(
+            f=pycf.SquaredL2Norm(dim=N), g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1), h=pycf.L1Norm(dim=N), K=K
         )
-        for config in itertools.product(*param_sweep.values()):
-            d = dict(zip(param_sweep.keys(), config))
-            kwargs_fit.append(d)
-
-        data = itertools.product(klass, kwargs_init, kwargs_fit)
-        return list(data)
-
-    @pytest.fixture(params=spec_data(N=7))
-    def spec(self, request) -> tuple[pyct.SolverC, dict, dict]:
-        klass, kwargs_init, kwargs_fit = request.param
-        return klass, kwargs_init, kwargs_fit
 
 
-class TestPD3O(conftest.SolverT):
-    @staticmethod
-    def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
+class TestCP(MixinPDS):
+    @pytest.fixture
+    def klass(self) -> pyct.SolverC:
+        return pycos.CP
+
+    @pytest.fixture
+    def init_kwargs(self, N) -> dict:
         from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
-        klass = [
-            pycos.PD3O,
-        ]
         K = PSDConvolution(N=N)
         K.lipschitz()
-        kwargs_init = [
-            dict(  # Inner-loop NLCG (with prox)
-                f=pycf.SquaredL2Norm(dim=N), g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1), h=pycf.L1Norm(dim=N), K=K
-            ),
-        ]
-
-        kwargs_fit = []
-        param_sweep = dict(
-            x0=[
-                np.full((N,), 3.0),
-                np.full((2, N), 15.0),  # multiple initial points
-            ],
-        )
-        for config in itertools.product(*param_sweep.values()):
-            d = dict(zip(param_sweep.keys(), config))
-            kwargs_fit.append(d)
-
-        data = itertools.product(klass, kwargs_init, kwargs_fit)
-        return list(data)
-
-    @pytest.fixture(params=spec_data(N=7))
-    def spec(self, request) -> tuple[pyct.SolverC, dict, dict]:
-        klass, kwargs_init, kwargs_fit = request.param
-        return klass, kwargs_init, kwargs_fit
+        return dict(g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1), h=pycf.L1Norm(dim=N), K=K)
 
 
-class TestCP(conftest.SolverT):
-    @staticmethod
-    def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
+class TestLV(MixinPDS):
+    @pytest.fixture
+    def klass(self) -> pyct.SolverC:
+        return pycos.LV
+
+    @pytest.fixture
+    def init_kwargs(self, N) -> dict:
         from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
-        klass = [
-            pycos.CP,
-        ]
         K = PSDConvolution(N=N)
         K.lipschitz()
-        kwargs_init = [
-            dict(  # Inner-loop NLCG (with prox)
-                g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1), h=pycf.L1Norm(dim=N), K=K
-            ),
-        ]
-
-        kwargs_fit = []
-        param_sweep = dict(
-            x0=[
-                np.full((N,), 3.0),
-                np.full((2, N), 15.0),  # multiple initial points
-            ],
+        return dict(  # Inner-loop NLCG (with prox)
+            f=pycf.SquaredL2Norm(dim=N), h=pycf.shift_loss(pycf.L1Norm(dim=N), 1), K=K
         )
-        for config in itertools.product(*param_sweep.values()):
-            d = dict(zip(param_sweep.keys(), config))
-            kwargs_fit.append(d)
-
-        data = itertools.product(klass, kwargs_init, kwargs_fit)
-        return list(data)
-
-    @pytest.fixture(params=spec_data(N=7))
-    def spec(self, request) -> tuple[pyct.SolverC, dict, dict]:
-        klass, kwargs_init, kwargs_fit = request.param
-        return klass, kwargs_init, kwargs_fit
 
 
-class TestLV(conftest.SolverT):
-    @staticmethod
-    def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
-        from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
+class TestCV(MixinPDS):
+    @pytest.fixture
+    def klass(self) -> pyct.SolverC:
+        return pycos.CV
 
-        klass = [
-            pycos.LV,
-        ]
+    @pytest.fixture
+    def init_kwargs(self, N: int) -> dict:
         K = PSDConvolution(N=N)
         K.lipschitz()
-        kwargs_init = [
-            dict(  # Inner-loop NLCG (with prox)
-                f=pycf.SquaredL2Norm(dim=N), h=pycf.shift_loss(pycf.L1Norm(dim=N), 1), K=K
-            ),
-        ]
-
-        kwargs_fit = []
-        param_sweep = dict(
-            x0=[
-                np.full((N,), 3.0),
-                np.full((2, N), 15.0),  # multiple initial points
-            ],
+        return dict(
+            f=pycf.SquaredL2Norm(dim=N), g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1), h=pycf.L1Norm(dim=N), K=K
         )
-        for config in itertools.product(*param_sweep.values()):
-            d = dict(zip(param_sweep.keys(), config))
-            kwargs_fit.append(d)
-
-        data = itertools.product(klass, kwargs_init, kwargs_fit)
-        return list(data)
-
-    @pytest.fixture(params=spec_data(N=7))
-    def spec(self, request) -> tuple[pyct.SolverC, dict, dict]:
-        klass, kwargs_init, kwargs_fit = request.param
-        return klass, kwargs_init, kwargs_fit
 
 
-class TestDY(conftest.SolverT):
-    @staticmethod
-    def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
-        from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
+class TestDY(MixinPDS):
+    @pytest.fixture
+    def klass(self) -> pyct.SolverC:
+        return pycos.DY
 
-        klass = [
-            pycos.DY,
-        ]
-        kwargs_init = [
-            dict(  # Inner-loop NLCG (with prox)
-                f=pycf.SquaredL2Norm(dim=N),
-                g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1),
-                h=pycf.L1Norm(dim=N),
-            ),
-        ]
-
-        kwargs_fit = []
-        param_sweep = dict(
-            x0=[
-                np.full((N,), 3.0),
-                np.full((2, N), 15.0),  # multiple initial points
-            ],
+    @pytest.fixture
+    def init_kwargs(self, N: int) -> dict:
+        return dict(
+            f=pycf.SquaredL2Norm(dim=N),
+            g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1),
+            h=pycf.L1Norm(dim=N),
         )
-        for config in itertools.product(*param_sweep.values()):
-            d = dict(zip(param_sweep.keys(), config))
-            kwargs_fit.append(d)
-
-        data = itertools.product(klass, kwargs_init, kwargs_fit)
-        return list(data)
-
-    @pytest.fixture(params=spec_data(N=7))
-    def spec(self, request) -> tuple[pyct.SolverC, dict, dict]:
-        klass, kwargs_init, kwargs_fit = request.param
-        return klass, kwargs_init, kwargs_fit
 
 
-class TestDR(conftest.SolverT):
-    @staticmethod
-    def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
-        from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
+class TestDR(MixinPDS):
+    @pytest.fixture
+    def klass(self) -> pyct.SolverC:
+        return pycos.DR
 
-        klass = [
-            pycos.DR,
-        ]
-        kwargs_init = [
-            dict(  # Inner-loop NLCG (with prox)
-                g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1),
-                h=pycf.L1Norm(dim=N),
-            ),
-        ]
-
-        kwargs_fit = []
-        param_sweep = dict(
-            x0=[
-                np.full((N,), 3.0),
-                np.full((2, N), 15.0),  # multiple initial points
-            ],
+    @pytest.fixture
+    def init_kwargs(self, N: int) -> dict:
+        return dict(
+            g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1),
+            h=pycf.L1Norm(dim=N),
         )
-        for config in itertools.product(*param_sweep.values()):
-            d = dict(zip(param_sweep.keys(), config))
-            kwargs_fit.append(d)
-
-        data = itertools.product(klass, kwargs_init, kwargs_fit)
-        return list(data)
-
-    @pytest.fixture(params=spec_data(N=7))
-    def spec(self, request) -> tuple[pyct.SolverC, dict, dict]:
-        klass, kwargs_init, kwargs_fit = request.param
-        return klass, kwargs_init, kwargs_fit
 
 
-class TestADMM(conftest.SolverT):
-    @staticmethod
-    def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
-        from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
+class TestADMM(MixinPDS):
+    @pytest.fixture
+    def klass(self) -> pyct.SolverC:
+        return pycos.ADMM
 
-        klass = [
-            pycos.ADMM,
-        ]
+    @pytest.fixture(params=["fNone", "classical", "cg", "nlcg"])
+    def init_kwargs(self, request, N: int) -> dict:
         f = pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1)
         f.diff_lipschitz()
         K = PSDConvolution(N=N)
-        kwargs_init = [
-            dict(f=f, h=pycf.L1Norm(dim=N), K=None),  # Classical ADMM (with prox)
-            dict(  # Inner-loop CG ADMM
-                f=pycf.QuadraticFunc(Q=K, c=pycf.NullFunc(dim=N)), h=pycf.shift_loss(pycf.L1Norm(dim=N), 1), K=K
-            ),
-            dict(f=f, h=pycf.L1Norm(dim=N), K=K),  # Inner-loop NLCG (with prox)
-        ]
+        f_quad = pycf.QuadraticFunc(Q=K, c=pycf.NullFunc(dim=N))
+        return dict(
+            fNone=dict(f=None, h=pycf.shift_loss(pycf.L1Norm(dim=N), 1), K=None),  # f None
+            classical=dict(f=f, h=pycf.L1Norm(dim=N), K=None),  # Classical ADMM (with prox)
+            cg=dict(f=f_quad, h=pycf.shift_loss(pycf.L1Norm(dim=N), 1), K=K),  # Sub-iterative CG
+            nlcg=dict(f=f, h=pycf.L1Norm(dim=N), K=K),  # Sub-iterative NLCG
+        )[request.param]
 
-        kwargs_fit = []
-        param_sweep = dict(
-            x0=[
-                np.full((N,), 3.0),
-                np.full((2, N), 15.0),  # multiple initial points
-            ],
-            solver_kwargs=[
-                # MaxIter stopping criterion necessary for NLGC case with single precision (the default stopping
-                # criterion is never satisfied)
-                dict(stop_crit=pycstop.MaxIter(10) | pycstop.AbsError(1e-4)),
-            ],
+    @pytest.fixture
+    def fit_kwargs(self, x0) -> dict:
+        # Overriden from base class
+        return dict(
+            x0=x0,
+            solver_kwargs=dict(stop_crit=pycstop.MaxIter(10) | pycstop.AbsError(1e-4)),
+            # MaxIter stopping criterion necessary for NLGC case with single precision (the default stopping
+            # criterion is never satisfied)
         )
-        for config in itertools.product(*param_sweep.values()):
-            d = dict(zip(param_sweep.keys(), config))
-            kwargs_fit.append(d)
 
-        data = itertools.product(klass, kwargs_init, kwargs_fit)
-        return list(data)[:-1]  # Remove unsupported configuration NLCG with multiple initial points
-
-    @pytest.fixture(params=spec_data(N=7))
-    def spec(self, request) -> tuple[pyct.SolverC, dict, dict]:
-        klass, kwargs_init, kwargs_fit = request.param
-        return klass, kwargs_init, kwargs_fit
+    @pytest.fixture
+    def spec(self, klass, init_kwargs, fit_kwargs) -> tuple[pyct.SolverC, dict, dict]:
+        isNLCG = (init_kwargs["K"] is not None) and (not isinstance(init_kwargs["f"], pycf.QuadraticFunc))
+        if (fit_kwargs["x0"].squeeze().ndim > 1) and isNLCG:
+            pytest.skip(f"NLCG scenario with multiple initial points not supported.")
+        return klass, init_kwargs, fit_kwargs
 
 
-class TestFB(conftest.SolverT):
-    @staticmethod
-    def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
-        from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
+class TestFB(MixinPDS):
+    @pytest.fixture
+    def klass(self) -> pyct.SolverC:
+        return pycos.FB
 
-        klass = [
-            pycos.FB,
-        ]
-        kwargs_init = [
-            dict(  # Inner-loop NLCG (with prox)
-                f=pycf.SquaredL2Norm(dim=N),
-                g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1),
-            ),
-        ]
-
-        kwargs_fit = []
-        param_sweep = dict(
-            x0=[
-                np.full((N,), 3.0),
-                np.full((2, N), 15.0),  # multiple initial points
-            ],
+    @pytest.fixture
+    def init_kwargs(self, N: int) -> dict:
+        return dict(
+            f=pycf.SquaredL2Norm(dim=N),
+            g=pycf.shift_loss(pycf.L1Norm(dim=N), 1),
         )
-        for config in itertools.product(*param_sweep.values()):
-            d = dict(zip(param_sweep.keys(), config))
-            kwargs_fit.append(d)
-
-        data = itertools.product(klass, kwargs_init, kwargs_fit)
-        return list(data)
-
-    @pytest.fixture(params=spec_data(N=7))
-    def spec(self, request) -> tuple[pyct.SolverC, dict, dict]:
-        klass, kwargs_init, kwargs_fit = request.param
-        return klass, kwargs_init, kwargs_fit
 
 
-class TestPP(conftest.SolverT):
-    @staticmethod
-    def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:
-        from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
+class TestPP(MixinPDS):
+    @pytest.fixture
+    def klass(self) -> pyct.SolverC:
+        return pycos.PP
 
-        klass = [
-            pycos.PP,
-        ]
-        kwargs_init = [
-            dict(  # Inner-loop NLCG (with prox)
-                g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1),
-            ),
-        ]
-
-        kwargs_fit = []
-        param_sweep = dict(
-            x0=[
-                np.full((N,), 3.0),
-                np.full((2, N), 15.0),  # multiple initial points
-            ],
-        )
-        for config in itertools.product(*param_sweep.values()):
-            d = dict(zip(param_sweep.keys(), config))
-            kwargs_fit.append(d)
-
-        data = itertools.product(klass, kwargs_init, kwargs_fit)
-        return list(data)
-
-    @pytest.fixture(params=spec_data(N=7))
-    def spec(self, request) -> tuple[pyct.SolverC, dict, dict]:
-        klass, kwargs_init, kwargs_fit = request.param
-        return klass, kwargs_init, kwargs_fit
+    @pytest.fixture
+    def init_kwargs(self, N: int) -> dict:
+        return dict(g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1))
