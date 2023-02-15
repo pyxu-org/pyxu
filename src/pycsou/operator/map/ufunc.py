@@ -18,17 +18,17 @@ Example
 
     >>> from pycsou.operator.map import Sin
     >>> x = np.random.randn(10)
-    >>> sin_x = Sin(x.shape)
+    >>> sin_x = Sin(x.size)
     >>> res = sin_x.apply(x)
     >>> np_res = np.sin(x)
     >>> np.allclose(np_res, res)
     True
     >>> jacob = sin_x.jacobian(x)
-    >>> jacob_res = jacob.apply(np.ones(10))
+    >>> jacob_res = jacob.apply(np.ones_like(x))
     >>> np.allclose(jacob_res, np.cos(x))
     True
 
-* Every classes have its own functional interface in order to be able to combine with different maps:
+* Every class has its own functional interface in order to be able to combine with different maps:
 
 Example
 -------
