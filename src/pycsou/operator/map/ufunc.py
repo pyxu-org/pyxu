@@ -772,14 +772,13 @@ class Exp(pyca.DiffMap):
             Base parameter. Default is `None`, which results in base-E exponential.
         """
         super().__init__((dim, dim))
-        self._base = pycrt.coerce(base)
+        self._base = pycrt.coerce(base) if base is not None else base
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         out = arr.copy()
         if self._base is not None:
-            print(type(self._base))
             out *= xp.log(self._base)
         return xp.exp(out)
 
@@ -841,7 +840,7 @@ class Log(pyca.DiffMap):
             Base parameter. Default is `None`, which results in base-E logarithm.
         """
         super().__init__((dim, dim))
-        self._base = pycrt.coerce(base)
+        self._base = pycrt.coerce(base) if base is not None else base
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1204,10 +1203,9 @@ class Clip(pyca.DiffMap):
         if (a_min is None) and (a_max is None):
             raise ValueError("One of Parameter[a_min, a_max] must be specified.")
         else:
-            self._llim = pycrt.coerce(a_min)
-            self._ulim = pycrt.coerce(a_max)
+            self._llim = pycrt.coerce(a_min) if a_min is not None else pycrt.coerce(-np.inf)
+            self._ulim = pycrt.coerce(a_max) if a_max is not None else pycrt.coerce(np.inf)
         self._lipschitz = 1
-        self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
