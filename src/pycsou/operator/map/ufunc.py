@@ -1706,9 +1706,7 @@ class GELU(pyca.DiffMap):
         xp = pycu.get_array_module(arr)
         erf = self._get_erf_function(arr)
         arr_dtype = arr.dtype
-        if arr_dtype == "float128":
-            arr = arr.astype("float64")  # scipy erf function does not support float128
-        return arr * (1.0 + xp.array(erf(arr).astype(arr_dtype)) / xp.sqrt(2.0)) / 2.0
+        return arr * (1.0 + xp.array(erf(arr).astype(arr_dtype)) / xp.sqrt(2.0, dtype=arr_dtype)) / 2.0
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
