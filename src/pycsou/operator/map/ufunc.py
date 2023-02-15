@@ -2035,7 +2035,7 @@ def leakyrelu(op: pyct.OpT, alpha: pyct.Real = None) -> pyct.OpT:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return LeakyReLU(op.shape) * op
+    return LeakyReLU(op.dim, alpha) * op
 
 
 class SiLU(pyca.DiffMap):
