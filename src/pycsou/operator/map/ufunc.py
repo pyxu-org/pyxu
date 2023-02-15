@@ -69,12 +69,13 @@ class Sin(pyca.DiffMap):
     r"""
     Trigonometric sine, element-wise.
 
+
     Notes
     -----
     * Derivative:
 
     .. math::
-        {\frac{d\sin(x)}{dx} = \cos(x)}
+        \frac{\partial\sin(x)}{\partial x} = \cos(x)
 
     * Lipschitz constant: :math:`1`
 
@@ -133,7 +134,7 @@ class Cos(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        {\frac{d\cos(x)}{dx} = -\sin(x)}
+        \frac{\partial\cos(x)}{\partial x} = -\sin(x)
 
     * Lipschitz constant: :math:`1`
 
@@ -192,7 +193,7 @@ class Tan(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        {\frac{d\tan(x)}{dx} = \frac{1}{\cos^2(x)}}
+        \frac{\partial\tan(x)}{\partial x} = \frac{1}{\cos^2(x)}
 
     * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\frac{1}{\cos^2(x)}|` is :math:`\mathbb{R}^+`.
 
@@ -246,7 +247,7 @@ class Arcsin(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        {\frac{d\arcsin(x)}{dx} = \frac{1}{\sqrt{1-x^2}}}
+        \frac{\partial\arcsin(x)}{\partial x} = \frac{1}{\sqrt{1-x^2}}
 
     * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\frac{1}{\sqrt{1-x^2}}|` is :math:`\mathbb{R}^+`.
 
@@ -300,7 +301,7 @@ class Arccos(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        {\frac{d\arccos(x)}{dx} = -\frac{1}{\sqrt{1-x^2}}}
+        \frac{\partial\arccos(x)}{\partial x} = -\frac{1}{\sqrt{1-x^2}}
 
     * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|-\frac{1}{\sqrt{1-x^2}}|` is :math:`\mathbb{R}^+`.
 
@@ -354,7 +355,7 @@ class Arctan(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        {\frac{d\arctan(x)}{dx} = \frac{1}{1+x^2}}
+        \frac{\partial\arctan(x)}{\partial x} = \frac{1}{1+x^2}
 
     * Lipschitz constant: :math:`1`
 
@@ -416,7 +417,7 @@ class Sinh(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        {\frac{d\sinh(x)}{dx} = \cosh(x)}
+        \frac{\partial \sinh(x)}{\partial x} = \cosh(x)
 
     * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\cosh(x)|` is :math:`\mathbb{R}^+`.
 
@@ -470,7 +471,7 @@ class Cosh(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        {\frac{d\cosh(x)}{dx} = \sinh(x)}
+        \frac{\partial \cosh(x)}{\partial x} = \sinh(x)
 
     * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\sinh(x)|` is :math:`\mathbb{R}^+`.
 
@@ -524,7 +525,7 @@ class Tanh(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        {\frac{d\tanh(x)}{dx} = \frac{1}{\cosh^2(x)}}
+        \frac{\partial \tanh(x)}{\partial x} = \frac{1}{\cosh^2(x)}
 
     * Lipschitz constant: :math:`1`
 
@@ -586,7 +587,7 @@ class Arcsinh(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        {\frac{d\sinh^{-1}(x)}{dx} = \frac{1}{\sqrt{1 + x^2}}}
+        \frac{\partial \sinh^{-1}(x)}{\partial x} = \frac{1}{\sqrt{1 + x^2}}
 
     * Lipschitz constant: :math:`1`
 
@@ -648,7 +649,7 @@ class Arccosh(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        {\frac{d\cosh^{-1}(x)}{dx} = \frac{1}{\sqrt{-1 + x}\sqrt{1 + x}}}
+        \frac{\partial \cosh^{-1}(x)}{\partial x} = \frac{1}{\sqrt{-1 + x}\sqrt{1 + x}}
 
     * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`\max\{|\frac{1}{\sqrt{-1 + x}\sqrt{1 + x}}|\}` is :math:`\mathbb{R}^+`.
 
@@ -702,7 +703,7 @@ class Arctanh(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        {\frac{d\tanh^{-1}(x)}{dx} = \frac{1}{1-x^2}}
+        \frac{\partial \tanh^{-1}(x)}{\partial x} = \frac{1}{1-x^2}
 
     * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`\max\{|\frac{1}{1-x^2}|\}` is :math:`\mathbb{R}^+`.
 
@@ -758,7 +759,7 @@ class Exp(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        {\frac{d (base)^{x}}{dx} = (base)^{x}\log(base)}
+        \frac{ \partial (base)^{x}}{\partial x} = (base)^{x}\log(base)
 
     * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`\max\{|(base)^{x}\log(base)|\}` is :math:`\mathbb{R}^+`.
 
@@ -827,7 +828,7 @@ class Log(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        {\frac{d \log_{base}(x)}{dx} = \frac{1}{x\log(base)}}.
+        \frac{ \partial \log_{base}(x)}{\partial x} = \frac{1}{x\log(base)}
 
     * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`\max\{|\frac{1}{x\log(base)}|\}` is :math:`\mathbb{R}^+`.
 
@@ -1256,7 +1257,7 @@ class Sqrt(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d \sqrt{x}}{d x} = \frac{1}{2\sqrt{x}}
+        \frac{\partial \sqrt{x}}{\partial x} = \frac{1}{2\sqrt{x}}
 
     * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\frac{1}{2\sqrt{x}}|` is :math:`\mathbb{R}^+`.
 
@@ -1362,7 +1363,7 @@ class Square(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d x^2}{d x} = 2x
+        \frac{\partial x^2}{\partial x} = 2x
 
     * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|2x|` is :math:`\mathbb{R}^+`.
 
@@ -1416,7 +1417,7 @@ class Abs(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d |x|}{d x} =
+        \frac{\partial |x|}{\partial x} =
         \begin{cases}
             1, & \text{if} \ x \geq 0 \\
             -1, & \text{otherwise}
@@ -1486,7 +1487,7 @@ class Sign(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d f(x)}{d x} = 0
+        \frac{\partial f(x)}{\partial x} = 0
 
     for :math:`x \in \mathbb{R}-\{0\}`.
 
@@ -1551,7 +1552,7 @@ class Sigmoid(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d \sigma(x)}{d x} = \sigma(x)(\sigma(x)-1)=\frac{e^{-x}}{(e^{-x} + 1)^2}
+        \frac{\partial \sigma(x)}{\partial x} = \sigma(x)(\sigma(x)-1)=\frac{e^{-x}}{(e^{-x} + 1)^2}
 
     * Lipschitz constant: :math:`0.25`
 
@@ -1617,7 +1618,7 @@ class ReLU(Clip):
     * Derivative:
 
     .. math::
-        \frac{d x^+}{d x} =
+        \frac{\partial x^+}{\partial x} =
         \begin{cases}
             1, & \text{if} \ x \geq 0 \\
             0, & \text{otherwise}
@@ -1670,7 +1671,7 @@ class GELU(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d f(x)}{d x} = \frac{e^{-x^2/2} x}{\sqrt{2\pi}}
+        \frac{\partial f(x)}{\partial x} = \frac{e^{-x^2/2} x}{\sqrt{2\pi}}
         + \frac{1}{2}\left( 1 + \text{erf} \left( \frac{x}{\sqrt{2}} \right)\right)
 
     * Lipschitz constant: :math:`\frac{1}{2}(\text{erf}(1)+1) + \frac{1}{e \sqrt{\pi}}`
@@ -1761,7 +1762,7 @@ class Softplus(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d f(x)}{d x} = \frac{1}{1 + e^{-x}} = \sigma(x)
+        \frac{\partial f(x)}{\partial x} = \frac{1}{1 + e^{-x}} = \sigma(x)
 
     * Lipschitz constant: :math:`1`
 
@@ -1830,7 +1831,7 @@ class ELU(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d f(x)}{d x} =
+        \frac{\partial f(x)}{\partial x} =
         \begin{cases}
             \alpha e^x & \text{if} \ x \leq 0 \\
             1 & \text{otherwise} \\
@@ -1838,7 +1839,7 @@ class ELU(pyca.DiffMap):
 
     * Lipschitz constant: :math:`\max(1, |\alpha|)`.
 
-    * Differential Lipschitz constant: :math:`\max(0, |\alpha|)`.
+    * Differential Lipschitz constant: :math:`|\alpha|`.
 
     See Also
     --------
@@ -1912,7 +1913,7 @@ class SELU(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d f(x)}{d x} = \lambda
+        \frac{\partial f(x)}{\partial x} = \lambda
         \begin{cases}
             \alpha e^x & \text{if} \ x \leq 0 \\
             1 & \text{otherwise} \\
@@ -1986,7 +1987,7 @@ class LeakyReLU(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d f(x)}{d x} = \lambda
+        \frac{\partial f(x)}{\partial x} =
         \begin{cases}
             \alpha & \text{if} \ x < 0 \\
             1 & \text{otherwise} \\
@@ -2061,7 +2062,7 @@ class SiLU(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d f(x)}{d x} = \frac{1 + e^{-x} + xe^{-x}}{(1 + e^{-x})^2}
+        \frac{\partial f(x)}{\partial x} = \frac{1 + e^{-x} + xe^{-x}}{(1 + e^{-x})^2}
 
     * Lipschitz constant: :math:`1.0999`
 
@@ -2127,7 +2128,7 @@ class Gaussian(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d f(x)}{d x} = -2xe^{-x^2}
+        \frac{\partial f(x)}{\partial x} = -2xe^{-x^2}
 
     * Lipschitz constant: :math:`\sqrt{\frac{2}{e}}`
 
@@ -2191,7 +2192,7 @@ class GCU(pyca.DiffMap):
     * Derivative:
 
     .. math::
-        \frac{d f(x)}{d x} = \cos (x) - x \sin (x)
+        \frac{\partial f(x)}{\partial x} = \cos (x) - x \sin (x)
 
     * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\cos (x) - x \sin (x)|` is :math:`\mathbb{R}^+`.
 
