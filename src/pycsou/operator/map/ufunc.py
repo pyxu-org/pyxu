@@ -89,8 +89,11 @@ class Sin(pyca.DiffMap):
     Cos, Tan, Arcsin, Arccos, Arctan
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
         self._lipschitz = self._diff_lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
@@ -118,7 +121,7 @@ def sin(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Sin(op.shape) * op
+    return Sin(op.dim) * op
 
 
 class Cos(pyca.DiffMap):
@@ -145,8 +148,11 @@ class Cos(pyca.DiffMap):
     Sin, Tan, Arcsin, Arccos, Arctan
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
         self._lipschitz = self._diff_lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
@@ -197,8 +203,11 @@ class Tan(pyca.DiffMap):
     Sin, Cos, Arcsin, Arccos, Arctan
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -225,7 +234,7 @@ def tan(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Tan(op.shape) * op
+    return Tan(op.dim) * op
 
 
 class Arcsin(pyca.DiffMap):
@@ -248,8 +257,11 @@ class Arcsin(pyca.DiffMap):
     Sin, Cos, Tan, Arccos, Arctan
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -276,7 +288,7 @@ def arcsin(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Arcsin(op.shape) * op
+    return Arcsin(op.dim) * op
 
 
 class Arccos(pyca.DiffMap):
@@ -299,8 +311,11 @@ class Arccos(pyca.DiffMap):
     Sin, Cos, Tan, Arcsin, Arctan
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -327,7 +342,7 @@ def arccos(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Arccos(op.shape) * op
+    return Arccos(op.dim) * op
 
 
 class Arctan(pyca.DiffMap):
@@ -354,8 +369,11 @@ class Arctan(pyca.DiffMap):
     Sin, Cos, Tan, Arcsin, Arccos
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
         self._lipschitz = 1
         self._diff_lipschitz = 3 * np.sqrt(3) / 8  # Max of |arctan''(x)|=|2x/(1+x^2)^2| is 3sqrt(3)/8 at x=+-1/sqrt(3)
 
@@ -383,7 +401,7 @@ def arctan(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Arctan(op.shape) * op
+    return Arctan(op.dim) * op
 
 
 # Hyperbolic Functions
@@ -409,8 +427,11 @@ class Sinh(pyca.DiffMap):
     Cosh, Tanh, Arcsinh, Arccosh, Arctanh
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -437,7 +458,7 @@ def sinh(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Sinh(op.shape) * op
+    return Sinh(op.dim) * op
 
 
 class Cosh(pyca.DiffMap):
@@ -460,8 +481,11 @@ class Cosh(pyca.DiffMap):
     Sinh, Tanh, Arcsinh, Arccosh, Arctanh
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -488,7 +512,7 @@ def cosh(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Cosh(op.shape) * op
+    return Cosh(op.dim) * op
 
 
 class Tanh(pyca.DiffMap):
@@ -515,8 +539,11 @@ class Tanh(pyca.DiffMap):
     Sinh, Cosh, Arcsinh, Arccosh, Arctanh, Sigmoid, ReLU, GELU, Softplus, ELU, SELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
         self._lipschitz = 1
         self._diff_lipschitz = 4 / (
             3 * np.sqrt(3)
@@ -547,7 +574,7 @@ def tanh(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Tanh(op.shape) * op
+    return Tanh(op.dim) * op
 
 
 class Arcsinh(pyca.DiffMap):
@@ -574,8 +601,11 @@ class Arcsinh(pyca.DiffMap):
     Sinh, Cosh, Tanh, Arccosh, Arctanh
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
         self._lipschitz = 1  # Max of |arcsinh'(x)|=|1/sqrt(1+x^2)| is 1 at x=0
         self._diff_lipschitz = 2 / (
             3 * np.sqrt(3)
@@ -606,7 +636,7 @@ def arcsinh(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Arcsinh(op.shape) * op
+    return Arcsinh(op.dim) * op
 
 
 class Arccosh(pyca.DiffMap):
@@ -629,8 +659,11 @@ class Arccosh(pyca.DiffMap):
     Sinh, Cosh, Tanh, Arcsinh, Arctanh
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -657,7 +690,7 @@ def arccosh(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Arccosh(op.shape) * op
+    return Arccosh(op.dim) * op
 
 
 class Arctanh(pyca.DiffMap):
@@ -680,8 +713,11 @@ class Arctanh(pyca.DiffMap):
     Sinh, Cosh, Tanh, Arcsinh, Arccosh
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -707,7 +743,7 @@ def arctanh(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Arctanh(op.shape) * op
+    return Arctanh(op.dim) * op
 
 
 # Exponentials and logarithms
@@ -733,16 +769,16 @@ class Exp(pyca.DiffMap):
     Log
     """
 
-    def __init__(self, shape: pyct.Shape, base: pyct.Real = None):
+    def __init__(self, dim: pyct.Integer, base: pyct.Real = None):
         r"""
         Parameters
         ----------
-        shape: :py:class:`pyct.Shape`
-            Shape of input array.
+        dim:  :py:class:`pyct.Integer`
+            Size of input array.
         base: :py:class:`pyct.Real`
             Base parameter. Default is `None`, which results in base-E exponential.
         """
-        super().__init__(shape)
+        super().__init__((dim, dim))
         self._base = pycrt.coerce(base)
 
     @pycrt.enforce_precision(i="arr")
@@ -779,7 +815,7 @@ def exp(op: pyca.Map, base: pyct.Real = None) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Exp(op.shape, base) * op
+    return Exp(op.dim, base) * op
 
 
 class Log(pyca.DiffMap):
@@ -802,16 +838,16 @@ class Log(pyca.DiffMap):
     Exp
     """
 
-    def __init__(self, shape: pyct.Shape, base: pyct.Real = None):
+    def __init__(self, dim: pyct.Integer, base: pyct.Real = None):
         r"""
         Parameters
         ----------
-        shape: :py:class:`pyct.Shape`
-            Shape of input array.
+        dim:  :py:class:`pyct.Integer`
+            Size of input array.
         base: :py:class:`pyct.Real`
             Base parameter. Default is `None`, which results in base-E logarithm.
         """
-        super().__init__(shape)
+        super().__init__((dim, dim))
         self._base = pycrt.coerce(base)
 
     @pycrt.enforce_precision(i="arr")
@@ -847,7 +883,7 @@ def log(op: pyca.Map, base: pyct.Real = None) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Log(op.shape, base) * op
+    return Log(op.dim, base) * op
 
 
 # Sums and Products
@@ -1011,10 +1047,13 @@ class Cumprod(pyca.DiffMap):
     Prod, Sum, Cumsum
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
-        self._lipschitz = 1 if (shape[-1] == 1) else np.inf
-        self._diff_lipschitz = 0 if (shape[-1] == 1) else np.sqrt(2) if (shape[-1] == 2) else np.inf
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
+        self._lipschitz = 1 if (dim == 1) else np.inf
+        self._diff_lipschitz = 0 if (dim == 1) else np.sqrt(2) if (dim == 2) else np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1045,7 +1084,7 @@ def cumprod(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Cumprod(op.shape) * op
+    return Cumprod(op.dim) * op
 
 
 class Cumsum(pyca.DiffMap):
@@ -1080,9 +1119,12 @@ class Cumsum(pyca.DiffMap):
     Prod, Sum, Cumprod
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
-        self._lipschitz = np.sqrt(shape[-1] * (shape[-1] + 1) / 2)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
+        self._lipschitz = np.sqrt(dim * (dim + 1) / 2)
         self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
@@ -1111,7 +1153,7 @@ def cumsum(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Cumsum(op.shape) * op
+    return Cumsum(op.dim) * op
 
 
 # Miscellaneous
@@ -1153,19 +1195,19 @@ class Clip(pyca.DiffMap):
     Sqrt, Cbrt, Square, Abs, Sign
     """
 
-    def __init__(self, shape: pyct.Shape, a_min: pyct.Real = None, a_max: pyct.Real = None):
+    def __init__(self, dim: pyct.Integer, a_min: pyct.Real = None, a_max: pyct.Real = None):
         r"""
         Parameters
         ----------
-        shape: :py:class:`pyct.Shape`
-            Shape of input array.
+        dim:  :py:class:`pyct.Integer`
+            Size of input array.
         a_min: :py:class:`pyct.Real`
             Minimum value. Default is `None`.
         a_max: :py:class:`pyct.Real`
             Maximum value. Default is `None`.
         """
 
-        super().__init__(shape)
+        super().__init__((dim, dim))
         if (a_min is None) and (a_max is None):
             raise ValueError("One of Parameter[a_min, a_max] must be specified.")
         else:
@@ -1202,7 +1244,7 @@ def clip(op: pyca.Map, a_min: pyct.Real = None, a_max: pyct.Real = None):
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Clip(op.shape, a_min, a_max) * op
+    return Clip(op.dim, a_min, a_max) * op
 
 
 class Sqrt(pyca.DiffMap):
@@ -1225,8 +1267,11 @@ class Sqrt(pyca.DiffMap):
     Clip, Cbrt, Square, Abs, Sign
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1252,7 +1297,7 @@ def sqrt(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Sqrt(op.shape) * op
+    return Sqrt(op.dim) * op
 
 
 class Cbrt(pyca.DiffMap):
@@ -1275,8 +1320,11 @@ class Cbrt(pyca.DiffMap):
     Clip, Sqrt, Square, Abs, Sign
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1302,7 +1350,7 @@ def cbrt(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Cbrt(op.shape) * op
+    return Cbrt(op.dim) * op
 
 
 class Square(pyca.DiffMap):
@@ -1325,8 +1373,11 @@ class Square(pyca.DiffMap):
     Clip, Sqrt, Cbrt, Abs, Sign
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
         self._diff_lipschitz = 2
 
     @pycrt.enforce_precision(i="arr")
@@ -1353,7 +1404,7 @@ def square(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Square(op.shape) * op
+    return Square(op.dim) * op
 
 
 class Abs(pyca.DiffMap):
@@ -1380,8 +1431,11 @@ class Abs(pyca.DiffMap):
     Clip, Sqrt, Cbrt, Square, Sign
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
         self._lipschitz = 1
         self._diff_lipschitz = 0
 
@@ -1410,7 +1464,7 @@ def abs(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Abs(op.shape) * op
+    return Abs(op.dim) * op
 
 
 class Sign(pyca.DiffMap):
@@ -1445,9 +1499,12 @@ class Sign(pyca.DiffMap):
     Clip, Sqrt, Cbrt, Square, Abs
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
-        self._lipschitz = self._diff_lipschitz = 0
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
+        self._diff_lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1474,7 +1531,7 @@ def sign(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Sign(op.shape) * op
+    return Sign(op.dim) * op
 
 
 # Activation Functions (Tanh already implemented)
@@ -1509,8 +1566,11 @@ class Sigmoid(pyca.DiffMap):
     Tanh, ReLU, GELU, Softplus, ELU, SELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
         self._lipschitz = 0.25  # Max of |\sigma'(x)|=|\sigma(x)(1-\sigma(x))| is 0.25 at x=0
         self._diff_lipschitz = 1.0 / (
             6.0 * np.sqrt(3)
@@ -1540,7 +1600,7 @@ def sigmoid(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Sigmoid(op.shape) * op
+    return Sigmoid(op.dim) * op
 
 
 class ReLU(Clip):
@@ -1572,8 +1632,11 @@ class ReLU(Clip):
     Sigmoid, Tanh, GELU, Softplus, ELU, SELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape, a_min=0, a_max=None)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__(dim, a_min=0, a_max=None)
 
 
 def relu(op: pyca.Map) -> pyca.Map:
@@ -1590,7 +1653,7 @@ def relu(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return ReLU(op.shape) * op
+    return ReLU(op.dim) * op
 
 
 class GELU(pyca.DiffMap):
@@ -1623,8 +1686,11 @@ class GELU(pyca.DiffMap):
     Sigmoid, Tanh, ReLU, Softplus, ELU, SELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
         from scipy.special import erf
 
         self._lipschitz = (np.sqrt(2) * erf(1) + 2) / 4 + 1 / (np.exp(1) * np.sqrt(2 * np.pi))
@@ -1678,7 +1744,7 @@ def gelu(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return GELU(op.shape) * op
+    return GELU(op.dim) * op
 
 
 class Softplus(pyca.DiffMap):
@@ -1710,8 +1776,11 @@ class Softplus(pyca.DiffMap):
     Sigmoid, Tanh, ReLU, GELU, ELU, SELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
         self._lipschitz = 1
         self._diff_lipschitz = 0.25
 
@@ -1740,7 +1809,7 @@ def softplus(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Softplus(op.shape) * op
+    return Softplus(op.dim) * op
 
 
 class ELU(pyca.DiffMap):
@@ -1776,16 +1845,16 @@ class ELU(pyca.DiffMap):
     Sigmoid, Tanh, ReLU, GELU, Softplus, SELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
     """
 
-    def __init__(self, shape: pyct.Shape, alpha: pyct.Real = None):
+    def __init__(self, dim: pyct.Integer, alpha: pyct.Real = None):
         r"""
         Parameters
         ----------
-        shape: :py:class:`pyct.Shape`
-            Shape of input array.
+        dim:  :py:class:`pyct.Integer`
+            Size of input array.
         alpha: :py:class:`pyct.Real`
             ELU parameter. Default is None, which results in error.
         """
-        super().__init__(shape)
+        super().__init__((dim, dim))
         if alpha is None:
             raise ValueError("Parameter[alpha] must be specified.")
         self._alpha = alpha
@@ -1820,7 +1889,7 @@ def elu(op: pyca.Map, alpha: pyct.Real) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return ELU(op.shape, alpha) * op
+    return ELU(op.dim, alpha) * op
 
 
 class SELU(pyca.DiffMap):
@@ -1858,8 +1927,11 @@ class SELU(pyca.DiffMap):
     Sigmoid, Tanh, ReLU, GELU, Softplus, ELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
         self._alpha = 1.67326
         self._lambda = 1.0507
         self._lipschitz = self._lambda * max(1, self._alpha)
@@ -1891,7 +1963,7 @@ def selu(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return SELU(op.shape) * op
+    return SELU(op.dim) * op
 
 
 class LeakyReLU(pyca.DiffMap):
@@ -1929,16 +2001,16 @@ class LeakyReLU(pyca.DiffMap):
     Sigmoid, Tanh, ReLU, GELU, Softplus, ELU, SELU, SiLU, Gaussian, GCU, Softmax, Maxout
     """
 
-    def __init__(self, shape: pyct.Shape, alpha: pyct.Real = None):
+    def __init__(self, dim: pyct.Integer, alpha: pyct.Real = None):
         r"""
         Parameters
         ----------
-        shape: :py:class:`pyct.Shape`
-            Shape of input array.
+        dim:  :py:class:`pyct.Integer`
+            Size of input array.
         alpha: :py:class:`pyct.Real`
             Leaky parameter. Default is `None`, which results in error.
         """
-        super().__init__(shape)
+        super().__init__((dim, dim))
         if alpha is None:
             raise ValueError("Parameter[alpha] must be specified.")
         self._alpha = alpha
@@ -2004,8 +2076,11 @@ class SiLU(pyca.DiffMap):
     Sigmoid, Tanh, ReLU, GELU, Softplus, ELU, SELU, LeakyRELU, Gaussian, GCU, Softmax, Maxout
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
         self._lipschitz = 1.0999  # Max of |silu'(x)| = |(e^x(-e^x(x-2)+x-2))/(1+e^x)^3| is 1.0999 at x=2.3994
         self._diff_lipschitz = 0.5  # Max of |silu''(x)| = |(e^x(-e^x(x-2)+x+2))/((1+e^x)^3)| is 0.5 at x=0
 
@@ -2035,7 +2110,7 @@ def silu(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return SiLU(op.shape) * op
+    return SiLU(op.dim) * op
 
 
 class Gaussian(pyca.DiffMap):
@@ -2067,8 +2142,11 @@ class Gaussian(pyca.DiffMap):
     Sigmoid, Tanh, ReLU, GELU, Softplus, ELU, SELU, LeakyRELU, SiLU, GCU, Softmax, Maxout
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
         self._lipschitz = np.sqrt(2 / np.exp(1))  # Max of |f'(x)|=|-2xe^(-x^2)| is sqrt(2/e) at x = +-1/sqrt(2)
         self._diff_lipschitz = 2  # Max of |f''(x)|=|(4x^2-2)*e^(-x^2)| is 2 at x=0
 
@@ -2096,7 +2174,7 @@ def gaussian(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Gaussian(op.shape) * op
+    return Gaussian(op.dim) * op
 
 
 class GCU(pyca.DiffMap):
@@ -2124,8 +2202,11 @@ class GCU(pyca.DiffMap):
     Sigmoid, Tanh, ReLU, GELU, Softplus, ELU, SELU, LeakyRELU, SiLU, Gaussian, Softmax, Maxout
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(
+        self,
+        dim: pyct.Integer,
+    ):
+        super().__init__((dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -2152,7 +2233,7 @@ def gcu(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return GCU(op.shape) * op
+    return GCU(op.dim) * op
 
 
 class Softmax(pyca.DiffMap):
@@ -2188,8 +2269,8 @@ class Softmax(pyca.DiffMap):
     Sigmoid, Tanh, ReLU, GELU, Softplus, ELU, SELU, LeakyRELU, SiLU, Gaussian, GCU, Maxout
     """
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape)
+    def __init__(self, dim: pyct.Integer):
+        super().__init__((dim, dim))
         self._lipschitz = 1
         self._diff_lipschitz = 1
 
@@ -2289,4 +2370,4 @@ def maxout(op: pyca.Map) -> pyca.Map:
     :py:class:`pycsou.abc.operator.Map`
         Output map.
     """
-    return Maxout(op.shape) * op
+    return Softmax(op.dim) * op
