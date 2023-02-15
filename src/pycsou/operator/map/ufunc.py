@@ -2269,7 +2269,7 @@ class Softmax(pyca.DiffMap):
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         exp_arr = xp.exp(arr)
-        return exp_arr / xp.sum(exp_arr, axis=-1)
+        return exp_arr / xp.sum(exp_arr, axis=-1, keepdims=True)
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
