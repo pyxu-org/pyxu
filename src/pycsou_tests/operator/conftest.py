@@ -600,6 +600,8 @@ class DiffMapT(MapT):
         J = op.jacobian(arr)
         self._check_has_interface(J, LinOpT)
 
+    # We disable RuntimeWarnings which may arise due to NaNs. (See comment below.)
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_math_diff_lipschitz(
         self,
         op,
@@ -621,6 +623,11 @@ class DiffMapT(MapT):
             for x, y in itertools.combinations(data, 2):
                 lhs = pylinalg.norm(J(x) - J(y))
                 rhs = dL * pylinalg.norm(x - y)
+                if np.isnan(lhs):
+                    # J() may return INFs, in which case `INF-INF=NaN` may arise above. less_equal()
+                    # is not able to handle NaNs, so the former are overwritten by a sensible value
+                    # in this context, i.e. 0.
+                    lhs = 0
                 success = less_equal(lhs, rhs, as_dtype=width.value)
                 stats.append((lhs, rhs, success))
 
