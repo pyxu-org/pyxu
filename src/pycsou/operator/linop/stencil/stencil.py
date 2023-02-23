@@ -470,19 +470,13 @@ class Stencil(pyca.SquareOp):
                 kwargs.update(dtype=self._dtype)
             self._lipschitz = pyca.SquareOp.lipschitz(self, **kwargs)
         else:
-            # An analytic upper bound:
-            #     \norm{A x}{2}^{2}
-            #  =  \sum_{n} [A x]_{n}^{2}
-            #  =  \sum_{n} |<h_n, x>|^{2}
-            # \le \sum_{n} \norm{h_n}{2}^{2} \norm{x}{2}^{2}
-            # \le \norm{h}{2}^{2} \sum_{n} \norm{x}{2}^{2}
-            # \le \norm{h}{2}^{2} N \norm{x}{2}^{2}
+            # Analytic upper bound from Young's convolution inequality:
+            #     \norm{x \ast h}{2} \le \norm{x}{2}\norm{h}{1}
             #
-            # -> L \le \sqrt{N} \norm{h}{2}
+            # -> L \le \norm{h}{1}
             kernels = [st._kernel for st in self._st_fw]
             kernel = functools.reduce(operator.mul, kernels, 1)
-            L_st = np.linalg.norm(pycu.to_NUMPY(kernel).reshape(-1))
-            L_st *= np.sqrt(self.dim)
+            L_st = np.linalg.norm(pycu.to_NUMPY(kernel).reshape(-1), ord=1)
 
             L_pad = self._pad.lipschitz()
             L_trim = self._trim.lipschitz()
