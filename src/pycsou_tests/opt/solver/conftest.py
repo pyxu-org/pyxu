@@ -68,19 +68,23 @@ def generate_funcs(descr, N_term: int) -> cabc.Sequence[tuple[pyct.OpT]]:
     # -> [ (a*b + c*d + e*f,), ]
     #
     # generate_funcs([(a, b), (c, d), (e, f)], 2)
-    # -> [ (a*b, c*d + e*f), (a*b + c*d, e*f), (c*d + e*f, a*b), ]
+    # -> [ (a*b, c*d + e*f), (c*d, a*b + e*f), (e*f, a*b + c*d), ]
     assert 1 <= N_term <= len(descr)
-    chain = lambda x, y: x * y
+
+    def chain(x, y):
+        comp = x * y
+        comp.diff_lipschitz()
+        return comp
 
     stream = []
-    for d in itertools.permutations(descr):
+    for d in itertools.permutations(descr, N_term - 1):
         # split into N_term subsets
-        parts = [chain(*d[i]) for i in range(N_term - 1)]
-
-        # The last subset may contain more than 1 term
-        p = functools.reduce(operator.add, [chain(*dd) for dd in d[N_term - 1 :]])
+        parts = [chain(*dd) for dd in d]  # The N_term - 1 first subsets each correspond to a single term
+        # The remaining terms are summed in the last subset (no need to permute them)
+        to_sum = list(set(descr) - set(d))
+        p = functools.reduce(operator.add, [chain(*dd) for dd in to_sum])
+        p.diff_lipschitz()
         parts.append(p)
-
         stream.append(tuple(parts))
     return stream
 
