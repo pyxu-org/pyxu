@@ -123,6 +123,18 @@ class SolverT:
             success[k] = crit.stop(data)  # then ensure solver output is within tolerated objective-func range
         assert success
 
+    @staticmethod
+    def as_early_stop(kwargs: dict) -> dict:
+        # Some tests look at state which does not require a solver to have converged
+        # (mathematically).
+        # This function adds a max-iter constraint to the kwargs_fit() dictionary to drastically
+        # curb test time.
+        from pycsou.opt.stop import MaxIter
+
+        kwargs = kwargs.copy()
+        kwargs["stop_crit"] = MaxIter(n=5)
+        return kwargs
+
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
     def spec(self) -> tuple[pyct.SolverC, dict, dict]:
@@ -230,7 +242,7 @@ class SolverT:
     # Tests -------------------------------------------------------------------
     def test_backend_fit(self, solver, _kwargs_fit_xp, xp):
         # solver output-backend match inputs
-        solver.fit(**_kwargs_fit_xp)
+        solver.fit(**self.as_early_stop(_kwargs_fit_xp))
         data, _ = solver.stats()
 
         stats = {k: pycu.get_array_module(v) == xp for (k, v) in data.items()}
@@ -239,7 +251,7 @@ class SolverT:
     def test_precCM_fit(self, solver, kwargs_fit, width):
         # solver output-precision match context manager
         with pycrt.Precision(width):
-            solver.fit(**kwargs_fit.copy())
+            solver.fit(**self.as_early_stop(kwargs_fit))
             data, _ = solver.stats()
 
             stats = {k: v.dtype == width.value for (k, v) in data.items()}
@@ -260,6 +272,7 @@ class SolverT:
     def test_transparent_fit(self, solver, kwargs_fit):
         # Running solver twice returns same results.
         with pycrt.EnforcePrecision(False):
+            kwargs_fit = self.as_early_stop(kwargs_fit)
             solver.fit(**kwargs_fit.copy())
             data1, _ = solver.stats()
             solver.fit(**kwargs_fit.copy())
@@ -275,7 +288,7 @@ class SolverT:
         track_objective,
     ):
         # Ensure objective_func value present in history.
-        kwargs_fit = kwargs_fit.copy()
+        kwargs_fit = self.as_early_stop(kwargs_fit)
         kwargs_fit.update(track_objective=track_objective)
         solver.fit(**kwargs_fit)
         _, history = solver.stats()
@@ -305,22 +318,16 @@ class SolverT:
     def test_data_contains_logvar(self, solver, kwargs_fit):
         # logged data only contains variables from log_var.
         log_var = solver._astate["log_var"]
-        solver.fit(**kwargs_fit.copy())
+        solver.fit(**self.as_early_stop(kwargs_fit))
         data, _ = solver.stats()
         assert set(log_var) == set(data.keys())
 
-    def test_halt_implies_disk_storage(
-        self,
-        solver_klass,
-        kwargs_init,
-        kwargs_fit,
-        tmp_path,
-    ):
+    def test_halt_implies_disk_storage(self, solver_klass, kwargs_init, kwargs_fit, tmp_path):
         # When solver stops, data+log files exist at specified folder.
         kwargs_init = kwargs_init.copy()
         kwargs_init.update(folder=tmp_path, exist_ok=True)
         solver = solver_klass(**kwargs_init)
-        solver.fit(**kwargs_fit.copy())
+        solver.fit(**self.as_early_stop(kwargs_fit))
 
         assert solver.workdir.resolve() == tmp_path.resolve()
         assert solver.logfile.exists()
@@ -328,7 +335,7 @@ class SolverT:
 
     def test_disk_value_matches_memory(self, solver, kwargs_fit):
         # Datafile content (values) match in-memory data after halt.
-        solver.fit(**kwargs_fit.copy())
+        solver.fit(**self.as_early_stop(kwargs_fit))
 
         disk = np.load(solver.datafile)
         data_disk = {k: v for (k, v) in disk.items() if k != "history"}
@@ -345,7 +352,7 @@ class SolverT:
     def test_disk_prec_matches_memory(self, solver, kwargs_fit, width):
         # Datafile content (dtypes) match in-memory dtypes after halt.
         with pycrt.Precision(width):
-            solver.fit(**kwargs_fit.copy())
+            solver.fit(**self.as_early_stop(kwargs_fit))
 
             disk = np.load(solver.datafile)
             data_disk = {k: v for (k, v) in disk.items() if k != "history"}
@@ -357,7 +364,7 @@ class SolverT:
         # All execution modes return same results.
         data = dict()
         for m in [pyca.Mode.BLOCK, pyca.Mode.MANUAL]:
-            kwargs_fit = kwargs_fit.copy()
+            kwargs_fit = self.as_early_stop(kwargs_fit)
             kwargs_fit.update(mode=m)
             solver.fit(**kwargs_fit)
             if m == pyca.Mode.BLOCK:
