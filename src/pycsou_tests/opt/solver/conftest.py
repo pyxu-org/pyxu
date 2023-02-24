@@ -245,7 +245,13 @@ class SolverT:
             stats = {k: v.dtype == width.value for (k, v) in data.items()}
             assert all(stats.values())
 
-    def test_value_fit(self, solver, _kwargs_fit_xp, cost_function, ground_truth):
+    def test_value_fit(
+        self,
+        solver,
+        _kwargs_fit_xp,
+        cost_function,
+        ground_truth,
+    ):
         # ensure output computed with backend=xp matches ground_truth NumPy result.
         solver.fit(**_kwargs_fit_xp.copy())
         data, _ = solver.stats()
@@ -262,7 +268,12 @@ class SolverT:
         assert self._check_allclose(data1, data2)
 
     @pytest.mark.parametrize("track_objective", [True, False])
-    def test_objective_func_tracked(self, solver, kwargs_fit, track_objective):
+    def test_objective_func_tracked(
+        self,
+        solver,
+        kwargs_fit,
+        track_objective,
+    ):
         # Ensure objective_func value present in history.
         kwargs_fit = kwargs_fit.copy()
         kwargs_fit.update(track_objective=track_objective)
