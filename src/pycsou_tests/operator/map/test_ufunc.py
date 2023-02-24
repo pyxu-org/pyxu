@@ -3,14 +3,15 @@ import itertools
 import numpy as np
 import pytest
 
-import pycsou.operator.map.ufunc as pycmu
+import pycsou.operator as pyco
 import pycsou.runtime as pycrt
 import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
-# Trigonometric Functions
-class MixinUFunc(conftest.DiffMapT):
+class MixinUFunc:
+    N_test_lipschitz = 10
+
     @pytest.fixture
     def dim(self):
         return 40
@@ -30,19 +31,28 @@ class MixinUFunc(conftest.DiffMapT):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        N_test = 5
-        return self._random_array((N_test, dim))
+        # override in tests if dom(f) != R
+        return self._random_array((self.N_test_lipschitz, dim))
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, dim):
-        N_test = 5
-        return self._random_array((N_test, dim))
+        # override in tests if dom(f) != R
+        return self._random_array((self.N_test_lipschitz, dim))
 
 
-class TestSin(MixinUFunc):
+class MixinMapUFunc(MixinUFunc, conftest.MapT):
+    pass
+
+
+class MixinDiffMapUFunc(MixinUFunc, conftest.DiffMapT):
+    pass
+
+
+# Trigonometric Functions =====================================================
+class TestSin(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Sin(dim), _spec[0], _spec[1]
+        return pyco.Sin(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -54,10 +64,10 @@ class TestSin(MixinUFunc):
         )
 
 
-class TestCos(MixinUFunc):
+class TestCos(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Cos(dim), _spec[0], _spec[1]
+        return pyco.Cos(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -69,44 +79,25 @@ class TestCos(MixinUFunc):
         )
 
 
-class TestTan(MixinUFunc):
-    r"""
-    Tangent function diverges for :math:`\mp(2k+1)k\pi/2`, with
-    :math:`k \in \mathbb{N}`. Testing is done on :math`[-3*\pi/2+0.2,
-    -\pi/2-0.2] \cup [-\pi/2+0.2, \pi/2-0.2] \cup [\pi/2+0.2,
-    3*\pi/2-0.2]`.
-    """
-
+class TestTan(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Tan(dim), _spec[0], _spec[1]
+        return pyco.Tan(dim), _spec[0], _spec[1]
 
     @pytest.fixture(params=["subdomain-1", "subdomain-2", "subdomain-3"])
     def data_apply(self, request, dim):
-        return {
-            "subdomain-1": dict(
-                in_=dict(arr=np.linspace(-3 * np.pi / 2 + 0.2, -np.pi / 2 - 0.2, dim)),
-                out=np.tan(np.linspace(-3 * np.pi / 2 + 0.2, -np.pi / 2 - 0.2, dim)),
-            ),
-            "subdomain-2": dict(
-                in_=dict(arr=np.linspace(-np.pi / 2 + 0.1, np.pi / 2 - 0.1, dim)),
-                out=np.tan(np.linspace(-np.pi / 2 + 0.1, np.pi / 2 - 0.1, dim)),
-            ),
-            "subdomain-3": dict(
-                in_=dict(arr=np.linspace(np.pi / 2 + 0.2, 3 * np.pi / 2 - 0.2, dim)),
-                out=np.tan(np.linspace(np.pi / 2 + 0.2, 3 * np.pi / 2 - 0.2, dim)),
-            ),
-        }[request.param]
+        A = np.linspace(-np.pi, np.pi, dim)
+        B = np.tan(A)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
 
 
-class TestArcsin(MixinUFunc):
-    """
-    Inverse sine function defined for :math:`[-1,1]`.
-    """
-
+class TestArcSin(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Arcsin(dim), _spec[0], _spec[1]
+        return pyco.ArcSin(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -119,23 +110,17 @@ class TestArcsin(MixinUFunc):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        N_test = 5
-        return np.clip(self._random_array((N_test, dim)), -1, 1)
+        return np.clip(self._random_array((self.N_test_lipschitz, dim)), -1, 1)
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, dim):
-        N_test = 5
-        return np.clip(self._random_array((N_test, dim)), -0.9, 0.9)
+        return np.clip(self._random_array((self.N_test_lipschitz, dim)), -1, 1)
 
 
-class TestArccos(MixinUFunc):
-    """
-    Inverse cosine function defined for :math:`[-1,1]`.
-    """
-
+class TestArcCos(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Arccos(dim), _spec[0], _spec[1]
+        return pyco.ArcCos(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -148,19 +133,17 @@ class TestArccos(MixinUFunc):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        N_test = 5
-        return np.clip(self._random_array((N_test, dim)), -1, 1)
+        return np.clip(self._random_array((self.N_test_lipschitz, dim)), -1, 1)
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, dim):
-        N_test = 5
-        return np.clip(self._random_array((N_test, dim)), -0.9, 0.9)
+        return np.clip(self._random_array((self.N_test_lipschitz, dim)), -1, 1)
 
 
-class TestArctan(MixinUFunc):
+class TestArcTan(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Arctan(dim), _spec[0], _spec[1]
+        return pyco.ArcTan(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -172,13 +155,11 @@ class TestArctan(MixinUFunc):
         )
 
 
-# Hyperbolic Functions
-
-
-class TestSinh(MixinUFunc):
+# Hyperbolic Functions ========================================================
+class TestSinh(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Sinh(dim), _spec[0], _spec[1]
+        return pyco.Sinh(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -190,10 +171,10 @@ class TestSinh(MixinUFunc):
         )
 
 
-class TestCosh(MixinUFunc):
+class TestCosh(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Cosh(dim), _spec[0], _spec[1]
+        return pyco.Cosh(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -205,10 +186,10 @@ class TestCosh(MixinUFunc):
         )
 
 
-class TestTanh(MixinUFunc):
+class TestTanh(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Tanh(dim), _spec[0], _spec[1]
+        return pyco.Tanh(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -220,10 +201,10 @@ class TestTanh(MixinUFunc):
         )
 
 
-class TestArcsinh(MixinUFunc):
+class TestArcSinh(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Arcsinh(dim), _spec[0], _spec[1]
+        return pyco.ArcSinh(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -235,14 +216,10 @@ class TestArcsinh(MixinUFunc):
         )
 
 
-class TestArccosh(MixinUFunc):
-    r"""
-    Inverse hyperbolic cosine function defined for :math:`[1,\infty)`.
-    """
-
+class TestArcCosh(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Arccosh(dim), _spec[0], _spec[1]
+        return pyco.ArcCosh(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -255,27 +232,21 @@ class TestArccosh(MixinUFunc):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        N_test = 5
-        return np.clip(self._random_array((N_test, dim)) + 3, a_min=1, a_max=4)
+        return np.clip(self._random_array((self.N_test_lipschitz, dim)), a_min=1, a_max=None)
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, dim):
-        N_test = 5
-        return np.clip(self._random_array((N_test, dim)) + 3, a_min=1.1, a_max=4)
+        return np.clip(self._random_array((self.N_test_lipschitz, dim)), a_min=1, a_max=None)
 
 
-class TestArctanh(MixinUFunc):
-    """
-    Inverse hyperbolic tangent function defined for :math:`(-1,1)`.
-    """
-
+class TestArcTanh(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Arctanh(dim), _spec[0], _spec[1]
+        return pyco.ArcTanh(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
-        A = np.linspace(-1 + 0.01, 1 - 0.01, dim)
+        A = np.linspace(-1, 1, dim)
         B = np.arctanh(A)
         return dict(
             in_=dict(arr=A),
@@ -284,26 +255,22 @@ class TestArctanh(MixinUFunc):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        N_test = 5
-        return np.clip(self._random_array((N_test, dim)), a_min=-1 + 0.01, a_max=1 - 0.01)
+        return np.clip(self._random_array((self.N_test_lipschitz, dim)), a_min=-1, a_max=1)
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, dim):
-        N_test = 5
-        return np.clip(self._random_array((N_test, dim)), a_min=-0.9, a_max=0.9)
+        return np.clip(self._random_array((self.N_test_lipschitz, dim)), a_min=-1, a_max=1)
 
 
-# Exponentials and logarithms
-
-
-class TestExp(MixinUFunc):
+# Exponential Functions =======================================================
+class TestExp(MixinDiffMapUFunc):
     @pytest.fixture(params=[None, 2, 10])
     def base(self, request):
         return request.param
 
     @pytest.fixture
     def spec(self, dim, base, _spec):
-        return pycmu.Exp(dim, base), _spec[0], _spec[1]
+        return pyco.Exp(dim, base), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim, base):
@@ -318,18 +285,14 @@ class TestExp(MixinUFunc):
         )
 
 
-class TestLog(MixinUFunc):
-    r"""
-    Natural logarithm function defined for :math:`(0,\infty)`.
-    """
-
+class TestLog(MixinDiffMapUFunc):
     @pytest.fixture(params=[None, 2, 10])
     def base(self, request):
         return request.param
 
     @pytest.fixture
     def spec(self, dim, base, _spec):
-        return pycmu.Log(dim, base), _spec[0], _spec[1]
+        return pyco.Log(dim, base), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim, base):
@@ -344,22 +307,18 @@ class TestLog(MixinUFunc):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        N_test = 5
-        return np.abs(self._random_array((N_test, dim)))
+        return np.abs(self._random_array((self.N_test_lipschitz, dim)))
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, dim):
-        N_test = 5
-        return np.abs(self._random_array((N_test, dim)))
+        return np.abs(self._random_array((self.N_test_lipschitz, dim)))
 
 
-# Sums, Products and Differences
-
-
+# Sums & Products =============================================================
 class TestCumprod(MixinUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Cumprod(dim), _spec[0], _spec[1]
+        return pyco.Cumprod(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -374,7 +333,7 @@ class TestCumprod(MixinUFunc):
 class TestCumsum(MixinUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Cumsum(dim), _spec[0], _spec[1]
+        return pyco.Cumsum(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -386,15 +345,15 @@ class TestCumsum(MixinUFunc):
         )
 
 
-# Miscellaneous
-class TestClip(MixinUFunc):
+# Miscellaneous Functions =====================================================
+class TestClip(MixinMapUFunc):
     @pytest.fixture(params=([0, None], [None, 1], [0, 1]))
     def lims(self, request):
         return request.param
 
     @pytest.fixture
     def spec(self, dim, lims, _spec):
-        return pycmu.Clip(dim, a_min=lims[0], a_max=lims[1]), _spec[0], _spec[1]
+        return pyco.Clip(dim, a_min=lims[0], a_max=lims[1]), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim, lims):
@@ -406,14 +365,10 @@ class TestClip(MixinUFunc):
         )
 
 
-class TestSqrt(MixinUFunc):
-    r"""
-    Square root function defined for :math:`[0,\infty)`.
-    """
-
+class TestSqrt(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Sqrt(dim), _spec[0], _spec[1]
+        return pyco.Sqrt(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -426,19 +381,17 @@ class TestSqrt(MixinUFunc):
 
     @pytest.fixture
     def data_math_lipschitz(self, dim):
-        N_test = 5
-        return np.abs(self._random_array((N_test, dim)))
+        return np.abs(self._random_array((self.N_test_lipschitz, dim)))
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, dim):
-        N_test = 5
-        return np.abs(self._random_array((N_test, dim)))
+        return np.abs(self._random_array((self.N_test_lipschitz, dim)))
 
 
-class TestCbrt(MixinUFunc):
+class TestCbrt(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Cbrt(dim), _spec[0], _spec[1]
+        return pyco.Cbrt(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -450,10 +403,10 @@ class TestCbrt(MixinUFunc):
         )
 
 
-class TestSquare(MixinUFunc):
+class TestSquare(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Square(dim), _spec[0], _spec[1]
+        return pyco.Square(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -465,10 +418,10 @@ class TestSquare(MixinUFunc):
         )
 
 
-class TestAbs(MixinUFunc):
+class TestAbs(MixinMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Abs(dim), _spec[0], _spec[1]
+        return pyco.Abs(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -480,10 +433,10 @@ class TestAbs(MixinUFunc):
         )
 
 
-class TestSign(MixinUFunc):
+class TestSign(MixinMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Sign(dim), _spec[0], _spec[1]
+        return pyco.Sign(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -495,135 +448,11 @@ class TestSign(MixinUFunc):
         )
 
 
-# Activation Functions (TestTanh already implemented)
-
-
-class TestSigmoid(MixinUFunc):
+# Activation Functions ========================================================
+class TestGaussian(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Sigmoid(dim), _spec[0], _spec[1]
-
-    @pytest.fixture
-    def data_apply(self, dim):
-        A = np.linspace(-4, 4, dim)
-        B = 1 / (1 + np.exp(-A))
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
-
-
-class TestReLU(MixinUFunc):
-    @pytest.fixture
-    def spec(self, dim, _spec):
-        return pycmu.ReLU(dim), _spec[0], _spec[1]
-
-    @pytest.fixture
-    def data_apply(self, dim):
-        A = np.linspace(-4, 4, dim)
-        B = A.clip(min=0)
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
-
-
-class TestGELU(MixinUFunc):
-    @pytest.fixture
-    def spec(self, dim, _spec):
-        return pycmu.GELU(dim), _spec[0], _spec[1]
-
-    @pytest.fixture
-    def data_apply(self, dim):
-        from scipy.special import erf
-
-        A = np.linspace(-4, 4, dim)
-        B = A * (1 + erf(A) / np.sqrt(2)) / 2
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
-
-
-class TestSoftplus(MixinUFunc):
-    @pytest.fixture
-    def spec(self, dim, _spec):
-        return pycmu.Softplus(dim), _spec[0], _spec[1]
-
-    @pytest.fixture
-    def data_apply(self, dim):
-        A = np.linspace(-4, 4, dim)
-        B = np.log(np.exp(A) + 1)
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
-
-
-class TestELU(MixinUFunc):
-    @pytest.fixture
-    def spec(self, dim, _spec):
-        return pycmu.ELU(dim, alpha=10.0), _spec[0], _spec[1]
-
-    @pytest.fixture
-    def data_apply(self, dim):
-        A = np.linspace(-4, 4, dim)
-        B = np.where(A >= 0, A, 10.0 * (np.exp(A) - 1))
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
-
-
-class TestSELU(MixinUFunc):
-    @pytest.fixture
-    def spec(self, dim, _spec):
-        return pycmu.SELU(dim), _spec[0], _spec[1]
-
-    @pytest.fixture
-    def data_apply(self, dim):
-        A = np.linspace(-4, 4, dim)
-        B = 1.0507 * np.where(A >= 0, A, 1.67326 * (np.exp(A) - 1))
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
-
-
-class TestLeakyReLU(MixinUFunc):
-    @pytest.fixture
-    def spec(self, dim, _spec):
-        return pycmu.LeakyReLU(dim, alpha=0.01), _spec[0], _spec[1]
-
-    @pytest.fixture
-    def data_apply(self, dim):
-        A = np.linspace(-4, 4, dim)
-        B = np.where(A >= 0, A, A * 0.01)
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
-
-
-class TestSiLU(MixinUFunc):
-    @pytest.fixture
-    def spec(self, dim, _spec):
-        return pycmu.SiLU(dim), _spec[0], _spec[1]
-
-    @pytest.fixture
-    def data_apply(self, dim):
-        A = np.linspace(-4, 4, dim)
-        B = A / (1 + np.exp(-A))
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
-
-
-class TestGaussian(MixinUFunc):
-    @pytest.fixture
-    def spec(self, dim, _spec):
-        return pycmu.Gaussian(dim), _spec[0], _spec[1]
+        return pyco.Gaussian(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -635,25 +464,85 @@ class TestGaussian(MixinUFunc):
         )
 
 
-class TestGCU(MixinUFunc):
+class TestSigmoid(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.GCU(dim), _spec[0], _spec[1]
+        return pyco.Sigmoid(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
         A = np.linspace(-4, 4, dim)
-        B = A * np.cos(A)
+        B = 1 / (1 + np.exp(-A))
         return dict(
             in_=dict(arr=A),
             out=B,
         )
 
 
-class TestSoftmax(MixinUFunc):
+class TestSoftPlus(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pycmu.Softmax(dim), _spec[0], _spec[1]
+        return pyco.SoftPlus(dim), _spec[0], _spec[1]
+
+    @pytest.fixture
+    def data_apply(self, dim):
+        A = np.linspace(-4, 4, dim)
+        B = np.log1p(np.exp(A))
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+
+class TestLeakyReLU(MixinMapUFunc):
+    @pytest.fixture
+    def spec(self, dim, _spec):
+        return pyco.LeakyReLU(dim, alpha=0.01), _spec[0], _spec[1]
+
+    @pytest.fixture
+    def data_apply(self, dim):
+        A = np.linspace(-4, 4, dim)
+        B = np.where(A >= 0, A, A * 0.01)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+
+class TestReLU(MixinMapUFunc):
+    @pytest.fixture
+    def spec(self, dim, _spec):
+        return pyco.ReLU(dim), _spec[0], _spec[1]
+
+    @pytest.fixture
+    def data_apply(self, dim):
+        A = np.linspace(-4, 4, dim)
+        B = A.clip(min=0)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+
+class TestSiLU(MixinDiffMapUFunc):
+    @pytest.fixture
+    def spec(self, dim, _spec):
+        return pyco.SiLU(dim), _spec[0], _spec[1]
+
+    @pytest.fixture
+    def data_apply(self, dim):
+        A = np.linspace(-4, 4, dim)
+        B = A / (1 + np.exp(-A))
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+
+class TestSoftmax(MixinDiffMapUFunc):
+    @pytest.fixture
+    def spec(self, dim, _spec):
+        return pyco.Softmax(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
