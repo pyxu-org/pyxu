@@ -1,51 +1,24 @@
 r"""
 Universal functions.
 
-This module provides various universal functions.
-
-Notes
-------
-
-* Implementation:
+Ufuncs have class-oriented and function-oriented interfaces.
 
 Example
 -------
-.. testsetup::
+.. code-block:: python3
 
-    import numpy as np
+   from pycsou.operator.map import Sin, sin
+   from pycsou.abc import LinOp
 
-.. doctest::
+   N = 10
+   x = np.random.randn(N)
+   A = LinOp.from_array(np.random.randn(N, N))
 
-    >>> from pycsou.operator.map import Sin
-    >>> x = np.random.randn(10)
-    >>> sin_x = Sin(x.size)
-    >>> res = sin_x.apply(x)
-    >>> np_res = np.sin(x)
-    >>> np.allclose(np_res, res)
-    True
-    >>> jacob = sin_x.jacobian(x)
-    >>> jacob_res = jacob.apply(np.ones_like(x))
-    >>> np.allclose(jacob_res, np.cos(x))
-    True
+   op1 = Sin(x.size) * A  # class interface
+   op2 = sin(A)           # function interface
 
-* Every class has its own functional interface in order to be able to combine with different maps:
-
-Example
--------
-.. testsetup::
-
-    import numpy as np
-
-.. doctest::
-
-    >>> from pycsou.operator.map import sin
-    >>> from pycsou.abc.operator import LinOp
-    >>> x = np.random.randn(10)
-    >>> A = LinOp.from_array(np.random.randn(10, 10))
-    >>> sin_A = sin(A)
-    >>> res = sin_A.apply(x)
-    >>> np.allclose(res, np.sin(A.apply(x)))
-    True
+   np.allclose(op1.apply(x), np.sin(A.apply(x)))  # True
+   np.allclose(op2.apply(x), np.sin(A.apply(x)))  # True
 """
 
 import numpy as np
@@ -56,40 +29,32 @@ import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
-# Trigonometric Functions
 
-
+# Trigonometric Functions =====================================================
 class Sin(pyca.DiffMap):
     r"""
     Trigonometric sine, element-wise.
 
-
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \sin(x)`
+    * :math:`f'(x) = \cos(x)`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      1`.
 
-    .. math::
-        \frac{\partial\sin(x)}{\partial x} = \cos(x)
+      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = k \pi, \, k \in
+      \mathbb{Z}`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = 1`.
 
-    * Lipschitz constant: :math:`1`
-
-    since :math:`\max\{|\cos (x)|\} = 1` at :math:`x=\pi k` for :math:`k\in \mathbb{Z}`.
-
-    * Differential Lipschitz constant: :math:`1`
-
-    since :math:`\max\{|-\sin (x)|\} = 1` at :math:`x=\pi k + \frac{\pi}{2}` for :math:`k\in \mathbb{Z}`.
-
-    See Also
-    --------
-    Cos, Tan, Arcsin, Arccos, Arctan
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = (2k + 1)
+      \frac{\pi}{2}, \, k \in \mathbb{Z}`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
-        self._lipschitz = self._diff_lipschitz = 1
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = 1
+        self._diff_lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -103,19 +68,6 @@ class Sin(pyca.DiffMap):
 
 
 def sin(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Sin`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Sin(op.dim) * op
 
 
@@ -125,30 +77,24 @@ class Cos(pyca.DiffMap):
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \cos(x)`
+    * :math:`f'(x) = -\sin(x)`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      1`.
 
-    .. math::
-        \frac{\partial\cos(x)}{\partial x} = -\sin(x)
+      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = (2k + 1)
+      \frac{\pi}{2}, \, k \in \mathbb{Z}`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = 1`.
 
-    * Lipschitz constant: :math:`1`
-
-    since :math:`\max\{|-\sin (x)|\} = 1` at :math:`x=\pi k + \frac{\pi}{2}` for :math:`k\in \mathbb{Z}`.
-
-    * Differential Lipschitz constant: :math:`1`
-
-    since :math:`\max\{|-\cos (x)|\} = 1` at :math:`x=\pi k` for :math:`k\in \mathbb{Z}`.
-
-    See Also
-    --------
-    Sin, Tan, Arcsin, Arccos, Arctan
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = k \pi, \, k
+      \in \mathbb{Z}`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
-        self._lipschitz = self._diff_lipschitz = 1
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = 1
+        self._diff_lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -162,19 +108,6 @@ class Cos(pyca.DiffMap):
 
 
 def cos(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Cos`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Cos(op.dim) * op
 
 
@@ -184,25 +117,22 @@ class Tan(pyca.DiffMap):
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \tan(x)`
+    * :math:`f'(x) = \cos^{-2}(x)`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      \infty`.
 
-    .. math::
-        \frac{\partial\tan(x)}{\partial x} = \frac{1}{\cos^2(x)}
+      (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [-\pi, \pi]`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = \infty`.
 
-    * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\frac{1}{\cos^2(x)}|` is :math:`\mathbb{R}^+`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\frac{2\tan(x)}{\cos^2(x)}|` is :math:`\mathbb{R}^+`.
-
-    See Also
-    --------
-    Sin, Cos, Arcsin, Arccos, Arctan
+      (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [-\pi, \pi]`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -212,51 +142,37 @@ class Tan(pyca.DiffMap):
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(1 / xp.cos(arr) ** 2)
+        v = xp.cos(arr)
+        v **= 2
+        return pyclb.DiagonalOp(1 / v)
 
 
 def tan(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Tan`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Tan(op.dim) * op
 
 
-class Arcsin(pyca.DiffMap):
+class ArcSin(pyca.DiffMap):
     r"""
     Inverse sine, element-wise.
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \arcsin(x)`
+    * :math:`f'(x) = (1 - x^{2})^{-\frac{1}{2}}`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      \infty`.
 
-    .. math::
-        \frac{\partial\arcsin(x)}{\partial x} = \frac{1}{\sqrt{1-x^2}}
+      (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = \infty`.
 
-    * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\frac{1}{\sqrt{1-x^2}}|` is :math:`\mathbb{R}^+`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\frac{x}{(1 - x)^{3/2}}|` is :math:`\mathbb{R}^+`.
-
-    See Also
-    --------
-    Sin, Cos, Tan, Arccos, Arctan
+      (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -266,51 +182,37 @@ class Arcsin(pyca.DiffMap):
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(1 / xp.sqrt(1 - arr**2))
+        v = arr**2
+        v *= -1
+        v += 1
+        xp.sqrt(v, out=v)
+        return pyclb.DiagonalOp(1 / v)
 
 
 def arcsin(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Arcsin`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return Arcsin(op.dim) * op
+    return ArcSin(op.dim) * op
 
 
-class Arccos(pyca.DiffMap):
+class ArcCos(pyca.DiffMap):
     r"""
     Inverse cosine, element-wise.
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \arccos(x)`
+    * :math:`f'(x) = -(1 - x^{2})^{-\frac{1}{2}}`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      \infty`.
 
-    .. math::
-        \frac{\partial\arccos(x)}{\partial x} = -\frac{1}{\sqrt{1-x^2}}
+      (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = \infty`.
 
-    * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|-\frac{1}{\sqrt{1-x^2}}|` is :math:`\mathbb{R}^+`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|-\frac{x}{(1 - x)^{3/2}}|` is :math:`\mathbb{R}^+`.
-
-    See Also
-    --------
-    Sin, Cos, Tan, Arcsin, Arctan
+      (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -320,57 +222,43 @@ class Arccos(pyca.DiffMap):
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(-1 / xp.sqrt(1 - arr**2))
+        v = arr**2
+        v *= -1
+        v += 1
+        xp.sqrt(v, out=v)
+        return pyclb.DiagonalOp(-1 / v)
 
 
 def arccos(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Arccos`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return Arccos(op.dim) * op
+    return ArcCos(op.dim) * op
 
 
-class Arctan(pyca.DiffMap):
+class ArcTan(pyca.DiffMap):
     r"""
     Inverse tangent, element-wise.
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \arctan(x)`
+    * :math:`f'(x) = (1 + x^{2})^{-1}`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      1`.
 
-    .. math::
-        \frac{\partial\arctan(x)}{\partial x} = \frac{1}{1+x^2}
+      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = 0`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = 3 \sqrt{3} / 8`.
 
-    * Lipschitz constant: :math:`1`
-
-    since :math:`\max\{|\frac{1}{1+x^2}|\} = 1` at :math:`x=0`.
-
-    * Differential Lipschitz constant: :math:`\frac{3\sqrt{3}}{8}`
-
-    since :math:`\max\{|-\frac{2x}{(1+x^2)^2}|\} = \frac{3\sqrt{3}}{8}` at :math:`x=\pm \frac{1}{\sqrt{3}}`.
-
-    See Also
-    --------
-    Sin, Cos, Tan, Arcsin, Arccos
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \pm
+      \frac{1}{\sqrt{3}}`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
         self._lipschitz = 1
-        self._diff_lipschitz = 3 * np.sqrt(3) / 8  # Max of |arctan''(x)|=|2x/(1+x^2)^2| is 3sqrt(3)/8 at x=+-1/sqrt(3)
+        self._diff_lipschitz = 3 * np.sqrt(3) / 8
+        #   max_{x \in R} |arctan''(x)|
+        # = max_{x \in R} |2x / (1+x^2)^2|
+        # = 3 \sqrt(3) / 8  [at x = +- 1/\sqrt(3)]
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -379,52 +267,38 @@ class Arctan(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        return pyclb.DiagonalOp(1 / (1 + arr**2))
+        v = arr**2
+        v += 1
+        return pyclb.DiagonalOp(1 / v)
 
 
 def arctan(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Arctan`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return Arctan(op.dim) * op
+    return ArcTan(op.dim) * op
 
 
-# Hyperbolic Functions
+# Hyperbolic Functions ========================================================
 class Sinh(pyca.DiffMap):
     r"""
     Hyperbolic sine, element-wise.
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \sinh(x)`
+    * :math:`f'(x) = \cosh(x)`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      \infty`.
 
-    .. math::
-        \frac{\partial \sinh(x)}{\partial x} = \cosh(x)
+      (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = \infty`.
 
-    * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\cosh(x)|` is :math:`\mathbb{R}^+`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\sinh(x)|` is :math:`\mathbb{R}^+`.
-
-    See Also
-    --------
-    Cosh, Tanh, Arcsinh, Arccosh, Arctanh
+      (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -438,19 +312,6 @@ class Sinh(pyca.DiffMap):
 
 
 def sinh(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Sinh`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Sinh(op.dim) * op
 
 
@@ -460,25 +321,22 @@ class Cosh(pyca.DiffMap):
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \cosh(x)`
+    * :math:`f'(x) = \sinh(x)`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      \infty`.
 
-    .. math::
-        \frac{\partial \cosh(x)}{\partial x} = \sinh(x)
+      (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = \infty`.
 
-    * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\sinh(x)|` is :math:`\mathbb{R}^+`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\cosh(x)|` is :math:`\mathbb{R}^+`.
-
-    See Also
-    --------
-    Sinh, Tanh, Arcsinh, Arccosh, Arctanh
+      (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -492,19 +350,6 @@ class Cosh(pyca.DiffMap):
 
 
 def cosh(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Cosh`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Cosh(op.dim) * op
 
 
@@ -514,33 +359,26 @@ class Tanh(pyca.DiffMap):
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \tanh(x)`
+    * :math:`f'(x) = 1 - \tanh^{2}(x)`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      1`.
 
-    .. math::
-        \frac{\partial \tanh(x)}{\partial x} = \frac{1}{\cosh^2(x)}
+      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = 0`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = 4 / 3 \sqrt{3}`.
 
-    * Lipschitz constant: :math:`1`
-
-    since :math:`\max\{|\frac{1}{\cosh^2(x)}|\} = 1` at :math:`x=0`.
-
-    * Differential Lipschitz constant: :math:`\frac{4}{3\sqrt{3}}`
-
-    since :math:`\max\{|-\frac{2\tanh(x)}{\cosh^2(x)}|\} = \frac{4}{3\sqrt{3}}` at :math:`x= \frac{1}{2}\log(2 \pm \sqrt{3})`.
-
-    See Also
-    --------
-    Sinh, Cosh, Arcsinh, Arccosh, Arctanh, Sigmoid, ReLU, GELU, Softplus, ELU, SELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \frac{1}{2}
+      \ln(2 \pm \sqrt{3})`.
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
         self._lipschitz = 1
-        self._diff_lipschitz = 4 / (
-            3 * np.sqrt(3)
-        )  # Max of |tanh''(x)|=|2sech^2(x)tanh(x)| is 4/3sqrt(3) at x=+-log(2-sqrt(3))/2
+        self._diff_lipschitz = 4 / (3 * np.sqrt(3))
+        #   max_{x \in R} |tanh''(x)|
+        # = max_{x \in R} |-2 tanh(x) [1 - tanh(x)^2|
+        # = 4 / (3 \sqrt(3))  [at x = ln(2 +- \sqrt(3))]
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -549,60 +387,43 @@ class Tanh(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(1 / xp.cosh(arr) ** 2)
+        v = self.apply(arr)
+        v**2
+        v *= -1
+        v += 1
+        return pyclb.DiagonalOp(v)
 
 
 def tanh(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Tanh`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Tanh(op.dim) * op
 
 
-class Arcsinh(pyca.DiffMap):
+class ArcSinh(pyca.DiffMap):
     r"""
     Inverse hyperbolic sine, element-wise.
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \sinh^{-1}(x) = \ln(x + \sqrt{x^{2} + 1})`
+    * :math:`f'(x) = (x^{2} + 1)^{-\frac{1}{2}}`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      1`.
 
-    .. math::
-        \frac{\partial \sinh^{-1}(x)}{\partial x} = \frac{1}{\sqrt{1 + x^2}}
+      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = 0`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = \frac{2}{3 \sqrt{3}}`.
 
-    * Lipschitz constant: :math:`1`
-
-    since :math:`\max\{|\frac{1}{\sqrt{1 + x^2}}|\} = 1` at :math:`x=0`.
-
-    * Differential Lipschitz constant: :math:`\frac{2}{3\sqrt{3}}`
-
-    since :math:`\max\{|-\frac{x}{(1 + x^2)^{3/2}}|\} = \frac{2}{3\sqrt{3}}` at :math:`x=\pm \frac{1}{\sqrt{2}}`.
-
-    See Also
-    --------
-    Sinh, Cosh, Tanh, Arccosh, Arctanh
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \pm
+      \frac{1}{\sqrt{2}}`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
-        self._lipschitz = 1  # Max of |arcsinh'(x)|=|1/sqrt(1+x^2)| is 1 at x=0
-        self._diff_lipschitz = 2 / (
-            3 * np.sqrt(3)
-        )  # Max of |arcsinh''(x)|=|x/(1+x^2)^(3/2)| is 2/3sqrt(3) at x=+-1/sqrt(2)
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = 1
+        self._diff_lipschitz = 2 / (3 * np.sqrt(3))
+        #   max_{x \in R} |arcsinh''(x)|
+        # = max_{x \in R} |-x (x^2 + 1)^{-3/2}|
+        # = 2 / (3 \sqrt(3))  [at x = += 1 / \sqrt(2)]
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -612,51 +433,38 @@ class Arcsinh(pyca.DiffMap):
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(1 / (xp.sqrt(1 + arr**2)))
+        v = arr**2
+        v += 1
+        xp.sqrt(v, out=v)
+        return pyclb.DiagonalOp(1 / v)
 
 
 def arcsinh(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Arcsinh`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return Arcsinh(op.dim) * op
+    return ArcSinh(op.dim) * op
 
 
-class Arccosh(pyca.DiffMap):
+class ArcCosh(pyca.DiffMap):
     r"""
     Inverse hyperbolic cosine, element-wise.
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \cosh^{-1}(x) = \ln(x + \sqrt{x^{2} - 1})`
+    * :math:`f'(x) = (x^{2} - 1)^{-\frac{1}{2}}`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      \infty`.
 
-    .. math::
-        \frac{\partial \cosh^{-1}(x)}{\partial x} = \frac{1}{\sqrt{-1 + x}\sqrt{1 + x}}
+      (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [1, \infty[`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = \infty`.
 
-    * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`\max\{|\frac{1}{\sqrt{-1 + x}\sqrt{1 + x}}|\}` is :math:`\mathbb{R}^+`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`\max\{|-\frac{x}{(-1 + x)^{3/2}(1 + x)^{3/2}}|\}` is :math:`\mathbb{R}^+`.
-
-    See Also
-    --------
-    Sinh, Cosh, Tanh, Arcsinh, Arctanh
+      (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [1, \infty[`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -666,51 +474,38 @@ class Arccosh(pyca.DiffMap):
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(1 / xp.sqrt(-1 + arr**2))
+        v = arr**2
+        v -= 1
+        xp.sqrt(v, out=v)
+        return pyclb.DiagonalOp(1 / v)
 
 
 def arccosh(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Arccosh`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return Arccosh(op.dim) * op
+    return ArcCosh(op.dim) * op
 
 
-class Arctanh(pyca.DiffMap):
+class ArcTanh(pyca.DiffMap):
     r"""
     Inverse hyperbolic tangent, element-wise.
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \tanh^{-1}(x) = \frac{1}{2}\ln\left(\frac{1+x}{1-x}\right)`
+    * :math:`f'(x) = (1 - x^{2})^{-1}`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      \infty`.
 
-    .. math::
-        \frac{\partial \tanh^{-1}(x)}{\partial x} = \frac{1}{1-x^2}
+      (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = \infty`.
 
-    * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`\max\{|\frac{1}{1-x^2}|\}` is :math:`\mathbb{R}^+`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`\max\{|\frac{2x}{(1-x^2)^2}|\}` is :math:`\mathbb{R}^+`.
-
-    See Also
-    --------
-    Sinh, Cosh, Tanh, Arcsinh, Arccosh
+      (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -719,94 +514,60 @@ class Arctanh(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        return pyclb.DiagonalOp(1 / (1 - arr**2))
+        v = arr**2
+        v *= -1
+        v += 1
+        return pyclb.DiagonalOp(1 / v)
 
 
 def arctanh(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Arctanh`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return Arctanh(op.dim) * op
+    return ArcTanh(op.dim) * op
 
 
-# Exponentials and logarithms
-
-
+# Exponential Functions =======================================================
 class Exp(pyca.DiffMap):
     r"""
     Exponential, element-wise. (Default: base-E exponential.)
 
     Notes
     -----
-    * Derivative:
+    * :math:`f_{b}(x) = b^{x}`
+    * :math:`f_{b}'(x) = b^{x} \ln(b)`
+    * :math:`\vert f_{b}(x) - f_{b}(y) \vert \le L \vert x - y \vert`, with Lipschitz constant
+      :math:`L = \infty`.
 
-    .. math::
-        \frac{ \partial (base)^{x}}{\partial x} = (base)^{x}\log(base)
+      (Reason: :math:`f_{b}'(x)` is unbounded on :math:`\text{dom}(f_{b}) = \mathbb{R}`.)
+    * :math:`\vert f_{b}'(x) - f_{b}'(y) \vert \le \partial L \vert x - y \vert`, with
+      diff-Lipschitz constant :math:`\partial L = \infty`.
 
-    * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`\max\{|(base)^{x}\log(base)|\}` is :math:`\mathbb{R}^+`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`\max\{|(base)^{x}\log^2(base)|\}` is :math:`\mathbb{R}^+`.
-
-    See Also
-    --------
-    Log
+      (Reason: :math:`f_{b}''(x)` is unbounded on :math:`\text{dom}(f_{b}) = \mathbb{R}`.)
     """
 
     def __init__(self, dim: pyct.Integer, base: pyct.Real = None):
-        r"""
-        Parameters
-        ----------
-        dim:  :py:class:`pyct.Integer`
-            Size of input array.
-        base: :py:class:`pyct.Real`
-            Base parameter. Default is `None`, which results in base-E exponential.
-        """
-        super().__init__((dim, dim))
-        self._base = pycrt.coerce(base) if base is not None else base
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
+        self._base = base
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
         out = arr.copy()
         if self._base is not None:
-            out *= xp.log(self._base)
-        return xp.exp(out)
+            out *= np.log(float(self._base))
+
+        xp = pycu.get_array_module(arr)
+        xp.exp(out, out=out)
+        return out
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        xp = pycu.get_array_module(arr)
-        y = self.apply(arr)
+        v = self.apply(arr)
         if self._base is not None:
-            y *= xp.log(self._base)
-        return pyclb.DiagonalOp(y)
+            v *= np.log(float(self._base))
+        return pyclb.DiagonalOp(v)
 
 
 def exp(op: pyct.OpT, base: pyct.Real = None) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Exp`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-    base: :py:class:`pyct.Real`
-        Base parameter. Default is `None`, which results in base-E exponential.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Exp(op.dim, base) * op
 
 
@@ -816,71 +577,45 @@ class Log(pyca.DiffMap):
 
     Notes
     -----
-    * Derivative:
+    * :math:`f_{b}(x) = \log_{b}(x)`
+    * :math:`f_{b}'(x) = x^{-1} / \ln(b)`
+    * :math:`\vert f_{b}(x) - f_{b}(y) \vert \le L \vert x - y \vert`, with Lipschitz constant
+      :math:`L = \infty`.
 
-    .. math::
-        \frac{ \partial \log_{base}(x)}{\partial x} = \frac{1}{x\log(base)}
+      (Reason: :math:`f_{b}'(x)` is unbounded on :math:`\text{dom}(f_{b}) = \mathbb{R}_{+}`.)
+    * :math:`\vert f_{b}'(x) - f_{b}'(y) \vert \le \partial L \vert x - y \vert`, with
+      diff-Lipschitz constant :math:`\partial L = \infty`.
 
-    * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`\max\{|\frac{1}{x\log(base)}|\}` is :math:`\mathbb{R}^+`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`\max\{|-\frac{1}{x^2\log(base)}|\}` is :math:`\mathbb{R}^+`.
-
-    See Also
-    --------
-    Exp
+      (Reason: :math:`f_{b}''(x)` is unbounded on :math:`\text{dom}(f_{b}) = \mathbb{R}_{+}`.)
     """
 
     def __init__(self, dim: pyct.Integer, base: pyct.Real = None):
-        r"""
-        Parameters
-        ----------
-        dim:  :py:class:`pyct.Integer`
-            Size of input array.
-        base: :py:class:`pyct.Real`
-            Base parameter. Default is `None`, which results in base-E logarithm.
-        """
-        super().__init__((dim, dim))
-        self._base = pycrt.coerce(base) if base is not None else base
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
+        self._base = base
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         out = xp.log(arr)
         if self._base is not None:
-            out /= xp.log(self._base)
+            out /= np.log(float(self._base))
         return out
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        xp = pycu.get_array_module(arr)
-        y = 1 / arr
+        v = 1 / arr
         if self._base is not None:
-            y /= xp.log(self._base)
-        return pyclb.DiagonalOp(y)
+            v /= np.log(float(self._base))
+        return pyclb.DiagonalOp(v)
 
 
 def log(op: pyct.OpT, base: pyct.Real = None) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Log`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-    base: :py:class:`pyct.Real`
-        Base parameter. Default is `None`, which results in base-E logarithm.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Log(op.dim, base) * op
 
 
-# Sums and Products
-
-
+# Sums and Products ===========================================================
 class Cumprod(pyca.DiffMap):
     r"""
     Cumulative product of elements.
@@ -908,17 +643,10 @@ class Cumprod(pyca.DiffMap):
     * Lipschitz constant: :math:`\begin{cases}1, & \text{if} \ N=1 \\ \infty, & \text{otherwise}\end{cases}`.
 
     * Differential Lipschitz constant: :math:`\begin{cases}0, & \text{if} \ N=1 \\ \sqrt{2} & \text{if} \ N=2 \\ \infty, & \text{otherwise}\end{cases}`.
-
-    See Also
-    --------
-    Prod, Sum, Cumsum
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
         self._lipschitz = 1 if (dim == 1) else np.inf
         self._diff_lipschitz = 0 if (dim == 1) else np.sqrt(2) if (dim == 2) else np.inf
 
@@ -938,19 +666,6 @@ class Cumprod(pyca.DiffMap):
 
 
 def cumprod(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Cumprod`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Cumprod(op.dim) * op
 
 
@@ -980,17 +695,10 @@ class Cumsum(pyca.DiffMap):
     * Lipschitz constant: :math:`\frac{N(N+1)}{2}`.
 
     * Differential Lipschitz constant: :math:`0`.
-
-    See Also
-    --------
-    Prod, Sum, Cumprod
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
         self._lipschitz = np.sqrt(dim * (dim + 1) / 2)
         self._diff_lipschitz = 0
 
@@ -1007,111 +715,51 @@ class Cumsum(pyca.DiffMap):
 
 
 def cumsum(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Cumsum`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Cumsum(op.dim) * op
 
 
-# Miscellaneous
-
-
-class Clip(pyca.DiffMap):
+# Miscellaneous ===============================================================
+class Clip(pyca.Map):
     r"""
     Clip (limit) values in an array, element-wise.
 
     Notes
     -----
-    * Function:
+    * .. math::
 
-    .. math::
-        f(x, a_{min}, a_{max}) =
-        \begin{cases}
-            a_{min}, & \text{if} \ x \leq a_{min} \\
-            a_{max}, & \text{if} \ x \geq a_{max} \\
-            x, & \text{otherwise}
-        \end{cases}
-
-    where :math:`a_{min}` and :math:`a_{max}` are minimum and maximum values, respectively.
-
-    * Derivative:
-
-    .. math::
-        \frac{\partial f(x, a_{min}, a_{max})}{\partial x} =
-        \begin{cases}
-            1, & \text{if} \ a_{min} \leq x \leq a_{max} \\
-            0, & \text{otherwise}
-        \end{cases}
-
-    * Lipschitz constant: :math:`1`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of
-    :math:`\frac{\partial f(x, a_{min}, a_{max})}{\partial x}` is :math:`\{0, 1\}`.
-
-    See Also
-    --------
-    Sqrt, Cbrt, Square, Abs, Sign
+         f_{[a,b]}(x) =
+         \begin{cases}
+             a, & \text{if} \ x \leq a, \\
+             x, & a < x < b, \\
+             b, & \text{if} \ x \geq b.
+         \end{cases}
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      1`.
     """
 
     def __init__(self, dim: pyct.Integer, a_min: pyct.Real = None, a_max: pyct.Real = None):
-        r"""
-        Parameters
-        ----------
-        dim:  :py:class:`pyct.Integer`
-            Size of input array.
-        a_min: :py:class:`pyct.Real`
-            Minimum value. Default is `None`.
-        a_max: :py:class:`pyct.Real`
-            Maximum value. Default is `None`.
-        """
-
-        super().__init__((dim, dim))
+        super().__init__(shape=(dim, dim))
         if (a_min is None) and (a_max is None):
             raise ValueError("One of Parameter[a_min, a_max] must be specified.")
-        else:
-            self._llim = pycrt.coerce(a_min) if a_min is not None else pycrt.coerce(-np.inf)
-            self._ulim = pycrt.coerce(a_max) if a_max is not None else pycrt.coerce(np.inf)
+        self._llim = a_min
+        self._ulim = a_max
         self._lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return arr.clip(self._llim, self._ulim)
-
-    @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(xp.where(xp.logical_and(arr <= self._ulim, arr >= self._llim), 1.0, 0.0))
+        out = arr.copy()
+        xp.clip(
+            arr,
+            self._llim,
+            self._ulim,
+            out=out,
+        )
+        return out
 
 
 def clip(op: pyct.OpT, a_min: pyct.Real = None, a_max: pyct.Real = None):
-    r"""
-    Functional interface of :py:class:`Clip`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-    a_min: :py:class:`pyct.Real`
-        Minimum value. Default is None.
-    a_max: :py:class:`pyct.Real`
-        Maximum value. Default is None.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return Clip(op.dim, a_min, a_max) * op
+    return Clip(op.dim, a_min=a_min, a_max=a_max) * op
 
 
 class Sqrt(pyca.DiffMap):
@@ -1120,25 +768,22 @@ class Sqrt(pyca.DiffMap):
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \sqrt{x}`
+    * :math:`f'(x) = 1 / 2 \sqrt{x}`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      \infty`.
 
-    .. math::
-        \frac{\partial \sqrt{x}}{\partial x} = \frac{1}{2\sqrt{x}}
+      (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}_{+}`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = \infty`.
 
-    * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\frac{1}{2\sqrt{x}}|` is :math:`\mathbb{R}^+`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|-\frac{1}{4x^{3/2}}|` is :math:`\mathbb{R}^+`.
-
-    See Also
-    --------
-    Clip, Cbrt, Square, Abs, Sign
+      (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}_{+}`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1147,23 +792,12 @@ class Sqrt(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        return pyclb.DiagonalOp(1.0 / (2.0 * self.apply(arr)))
+        v = self.apply(arr)
+        v *= 2
+        return pyclb.DiagonalOp(1 / v)
 
 
 def sqrt(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Sqrt`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Sqrt(op.dim) * op
 
 
@@ -1173,25 +807,22 @@ class Cbrt(pyca.DiffMap):
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = \sqrt[3]{x}`
+    * :math:`f'(x) = 1 / 3 \sqrt[3]{x^{2}}`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      \infty`.
 
-    .. math::
-        \frac{\partial \sqrt[3]{x}}{\partial x} = \frac{1}{3\sqrt[3]{x^2}}
+      (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = \infty`.
 
-    * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\frac{1}{3\sqrt[3]{x^2}}|` is :math:`\mathbb{R}^+`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|-\frac{2}{9x^{5/3}}|` is :math:`\mathbb{R}^+`.
-
-    See Also
-    --------
-    Clip, Sqrt, Square, Abs, Sign
+      (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1200,23 +831,13 @@ class Cbrt(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        return pyclb.DiagonalOp(1.0 / (3.0 * (self.apply(arr) ** 2.0)))
+        v = self.apply(arr)
+        v **= 2
+        v *= 3
+        return pyclb.DiagonalOp(1 / v)
 
 
 def cbrt(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Cbrt`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Cbrt(op.dim) * op
 
 
@@ -1226,183 +847,133 @@ class Square(pyca.DiffMap):
 
     Notes
     -----
-    * Derivative:
+    * :math:`f(x) = x^{2}`
+    * :math:`f'(x) = 2 x`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      \infty`.
 
-    .. math::
-        \frac{\partial x^2}{\partial x} = 2x
+      (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = 2`.
 
-    * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|2x|` is :math:`\mathbb{R}^+`.
-
-    * Differential Lipschitz constant: :math:`2`.
-
-    See Also
-    --------
-    Clip, Sqrt, Cbrt, Abs, Sign
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` everywhere.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = np.inf
         self._diff_lipschitz = 2
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        return xp.square(arr)
+        out = arr.copy()
+        out **= 2
+        return out
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        return pyclb.DiagonalOp(2.0 * arr)
+        v = arr.copy()
+        v *= 2
+        return pyclb.DiagonalOp(v)
 
 
 def square(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Square`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Square(op.dim) * op
 
 
-class Abs(pyca.DiffMap):
+class Abs(pyca.Map):
     r"""
     Absolute value, element-wise.
 
     Notes
     -----
-    * Derivative:
-
-    .. math::
-        \frac{\partial |x|}{\partial x} =
-        \begin{cases}
-            1, & \text{if} \ x \geq 0 \\
-            -1, & \text{otherwise}
-        \end{cases}
-
-    * Lipschitz constant: :math:`1`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of
-    :math:`\frac{\partial f(x)}{\partial x}` is :math:`\{-1, 1\}`.
-
-    See Also
-    --------
-    Clip, Sqrt, Cbrt, Square, Sign
+    * :math:`f(x) = \vert x \vert`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      1`.
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
         self._lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.absolute(arr)
-
-    @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(xp.sign(arr))
+        return xp.abs(arr)
 
 
 def abs(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Abs`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Abs(op.dim) * op
 
 
-class Sign(pyca.DiffMap):
+class Sign(pyca.Map):
     r"""
-    Sign, element-wise.
+    Number sign indicator, element-wise.
 
     Notes
     -----
-    * Function:
-
-    .. math::
-        f(x) =
-        \begin{cases}
-            1, & \text{if} \ x > 0 \\
-            0, & \text{if} \ x = 0 \\
-            -1, & \text{otherwise}
-        \end{cases}
-
-    * Derivative:
-
-    .. math::
-        \frac{\partial f(x)}{\partial x} = 0
-
-    for :math:`x \in \mathbb{R}-\{0\}`.
-
-    * Lipschitz constant: :math:`0`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of
-    :math:`\frac{\partial f(x)}{\partial x}` is :math:`\{0\}`.
-
-    See Also
-    --------
-    Clip, Sqrt, Cbrt, Square, Abs
+    * :math:`f(x) = x / \vert x \vert`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      2`.
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
-        self._diff_lipschitz = 0
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = 2
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         return xp.sign(arr)
 
-    @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(xp.zeros_like(arr))
-
 
 def sign(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Sign`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Sign(op.dim) * op
 
 
-# Activation Functions (Tanh already implemented)
+# Activation Functions ========================================================
+class Gaussian(pyca.DiffMap):
+    r"""
+    Gaussian, element-wise.
+
+    Notes
+    -----
+    * :math:`f(x) = \exp(-x^{2})`
+    * :math:`f'(x) = -2 x \exp(-x^{2})`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      \sqrt{2 / e}`.
+
+      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = \pm 1 / \sqrt{2}`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = 2`.
+
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = 0`.)
+    """
+
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = np.sqrt(2 / np.e)
+        self._diff_lipschitz = 2
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        out = arr.copy()
+        out **= 2
+        out *= -1
+        xp.exp(out, out=out)
+        return out
+
+    @pycrt.enforce_precision(i="arr", o=False)
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
+        v = self.apply(arr)
+        v *= -2
+        v *= arr
+        return pyclb.DiagonalOp(v)
+
+
+def gaussian(op: pyct.OpT) -> pyct.OpT:
+    return Gaussian(op.dim) * op
 
 
 class Sigmoid(pyca.DiffMap):
@@ -1411,506 +982,130 @@ class Sigmoid(pyca.DiffMap):
 
     Notes
     -----
-    * Function:
+    * :math:`f(x) = (1 + e^{-x})^{-1}`
+    * :math:`f'(x) = f(x) [ f(x) - 1 ]`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1
+      / 4`.
 
-    .. math::
-       \sigma (x) = \frac{1}{1 + e^{-x}}
+      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = 0`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = 1 / 6 \sqrt{3}`.
 
-    * Derivative:
-
-    .. math::
-        \frac{\partial \sigma(x)}{\partial x} = \sigma(x)(\sigma(x)-1)=\frac{e^{-x}}{(e^{-x} + 1)^2}
-
-    * Lipschitz constant: :math:`0.25`
-
-    since :math:`\max\{|\frac{e^{-x}}{(e^{-x} + 1)^2}|\} = 0.25` at :math:`x=0`.
-
-    * Differential Lipschitz constant: :math:`\frac{1}{6\sqrt{3}}`
-
-    since :math:`\max\{|-\frac{e^x(-1 + e^x}{(1 + e^x)^3}|\} = \frac{1}{6\sqrt{3}}` at :math:`x = \log (2 \pm \sqrt{3})`.
-
-    See Also
-    --------
-    Tanh, ReLU, GELU, Softplus, ELU, SELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \ln(2 \pm
+      \sqrt{3})`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
-        self._lipschitz = 0.25  # Max of |\sigma'(x)|=|\sigma(x)(1-\sigma(x))| is 0.25 at x=0
-        self._diff_lipschitz = 1.0 / (
-            6.0 * np.sqrt(3)
-        )  # Max of |\sigma''(x)|=|(\exp^x (-1 + \exp^x))/(1 + \exp^x)^3| is 1/(6*\sqrt(3)) at x=log(2+-\sqrt(3))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = 1 / 4
+        self._diff_lipschitz = 1 / (6 * np.sqrt(3))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return 1.0 / (1.0 + xp.exp(-arr))
+        x = -arr
+        xp.exp(x, out=x)
+        x += 1
+        return 1 / x
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        return pyclb.DiagonalOp(self.apply(arr) * (1.0 - self.apply(arr)))
+        x = self.apply(arr)
+        v = x.copy()
+        x -= 1
+        v *= x
+        return pyclb.DiagonalOp(v)
 
 
 def sigmoid(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Sigmoid`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Sigmoid(op.dim) * op
 
 
-class ReLU(Clip):
-    r"""
-    Rectified linear unit, element-wise.
-
-    Notes
-    -----
-    * Function:
-
-    .. math::
-       f (x) = x^+ = \max (0,x)
-
-    * Derivative:
-
-    .. math::
-        \frac{\partial x^+}{\partial x} =
-        \begin{cases}
-            1, & \text{if} \ x \geq 0 \\
-            0, & \text{otherwise}
-        \end{cases}
-
-    * Lipschitz constant: :math:`1`.
-
-    * Differential Lipschitz constant: :math:`0`.
-
-    See Also
-    --------
-    Sigmoid, Tanh, GELU, Softplus, ELU, SELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
-    """
-
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__(dim, a_min=0, a_max=None)
-
-
-def relu(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`ReLU`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return ReLU(op.dim) * op
-
-
-class GELU(pyca.DiffMap):
-    r"""
-    Gaussian error linear unit, element-wise.
-
-    Notes
-    -----
-    * Function:
-
-    .. math::
-       f (x) = \frac{x}{2} \left( 1 + \text{erf}\left(\frac{x}{\sqrt{2}}\right) \right)
-
-    * Derivative:
-
-    .. math::
-        \frac{\partial f(x)}{\partial x} = \frac{e^{-x^2/2} x}{\sqrt{2\pi}}
-        + \frac{1}{2}\left( 1 + \text{erf} \left( \frac{x}{\sqrt{2}} \right)\right)
-
-    * Lipschitz constant: :math:`\frac{1}{2}(\text{erf}(1)+1) + \frac{1}{e \sqrt{\pi}}`
-
-    since :math:`\max\{|f'(x)|\} = \frac{1}{2}(\text{erf}(1)+1) + \frac{1}{e \sqrt{\pi}}` at :math:`x=\sqrt{2}`.
-
-    * Differential Lipschitz constant: :math:`\sqrt{\frac{2}{\pi}}`
-
-    since :math:`\max\{|f''(x)|\} = \sqrt{\frac{2}{\pi}}` at :math:`x=0`.
-
-    See Also
-    --------
-    Sigmoid, Tanh, ReLU, Softplus, ELU, SELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
-    """
-
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
-        from scipy.special import erf
-
-        self._lipschitz = (np.sqrt(2) * erf(1) + 2) / 4 + 1 / (np.exp(1) * np.sqrt(2 * np.pi))
-        self._diff_lipschitz = np.sqrt(2 / np.pi)
-
-    def _get_erf_function(self, arr: pyct.NDArray):
-        # Update erf function according to input array
-        try:
-            from scipy.special import erf
-
-            erf(arr)
-            return erf
-        except:
-            from cupyx.scipy.special import erf
-
-            return erf
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        erf = self._get_erf_function(arr)
-        arr_dtype = arr.dtype
-        return arr * (1.0 + xp.array(erf(arr).astype(arr_dtype)) / xp.sqrt(2.0, dtype=arr_dtype)) / 2.0
-
-    @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        arr_dtype = arr.dtype
-        arr_erf = (
-            arr.astype("float64") if arr_dtype == "float128" else arr
-        )  # scipy erf function does not support float128
-        xp = pycu.get_array_module(arr)
-        erf = self._get_erf_function(arr)
-        op1 = (xp.sqrt(2.0) * xp.array(erf(arr_erf).astype(arr_dtype)) + 1.0) / 4.0
-        op2 = xp.exp(-(arr**2.0)) * arr / xp.sqrt(2.0 * np.pi)
-        return pyclb.DiagonalOp(op1 + op2)
-
-
-def gelu(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`GELU`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return GELU(op.dim) * op
-
-
-class Softplus(pyca.DiffMap):
+class SoftPlus(pyca.DiffMap):
     r"""
     Softplus, element-wise.
 
     Notes
     -----
-    * Function:
+    * :math:`f(x) = \ln(1 + e^{x})`
+    * :math:`f'(x) = (1 + e^{-x})^{-1}`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      1`.
 
-    .. math::
-       f(x) = \ln (1 + e^x)
+      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` on :math:`\text{dom}(f) =
+      \mathbb{R}`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = 1 / 4`.
 
-    * Derivative:
-
-    .. math::
-        \frac{\partial f(x)}{\partial x} = \frac{1}{1 + e^{-x}} = \sigma(x)
-
-    * Lipschitz constant: :math:`1`
-
-    since :math:`\max\{|\sigma(x)|\} = 1` as :math:`x\rightarrow \pm \infty`.
-
-    * Differential Lipschitz constant: :math:`\frac{1}{6\sqrt{3}}`
-
-    since :math:`\max\{|\sigma(x)(\sigma(x)-1)|\} = 0.25` at :math:`x = 0`.
-
-    See Also
-    --------
-    Sigmoid, Tanh, ReLU, GELU, ELU, SELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = 0`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
         self._lipschitz = 1
-        self._diff_lipschitz = 0.25
+        self._diff_lipschitz = 1 / 4
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.log(xp.exp(arr) + 1.0)
+        return xp.logaddexp(0, arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(1.0 / (1.0 + xp.exp(-arr)))
+        f = Sigmoid(dim=self.dim)
+        v = f.apply(arr)
+        return pyclb.DiagonalOp(v)
 
 
 def softplus(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Softplus`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return Softplus(op.dim) * op
+    return SoftPlus(op.dim) * op
 
 
-class ELU(pyca.DiffMap):
-    r"""
-    Exponential linear unit, element-wise.
-
-    Notes
-    -----
-    * Function:
-
-    .. math::
-       f (x) =
-       \begin{cases}
-            \alpha (e^x - 1) & \text{if} \ x \leq 0 \\
-            x & \text{otherwise} \\
-       \end{cases}
-
-    * Derivative:
-
-    .. math::
-        \frac{\partial f(x)}{\partial x} =
-        \begin{cases}
-            \alpha e^x & \text{if} \ x \leq 0 \\
-            1 & \text{otherwise} \\
-        \end{cases}
-
-    * Lipschitz constant: :math:`\max(1, |\alpha|)`.
-
-    * Differential Lipschitz constant: :math:`|\alpha|`.
-
-    See Also
-    --------
-    Sigmoid, Tanh, ReLU, GELU, Softplus, SELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
-    """
-
-    def __init__(self, dim: pyct.Integer, alpha: pyct.Real = None):
-        r"""
-        Parameters
-        ----------
-        dim:  :py:class:`pyct.Integer`
-            Size of input array.
-        alpha: :py:class:`pyct.Real`
-            ELU parameter. Default is None, which results in error.
-        """
-        super().__init__((dim, dim))
-        if alpha is None:
-            raise ValueError("Parameter[alpha] must be specified.")
-        self._alpha = alpha
-        self._lipschitz = max(1, np.abs(alpha))
-        self._diff_lipschitz = np.abs(alpha)
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        return xp.where(arr >= 0, arr, self._alpha * (xp.exp(arr) - 1.0))
-
-    @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        xp = pycu.get_array_module(arr)
-        elu = self.apply(arr)
-        return pyclb.DiagonalOp(xp.where(elu >= 0, 1.0, elu + self._alpha))
-
-
-def elu(op: pyct.OpT, alpha: pyct.Real) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`ELU`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-    alpha: :py:class:`pyct.Real`
-        ELU parameter. Default is None, which results in error.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return ELU(op.dim, alpha) * op
-
-
-class SELU(pyca.DiffMap):
-    r"""
-    Scaled exponential linear unit, element-wise.
-
-    Notes
-    -----
-    * Function:
-
-    .. math::
-       f (x) = \lambda
-       \begin{cases}
-            \alpha (e^x - 1) & \text{if} \ x \leq 0 \\
-            x & \text{otherwise} \\
-       \end{cases}
-
-    with parameters :math:`\lambda = 1.0507` and :math:`\alpha = 1.67326`.
-
-    * Derivative:
-
-    .. math::
-        \frac{\partial f(x)}{\partial x} = \lambda
-        \begin{cases}
-            \alpha e^x & \text{if} \ x \leq 0 \\
-            1 & \text{otherwise} \\
-        \end{cases}
-
-    * Lipschitz constant: :math:`\lambda \max(1, |\alpha|)`.
-
-    * Differential Lipschitz constant: :math:`\lambda \max(0, |\alpha|)`.
-
-    See Also
-    --------
-    Sigmoid, Tanh, ReLU, GELU, Softplus, ELU, LeakyReLU, SiLU, Gaussian, GCU, Softmax, Maxout
-    """
-
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
-        self._alpha = 1.67326
-        self._lambda = 1.0507
-        self._lipschitz = self._lambda * max(1, self._alpha)
-        self._diff_lipschitz = self._lambda * max(0, self._alpha)
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        return self._lambda * xp.where(arr >= 0, arr, self._alpha * (xp.exp(arr) - 1.0))
-
-    @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        xp = pycu.get_array_module(arr)
-        elu = self.apply(arr)
-        return pyclb.DiagonalOp(self._lambda * xp.where(elu >= 0, 1.0, elu + self._alpha))
-
-
-def selu(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`SELU`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return SELU(op.dim) * op
-
-
-class LeakyReLU(pyca.DiffMap):
+class LeakyReLU(pyca.Map):
     r"""
     Leaky rectified linear unit, element-wise.
 
     Notes
     -----
-    * Function:
-
-    .. math::
-       f (x) =
-       \begin{cases}
-            \alpha x & \text{if} \ x < 0 \\
-            x & \text{otherwise} \\
-       \end{cases}
-
-    with leaky parameters :math:`\alpha`.
-
-    * Derivative:
-
-    .. math::
-        \frac{\partial f(x)}{\partial x} =
-        \begin{cases}
-            \alpha & \text{if} \ x < 0 \\
-            1 & \text{otherwise} \\
-       \end{cases}
-
-    * Lipschitz constant: :math:`\max(1, |\alpha|)`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of
-    :math:`\frac{\partial f(x, \alpha)}{\partial x}` is :math:`\{\alpha, 1\}`.
-
-    See Also
-    --------
-    Sigmoid, Tanh, ReLU, GELU, Softplus, ELU, SELU, SiLU, Gaussian, GCU, Softmax, Maxout
+    * :math:`f(x) = x \left[\mathbb{1}_{\ge 0}(x) + \alpha \mathbb{1}_{< 0}(x)\right], \quad \alpha
+      \ge 0`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      \max(1, \alpha)`.
     """
 
-    def __init__(self, dim: pyct.Integer, alpha: pyct.Real = None):
-        r"""
-        Parameters
-        ----------
-        dim:  :py:class:`pyct.Integer`
-            Size of input array.
-        alpha: :py:class:`pyct.Real`
-            Leaky parameter. Default is `None`, which results in error.
-        """
-        super().__init__((dim, dim))
-        if alpha is None:
-            raise ValueError("Parameter[alpha] must be specified.")
-        self._alpha = alpha
-        self._lipschitz = max(np.abs(alpha), 1)
+    def __init__(self, dim: pyct.Integer, alpha: pyct.Real):
+        super().__init__(shape=(dim, dim))
+        self._alpha = float(alpha)
+        assert self._alpha >= 0
+        self._lipschitz = float(max(alpha, 1))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         return xp.where(arr >= 0, arr, arr * self._alpha)
 
-    @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(xp.where(arr >= 0, 1.0, self._alpha))
+
+def leakyrelu(op: pyct.OpT, alpha: pyct.Real) -> pyct.OpT:
+    return LeakyReLU(dim=op.dim, alpha=alpha) * op
 
 
-def leakyrelu(op: pyct.OpT, alpha: pyct.Real = None) -> pyct.OpT:
+class ReLU(LeakyReLU):
     r"""
-    Functional interface of :py:class:`LeakyReLU`.
+    Rectified linear unit, element-wise.
 
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-    alpha: :py:class:`pyct.Real`
-        Leaky parameter. Default is `None`, which results in error.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
+    Notes
+    -----
+    * :math:`f(x) = \lfloor x \rfloor_{+}`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      1`.
     """
-    return LeakyReLU(op.dim, alpha) * op
+
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(dim=dim, alpha=0)
+
+
+def relu(op: pyct.OpT) -> pyct.OpT:
+    return ReLU(op.dim) * op
 
 
 class SiLU(pyca.DiffMap):
@@ -1919,187 +1114,45 @@ class SiLU(pyca.DiffMap):
 
     Notes
     -----
-    * Function:
+    * :math:`f(x) = x / (1 + e^{-x})`
+    * :math:`f'(x) = (1 + e^{-x} + x e^{-x}) / (1 + e^{-x})^{2}`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      1.1`.
 
-    .. math::
-       f (x) = \frac{x}{1 + e^{-x}}
+      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x \approx 2.4`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = 1 / 2`.
 
-    * Derivative:
-
-    .. math::
-        \frac{\partial f(x)}{\partial x} = \frac{1 + e^{-x} + xe^{-x}}{(1 + e^{-x})^2}
-
-    * Lipschitz constant: :math:`1.0999`
-
-    since :math:`\max\{| \frac{1 + e^{-x} + xe^{-x}}{(1 + e^{-x})^2} |\} \approx 1.0998` at :math:`x\approx 2.3994`.
-
-    * Differential Lipschitz constant: :math:`0`.
-
-    since :math:`\max\{| f''(x) |\} = 0.5` at :math:`x = 0`.
-
-    See Also
-    --------
-    Sigmoid, Tanh, ReLU, GELU, Softplus, ELU, SELU, LeakyRELU, Gaussian, GCU, Softmax, Maxout
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = 0`.)
     """
 
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
-        self._lipschitz = 1.0999  # Max of |silu'(x)| = |(e^x(-e^x(x-2)+x-2))/(1+e^x)^3| is 1.0999 at x=2.3994
-        self._diff_lipschitz = 0.5  # Max of |silu''(x)| = |(e^x(-e^x(x-2)+x+2))/((1+e^x)^3)| is 0.5 at x=0
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = 1.1
+        self._diff_lipschitz = 1 / 2
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return arr / (1.0 + xp.exp(-arr))
+        f = Sigmoid(dim=self.dim)
+        out = f.apply(arr)
+        out *= arr
+        return out
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
+        f = Sigmoid(dim=self.dim)
         xp = pycu.get_array_module(arr)
-        exp_arr = xp.exp(arr)
-        return pyclb.DiagonalOp(((1 + exp_arr + arr) * exp_arr) / ((1 + exp_arr) ** 2))
+        a = xp.exp(-arr)
+        a *= 1 + arr
+        a += 1
+        b = f.apply(arr)
+        b **= 2
+        return pyclb.DiagonalOp(a * b)
 
 
 def silu(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`SiLU`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return SiLU(op.dim) * op
-
-
-class Gaussian(pyca.DiffMap):
-    r"""
-    Gaussian (\exp^(-x^2)), element-wise.
-
-    Notes
-    -----
-    * Function:
-
-    .. math::
-       f (x) = e^{-x^2}
-
-    * Derivative:
-
-    .. math::
-        \frac{\partial f(x)}{\partial x} = -2xe^{-x^2}
-
-    * Lipschitz constant: :math:`\sqrt{\frac{2}{e}}`
-
-    since :math:`\max\{| -2xe^{-x^2} |\} = \sqrt{\frac{2}{e}}` at :math:`x = \pm \frac{1}{\sqrt{2}}`.
-
-    * Differential Lipschitz constant: :math:`2`
-
-    since :math:`\max\{| e^{-x^2} (-2 + 4x^2) |\} = 0.5` at :math:`x = 0`.
-
-    See Also
-    --------
-    Sigmoid, Tanh, ReLU, GELU, Softplus, ELU, SELU, LeakyRELU, SiLU, GCU, Softmax, Maxout
-    """
-
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
-        self._lipschitz = np.sqrt(2 / np.exp(1))  # Max of |f'(x)|=|-2xe^(-x^2)| is sqrt(2/e) at x = +-1/sqrt(2)
-        self._diff_lipschitz = 2  # Max of |f''(x)|=|(4x^2-2)*e^(-x^2)| is 2 at x=0
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        return xp.exp(-(arr**2.0))
-
-    @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        return pyclb.DiagonalOp(-2.0 * arr * self.apply(arr))
-
-
-def gaussian(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Gaussian`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return Gaussian(op.dim) * op
-
-
-class GCU(pyca.DiffMap):
-    r"""
-    Growing cosine, element-wise.
-
-    Notes
-    -----
-    * Function:
-
-    .. math::
-       f (x) = x \cos(x)
-
-    * Derivative:
-
-    .. math::
-        \frac{\partial f(x)}{\partial x} = \cos (x) - x \sin (x)
-
-    * Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|\cos (x) - x \sin (x)|` is :math:`\mathbb{R}^+`.
-
-    * Differential Lipschitz constant: :math:`\infty`, i.e. undefined, since range of :math:`|-2\sin (x) - x \cos (x)|` is :math:`\mathbb{R}^+`.
-
-    See Also
-    --------
-    Sigmoid, Tanh, ReLU, GELU, Softplus, ELU, SELU, LeakyRELU, SiLU, Gaussian, Softmax, Maxout
-    """
-
-    def __init__(
-        self,
-        dim: pyct.Integer,
-    ):
-        super().__init__((dim, dim))
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        return arr * xp.cos(arr)
-
-    @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        xp = pycu.get_array_module(arr)
-        return pyclb.DiagonalOp(xp.cos(arr) - arr * xp.sin(arr))
-
-
-def gcu(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`GCU`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
-    return GCU(op.dim) * op
 
 
 class Softmax(pyca.DiffMap):
@@ -2129,14 +1182,10 @@ class Softmax(pyca.DiffMap):
     * Lipschitz constant: :math:`1`.
 
     * Differential Lipschitz constant: :math:`1`.
-
-    See Also
-    --------
-    Sigmoid, Tanh, ReLU, GELU, Softplus, ELU, SELU, LeakyRELU, SiLU, Gaussian, GCU, Maxout
     """
 
     def __init__(self, dim: pyct.Integer):
-        super().__init__((dim, dim))
+        super().__init__(shape=(dim, dim))
         self._lipschitz = 1
         self._diff_lipschitz = 1
 
@@ -2156,17 +1205,4 @@ class Softmax(pyca.DiffMap):
 
 
 def softmax(op: pyct.OpT) -> pyct.OpT:
-    r"""
-    Functional interface of :py:class:`Softmax`.
-
-    Parameters
-    ----------
-    op: pyct.OpT
-        Input operator.
-
-    Returns
-    -------
-    :py:class:`pycsou.abc.operator.Map`
-        Output map.
-    """
     return Softmax(op.dim) * op
