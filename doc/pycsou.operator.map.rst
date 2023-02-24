@@ -26,62 +26,74 @@ pycsou.operator.map.ufunc module
    :undoc-members:
    :show-inheritance:
    
-   Implemented universal functions can be divided into the following categories:
-   
+   Universal functions are divided into the following categories:
+
    .. rubric:: Trigonometric Functions
    .. autosummary::
         Sin
+        sin
         Cos
+        cos
         Tan
-        Arcsin
-        Arccos
-        Arctan
-        
+        tan
+        ArcSin
+        arcsin
+        ArcCos
+        arccos
+        ArcTan
+        arctan
+
    .. rubric:: Hyperbolic Functions
    .. autosummary::
         Sinh
+        sinh
         Cosh
+        cosh
         Tanh
-        Arcsinh
-        Arccosh
-        Arctanh
+        tanh
+        ArcSinh
+        arcsinh
+        ArcCosh
+        arccosh
+        ArcTanh
+        arctanh
 
    .. rubric:: Exponentials and Logarithms
    .. autosummary::
         Exp
+        exp
         Log
-        
-   .. rubric:: Sums and Products
-   .. autosummary::
-        Prod
-        Sum
-        Cumprod
-        Cumsum
-        
+        log
+
    .. rubric:: Miscellaneous
    .. autosummary::
         Clip
+        clip
         Sqrt
+        sqrt
         Cbrt
+        cbrt
         Square
+        square
         Abs
+        abs
         Sign
-        
+        sign
+
    .. rubric:: Activation Functions
    .. autosummary::
-        Sigmoid
-        Tanh
-        ReLU
-        GELU
-        Softplus
-        ELU
-        SELU
-        LeakyReLU
-        SiLU
         Gaussian
-        GCU
-        Softmax
-        Maxout
+        gaussian
+        Sigmoid
+        sigmoid
+        SoftPlus
+        softplus
+        ReLU
+        relu
+        LeakyReLU
+        leakyrelu
+        SiLU
+        silu
         
 
 Module contents
