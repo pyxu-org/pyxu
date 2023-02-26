@@ -9,6 +9,7 @@ import pytest
 import scipy.optimize as sopt
 
 import pycsou.abc as pyca
+import pycsou.opt.stop as pycs
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
@@ -109,11 +110,9 @@ class SolverT:
         # cost-function values.
         # We piggy-back onto RelError to simplify code in cases where there are multiple values
         # being optimized in parallel.
-        from pycsou.opt.stop import RelError
-
         success = dict()
         for k, c_func in cost_func.items():
-            crit = RelError(
+            crit = pycs.RelError(
                 eps=5e-2,  # 5% relative discrepancy tolerated.
                 var=k,
                 f=c_func,
@@ -129,10 +128,8 @@ class SolverT:
         # (mathematically).
         # This function adds a max-iter constraint to the kwargs_fit() dictionary to drastically
         # curb test time.
-        from pycsou.opt.stop import MaxIter
-
         kwargs = kwargs.copy()
-        kwargs["stop_crit"] = MaxIter(n=5)
+        kwargs["stop_crit"] = pycs.MaxIter(n=5)
         return kwargs
 
     # Fixtures ----------------------------------------------------------------
