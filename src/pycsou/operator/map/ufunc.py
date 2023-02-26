@@ -615,109 +615,6 @@ def log(op: pyct.OpT, base: pyct.Real = None) -> pyct.OpT:
     return Log(op.dim, base) * op
 
 
-# Sums and Products ===========================================================
-class Cumprod(pyca.DiffMap):
-    r"""
-    Cumulative product of elements.
-
-    Notes
-    -----
-    * Function:
-
-    .. math::
-        f(\mathbf{x}) = \left[ x_1, x_1x_2, \cdots, \prod_{i=1}^N x_i\right]^T
-
-    where :math:`\mathbf{x} = [x_1,x_2,\cdots,x_N]^T \in \mathbb{R}^N` for any positive integer :math:`N`.
-
-    * Jacobian:
-
-    .. math::
-        \begin{bmatrix}
-            1 & 0 & \cdots & 0 \\
-            x_2 & x_1 & \cdots & 0 \\
-            x_2x_3 & x_1x_3 & \cdots & 0 \\
-            \vdots & \vdots & & \vdots \\
-            \prod_{i\in\{2,3,...,N\}} x_i & \prod_{i\in\{1,3,...,N\}} x_i & \cdots & \prod_{i\in\{1,2,...,N-1\}} x_i \\
-        \end{bmatrix} \in \mathbb{R}^{N\times N}
-
-    * Lipschitz constant: :math:`\begin{cases}1, & \text{if} \ N=1 \\ \infty, & \text{otherwise}\end{cases}`.
-
-    * Differential Lipschitz constant: :math:`\begin{cases}0, & \text{if} \ N=1 \\ \sqrt{2} & \text{if} \ N=2 \\ \infty, & \text{otherwise}\end{cases}`.
-    """
-
-    def __init__(self, dim: pyct.Integer):
-        super().__init__(shape=(dim, dim))
-        self._lipschitz = 1 if (dim == 1) else np.inf
-        self._diff_lipschitz = 0 if (dim == 1) else np.sqrt(2) if (dim == 2) else np.inf
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        return xp.cumprod(arr, axis=-1)
-
-    @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        assert arr.ndim == 1  # Jacobian matrix is only valid for vectors.
-        xp = pycu.get_array_module(arr)
-        g = xp.repeat(arr[:, None], self.dim, axis=-1)
-        e = xp.eye(*g.shape[-2:]).astype(bool)
-        g[e] = 1.0
-        return pyca.LinOp.from_array(xp.tri(*g.shape[-2:]) * xp.cumprod(g, axis=1))
-
-
-def cumprod(op: pyct.OpT) -> pyct.OpT:
-    return Cumprod(op.dim) * op
-
-
-class Cumsum(pyca.DiffMap):
-    r"""
-    Cumulative sum of elements.
-
-    Notes
-    -----
-    * Function:
-
-    .. math::
-        f(\mathbf{x}) = \left[ x_1, x_1+x_2, \cdots, \sum_{i=1}^N x_i\right]^T
-
-    where :math:`\mathbf{x} = [x_1,x_2,\cdots,x_N]^T \in \mathbb{R}^N` for any positive integer :math:`N`.
-
-    * Jacobian matrix:
-
-    .. math::
-        \begin{bmatrix}
-            1 & 0 & \cdots & 0 \\
-            1 & 1 & \cdots & 0 \\
-            \vdots & \vdots & & \vdots \\
-            1 & 1 & \cdots & 1 \\
-        \end{bmatrix} \in \mathbb{R}^{N\times N}
-
-    * Lipschitz constant: :math:`\frac{N(N+1)}{2}`.
-
-    * Differential Lipschitz constant: :math:`0`.
-    """
-
-    def __init__(self, dim: pyct.Integer):
-        super().__init__(shape=(dim, dim))
-        self._lipschitz = np.sqrt(dim * (dim + 1) / 2)
-        self._diff_lipschitz = 0
-
-    @pycrt.enforce_precision(i="arr")
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        return xp.cumsum(arr, axis=-1)
-
-    @pycrt.enforce_precision(i="arr", o=False)
-    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        assert arr.ndim == 1  # Jacobian matrix is only valid for vectors.
-        xp = pycu.get_array_module(arr)
-        return pyca.LinOp.from_array(xp.tri(self.shape[0]))
-
-
-def cumsum(op: pyct.OpT) -> pyct.OpT:
-    return Cumsum(op.dim) * op
-
-
 # Miscellaneous ===============================================================
 class Clip(pyca.Map):
     r"""
@@ -929,6 +826,35 @@ class Sign(pyca.Map):
 
 def sign(op: pyct.OpT) -> pyct.OpT:
     return Sign(op.dim) * op
+
+
+class CumSum(pyca.SquareOp):
+    r"""
+    Cumulative sum of elements.
+
+    Notes
+    -----
+    * :math:`[f(x_{1},\ldots,x_{N})]_{i} = \sum_{k=1}^{i} x_{k}`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      \sqrt{N (N+1) / 2}`.
+    """
+
+    def __init__(self, dim: pyct.Integer):
+        super().__init__(shape=(dim, dim))
+        self._lipschitz = np.sqrt(dim * (dim + 1) / 2)
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        return arr.cumsum(axis=-1)
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        y = arr[..., ::-1].cumsum(axis=-1)[..., ::-1]
+        return y
+
+
+def cumsum(op: pyct.OpT) -> pyct.OpT:
+    return CumSum(op.dim) * op
 
 
 # Activation Functions ========================================================

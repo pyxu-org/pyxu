@@ -79,6 +79,8 @@ pycsou.operator.map.ufunc module
         abs
         Sign
         sign
+        CumSum
+        cumsum
 
    .. rubric:: Activation Functions
    .. autosummary::

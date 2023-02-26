@@ -48,6 +48,10 @@ class MixinDiffMapUFunc(MixinUFunc, conftest.DiffMapT):
     pass
 
 
+class MixinSquareOpUFunc(MixinDiffMapUFunc, conftest.SquareOpT):
+    pass
+
+
 # Trigonometric Functions =====================================================
 class TestSin(MixinDiffMapUFunc):
     @pytest.fixture
@@ -314,37 +318,6 @@ class TestLog(MixinDiffMapUFunc):
         return np.abs(self._random_array((self.N_test_lipschitz, dim)))
 
 
-# Sums & Products =============================================================
-class TestCumprod(MixinUFunc):
-    @pytest.fixture
-    def spec(self, dim, _spec):
-        return pyco.Cumprod(dim), _spec[0], _spec[1]
-
-    @pytest.fixture
-    def data_apply(self, dim):
-        A = np.linspace(0.1, 10, dim)
-        B = np.cumprod(A, axis=-1)
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
-
-
-class TestCumsum(MixinUFunc):
-    @pytest.fixture
-    def spec(self, dim, _spec):
-        return pyco.Cumsum(dim), _spec[0], _spec[1]
-
-    @pytest.fixture
-    def data_apply(self, dim):
-        A = np.linspace(-25.0, 125.0, dim)
-        B = np.cumsum(A, axis=-1)
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
-
-
 # Miscellaneous Functions =====================================================
 class TestClip(MixinMapUFunc):
     @pytest.fixture(params=([0, None], [None, 1], [0, 1]))
@@ -442,6 +415,21 @@ class TestSign(MixinMapUFunc):
     def data_apply(self, dim):
         A = np.linspace(-100, 100, dim)
         B = np.sign(A)
+        return dict(
+            in_=dict(arr=A),
+            out=B,
+        )
+
+
+class TestCumSum(MixinSquareOpUFunc):
+    @pytest.fixture
+    def spec(self, dim, _spec):
+        return pyco.CumSum(dim), _spec[0], _spec[1]
+
+    @pytest.fixture
+    def data_apply(self, dim):
+        A = np.linspace(-25.0, 125.0, dim)
+        B = np.cumsum(A, axis=-1)
         return dict(
             in_=dict(arr=A),
             out=B,
