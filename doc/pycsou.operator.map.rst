@@ -96,6 +96,8 @@ pycsou.operator.map.ufunc module
         leakyrelu
         SiLU
         silu
+        SoftMax
+        softmax
         
 
 Module contents

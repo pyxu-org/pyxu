@@ -1081,33 +1081,18 @@ def silu(op: pyct.OpT) -> pyct.OpT:
     return SiLU(op.dim) * op
 
 
-class Softmax(pyca.DiffMap):
+class SoftMax(pyca.DiffMap):
     r"""
     Softmax, element-wise.
 
     Notes
     -----
-    * Function:
-
-    .. math::
-       f (\mathbf{x}) = \left[ \frac{e^{x_1}}{\sum_{j=1}^N e^{x_j}}, \cdots, \frac{e^{x_N}}{\sum_{j=1}^N e^{x_j}} \right]^T
-
-    where :math:`\mathbf{x} = [x_1,x_2,\cdots,x_N]^T \in \mathbb{R}^N` for any positive integer :math:`N` and the
-    i-th element of :math:`f (\mathbf{x})` can be denoted as :math:`f_i(\mathbf{x})`.
-
-    * Jacobian matrix:
-
-    .. math::
-        \begin{bmatrix}
-            f_1(\mathbf{x})(1 - f_1(\mathbf{x})) & -f_1(\mathbf{x})f_2(\mathbf{x}) & \cdots & -f_1(\mathbf{x})f_N(\mathbf{x}) \\
-            -f_1(\mathbf{x})f_2(\mathbf{x}) & f_2(\mathbf{x})(1 - f_2(\mathbf{x})) & \cdots & -f_2(\mathbf{x})f_N(\mathbf{x}) \\
-            \vdots & \vdots & & \vdots \\
-            -f_1(\mathbf{x})f_N(\mathbf{x}) & -f_2(\mathbf{x})f_N(\mathbf{x}) & \cdots & f_N(\mathbf{x})(1 - f_N(\mathbf{x})) \\
-        \end{bmatrix}
-
-    * Lipschitz constant: :math:`1`.
-
-    * Differential Lipschitz constant: :math:`1`.
+    * :math:`[f(x_{1},\ldots,x_{N})]_{i} = e^{x_{i}} / \sum_{k=1}^{N} e^{x_{k}}`
+    * :math:`J_{f}(\mathbf{x}) = \text{diag}(f(\mathbf{x})) - f(\mathbf{x}) f(\mathbf{x})^{T}`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
+      1`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
+      constant :math:`\partial L = 1`.
     """
 
     def __init__(self, dim: pyct.Integer):
@@ -1118,16 +1103,17 @@ class Softmax(pyca.DiffMap):
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        exp_arr = xp.exp(arr)
-        return exp_arr / xp.sum(exp_arr, axis=-1, keepdims=True)
+        x = xp.exp(arr)
+        out = x / x.sum(axis=-1, keepdims=True)
+        return out
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        xp = pycu.get_array_module(arr)
-        S = self.apply(arr)
-        mtx = -S[:, None] * S[None, :]
-        mtx = mtx + xp.eye(mtx.shape[0])
-        return pyca.LinOp.from_array(mtx)
+        v = self.apply(arr)
+        lhs = pyclb.DiagonalOp(v)
+        rhs = pyca.LinFunc.from_array(v).gram()
+        op = lhs - rhs
+        return op
 
 
 def softmax(op: pyct.OpT) -> pyct.OpT:

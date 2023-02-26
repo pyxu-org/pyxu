@@ -527,10 +527,10 @@ class TestSiLU(MixinDiffMapUFunc):
         )
 
 
-class TestSoftmax(MixinDiffMapUFunc):
+class TestSoftMax(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pyco.Softmax(dim), _spec[0], _spec[1]
+        return pyco.SoftMax(dim), _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
