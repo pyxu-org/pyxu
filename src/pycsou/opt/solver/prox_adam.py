@@ -304,7 +304,7 @@ class ProxAdam(pyca.Solver):
 
         x, a = mst["x"], mst["a"]
         xp = pycu.get_array_module(x)
-        gm = self._f.grad(x)
+        gm = pycu.copy_if_unsafe(self._f.grad(x))
         gv = gm.copy()
 
         ## Part 1: evaluate phi/psi ============================

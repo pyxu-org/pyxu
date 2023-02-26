@@ -38,6 +38,11 @@ Sepand
       There is no easy fix in this context to make the test work.
       However CG is fully functional with CuPy inputs, so failure is acceptable.
       (Maybe tag them with xfail?)
+  * ProxAdam
+    * test_transparent_fit() fails for some initializations.
+      Did not investigate yet.
+    * test_value_fit() fails for some initializations.
+      Did not investigate yet. Probably due to in-place updates.
 * Test Suite Enhancements
   * General
     * Add @slow_test tags.
