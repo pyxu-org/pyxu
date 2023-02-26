@@ -75,7 +75,17 @@ class TestCG(conftest.SolverT):
         )
         return dict(x=func)
 
-    def test_value_fit(self, solver, _kwargs_fit_xp, cost_function, ground_truth):
+    @pytest.mark.parametrize("obj_threshold", [5e-2])
+    # @pytest.mark.parametrize("time_threshold", [dt.timedelta(seconds=5)])
+    def test_value_fit(
+        self,
+        solver,
+        _kwargs_fit_xp,
+        cost_function,
+        ground_truth,
+        obj_threshold,  # rel-threshold
+        # time_threshold,  # max runtime; unused in this override
+    ):
         solver.fit(**_kwargs_fit_xp.copy())
         data, _ = solver.stats()
 
@@ -88,4 +98,4 @@ class TestCG(conftest.SolverT):
         )
         data.update(x=x)
 
-        self._check_value_fit(data, cost_function, ground_truth)
+        self._check_value_fit(data, cost_function, ground_truth, obj_threshold)
