@@ -1,4 +1,5 @@
 import collections.abc as cabc
+import datetime as dt
 import functools
 import itertools
 import operator
@@ -102,18 +103,12 @@ class SolverT:
         data: dict[str, pyct.NDArray],
         cost_func: dict[str, pyct.OpT],
         ground_truth: dict[str, pyct.NDArray],
+        eps: pyct.Real,
     ):
-        # SciPy ground truth may have converged closer to the solution than `solver` due to
-        # different stopping criteria used.
-        # Since we assume cost-functions are strongly convex, we sidestep potential discrepancies
-        # between ground-truth/solver outputs by comparing the relative difference between their
-        # cost-function values.
-        # We piggy-back onto RelError to simplify code in cases where there are multiple values
-        # being optimized in parallel.
         success = dict()
         for k, c_func in cost_func.items():
             crit = pycs.RelError(
-                eps=5e-2,  # 5% relative discrepancy tolerated.
+                eps=eps,
                 var=k,
                 f=c_func,
                 satisfy_all=True,
@@ -254,17 +249,62 @@ class SolverT:
             stats = {k: v.dtype == width.value for (k, v) in data.items()}
             assert all(stats.values())
 
+    @pytest.mark.parametrize("obj_threshold", [5e-2])
+    @pytest.mark.parametrize("time_threshold", [dt.timedelta(seconds=5)])
     def test_value_fit(
         self,
         solver,
         _kwargs_fit_xp,
         cost_function,
         ground_truth,
+        obj_threshold,  # rel-threshold
+        time_threshold,  # max runtime
     ):
-        # ensure output computed with backend=xp matches ground_truth NumPy result.
-        solver.fit(**_kwargs_fit_xp.copy())
+        # Ensure algorithm converges to ground-truth. (All backends.)
+        #
+        # SciPy ground truth may have converged closer to the solution than `solver` due to
+        # different stopping criteria used. (Default or user-specified.)
+        #
+        # Since the goal of this test is to ensure, assuming cost-functions are strongly convex,
+        # that the algorithms converge to the ground-truth, we let the solver run until the
+        # condition
+        #     |f(x) - f(x_opt)| <= eps |f(x_opt)|
+        # holds for all cost functions.
+        # (We enforce an upper-limit on execution time nonetheless to avoid infinite loops.)
+        #
+        # If the solver did not converge to the ground truth in the prescribed max runtime, then
+        # something is wrong with high probability.
+
+        # custom criteria used (outside solver's logic) to assess closeness to the ground-truth.
+        obj_crit = functools.reduce(
+            operator.and_,
+            [
+                # We piggy-back onto RelError to simplify code in cases where there are multiple
+                # values being optimized in parallel.
+                pycs.RelError(
+                    eps=obj_threshold,
+                    var=k,
+                    f=c_func,
+                    satisfy_all=True,
+                )
+                for (k, c_func) in cost_function.items()
+            ],
+        )
+
+        kwargs_fit = _kwargs_fit_xp.copy()
+        kwargs_fit.update(
+            stop_crit=pycs.MaxDuration(t=time_threshold),
+            mode=pyca.Mode.MANUAL,
+        )
+        solver.fit(**kwargs_fit)
+        for data in solver.steps():
+            obj_crit.clear()
+            obj_crit.stop(ground_truth)
+            if converged := obj_crit.stop(data):
+                break
+
         data, _ = solver.stats()
-        self._check_value_fit(data, cost_function, ground_truth)
+        self._check_value_fit(data, cost_function, ground_truth, obj_threshold)
 
     def test_transparent_fit(self, solver, kwargs_fit):
         # Running solver twice returns same results.
