@@ -121,7 +121,7 @@ class SolverT:
             )
             crit.stop(ground_truth)  # load the ground truth
             success[k] = crit.stop(data)  # then ensure solver output is within tolerated objective-func range
-        assert success
+        assert all(success.values())
 
     @staticmethod
     def as_early_stop(kwargs: dict) -> dict:
