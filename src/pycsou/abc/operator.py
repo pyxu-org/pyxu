@@ -77,7 +77,7 @@ class Property(enum.Enum):
         )
         data[self.LINEAR_SQUARE].append("trace")
         data[self.LINEAR_NORMAL].append("eigvals")
-        data[self.QUADRATIC].append("_hessian")
+        data[self.QUADRATIC].append("_quad_spec")
 
         meth = frozenset(data[self])
         return meth
@@ -1064,25 +1064,139 @@ class ProxDiffFunc(ProxFunc, DiffFunc):
         DiffFunc.__init__(self, shape)
 
 
-class _QuadraticFunc(ProxDiffFunc):
-    # Hidden alias of pycsou.operator.func.quadratic.QuadraticFunc to enable operator arithmetic.
+class QuadraticFunc(ProxDiffFunc):
+    # This is a special abstract base class with more __init__ parameters than `shape`.
+    r"""
+    Base class for quadratic functionals :math:`\mathbb{R}^{M} \to \mathbb{R}\cup\{+\infty\}`.
+
+    The quadratic functional is defined as:
+
+    .. math::
+
+        f(\mathbf{x})
+        =
+        \frac{1}{2} \langle\mathbf{x}, \mathbf{Q}\mathbf{x}\rangle
+        +
+        \mathbf{c}^T\mathbf{x}
+        +
+        t,
+        \qquad \forall \mathbf{x}\in\mathbb{R}^N,
+
+    where
+    :math:`Q` is a positive-definite operator :math:`\mathbf{Q}:\mathbb{R}^N\rightarrow\mathbb{R}^N`,
+    :math:`\mathbf{c}\in\mathbb{R}^N`, and
+    :math:`t>0`.
+
+    Its gradient is given by:
+
+    .. math::
+
+        \nabla f(\mathbf{x}) = \mathbf{Q}\mathbf{x} + \mathbf{c}
+
+    and proximity operator:
+
+    .. math::
+
+        \text{prox}_{\tau f}(x)
+        =
+        \left(
+            \mathbf{Q} + \tau^{-1} \mathbf{Id}
+        \right)^{-1}
+        \left(
+            \tau^{-1}\mathbf{x} - \mathbf{c}
+        \right).
+
+    In practice the proximity operator is evaluated via :py:class:`~pycsou.opt.solver.cg.CG`.
+
+    The Lipschitz constant of a quadratic on an unbounded domain is unbounded.
+    The Lipschitz constant of the gradient is given by the spectral norm of :math:`\mathbf{Q}`.
+    """
+
     @classmethod
     def properties(cls) -> cabc.Set[pyct.Property]:
         p = set(super().properties())
         p.add(Property.QUADRATIC)
         return frozenset(p)
 
-    def _hessian(self) -> pyct.OpT:
-        # (M, M) Hessian matrix which may be useful for some arithmetic methods.
-        # This function is NOT EXPOSED to the user on purpose: it is bad practice to try to compute
-        # the Hessian in large-scale inverse problems due to its size.
-        raise NotImplementedError
+    def __init__(
+        self,
+        shape: pyct.OpShape,
+        # required in place of `dim` to have uniform interface with Operator hierarchy.
+        Q: "PosDefOp" = None,
+        c: "LinFunc" = None,
+        t: pyct.Real = 0,
+    ):
+        r"""
+        Parameters
+        ----------
+        Q: pyca.PosDefOp
+            (N, N) positive-definite operator. (Default: Identity)
+        c: pyca.LinFunc
+            (1, N) linear functional. (Default: NullFunc)
+        t: pyct.Real
+            offset. (Default: 0)
+        """
+        from pycsou.operator.linop import IdentityOp, NullFunc
+
+        super().__init__(shape=shape)
+        self._Q = IdentityOp(dim=self.dim) if (Q is None) else Q
+        self._c = NullFunc(dim=self.dim) if (c is None) else c
+        self._t = t
+
+        # ensure dimensions are consistent if None-initialized
+        assert self._Q.shape == (self.dim, self.dim)
+        assert self._c.shape == self.shape
+
+        self._lipschitz = np.inf
+        self._diff_lipschitz = np.inf
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        Q, c, t = self._quad_spec()
+        out = (arr * Q.apply(arr)).sum(axis=-1, keepdims=True)
+        out /= 2
+        out += c.apply(arr)
+        out += t
+        return out
+
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        Q, c, _ = self._quad_spec()
+        out = pycu.copy_if_unsafe(Q.apply(arr))
+        out += c.grad(arr)
+        return out
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        from pycsou.operator.linop import HomothetyOp
+        from pycsou.opt.solver import CG
+
+        Q, c, _ = self._quad_spec()
+        A = Q + HomothetyOp(cst=1 / tau, dim=Q.dim)
+        b = arr.copy()
+        b /= tau
+        b -= c.grad(arr)
+
+        slvr = CG(A=A)
+        slvr.fit(b=b)
+        return slvr.solution()
 
     def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
         from pycsou.operator.func.loss import shift_loss
 
         op = shift_loss(op=self, data=data)
         return op
+
+    def diff_lipschitz(self, **kwargs) -> pyct.Real:
+        if self._diff_lipschitz == np.inf:
+            Q, *_ = self._quad_spec()
+            self._diff_lipschitz = Q.lipschitz(**kwargs)
+        return self._diff_lipschitz
+
+    def _quad_spec(self):
+        # canonical quadratic parameterization.
+        # useful for some internal methods, and overloaded during operator arithmetic.
+        return (self._Q, self._c, self._t)
 
 
 class LinOp(DiffMap):

@@ -40,7 +40,7 @@ OpT = typ.TypeVar(
     "pyco.NormalOp",
     "pyco.ProxFunc",
     "pyco.SquareOp",
-    "pyco._QuadraticFunc",
+    "pyco.QuadraticFunc",
     "pyco.ProjOp",
     "pyco.LinFunc",
     "pyco.PosDefOp",

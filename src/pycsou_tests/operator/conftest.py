@@ -515,6 +515,10 @@ class MapT:
             # Includes domain-agnostic functionals.
             with pytest.raises(Exception):
                 op2 = op.asop(_klass)
+        elif (P.QUADRATIC in _klass.properties()) and (op.dim is None):
+            # Casting to domain-agnostic quadratics.
+            with pytest.raises(Exception):
+                op2 = op.asop(_klass)
         else:
             op2 = op.asop(_klass)
             klassT = get_test_class(_klass)
@@ -878,10 +882,10 @@ class ProxDiffFuncT(ProxFuncT, DiffFuncT):
     interface = frozenset(ProxFuncT.interface | DiffFuncT.interface)
 
 
-class _QuadraticFuncT(ProxDiffFuncT):
+class QuadraticFuncT(ProxDiffFuncT):
     # Class Properties --------------------------------------------------------
-    base = pyca._QuadraticFunc
-    interface = frozenset(ProxDiffFuncT.interface | {"_hessian"})
+    base = pyca.QuadraticFunc
+    interface = ProxDiffFuncT.interface
 
     @pytest.fixture
     def data_math_lipschitz(self, op):
