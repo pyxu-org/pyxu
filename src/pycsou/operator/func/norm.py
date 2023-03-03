@@ -92,12 +92,12 @@ class L2Norm(ShiftLossMixin, pyca.ProxFunc):
         return y
 
 
-class SquaredL2Norm(pyca._QuadraticFunc):
+class SquaredL2Norm(pyca.QuadraticFunc):
     r"""
     :math:`\ell^2_2`-norm, :math:`\Vert\mathbf{x}\Vert^2_2:=\sum_{i=1}^N |x_i|^2`.
     """
 
-    def __init__(self, dim: pyct.Integer = None):
+    def __init__(self, dim: pyct.Integer):
         r"""
         Parameters
         ----------
@@ -124,18 +124,13 @@ class SquaredL2Norm(pyca._QuadraticFunc):
         y /= 2 * tau + 1
         return y
 
-    def _hessian(self) -> pyct.OpT:
-        from pycsou.operator.linop import IdentityOp
+    def _quad_spec(self):
+        from pycsou.operator.linop import HomothetyOp, NullFunc
 
-        if self.dim is None:
-            msg = "\n".join(
-                [
-                    "hessian: domain-agnostic functionals unsupported.",
-                    f"Explicitly set `dim` in {self.__class__}.__init__().",
-                ]
-            )
-            raise ValueError(msg)
-        return IdentityOp(dim=self.dim).squeeze()
+        Q = HomothetyOp(dim=self.dim, cst=2)
+        c = NullFunc(dim=self.dim)
+        t = 0
+        return (Q, c, t)
 
 
 class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
