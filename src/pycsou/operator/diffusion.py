@@ -24,7 +24,8 @@ class _BalloonForce(pyca.Map):
         super().__init__(shape=(1, self.size))
         self.grad = gradient
         if gradient:
-            assert gradient.arg_shape == arg_shape, "`gradient` has inconsistent `arg_shape`"
+            msg = "`gradient.arg_shape`={} inconsistent with `arg_shape`={}.".format(gradient.arg_shape, arg_shape)
+            assert gradient.arg_shape == arg_shape, msg
 
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         raise NotImplementedError
@@ -60,9 +61,10 @@ class _Diffusivity(pyca.Map):
         self.arg_shape = arg_shape
         self.size = int(np.prod(arg_shape))
         super().__init__(shape=(self.size, self.size))
-        self.grad = gradient
+        self.gradient = gradient
         if gradient:
-            assert gradient.arg_shape == arg_shape, "`gradient` has inconsistent `arg_shape`"
+            msg = "`gradient.arg_shape`={} inconsistent with `arg_shape`={}.".format(gradient.arg_shape, arg_shape)
+            assert gradient.arg_shape == arg_shape, msg
         self.frozen = False
         self.frozen_diffusivity = None
         self.from_potential = False
@@ -150,7 +152,7 @@ class PeronaMalikDiffusivity(_Diffusivity):
     def __init__(
         self, arg_shape: pyct.NDArrayShape, gradient: pyct.OpT, beta: pyct.Real = 1, pm_fct: str = "exponential"
     ):
-        assert pm_fct in ["exponential", "rational"], "Unknown `pm_fct`, allowed values are `exponential`, `rational`"
+        assert pm_fct in ["exponential", "rational"], "Unknown `pm_fct`, allowed values are `exponential`, `rational`."
         super().__init__(arg_shape=arg_shape, gradient=gradient)
         self.beta = beta
         self.pm_fct = pm_fct
@@ -162,7 +164,7 @@ class PeronaMalikDiffusivity(_Diffusivity):
         xp = pycu.get_array_module(arr)
         # Inplace implementation of
         #   xp.exp(-grad_norm_sq/beta**2)
-        y = self._compute_grad_norm_sq(arr, self.grad)
+        y = self._compute_grad_norm_sq(arr, self.gradient)
         y /= self.beta**2
         return xp.exp(-y)
 
@@ -170,7 +172,7 @@ class PeronaMalikDiffusivity(_Diffusivity):
     def _apply_rational(self, arr: pyct.NDArray) -> pyct.NDArray:
         # Inplace implementation of
         #   1 / (1 + grad_norm_sq/beta**2)
-        y = self._compute_grad_norm_sq(arr, self.grad)
+        y = self._compute_grad_norm_sq(arr, self.gradient)
         y /= self.beta**2
         y += 1
         return 1 / y
@@ -233,7 +235,7 @@ class TotalVariationDiffusivity(_Diffusivity):
         xp = pycu.get_array_module(arr)
         # Inplace implementation of
         #   1/(xp.sqrt(1+grad_norm_sq/beta**2)
-        y = self._compute_grad_norm_sq(arr, self.grad)
+        y = self._compute_grad_norm_sq(arr, self.gradient)
         y /= self.beta**2
         y += 1
         y = xp.sqrt(y)
@@ -241,7 +243,7 @@ class TotalVariationDiffusivity(_Diffusivity):
 
     @pycrt.enforce_precision(i="arr")
     def _apply_untamed(self, arr: pyct.NDArray) -> pyct.NDArray:
-        y = self._compute_grad_norm_sq(arr, self.grad)
+        y = self._compute_grad_norm_sq(arr, self.gradient)
         return 1 / y
 
     @pycrt.enforce_precision(i="arr")
@@ -273,8 +275,8 @@ class TotalVariationDiffusivity(_Diffusivity):
 
 
 class _DiffusionCoefficient(pyca.Map):
-    # it's not map, return of apply is a, operator! Can we use map abusing notation? something's off for some reason...
-    # class _DiffusionCoefficient:
+    # it's not map, return of apply is a, operator! Currently using map with abuse of "notation".
+    # should we rather do -> class _DiffusionCoefficient:?
     """
     Abstract class for diffusion tensors.
     The daughter classes DiffusionCoefficientIsotropic, DiffusionTensorAnisotropic allow to handle the isotropic/anisotropic cases.
@@ -292,17 +294,22 @@ class _DiffusionCoefficient(pyca.Map):
         self.frozen = False
         self.frozen_op = None
         self.bounded = False
+        self._coeff_op = np.ones((self.ndims, self.ndims), dtype=int)
+        if self.trace_term:
+            # set to 2 extra diagonal coefficients
+            self._coeff_op *= 2
+            self._coeff_op -= np.eye(self.ndims, dtype=int)
 
     def freeze_tensor(self, arr: pyct.NDArray):
         if self.frozen:
-            warnings.warn("Tensor has already been frozen. Cannot overwrite previous frozen state.")
+            warnings.warn("DiffusionCoefficient has already been frozen. Cannot overwrite previous frozen state.")
         else:
             self.frozen_op = self.apply(arr)
             self.frozen = True
 
     def set_frozen_op(self, frozen_op: pyct.OpT):
         if self.frozen:
-            warnings.warn("Tensor has already been frozen. Cannot overwrite previous frozen state.")
+            warnings.warn("DiffusionCoefficient has already been frozen. Cannot overwrite previous frozen state.")
         else:
             self.frozen_op = frozen_op
             self.frozen = True
@@ -312,9 +319,6 @@ class _DiffusionCoefficient(pyca.Map):
             return self.frozen_op
         else:
             raise NotImplementedError
-
-    # def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
-    #  return self.apply(arr)
 
 
 class DiffusionCoeffIsotropic(_DiffusionCoefficient):
@@ -329,7 +333,9 @@ class DiffusionCoeffIsotropic(_DiffusionCoefficient):
         if diffusivity is None:
             self.diffusivity = TikhonovDiffusivity(arg_shape=arg_shape)
         else:
-            msg = "DiffusionProcessTensorIsotropic: diffusivity has inconsistent arg_shape."
+            msg = "`diffusivity.arg_shape`={} inconsistent with `arg_shape`={}.".format(
+                diffusivity.arg_shape, arg_shape
+            )
             assert diffusivity.arg_shape == arg_shape, msg
             self.diffusivity = diffusivity
         self.from_potential = self.diffusivity.from_potential * (not trace_term)
@@ -370,7 +376,9 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
         structure_tensor
         """
         super().__init__(arg_shape=arg_shape, isotropic=False, trace_term=trace_term)
-        msg = "_DiffusionProcessTensorAnisotropic: structure_tensor has inconsistent arg_shape."
+        msg = "`structure_tensor.arg_shape`={} inconsistent with `arg_shape`={}.".format(
+            structure_tensor.arg_shape, arg_shape
+        )
         assert structure_tensor.arg_shape == arg_shape, msg
         self.structure_tensor = structure_tensor
         # compute the indices of the upper triangular structur tensor to be selected to assemble its full version
@@ -386,6 +394,7 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
         self.full_matrix_indices = full_matrix_indices.reshape(-1)
 
     # @pycrt.enforce_precision(i="arr")
+    # how to enforce precision on tuple of outputs?
     def _eigendecompose_struct_tensor(self, arr: pyct.NDArray) -> (pyct.NDArray, pyct.NDArray):
         """
         Notes
@@ -407,7 +416,8 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
         structure_tensor = structure_tensor.reshape(structure_tensor.shape[0], -1).T
         # assemble full structure tensor
         structure_tensor_full = structure_tensor[:, self.full_matrix_indices].reshape(-1, self.ndims, self.ndims)
-        # eigendecompose tensor
+        # eigendecompose tensor. numpy calls eigh behind the curtains,
+        # dask has only svd, cupy both but svd does not call eigh behind the curtains.
         u, e, _ = xp.linalg.svd(structure_tensor_full, hermitian=True)
         return u, e
 
@@ -416,15 +426,15 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
         raise NotImplementedError
 
     @pycrt.enforce_precision(i=("u", "lambdas"))
-    def _assemble_tensor(self, u: pyct.NDArray, lambdas: pyct.NDArray) -> pyct.NDArray:
+    def _assemble_tensors(self, u: pyct.NDArray, lambdas: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(u)
-        diffusion_tensor = xp.zeros((self.size, len(self.arg_shape), len(self.arg_shape)))
+        diffusion_tensors = xp.zeros((self.size, len(self.arg_shape), len(self.arg_shape)))
         for i in range(len(self.arg_shape)):
-            diffusion_tensor += lambdas[:, i].reshape(-1, 1, 1) * (
+            diffusion_tensors += lambdas[:, i].reshape(-1, 1, 1) * (
                 u[:, :, i].reshape(self.size, -1, len(self.arg_shape))
                 * u[:, :, i].reshape(self.size, len(self.arg_shape), -1)
             )
-        return diffusion_tensor
+        return diffusion_tensors
 
     # @pycrt.enforce_precision(i="arr")
     # @pycu.vectorize("arr")
@@ -432,21 +442,21 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
         """
         Notes
         -------
-        When assembling the block operator, we could assemble only its upper/lower part (with diagonal entries rescaled by factor 2) and then return
-        the operator block + block.T.
-        More importantly, we could return a list of length self.ndims of operators, to avoid useless computations in trace based term of diffusion operators.
         """
         if not self.frozen:
             u, e = self._eigendecompose_struct_tensor(arr)
             lambdas = self._compute_diffusivities(e)
-            tensor = self._assemble_tensor(u, lambdas)
+            tensors = self._assemble_tensors(u, lambdas)
             # assemble block operator.
             ops = []
             for i in range(self.ndims):
                 ops.append([])
-                for j in range(self.ndims):
-                    # ops[i].append(pybase.DiagonalOp(tensor[:, i * self.ndims + j]))
-                    ops[i].append(pybase.DiagonalOp(tensor[:, i, j]))
+                # if trace_term, only upper diagonal entries are considered
+                first_idx = i if self.trace_term else 0
+                for j in np.arange(first_idx, self.ndims):
+                    diag_op = pybase.DiagonalOp(tensors[:, i, j])
+                    diag_op *= self._coeff_op[i, j]
+                    ops[i].append(pybase.DiagonalOp(tensors[:, i, j]))
                 ops[i] = pyblock.hstack(ops[i])
             if self.trace_term:
                 return pyblock.hstack(ops)
@@ -562,22 +572,22 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         self.ndims = len(self.arg_shape)
         super().__init__(shape=(1, self.size))
         (
+            gradient,
+            hessian,
             diffusion_coefficient,
             trace_diffusion_coefficient,
             curvature_preservation_field,
-            gradient,
-            hessian,
             sampling,
         ) = self._sanitize_init_args(
             arg_shape=arg_shape,
+            gradient=gradient,
+            hessian=hessian,
             outer_diffusivity=outer_diffusivity,
             diffusion_coefficient=diffusion_coefficient,
             balloon_force=balloon_force,
             outer_trace_diffusivity=outer_trace_diffusivity,
             trace_diffusion_coefficient=trace_diffusion_coefficient,
             curvature_preservation_field=curvature_preservation_field,
-            gradient=gradient,
-            hessian=hessian,
             prox_sigma=prox_sigma,
         )
         self.outer_diffusivity = outer_diffusivity
@@ -586,23 +596,6 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         self.outer_trace_diffusivity = outer_trace_diffusivity
         self.trace_diffusion_coefficient = trace_diffusion_coefficient
         self.curvature_preservation_field = curvature_preservation_field
-        if trace_diffusion_coefficient or hessian:
-            # compute the indices of the upper triangular Hessian to be selected to assemble its full version
-            full_hessian_indices = np.zeros((self.ndims, self.ndims), dtype=int)
-            upper_hessian_index = 0
-            for i in range(self.ndims):
-                for j in range(self.ndims):
-                    if j >= i:
-                        full_hessian_indices[i, j] = upper_hessian_index
-                        upper_hessian_index += 1
-                    else:
-                        full_hessian_indices[i, j] = full_hessian_indices[j, i]
-            if trace_diffusion_coefficient and trace_diffusion_coefficient.isotropic:
-                # if tensor is isotropic, select the diagonal entries (2nd derivatives)
-                self.hessian_indices = np.diag(full_hessian_indices)
-            else:
-                # if tensor is anisotropic, unroll full hessian column by column (or, analogously, row by row)
-                self.hessian_indices = full_hessian_indices.reshape(-1)
         if curvature_preservation_field.size > 0:
             # compute jacobian of the field and apply it to field itself
             self.jacobian = gradient(curvature_preservation_field)
@@ -613,8 +606,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                     vec += self.jacobian[i, self.size * j : self.size * (j + 1)] * curvature_preservation_field[j, :]
                 ops.append(pybase.DiagonalOp(vec))
             self._jacobian_onto_field = pyblock.hstack(ops)
-        # assess whether diffusion operator descends from a potential formulation or not.
-        # this should be delegated to daughter classes for better handling of other cases discending from potential
+        # assess whether diffusion operator descends from a potential formulation or not
         if self.diffusion_coefficient:
             self.from_potential = (
                 self.diffusion_coefficient.from_potential
@@ -624,47 +616,45 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 * (self.trace_diffusion_coefficient is None)
                 * (self.curvature_preservation_field is None)
             )
-        self.sampling = sampling  # this will change, see comments below.
-        # warnings.warn(
-        #    "Provided `sampling` is assumed to hold for all differential"
-        #   "operators involved. Make sure this is the case."
-        # )
-        # self.sampling = (
-        #    gradient.sampling if gradient else hessian.sampling)  # will not work for pure balloon force cases, think. Moreover, sampling not stored anywhere. We could pass it as input.
+        self.sampling = sampling
         self.gradient = gradient
         self.hessian = hessian
         # estimate number of prox steps necessary to smooth structures of size prox_sigma (linear diffusion analogy)
         self.prox_sigma = prox_sigma
-        # time_step = 1 / 2*self._diff_lipschitz
-        # self.time_step = (np.min(self.sampling) ** 2 / 4)  # valid only for isotropic case with diffusivity bounded between 0 and 1 (and for anisotropic standard cases?)
-        # The estimated final time and time step refer to the sampling=1 case. In the prox computation, the actual sampling parameter is
-        # taken into account to determine the time step size.
+        # Estimated t_final and prox_steps for prox evaluation, referring to the sampling=1 case.
+        # In the prox computation, the actual sampling is taken into account to determine the time step size.
         t_final = self.prox_sigma**2 / 2
         self.time_step = 1.0 / (2**self.ndims)
         self.prox_steps = t_final / self.time_step
-        # set lipschitz and diff_lipschitz to np.inf (lipschitz: think further, when apply exists we have bounds on it. not crucial.)
+        # set lipschitz and diff_lipschitz to np.inf
+        # lipschitz: think further, when apply exists we may have bounds on it. not crucial.
         self._lipschitz = np.inf
         self._diff_lipschitz = np.inf
 
     def _sanitize_init_args(
         self,
         arg_shape: pyct.NDArrayShape,
+        gradient: pyct.OpT,
+        hessian: pyct.OpT,
         outer_diffusivity: pyct.OpT,
         diffusion_coefficient: pyct.OpT,
         balloon_force: pyct.OpT,
         outer_trace_diffusivity: pyct.OpT,
         trace_diffusion_coefficient: pyct.OpT,
         curvature_preservation_field: pyct.NDArray,
-        gradient: pyct.OpT,
-        hessian: pyct.OpT,
         prox_sigma: pyct.Real,
     ):
+        if hessian:
+            nb_upper_entries = round(self.ndims * (self.ndims + 1) / 2)
+            expected_codim = nb_upper_entries * self.size
+            assert hessian.codim() == expected_codim, '`hessian` expected to be initialized with `directions`="all"'
+
         if outer_diffusivity and not diffusion_coefficient:
-            raise ValueError("Cannot provide an outer_diffusivity without providing a diffusion_coefficient.")
+            raise ValueError("Cannot provide `outer_diffusivity` without providing `diffusion_coefficient`.")
 
         if outer_trace_diffusivity and not trace_diffusion_coefficient:
             raise ValueError(
-                "Cannot provide an outer_trace_diffusivity without providing a trace_diffusion_coefficient."
+                "Cannot provide `outer_trace_diffusivity` without providing `trace_diffusion_coefficient`."
             )
 
         if (
@@ -673,12 +663,18 @@ class _DiffusionOp(pyca.ProxDiffFunc):
             * (not trace_diffusion_coefficient)
             * (curvature_preservation_field.size == 0)
         ):
-            raise ValueError("No operator was passed. Cannot instantiate the diffusion operator.")
+            msg = "\n".join(
+                [
+                    "Cannot instantiate the diffusion operator. Pass at least one of the following:",
+                    "`diffusion_coefficient`, `balloon_force`, `trace_diffusion_coefficient`, `curvature_preservation_field`.",
+                ]
+            )
+            raise ValueError(msg)
 
         if diffusion_coefficient and not gradient:
             msg = "\n".join(
                 [
-                    "No gradient was passed, needed for divergence term involving diffusion_coefficient.",
+                    "No`gradient` was passed, needed for divergence term involving `diffusion_coefficient`.",
                     "Initializing a forward finite difference operator with unitary sampling as default.",
                 ]
             )
@@ -690,64 +686,64 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         if curvature_preservation_field.size > 0 and not gradient:
             msg = "\n".join(
                 [
-                    "No gradient was passed, needed for term involving curvature_preservation_field.",
-                    "Initializing a forward finite difference operator with unitary sampling as default.",
+                    "No `gradient` was passed, needed for term involving `curvature_preservation_field`.",
+                    "Initializing a central finite difference operator with unitary sampling as default.",
                 ]
             )
             warnings.warn(msg)
             gradient = pydiff.Gradient.finite_difference(
-                arg_shape=arg_shape, mode="reflect", sampling=1.0, diff_type="central"
+                arg_shape=arg_shape, mode="edge", sampling=1.0, diff_type="central"
             )
 
         if trace_diffusion_coefficient and not hessian:
             msg = "\n".join(
                 [
-                    "No hessian was passed, needed for trace term involving trace_diffusion_coefficient.",
-                    "Initializing a forward finite difference operator with unitary sampling as default.",
+                    "No `hessian` was passed, needed for trace term involving `trace_diffusion_coefficient`.",
+                    "Initializing a central finite difference operator with unitary sampling as default.",
                 ]
             )
             warnings.warn(msg)
-            # we set to central. see also discretization discussion
             hessian = pydiff.Hessian.finite_difference(
-                arg_shape=arg_shape, mode="reflect", sampling=1.0, diff_type="central"
+                arg_shape=arg_shape, mode="reflect", sampling=1.0, diff_type="central", accuracy=2
             )
 
-        if trace_diffusion_coefficient and not trace_diffusion_coefficient.trace_term:
-            if not trace_diffusion_coefficient.frozen:
-                warnings.warn("Trace_local_smoothing_tensor not initialized as trace_term. Modifying the object.")
+        if diffusion_coefficient and not diffusion_coefficient.trace_term:
+            if not diffusion_coefficient.frozen:
+                warnings.warn("`diffusion_coefficient.trace_term` set to False. Modifying to True.")
+                diffusion_coefficient.trace_term = True
             else:
                 msg = "\n".join(
                     [
-                        "Trace_local_smoothing_tensor not initialized as trace_term and set to a frozen state.",
-                        "Issues are expected. Initialize correctly setting trace_term to True before freezing.",
+                        "`diffusion_coefficient.trace_term` set to False while `diffusion_coefficient.frozen` set to True.",
+                        "Issues are expected. Initialize correctly `diffusion_coefficient.trace_term` to True before freezing.",
                     ]
                 )
                 raise ValueError(msg)
 
         if trace_diffusion_coefficient and not trace_diffusion_coefficient.trace_term:
             if not trace_diffusion_coefficient.frozen:
-                warnings.warn("Trace_local_smoothing_tensor not initialized as trace_term. Modifying the object.")
+                warnings.warn("`trace_diffusion_coefficient.trace_term` set to False. Modifying to True.")
+                trace_diffusion_coefficient.trace_term = True
             else:
                 msg = "\n".join(
                     [
-                        "Trace_local_smoothing_tensor not initialized as trace_term and set to a frozen state.",
-                        "Issues are expected. Initialize correctly setting trace_term to True before freezing.",
+                        "`trace_diffusion_coefficient.trace_term` set to False while `trace_diffusion_coefficient.frozen` set to True.",
+                        "Issues are expected. Initialize correctly `trace_diffusion_coefficient.trace_term` to True before freezing.",
                     ]
                 )
                 raise ValueError(msg)
 
         if curvature_preservation_field.size > 0:
             if curvature_preservation_field.shape != (self.ndims, self.size):
-                raise ValueError(
-                    "Unexpected shape {} of curvature_preservation_field.".format(curvature_preservation_field.shape)
+                msg = "\n".join(
+                    [
+                        "Unexpected shape {} of `curvature_preservation_field`,"
+                        "expected ({}, {}).".format(curvature_preservation_field.shape, self.ndims, self.size),
+                    ]
                 )
-            # do not normalize the field!
-            # norm = np.linalg.norm(curvature_preservation_field, axis=0)
-            # if not np.allclose(norm, 1):
-            #    curvature_preservation_field /= norm
-            #    warnings.warn("Unnormalized vectors detected in curvature_preservation_field. Normalizing to 1.")
+                raise ValueError(msg)
 
-        # check arg_shapes
+        # check arg_shapes consistency
         _to_be_checked = {
             "outer_diffusivity": outer_diffusivity,
             "diffusion_coefficient": diffusion_coefficient,
@@ -759,44 +755,47 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         }
         for i in _to_be_checked:
             if _to_be_checked[i]:
-                assert _to_be_checked[i].arg_shape == arg_shape, "Inconsistent arg_shape for {}".format(i)
+                msg = "`{}.arg_shape`=({}) inconsistent with `arg_shape`={}.".format(
+                    i, _to_be_checked[i].arg_shape, arg_shape
+                )
+                assert _to_be_checked[i].arg_shape == arg_shape, msg
 
-        # check samplings
+        # check sampling consistency
         _to_be_checked = {}
         if gradient:
-            _to_be_checked["gradient"] = gradient.sampling
+            _to_be_checked["`gradient`"] = gradient.sampling
         if hessian:
-            _to_be_checked["hessian"] = hessian.sampling
+            _to_be_checked["`hessian`"] = hessian.sampling
         if balloon_force:
             if balloon_force.gradient:
-                _to_be_checked["balloon_force.gradient"] = balloon_force.gradient.sampling
+                _to_be_checked["`balloon_force.gradient`"] = balloon_force.gradient.sampling
         if outer_diffusivity:
             if outer_diffusivity.gradient:
-                _to_be_checked["outer_diffusivity.gradient"] = outer_diffusivity.gradient.sampling
+                _to_be_checked["`outer_diffusivity.gradient`"] = outer_diffusivity.gradient.sampling
         if outer_trace_diffusivity:
             if outer_trace_diffusivity.gradient:
-                _to_be_checked["outer_trace_diffusivity.gradient"] = outer_trace_diffusivity.gradient.sampling
+                _to_be_checked["`outer_trace_diffusivity.gradient`"] = outer_trace_diffusivity.gradient.sampling
         if diffusion_coefficient:
             if diffusion_coefficient.isotropic:
                 if diffusion_coefficient.diffusivity.gradient:
                     _to_be_checked[
-                        "diffusion_coefficient.diffusivity.gradient"
+                        "`diffusion_coefficient.diffusivity.gradient`"
                     ] = diffusion_coefficient.diffusivity.gradient.sampling
             else:
                 if diffusion_coefficient.structure_tensor:
                     _to_be_checked[
-                        "diffusion_coefficient.structure_tensor.gradient"
+                        "`diffusion_coefficient.structure_tensor.gradient`"
                     ] = diffusion_coefficient.structure_tensor.grad.sampling
         if trace_diffusion_coefficient:
             if trace_diffusion_coefficient.isotropic:
                 if trace_diffusion_coefficient.diffusivity.gradient:
                     _to_be_checked[
-                        "trace_diffusion_coefficient.diffusivity.gradient"
+                        "`trace_diffusion_coefficient.diffusivity.gradient`"
                     ] = trace_diffusion_coefficient.diffusivity.gradient.sampling
             else:
                 if trace_diffusion_coefficient.structure_tensor:
                     _to_be_checked[
-                        "trace_diffusion_coefficient.structure_tensor.gradient"
+                        "`trace_diffusion_coefficient.structure_tensor.gradient`"
                     ] = trace_diffusion_coefficient.structure_tensor.grad.sampling
         if _to_be_checked:
             s_base = list(_to_be_checked.values())[0]
@@ -804,20 +803,30 @@ class _DiffusionOp(pyca.ProxDiffFunc):
             for s in _to_be_checked:
                 assert (
                     _to_be_checked[s] == s_base
-                ), "Inconsistent `sampling` for differential operators `{}` and `{}`".format(op_base, s)
+                ), "Inconsistent `sampling` for differential operators {} and {}.".format(op_base, s)
             sampling = s_base
         else:
             sampling = None
 
-        assert prox_sigma > 0.0, "Prox_sigma must be strictly positive."
+        assert prox_sigma > 0.0, "`prox_sigma` must be strictly positive."
+
+        # if trace_diffusion_coefficient is isotropic,
+        # convert hessian to second derivative operator
+        if trace_diffusion_coefficient:
+            if trace_diffusion_coefficient.isotropic:
+                ops = []
+                for dim in np.range(self.ndims):
+                    # select second order derivative operators
+                    ops.append(hessian._block[(dim, 0)])
+                hessian = pyblock.hstack(ops)
 
         # returning only objects that might have been modified.
         return (
+            gradient,
+            hessian,
             diffusion_coefficient,
             trace_diffusion_coefficient,
             curvature_preservation_field,
-            gradient,
-            hessian,
             sampling,
         )
 
@@ -842,10 +851,13 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         if self.from_potential:
             return self.diffusion_coefficient.diffusivity.energy_potential(arr, self.gradient)
         else:
-            raise NotImplementedError(
-                "DivergenceDiffusionOp may not be arising from an energy potential formulation.\
-                                        If it is, define how to evaluate the associated energy functional."
+            msg = "\n".join(
+                [
+                    "DivergenceDiffusionOp not found to be arising from an energy potential formulation.",
+                    "If it is, define how to evaluate the associated energy functional.",
+                ]
             )
+            raise NotImplementedError(msg)
 
     @pycrt.enforce_precision(i="arr")
     def _compute_divergence_term(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -871,23 +883,21 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         balloon_force = xp.zeros(arr.shape, dtype=arr.dtype)
         if self.balloon_force:
             balloon_force = self.balloon_force(arr)
-        return balloon_force
+        return -balloon_force
 
     @pycrt.enforce_precision(i="arr")
     def _compute_trace_term(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         y_trace = xp.zeros(arr.shape, dtype=arr.dtype)
         if self.trace_diffusion_coefficient:
-            hessian = self.hessian.unravel(self.hessian(arr)).squeeze()
-            hessian = hessian.reshape(hessian.shape[0], -1)
-            hessian = hessian[self.hessian_indices, :].reshape(1, -1)  # reshape(-1, hessian.shape[-1])
+            hessian = self.hessian.unravel(self.hessian(arr)).squeeze().reshape(1, -1)
             trace_tensor = self.trace_diffusion_coefficient(arr)
             y_trace = trace_tensor(hessian)
             if self.outer_trace_diffusivity:
                 outer_trace_diffusivity = self.outer_trace_diffusivity(arr)
                 # rescale trace
                 y_trace *= outer_trace_diffusivity(arr)
-        return y_trace
+        return -y_trace
 
     @pycrt.enforce_precision(i="arr")
     def _compute_curvature_preserving_term(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -896,12 +906,17 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         if self.curvature_preservation_field.size > 0:
             grad_arr = self.gradient(arr)
             y_curv = self._jacobian_onto_field(grad_arr)
-        return y_curv
+        return -y_curv
 
     @pycrt.enforce_precision(i="arr")
     @pycu.vectorize("arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        # to avoid @vectorize, all _compute fcts should be changed, suitably stacking
+        # all operators and results along the stacking dimensions.
+        # For now this has not been done, to be discussed if less naive vectorization
+        # is important.
         xp = pycu.get_array_module(arr)
+        arr = arr.reshape(1, -1)
         y = xp.zeros(arr.shape, dtype=arr.dtype)
         # compute divergence term
         y += self._compute_divergence_term(arr)
@@ -914,16 +929,11 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         return y.reshape(self.arg_shape)
 
     @pycrt.enforce_precision(i="arr")
+    @pycu.vectorize("arr")
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        # Actual prox would correspond to a denoiser. Current implementation, instead, corresponds to a
-        # diffusion stopped at given time, achievable applying a given number of grad steps to an initial
-        # state. This corresponds to a PnP-like approach (Plug&Play).
-        # time_step = 1 / ( 2 * self._diff_lipschitz)  # change time step computation and do it at init
-        # for i in range(self.prox_steps):
-        #    step = self.grad(arr)
-        #    step *= time_step
-        #    arr -= step
-        # return arr
+        # Actual prox would be \argmin_{y}1/tau*(arr-y)+self.grad(y).
+        # Current implementation, instead, corresponds to a diffusion stopped at given time,
+        # achievable applying a number prox_steps of self.grad steps to the initial state arr.
         stop_crit = pystop.MaxIter(self.prox_steps)
         pgd = pysol.PGD(f=self, g=None, show_progress=False, verbosity=100)
         pgd.fit(**dict(mode=pysolver.Mode.BLOCK, x0=arr, stop_crit=stop_crit, acceleration=False))
@@ -958,16 +968,18 @@ class DivergenceDiffusionOp(_DiffusionOp):
             if outer_diffusivity:
                 _known_diff_lipschitz = _known_diff_lipschitz and outer_diffusivity.bounded
         if _known_diff_lipschitz:
-            self._diff_lipschitz = gradient._lipschitz**2
+            self._diff_lipschitz = gradient.lipschitz() ** 2
 
     @pycrt.enforce_precision(i="arr")
-    # @pycu.vectorize("arr")
+    @pycu.vectorize("arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
+        arr = arr.reshape(1, -1)
         y = xp.zeros(arr.shape, dtype=arr.dtype)
         # compute divergence term
         y += self._compute_divergence_term(arr)
-        return y.reshape(self.arg_shape)
+        # y=y.reshape(self.arg_shape)
+        return y
 
 
 class SnakeDiffusionOp(_DiffusionOp):
@@ -990,7 +1002,7 @@ class SnakeDiffusionOp(_DiffusionOp):
         )
         # estimate diff_lipschitz
         _known_diff_lipschitz = False
-        if diffusion_coefficient and not balloon_force:
+        if diffusion_coefficient:
             if diffusion_coefficient.bounded:
                 _known_diff_lipschitz = True
                 if not diffusion_coefficient.isotropic:
@@ -1000,12 +1012,15 @@ class SnakeDiffusionOp(_DiffusionOp):
             if outer_diffusivity:
                 _known_diff_lipschitz = _known_diff_lipschitz and outer_diffusivity.bounded
         if _known_diff_lipschitz:
-            self._diff_lipschitz = gradient.lipschitz() ** 2  # ._lipschitz ** 2
+            self._diff_lipschitz = gradient.lipschitz() ** 2
+        if balloon_force:
+            self._diff_lipschitz += balloon_force._lipschitz
 
     @pycrt.enforce_precision(i="arr")
-    # @pycu.vectorize("arr")
+    @pycu.vectorize("arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
+        arr = arr.reshape(1, -1)
         y = xp.zeros(arr.shape, dtype=arr.dtype)
         # compute divergence term
         y += self._compute_divergence_term(arr)
@@ -1041,12 +1056,13 @@ class TraceDiffusionOp(_DiffusionOp):
             if outer_trace_diffusivity:
                 _known_diff_lipschitz = _known_diff_lipschitz and outer_trace_diffusivity.bounded
         if _known_diff_lipschitz:
-            self._diff_lipschitz = hessian.lipschitz()  # ._lipschitz
+            self._diff_lipschitz = hessian.lipschitz()
 
     @pycrt.enforce_precision(i="arr")
-    # @pycu.vectorize("arr")
+    @pycu.vectorize("arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
+        arr = arr.reshape(1, -1)
         y = xp.zeros(arr.shape, dtype=arr.dtype)
         # compute trace tensor term
         y += self._compute_trace_term(arr)
@@ -1066,12 +1082,12 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
             msg = "\n".join(
                 [
                     "No `hessian` was passed, needed for trace term involving `trace_diffusion_coefficient`.",
-                    "Initializing a forward finite difference operator with unitary sampling as default.",
+                    "Initializing a central finite difference operator with unitary sampling as default.",
                 ]
             )
             warnings.warn(msg)
             hessian = pydiff.Hessian.finite_difference(
-                arg_shape=arg_shape, mode="reflect", sampling=1.0, diff_type="central"
+                arg_shape=arg_shape, mode="reflect", sampling=1.0, diff_type="central", accuracy=2
             )
         super().__init__(
             arg_shape=arg_shape,
@@ -1080,7 +1096,6 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
             hessian=hessian,
             prox_sigma=prox_sigma,
         )
-        # trace_diffusion_coefficient = curvature_preservation_field.T @ curvature_preservation_field # not sure that's correct. let's think about hessian. also, we are allocating a sparse large matrix ...
         curvature_preservation_field = curvature_preservation_field.T
         tensors = curvature_preservation_field.reshape(self.size, self.ndims, 1) * curvature_preservation_field.reshape(
             self.size, 1, self.ndims
@@ -1092,22 +1107,19 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
                 ops.append(pybase.DiagonalOp(trace_diffusion_coefficient[:, i * self.ndims + j]))
         self.trace_diffusion_coefficient = _DiffusionCoefficient(arg_shape=arg_shape, isotropic=False, trace_term=True)
         self.trace_diffusion_coefficient.set_frozen_op(pyblock.hstack(ops))
-        print("trace operator", self.trace_diffusion_coefficient)
-        # estimate diff_lipschitz (further think, extra factors may arise for trace case)
-        msg = "For curvature preserving case, `diff_lipschitz` expression should be verified"
-        warnings.warn(msg)
-        self._diff_lipschitz = hessian.lipschitz()  # _lipschitz
+        self._diff_lipschitz = hessian.lipschitz()
         if self.curvature_preservation_field.size > 0:
+            max_norm = np.max(np.linalg.norm(curvature_preservation_field, axis=1))
+            self._diff_lipschitz *= max_norm
             # abs(<gradient(u), J_w(w)>) \leq norm(gradient(u)) * norm(J_w(w))
             # \leq L_grad*norm(u)*2*L_grad*(norm(w)**2) = 2*L_grad**2 * norm(u)
-            self._diff_lipschitz += (
-                2 * (gradient.lipschitz() ** 2) * np.max(np.linalg.norm(curvature_preservation_field, axis=1))
-            )  # ._lipschitz**2
+            self._diff_lipschitz += 2 * (gradient.lipschitz() ** 2) * max_norm
 
     @pycrt.enforce_precision(i="arr")
-    # @pycu.vectorize("arr")
+    @pycu.vectorize("arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
+        arr = arr.reshape(1, -1)
         y = xp.zeros(arr.shape, dtype=arr.dtype)
         # compute trace tensor term
         y += self._compute_trace_term(arr)
