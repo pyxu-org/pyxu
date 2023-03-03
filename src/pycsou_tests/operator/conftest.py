@@ -916,6 +916,29 @@ class QuadraticFuncT(ProxDiffFuncT):
         self._skip_if_disabled()
         self._check_valueND(op.fenchel_prox, _data_fenchel_prox, dtype=np.dtype(np.half))
 
+    def test_math_quad_spec(self, op, xp, width):
+        # f(0) == t
+        # \grad_{f}(0) == c
+        # J_{f}(e_{i}) - c == Q_{i}
+        self._skip_if_disabled()
+        Q, c, t = op._quad_spec()
+        Q = Q.asarray(xp=xp, dtype=width.value)
+        c = c.asarray(xp=xp, dtype=width.value)
+
+        # f(0) == t
+        x = xp.zeros(op.dim, dtype=width.value)
+        out = op.apply(x)
+        assert self._metric(out, t, as_dtype=width.value)
+
+        # \grad_{f}(0) == c
+        out = op.grad(x)
+        assert self._metric(out, c, as_dtype=width.value)
+
+        # J_{f}(e_{i}) - c == Q_{i}
+        x = xp.eye(op.dim)
+        out = op.grad(x) - c
+        assert self._metric(out.T, Q, as_dtype=width.value)
+
 
 @pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
 class LinOpT(DiffMapT):
