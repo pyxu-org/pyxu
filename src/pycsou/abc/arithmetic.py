@@ -1138,9 +1138,7 @@ class ChainRule(Rule):
             properties.add(P.DIFFERENTIABLE)
         if (P.DIFFERENTIABLE_FUNCTION in lhs_p) and (P.DIFFERENTIABLE in rhs_p):
             properties.add(P.DIFFERENTIABLE_FUNCTION)
-        if ((P.QUADRATIC in lhs_p) and (P.LINEAR in rhs_p)) or (
-            ({P.LINEAR, P.FUNCTIONAL} < lhs_p) and (P.QUADRATIC in rhs_p)
-        ):
+        if (P.QUADRATIC in lhs_p) and (P.LINEAR in rhs_p):
             properties.add(P.PROXIMABLE)
             properties.add(P.QUADRATIC)
         if P.LINEAR in (lhs_p & rhs_p):
