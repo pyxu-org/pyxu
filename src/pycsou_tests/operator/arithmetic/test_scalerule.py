@@ -330,21 +330,26 @@ class TestScaleRuleProxDiffFunc_NegativeScale(ScaleRuleProxDiffFunc, conftest.Di
 
 # START QuadraticFunc ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 class ScaleRuleQuadraticFunc(ScaleRuleMixin):
-    @pytest.fixture
-    def op_orig(self):
-        from pycsou.operator.func import QuadraticFunc
+    @pytest.fixture(params=[0, 1])
+    def op_orig(self, request):
         from pycsou_tests.operator.examples.test_linfunc import ScaledSum
         from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
-        return QuadraticFunc(
-            Q=PSDConvolution(N=7),
-            c=ScaledSum(N=7),
-            t=1,
-        )
+        N = 7
+        op = {
+            0: pyca.QuadraticFunc(shape=(1, N)),
+            1: pyca.QuadraticFunc(
+                shape=(1, N),
+                Q=PSDConvolution(N=N),
+                c=ScaledSum(N=N),
+                t=1,
+            ),
+        }[request.param]
+        return op
 
 
 @pytest.mark.parametrize("op_scale", op_scale_positive)
-class TestScaleRuleQuadraticFunc_PositiveScale(ScaleRuleQuadraticFunc, conftest._QuadraticFuncT):
+class TestScaleRuleQuadraticFunc_PositiveScale(ScaleRuleQuadraticFunc, conftest.QuadraticFuncT):
     pass
 
 

@@ -190,16 +190,23 @@ class TestArgShiftRuleProxFunc(ArgShiftRuleMixin, conftest.ProxFuncT):
         return tc.L1Norm(M=request.param)
 
 
-class TestArgShiftRuleQuadraticFunc(ArgShiftRuleMixin, conftest._QuadraticFuncT):
-    @pytest.fixture
-    def op_orig(self):
-        from pycsou.operator.func import QuadraticFunc
+class TestArgShiftRuleQuadraticFunc(ArgShiftRuleMixin, conftest.QuadraticFuncT):
+    @pytest.fixture(params=[0, 1])
+    def op_orig(self, request):
+        from pycsou_tests.operator.examples.test_linfunc import ScaledSum
+        from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
-        return QuadraticFunc(
-            Q=tc_posdefop.PSDConvolution(N=7),
-            c=tc_linfunc.ScaledSum(N=7),
-            t=1,
-        )
+        N = 7
+        op = {
+            0: pyca.QuadraticFunc(shape=(1, N)),
+            1: pyca.QuadraticFunc(
+                shape=(1, N),
+                Q=PSDConvolution(N=N),
+                c=ScaledSum(N=N),
+                t=1,
+            ),
+        }[request.param]
+        return op
 
 
 class TestArgShiftRuleProxDiffFunc(ArgShiftRuleMixin, conftest.ProxDiffFuncT):

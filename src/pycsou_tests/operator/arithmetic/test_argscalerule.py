@@ -292,18 +292,23 @@ class TestArgScaleRuleProxDiffFunc(ArgScaleRuleMixin, conftest.ProxDiffFuncT):
         return tc.SquaredL2Norm(M=request.param)
 
 
-class TestArgScaleRuleQuadraticFunc(ArgScaleRuleMixin, conftest._QuadraticFuncT):
-    @pytest.fixture
-    def op_orig(self):
-        from pycsou.operator.func import QuadraticFunc
+class TestArgScaleRuleQuadraticFunc(ArgScaleRuleMixin, conftest.QuadraticFuncT):
+    @pytest.fixture(params=[0, 1])
+    def op_orig(self, request):
         from pycsou_tests.operator.examples.test_linfunc import ScaledSum
         from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
-        return QuadraticFunc(
-            Q=PSDConvolution(N=7),
-            c=ScaledSum(N=7),
-            t=1,
-        )
+        N = 7
+        op = {
+            0: pyca.QuadraticFunc(shape=(1, N)),
+            1: pyca.QuadraticFunc(
+                shape=(1, N),
+                Q=PSDConvolution(N=N),
+                c=ScaledSum(N=N),
+                t=1,
+            ),
+        }[request.param]
+        return op
 
 
 class TestArgScaleRuleLinFunc(ArgScaleRuleMixin, conftest.LinFuncT):

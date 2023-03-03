@@ -61,13 +61,14 @@ def op_proxdifffunc():
 
 
 def op_quadraticfunc():
-    from pycsou.operator.func import QuadraticFunc
     from pycsou_tests.operator.examples.test_linfunc import ScaledSum
     from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
-    return QuadraticFunc(
-        Q=PSDConvolution(N=7),
-        c=ScaledSum(N=7),
+    N = 7
+    return pyca.QuadraticFunc(
+        shape=(1, N),
+        Q=PSDConvolution(N=N),
+        c=ScaledSum(N=N),
         t=1,
     )
 
@@ -225,8 +226,8 @@ class AddRuleMixin:
                 P, G = op_lhs, op_rhs
                 out = P.prox(arr - tau * G.grad(arr), tau)
             elif op_lhs.has(pyca.Property.QUADRATIC) and op_rhs.has(pyca.Property.QUADRATIC):
-                A = op_lhs._hessian().asarray()
-                B = op_rhs._hessian().asarray()
+                A = op_lhs._quad_spec()[0].asarray()
+                B = op_rhs._quad_spec()[0].asarray()
                 C = op_lhs.grad(np.zeros(op.dim))
                 D = op_rhs.grad(np.zeros(op.dim))
                 Q = tau * (A + B) + np.eye(op.dim)
@@ -511,7 +512,7 @@ class TestAddRuleProxDiffFunc(AddRuleMixin, conftest.ProxDiffFuncT):
         return request.param
 
 
-class TestAddRuleQuadraticFunc(AddRuleMixin, conftest._QuadraticFuncT):
+class TestAddRuleQuadraticFunc(AddRuleMixin, conftest.QuadraticFuncT):
     @pytest.fixture(
         params=[
             (op_quadraticfunc(), op_quadraticfunc()),

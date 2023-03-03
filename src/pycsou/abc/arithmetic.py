@@ -86,14 +86,15 @@ class ScaleRule(Rule):
         |--------------------------|-------------|--------------------------------------------------------------------|
         | DIFFERENTIABLE_FUNCTION  | yes         | op_new.grad(arr) = op_old.grad(arr) * \alpha                       |
         |--------------------------|-------------|--------------------------------------------------------------------|
-        | QUADRATIC                | \alpha > 0  | op_new._hessian() = op_old._hessian() * \alpha                     |
+        | QUADRATIC                | \alpha > 0  | Q, c, t = op_old._quad_spec()                                      |
+        |                          |             | op_new._quad_spec() = (\alpha * Q, \alpha * c, \alpha * t)         |
         |--------------------------|-------------|--------------------------------------------------------------------|
         | LINEAR                   | yes         | op_new.adjoint(arr) = op_old.adjoint(arr) * \alpha                 |
         |                          |             | op_new.asarray() = op_old.asarray() * \alpha                       |
         |                          |             | op_new.svdvals() = op_old.svdvals() * abs(\alpha)                  |
         |                          |             | op_new.pinv(x, damp) = op_old.pinv(x, damp / (\alpha**2)) / \alpha |
         |                          |             | op_new.gram() = op_old.gram() * (\alpha**2)                        |
-        |                          |             | op_new.cogram() = op_old.cogram() * (\alpha**2)                        |
+        |                          |             | op_new.cogram() = op_old.cogram() * (\alpha**2)                    |
         |--------------------------|-------------|--------------------------------------------------------------------|
         | LINEAR_SQUARE            | yes         | op_new.trace() = op_old.trace() * \alpha                           |
         |--------------------------|-------------|--------------------------------------------------------------------|
@@ -179,8 +180,12 @@ class ScaleRule(Rule):
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         return self._op.prox(arr, tau * self._cst)
 
-    def _hessian(self) -> pyct.OpT:
-        return ScaleRule(op=self._op._hessian(), cst=self._cst).op()
+    def _quad_spec(self):
+        Q1, c1, t1 = self._op._quad_spec()
+        Q2 = ScaleRule(op=Q1, cst=self._cst).op()
+        c2 = ScaleRule(op=c1, cst=self._cst).op()
+        t2 = t1 * self._cst
+        return (Q2, c2, t2)
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         if self.has(pyco.Property.LINEAR):
@@ -281,7 +286,8 @@ class ArgScaleRule(Rule):
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | DIFFERENTIABLE_FUNCTION  | yes         | op_new.grad(arr) = op_old.grad(\alpha * arr) * \alpha                       |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
-        | QUADRATIC                | yes         | op_new._hessian() = op_old._hessian() * (\alpha**2)                         |
+        | QUADRATIC                | yes         | Q, c, t = op_old._quad_spec()                                               |
+        |                          |             | op_new._quad_spec() = (\alpha**2 * Q, \alpha * c, t)                        |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | LINEAR                   | yes         | op_new.adjoint(arr) = op_old.adjoint(arr) * \alpha                          |
         |                          |             | op_new.asarray() = op_old.asarray() * \alpha                                |
@@ -390,8 +396,12 @@ class ArgScaleRule(Rule):
         out /= self._cst
         return out
 
-    def _hessian(self) -> pyct.OpT:
-        return ScaleRule(op=self._op._hessian(), cst=self._cst**2).op()
+    def _quad_spec(self):
+        Q1, c1, t1 = self._op._quad_spec()
+        Q2 = ScaleRule(op=Q1, cst=self._cst**2).op()
+        c2 = ScaleRule(op=c1, cst=self._cst).op()
+        t2 = t1
+        return (Q2, c2, t2)
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         if self.has(pyco.Property.LINEAR):
@@ -485,7 +495,8 @@ class ArgShiftRule(Rule):
         |--------------------------|------------|-----------------------------------------------------------------|
         | DIFFERENTIABLE_FUNCTION  | yes        | op_new.grad(arr) = op_old.grad(arr + \shift)                    |
         |--------------------------|------------|-----------------------------------------------------------------|
-        | QUADRATIC                | yes        | op_new._hessian() = op_old._hessian()                           |
+        | QUADRATIC                | yes        | Q, c, t = op_old._quad_spec()                                   |
+        |                          |            | op_new._quad_spec() = (Q, c + Q @ \shift, op_old.apply(\shift)) |
         |--------------------------|------------|-----------------------------------------------------------------|
         | LINEAR                   | no         |                                                                 |
         |--------------------------|------------|-----------------------------------------------------------------|
@@ -582,8 +593,24 @@ class ArgShiftRule(Rule):
         out -= self._cst
         return out
 
-    def _hessian(self) -> pyct.OpT:
-        return self._op._hessian()
+    def _quad_spec(self):
+        Q1, c1, t1 = self._op._quad_spec()
+
+        if isinstance(self._cst, pyct.Real):
+            xp = pycu.get_array_module(self._cst, fallback=np)
+            cst = xp.broadcast_to(self._cst, self._op.dim)
+        else:
+            cst = self._cst
+
+        Q2 = Q1
+        c2 = c1 + pyco.LinFunc.from_array(
+            Q1.apply(cst),
+            enable_warnings=False,
+            # [enable_warnings] API users have no reason to call _quad_spec().
+            # If they choose to use `c2`, then we assume they know what they are doing.
+        )
+        t2 = float(self._op.apply(cst))
+        return (Q2, c2, t2)
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         x = arr.copy()
@@ -681,7 +708,13 @@ class AddRule(Rule):
         op.trace() = _lhs.trace() + _rhs.trace()
 
     * QUADRATIC
-        op._hessian() = _lhs._hessian() + _rhs.hessian()
+        lhs = rhs = quadratic
+          Q_l, c_l, t_l = lhs._quad_spec()
+          Q_r, c_r, t_r = rhs._quad_spec()
+          op._quad_spec() = (Q_l + Q_r, c_l + c_r, t_l + t_r)
+        lhs, rhs = quadratic, linear
+          Q, c, t = lhs._quad_spec()
+          op._quad_spec() = (Q, c + rhs, t)
     """
 
     def __init__(self, lhs: pyct.OpT, rhs: pyct.OpT):
@@ -692,16 +725,48 @@ class AddRule(Rule):
     def op(self) -> pyct.OpT:
         sh_op = pycu.infer_sum_shape(self._lhs.shape, self._rhs.shape)
         klass = self._infer_op_klass()
-        op = klass(shape=sh_op)
-        op._lhs = self._lhs  # embed for introspection
-        op._rhs = self._rhs  # embed for introspection
-        for p in op.properties():
-            for name in p.arithmetic_attributes():
-                attr = getattr(self, name)
-                setattr(op, name, attr)
-            for name in p.arithmetic_methods():
-                func = getattr(self.__class__, name)
-                setattr(op, name, types.MethodType(func, op))
+        if klass.has(pyco.Property.QUADRATIC):
+            # Quadratic additive arithmetic differs substantially from other arithmetic operations.
+            # To avoid tedious redefinitions of arithmetic methods to handle QuadraticFunc
+            # specifically, the code-path below delegates additive arithmetic directly to
+            # QuadraticFunc.
+            lin = lambda _: _.has(pyco.Property.LINEAR)
+            quad = lambda _: _.has(pyco.Property.QUADRATIC)
+
+            if quad(self._lhs) and quad(self._rhs):
+                op = klass(
+                    shape=sh_op,
+                    Q=self._lhs._Q + self._rhs._Q,
+                    c=self._lhs._c + self._rhs._c,
+                    t=self._lhs._t + self._rhs._t,
+                )
+            elif quad(self._lhs) and lin(self._rhs):
+                op = klass(
+                    shape=sh_op,
+                    Q=self._lhs._Q,
+                    c=self._lhs._c + self._rhs,
+                    t=self._lhs._t,
+                )
+            elif lin(self._lhs) and quad(self._rhs):
+                op = klass(
+                    shape=sh_op,
+                    Q=self._rhs._Q,
+                    c=self._lhs + self._rhs._c,
+                    t=self._rhs._t,
+                )
+            else:
+                raise ValueError("Impossible scenario: something went wrong during klass inference.")
+        else:
+            op = klass(shape=sh_op)
+            op._lhs = self._lhs  # embed for introspection
+            op._rhs = self._rhs  # embed for introspection
+            for p in op.properties():
+                for name in p.arithmetic_attributes():
+                    attr = getattr(self, name)
+                    setattr(op, name, attr)
+                for name in p.arithmetic_methods():
+                    func = getattr(self.__class__, name)
+                    setattr(op, name, types.MethodType(func, op))
         return op
 
     def _expr(self) -> tuple:
@@ -794,33 +859,9 @@ class AddRule(Rule):
             x *= -tau
             x += arr
             out = P.prox(x, tau)
-        elif pyco.Property.QUADRATIC in (P_LHS & P_RHS):
-            # quadratic + quadratic
-            from pycsou.operator.func import QuadraticFunc
-
-            x = np.zeros(shape=(self.dim), dtype=arr.dtype, like=arr)
-            out = QuadraticFunc(
-                Q=self._hessian(),
-                c=self.jacobian(x),
-                init_lipschitz=False,
-            ).prox(arr, tau)
         else:
             raise NotImplementedError
         return out
-
-    def _hessian(self) -> pyct.OpT:
-        if self.has(pyco.Property.QUADRATIC):
-            from pycsou.operator.linop import NullOp
-
-            op_lhs = op_rhs = NullOp(shape=(self.dim, self.dim))
-            if self._lhs.has(pyco.Property.QUADRATIC):
-                op_lhs = self._lhs._hessian()
-            if self._rhs.has(pyco.Property.QUADRATIC):
-                op_rhs = self._rhs._hessian()
-            op = op_lhs + op_rhs
-            return op
-        else:
-            raise NotImplementedError
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         if self.has(pyco.Property.LINEAR):
@@ -998,6 +1039,7 @@ class ChainRule(Rule):
     * DIFFERENTIABLE
         op.jacobian(arr) = _lhs.jacobian(_rhs.apply(arr)) * _rhs.jacobian(arr)
         op._diff_lipschitz =
+            quadratic            => _quad_spec().Q.lipschitz()
             linear \comp linear  => 0
             linear \comp diff    => _lhs._lipschitz * _rhs.diff_lipschitz
             diff   \comp linear  => _lhs._diff_lipschitz * (_rhs.lipschitz ** 2)
@@ -1016,7 +1058,8 @@ class ChainRule(Rule):
         op.cogram() = _lhs @ _rhs.cogram() @ _lhs.T
 
     * QUADRATIC
-        op._hessian() = _rhs.T \comp _lhs._hessian() \comp _rhs [Positive-Definite]
+        Q, c, t = _lhs._quad_spec()
+        op._quad_spec() = (_rhs.T * Q * _rhs, _rhs.T * c, t)
     """
 
     def __init__(self, lhs: pyct.OpT, rhs: pyct.OpT):
@@ -1143,14 +1186,8 @@ class ChainRule(Rule):
                 out = self._rhs.adjoint(y)
             elif self._lhs.has(pyco.Property.QUADRATIC) and self._rhs.has(pyco.Property.LINEAR):
                 # quadratic \comp linop => quadratic
-                from pycsou.operator.func import QuadraticFunc
-
-                x = np.zeros(shape=(self._lhs.dim), dtype=arr.dtype, like=arr)
-                out = QuadraticFunc(
-                    Q=self._hessian(),
-                    c=self._lhs.jacobian(x) * self._rhs,
-                    init_lipschitz=False,
-                ).prox(arr, tau)
+                Q, c, t = self._quad_spec()
+                out = pyco.QuadraticFunc(shape=self.shape, Q=Q, c=c, t=t).prox(arr, tau)
             elif self._lhs.has(pyco.Property.LINEAR) and self._rhs.has(pyco.Property.PROXIMABLE):
                 # linfunc() \comp prox[diff]func() => prox[diff]func()
                 #                                  = (\alpha * prox[diff]func())
@@ -1164,15 +1201,19 @@ class ChainRule(Rule):
                 return out
         raise NotImplementedError
 
-    def _hessian(self) -> pyct.OpT:
+    def _quad_spec(self):
         if self.has(pyco.Property.QUADRATIC):
             if self._lhs.has(pyco.Property.LINEAR):
                 # linfunc (scalar) \comp quadratic
-                op = ScaleRule(op=self._rhs._hessian(), cst=self._lhs.asarray().item()).op()
+                op = ScaleRule(op=self._rhs, cst=self._lhs.asarray().item()).op()
+                Q2, c2, t2 = op._quad_spec()
             elif self._rhs.has(pyco.Property.LINEAR):
                 # quadratic \comp linop
-                op = (self._rhs.T * self._lhs._hessian() * self._rhs).asop(pyco.PosDefOp)
-            return op
+                Q1, c1, t1 = self._lhs._quad_spec()
+                Q2 = (self._rhs.T * Q1 * self._rhs).asop(pyco.PosDefOp)
+                c2 = c1 * self._rhs
+                t2 = t1
+            return (Q2, c2, t2)
         else:
             raise NotImplementedError
 
@@ -1186,7 +1227,11 @@ class ChainRule(Rule):
         return op
 
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
-        if self._lhs.has(pyco.Property.LINEAR) and self._rhs.has(pyco.Property.LINEAR):
+        if self.has(pyco.Property.QUADRATIC):
+            Q, c, t = self._quad_spec()
+            op = pyco.QuadraticFunc(shape=self.shape, Q=Q, c=c, t=t)
+            self._diff_lipschitz = op.diff_lipschitz(**kwargs)
+        elif self._lhs.has(pyco.Property.LINEAR) and self._rhs.has(pyco.Property.LINEAR):
             self._diff_lipschitz = 0
         elif self._lhs.has(pyco.Property.LINEAR) and self._rhs.has(pyco.Property.DIFFERENTIABLE):
             self._diff_lipschitz = self._lhs.lipschitz(**kwargs)

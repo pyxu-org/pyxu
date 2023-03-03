@@ -70,13 +70,13 @@ def op_quadraticfunc(dim: int = 7):
     # In this case we cannot use CD04 (examples/test_posdefop.py) due to minimal domain-size restrictions.
     # We therefore use HomothetyOp without loss of generality.
 
-    from pycsou.operator.func import QuadraticFunc
     from pycsou.operator.linop import HomothetyOp
     from pycsou_tests.operator.examples.test_linfunc import ScaledSum
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", pycuw.DenseWarning)
-        return QuadraticFunc(
+        return pyca.QuadraticFunc(
+            shape=(1, dim),
             Q=HomothetyOp(dim=dim, cst=3),
             c=ScaledSum(N=dim),
             t=1,
@@ -224,7 +224,7 @@ class ChainRuleMixin:
             elif op_lhs.has(pyca.Property.QUADRATIC) and op_rhs.has(pyca.Property.LINEAR):
                 # quadratic \comp linop
                 A = op_rhs.asarray()
-                B = op_lhs._hessian().asarray()
+                B = op_lhs._quad_spec()[0].asarray()
                 Q = tau * (A.T @ B @ A) + np.eye(op_rhs.dim)
                 b = arr - tau * (A.T @ op_lhs.grad(np.zeros(op_lhs.dim)))
                 out, *_ = splinalg.lstsq(Q, b)
@@ -568,7 +568,7 @@ class TestChainRuleProxDiffFunc(ChainRuleMixin, conftest.ProxDiffFuncT):
         return request.param
 
 
-class TestChainRuleQuadraticFunc(ChainRuleMixin, conftest._QuadraticFuncT):
+class TestChainRuleQuadraticFunc(ChainRuleMixin, conftest.QuadraticFuncT):
     @pytest.fixture(
         params=[
             (op_quadraticfunc(dim=6), op_linop(dim=2, codim_scale=3)),
