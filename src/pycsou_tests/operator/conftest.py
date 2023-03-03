@@ -1871,6 +1871,14 @@ class SelfAdjointOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
     base = pyca.SelfAdjointOp
 
+    # Fixtures ----------------------------------------------------------------
+    @pytest.fixture
+    def _op_eig(self, op) -> np.ndarray:
+        # compute all eigenvalues, sorted in ascending order.
+        D = np.linalg.eigvalsh(op.asarray())
+        D = D[np.argsort(D)]
+        return D
+
     # Tests -------------------------------------------------------------------
     def test_math_eig(self, _op_eig):
         self._skip_if_disabled()
