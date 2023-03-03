@@ -105,11 +105,11 @@ def op_proxdifffunc(dim: int):
 
 
 def op_quadraticfunc(dim: int):
-    from pycsou.operator.func import QuadraticFunc
     from pycsou_tests.operator.examples.test_linfunc import ScaledSum
     from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
-    return QuadraticFunc(
+    return pyco.QuadraticFunc(
+        shape=(1, dim),
         Q=PSDConvolution(N=dim),
         c=ScaledSum(N=dim),
         t=1,
@@ -369,7 +369,7 @@ class TestCOOBlockProxDiffFunc(COOBlockFuncMixin, conftest.ProxDiffFuncT):
         return request.param
 
 
-class TestCOOBlockQuadraticFunc(COOBlockFuncMixin, conftest._QuadraticFuncT):
+class TestCOOBlockQuadraticFunc(COOBlockFuncMixin, conftest.QuadraticFuncT):
     @pytest.fixture(
         params=[
             [[op_quadraticfunc(5), op_linfunc(3)]],

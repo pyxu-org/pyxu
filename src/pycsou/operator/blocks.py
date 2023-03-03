@@ -761,23 +761,25 @@ class _COOBlock:  # See coo_block() for a detailed description.
         out = xp.concatenate(parts, axis=-1)
         return out
 
-    def _hessian(self) -> pyct.OpT:
+    def _quad_spec(self):
         if not self.has(pyco.Property.QUADRATIC):
             raise NotImplementedError
 
         parts = dict()
         for idx, op in self._block.items():
             if op.has(pyco.Property.QUADRATIC):
-                p = op._hessian()
+                _Q, _c, _t = op._quad_spec()
             else:  # op is necessarily LINEAR
                 from pycsou.operator.linop import NullOp
 
-                p = NullOp(shape=(op.dim, op.dim)).asop(pyco.PosDefOp)
-            parts[idx] = p
+                _Q = NullOp(shape=(op.dim, op.dim)).asop(pyco.PosDefOp)
+                _c = op
+                _t = 0
+            parts[idx] = _Q, _c, _t
 
         parts = [parts[k] for k in sorted(parts.keys())]  # re-ordering
-        H = block_diag(parts)
-        return H
+        Q, c, t = zip(*parts)
+        return (block_diag(Q), hstack(c), sum(t))
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         if not self.has(pyco.Property.DIFFERENTIABLE):
