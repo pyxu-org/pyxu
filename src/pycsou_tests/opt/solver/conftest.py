@@ -17,29 +17,43 @@ import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
 
-def funcs(N: int, seed: int = 0) -> cabc.Sequence[cabc.Sequence[pyct.OpT]]:
+def funcs(N: int, seed: int = 0) -> cabc.Sequence[tuple[pyct.OpT, pyct.OpT]]:
     # Sequence of functional descriptors. (More terms can be added.)
     #
     # Used to create strongly-convex functionals.
+    #
+    # These functions MUST be backend-agnostic.
     import pycsou.operator.func as pycf
     import pycsou.operator.linop as pycl
-    import pycsou_tests.operator.examples.test_normalop as normalop
     import pycsou_tests.operator.examples.test_unitop as unitop
 
+    L2 = pycf.SquaredL2Norm(dim=N)
+    Id = pycl.IdentityOp(dim=N)
+
     rng = np.random.default_rng(seed)
-    f1 = (  # f1(x) = \norm{A1 x}{2}^{2}
-        pycf.SquaredL2Norm(dim=N),
-        pycl.HomothetyOp(cst=rng.uniform(1.1, 1.3), dim=N),
-    )
-    f2 = (  # f2(x) = \norm{A2 x - y2}
-        pycf.SquaredL2Norm(dim=N).asloss(rng.uniform(1, 3)),
-        unitop.Permutation(N=N),
-    )
-    f3 = (  # f3(x) = sum(x)
-        pycl.Sum(arg_shape=N),
-        pycl.IdentityOp(dim=N),
-    )
-    return (f1, f2, f3)
+    f = [
+        (  # f1(x) = \norm{A1 x}{2}^{2}
+            L2,
+            pycl.HomothetyOp(cst=rng.uniform(1.1, 1.3), dim=N),
+        ),
+        (  # f2(x) = \norm{A2 x - y2}
+            L2.asloss(rng.uniform(1, 3)),
+            unitop.Permutation(N=N),
+        ),
+        (  # f3(x) = sum(x)
+            pycl.Sum(arg_shape=N),
+            Id,
+        ),
+        (  # f4(x) = \norm{a x}{2}^{2}
+            L2.argscale(rng.uniform(-5, -1.1)),
+            Id,
+        ),
+        (  # f5(x) = cst * \norm{x + y5}{2}^{2}
+            L2.argshift(rng.normal()) * rng.uniform(1.1, 3),
+            Id,
+        ),
+    ]
+    return f
 
 
 def generate_funcs(descr, N_term: int) -> cabc.Sequence[tuple[pyct.OpT]]:
