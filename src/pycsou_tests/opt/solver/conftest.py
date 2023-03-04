@@ -138,7 +138,9 @@ class SolverT:
         # This function adds a max-iter constraint to the kwargs_fit() dictionary to drastically
         # curb test time.
         kwargs = kwargs.copy()
-        kwargs["stop_crit"] = pycs.MaxIter(n=5)
+        c1 = pycs.MaxIter(n=5)
+        c2 = pycs.MaxDuration(t=dt.timedelta(seconds=5))
+        kwargs["stop_crit"] = c1 | c2
         return kwargs
 
     # Fixtures ----------------------------------------------------------------
