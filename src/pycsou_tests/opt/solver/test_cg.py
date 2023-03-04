@@ -57,7 +57,6 @@ class TestCG(conftest.SolverT):
     def cost_function(self, kwargs_init, kwargs_fit) -> dict[str, pyct.OpT]:
         import pycsou.abc as pyca
         import pycsou.operator.blocks as pycb
-        import pycsou.operator.func as pycf
 
         # The value of `b` determines the cost function.
         # Moreover several `b` may be provided.
@@ -67,11 +66,10 @@ class TestCG(conftest.SolverT):
         A = kwargs_init["A"]
         b = kwargs_fit["b"]
         N_b = int(np.prod(b.shape[:-1]))
-        func = pycf.QuadraticFunc(
+        func = pyca.QuadraticFunc(
+            shape=(1, N_b * A.dim),
             Q=pycb.block_diag((A,) * N_b),
             c=pyca.LinFunc.from_array(-b.reshape(-1), enable_warnings=False),
-            t=0,
-            init_lipschitz=False,  # not needed for [apply|grad]() calls.
         )
         return dict(x=func)
 
