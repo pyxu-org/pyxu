@@ -15,6 +15,7 @@ import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
+from pycsou_tests.operator.conftest import less_equal
 
 
 def funcs(N: int, seed: int = 0) -> cabc.Sequence[tuple[pyct.OpT, pyct.OpT]]:
@@ -110,26 +111,6 @@ class SolverT:
         for k in nd_1.keys():
             stats[k] = nd_1[k].dtype == nd_2[k].dtype
         return all(stats.values())
-
-    @classmethod
-    def _check_value_fit(
-        cls,
-        data: dict[str, pyct.NDArray],
-        cost_func: dict[str, pyct.OpT],
-        ground_truth: dict[str, pyct.NDArray],
-        eps: pyct.Real,
-    ):
-        success = dict()
-        for k, c_func in cost_func.items():
-            crit = pycs.RelError(
-                eps=eps,
-                var=k,
-                f=c_func,
-                satisfy_all=True,
-            )
-            crit.stop(ground_truth)  # load the ground truth
-            success[k] = crit.stop(data)  # then ensure solver output is within tolerated objective-func range
-        assert all(success.values())
 
     @staticmethod
     def as_early_stop(kwargs: dict) -> dict:
@@ -265,62 +246,87 @@ class SolverT:
             stats = {k: v.dtype == width.value for (k, v) in data.items()}
             assert all(stats.values())
 
-    @pytest.mark.parametrize("obj_threshold", [5e-2])
+    @pytest.mark.parametrize("eps_threshold", [5e-3])
     @pytest.mark.parametrize("time_threshold", [dt.timedelta(seconds=5)])
     def test_value_fit(
         self,
         solver,
         _kwargs_fit_xp,
+        width,
         cost_function,
         ground_truth,
-        obj_threshold,  # rel-threshold
+        eps_threshold,  # rel-threshold
         time_threshold,  # max runtime
     ):
-        # Ensure algorithm converges to ground-truth. (All backends.)
+        # Ensure algorithm converges to ground-truth. (All backends/precisions.)
         #
         # SciPy ground truth may have converged closer to the solution than `solver` due to
         # different stopping criteria used. (Default or user-specified.)
         #
-        # Since the goal of this test is to ensure, assuming cost-functions are strongly convex,
-        # that the algorithms converge to the ground-truth, we let the solver run until the
-        # condition
-        #     |f(x) - f(x_opt)| <= eps |f(x_opt)|
-        # holds for all cost functions.
-        # (We enforce an upper-limit on execution time nonetheless to avoid infinite loops.)
+        # Since cost-functions are assumed strongly convex, a solver is assumed to converge to the
+        # ground-truth if the following conditions hold:
         #
-        # If the solver did not converge to the ground truth in the prescribed max runtime, then
-        # something is wrong with high probability.
-
-        # custom criteria used (outside solver's logic) to assess closeness to the ground-truth.
-        obj_crit = functools.reduce(
-            operator.and_,
-            [
-                # We piggy-back onto RelError to simplify code in cases where there are multiple
-                # values being optimized in parallel.
-                pycs.RelError(
-                    eps=obj_threshold,
-                    var=k,
-                    f=c_func,
-                    satisfy_all=True,
-                )
-                for (k, c_func) in cost_function.items()
-            ],
-        )
+        #   1. |x_k+1 - x_k| <= eps |x_k|
+        #   2. f(x_gt) <= f(x_N) < f(x_0), where `f` denotes the cost function
+        #   3. max runtime <= threshold
+        #
+        # (1) ensures solver iterates form a Cauchy sequence, hence converge to some limit.
+        # (2) ensures the cost function decreases, hence the solver is converging to something.
+        # (3) just avoids a solver running forever.
+        #
+        # NOTE: f(x_N) < f(x_0) implies initial_points specified in kwargs_fit() should be chosen
+        # `far` from the ground-truth.
+        # Test writes are responsible of setting x_0 such that this condition holds.
+        var_crit = [
+            pycs.RelError(
+                eps=eps_threshold,
+                var=k,
+                f=None,
+                satisfy_all=True,
+            )
+            for k in cost_function.keys()
+        ]
+        time_crit = pycs.MaxDuration(t=time_threshold)
 
         kwargs_fit = _kwargs_fit_xp.copy()
         kwargs_fit.update(
-            stop_crit=pycs.MaxDuration(t=time_threshold),
+            stop_crit=time_crit | functools.reduce(operator.and_, var_crit),
             mode=pyca.Mode.MANUAL,
         )
-        solver.fit(**kwargs_fit)
-        for data in solver.steps():
-            obj_crit.clear()
-            obj_crit.stop(ground_truth)
-            if converged := obj_crit.stop(data):
-                break
+        with pycrt.Precision(width):
+            solver.fit(**kwargs_fit)
 
-        data, _ = solver.stats()
-        self._check_value_fit(data, cost_function, ground_truth, obj_threshold)
+        data_0, _ = solver.stats()
+        for data in solver.steps():
+            pass
+        data_opt, history = solver.stats()
+
+        # ensure solver ended because rel-err threshold reached, not timeout
+        relerr_decrease = dict()
+        for var in cost_function.keys():
+            if data_0[var].ndim == 1:
+                k = f"RelError[{var}]"
+            else:
+                k = f"RelError[{var}]_max"
+            relerr_decrease[var] = history[k][-1] <= eps_threshold
+        assert all(relerr_decrease.values())
+
+        # ensure cost-function decreased from start to end
+        cost_decrease = dict()
+        for var, c_func in cost_function.items():
+            c_0 = c_func.apply(data_0[var])
+            c_opt = c_func.apply(data_opt[var])
+            c_gt = c_func.apply(ground_truth[var])
+
+            # Numerical errors can make c_gt > c_opt at convergence.
+            # We piggy-back on less_equal() from the operator test suite to handle this case.
+            bound_1 = less_equal(c_gt, c_opt, as_dtype=width.value)
+
+            # The cost function MUST decrease. (See test-level comment for details.)
+            bound_2 = c_opt < c_0
+
+            cost_decrease[var] = np.all(bound_1 & bound_2)
+        assert all(cost_decrease.values())
 
     def test_transparent_fit(self, solver, kwargs_fit):
         # Running solver twice returns same results.
