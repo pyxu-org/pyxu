@@ -4,8 +4,11 @@ import numpy as np
 import pytest
 
 import pycsou.opt.solver as pycos
+import pycsou.runtime as pycrt
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 import pycsou_tests.opt.solver.conftest as conftest
+from pycsou_tests.operator.conftest import allclose
 
 
 class TestCG(conftest.SolverT):
@@ -28,14 +31,7 @@ class TestCG(conftest.SolverT):
             ],
             x0=[
                 None,  # let algorithm choose
-                np.full((N,), 3),
-                np.stack(
-                    [
-                        np.full((N,), 1),
-                        np.full((N,), 15),
-                    ],
-                    axis=0,
-                ),  # multiple initial points
+                np.full((N,), 30),
             ],
             restart_rate=[None, N, 2 * N],
         )
@@ -51,8 +47,9 @@ class TestCG(conftest.SolverT):
         klass, kwargs_init, kwargs_fit = request.param
         return klass, kwargs_init, kwargs_fit
 
-    # Note the different signature compared to SolverT.cost_function:
+    # Note the different signature compared to SolverT.cost_function():
     # we need access to `b` from `kwargs_fit` to compute the cost function.
+    # Moreover, this cost_function is NOT backend-agnostic.
     @pytest.fixture
     def cost_function(self, kwargs_init, kwargs_fit) -> dict[str, pyct.OpT]:
         import pycsou.abc as pyca
@@ -73,27 +70,30 @@ class TestCG(conftest.SolverT):
         )
         return dict(x=func)
 
-    @pytest.mark.parametrize("obj_threshold", [5e-2])
-    # @pytest.mark.parametrize("time_threshold", [dt.timedelta(seconds=5)])
+    # Note the different signature compared to SolverT.test_value_fit().
     def test_value_fit(
         self,
         solver,
         _kwargs_fit_xp,
+        width,
         cost_function,
         ground_truth,
-        obj_threshold,  # rel-threshold
-        # time_threshold,  # max runtime; unused in this override
     ):
-        solver.fit(**_kwargs_fit_xp.copy())
+        # Due to different b/x0 domain combinations, it is difficult to use SolverT.test_value_fit().
+        # To test convergence, we just check that the (strongly-convex) cost function is minimized.
+        with pycrt.Precision(width):
+            solver.fit(**_kwargs_fit_xp.copy())
         data, _ = solver.stats()
 
-        # cost_function() expects a flattened `b`: we must reshape the solver's output.
-        b_dim = _kwargs_fit_xp["b"].ndim
-        x = data["x"]
-        x = x.reshape(
-            *x.shape[:-b_dim],
-            np.prod(x.shape[-b_dim:]),
-        )
-        data.update(x=x)
+        cost_value = dict()
+        for var, c_func in cost_function.items():
+            x_gt = ground_truth[var]
+            c_gt = c_func.apply(pycu.to_NUMPY(x_gt))
+            # cost_function defined for NUMPY inputs only. [CG-peculiarity.]
 
-        self._check_value_fit(data, cost_function, ground_truth, obj_threshold)
+            x_opt = data[var].reshape(-1)
+            c_opt = c_func.apply(pycu.to_NUMPY(x_opt))
+            # cost_function defined for NUMPY inputs only. [CG-peculiarity.]
+
+            cost_value[var] = allclose(c_gt, c_opt, as_dtype=width.value)
+        assert all(cost_value.values())
