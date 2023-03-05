@@ -93,11 +93,21 @@ class SolverT:
         if not same_keys:
             return False
 
+        def standardize(x: pyct.NDArray) -> np.ndarray:
+            # _check_allclose() compares inputs for equality using np.allclose().
+            # Problem: we want NaNs to compare equal, which is not the case with np.allclose().
+            # [Whether this makes sense is test-dependant: safeguards are placed where relevant.]
+            # We therefore use np.nan_to_num() to bound potential NaNs and make them compare
+            # equally.
+            y = pycu.to_NUMPY(x)
+            z = np.nan_to_num(y)
+            return z
+
         stats = dict()
         for k in nd_1.keys():
             stats[k] = np.allclose(
-                pycu.compute(nd_1[k]),
-                pycu.compute(nd_2[k]),
+                standardize(nd_1[k]),
+                standardize(nd_2[k]),
             )
         return all(stats.values())
 
