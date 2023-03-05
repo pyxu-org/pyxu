@@ -370,7 +370,11 @@ class SolverT:
         kwargs_init = kwargs_init.copy()
         kwargs_init.update(stop_rate=stop_rate)
         solver = solver_klass(**kwargs_init)
-        solver.fit(**kwargs_fit.copy())
+
+        kwargs_fit = kwargs_fit.copy()
+        kwargs_fit["stop_crit"] = pycs.MaxIter(n=10 * stop_rate)  # avoids infinite loop if solver does not converge.
+        solver.fit(**kwargs_fit)
+
         _, history = solver.stats()
         assert np.all(history["iteration"] % stop_rate == 0)
 
