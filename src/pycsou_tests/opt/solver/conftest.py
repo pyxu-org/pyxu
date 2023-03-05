@@ -339,6 +339,11 @@ class SolverT:
 
         assert self._check_allclose(data1, data2)
 
+    # -------------------------------------------------------------------------
+    # The Solver API has a complex structure where sub-classes are expected to override a subset of
+    # methods, i.e m_init(), m_step(), default_stop_crit(), objective_func(). The tests below ensure
+    # Solver sub-classes do not break the Solver API by overriding forbidden methods.
+
     @pytest.mark.parametrize("track_objective", [True, False])
     def test_objective_func_tracked(
         self,
