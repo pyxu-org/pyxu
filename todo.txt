@@ -32,13 +32,9 @@ Sepand
     * type[123]()
       Some tests fail only with DASK inputs.
       Reason unknown.
-  * CG
-    * TestCG.test_value_fit() fails with CuPy inputs.
-      Reason: The cost function is not backend-agnostic, but SolverT assumes all functions are backend-agnostic.
-      There is no easy fix in this context to make the test work.
-      However CG is fully functional with CuPy inputs, so failure is acceptable.
-      (Maybe tag them with xfail?)
   * ProxAdam
+    * test_precCM_fit() fails stochastically.
+      Did not investigate yet.
     * test_transparent_fit() fails for some initializations.
       Did not investigate yet.
     * test_value_fit() fails for some initializations.
