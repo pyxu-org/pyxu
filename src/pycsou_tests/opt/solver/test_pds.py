@@ -1,4 +1,5 @@
 import collections.abc as cabc
+import datetime as dt
 import functools
 import itertools
 import operator
@@ -6,14 +7,13 @@ import operator
 import numpy as np
 import pytest
 
-import pycsou.abc as pyca
+import pycsou.abc.operator as pyco
 import pycsou.operator as pycop
 import pycsou.operator.func as pycf
 import pycsou.opt.solver as pycos
 import pycsou.opt.stop as pycstop
 import pycsou.util.ptype as pyct
 import pycsou_tests.opt.solver.conftest as conftest
-from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
 
 
 def generate_funcs_K(descr, N_term) -> cabc.Sequence[tuple[pyct.OpT]]:
@@ -240,7 +240,7 @@ class TestADMM(MixinPDS):
     @pytest.fixture
     def spec(self, klass, init_kwargs, fit_kwargs) -> tuple[pyct.SolverC, dict, dict]:
         # Overriden from base class
-        isNLCG = (init_kwargs.get("K") is not None) and (not isinstance(init_kwargs.get("f"), pycf.QuadraticFunc))
+        isNLCG = (init_kwargs.get("K") is not None) and (not isinstance(init_kwargs.get("f"), pyco.QuadraticFunc))
         if (fit_kwargs["x0"].squeeze().ndim > 1) and isNLCG:
             pytest.skip(f"NLCG scenario with multiple initial points not supported.")
         return klass, init_kwargs, fit_kwargs
