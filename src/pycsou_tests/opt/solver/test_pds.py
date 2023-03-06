@@ -96,6 +96,15 @@ class MixinPDS(conftest.SolverT):
     def spec(self, klass, init_kwargs, fit_kwargs) -> tuple[pyct.SolverC, dict, dict]:
         return klass, init_kwargs, fit_kwargs
 
+    @pytest.fixture(params=[1, 2, 3])
+    def tuning_strategy(self, request) -> int:
+        return request.param
+
+    @pytest.fixture(params=["CV", "PD3O"])
+    def base(self, request) -> pyct.SolverC:
+        bases = {"CV": pycos.CV, "PD3O": pycos.PD3O}
+        return bases[request.param]
+
     @pytest.fixture
     def N(self) -> int:
         return 5
@@ -114,10 +123,11 @@ class MixinPDS(conftest.SolverT):
         return NotImplementedError
 
     @pytest.fixture
-    def fit_kwargs(self, x0) -> dict:
+    def fit_kwargs(self, x0, tuning_strategy) -> dict:
         # Overriden only for ADMM
         return dict(
             x0=x0,
+            tuning_strategy=tuning_strategy,
         )
 
     @pytest.fixture
@@ -139,18 +149,26 @@ class TestPD3O(MixinPDS):
         return request.param
 
 
+class TestCV(MixinPDS):
+    @pytest.fixture
+    def klass(self) -> pyct.SolverC:
+        return pycos.CV
+
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=True, has_g=True, has_h=True, has_K=True))
+    def init_kwargs(self, request) -> dict:
+        return request.param
+
+
 class TestCP(MixinPDS):
     @pytest.fixture
     def klass(self) -> pyct.SolverC:
         return pycos.CP
 
-    @pytest.fixture
-    def init_kwargs(self, N) -> dict:
-        from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
-
-        K = PSDConvolution(N=N)
-        K.lipschitz()
-        return dict(g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1), h=pycf.L1Norm(dim=N), K=K)
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=False, has_g=True, has_h=True, has_K=True))
+    def init_kwargs(self, request, base) -> dict:
+        kwargs = request.param
+        kwargs.update({"base": base})
+        return kwargs
 
 
 class TestLV(MixinPDS):
@@ -158,29 +176,9 @@ class TestLV(MixinPDS):
     def klass(self) -> pyct.SolverC:
         return pycos.LV
 
-    @pytest.fixture
-    def init_kwargs(self, N) -> dict:
-        from pycsou_tests.operator.examples.test_posdefop import PSDConvolution
-
-        K = PSDConvolution(N=N)
-        K.lipschitz()
-        return dict(  # Inner-loop NLCG (with prox)
-            f=pycf.SquaredL2Norm(dim=N), h=pycf.shift_loss(pycf.L1Norm(dim=N), 1), K=K
-        )
-
-
-class TestCV(MixinPDS):
-    @pytest.fixture
-    def klass(self) -> pyct.SolverC:
-        return pycos.CV
-
-    @pytest.fixture
-    def init_kwargs(self, N: int) -> dict:
-        K = PSDConvolution(N=N)
-        K.lipschitz()
-        return dict(
-            f=pycf.SquaredL2Norm(dim=N), g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1), h=pycf.L1Norm(dim=N), K=K
-        )
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=True, has_g=False, has_h=True, has_K=True))
+    def init_kwargs(self, request) -> dict:
+        return request.param
 
 
 class TestDY(MixinPDS):
@@ -188,13 +186,9 @@ class TestDY(MixinPDS):
     def klass(self) -> pyct.SolverC:
         return pycos.DY
 
-    @pytest.fixture
-    def init_kwargs(self, N: int) -> dict:
-        return dict(
-            f=pycf.SquaredL2Norm(dim=N),
-            g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1),
-            h=pycf.L1Norm(dim=N),
-        )
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=True, has_g=True, has_h=True, has_K=False))
+    def init_kwargs(self, request) -> dict:
+        return request.param
 
 
 class TestDR(MixinPDS):
@@ -202,40 +196,21 @@ class TestDR(MixinPDS):
     def klass(self) -> pyct.SolverC:
         return pycos.DR
 
-    @pytest.fixture
-    def init_kwargs(self, N: int) -> dict:
-        return dict(
-            g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1),
-            h=pycf.L1Norm(dim=N),
-        )
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=False, has_g=True, has_h=True, has_K=False))
+    def init_kwargs(self, request, base) -> dict:
+        kwargs = request.param
+        kwargs.update({"base": base})
+        return kwargs
 
 
 class TestADMM(MixinPDS):
-    @staticmethod
-    def cg(N: int):
-        # Test sub-iterative CG scenario which cannot be tested with the functionals used for the math tests
-        import pycsou_tests.operator.examples.test_unitop as unitop
-
-        K = unitop.Permutation(N=N)
-        f_quad = pycf.QuadraticFunc(Q=K, c=pycf.NullFunc(dim=N))
-        return dict(f=f_quad, h=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1), K=K)
-
     @pytest.fixture
     def klass(self) -> pyct.SolverC:
         return pycos.ADMM
 
-    @pytest.fixture(
-        params=[*MixinPDS.generate_init_kwargs(N=5, has_f=True, has_g=False, has_h=True, has_K=True), cg(N=5)]
-    )
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=True, has_g=False, has_h=True, has_K=True))
     def init_kwargs(self, request) -> dict:
         return request.param
-
-    def test_value_fit(self, solver, _kwargs_fit_xp, cost_function, ground_truth):
-        # Overriden from base class
-        if hasattr(solver, "_x_update_solver") and solver._x_update_solver == "cg":
-            pytest.skip(f"ADMM with CG scenario not tested mathematically.")
-        else:
-            super().test_value_fit(solver, _kwargs_fit_xp, cost_function, ground_truth)
 
     @pytest.fixture
     def spec(self, klass, init_kwargs, fit_kwargs) -> tuple[pyct.SolverC, dict, dict]:
@@ -246,10 +221,11 @@ class TestADMM(MixinPDS):
         return klass, init_kwargs, fit_kwargs
 
     @pytest.fixture
-    def fit_kwargs(self, x0) -> dict:
+    def fit_kwargs(self, x0, tuning_strategy) -> dict:
         # Overriden from base class
         return dict(
             x0=x0,
+            tuning_strategy=tuning_strategy,
             solver_kwargs=dict(stop_crit=pycstop.AbsError(eps=1e-4, var="gradient") | pycstop.RelError(1e-4)),
             # Stopping criterion necessary for NLGC scenario (the default stopping criterion is sometimes never
             # satisfied)
@@ -261,12 +237,9 @@ class TestFB(MixinPDS):
     def klass(self) -> pyct.SolverC:
         return pycos.FB
 
-    @pytest.fixture
-    def init_kwargs(self, N: int) -> dict:
-        return dict(
-            f=pycf.SquaredL2Norm(dim=N),
-            g=pycf.shift_loss(pycf.L1Norm(dim=N), 1),
-        )
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=True, has_g=True, has_h=False, has_K=False))
+    def init_kwargs(self, request) -> dict:
+        return request.param
 
 
 class TestPP(MixinPDS):
@@ -274,6 +247,8 @@ class TestPP(MixinPDS):
     def klass(self) -> pyct.SolverC:
         return pycos.PP
 
-    @pytest.fixture
-    def init_kwargs(self, N: int) -> dict:
-        return dict(g=pycf.shift_loss(pycf.SquaredL2Norm(dim=N), 1))
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=False, has_g=True, has_h=False, has_K=False))
+    def init_kwargs(self, request, base) -> dict:
+        kwargs = request.param
+        kwargs.update({"base": base})
+        return kwargs
