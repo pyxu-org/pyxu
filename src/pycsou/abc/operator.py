@@ -1177,7 +1177,7 @@ class QuadraticFunc(ProxDiffFunc):
         b /= tau
         b -= c.grad(arr)
 
-        slvr = CG(A=A)
+        slvr = CG(A=A, show_progress=False)
         slvr.fit(b=b)
         return slvr.solution()
 
