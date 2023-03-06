@@ -12,6 +12,7 @@ import numpy as np
 import pycsou.abc.operator as pyco
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
+import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 
@@ -595,21 +596,33 @@ class ArgShiftRule(Rule):
 
     def _quad_spec(self):
         Q1, c1, t1 = self._op._quad_spec()
+        Q2 = Q1
 
         if isinstance(self._cst, pyct.Real):
-            xp = pycu.get_array_module(self._cst, fallback=np)
-            cst = xp.broadcast_to(self._cst, self._op.dim)
-        else:
-            cst = self._cst
+            from pycsou.operator.linop.reduce import Sum
 
-        Q2 = Q1
-        c2 = c1 + pyco.LinFunc.from_array(
-            Q1.apply(cst),
-            enable_warnings=False,
-            # [enable_warnings] API users have no reason to call _quad_spec().
-            # If they choose to use `c2`, then we assume they know what they are doing.
-        )
-        t2 = float(self._op.apply(cst))
+            # backend-agnostic `c2`-term
+            c2 = c1 + (self._cst * (Sum(arg_shape=(Q1.dim,)) * Q1))
+
+            # Try all backends until one lets you compute `t2`.
+            # (Reason: We cannot infer the backend of an operator from its public API.)
+            t2 = np.nan
+            for xp in pycd.supported_array_modules():
+                if np.isnan(t2):
+                    try:
+                        cst = xp.broadcast_to(self._cst, Q1.dim)
+                        t2 = float(self._op.apply(cst))
+                    except:
+                        pass
+        else:
+            c2 = c1 + pyco.LinFunc.from_array(
+                Q1.apply(self._cst),
+                enable_warnings=False,
+                # [enable_warnings] API users have no reason to call _quad_spec().
+                # If they choose to use `c2`, then we assume they know what they are doing.
+            )
+            t2 = float(self._op.apply(self._cst))
+
         return (Q2, c2, t2)
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
