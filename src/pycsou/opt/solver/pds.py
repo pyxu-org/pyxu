@@ -170,7 +170,7 @@ class _PrimalDualSplitting(pyca.Solver):
         float
             Gamma parameter.
         """
-        return pycrt.coerce(self._beta) if tuning_strategy != 2 else pycrt.coerce(self._beta / 2)
+        return pycrt.coerce(self._beta) if tuning_strategy != 2 else pycrt.coerce(self._beta / 1.9)
 
     def _set_step_sizes(
         self, tau: typ.Optional[pyct.Real], sigma: typ.Optional[pyct.Real], gamma: pyct.Real
