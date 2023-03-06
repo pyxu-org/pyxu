@@ -88,7 +88,7 @@ class _PrimalDualSplitting(pyca.Solver):
         tuning_strategy: typ.Literal[1, 2, 3] = 1,
     ):
         mst = self._mstate  # shorthand
-        mst["x"] = x0 if x0.ndim > 1 else x0.reshape(1, -1)
+        mst["x"] = x0
         mst["z"] = self._set_dual_variable(z0)
         self._tuning_strategy = tuning_strategy
         gamma = self._set_gamma(tuning_strategy)
@@ -159,7 +159,7 @@ class _PrimalDualSplitting(pyca.Solver):
         if z is None:
             return self._K(self._mstate["x"].copy())
         else:
-            return z if z.ndim > 1 else z.reshape(1, -1)
+            return z
 
     def _set_gamma(self, tuning_strategy: typ.Literal[1, 2, 3]) -> pyct.Real:
         r"""
@@ -685,7 +685,12 @@ class PD3O(_PrimalDualSplitting):
         tuning_strategy: typ.Literal[1, 2, 3] = 1,
     ):
         super().m_init(x0=x0, z0=z0, tau=tau, sigma=sigma, rho=rho, tuning_strategy=tuning_strategy)
-        self._mstate["u"] = x0 if x0.ndim > 1 else x0.reshape(1, -1)
+
+        # if x0 == u0 the first step wouldn't change x and the solver would stop at the first iteration
+        if self._g._name == self._h._name == "NullFunc":
+            self._mstate["u"] = x0 * 1.01
+        else:
+            self._mstate["u"] = x0.copy()
 
     def m_step(
         self,
@@ -1462,7 +1467,7 @@ class ADMM(_PDS):
     ):
         super().m_init(x0=x0, z0=z0, tau=tau, sigma=None, rho=rho, tuning_strategy=tuning_strategy)
         mst = self._mstate  # shorthand
-        mst["u"] = self._K(x0) if x0.ndim > 1 else self._K(x0).reshape(1, -1)
+        mst["u"] = self._K(x0)
 
         # Fit kwargs of sub-iterative solver
         if solver_kwargs is None:
