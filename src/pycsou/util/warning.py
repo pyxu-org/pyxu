@@ -47,3 +47,9 @@ class BackendWarning(PycsouWarning):
     """
     Inform user of a backend-specific problem to be aware of.
     """
+
+
+class ContributionWarning(PycsouWarning):
+    """
+    Use for warnings related to Pycsou plugins.
+    """
