@@ -8,6 +8,7 @@ import numpy as np
 import pycsou.abc as pyca
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
+from pycsou.util.plugin import _load_entry_points
 
 __all__ = [
     "AbsError",
@@ -19,6 +20,7 @@ __all__ = [
     "RelError",
 ]
 
+__all__ = _load_entry_points(globals(), group="pycsou.stop", names=__all__)
 
 SVFunction = typ.Union[
     cabc.Callable[[pyct.Real], pyct.Real],
