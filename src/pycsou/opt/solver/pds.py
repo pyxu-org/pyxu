@@ -1500,7 +1500,8 @@ class ADMM(_PDS):
         elif self._x_update_solver == "nlcg":
             from pycsou.opt.solver import NLCG
 
-            quad_func = pyco.QuadraticFunc(Q=2 * self._K_gram, c=pyca.LinFunc.from_array(-self._K.adjoint(arr)))
+            c = pyca.LinFunc.from_array(-self._K.adjoint(arr))
+            quad_func = pyco.QuadraticFunc(shape=(1, self._f.dim), Q=2 * self._K_gram, c=c)
             slvr = NLCG(f=self._f + (1 / tau) * quad_func, **self._init_kwargs)
             slvr.fit(x0=self._mstate["x"].copy(), **self._fit_kwargs)  # Initialize NLCG with previous iterate
             return slvr.solution()
