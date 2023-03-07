@@ -12,17 +12,17 @@ import pycsou.util.random as pycr
 class _Sampler:
     """Abstract base class for samplers."""
 
-    def sample(self, seed: pyct.Integer = None, **init_kwargs) -> cabc.Generator:
+    def samples(self, seed: pyct.Integer = None, **kwargs) -> cabc.Generator:
         """Returns a generator; samples are drawn by calling next(generator)."""
-        self._sample_init(seed, **init_kwargs)
+        self._sample_init(seed, **kwargs)
         while True:
-            yield self._return_sample()
+            yield self._sample()
 
-    def _sample_init(self, seed, **init_kwargs):
+    def _sample_init(self, seed, **kwargs):
         """Optional method to set initial state of the sampler (e.g., a starting point)."""
         pass
 
-    def _return_sample(self) -> pyct.NDArray:
+    def _sample(self) -> pyct.NDArray:
         """Method to be implemented by subclasses that returns the next sample."""
         raise NotImplementedError
 
@@ -32,26 +32,21 @@ class ULA(_Sampler):
     Samples from distribution with PDF $p(x) \propto \exp(-f(x))$ with f differentiable.
     """
 
-    def __init__(self, f: pyca.DiffFunc = None, gamma: pyct.Real = None):
-
-        if f is None:
-            raise ValueError("f must be nonzero.")
+    def __init__(self, f: pyca.DiffFunc, gamma: pyct.Real = None):
         self._f = f
-        self._beta = f._diff_lipschitz
+        self._beta = f.diff_lipschitz()
         self._gamma = self._set_gamma(gamma)
         self._rng = None
         self.x = None
 
-    def _sample_init(self, seed: pyct.Integer, **init_kwargs):
-        try:
-            self.x = init_kwargs["x0"]
-        except:
-            raise KeyError("A starting point x0 must be provided in init_kwargs")
-        self._rng = pycr.random_generator(pycd.NDArrayInfo.from_obj(self.x), seed)
+    def _sample_init(self, seed: pyct.Integer, x0: pyct.NDArray):
+        self.x = x0
+        ndi = pycd.NDArrayInfo.from_obj(x0)
+        self._rng = pycr.random_generator(ndi, seed)
 
-    def _return_sample(self) -> pyct.NDArray:
+    def _sample(self) -> pyct.NDArray:
         self.x += -self._gamma * self._f.grad(self.x)
-        self.x += math.sqrt(2 * self._gamma) * self._rng.standard_normal(size=self.x.shape).astype(self.x.dtype)
+        self.x += math.sqrt(2 * self._gamma) * self._rng.standard_normal(size=self.x.shape, dtype=self.x.dtype)
         return self.x
 
     def objective_func(self) -> pyct.Real:
