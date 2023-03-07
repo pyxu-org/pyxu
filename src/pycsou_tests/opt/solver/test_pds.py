@@ -203,11 +203,28 @@ class TestDR(MixinPDS):
 
 
 class TestADMM(MixinPDS):
+    @staticmethod
+    def nlcg_init_kwargs():
+        # Returns init_kwargs to test the (otherwise untested) NLCG scenario
+        funcs = conftest.funcs(MixinPDS.dim)
+
+        def chain(x, y):
+            comp = x * y
+            comp.diff_lipschitz()
+            return comp
+
+        f = chain(*funcs.pop(2))  # f is a LinFunc (and not a QuadraticFunc) -> avoids CG scenario
+        h = functools.reduce(operator.add, [chain(*ff) for ff in funcs])
+        K = pycop.IdentityOp(dim=MixinPDS.dim)  # Hack to force NLCG scenario (if K = None, then classical ADMM)
+        return dict(f=f, h=h, K=K)
+
     @pytest.fixture
     def klass(self) -> pyct.SolverC:
         return pycos.ADMM
 
-    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=True, has_g=False, has_h=True, has_K=True))
+    @pytest.fixture(
+        params=[*MixinPDS.generate_init_kwargs(has_f=True, has_g=False, has_h=True, has_K=True), nlcg_init_kwargs()]
+    )
     def init_kwargs(self, request) -> dict:
         return request.param
 
@@ -218,17 +235,6 @@ class TestADMM(MixinPDS):
         if (fit_kwargs["x0"].squeeze().ndim > 1) and isNLCG:
             pytest.skip(f"NLCG scenario with multiple initial points not supported.")
         return klass, init_kwargs, fit_kwargs
-
-    @pytest.fixture
-    def fit_kwargs(self, x0, tuning_strategy) -> dict:
-        # Overriden from base class
-        return dict(
-            x0=x0,
-            tuning_strategy=tuning_strategy,
-            solver_kwargs=dict(stop_crit=pycstop.AbsError(eps=1e-4, var="gradient") | pycstop.RelError(1e-4)),
-            # Stopping criterion necessary for NLGC scenario (the default stopping criterion is sometimes never
-            # satisfied)
-        )
 
 
 class TestFB(MixinPDS):
