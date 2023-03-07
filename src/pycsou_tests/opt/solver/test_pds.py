@@ -55,12 +55,15 @@ def generate_funcs_K(descr, N_term) -> cabc.Sequence[tuple[pyct.OpT]]:
 
 
 class MixinPDS(conftest.SolverT):
-    @staticmethod
-    def generate_init_kwargs(N: int, has_f: bool, has_g: bool, has_h: bool, has_K: bool) -> list[dict]:
+
+    dim = 5  # Dimension of input vector for tests
+
+    @classmethod
+    def generate_init_kwargs(cls, has_f: bool, has_g: bool, has_h: bool, has_K: bool) -> list[dict]:
         # Returns a stream of dictionaries for the init_kwargs fixture of the solver based on whether that solver has
         # arguments f, g, h and K. All possible combinations of the output of `funcs` are tested.
 
-        funcs = conftest.funcs(N, seed=3)
+        funcs = conftest.funcs(cls.dim)
         stream1 = conftest.generate_funcs(funcs, N_term=1)
         stream2 = conftest.generate_funcs(funcs, N_term=2)
 
@@ -105,14 +108,10 @@ class MixinPDS(conftest.SolverT):
         bases = {"CV": pycos.CV, "PD3O": pycos.PD3O}
         return bases[request.param]
 
-    @pytest.fixture
-    def N(self) -> int:
-        return 5
-
     @pytest.fixture(params=["1d", "nd"])
-    def x0(self, N, request) -> dict:
+    def x0(self, request) -> dict:
         # Multiple initial points
-        return {"1d": np.full((N,), 3.0), "nd": np.full((2, N), 15.0)}[request.param]
+        return {"1d": np.full((self.dim,), 3.0), "nd": np.full((2, self.dim), 15.0)}[request.param]
 
     @pytest.fixture
     def klass(self) -> pyct.SolverC:
@@ -131,11 +130,11 @@ class MixinPDS(conftest.SolverT):
         )
 
     @pytest.fixture
-    def cost_function(self, N, init_kwargs) -> dict[str, pyct.OpT]:
-        kwargs = [init_kwargs.get(k, pycf.NullFunc(dim=N)) for k in ("f", "g", "h")]
+    def cost_function(self, init_kwargs) -> dict[str, pyct.OpT]:
+        kwargs = [init_kwargs.get(k, pycf.NullFunc(dim=self.dim)) for k in ("f", "g", "h")]
         func = kwargs[0] + kwargs[1]
         if init_kwargs.get("h") is not None:
-            func += init_kwargs.get("h") * init_kwargs.get("K", pycop.IdentityOp(dim=N))
+            func += init_kwargs.get("h") * init_kwargs.get("K", pycop.IdentityOp(dim=self.dim))
         return dict(x=func)
 
 
@@ -144,7 +143,7 @@ class TestPD3O(MixinPDS):
     def klass(self) -> pyct.SolverC:
         return pycos.PD3O
 
-    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=True, has_g=True, has_h=True, has_K=True))
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=True, has_g=True, has_h=True, has_K=True))
     def init_kwargs(self, request) -> dict:
         return request.param
 
@@ -154,7 +153,7 @@ class TestCV(MixinPDS):
     def klass(self) -> pyct.SolverC:
         return pycos.CV
 
-    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=True, has_g=True, has_h=True, has_K=True))
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=True, has_g=True, has_h=True, has_K=True))
     def init_kwargs(self, request) -> dict:
         return request.param
 
@@ -164,7 +163,7 @@ class TestCP(MixinPDS):
     def klass(self) -> pyct.SolverC:
         return pycos.CP
 
-    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=False, has_g=True, has_h=True, has_K=True))
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=False, has_g=True, has_h=True, has_K=True))
     def init_kwargs(self, request, base) -> dict:
         kwargs = request.param
         kwargs.update({"base": base})
@@ -176,7 +175,7 @@ class TestLV(MixinPDS):
     def klass(self) -> pyct.SolverC:
         return pycos.LV
 
-    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=True, has_g=False, has_h=True, has_K=True))
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=True, has_g=False, has_h=True, has_K=True))
     def init_kwargs(self, request) -> dict:
         return request.param
 
@@ -186,7 +185,7 @@ class TestDY(MixinPDS):
     def klass(self) -> pyct.SolverC:
         return pycos.DY
 
-    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=True, has_g=True, has_h=True, has_K=False))
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=True, has_g=True, has_h=True, has_K=False))
     def init_kwargs(self, request) -> dict:
         return request.param
 
@@ -196,7 +195,7 @@ class TestDR(MixinPDS):
     def klass(self) -> pyct.SolverC:
         return pycos.DR
 
-    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=False, has_g=True, has_h=True, has_K=False))
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=False, has_g=True, has_h=True, has_K=False))
     def init_kwargs(self, request, base) -> dict:
         kwargs = request.param
         kwargs.update({"base": base})
@@ -237,7 +236,7 @@ class TestFB(MixinPDS):
     def klass(self) -> pyct.SolverC:
         return pycos.FB
 
-    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=True, has_g=True, has_h=False, has_K=False))
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=True, has_g=True, has_h=False, has_K=False))
     def init_kwargs(self, request) -> dict:
         return request.param
 
@@ -247,7 +246,7 @@ class TestPP(MixinPDS):
     def klass(self) -> pyct.SolverC:
         return pycos.PP
 
-    @pytest.fixture(params=MixinPDS.generate_init_kwargs(N=5, has_f=False, has_g=True, has_h=False, has_K=False))
+    @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=False, has_g=True, has_h=False, has_K=False))
     def init_kwargs(self, request, base) -> dict:
         kwargs = request.param
         kwargs.update({"base": base})
