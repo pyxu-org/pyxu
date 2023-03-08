@@ -15,6 +15,12 @@ def _load_entry_points(glob, group, names=None):
     issues that may arise from their use. The developers of this software framework are not liable for any harm caused
     by the use of third-party plugins.
 
+    NOTE
+    ----
+    There might be duplicated extensions when installing a plugin in editable mode (i.e. with pip install -e). This
+    does not represent a problem in practice but a warning that an attempt at overloading a Pycsou base object might
+    arise. See the issue https://github.com/pypa/setuptools/issues/3649 for further information.
+
     """
     eps = tuple(entry_points(group=group))
 
