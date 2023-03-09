@@ -211,8 +211,8 @@ def _create_kernel(arg_shape, axis, _fill_coefs) -> typ.Tuple[pyct.NDArray, pyct
     r"""
     Creates kernel for stencil.
     """
-    stencil_ids = [None] * len(arg_shape)
-    stencil_coefs = [None] * len(arg_shape)
+    stencil_ids = [np.array([0])] * len(arg_shape)
+    stencil_coefs = [np.array([1.0])] * len(arg_shape)
     center = np.zeros(len(arg_shape), dtype=int)
 
     # Create finite difference coefficients for each dimension
