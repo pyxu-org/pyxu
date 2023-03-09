@@ -24,6 +24,7 @@ __all__ = [
     "GaussianDerivative",
     "PartialDerivative",
     "Gradient",
+    "Jacobian",
     "Hessian",
     "DirectionalDerivative",
     "DirectionalGradient",
@@ -1191,9 +1192,6 @@ class Gradient(_BaseVecDifferential):
     The user is referred to the constructor class :py:class:`~pycsou.operator.linop.diff.PartialDerivative` for detailed
     information on the adjoint of partial derivatives.
 
-    **Remark**
-
-    The Gradient Operator can be applied to a vector valued map to obtain its Jacobian.
 
     Example
     -------
@@ -1239,9 +1237,9 @@ class Gradient(_BaseVecDifferential):
 
     See Also
     --------
-    :py:class:`~pycsou.operator.linop.diff._BaseDifferential`, :py:class:`~pycsou.operator.linop.diff.FiniteDifference`,
-    :py:class:`~pycsou.operator.linop.diff.GaussianDerivative`,
-    :py:class:`~pycsou.operator.linop.diff.PartialDerivative`, :py:class:`~pycsou.operator.linop.diff.Hessian`.
+    :py:class:`~pycsou.operator.linop.diff.FiniteDifference`, :py:class:`~pycsou.operator.linop.diff.GaussianDerivative`,
+    :py:class:`~pycsou.operator.linop.diff.PartialDerivative`, :py:func:`~pycsou.operator.linop.diff.Jacobian`,
+    :py:class:`~pycsou.operator.linop.diff.Hessian`.
     """
 
     @staticmethod
@@ -1399,6 +1397,92 @@ class Gradient(_BaseVecDifferential):
             sampling=sampling,
             parallel=parallel,
         )
+
+
+def Jacobian(
+    arg_shape: pyct.NDArrayShape,
+    n_channels: pyct.Integer,
+    diff_method: str = "gd",
+    mode: ModeSpec = "constant",
+    gpu: bool = False,
+    dtype: typ.Optional[pyct.DType] = None,
+    sampling: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1,
+    parallel: bool = False,
+    **diff_kwargs,
+):
+    """
+    Jacobian Operator based on `Numba stencils <https://numba.pydata.org/numba-doc/latest/user/stencil.html>`_.
+
+    Notes
+    -----
+
+    This operator computes the first order partial derivatives of a :math:`D`-dimensional vector-valued signal of
+    :math:`C` variables :math:`\mathbf{f}_{c} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}}`, for :math:`c \in [0,\dots, C-1]`.
+
+    The jacobian :math:`\mathbf{f}` of is computed via the gradient as follows:
+
+
+    .. math::
+
+        \mathbf{J} = \begin{bmatrix}
+        \nabla^{\top} \mathbf{f}_{0} \\
+        \vdots \\
+        \nabla^{\top} \mathbf{f}_{C-1} \\
+        \end{bmatrix}
+
+
+    Example
+    -------
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.util.misc import peaks
+       x = np.linspace(-2.5, 2.5, 25)
+       xx, yy = np.meshgrid(x, x)
+       image = np.tile(peaks(xx, yy), (3, 1, 1))
+       jac = Jacobian(arg_shape=image.shape[1:], n_channels=image.shape[0])
+       out = jac.unravel(jac(image.ravel()))
+       fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+       for i in range(2):
+           for j in range(3):
+               axes[i, j].imshow(out[i, j].T, cmap=["Reds", "Greens", "Blues"][j])
+               axes[i, j].set_title(f"$\partial I_{{{['R', 'G', 'B'][j]}}}/\partial{{{['x', 'y'][i]}}}$")
+       plt.suptitle("Jacobian")
+
+
+    See Also
+    --------
+    :py:func:`~pycsou.operator.linop.diff.Gradient`, :py:func:`~pycsou.operator.linop.diff.PartialDerivative`
+
+    """
+    init_kwargs = dict(
+        arg_shape=arg_shape,
+        directions=None,
+        mode=mode,
+        gpu=gpu,
+        dtype=dtype,
+        sampling=sampling,
+        parallel=parallel,
+        **diff_kwargs,
+    )
+
+    if diff_method == "fd":
+        grad = Gradient.finite_difference(**init_kwargs)
+    elif diff_method == "gd":
+        grad = Gradient.gaussian_derivative(**init_kwargs)
+    else:
+        raise NotImplementedError
+
+    op = pycb.block_diag(
+        [
+            grad,
+        ]
+        * n_channels
+    )
+    op._name = "Jacobian"
+    return _make_unravelable(op, (n_channels, *arg_shape))
 
 
 class Hessian(_BaseVecDifferential):
