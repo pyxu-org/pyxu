@@ -1550,7 +1550,7 @@ class Hessian(_BaseVecDifferential):
         ``directions=(0,1)`` :math:`\rightarrow  \partial^{2}\mathbf{f}/\partial x_{0}\partial x_{1}`.
     * [mode 2]  ``directions`` is tuple of tuples, e.g.:
         ``directions=((0,0), (0,1))`` :math:`\rightarrow  \left(\frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} }, \frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}\partial x_{1} }\right)`.
-    * [mode 3] ``directions`` is 'all'  computes the Hessian for all directions, i.e.:
+    * [mode 3] ``directions`` is `all`  computes the Hessian for all directions, i.e.:
         :math:`\rightarrow  \left(\frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} }, \frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}\partial x_{1} }, \, \ldots , \, \frac{ \partial^{2}\mathbf{f} }{ \partial x_{D}^{2} }\right)`.
 
     **Remark**
