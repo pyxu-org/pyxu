@@ -520,6 +520,7 @@ def FiniteDifference(
 
     if return_linop:
         op = _BaseDifferential(kernel=kernel, center=center, arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype)
+        op._name = "FiniteDifference"
         return op
     else:
         return kernel, center
@@ -738,6 +739,7 @@ def GaussianDerivative(
     kernel, center = _create_kernel(arg_shape, axis, _fill_coefs)
     if return_linop:
         op = _BaseDifferential(kernel=kernel, center=center, arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype)
+        op._name = "GaussianDerivative"
         return op
     else:
         return kernel, center
@@ -1923,11 +1925,13 @@ def DirectionalDerivative(
         dop = pycl.DiagonalOp(directions.ravel())
 
     sop = pycl.Sum(arg_shape=(len(arg_shape),) + arg_shape, axis=0)
-    out = sop * dop * diff
+    op = sop * dop * diff
 
     if which == 2:
-        out = -out.T * out
-    return _make_unravelable(out, arg_shape=arg_shape)
+        op = -op.T * op
+
+    op._name = "DirectionalDerivative"
+    return _make_unravelable(op, arg_shape=arg_shape)
 
 
 def DirectionalGradient(
@@ -2059,7 +2063,9 @@ def DirectionalGradient(
                 **diff_kwargs,
             )
         )
-    return _make_unravelable(pycb.vstack(dir_deriv), arg_shape=arg_shape)
+    op = pycb.vstack(dir_deriv)
+    op._name = "DirectionalGradient"
+    return _make_unravelable(op, arg_shape=arg_shape)
 
 
 def DirectionalLaplacian(
@@ -2177,9 +2183,9 @@ def DirectionalLaplacian(
     else:
         if len(weights) != len(directions):
             raise ValueError("The number of weights and directions provided differ.")
-    dir_lapacian = pycl.NullOp(shape=(np.prod(arg_shape), np.prod(arg_shape)))
+    op = pycl.NullOp(shape=(np.prod(arg_shape), np.prod(arg_shape)))
     for weight, direction in zip(weights, directions):
-        dir_lapacian += weight * DirectionalDerivative(
+        op += weight * DirectionalDerivative(
             arg_shape=arg_shape,
             which=2,
             directions=direction,
@@ -2191,8 +2197,8 @@ def DirectionalLaplacian(
             parallel=parallel,
             **diff_kwargs,
         )
-
-    return _make_unravelable(dir_lapacian, arg_shape=arg_shape)
+    op._name = "DirectionalLaplacian"
+    return _make_unravelable(op, arg_shape=arg_shape)
 
 
 def DirectionalHessian(
@@ -2366,7 +2372,9 @@ def DirectionalHessian(
                 ).T
             )
 
-    return _make_unravelable(pycb.vstack(dir_deriv), arg_shape=arg_shape)
+    op = pycb.vstack(dir_deriv)
+    op._name = "DirectionalHessian"
+    return _make_unravelable(op, arg_shape=arg_shape)
 
 
 class StructureTensor(pyco.DiffMap):
