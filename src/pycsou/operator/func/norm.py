@@ -97,7 +97,7 @@ class SquaredL2Norm(pyca.QuadraticFunc):
     :math:`\ell^2_2`-norm, :math:`\Vert\mathbf{x}\Vert^2_2:=\sum_{i=1}^N |x_i|^2`.
     """
 
-    def __init__(self, dim: pyct.Integer):
+    def __init__(self, dim: pyct.Integer = None):
         r"""
         Parameters
         ----------
