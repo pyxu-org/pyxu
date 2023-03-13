@@ -1,30 +1,100 @@
-import enum
-import itertools
-import math
 import typing as typ
 
 import numpy as np
-import numpy.linalg as npl
 import pytest
 import scipy.ndimage as scimage
 
-import pycsou.math.linalg as pylinalg
 import pycsou.operator.linop.diff as pycdiff
 import pycsou.runtime as pycrt
-import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
-
-if pycd.CUPY_ENABLED:
-    import cupy.linalg as cpl
-
-import collections.abc as cabc
 
 try:
     import scipy.ndimage._filters as scif
 except ImportError:
     import scipy.ndimage.filters as scif
+
+
+def diff_params_fd(diff_type, accuracy):  # Finite Difference
+    diff_params = {
+        "diff_type": diff_type,
+        "accuracy": accuracy,
+    }
+    gt_diff = {
+        # diff type
+        "central": {
+            # accuracy
+            2: {
+                # order
+                1: {
+                    "coefs": np.array([-1 / 2, 0, 1 / 2]),
+                    "origin": 1,
+                },
+                2: {
+                    "coefs": np.array([1, -2, 1]),
+                    "origin": 1,
+                },
+            },
+            4: {
+                1: {
+                    "coefs": np.array([1 / 12, -2 / 3, 0, 2 / 3, -1 / 12]),
+                    "origin": 2,
+                },
+                2: {
+                    "coefs": np.array([-1 / 12, 4 / 3, -5 / 2, 4 / 3, -1 / 12]),
+                    "origin": 2,
+                },
+            },
+        },
+        "forward": {
+            2: {
+                1: {
+                    "coefs": np.array([-3 / 2, 2, -1 / 2]),
+                    "origin": 0,
+                },
+                2: {
+                    "coefs": np.array([2, -5, 4, -1]),
+                    "origin": 0,
+                },
+            },
+            4: {
+                1: {
+                    "coefs": np.array([-25 / 12, 4, -3, 4 / 3, -1 / 4]),
+                    "origin": 0,
+                },
+                2: {
+                    "coefs": np.array([15 / 4, -77 / 6, 107 / 6, -13, 61 / 12, -5 / 6]),
+                    "origin": 0,
+                },
+            },
+        },
+        "backward": {
+            2: {
+                1: {
+                    "coefs": np.array([1 / 2, -2, 3 / 2]),
+                    "origin": 2,
+                },
+                2: {
+                    "coefs": np.array([-1, 4, -5, 2]),
+                    "origin": 3,
+                },
+            }
+        },
+    }
+    gt_diffs = gt_diff[diff_type][accuracy]
+
+    return diff_params, gt_diffs
+
+
+def diff_params_gd(sigma, truncate):  # Gaussian Derivative
+    radius = int(truncate * float(sigma) + 0.5)
+    diff_params = {"sigma": sigma, "truncate": truncate}
+    gt_diffs = {
+        1: {"coefs": np.flip(scif._gaussian_kernel1d(sigma, 1, radius)), "origin": radius // 2 + 1},
+        2: {"coefs": np.flip(scif._gaussian_kernel1d(sigma, 2, radius)), "origin": radius // 2 + 1},
+    }
+    return diff_params, gt_diffs
 
 
 class DiffOpMixin(conftest.LinOpT):
@@ -115,10 +185,31 @@ class DiffOpMixin(conftest.LinOpT):
     def width(self, request):
         return request.param
 
+    @pytest.fixture(
+        params=[
+            #  Finite Diff. ,   Gaussian Der.
+            # (diff_typ, acc), (sigma, truncate)
+            (("forward", 2), (2, 1))
+            # (("forward", 4), (, ))
+            # (("backward", 2), (, ))
+            # (("central", 2), (, ))
+            # (("central", 4), (, ))
+        ]
+    )
+    def init_params(self, diff_method, request):
+        params_fd, params_gd = request.param
+        if diff_method == "fd":
+            return diff_params_fd(params_fd[0], params_fd[1])
+        elif diff_method == "gd":
+            return diff_params_gd(params_gd[0], params_gd[1])
+
     @pytest.fixture
-    def gt_diffs(self, diff_params):
-        # Ground truth diff kernels
-        raise NotImplementedError
+    def diff_params(self, init_params):
+        return init_params[0]
+
+    @pytest.fixture
+    def gt_diffs(self, init_params):
+        return init_params[1]
 
     @pytest.fixture
     def data_apply(self, op, gt_diffs, order, arg_shape, axis, mode, sampling) -> conftest.DataLike:
@@ -158,144 +249,69 @@ class DiffOpMixin(conftest.LinOpT):
         sh = (size, size)
         return sh
 
-
-class TestFiniteDifferences(DiffOpMixin):
-    @pytest.fixture(
-        params=[
-            # diff_typ, acc
-            ("forward", 2),
-            # ("forward", 4),
-            # ("backward", 2),
-            # ("central", 2),
-            # ("central", 4),
-        ]
-    )
-    def diff_params(self, request):
-        return request.param
-
     @pytest.fixture
-    def gt_diffs(self, diff_params):
-        gt_diff = {
-            # diff type
-            "central": {
-                # accuracy
-                2: {
-                    # order
-                    1: {
-                        "coefs": np.array([-1 / 2, 0, 1 / 2]),
-                        "origin": 1,
-                    },
-                    2: {
-                        "coefs": np.array([1, -2, 1]),
-                        "origin": 1,
-                    },
-                },
-                4: {
-                    1: {
-                        "coefs": np.array([1 / 12, -2 / 3, 0, 2 / 3, -1 / 12]),
-                        "origin": 2,
-                    },
-                    2: {
-                        "coefs": np.array([-1 / 12, 4 / 3, -5 / 2, 4 / 3, -1 / 12]),
-                        "origin": 2,
-                    },
-                },
-            },
-            "forward": {
-                2: {
-                    1: {
-                        "coefs": np.array([-3 / 2, 2, -1 / 2]),
-                        "origin": 0,
-                    },
-                    2: {
-                        "coefs": np.array([2, -5, 4, -1]),
-                        "origin": 0,
-                    },
-                },
-                4: {
-                    1: {
-                        "coefs": np.array([-25 / 12, 4, -3, 4 / 3, -1 / 4]),
-                        "origin": 0,
-                    },
-                    2: {
-                        "coefs": np.array([15 / 4, -77 / 6, 107 / 6, -13, 61 / 12, -5 / 6]),
-                        "origin": 0,
-                    },
-                },
-            },
-            "backward": {
-                2: {
-                    1: {
-                        "coefs": np.array([1 / 2, -2, 3 / 2]),
-                        "origin": 2,
-                    },
-                    2: {
-                        "coefs": np.array([-1, 4, -5, 2]),
-                        "origin": 3,
-                    },
-                }
-            },
+    def diff_kwargs(self, order, arg_shape, axis, mode, ndi, width, sampling):
+        return {
+            "order": order,
+            "arg_shape": arg_shape,
+            "axis": axis,
+            "mode": mode,
+            "gpu": ndi.name == "CUPY",
+            "dtype": width.value,
+            "sampling": sampling,
         }
-        return gt_diff[diff_params[0]][diff_params[1]]
 
     @pytest.fixture
     def spec(
-        self, _spec, diff_params, order, arg_shape, axis, ndi, width, mode, sampling
+        self, _spec, diff_op, diff_params, diff_kwargs, ndi, width
     ) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
+
+        kwargs = diff_params.copy()
+        kwargs.update(diff_kwargs)
         with pycrt.Precision(width):
-            op = pycdiff._FiniteDifference(
-                order=order,
-                arg_shape=arg_shape,
-                diff_type=diff_params[0],
-                axis=axis,
-                accuracy=diff_params[1],
-                mode=mode,
-                gpu=ndi.name == "CUPY",
-                dtype=width.value,
-                sampling=sampling,
-            )
+            op = diff_op(**kwargs)
         return op, ndi, width
+
+
+class TestFiniteDifferences(DiffOpMixin):
+    @pytest.fixture(params=["fd"])
+    def diff_method(self, request):
+        return request.param
+
+    @pytest.fixture
+    def diff_op(self):
+        return pycdiff.FiniteDifference
 
 
 class TestGaussianDerivative(DiffOpMixin):
-    @pytest.fixture(
-        params=[
-            # sigma, truncate
-            (1, 2),
-            # ("forward", 4),
-            # ("backward", 2),
-            # ("central", 2),
-            # ("central", 4),
-        ]
-    )
-    def diff_params(self, request):
+    @pytest.fixture(params=["gd"])
+    def diff_method(self, request):
         return request.param
 
     @pytest.fixture
-    def gt_diffs(self, diff_params):
-        # based on https: // en.wikipedia.org / wiki / Finite_difference_coefficient
-        sigma = diff_params[0]
-        truncate = diff_params[1]
-        radius = int(truncate * float(sigma) + 0.5)
-        return {
-            1: {"coefs": np.flip(scif._gaussian_kernel1d(sigma, 1, radius)), "origin": radius // 2 + 1},
-            2: {"coefs": np.flip(scif._gaussian_kernel1d(sigma, 2, radius)), "origin": radius // 2 + 1},
-        }
+    def diff_op(self):
+        return pycdiff.GaussianDerivative
+
+
+class TestPartialDerivative(DiffOpMixin):
+    @pytest.fixture(params=["fd", "gd"])
+    def diff_method(self, request):
+        return request.param
 
     @pytest.fixture
-    def spec(
-        self, _spec, diff_params, order, arg_shape, axis, ndi, width, mode, sampling
-    ) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
-        with pycrt.Precision(width):
-            op = pycdiff._GaussianDerivative(
-                order=order,
-                arg_shape=arg_shape,
-                sigma=diff_params[0],
-                axis=axis,
-                truncate=diff_params[1],
-                mode=mode,
-                gpu=ndi.name == "CUPY",
-                dtype=width.value,
-                sampling=sampling,
-            )
-        return op, ndi, width
+    def diff_op(self, diff_method):
+        if diff_method == "fd":
+            return pycdiff.PartialDerivative.finite_difference
+        elif diff_method == "gd":
+            return pycdiff.PartialDerivative.gaussian_derivative
+
+    @pytest.fixture
+    def diff_kwargs(self, order, arg_shape, mode, ndi, width, sampling):
+        return {
+            "order": order,
+            "arg_shape": arg_shape,
+            "mode": mode,
+            "gpu": ndi.name == "CUPY",
+            "dtype": width.value,
+            "sampling": sampling,
+        }
