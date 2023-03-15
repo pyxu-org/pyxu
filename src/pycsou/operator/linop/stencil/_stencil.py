@@ -170,7 +170,7 @@ class _Stencil:
         Notes
         -----
         * `arr` and `out` must have the same type/dtype as the kernel used during instantiation.
-        * Index regions in `out` where the stencil is not fully supported are set to 0.
+        * `arr` is zero-padded to compute the values of `out` near the boundaries.
         * .apply() may raise CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES when the number of GPU registers
           required exceeds resource limits.
           There are 2 solutions to this problem:
@@ -178,7 +178,7 @@ class _Stencil:
             (1) Pass the `max_registers` kwarg to f_jit()'s decorator; or
             (2) Limit the number of threads per block. (https://stackoverflow.com/a/68659008)
 
-          (1) must be set at compile time; it is thus left unbounded.
+          (1) must be set at compilation time; it is thus left unbounded.
           (2) is accessible through .apply(**kwargs).
         """
         assert arr.dtype == out.dtype == self._kernel.dtype
