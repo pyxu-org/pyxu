@@ -839,12 +839,10 @@ class AddRule(Rule):
         return out
 
     def lipschitz(self, **kwargs) -> pyct.Real:
-        if self.has(pyco.Property.LINEAR):
+        if self.has(pyco.Property.LINEAR) and kwargs.get("tight", False):
             if self.has(pyco.Property.FUNCTIONAL):
                 self._lipschitz = pyco.LinFunc.lipschitz(self, **kwargs)
             else:
-                kwargs = copy.copy(kwargs)
-                kwargs.update(recompute=True)
                 self._lipschitz = pyco.LinOp.lipschitz(self, **kwargs)
         else:
             L_lhs = self._lhs.lipschitz(**kwargs)
@@ -1174,12 +1172,10 @@ class ChainRule(Rule):
         return out
 
     def lipschitz(self, **kwargs) -> pyct.Real:
-        if self.has(pyco.Property.LINEAR):
+        if self.has(pyco.Property.LINEAR) and kwargs.get("tight", False):
             if self.has(pyco.Property.FUNCTIONAL):
                 self._lipschitz = pyco.LinFunc.lipschitz(self, **kwargs)
             else:
-                kwargs = copy.copy(kwargs)
-                kwargs.update(recompute=True)
                 self._lipschitz = pyco.LinOp.lipschitz(self, **kwargs)
         else:
             self._lipschitz = self._lhs.lipschitz(**kwargs)

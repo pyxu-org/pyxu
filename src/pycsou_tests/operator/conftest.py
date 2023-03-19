@@ -882,6 +882,7 @@ class ProxDiffFuncT(ProxFuncT, DiffFuncT):
     interface = frozenset(ProxFuncT.interface | DiffFuncT.interface)
 
 
+@pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
 class QuadraticFuncT(ProxDiffFuncT):
     # Class Properties --------------------------------------------------------
     base = pyca.QuadraticFunc
@@ -1342,21 +1343,20 @@ class LinOpT(DiffMapT):
         assert self._metric(lhs, rhs, as_dtype=width.value)
 
     def test_math2_lipschitz(self, op, xp, width):
-        # op.lipschitz('fro') upper bounds op.lipschitz('svds')
+        # op.lipschitz(tight=False) upper bounds op.lipschitz(tight=True).
         self._skip_if_disabled()
-        L_svds = op.lipschitz(recompute=True, algo="svds")
-        L_fro = op.lipschitz(recompute=True, algo="fro", xp=xp, enable_warnings=False)
-        assert less_equal(
-            L_svds,
-            L_fro,
-            as_dtype=width.value,
-            # as_dtype=pycrt.Width.SINGLE.value,
-        ).item()
+        L_ub = op.lipschitz(
+            xp=xp,
+            dtype=width.value,
+            enable_warnings=False,
+        )
+        L_tight = op.lipschitz(tight=True)
+        assert less_equal(L_tight, L_ub, as_dtype=width.value).item()
 
     def test_math3_lipschitz(self, op, _op_svd, width):
-        # op.lipschitz('svds') computes the optimal Lipschitz constant.
+        # op.lipschitz(tight=True) computes the optimal Lipschitz constant.
         self._skip_if_disabled()
-        L_svds = op.lipschitz(recompute=True, algo="svds")
+        L_svds = op.lipschitz(tight=True)
         # Comparison is done with user-specified metric since operator may compute `L_svds` via an
         # approximate `.apply()' method.
         cast = lambda x: np.array([x], dtype=width.value)
