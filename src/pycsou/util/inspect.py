@@ -1,7 +1,10 @@
 import collections.abc as cabc
+import importlib
 import inspect
+import types
 
 __all__ = [
+    "import_module",
     "parse_params",
 ]
 
@@ -24,3 +27,11 @@ def parse_params(func, *args, **kwargs) -> cabc.Mapping:
         **f_args.kwargs,
     )
     return params
+
+
+def import_module(name: str) -> types.ModuleType:
+    """
+    Load a Python module dynamically.
+    """
+    pkg = importlib.import_module(name)
+    return pkg

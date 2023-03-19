@@ -148,8 +148,8 @@ class MaxCarbon(pyca.StoppingCriterion):
             self._co2_max = float(co2)
         except:
             raise ValueError(f"co2: expected positive carbon quantity, got {co2}.")
-        import codecarbon
 
+        codecarbon = pycu.import_module("codecarbon")
         self.tracker = codecarbon.EmissionsTracker(
             api_call_interval=-1,
             save_to_file=False,
