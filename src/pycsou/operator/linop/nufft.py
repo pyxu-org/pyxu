@@ -1159,11 +1159,7 @@ class NUFFT(pyca.LinOp):
         -----
         Requires `Matplotlib <https://matplotlib.org/>`_ to be installed.
         """
-        try:
-            import matplotlib.pyplot as plt
-        except:
-            raise ImportError("This method requires matplotlib to be installed.")
-
+        plt = pycu.import_module("matplotlib.pyplot")
         if ax is None:
             _, ax = plt.subplots()
 
@@ -2756,11 +2752,8 @@ class _NUFFT3_chunked(_NUFFT3):
         return chunks
 
     def diagnostic_plot(self, domain: str):
-        try:
-            import matplotlib.patches as mpl_p
-            import matplotlib.pyplot as plt
-        except:
-            raise ImportError("This method requires matplotlib to be installed.")
+        plt = pycu.import_module("matplotlib.pyplot")
+        mpl_p = pycu.import_module("matplotlib.patches")
 
         def _plot(
             points,  # (N, 2) data points
