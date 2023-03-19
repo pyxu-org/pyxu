@@ -375,7 +375,7 @@ class Pad(pyca.LinOp):
         return out
 
     def lipschitz(self, **kwargs) -> pyct.Real:
-        if kwargs.get("recompute", False):
+        if kwargs.get("tight", False):
             self._lipschitz = super().lipschitz(**kwargs)
         else:
             L = []  # 1D pad-op Lipschitz constants

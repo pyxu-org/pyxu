@@ -118,6 +118,15 @@ def kron(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
         out = u.reshape((*sh_prefix, -1))  # (..., A.dim * B.dim)
         return out
 
+    def op_lipschitz(_, **kwargs) -> pyct.Real:
+        if kwargs.get("tight", False):
+            _._lipschitz = _.__class__.lipschitz(_, **kwargs)
+        else:
+            L_A = _._A.lipschitz(**kwargs)
+            L_B = _._B.lipschitz(**kwargs)
+            _._lipschitz = float(L_A * L_B)
+        return _._lipschitz
+
     def op_asarray(_, **kwargs) -> pyct.NDArray:
         # (A \kron B).asarray() = A.asarray() \kron B.asarray()
         A = _._A.asarray(**kwargs)
@@ -233,6 +242,7 @@ def kron(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
     op.eigvals = types.MethodType(op_eigvals, op)
     op.pinv = types.MethodType(op_pinv, op)
     op.trace = types.MethodType(op_trace, op)
+    op.lipschitz = types.MethodType(op_lipschitz, op)
     op._expr = types.MethodType(op_expr, op)
     return op
 
@@ -353,6 +363,16 @@ def khatri_rao(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
         C = (A * B).reshape((_.dim, -1)).T
         return C
 
+    def op_lipschitz(_, **kwargs) -> pyct.Real:
+        if kwargs.get("tight", False):
+            _._lipschitz = _.__class__.lipschitz(_, **kwargs)
+        else:
+            # kr(A,B) = kron(A,B) + sub-sampling
+            # -> upper-bound provided by kron(A,B).lipschitz()
+            op = kron(_._A, _._B)
+            _._lipschitz = op.lipschitz(**kwargs)
+        return _._lipschitz
+
     def op_expr(_) -> tuple:
         return ("khatri_rao", _._A, _._B)
 
@@ -368,5 +388,6 @@ def khatri_rao(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
     op.apply = types.MethodType(op_apply, op)
     op.adjoint = types.MethodType(op_adjoint, op)
     op.asarray = types.MethodType(op_asarray, op)
+    op.lipschitz = types.MethodType(op_lipschitz, op)
     op._expr = types.MethodType(op_expr, op)
     return op

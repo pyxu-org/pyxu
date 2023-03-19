@@ -703,8 +703,6 @@ class _COOBlock:  # See coo_block() for a detailed description.
             if self.has(pyco.Property.FUNCTIONAL):
                 L = pyco.LinFunc.lipschitz(self, **kwargs)
             else:
-                kwargs = copy.copy(kwargs)
-                kwargs.update(recompute=True)
                 L = pyco.LinOp.lipschitz(self, **kwargs)
         else:
             # Various upper bounds apply depending on how the blocks are organized:

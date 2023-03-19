@@ -806,11 +806,11 @@ class NUFFT(pyca.LinOp):
         raise NotImplementedError
 
     def lipschitz(self, **kwargs) -> pyct.Real:
-        # Analytical form known if algo="fro"
-        if kwargs.get("algo", "svds") == "fro":
-            self._lipschitz = np.sqrt(self._M * np.prod(self._N))
-        else:
+        if kwargs.get("tight", False):
             self._lipschitz = pyca.LinOp.lipschitz(self, **kwargs)
+        else:
+            # Analytical upper-bound known
+            self._lipschitz = np.sqrt(self._M * np.prod(self._N))
         return self._lipschitz
 
     def to_sciop(self, **kwargs):
@@ -1549,7 +1549,7 @@ class _NUFFT1(NUFFT):
         sh_op[0] //= 2 if self._real_out else 1
         sh_op[1] //= 2 if self._real_in else 1
         super().__init__(shape=sh_op)
-        self._lipschitz = self.lipschitz(algo="fro")
+        self._lipschitz = self.lipschitz()
 
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:
@@ -1818,7 +1818,7 @@ class _NUFFT3(NUFFT):
         sh_op = [2 * self._N, 2 * self._M]
         sh_op[1] //= 2 if self._real else 1
         super().__init__(shape=sh_op)
-        self._lipschitz = self.lipschitz(algo="fro")
+        self._lipschitz = self.lipschitz()
 
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:

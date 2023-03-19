@@ -1188,7 +1188,7 @@ class QuadraticFunc(ProxDiffFunc):
         return op
 
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
-        if self._diff_lipschitz == np.inf:
+        if (self._diff_lipschitz == np.inf) or kwargs.get("tight", False):
             Q, *_ = self._quad_spec()
             self._diff_lipschitz = Q.lipschitz(**kwargs)
         return self._diff_lipschitz
@@ -1375,32 +1375,18 @@ class LinOp(DiffMap):
             dtype=dtype,
         )
 
-    def lipschitz(
-        self,
-        recompute: bool = False,
-        algo: str = "svds",
-        **kwargs,
-    ) -> pyct.Real:
+    def lipschitz(self, **kwargs) -> pyct.Real:
         r"""
         Return a (not necessarily optimal) Lipschitz constant of the operator.
 
         Parameters
         ----------
-        recompute: bool
-            If ``True``, forces re-estimation of the Lipschitz constant.
-            If ``False``, use the last-computed Lipschitz constant.
-        algo: 'svds', 'fro'
-            Algorithm used for computing the Lipschitz constant.
-
-            If ``algo==svds``, the Lipschitz constant is estimated as the spectral norm of :math:`L`
-            via :py:func:`scipy.sparse.linalg.svds`. (Accurate, but compute-intensive.)
-
-            If ``algo==fro``, the Lipschitz constant is estimated as the Froebenius norm of
-            :math:`L` via :py:func:`pycsou.math.linalg.hutchpp`. (Cheaper & less accurate than
-            SVD-based method.)
+        tight: bool
+            If ``True``, compute the optimal Lipschitz constant.
+            If ``False``, return any memoized finite-valued Lipschitz constant.
         kwargs:
-            Optional kwargs passed on to :py:func:`scipy.sparse.linalg.svds` or
-            :py:func:`pycsou.math.linalg.hutchpp`.
+            Optional kwargs passed on to :py:func:`scipy.sparse.linalg.svds` (``tight=True``) or
+            :py:func:`pycsou.math.linalg.hutchpp` (``tight=False``).
 
         Returns
         -------
@@ -1422,20 +1408,20 @@ class LinOp(DiffMap):
           equality is reached (worst-case scenario) when the eigenspectrum of the linear operator is
           flat.
         """
-        if recompute or (self._lipschitz == np.inf):
-            if algo == "fro":
-                from pycsou.math.linalg import hutchpp
+        if kwargs.get("tight", False):
+            # Compute tightest value via svdvals()
+            self._lipschitz = self.svdvals(k=1, which="LM").item()
+        elif self._lipschitz == np.inf:
+            # Upper bound via Frobenius norm
+            from pycsou.math.linalg import hutchpp
 
-                kwargs.update(m=kwargs.get("m", 126))
-                kwargs.pop("gpu", None)
-                op = self.gram() if (self.codim >= self.dim) else self.cogram()
-                self._lipschitz = np.sqrt(hutchpp(op, **kwargs)).item()
-            elif algo == "svds":
-                kwargs.update(k=1, which="LM")
-                kwargs.pop("xp", None)  # unsupported (if present) in svdvals()
-                self._lipschitz = self.svdvals(**kwargs).item()
-            else:
-                raise NotImplementedError
+            kwargs.update(m=kwargs.get("m", 126))
+            kwargs.pop("gpu", None)
+            op = self.gram() if (self.codim >= self.dim) else self.cogram()
+            self._lipschitz = np.sqrt(hutchpp(op, **kwargs)).item()
+        else:
+            # Any finite-valued memoized quantity will do.
+            pass
         return self._lipschitz
 
     def svdvals(
@@ -2105,7 +2091,6 @@ class LinFunc(ProxDiffFunc, LinOp):
         return LinOp.jacobian(self, arr)
 
     def lipschitz(self, **kwargs) -> pyct.Real:
-        # 'fro' / 'svds' mode are identical for linfuncs.
         xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
         g = self.grad(xp.ones(self.dim))
         self._lipschitz = float(xp.linalg.norm(g))

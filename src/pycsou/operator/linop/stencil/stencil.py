@@ -464,11 +464,8 @@ class Stencil(pyca.SquareOp):
         return y
 
     def lipschitz(self, **kwargs) -> pyct.Real:
-        if kwargs.get("recompute", False):
-            if kwargs.get("algo", "svds") == "fro":
-                # inform hutchpp() to run at specific precision
-                kwargs.update(dtype=self._dtype)
-            self._lipschitz = pyca.SquareOp.lipschitz(self, **kwargs)
+        if kwargs.get("tight", False):
+            self._lipschitz = super().lipschitz(**kwargs)
         else:
             # Analytic upper bound from Young's convolution inequality:
             #     \norm{x \ast h}{2} \le \norm{x}{2}\norm{h}{1}
