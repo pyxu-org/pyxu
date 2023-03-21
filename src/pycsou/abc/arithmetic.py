@@ -1347,6 +1347,153 @@ class PowerRule(Rule):
         return ("exp", self._op, self._k)
 
 
+class TransposeRule(Rule):
+    # Not strictly-speaking an arithmetic method, but the logic behind constructing transposed
+    # operators is identical to arithmetic methods.
+    # LinOp.T() rules are hence summarized here.
+    r"""
+    Arithmetic Update Rule(s)
+    -------------------------
+    * CAN_EVAL
+        opT.apply(arr) = op.adjoint(arr)
+        opT._lipschitz = op._lipschitz
+        opT.lipschitz()
+            = op.lipschitz()
+            + update opT._lipschitz
+
+    * FUNCTIONAL
+        opT.asloss(\beta) = UNDEFINED
+
+    * PROXIMABLE
+        opT.prox(arr, tau) = LinFunc.prox(arr, tau)
+
+    * DIFFERENTIABLE
+        opT.jacobian(arr) = opT
+        opT._diff_lipschitz = 0
+        opT.diff_lipschitz() = 0
+
+    * DIFFERENTIABLE_FUNCTION
+        opT.grad(arr) = LinFunc.grad(arr)
+
+    * LINEAR
+        opT.adjoint(arr) = op.apply(arr)
+        opT.asarray() = op.asarray().T
+        opT.gram() = op.cogram()
+        opT.cogram() = op.gram()
+        opT.svdvals() = op.svdvals()
+
+    * LINEAR_SQUARE
+        opT.trace() = op.trace()
+
+    * LINEAR_NORMAL
+        opT.eigvals() = op.eigvals().conj()
+    """
+
+    def __init__(self, op: pyct.OpT):
+        super().__init__()
+        self._op = op
+        self._lipschitz = op._lipschitz
+        self._diff_lipschitz = op._diff_lipschitz
+
+    def op(self) -> pyct.OpT:
+        klass = self._infer_op_klass()
+        op = klass(shape=(self._op.dim, self._op.codim))
+        op._op = self._op  # embed for introspection
+        for p in op.properties():
+            for name in p.arithmetic_attributes():
+                attr = getattr(self, name)
+                setattr(op, name, attr)
+            for name in p.arithmetic_methods():
+                func = getattr(self.__class__, name)
+                setattr(op, name, types.MethodType(func, op))
+        return op
+
+    def _expr(self) -> tuple:
+        return ("transpose", self._op)
+
+    def _infer_op_klass(self) -> pyct.OpC:
+        # |----------------------|-----------------------|
+        # | op_klass(codim, dim) | opT_klass(codim, dim) |
+        # |----------------------|-----------------------|
+        # | LinFunc(1, N)        | LinOp(N, 1)           |
+        # | LinOp(N, 1)          | LinFunc(1, N)         |
+        # | SquareOp(N, N)       | SquareOp(N, N)        |
+        # |----------------------|-----------------------|
+        properties = self._op.properties()
+        if self._op.codim == self._op.dim == 1:
+            klass = pyco.LinFunc
+        elif pyco.Property.FUNCTIONAL in properties:
+            klass = pyco.LinOp
+        elif self._op.dim == 1:
+            klass = pyco.LinFunc
+        else:
+            klass = pyco.Operator._infer_operator_type(properties)
+        return klass
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        out = self._op.adjoint(arr)
+        return out
+
+    def lipschitz(self, **kwargs) -> pyct.Real:
+        if self.shape == (1, 1):
+            # self._op.lipschitz() may point to a non-LinFunc instance, in which case stochastic
+            # estimation of L may be far from the truth `L_gt` if L_gt < 1.
+            # In the case of LinFuncs, we therefore always return the optimal Lipschitz constant.
+            self._lipschitz = pyco.LinFunc.lipschitz(self, **kwargs)
+        else:
+            self._lipschitz = self._op.lipschitz(**kwargs)
+        return self._lipschitz
+
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        raise NotImplementedError
+
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        out = pyco.LinFunc.prox(self, arr, tau)
+        return out
+
+    def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
+        return self
+
+    def diff_lipschitz(self, **kwargs) -> pyct.Real:
+        return 0
+
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        out = pyco.LinFunc.grad(self, arr)
+        return out
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        out = self._op.apply(arr)
+        return out
+
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        A = self._op.asarray(**kwargs)
+        return A.T
+
+    def gram(self) -> pyct.OpT:
+        op = self._op.cogram()
+        return op
+
+    def cogram(self) -> pyct.OpT:
+        op = self._op.gram()
+        return op
+
+    def svdvals(self, **kwargs) -> pyct.NDArray:
+        D = self._op.svdvals(**kwargs)
+        return D
+
+    def trace(self, **kwargs) -> pyct.Real:
+        tr = self._op.trace(**kwargs)
+        return float(tr)
+
+    def eigvals(self, **kwargs) -> pyct.NDArray:
+        D = self._op.eigvals(**kwargs)
+        return D.conj()
+
+
 # Helper Class/Functions ------------------------------------------------------
 def _Sum(M: int, N: int) -> pyct.OpT:
     # f: \bR^{N} -> \bR^{M}
