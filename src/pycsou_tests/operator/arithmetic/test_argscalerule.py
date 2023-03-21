@@ -110,16 +110,9 @@ class ArgScaleRuleMixin:
         return self._random_array((N_test, dim))
 
     # Tests -------------------------------------------------------------------
-    def test_interface_asloss(self, op, xp, width, op_orig):
-        self._skip_if_disabled()
-        if not op_orig.has(pyca.Property.FUNCTIONAL):
-            pytest.skip("asloss() unavailable for non-functionals.")
-
-        try:
-            op_orig.asloss()  # detect if fails
-            super().test_interface_asloss(op, xp, width)
-        except NotImplementedError as exc:
-            pytest.skip("asloss() unsupported by base operator.")
+    @pytest.mark.skip("undefined for argscale.")
+    def test_interface_asloss(self, op, xp, width):
+        pass
 
 
 # Test classes (Maps) ---------------------------------------------------------
