@@ -235,7 +235,7 @@ class TestFiniteDifferences(DiffOpMixin):
         self, _spec, diff_params, order, arg_shape, axis, ndi, width, mode, sampling
     ) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
         with pycrt.Precision(width):
-            op = pycdiff.FiniteDifference(
+            op = pycdiff._FiniteDifference(
                 order=order,
                 arg_shape=arg_shape,
                 diff_type=diff_params[0],
@@ -279,7 +279,7 @@ class TestGaussianDerivative(DiffOpMixin):
         self, _spec, diff_params, order, arg_shape, axis, ndi, width, mode, sampling
     ) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
         with pycrt.Precision(width):
-            op = pycdiff.GaussianDerivative(
+            op = pycdiff._GaussianDerivative(
                 order=order,
                 arg_shape=arg_shape,
                 sigma=diff_params[0],
