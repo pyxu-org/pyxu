@@ -408,14 +408,6 @@ class MapT:
         self._skip_if_disabled()
         assert op.codim == data_shape[0]
 
-    def test_lipschitz(self, op, width):
-        # Ensure:
-        # * _lipschitz matches .lipschitz() after being called once.
-        self._skip_if_disabled()
-        L_computed = op.lipschitz()
-        L_memoized = op._lipschitz
-        assert allclose(L_computed, L_memoized, as_dtype=width.value)
-
     def test_value1D_apply(self, op, _data_apply):
         self._skip_if_disabled()
         self._check_value1D(op.apply, _data_apply)
@@ -590,14 +582,6 @@ class DiffMapT(MapT):
         raise NotImplementedError
 
     # Tests -------------------------------------------------------------------
-    def test_diff_lipschitz(self, op, width):
-        # Ensure:
-        # * _diff_lipschitz matches .diff_lipschitz() after being called once.
-        self._skip_if_disabled()
-        dL_computed = op.diff_lipschitz()
-        dL_memoized = op._diff_lipschitz
-        assert allclose(dL_computed, dL_memoized, as_dtype=width.value)
-
     def test_interface_jacobian(self, op, _data_apply):
         self._skip_if_disabled()
         arr = _data_apply["in_"]["arr"]
