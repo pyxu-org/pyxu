@@ -273,7 +273,7 @@ class ArgScaleRule(Rule):
         |                          |             | = op_old.lipschitz() * abs(\alpha)                                          |
         |                          |             | + update op_new._lipschitz                                                  |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
-        | FUNCTIONAL               | yes         | op_new.asloss(\beta) = op_old.argscale(\alpha).asloss(\beta)                |
+        | FUNCTIONAL               | yes         | op_new.asloss(\beta) = AMBIGUOUS -> DISABLED                                |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | PROXIMABLE               | yes         | op_new.prox(arr, tau) = op_old.prox(\alpha * arr, \alpha**2 * tau) / \alpha |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
@@ -468,8 +468,13 @@ class ArgScaleRule(Rule):
 
     def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
         if self.has(pyco.Property.FUNCTIONAL):
-            op = self._op.__class__.asloss(self, data=data)
-            return op
+            msg = "\n".join(
+                [
+                    "The meaning of op.argscale().asloss() is ambiguous.",
+                    "Rewrite the expression differently to clarify the intent.",
+                ]
+            )
+            raise ArithmeticError(msg)
         else:
             raise NotImplementedError
 
@@ -486,7 +491,7 @@ class ArgShiftRule(Rule):
         |                          |            | op_new._lipschitz = op_old._lipschitz                           |
         |                          |            | op_new.lipschitz() = op_new._lipschitz alias                    |
         |--------------------------|------------|-----------------------------------------------------------------|
-        | FUNCTIONAL               | yes        | op_new.asloss(\beta) = op_old.argshift(\shift).asloss(\beta)    |
+        | FUNCTIONAL               | yes        | op_new.asloss(\beta) = AMBIGUOUS -> DISABLED                    |
         |--------------------------|------------|-----------------------------------------------------------------|
         | PROXIMABLE               | yes        | op_new.prox(arr, tau) = op_old.prox(arr + \shift, tau) - \shift |
         |--------------------------|------------|-----------------------------------------------------------------|
@@ -644,8 +649,13 @@ class ArgShiftRule(Rule):
 
     def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
         if self.has(pyco.Property.FUNCTIONAL):
-            op = self._op.__class__.asloss(self, data=data)
-            return op
+            msg = "\n".join(
+                [
+                    "The meaning of op.argshift().asloss() is ambiguous.",
+                    "Rewrite the expression differently to clarify the intent.",
+                ]
+            )
+            raise ArithmeticError(msg)
         else:
             raise NotImplementedError
 
