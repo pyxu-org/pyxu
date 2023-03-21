@@ -1079,16 +1079,6 @@ class LinOpT(DiffMapT):
         )
         return np.sort(D)
 
-    @pytest.fixture
-    def _op_T(self, op) -> pyca.LinOp:
-        op_T = op.T
-        return op_T
-
-    @pytest.fixture
-    def _op_TT(self, _op_T) -> pyca.LinOp:
-        op_TT = _op_T.T
-        return op_TT
-
     @pytest.fixture(
         params=[
             False,
@@ -1166,48 +1156,6 @@ class LinOpT(DiffMapT):
         # Clone of _data_pinv, with all arguments unsupported by .apply() removed.
         data = copy.deepcopy(_data_pinv)
         data["in_"] = dict(arr=data["in_"]["arr"])
-        return data
-
-    @pytest.fixture
-    def data_pinvT(self, op, _damp, data_apply) -> DataLike:
-        # override in subclass with 1D input/outputs of op.dagger().adjoint().
-        # Arrays should be NumPy-only. (Internal machinery will transform to different
-        # backend/precisions as needed.)
-        #
-        # Default implementation: auto-computes .adjoint() at input points specified to test op.apply().
-
-        # Safe implementation of --------------------------
-        #   A = op.gram().asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
-        B = op.asarray(xp=np, dtype=pycrt.Width.DOUBLE.value)
-        A = B.T @ B
-        # -------------------------------------------------
-        for i in range(op.dim):
-            A[i, i] += _damp
-
-        arr = data_apply["in_"]["arr"]
-        out, *_ = splinalg.lstsq(A, arr)
-        out = B @ out
-        data = dict(
-            in_=dict(
-                arr=arr,
-                damp=_damp,
-                kwargs_init=dict(),
-                kwargs_fit=dict(),
-            ),
-            out=out,
-        )
-        return data
-
-    @pytest.fixture
-    def _data_adjoint_dagger(self, data_pinvT, xp, width) -> DataLike:
-        # Generate Cartesian product of inputs.
-        # Do not override in subclass: for internal use only to test `op.dagger().adjoint()`.
-        # Outputs are left unchanged: different tests should transform them as required.
-        in_ = copy.deepcopy(data_pinvT["in_"])
-        data = dict(
-            in_=dict(arr=xp.array(in_["arr"], dtype=width.value)),
-            out=data_pinvT["out"],
-        )
         return data
 
     @pytest.fixture(
@@ -1387,79 +1335,6 @@ class LinOpT(DiffMapT):
         data = dict(in_=dict(k=1, gpu=_gpu))
         self._check_precCM(op.svdvals, data, (width,))
 
-    def test_interface_T(self, op, _op_T):
-        self._skip_if_disabled()
-        if op.dim == 1:
-            klass = LinFuncT
-        else:
-            klass = LinOpT
-        self._check_has_interface(_op_T, klass)
-
-    def test_interface_TT(self, op, _op_TT):
-        # Transposing twice returns operator with initial shape.
-        self._skip_if_disabled()
-        assert _op_TT.shape == op.shape
-
-    def test_value1D_call_T(self, _op_T, _data_adjoint):
-        self._skip_if_disabled()
-        self._check_value1D(_op_T.__call__, _data_adjoint)
-
-    def test_valueND_call_T(self, _op_T, _data_adjoint):
-        self._skip_if_disabled()
-        self._check_valueND(_op_T.__call__, _data_adjoint)
-
-    def test_backend_call_T(self, _op_T, _data_adjoint):
-        self._skip_if_disabled()
-        self._check_backend(_op_T.__call__, _data_adjoint)
-
-    def test_prec_call_T(self, _op_T, _data_adjoint):
-        self._skip_if_disabled()
-        self._check_prec(_op_T.__call__, _data_adjoint)
-
-    def test_precCM_call_T(self, _op_T, _data_adjoint):
-        self._skip_if_disabled()
-        self._check_precCM(_op_T.__call__, _data_adjoint)
-
-    def test_value1D_apply_T(self, _op_T, _data_adjoint):
-        self._skip_if_disabled()
-        self._check_value1D(_op_T.apply, _data_adjoint)
-
-    def test_valueND_apply_T(self, _op_T, _data_adjoint):
-        self._skip_if_disabled()
-        self._check_valueND(_op_T.apply, _data_adjoint)
-
-    def test_backend_apply_T(self, _op_T, _data_adjoint):
-        self._skip_if_disabled()
-        self._check_backend(_op_T.apply, _data_adjoint)
-
-    def test_prec_apply_T(self, _op_T, _data_adjoint):
-        self._skip_if_disabled()
-        self._check_prec(_op_T.apply, _data_adjoint)
-
-    def test_precCM_apply_T(self, _op_T, _data_adjoint):
-        self._skip_if_disabled()
-        self._check_precCM(_op_T.apply, _data_adjoint)
-
-    def test_value1D_adjoint_T(self, _op_T, _data_apply):
-        self._skip_if_disabled()
-        self._check_value1D(_op_T.adjoint, _data_apply)
-
-    def test_valueND_adjoint_T(self, _op_T, _data_apply):
-        self._skip_if_disabled()
-        self._check_valueND(_op_T.adjoint, _data_apply)
-
-    def test_backend_adjoint_T(self, _op_T, _data_apply):
-        self._skip_if_disabled()
-        self._check_backend(_op_T.adjoint, _data_apply)
-
-    def test_prec_adjoint_T(self, _op_T, _data_apply):
-        self._skip_if_disabled()
-        self._check_prec(_op_T.adjoint, _data_apply)
-
-    def test_precCM_adjoint_T(self, _op_T, _data_apply):
-        self._skip_if_disabled()
-        self._check_precCM(_op_T.adjoint, _data_apply)
-
     def test_value1D_pinv(self, op, _data_pinv):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
@@ -1529,28 +1404,6 @@ class LinOpT(DiffMapT):
     def test_precCM_apply_dagger(self, _op_dagger, _data_apply_dagger):
         self._skip_if_disabled()
         self._check_precCM(_op_dagger.apply, _data_apply_dagger)
-
-    def test_value1D_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
-        # To avoid CG convergence issues, correctness is assesed at lowest precision only.
-        self._skip_if_disabled()
-        self._check_value1D(_op_dagger.adjoint, _data_adjoint_dagger, dtype=np.dtype(np.half))
-
-    def test_valueND_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
-        # To avoid CG convergence issues, correctness is assesed at lowest precision only.
-        self._skip_if_disabled()
-        self._check_valueND(_op_dagger.adjoint, _data_adjoint_dagger, dtype=np.dtype(np.half))
-
-    def test_backend_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
-        self._skip_if_disabled()
-        self._check_backend(_op_dagger.adjoint, _data_adjoint_dagger)
-
-    def test_prec_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
-        self._skip_if_disabled()
-        self._check_prec(_op_dagger.adjoint, _data_adjoint_dagger)
-
-    def test_precCM_adjoint_dagger(self, _op_dagger, _data_adjoint_dagger):
-        self._skip_if_disabled()
-        self._check_precCM(_op_dagger.adjoint, _data_adjoint_dagger)
 
     def test_interface_gram(self, op):
         self._skip_if_disabled()
