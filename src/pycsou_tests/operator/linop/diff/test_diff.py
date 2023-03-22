@@ -280,7 +280,7 @@ class TestFiniteDifferences(DiffOpMixin):
 
     @pytest.fixture
     def diff_op(self):
-        return pycdiff.FiniteDifference
+        return pycdiff._FiniteDifference
 
 
 class TestGaussianDerivative(DiffOpMixin):
@@ -290,7 +290,7 @@ class TestGaussianDerivative(DiffOpMixin):
 
     @pytest.fixture
     def diff_op(self):
-        return pycdiff.GaussianDerivative
+        return pycdiff._GaussianDerivative
 
 
 class TestPartialDerivative(DiffOpMixin):
