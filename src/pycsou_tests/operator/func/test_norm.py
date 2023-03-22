@@ -145,13 +145,10 @@ class TestL2Norm(conftest.ProxFuncT):
         return self._random_array((N_test, dim))
 
 
-class TestSquaredL2Norm(conftest._QuadraticFuncT):
+class TestSquaredL2Norm(conftest.QuadraticFuncT):
     @pytest.fixture(
         params=itertools.product(
-            (  # dim, op
-                (7, pycof.SquaredL2Norm(dim=7)),
-                (None, pycof.SquaredL2Norm(dim=None)),
-            ),
+            ((7, pycof.SquaredL2Norm(dim=7)),),  # dim, op
             pycd.NDArrayInfo,
             pycrt.Width,
         )
