@@ -1484,6 +1484,134 @@ def Hessian(
     )
 
 
+def Laplacian(
+    arg_shape: pyct.NDArrayShape,
+    diff_method: str = "fd",
+    mode: ModeSpec = "constant",
+    gpu: bool = False,
+    dtype: typ.Optional[pyct.DType] = None,
+    sampling: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1,
+    parallel: bool = False,
+    **diff_kwargs,
+):
+    r"""
+    Laplacian operator based on `Numba stencils <https://numba.pydata.org/numba-doc/latest/user/stencil.html>`_.
+
+    Notes
+    -----
+
+    The Laplacian of a :math:`D`-dimensional signal :math:`\mathbf{f} \in \mathbb{R}^{N_0 \times \cdots
+    \times N_{D-1}}` is the sum of second-order partial derivatives:
+
+    .. math::
+        \sum_{d = 0}{D-1} \dfrac{ \partial^{2}\mathbf{f} }{ \partial x_{d}^{2} }
+
+    The Laplacian can be approximated by `finite differences <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
+    :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative <https://www.crisluengo.net/archives/22/>`_ via
+    :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
+
+    Parameters
+    ----------
+
+    arg_shape: tuple
+        Shape of the input array.
+    diff_method: str ['gd', 'fd']
+        Method used to approximate the derivative. Must be one of:
+
+        * 'fd' (default): finite differences
+        * 'gd': Gaussian derivative
+    mode: str | list(str)
+        Boundary conditions.
+        Multiple forms are accepted:
+
+        * str: unique mode shared amongst dimensions.
+          Must be one of:
+
+          * 'constant' (default): zero-padding
+          * 'wrap'
+          * 'reflect'
+          * 'symmetric'
+          * 'edge'
+        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+
+        (See :py:func:`numpy.pad` for details.)
+    gpu: bool
+        Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
+    dtype: pyct.DType
+        Working precision of the linear operator.
+    sampling: float | tuple
+        Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
+    parallel: bool
+        If ``true``, use Dask to evaluate the different partial derivatives in parallel.
+    diff_kwargs: dict
+        Keyword arguments to parametrize partial derivatives (see
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` and
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+
+    Returns
+    -------
+    op: :py:class:`~pycsou.abc.operator.LinOp`
+        Laplacian
+
+    Example
+    -------
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.operator.linop.diff import Hessian, PartialDerivative
+       from pycsou.util.misc import peaks
+       # Define input image
+       n = 1000
+       x = np.linspace(-3, 3, n)
+       xx, yy = np.meshgrid(x, x)
+       image = peaks(xx, yy)
+       nsamples = 2
+       arg_shape = image.shape  # (1000, 1000)
+       images = np.tile(image, (nsamples, 1, 1)).reshape(nsamples, -1)
+       print(images.shape)  # (2, 1000000)
+       # Instantiate Laplacian operator
+       laplacian = Laplacian(arg_shape=arg_shape, directions=directions)
+       # Compute Laplacian
+       outputs = laplacian(images)
+       print(outputs.shape)  # (2, 3000000)
+       # Plot
+       outputs = laplacian.unravel(outputs)
+       print(outputs.shape)  # (2, 1000, 1000)
+       plt.figure()
+       plt.imshow(images[0].reshape(arg_shape))
+       plt.colorbar()
+       plt.title("Image")
+       plt.axis("off")
+       plt.figure()
+       plt.imshow(outputs[0].reshape(arg_shape)
+       plt.colorbar()
+       plt.title(r"$\partial^{2} f/ \partial x^{2}+\partial^{2} f/ \partial y^{2}$")
+       plt.axis("off")
+
+    See Also
+    --------
+    :py:class:`~pycsou.operator.linop.diff.PartialDerivative`, :py:class:`~pycsou.operator.linop.diff.Gradient`,
+    :py:class:`~pycsou.operator.linop.diff.Hessian`.
+    """
+
+    ndims = len(arg_shape)
+    directions = [(i, i) for i in range(ndims)]
+    pds = Hessian(
+        arg_shape=arg_shape,
+        directions=directions,
+        diff_method=diff_method,
+        mode=mode,
+        gpu=gpu,
+        dtype=dtype,
+        sampling=sampling,
+        parallel=parallel,
+        diff_kwargs=diff_kwargs,
+    )
+    return pycl.Sum(arg_shape=(ndims,) + arg_shape, axis=0) * pds
+
+
 def DirectionalDerivative(
     arg_shape: pyct.NDArrayShape,
     which: pyct.Integer,
