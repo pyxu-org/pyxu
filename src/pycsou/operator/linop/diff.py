@@ -447,8 +447,9 @@ def _GaussianDerivative(
         Defines kernel elements.
         """
         # make the radius of the filter equal to `truncate` standard deviations
-        radius = int(truncate[i] * float(sigma[i]) + 0.5)
-        stencil_coefs = _gaussian_kernel1d(sigma=sigma[i], order=order[i], sampling=sampling[i], radius=radius)
+        sigma_pix = sigma[i] / sampling  # Sigma rescaled to pixel units
+        radius = int(truncate[i] * float(sigma_pix) + 0.5)
+        stencil_coefs = _gaussian_kernel1d(sigma=sigma_pix, order=order[i], sampling=sampling[i], radius=radius)
         stencil_ids = [i for i in range(-radius, radius + 1)]
         return stencil_ids, stencil_coefs, radius
 
