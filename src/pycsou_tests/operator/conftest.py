@@ -277,6 +277,12 @@ class MapT:
             stats[w] = out.dtype == w.value
         assert all(stats.values())
 
+    @staticmethod
+    def _check_precCM_func(func, width: pycrt.Width):
+        with pycrt.Precision(width):
+            out = func()
+        assert out.dtype == width.value
+
     @classmethod
     def _check_no_side_effect(cls, func, data: DataLike):
         # idea:
@@ -456,6 +462,10 @@ class MapT:
         self._skip_if_disabled()
         self._check_no_side_effect(op.__call__, _data_apply)
 
+    def test_precCM_lipschitz(self, op, width):
+        self._skip_if_disabled()
+        self._check_precCM_func(op.lipschitz, width)
+
     # We disable RuntimeWarnings which may arise due to NaNs. (See comment below.)
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_math_lipschitz(
@@ -587,6 +597,10 @@ class DiffMapT(MapT):
         arr = _data_apply["in_"]["arr"]
         J = op.jacobian(arr)
         self._check_has_interface(J, LinOpT)
+
+    def test_precCM_diff_lipschitz(self, op, width):
+        self._skip_if_disabled()
+        self._check_precCM_func(op.diff_lipschitz, width)
 
     # We disable RuntimeWarnings which may arise due to NaNs. (See comment below.)
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
@@ -1584,6 +1598,10 @@ class SquareOpT(LinOpT):
         tr = np.array([op.trace() for _ in range(N_trial)])
         N_pass = sum(np.abs(tr - _op_trace) <= 1e-2)
         assert N_pass >= 0.9 * N_trial
+
+    def test_precCM_trace(self, op, width):
+        self._skip_if_disabled()
+        self._check_precCM_func(op.trace, width)
 
 
 class NormalOpT(SquareOpT):
