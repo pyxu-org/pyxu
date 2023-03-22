@@ -1642,7 +1642,7 @@ def DirectionalDerivative(
     op = sop * dop * diff
 
     if which == 2:
-        op = -op.T * op
+        op = -op.gram()  # -op.T * op
 
     op._name = "DirectionalDerivative"
     return _make_unravelable(op, arg_shape=arg_shape)
