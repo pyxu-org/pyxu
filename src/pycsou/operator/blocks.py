@@ -297,6 +297,7 @@ def block_diag(
         out = xp.concatenate(parts, axis=-1)
         return out
 
+    @pycrt.enforce_precision()
     def op_trace(_, **kwargs) -> pyct.Real:
         # op.trace(**kwargs) = if [op1,...,opN] square
         #                          sum([op1.trace(**kwargs), ..., opN.trace(**kwargs)])
@@ -310,7 +311,7 @@ def block_diag(
             tr = sum(parts)
         else:  # default fallback
             tr = pyco.SquareOp.trace(_, **kwargs)
-        return float(tr)
+        return tr
 
     def op_expr(_) -> tuple:
         ops = [_._block[k] for k in sorted(_._block.keys())]
@@ -698,6 +699,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
     def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
         return self.apply(arr)
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         if self.has(pyco.Property.LINEAR):
             if self.has(pyco.Property.FUNCTIONAL):
@@ -720,7 +722,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
             Ls_1 = Ls_all.sum(axis=0).max()  # upper bound 1
             Ls_2 = Ls_all.max(axis=1).sum()  # upper bound 2
             L = np.sqrt(min(Ls_1, Ls_2))
-        self._lipschitz = float(L)
+        self._lipschitz = L
         return self._lipschitz
 
     def _expr(self) -> tuple:
@@ -802,6 +804,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
             ).op()
         return out
 
+    @pycrt.enforce_precision()
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
         if not self.has(pyco.Property.DIFFERENTIABLE):
             raise NotImplementedError
@@ -824,7 +827,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
             dLs_1 = dLs_all.sum(axis=0).max()  # upper bound 1
             dLs_2 = dLs_all.max(axis=1).sum()  # upper bound 2
             dL = np.sqrt(min(dLs_1, dLs_2))
-        self._diff_lipschitz = float(dL)
+        self._diff_lipschitz = dL
         return self._diff_lipschitz
 
     @_wrap_if_dask
@@ -1011,9 +1014,10 @@ class _COOBlock:  # See coo_block() for a detailed description.
         )
         return CG.squeeze()
 
+    @pycrt.enforce_precision()
     def trace(self, **kwargs) -> pyct.Real:
         tr = self.__class__.trace(self, **kwargs)
-        return float(tr)
+        return tr
 
     def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
         msg = "asloss() is ambiguous for block-defined operators."

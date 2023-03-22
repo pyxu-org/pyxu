@@ -568,6 +568,7 @@ class Map(Operator):
         """
         return self.apply(arr)
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         r"""
         Compute a Lipschitz constant of the operator.
@@ -706,6 +707,7 @@ class DiffMap(Map):
         """
         raise NotImplementedError
 
+    @pycrt.enforce_precision()
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
         r"""
         Compute a Lipschitz constant of :py:meth:`~pycsou.abc.operator.DiffMap.jacobian`.
@@ -1187,6 +1189,7 @@ class QuadraticFunc(ProxDiffFunc):
         op = shift_loss(op=self, data=data)
         return op
 
+    @pycrt.enforce_precision()
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
         if (self._diff_lipschitz == np.inf) or kwargs.get("tight", False):
             Q, *_ = self._quad_spec()
@@ -1330,6 +1333,7 @@ class LinOp(DiffMap):
             dtype=dtype,
         )
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         r"""
         Return a (not necessarily optimal) Lipschitz constant of the operator.
@@ -1760,6 +1764,7 @@ class SquareOp(LinOp):
         super().__init__(shape=shape)
         assert self.dim == self.codim, f"shape: expected (M, M), got {self.shape}."
 
+    @pycrt.enforce_precision()
     def trace(self, **kwargs) -> pyct.Real:
         """
         Approximate trace of a linear operator.
@@ -1917,6 +1922,7 @@ class UnitOp(NormalOp):
         super().__init__(shape=shape)
         self._lipschitz = 1
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         return self._lipschitz
 
@@ -1977,6 +1983,7 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
         super().__init__(shape=shape)
         self._lipschitz = 1
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         return self._lipschitz
 
@@ -2042,6 +2049,7 @@ class LinFunc(ProxDiffFunc, LinOp):
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return LinOp.jacobian(self, arr)
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
         g = self.grad(xp.ones(self.dim))

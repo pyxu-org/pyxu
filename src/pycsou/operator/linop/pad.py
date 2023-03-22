@@ -374,6 +374,7 @@ class Pad(pyca.LinOp):
         out = out.reshape(*sh, self.dim)
         return out
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         if kwargs.get("tight", False):
             self._lipschitz = super().lipschitz(**kwargs)

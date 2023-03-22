@@ -805,6 +805,7 @@ class NUFFT(pyca.LinOp):
         """
         raise NotImplementedError
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         if kwargs.get("tight", False):
             self._lipschitz = pyca.LinOp.lipschitz(self, **kwargs)

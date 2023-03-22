@@ -166,6 +166,7 @@ class SubSample(pyca.LinOp):
         out = out.reshape(*sh, -1)
         return out
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         self._lipschitz = 1
         return self._lipschitz

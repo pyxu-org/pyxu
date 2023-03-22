@@ -55,8 +55,9 @@ class IdentityOp(pyca.OrthProjOp):
         op = HomothetyOp(cst=cst, dim=self.dim)
         return op
 
+    @pycrt.enforce_precision()
     def trace(self, **kwargs) -> pyct.Real:
-        return float(self.dim)
+        return self.dim
 
 
 class NullOp(pyca.LinOp):
@@ -106,8 +107,9 @@ class NullOp(pyca.LinOp):
         A = xp.zeros(self.shape, dtype=dtype)
         return A
 
+    @pycrt.enforce_precision()
     def trace(self, **kwargs) -> pyct.Real:
-        return float(0)
+        return 0
 
 
 def NullFunc(dim: pyct.Integer) -> pyct.OpT:
@@ -186,9 +188,10 @@ def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
         def op_gram(_):
             return HomothetyOp(cst=_._cst**2, dim=_.dim)
 
+        @pycrt.enforce_precision()
         def op_trace(_, **kwargs):
             out = _._cst * _.codim
-            return float(out)
+            return out
 
         klass = pyca.PosDefOp if (cst > 0) else pyca.SelfAdjointOp
         op = klass(shape=(dim, dim))
@@ -307,6 +310,7 @@ def DiagonalOp(
                     enable_warnings=_._enable_warnings,
                 )
 
+            @pycrt.enforce_precision()
             def op_trace(_, **kwargs):
                 return float(_._vec.sum())
 
@@ -451,6 +455,7 @@ def _ExplicitLinOp(
 
         return xp.array(A, dtype=dtype)
 
+    @pycrt.enforce_precision()
     def op_trace(_, **kwargs) -> pyct.Real:
         if _.dim != _.codim:
             raise NotImplementedError
@@ -475,6 +480,7 @@ def _ExplicitLinOp(
                     raise ValueError(f"Unknown sparse format {_.mat}.")
             return float(tr)
 
+    @pycrt.enforce_precision()
     def op_lipschitz(_, **kwargs) -> pyct.Real:
         # We want to piggy-back onto Lin[Op,Func].lipschitz() to compute the Lipschitz constant L.
         # Problem: LinOp.lipschitz() relies on svdvals() or hutchpp() to compute L, and they take
