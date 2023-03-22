@@ -1183,7 +1183,7 @@ def Gradient(
 def Jacobian(
     arg_shape: pyct.NDArrayShape,
     n_channels: pyct.Integer,
-    diff_method: str = "gd",
+    diff_method: str = "fd",
     mode: ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pyct.DType] = None,
@@ -1511,7 +1511,7 @@ def DirectionalDerivative(
     diff_method: str ['gd', 'fd']
         Method used to approximate the derivative. Must be one of:
 
-        * 'fd': finite differences
+        * 'fd' (default): finite differences
         * 'gd': Gaussian derivative
     mode: str | list(str)
         Boundary conditions.
@@ -1651,7 +1651,7 @@ def DirectionalDerivative(
 def DirectionalGradient(
     arg_shape: pyct.NDArrayShape,
     directions: list,
-    diff_method: str = "gd",
+    diff_method: str = "fd",
     mode: ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pyct.DType] = None,
@@ -1672,7 +1672,7 @@ def DirectionalGradient(
     diff_method: str ['gd', 'fd']
         Method used to approximate the derivative. Must be one of:
 
-        * 'fd': finite differences
+        * 'fd' (default): finite differences
         * 'gd': Gaussian derivative
     mode: str | list(str)
         Boundary conditions.
@@ -1792,7 +1792,7 @@ def DirectionalLaplacian(
     arg_shape: pyct.NDArrayShape,
     directions: list,
     weights: typ.Iterable = None,
-    diff_method: str = "gd",
+    diff_method: str = "fd",
     mode: ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pyct.DType] = None,
@@ -1818,7 +1818,7 @@ def DirectionalLaplacian(
     diff_method: str ['gd', 'fd']
         Method used to approximate the derivative. Must be one of:
 
-        * 'fd': finite differences
+        * 'fd' (default): finite differences
         * 'gd': Gaussian derivative
     mode: str | list(str)
         Boundary conditions.
@@ -1953,7 +1953,7 @@ def DirectionalHessian(
     diff_method: str ['gd', 'fd']
         Method used to approximate the derivative. Must be one of:
 
-        * 'fd': finite differences
+        * 'fd' (default): finite differences
         * 'gd': Gaussian derivative
     mode: str | list(str)
         Boundary conditions.
