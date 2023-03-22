@@ -53,9 +53,10 @@ class Rule:
         out = self.__class__.pinv(self, arr=arr, **kwargs)
         return out
 
+    @pycrt.enforce_precision()
     def trace(self, **kwargs) -> pyct.Real:
         tr = self.__class__.trace(self, **kwargs)
-        return float(tr)
+        return tr
 
 
 class ScaleRule(Rule):
@@ -172,6 +173,7 @@ class ScaleRule(Rule):
         out *= self._cst
         return out
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         self._lipschitz = self._op.lipschitz(**kwargs)
         self._lipschitz *= abs(self._cst)
@@ -195,6 +197,7 @@ class ScaleRule(Rule):
             op = self._op.jacobian(arr) * self._cst
         return op
 
+    @pycrt.enforce_precision()
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
         self._diff_lipschitz = self._op.diff_lipschitz(**kwargs)
         self._diff_lipschitz *= abs(self._cst)
@@ -242,9 +245,10 @@ class ScaleRule(Rule):
         op = self._op.cogram() * (self._cst**2)
         return op
 
+    @pycrt.enforce_precision()
     def trace(self, **kwargs) -> pyct.Real:
         tr = self._op.trace(**kwargs) * self._cst
-        return float(tr)
+        return tr
 
     def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
         if self.has(pyco.Property.FUNCTIONAL):
@@ -384,6 +388,7 @@ class ArgScaleRule(Rule):
         out = self._op.apply(x)
         return out
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         self._lipschitz = self._op.lipschitz(**kwargs)
         self._lipschitz *= abs(self._cst)
@@ -413,6 +418,7 @@ class ArgScaleRule(Rule):
             op = self._op.jacobian(x) * self._cst
         return op
 
+    @pycrt.enforce_precision()
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
         self._diff_lipschitz = self._op.diff_lipschitz(**kwargs)
         self._diff_lipschitz *= self._cst**2
@@ -462,9 +468,10 @@ class ArgScaleRule(Rule):
         op = self._op.cogram() * (self._cst**2)
         return op
 
+    @pycrt.enforce_precision()
     def trace(self, **kwargs) -> pyct.Real:
         tr = self._op.trace(**kwargs) * self._cst
-        return float(tr)
+        return tr
 
     def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
         if self.has(pyco.Property.FUNCTIONAL):
@@ -587,6 +594,7 @@ class ArgShiftRule(Rule):
         out = self._op.apply(x)
         return out
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         self._lipschitz = self._op.lipschitz(**kwargs)
         return self._lipschitz
@@ -636,6 +644,7 @@ class ArgShiftRule(Rule):
         op = self._op.jacobian(x)
         return op
 
+    @pycrt.enforce_precision()
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
         self._diff_lipschitz = self._op.diff_lipschitz(**kwargs)
         return self._diff_lipschitz
@@ -848,6 +857,7 @@ class AddRule(Rule):
         out = out_lhs + out_rhs
         return out
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         if self.has(pyco.Property.LINEAR) and kwargs.get("tight", False):
             if self.has(pyco.Property.FUNCTIONAL):
@@ -893,6 +903,7 @@ class AddRule(Rule):
             op = op_lhs + op_rhs
         return op
 
+    @pycrt.enforce_precision()
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
         L_lhs = self._lhs.diff_lipschitz(**kwargs)
         L_rhs = self._rhs.diff_lipschitz(**kwargs)
@@ -985,6 +996,7 @@ class AddRule(Rule):
         op = op1 + op2 + (op3 + op4).asop(pyco.SelfAdjointOp)
         return op.squeeze()
 
+    @pycrt.enforce_precision()
     def trace(self, **kwargs) -> pyct.Real:
         tr = 0
         for side in (self._lhs, self._rhs):
@@ -1181,6 +1193,7 @@ class ChainRule(Rule):
         out = self._lhs.apply(x)
         return out
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         if self.has(pyco.Property.LINEAR) and kwargs.get("tight", False):
             if self.has(pyco.Property.FUNCTIONAL):
@@ -1243,6 +1256,7 @@ class ChainRule(Rule):
             op = J_lhs * J_rhs
         return op
 
+    @pycrt.enforce_precision()
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
         if self.has(pyco.Property.QUADRATIC):
             Q, c, t = self._quad_spec()
@@ -1445,6 +1459,7 @@ class TransposeRule(Rule):
         out = self._op.adjoint(arr)
         return out
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         if self.shape == (1, 1):
             # self._op.lipschitz() may point to a non-LinFunc instance, in which case stochastic
@@ -1466,6 +1481,7 @@ class TransposeRule(Rule):
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return self
 
+    @pycrt.enforce_precision()
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
         return 0
 
@@ -1495,9 +1511,10 @@ class TransposeRule(Rule):
         D = self._op.svdvals(**kwargs)
         return D
 
+    @pycrt.enforce_precision()
     def trace(self, **kwargs) -> pyct.Real:
         tr = self._op.trace(**kwargs)
-        return float(tr)
+        return tr
 
     def eigvals(self, **kwargs) -> pyct.NDArray:
         D = self._op.eigvals(**kwargs)

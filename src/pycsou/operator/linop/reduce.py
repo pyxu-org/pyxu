@@ -101,6 +101,7 @@ def Sum(
         out = out.reshape(*sh, -1)
         return out
 
+    @pycrt.enforce_precision()
     def op_lipschitz(_, **kwargs) -> pyct.Real:
         N = np.prod(_._arg_shape) / np.prod(_._sum_shape)
         _._lipschitz = np.sqrt(N)

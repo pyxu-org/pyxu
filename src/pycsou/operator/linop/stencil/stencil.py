@@ -463,6 +463,7 @@ class Stencil(pyca.SquareOp):
         y = x
         return y
 
+    @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         if kwargs.get("tight", False):
             self._lipschitz = super().lipschitz(**kwargs)
@@ -498,6 +499,7 @@ class Stencil(pyca.SquareOp):
         A = xp.array(pycu.to_NUMPY(_A), dtype=dtype)
         return A
 
+    @pycrt.enforce_precision()
     def trace(self, **kwargs) -> pyct.Real:
         if all(m == "constant" for m in self._pad._mode):
             # tr = (kernel center coefficient) * N

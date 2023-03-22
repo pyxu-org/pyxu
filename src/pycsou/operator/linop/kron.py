@@ -118,13 +118,14 @@ def kron(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
         out = u.reshape((*sh_prefix, -1))  # (..., A.dim * B.dim)
         return out
 
+    @pycrt.enforce_precision()
     def op_lipschitz(_, **kwargs) -> pyct.Real:
         if kwargs.get("tight", False):
             _._lipschitz = _.__class__.lipschitz(_, **kwargs)
         else:
             L_A = _._A.lipschitz(**kwargs)
             L_B = _._B.lipschitz(**kwargs)
-            _._lipschitz = float(L_A * L_B)
+            _._lipschitz = L_A * L_B
         return _._lipschitz
 
     def op_asarray(_, **kwargs) -> pyct.NDArray:
@@ -208,6 +209,7 @@ def kron(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
             out = _.__class__.pinv(_, arr, **kwargs)
         return out
 
+    @pycrt.enforce_precision()
     def op_trace(_, **kwargs) -> pyct.Real:
         # tr(A \kron B) = tr(A) * tr(B)
         # [if both square, else default algorithm]
@@ -219,7 +221,7 @@ def kron(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
             tr = _._A.trace(**kwargs) * _._B.trace(**kwargs)
         else:
             tr = _.__class__.trace(_, **kwargs)
-        return float(tr)
+        return tr
 
     def op_expr(_) -> tuple:
         return ("kron", _._A, _._B)
@@ -363,6 +365,7 @@ def khatri_rao(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
         C = (A * B).reshape((_.dim, -1)).T
         return C
 
+    @pycrt.enforce_precision()
     def op_lipschitz(_, **kwargs) -> pyct.Real:
         if kwargs.get("tight", False):
             _._lipschitz = _.__class__.lipschitz(_, **kwargs)
