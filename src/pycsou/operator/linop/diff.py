@@ -126,12 +126,10 @@ def _BaseDifferential(
 
 def _sanitize_init_kwargs(
     order: typ.Union[pyct.Integer, typ.Tuple[pyct.Integer, ...]],
-    param1: typ.Union[str, pyct.Real, typ.Tuple[str, ...], typ.Tuple[pyct.Real, ...]],
-    param1_name: str,
-    param2: typ.Union[pyct.Real, typ.Tuple[pyct.Real, ...]],
-    param2_name: str,
     arg_shape: pyct.NDArrayShape,
     sampling: typ.Union[pyct.Integer, typ.Tuple[pyct.Integer, ...]],
+    diff_method: str,
+    diff_kwargs: dict,
     axis: typ.Union[pyct.Integer, typ.Tuple] = None,
 ) -> typ.Tuple[
     typ.Tuple[pyct.Integer, ...],
@@ -162,6 +160,19 @@ def _sanitize_init_kwargs(
         sampling = sampling * len(arg_shape)
     assert all([_ > 0 for _ in order]), "Order must be strictly positive"
     assert all([_ > 0 for _ in sampling]), "Sampling must be strictly positive"
+
+    if diff_method == "fd":
+        param1_name = "diff_type"
+        param2_name = "accuracy"
+        param1 = diff_kwargs.get("diff_type", "forward")
+        param2 = diff_kwargs.get("accuracy", 1)
+    elif diff_method == "gd":
+        param1_name = "sigma"
+        param2_name = "truncate"
+        param1 = diff_kwargs.get("sigma", 1.0)
+        param2 = diff_kwargs.get("truncate", 3.0)
+    else:
+        raise NotImplementedError
 
     _param1 = _ensure_tuple(param1, param_name=param1_name)
     _param2 = _ensure_tuple(param2, param_name=param2_name)
@@ -298,13 +309,11 @@ def _FiniteDifference(
     return_linop: bool
         Whether to return a linear operator object (True) or a tuple with the finite differences kernel and its center.
     """
-
+    diff_kwargs = {"diff_type": diff_type, "accuracy": accuracy}
     order, sampling, diff_type, accuracy, axis = _sanitize_init_kwargs(
         order=order,
-        param1=diff_type,
-        param1_name="diff_type",
-        param2=accuracy,
-        param2_name="accuracy",
+        diff_method="fd",
+        diff_kwargs=diff_kwargs,
         arg_shape=arg_shape,
         axis=axis,
         sampling=sampling,
@@ -430,13 +439,11 @@ def _GaussianDerivative(
     return_linop: bool
         Whether to return a linear operator object (True) or a tuple with the finite differences kernel and its center.
     """
-
+    diff_kwargs = {"sigma": sigma, "truncate": truncate}
     order, sampling, sigma, truncate, axis = _sanitize_init_kwargs(
         order=order,
-        param1=sigma,
-        param1_name="sigma",
-        param2=truncate,
-        param2_name="truncate",
+        diff_method="gd",
+        diff_kwargs=diff_kwargs,
         arg_shape=arg_shape,
         axis=axis,
         sampling=sampling,
@@ -977,11 +984,68 @@ class _BaseVecDifferential:
                 )
         return _make_unravelable(pycb.vstack(dif_op, parallel=parallel), arg_shape)
 
+    @staticmethod
+    def _check_directions_and_order(
+        arg_shape, directions
+    ) -> typ.Tuple[typ.Union[tuple[pyct.Integer, ...], tuple[tuple[pyct.Integer, ...], ...]], bool]:
+        def _check_directions(_directions):
+            assert all(0 <= _ <= (len(arg_shape) - 1) for _ in _directions), (
+                "Direction values must be between 0 and " "the number of dimensions in `arg_shape`."
+            )
 
-class Gradient(_BaseVecDifferential):
+        if not isinstance(directions, cabc.Sequence):
+            # This corresponds to [mode 0] in `Notes`
+            directions = [directions, directions]
+            _check_directions(directions)
+            directions = (directions,)
+        else:
+            if isinstance(directions, str):
+                # This corresponds to [mode 3] in Hessian `Notes`
+                assert directions == "all", (
+                    f"Value for `directions` not implemented. The accepted directions types are"
+                    f"int, tuple or a str with the value `all`."
+                )
+                directions = tuple(
+                    list(_) for _ in itertools.combinations_with_replacement(np.arange(len(arg_shape)).astype(int), 2)
+                )
+            elif not isinstance(directions[0], cabc.Sequence):
+                # This corresponds to [mode 2] in Hessian  `Notes`
+                assert len(directions) == 2, (
+                    "If `directions` is a tuple, it should contain two elements, corresponding "
+                    "to the i-th an j-th elements (dx_i and dx_j)"
+                )
+                directions = list(directions)
+                _check_directions(directions)
+                directions = (directions,)
+            else:
+                # This corresponds to [mode 3] in Hessian `Notes`
+                for direction in directions:
+                    _check_directions(direction)
+
+        _directions = [
+            list(direction) if (len(np.unique(direction)) == len(direction)) else np.unique(direction).tolist()
+            for direction in directions
+        ]
+
+        _order = [3 - len(np.unique(direction)) for direction in directions]
+
+        return _directions, _order
+
+
+def Gradient(
+    arg_shape: pyct.NDArrayShape,
+    directions: typ.Optional[typ.Union[pyct.Integer, tuple[pyct.Integer, ...]]] = None,
+    diff_method: str = "fd",
+    mode: ModeSpec = "constant",
+    gpu: bool = False,
+    dtype: typ.Optional[pyct.DType] = None,
+    sampling: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1,
+    parallel: bool = False,
+    **diff_kwargs,
+):
     r"""
     Gradient operator based on `Numba stencils <https://numba.pydata.org/numba-doc/latest/user/stencil.html>`_.
-
+    
     Notes
     -----
 
@@ -997,14 +1061,58 @@ class Gradient(_BaseVecDifferential):
         \end{bmatrix} \in \mathbb{R}^{D \times N_{0} \times \cdots \times N_{D-1}}
 
     The gradient can be approximated by `finite differences <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-    :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative <https://www.crisluengo.net/archives/22/>`_ via
+    :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the 
+    `Gaussian derivative <https://www.crisluengo.net/archives/22/>`_ via
     :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
+    
+    Parameters
+    ----------
+    arg_shape: tuple
+        Shape of the input array.
+    directions: int | tuple | None
+        Gradient directions. Defaults to `None`, which computes the gradient for all directions.
+    diff_method: str ['gd', 'fd']
+        Method used to approximate the derivative. Must be one of:
+
+        * 'fd' (default): finite differences
+        * 'gd': Gaussian derivative
+    mode: str | list(str)
+        Boundary conditions.
+        Multiple forms are accepted:
+
+        * str: unique mode shared amongst dimensions.
+          Must be one of:
+
+          * 'constant' (default): zero-padding
+          * 'wrap'
+          * 'reflect'
+          * 'symmetric'
+          * 'edge'
+        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+
+        (See :py:func:`numpy.pad` for details.)
+    gpu: bool
+        Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
+    dtype: pyct.DType
+        Working precision of the linear operator.
+    sampling: float | tuple
+        Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
+    parallel: bool
+        If ``true``, use Dask to evaluate the different partial derivatives in parallel.
+    diff_kwargs: dict
+        Keyword arguments to parametrize partial derivatives (see
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` and
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+
+    Returns
+    -------
+    op: :py:class:`~pycsou.abc.operator.LinOp`
+        Gradient
 
     Example
     -------
 
     .. plot::
-
        import numpy as np
        import matplotlib.pyplot as plt
        from pycsou.operator.linop.diff import Gradient
@@ -1019,7 +1127,7 @@ class Gradient(_BaseVecDifferential):
        images = np.tile(image, (nsamples, 1, 1)).reshape(nsamples, -1)
        print(images.shape) # (2, 1000000)
        # Instantiate gradient operator
-       grad = Gradient.gaussian_derivative(arg_shape=arg_shape, sigma=1.0)
+       grad = Gradient(arg_shape=arg_shape, sigma=1.0)
        # Compute gradients
        outputs = grad(images)
        print(outputs.shape) # (2, 2000000)
@@ -1044,166 +1152,32 @@ class Gradient(_BaseVecDifferential):
 
     See Also
     --------
-    :py:class:`~pycsou.operator.linop.diff.PartialDerivative`, :py:func:`~pycsou.operator.linop.diff.Jacobian`,
-    :py:class:`~pycsou.operator.linop.diff.Laplacian`, :py:class:`~pycsou.operator.linop.diff.Hessian`.
+    :py:func:`~pycsou.operator.linop.diff.PartialDerivative`, :py:func:`~pycsou.operator.linop.diff.Jacobian`
+
     """
 
-    @staticmethod
-    def finite_difference(
-        arg_shape: pyct.NDArrayShape,
-        directions: typ.Optional[typ.Union[pyct.Integer, tuple[pyct.Integer, ...]]] = None,
-        diff_type: typ.Union[str, tuple[str, ...]] = "forward",
-        accuracy: typ.Union[pyct.Integer, tuple[pyct.Integer, ...]] = 1,
-        mode: ModeSpec = "constant",
-        gpu: bool = False,
-        dtype: typ.Optional[pyct.DType] = None,
-        sampling: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1,
-        parallel: bool = False,
-    ) -> pyco.LinOp:
-        """
-        Compute the gradient using :py:class:`~pycsou.operator.linop.diff._FiniteDifference`.
+    directions = tuple([i for i in range(len(arg_shape))]) if directions is None else directions
 
-        Parameters
-        ----------
-        arg_shape: tuple
-            Shape of the input array.
-        directions: int | tuple | None
-            Gradient directions. Defaults to `None`, which computes the gradient for all directions.
-        diff_type: str | tuple
-            Type of finite differences ['forward, 'backward, 'central']. Defaults to 'forward'. If a string is provided,
-            the same `diff_type` is assumed for all dimensions. If a tuple is provided, it should have as many elements as `directions`.
-        accuracy: int | tuple
-            Determines the number of points used to approximate the derivative with finite differences (see `Notes`).
-            Defaults to 1. If an int is provided, the same `accuracy` is assumed for all dimensions.
-            If a tuple is provided, it should have as many elements as `arg_shape`.
-        mode: str | list(str)
-            Boundary conditions.
-            Multiple forms are accepted:
-
-            * str: unique mode shared amongst dimensions.
-              Must be one of:
-
-              * 'constant' (default): zero-padding
-              * 'wrap'
-              * 'reflect'
-              * 'symmetric'
-              * 'edge'
-            * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
-
-            (See :py:func:`numpy.pad` for details.)
-        gpu: bool
-            Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-        dtype: pyct.DType
-            Working precision of the linear operator.
-        sampling: float | tuple
-            Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
-
-        Returns
-        -------
-        op: :py:class:`~pycsou.abc.operator.LinOp`
-            Gradient
-        """
-        directions = tuple([i for i in range(len(arg_shape))]) if directions is None else directions
-        order, sampling, diff_type, accuracy, _ = _sanitize_init_kwargs(
-            order=(1,) * len(directions),
-            param1=diff_type,
-            param1_name="diff_type",
-            param2=accuracy,
-            param2_name="accuracy",
-            arg_shape=arg_shape,
-            sampling=sampling,
-        )
-        return Gradient._stack_diff_ops(
-            arg_shape=arg_shape,
-            directions=directions,
-            diff_method="fd",
-            order=order,
-            param1=diff_type,
-            param2=accuracy,
-            mode=mode,
-            gpu=gpu,
-            dtype=dtype,
-            sampling=sampling,
-            parallel=parallel,
-        )
-
-    @staticmethod
-    def gaussian_derivative(
-        arg_shape: pyct.NDArrayShape,
-        directions: typ.Optional[typ.Union[pyct.Integer, tuple[pyct.Integer, ...]]] = None,
-        sigma: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1.0,
-        truncate: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 3.0,
-        mode: ModeSpec = "constant",
-        gpu: bool = False,
-        dtype: typ.Optional[pyct.DType] = None,
-        sampling: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1,
-        parallel: bool = False,
-    ) -> pyco.LinOp:
-        """
-        Compute the gradient using :py:class:`~pycsou.operator.linop.diff._GaussianDerivative`.
-
-        Parameters
-        ----------
-        arg_shape: tuple
-            Shape of the input array.
-        directions: int | tuple | None
-            Gradient directions. Defaults to `None`, which computes the gradient for all directions.
-        sigma: float | tuple
-            Standard deviation for the Gaussian kernel. Defaults to 1.0.
-            If a float is provided, the same `sigma` is assumed for all dimensions. If a tuple is provided, it should have as many elements as `directions`.
-        truncate: float | tuple
-            Truncate the filter at this many standard deviations. Defaults to 3.0.
-            If a float is provided, the same `truncate` is assumed for all dimensions. If a tuple is provided, it should have as many elements as `directions`.
-        mode: str | list(str)
-            Boundary conditions.
-            Multiple forms are accepted:
-
-            * str: unique mode shared amongst dimensions.
-              Must be one of:
-
-              * 'constant' (default): zero-padding
-              * 'wrap'
-              * 'reflect'
-              * 'symmetric'
-              * 'edge'
-            * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
-
-            (See :py:func:`numpy.pad` for details.)
-        gpu: bool
-            Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-        dtype: pyct.DType
-            Working precision of the linear operator.
-        sampling: float | tuple
-            Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
-
-        Returns
-        -------
-        op: :py:class:`~pycsou.abc.operator.LinOp`
-            Gradient
-        """
-        directions = tuple([i for i in range(len(arg_shape))]) if directions is None else directions
-        order, sampling, diff_type, accuracy, _ = _sanitize_init_kwargs(
-            order=(1,) * len(directions),
-            param1=sigma,
-            param1_name="sigma",
-            param2=truncate,
-            param2_name="truncate",
-            arg_shape=arg_shape,
-            sampling=sampling,
-        )
-        return Gradient._stack_diff_ops(
-            arg_shape=arg_shape,
-            directions=directions,
-            diff_method="gd",
-            order=order,
-            param1=sigma,
-            param2=truncate,
-            mode=mode,
-            gpu=gpu,
-            dtype=dtype,
-            sampling=sampling,
-            parallel=parallel,
-        )
+    order, sampling, param1, param2, _ = _sanitize_init_kwargs(
+        order=(1,) * len(directions),
+        arg_shape=arg_shape,
+        sampling=sampling,
+        diff_method=diff_method,
+        diff_kwargs=diff_kwargs,
+    )
+    return _BaseVecDifferential._stack_diff_ops(
+        arg_shape=arg_shape,
+        directions=directions,
+        diff_method=diff_method,
+        order=order,
+        param1=param1,
+        param2=param2,
+        mode=mode,
+        gpu=gpu,
+        dtype=dtype,
+        sampling=sampling,
+        parallel=parallel,
+    )
 
 
 def Jacobian(
@@ -1237,6 +1211,51 @@ def Jacobian(
         (\boldsymbol{\nabla} \mathbf{f}_{C-1})^{\top} \\
         \end{bmatrix} \in \mathbb{R}^{C \times D \times N_0 \times \cdots \times N_{D-1}}
 
+    Parameters
+    ----------
+    arg_shape: tuple
+        Shape of the input array.
+    n_channels: int
+        Number of channels or variables of the input vector-valued signal. The Jacobian with `n_channels==1` yields the
+        gradient.
+    diff_method: str ['gd', 'fd']
+        Method used to approximate the derivative. Must be one of:
+
+        * 'fd' (default): finite differences
+        * 'gd': Gaussian derivative
+    mode: str | list(str)
+        Boundary conditions.
+        Multiple forms are accepted:
+
+        * str: unique mode shared amongst dimensions.
+          Must be one of:
+
+          * 'constant' (default): zero-padding
+          * 'wrap'
+          * 'reflect'
+          * 'symmetric'
+          * 'edge'
+        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+
+        (See :py:func:`numpy.pad` for details.)
+    gpu: bool
+        Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
+    dtype: pyct.DType
+        Working precision of the linear operator.
+    sampling: float | tuple
+        Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
+    parallel: bool
+        If ``true``, use Dask to evaluate the different partial derivatives in parallel.
+    diff_kwargs: dict
+        Keyword arguments to parametrize partial derivatives (see
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` and
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+
+    Returns
+    -------
+    op: :py:class:`~pycsou.abc.operator.LinOp`
+        Jacobian
+
     Example
     -------
 
@@ -1266,6 +1285,7 @@ def Jacobian(
     init_kwargs = dict(
         arg_shape=arg_shape,
         directions=None,
+        diff_method=diff_method,
         mode=mode,
         gpu=gpu,
         dtype=dtype,
@@ -1274,12 +1294,7 @@ def Jacobian(
         **diff_kwargs,
     )
 
-    if diff_method == "fd":
-        grad = Gradient.finite_difference(**init_kwargs)
-    elif diff_method == "gd":
-        grad = Gradient.gaussian_derivative(**init_kwargs)
-    else:
-        raise NotImplementedError
+    grad = Gradient(**init_kwargs)
 
     op = pycb.block_diag(
         [
@@ -1291,7 +1306,19 @@ def Jacobian(
     return _make_unravelable(op, (n_channels, *arg_shape))
 
 
-class Hessian(_BaseVecDifferential):
+def Hessian(
+    arg_shape: pyct.NDArrayShape,
+    directions: typ.Union[
+        str, tuple[pyct.Integer, pyct.Integer], tuple[tuple[pyct.Integer, pyct.Integer], ...]
+    ] = "all",
+    diff_method: str = "fd",
+    mode: ModeSpec = "constant",
+    gpu: bool = False,
+    dtype: typ.Optional[pyct.DType] = None,
+    sampling: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1,
+    parallel: bool = False,
+    **diff_kwargs,
+):
     r"""
     Hessian operator based on `Numba stencils <https://numba.pydata.org/numba-doc/latest/user/stencil.html>`_.
 
@@ -1332,6 +1359,51 @@ class Hessian(_BaseVecDifferential):
     default (all directions), we have
     :math:`\mathbf{H} \mathbf{f} \in \mathbb{R}^{\frac{D(D-1)}{2} \times N_0 \times \cdots \times N_{D-1}}`.
 
+    Parameters
+    ----------
+
+    arg_shape: tuple
+        Shape of the input array.
+    directions: int | tuple | None
+        Hessian directions. Defaults to `all`, which computes the Hessian for all directions.
+    diff_method: str ['gd', 'fd']
+        Method used to approximate the derivative. Must be one of:
+
+        * 'fd' (default): finite differences
+        * 'gd': Gaussian derivative
+    mode: str | list(str)
+        Boundary conditions.
+        Multiple forms are accepted:
+
+        * str: unique mode shared amongst dimensions.
+          Must be one of:
+
+          * 'constant' (default): zero-padding
+          * 'wrap'
+          * 'reflect'
+          * 'symmetric'
+          * 'edge'
+        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+
+        (See :py:func:`numpy.pad` for details.)
+    gpu: bool
+        Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
+    dtype: pyct.DType
+        Working precision of the linear operator.
+    sampling: float | tuple
+        Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
+    parallel: bool
+        If ``true``, use Dask to evaluate the different partial derivatives in parallel.
+    diff_kwargs: dict
+        Keyword arguments to parametrize partial derivatives (see
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` and
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+
+    Returns
+    -------
+    op: :py:class:`~pycsou.abc.operator.LinOp`
+        Hessian
+
     Example
     -------
 
@@ -1352,7 +1424,7 @@ class Hessian(_BaseVecDifferential):
        print(images.shape)  # (2, 1000000)
        # Instantiate Hessian operator
        directions = "all"
-       hessian = Hessian.gaussian_derivative(arg_shape=arg_shape, directions=directions)
+       hessian = Hessian(arg_shape=arg_shape, directions=directions)
        # Compute Hessian
        outputs = hessian(images)
        print(outputs.shape)  # (2, 3000000)
@@ -1389,209 +1461,34 @@ class Hessian(_BaseVecDifferential):
     :py:class:`~pycsou.operator.linop.diff.Laplacian`.
     """
 
-    @staticmethod
-    def finite_difference(
-        arg_shape: pyct.NDArrayShape,
-        directions: typ.Union[
-            str, tuple[pyct.Integer, pyct.Integer], tuple[tuple[pyct.Integer, pyct.Integer], ...]
-        ] = "all",
-        diff_type: typ.Union[str, tuple[str, ...]] = "forward",
-        accuracy: typ.Union[pyct.Integer, tuple[pyct.Integer, ...]] = 1,
-        mode: ModeSpec = "constant",
-        gpu: bool = False,
-        dtype: typ.Optional[pyct.DType] = None,
-        sampling: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1,
-        parallel: bool = False,
-    ) -> typ.Union[pyco.LinOp, typ.Tuple[pyco.LinOp, ...]]:
-        """
-        Parameters
-        ----------
-        arg_shape: tuple
-            Shape of the input array.
-        directions: int | tuple | None
-            Hessian directions. Defaults to `all`, which computes the Hessian for all directions.
-        diff_type: str | tuple
-            Type of finite differences ['forward, 'backward, 'central']. Defaults to 'forward'. If a string is provided,
-            the same `diff_type` is assumed for all dimensions. If a tuple is provided, it should have as many elements as `arg_shape`.
-        accuracy: int | tuple
-            Determines the number of points used to approximate the derivative with finite differences (see `Notes`).
-            Defaults to 1. If an int is provided, the same `accuracy` is assumed for all dimensions.
-            If a tuple is provided, it should have as many elements as `arg_shape`.
-        mode: str | list(str)
-            Boundary conditions.
-            Multiple forms are accepted:
-
-            * str: unique mode shared amongst dimensions.
-              Must be one of:
-
-              * 'constant' (default): zero-padding
-              * 'wrap'
-              * 'reflect'
-              * 'symmetric'
-              * 'edge'
-            * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
-
-            (See :py:func:`numpy.pad` for details.)
-        gpu: bool
-            Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-        dtype: pyct.DType
-            Working precision of the linear operator.
-        sampling: float | tuple
-            Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
-
-        Returns
-        -------
-        op: :py:class:`~pycsou.abc.operator.LinOp`
-            Hessian
-        """
-
-        order, sampling, diff_type, accuracy, _ = _sanitize_init_kwargs(
-            order=(1,) * len(arg_shape),
-            param1=diff_type,
-            param1_name="diff_type",
-            param2=accuracy,
-            param2_name="accuracy",
-            arg_shape=arg_shape,
-            sampling=sampling,
-        )
-        directions, order = Hessian._check_directions_and_order(arg_shape, directions)
-        return Hessian._stack_diff_ops(
-            arg_shape=arg_shape,
-            directions=directions,
-            diff_method="fd",
-            order=order,
-            param1=diff_type,
-            param2=accuracy,
-            mode=mode,
-            gpu=gpu,
-            dtype=dtype,
-            sampling=sampling,
-            parallel=parallel,
-        )
-
-    @staticmethod
-    def gaussian_derivative(
-        arg_shape: pyct.NDArrayShape,
-        directions: typ.Union[
-            str, tuple[pyct.Integer, pyct.Integer], tuple[tuple[pyct.Integer, pyct.Integer], ...]
-        ] = "all",
-        sigma: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1.0,
-        truncate: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 3.0,
-        mode: ModeSpec = "constant",
-        gpu: bool = False,
-        dtype: typ.Optional[pyct.DType] = None,
-        sampling: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1,
-        parallel: bool = False,
-    ) -> typ.Union[pyco.LinOp, typ.Tuple[pyco.LinOp, ...]]:
-        """
-        Parameters
-        ----------
-        arg_shape: tuple
-            Shape of the input array.
-        directions: int | tuple | None
-            Hessian directions. Defaults to `all`, which computes the Hessian for all directions.
-        sigma: float | tuple
-            Standard deviation for the Gaussian kernel. Defaults to 1.0.
-            If a float is provided, the same `sigma` is assumed for all dimensions. If a tuple is provided, it should have as many elements as `arg_shape`.
-        truncate: float | tuple
-            Truncate the filter at this many standard deviations. Defaults to 3.0.
-            If a float is provided, the same `truncate` is assumed for all dimensions. If a tuple is provided, it should have as many elements as `arg_shape`.
-        mode: str | list(str)
-            Boundary conditions.
-            Multiple forms are accepted:
-
-            * str: unique mode shared amongst dimensions.
-              Must be one of:
-
-              * 'constant' (default): zero-padding
-              * 'wrap'
-              * 'reflect'
-              * 'symmetric'
-              * 'edge'
-            * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
-
-            (See :py:func:`numpy.pad` for details.)
-        gpu: bool
-            Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-        dtype: pyct.DType
-            Working precision of the linear operator.
-        sampling: float | tuple
-            Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
-
-        Returns
-        -------
-        op: :py:class:`~pycsou.abc.operator.LinOp`
-            Hessian
-        """
-
-        directions, order = Hessian._check_directions_and_order(arg_shape, directions)
-        return Hessian._stack_diff_ops(
-            arg_shape=arg_shape,
-            directions=directions,
-            diff_method="gd",
-            order=order,
-            param1=sigma,
-            param2=truncate,
-            mode=mode,
-            gpu=gpu,
-            dtype=dtype,
-            sampling=sampling,
-            parallel=parallel,
-        )
-
-    @classmethod
-    def _check_directions_and_order(
-        cls, arg_shape, directions
-    ) -> typ.Tuple[typ.Union[tuple[pyct.Integer, ...], tuple[tuple[pyct.Integer, ...], ...]], bool]:
-        def _check_directions(_directions):
-            assert all(0 <= _ <= (len(arg_shape) - 1) for _ in _directions), (
-                "Direction values must be between 0 and " "the number of dimensions in `arg_shape`."
-            )
-
-        if not isinstance(directions, cabc.Sequence):
-            # This corresponds to [mode 0] in `Notes`
-            directions = [directions, directions]
-            _check_directions(directions)
-            directions = (directions,)
-        else:
-            if isinstance(directions, str):
-                # This corresponds to [mode 3] in `Notes`
-                assert directions == "all", (
-                    f"Value for `directions` not implemented. The accepted directions types are"
-                    f"int, tuple or a str with the value `all`."
-                )
-                directions = tuple(
-                    list(_) for _ in itertools.combinations_with_replacement(np.arange(len(arg_shape)).astype(int), 2)
-                )
-            elif not isinstance(directions[0], cabc.Sequence):
-                # This corresponds to [mode 2] in `Notes`
-                assert len(directions) == 2, (
-                    "If `directions` is a tuple, it should contain two elements, corresponding "
-                    "to the i-th an j-th elements (dx_i and dx_j)"
-                )
-                directions = list(directions)
-                _check_directions(directions)
-                directions = (directions,)
-            else:
-                # This corresponds to [mode 3] in `Notes`
-                for direction in directions:
-                    _check_directions(direction)
-
-        _directions = [
-            list(direction) if (len(np.unique(direction)) == len(direction)) else np.unique(direction).tolist()
-            for direction in directions
-        ]
-
-        _order = [3 - len(np.unique(direction)) for direction in directions]
-
-        return _directions, _order
+    order, sampling, param1, param2, _ = _sanitize_init_kwargs(
+        order=(1,) * len(arg_shape),
+        diff_method=diff_method,
+        diff_kwargs=diff_kwargs,
+        arg_shape=arg_shape,
+        sampling=sampling,
+    )
+    directions, order = _BaseVecDifferential._check_directions_and_order(arg_shape, directions)
+    return _BaseVecDifferential._stack_diff_ops(
+        arg_shape=arg_shape,
+        directions=directions,
+        diff_method=diff_method,
+        order=order,
+        param1=param1,
+        param2=param2,
+        mode=mode,
+        gpu=gpu,
+        dtype=dtype,
+        sampling=sampling,
+        parallel=parallel,
+    )
 
 
 def DirectionalDerivative(
     arg_shape: pyct.NDArrayShape,
     which: pyct.Integer,
     directions: pyct.NDArray,
-    diff_method: str = "gd",
+    diff_method: str = "fd",
     mode: ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pyct.DType] = None,
@@ -1721,16 +1618,17 @@ def DirectionalDerivative(
     :py:func:`~pycsou.operator.linop.diff.Gradient`, :py:func:`~pycsou.operator.linop.diff.DirectionalGradient`
     """
 
-    if diff_method == "fd":
-        diff = Gradient.finite_difference(
-            arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype, sampling=sampling, parallel=parallel, **diff_kwargs
-        )
-    elif diff_method == "gd":
-        diff = Gradient.gaussian_derivative(
-            arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype, sampling=sampling, parallel=parallel, **diff_kwargs
-        )
-    else:
-        raise NotImplementedError
+    diff = Gradient(
+        arg_shape=arg_shape,
+        directions=None,
+        diff_method=diff_method,
+        mode=mode,
+        gpu=gpu,
+        dtype=dtype,
+        sampling=sampling,
+        parallel=parallel,
+        **diff_kwargs,
+    )
 
     xp = pycu.get_array_module(directions)
     directions = directions / xp.linalg.norm(directions, axis=0, keepdims=True)
