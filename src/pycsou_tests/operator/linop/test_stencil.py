@@ -11,26 +11,14 @@ import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
 
+# We disable PrecisionWarnings since Stencil() is not precision-agnostic.
 # We disable NumbaPerformanceWarnings due to solving small-scale problems at test time.
+@pytest.mark.filterwarnings("ignore::pycsou.util.warning.PrecisionWarning")
 @pytest.mark.filterwarnings("ignore::numba.core.errors.NumbaPerformanceWarning")
 class TestStencil(conftest.SquareOpT):
     disable_test = frozenset(
         conftest.SquareOpT.disable_test
         | {
-            # Stencil does not support evaluating inputs at different precisions.
-            "test_precCM_adjoint",
-            "test_precCM_adjoint_dagger",
-            "test_precCM_adjoint_T",
-            "test_precCM_apply",
-            "test_precCM_apply_dagger",
-            "test_precCM_apply_T",
-            "test_precCM_call",
-            "test_precCM_call_dagger",
-            "test_precCM_call_T",
-            "test_precCM_eigvals",
-            "test_precCM_eigvals",
-            "test_precCM_pinv",
-            "test_precCM_svdvals",
             # from_sciop() tests try round trip Stencil<>to_sciop()<>from_sciop().
             # Compounded effect of approximations make most tests fail.
             # There is no reason to use from_sciop() in Stencil -> safe to disable.

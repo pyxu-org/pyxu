@@ -2,6 +2,7 @@ import collections.abc as cabc
 import functools
 import operator
 import typing as typ
+import warnings
 
 import numpy as np
 
@@ -10,6 +11,7 @@ import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
 from pycsou.operator.linop.pad import Pad
 from pycsou.operator.linop.select import Trim
 from pycsou.operator.linop.stencil._stencil import _Stencil
@@ -43,6 +45,7 @@ class Stencil(pyca.SquareOp):
         as ``kernel``.
       * Compiled stencils are not **precision-agnostic**: they will only work on NDArrays with the
         same dtype as ``kernel``.
+        A warning is emitted if inputs must be cast to the kernel dtype.
     * Stencil kernels can be specified in two forms:
       (See :py:meth:`~pycsou.operator.linop.stencil.stencil.Stencil.__init__` for details.)
 
@@ -208,6 +211,7 @@ class Stencil(pyca.SquareOp):
         kernel: KernelSpec,
         center: _Stencil.IndexSpec,
         mode: Pad.ModeSpec = "constant",
+        enable_warnings: bool = True,
     ):
         r"""
         Parameters
@@ -249,6 +253,8 @@ class Stencil(pyca.SquareOp):
             * tuple[str, ...]: dimension[k] uses `mode[k]` as boundary condition.
 
             (See :py:func:`numpy.pad` for details.)
+        enable_warnings: bool
+            If ``True``, emit a warning in case of precision mis-match issues.
         """
         arg_shape, _kernel, _center, _mode = self._canonical_repr(arg_shape, kernel, center, mode)
         codim = dim = np.prod(arg_shape)
@@ -279,13 +285,14 @@ class Stencil(pyca.SquareOp):
 
         self._dispatch_params = dict()  # Extra kwargs passed to _Stencil.apply()
         self._dtype = _kernel[0].dtype  # useful constant
+        self._enable_warnings = bool(enable_warnings)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         x = self._pad.apply(arr)
         x = x.reshape(-1, *self._pad._pad_shape)
 
-        y = self._stencil_chain(x, self._st_fw)
+        y = self._stencil_chain(self._cast_warn(x), self._st_fw)
         y = y.reshape(*arr.shape[:-1], -1)
 
         out = self._trim.apply(y)
@@ -296,7 +303,7 @@ class Stencil(pyca.SquareOp):
         x = self._trim.adjoint(arr)
         x = x.reshape(-1, *self._pad._pad_shape)
 
-        y = self._stencil_chain(x, self._st_bw)
+        y = self._stencil_chain(self._cast_warn(x), self._st_bw)
         y = y.reshape(*arr.shape[:-1], -1)
 
         out = self._pad.adjoint(y)
@@ -463,6 +470,16 @@ class Stencil(pyca.SquareOp):
         y = x
         return y
 
+    def _cast_warn(self, arr: pyct.NDArray) -> pyct.NDArray:
+        if arr.dtype == self._dtype:
+            out = arr
+        else:
+            if self._enable_warnings:
+                msg = "Computation may not be performed at the requested precision."
+                warnings.warn(msg, pycuw.PrecisionWarning)
+            out = arr.astype(dtype=self._dtype)
+        return out
+
     @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
         if kwargs.get("tight", False):
@@ -484,13 +501,13 @@ class Stencil(pyca.SquareOp):
         return self._lipschitz
 
     def to_sciop(self, **kwargs):
-        # Stencil.apply/adjoint() only support the precision provided at init-time.
+        # Stencil.apply/adjoint() prefer precision provided at init-time.
         kwargs.update(dtype=self._dtype)
         op = pyca.SquareOp.to_sciop(self, **kwargs)
         return op
 
     def asarray(self, **kwargs) -> pyct.NDArray:
-        # Stencil.apply() only supports the precision provided at init-time.
+        # Stencil.apply() prefers precision provided at init-time.
         xp = pycu.get_array_module(self._st_fw[0]._kernel)
         _A = super().asarray(xp=xp, dtype=self._dtype)
 
