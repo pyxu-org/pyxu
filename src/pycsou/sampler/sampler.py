@@ -42,7 +42,7 @@ class ULA(_Sampler):
     def _sample_init(self, seed: pyct.Integer, x0: pyct.NDArray):
         self.x = x0
         ndi = pycd.NDArrayInfo.from_obj(x0)
-        self._rng = pycr.random_generator(ndi, seed)
+        self._rng = pycr.default_rng(ndi, seed)
 
     def _sample(self) -> pyct.NDArray:
         self.x += -self._gamma * self._f.grad(self.x)
