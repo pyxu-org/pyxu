@@ -12,6 +12,7 @@ import pycsou.operator as pycop
 import pycsou.operator.func as pycf
 import pycsou.opt.solver as pycos
 import pycsou.opt.stop as pycstop
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 import pycsou_tests.opt.solver.conftest as conftest
 
@@ -95,6 +96,14 @@ class MixinPDS(conftest.SolverT):
                     kwargs_init.extend([dict(f=f, g=g, h=h, K=K) for (f, g, (h, K)) in stream3_K])
         return kwargs_init
 
+    @staticmethod
+    def fenchel_conjugate(quad_func: pyco.QuadraticFunc):
+        # Fenchel conjugate of a quadratic function (up to the constant term)
+        Q, c, _ = quad_func._quad_spec()
+        Q_fench = Q.dagger()
+        c_fench = -c * Q_fench
+        return pyco.QuadraticFunc(shape=quad_func.shape, Q=Q_fench, c=c_fench)
+
     @pytest.fixture
     def spec(self, klass, init_kwargs, fit_kwargs) -> tuple[pyct.SolverC, dict, dict]:
         return klass, init_kwargs, fit_kwargs
@@ -131,11 +140,25 @@ class MixinPDS(conftest.SolverT):
 
     @pytest.fixture
     def cost_function(self, init_kwargs) -> dict[str, pyct.OpT]:
-        kwargs = [init_kwargs.get(k, pycf.NullFunc(dim=self.dim)) for k in ("f", "g", "h")]
+        kwargs = [init_kwargs.get(k, pycf.NullFunc(dim=self.dim)) for k in ("f", "g")]
         func = kwargs[0] + kwargs[1]
+        out = dict()
         if init_kwargs.get("h") is not None:
-            func += init_kwargs.get("h") * init_kwargs.get("K", pycop.IdentityOp(dim=self.dim))
-        return dict(x=func)
+            if func._name != "NullFunc":
+                h = init_kwargs.get("h")
+                K = init_kwargs.get("K", pycop.IdentityOp(dim=self.dim))
+                if isinstance(h, pyco.QuadraticFunc) and isinstance(func, pyco.QuadraticFunc):
+                    Q_h, _, _ = h._quad_spec()
+                    Q_f, _, _ = func._quad_spec()
+                    if (Q_h._name == "IdentityOp" or Q_h._name == "HomothetyOp") and (
+                        Q_f._name == "IdentityOp" or Q_f._name == "HomothetyOp"
+                    ):
+                        # The dual cost is guaranteed to have finite values for QuadraticFuncs (it is infinite for
+                        # LinFuncs). We only compute the dual cost for QuadraticFuncs with explicit inverses
+                        out["z"] = self.fenchel_conjugate(h) + self.fenchel_conjugate(func) * (-K.T)
+            func += h * K
+        out["x"] = func
+        return out
 
 
 class TestPD3O(MixinPDS):
