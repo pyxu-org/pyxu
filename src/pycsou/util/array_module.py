@@ -1,6 +1,9 @@
 import collections.abc as cabc
 import functools
 
+import dask
+import dask.array as da
+
 import pycsou.util.deps as pycd
 import pycsou.util.inspect as pycui
 import pycsou.util.ptype as pyct
@@ -12,6 +15,7 @@ __all__ = [
     "read_only",
     "redirect",
     "to_NUMPY",
+    "_delayed_if_dask",
 ]
 
 
@@ -251,3 +255,48 @@ def read_only(x: pyct.NDArray) -> pyct.NDArray:
         msg = f"read_only() not yet defined for {ndi}."
         raise NotImplementedError(msg)
     return y
+
+
+def _delayed_if_dask(oshape: pyct.NDArrayShape) -> cabc.Callable:
+    r"""
+    Wraps an array-processing function to make it weakly compatible with Dask.
+
+    This decorator takes a fucntion acting on NumPy or CuPy array and makes it weakly compatible with Dask
+    by intercepting Dask array inputs, delayed-computing them, delaying the decorated function and casting back the output as a
+    Dask array. This allows to process Dask array with said function without interrupting the task graph but does not support
+    chunk-based processing.
+
+    Parameters
+    ----------
+    oshape: tuple
+        Shape of the output Dask array.
+
+    Returns
+    -------
+    Callable
+        Callable wekly compatible with Dask.
+
+    Notes
+    -----
+    This decorator does not seem to work with methods (probably due to Dask not being able to delay methods but to be investigated further).
+    """
+
+    def decorator(func: cabc.Callable) -> cabc.Callable:
+        @functools.wraps(func)
+        def wrapper(*ARGS, **KWARGS):
+            func_args = pycui.parse_params(func, *ARGS, **KWARGS)
+
+            arr = func_args.get("arr", None)
+            N = pycd.NDArrayInfo
+            if is_dask := (N.from_obj(arr) == N.DASK):
+                func_args.update(arr=dask.delayed(compute)(arr))
+            else:
+                pass
+            f = {True: dask.delayed, False: lambda _: _}[is_dask]
+            out = f(func)(**func_args)
+            g = {True: functools.partial(da.from_delayed, shape=oshape, dtype=arr.dtype), False: lambda _: _}[is_dask]
+            return g(out)
+
+        return wrapper
+
+    return decorator
