@@ -951,7 +951,6 @@ class LinOpT(DiffMapT):
             "cogram",
             "dagger",
             "from_array",
-            "from_sciop",
             "gram",
             "pinv",
             "svdvals",
@@ -1224,31 +1223,6 @@ class LinOpT(DiffMapT):
             mode=mode,  # for test_xxx_sciop()
         )
 
-    @pytest.fixture
-    def _data_from_sciop(self, _data_to_sciop) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.from_sciop()`.
-        mode = _data_to_sciop["mode"]
-        var = dict(
-            matvec="x",
-            matmat="X",
-            rmatvec="x",
-            rmatmat="X",
-        )[mode]
-        mode = dict(
-            matvec="apply",
-            matmat="apply",
-            rmatvec="adjoint",
-            rmatmat="adjoint",
-        )[mode]
-
-        arr = _data_to_sciop["in_"][var].T
-        out = _data_to_sciop["out"].T
-        return dict(
-            in_=dict(arr=arr),
-            out=out,
-            mode=mode,
-        )
-
     # Tests -------------------------------------------------------------------
     def test_value1D_adjoint(self, op, _data_adjoint):
         self._skip_if_disabled()
@@ -1484,36 +1458,6 @@ class LinOpT(DiffMapT):
         func = getattr(_op_sciop, _data_to_sciop["mode"])
         out = func(**_data_to_sciop["in_"])
         out_gt = _data_to_sciop["out"]
-        assert out.dtype == out_gt.dtype
-
-    def test_interface_from_sciop(self, _op_sciop):
-        self._skip_if_disabled()
-        op = self.base.from_sciop(_op_sciop)
-        self._check_has_interface(op, self.__class__)
-
-    def test_value_from_sciop(self, _op_sciop, _data_from_sciop):
-        self._skip_if_disabled()
-        op = self.base.from_sciop(_op_sciop)
-        func = getattr(op, _data_from_sciop["mode"])
-        out = func(**_data_from_sciop["in_"])
-        out_gt = _data_from_sciop["out"]
-        assert out.shape == out_gt.shape
-        assert self._metric(out, out_gt, as_dtype=out_gt.dtype)
-
-    def test_backend_from_sciop(self, _op_sciop, _data_from_sciop):
-        self._skip_if_disabled()
-        op = self.base.from_sciop(_op_sciop)
-        func = getattr(op, _data_from_sciop["mode"])
-        out = func(**_data_from_sciop["in_"])
-        out_gt = _data_from_sciop["out"]
-        assert pycu.get_array_module(out) == pycu.get_array_module(out_gt)
-
-    def test_prec_from_sciop(self, _op_sciop, _data_from_sciop):
-        self._skip_if_disabled()
-        op = self.base.from_sciop(_op_sciop)
-        func = getattr(op, _data_from_sciop["mode"])
-        out = func(**_data_from_sciop["in_"])
-        out_gt = _data_from_sciop["out"]
         assert out.dtype == out_gt.dtype
 
 
