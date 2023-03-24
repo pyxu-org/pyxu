@@ -29,9 +29,15 @@ def parse_params(func, *args, **kwargs) -> cabc.Mapping:
     return params
 
 
-def import_module(name: str) -> types.ModuleType:
+def import_module(name: str, fail_on_error: bool = True) -> types.ModuleType:
     """
     Load a Python module dynamically.
     """
-    pkg = importlib.import_module(name)
+    try:
+        pkg = importlib.import_module(name)
+    except ModuleNotFoundError:
+        if fail_on_error:
+            raise
+        else:
+            pkg = None
     return pkg
