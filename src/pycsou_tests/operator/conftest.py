@@ -1541,25 +1541,38 @@ class SquareOpT(LinOpT):
         tr = op.asarray().trace()
         return float(tr)
 
+    @pytest.fixture
+    def _data_trace(self, xp, width) -> DataLike:
+        # Generate Cartesian product of inputs.
+        # Do not override in subclass: for internal use only to test `op.trace()`.
+        data = dict(
+            in_=dict(
+                xp=xp,
+                dtype=width.value,
+            )
+        )
+        return data
+
     # Tests -------------------------------------------------------------------
     def test_square(self, op):
         self._skip_if_disabled()
         assert op.dim == op.codim
 
-    def test_interface_trace(self, op):
-        assert isinstance(op.trace(), float)
+    def test_interface_trace(self, op, _data_trace):
+        assert isinstance(op.trace(**_data_trace["in_"]), float)
 
-    def test_value_trace(self, op, _op_trace):
+    def test_value_trace(self, op, _data_trace, _op_trace):
         # Ensure computed trace (w/ default parameter values) satisfies statistical property stated
         # in hutchpp() docstring, i.e.: estimation error smaller than 1e-2 w/ probability 0.9
         N_trial = 100
-        tr = np.array([op.trace() for _ in range(N_trial)])
+        tr = np.array([op.trace(**_data_trace["in_"]) for _ in range(N_trial)])
         N_pass = sum(np.abs(tr - _op_trace) <= 1e-2)
         assert N_pass >= 0.9 * N_trial
 
-    def test_precCM_trace(self, op, width):
+    def test_precCM_trace(self, op, _data_trace, width):
         self._skip_if_disabled()
-        self._check_precCM_func(op.trace, width)
+        func = lambda: op.trace(**_data_trace["in_"])
+        self._check_precCM_func(func, width)
 
 
 class NormalOpT(SquareOpT):

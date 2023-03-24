@@ -38,7 +38,7 @@ class FromSciOpMixin:
             xpl = spsl
 
         A = op_orig.asarray(xp=xp, dtype=width.value)
-        B = spsl.aslinearoperator(A)
+        B = xpl.aslinearoperator(A)
         op = isp.from_sciop(cls=self.base, sp_op=B)
 
         return op, ndi, width
