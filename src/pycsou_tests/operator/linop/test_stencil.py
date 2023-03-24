@@ -16,18 +16,6 @@ import pycsou_tests.operator.conftest as conftest
 @pytest.mark.filterwarnings("ignore::pycsou.util.warning.PrecisionWarning")
 @pytest.mark.filterwarnings("ignore::numba.core.errors.NumbaPerformanceWarning")
 class TestStencil(conftest.SquareOpT):
-    disable_test = frozenset(
-        conftest.SquareOpT.disable_test
-        | {
-            # from_sciop() tests try round trip Stencil<>to_sciop()<>from_sciop().
-            # Compounded effect of approximations make most tests fail.
-            # There is no reason to use from_sciop() in Stencil -> safe to disable.
-            "test_value_from_sciop",
-            "test_prec_from_sciop",
-            "test_backend_from_sciop",
-        }
-    )
-
     @pytest.fixture(
         params=[
             # 1D, random center/mode ------------------------

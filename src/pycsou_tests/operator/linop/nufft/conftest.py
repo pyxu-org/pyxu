@@ -24,12 +24,6 @@ class NUFFT_Mixin:
             "test_precCM_eigvals",
             "test_precCM_pinv",
             "test_precCM_svdvals",
-            # from_sciop() tests try round trip NUFFT<>to_sciop()<>from_sciop().
-            # Compounded effect of approximations make most tests fail.
-            # There is no reason to use from_sciop() in NUFFT -> safe to disable.
-            "test_value_from_sciop",
-            "test_prec_from_sciop",
-            "test_backend_from_sciop",
         }
     )
 
