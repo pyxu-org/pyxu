@@ -1668,59 +1668,6 @@ class LinOp(DiffMap):
         return dagger
 
     @classmethod
-    def from_sciop(cls, sp_op: spsl.LinearOperator) -> pyct.OpT:
-        r"""
-        Cast a :py:class:`scipy.sparse.linalg.LinearOperator` to a
-        :py:class:`~pycsou.abc.operator.LinOp`.
-
-        Parameters
-        ----------
-        sp_op: [scipy|cupyx].sparse.linalg.LinearOperator
-            (N, M) Linear operator compliant with SciPy's interface.
-
-        Returns
-        -------
-        op: pyct.OpT
-
-        Notes
-        -----
-        A :py:class:`~pycsou.abc.operator.LinOp` constructed via
-        :py:meth:`~pycsou.abc.operator.LinOp.from_sciop` does not respect precision hints from
-        pycsou's runtime environment. (Reason: this is just a thin layer around a SciOp to make it
-        interoperable with Pycsou operators.)
-
-        See Also
-        --------
-        :py:meth:`~pycsou.abc.operator.LinOp.from_array`,
-        :py:meth:`~pycsou.abc.operator.LinOp.to_sciop`.
-        """
-        if sp_op.dtype not in [_.value for _ in pycrt.Width]:
-            warnings.warn("Computation may not be performed at the requested precision.", pycuw.PrecisionWarning)
-
-        # [r]matmat only accepts 2D inputs -> reshape apply|adjoint inputs as needed.
-
-        def apply(_, arr):
-            if _1d := arr.ndim == 1:
-                arr = arr.reshape((1, arr.size))
-            out = sp_op.matmat(arr.T).T
-            if _1d:
-                out = out.squeeze(axis=0)
-            return out
-
-        def adjoint(_, arr):
-            if _1d := arr.ndim == 1:
-                arr = arr.reshape((1, arr.size))
-            out = sp_op.rmatmat(arr.T).T
-            if _1d:
-                out = out.squeeze(axis=0)
-            return out
-
-        op = cls(shape=sp_op.shape)
-        setattr(op, "apply", types.MethodType(apply, op))
-        setattr(op, "adjoint", types.MethodType(adjoint, op))
-        return op
-
-    @classmethod
     def from_array(
         cls,
         A: typ.Union[pyct.NDArray, pyct.SparseArray],
@@ -1738,10 +1685,6 @@ class LinOp(DiffMap):
         -------
         op: pyct.OpT
             (N, M) linear operator
-
-        See Also
-        --------
-        :py:meth:`~pycsou.abc.operator.LinOp.from_sciop`,
         """
         from pycsou.operator.linop.base import _ExplicitLinOp
 
