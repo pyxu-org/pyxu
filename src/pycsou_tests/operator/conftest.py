@@ -43,6 +43,20 @@ def get_test_class(cls: pyct.OpC) -> "MapT":
         raise ValueError(f"No known test type for {cls}.")
 
 
+def flaky(func: cabc.Callable, args: dict, condition: bool, reason: str):
+    # XFAIL if func(**args) fails when `condition` satisfied.
+    # This function is required when pytest.mark.xfail() cannot be used.
+    # (Reason: `condition` only available inside test body.)
+    try:
+        out = func(**args)
+        return out
+    except:
+        if condition:
+            pytest.xfail(reason)
+        else:
+            raise
+
+
 def isclose(
     a: typ.Union[pyct.Real, pyct.NDArray],
     b: typ.Union[pyct.Real, pyct.NDArray],
