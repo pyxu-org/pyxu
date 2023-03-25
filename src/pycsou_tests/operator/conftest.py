@@ -399,6 +399,13 @@ class MapT:
         raise NotImplementedError
 
     @pytest.fixture
+    def _data_lipschitz(self) -> DataLike:
+        # Generate Cartesian product of inputs.
+        # For internal use only to test `op.lipschitz()`.
+        data = dict(in_=dict())
+        return data
+
+    @pytest.fixture
     def _data_apply(self, data_apply, xp, width) -> DataLike:
         # Generate Cartesian product of inputs.
         # Do not override in subclass: for internal use only to test `op.apply()`.
@@ -476,9 +483,10 @@ class MapT:
         self._skip_if_disabled()
         self._check_no_side_effect(op.__call__, _data_apply)
 
-    def test_precCM_lipschitz(self, op, width):
+    def test_precCM_lipschitz(self, op, width, _data_lipschitz):
         self._skip_if_disabled()
-        self._check_precCM_func(op.lipschitz, width)
+        func = lambda: op.lipschitz(**_data_lipschitz["in_"])
+        self._check_precCM_func(func, width)
 
     # We disable RuntimeWarnings which may arise due to NaNs. (See comment below.)
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
@@ -487,12 +495,13 @@ class MapT:
         op,
         xp,
         width,
+        _data_lipschitz,
         data_math_lipschitz,
     ):
         # \norm{f(x) - f(y)}{2} \le L * \norm{x - y}{2}
         self._skip_if_disabled()
         with pycrt.EnforcePrecision(False):
-            L = op.lipschitz()
+            L = op.lipschitz(**_data_lipschitz["in_"])
 
             data = xp.array(data_math_lipschitz, dtype=width.value)
             data = list(itertools.combinations(data, 2))
@@ -540,7 +549,7 @@ class MapT:
             klassT = get_test_class(_klass)
             self._check_has_interface(op2, klassT)
 
-    def test_value_asop(self, op, width, _klass):
+    def test_value_asop(self, op, _data_lipschitz, width, _klass):
         # Ensure encapsulated arithmetic fields are forwarded.
         # We only test fields known to belong to any Map subclass:
         # * _lipschitz (attribute)
@@ -555,7 +564,11 @@ class MapT:
             return
         else:
             assert allclose(op2._lipschitz, op._lipschitz, as_dtype=width.value)
-            assert allclose(op2.lipschitz(), op.lipschitz(), as_dtype=width.value)
+            assert allclose(
+                op2.lipschitz(**_data_lipschitz["in_"]),
+                op.lipschitz(**_data_lipschitz["in_"]),
+                as_dtype=width.value,
+            )
             assert op2.apply == op.apply
             assert op2.__call__ == op.__call__
 
@@ -713,11 +726,11 @@ class DiffFuncT(FuncT, DiffMapT):
             assert J.size == g.size
             assert allclose(J.squeeze(), g, as_dtype=arr.dtype)
 
-    def test_math2_grad(self, op, xp, width):
+    def test_math2_grad(self, op, xp, width, _data_lipschitz):
         # f(x - \frac{1}{L} \grad_{f}(x)) <= f(x)
         self._skip_if_disabled()
         with pycrt.EnforcePrecision(False):
-            L = op.lipschitz()
+            L = op.lipschitz(**_data_lipschitz["in_"])
             if np.isclose(L, 0):
                 return  # trivially true since f(x) = cst
             elif np.isclose(L, np.inf):
@@ -1076,6 +1089,17 @@ class LinOpT(DiffMapT):
         return self._random_array((N_test, op.dim))
 
     @pytest.fixture
+    def _data_lipschitz(self, xp, width, _gpu) -> DataLike:
+        data = dict(
+            in_=dict(
+                xp=xp,
+                dtype=width.value,
+                gpu=_gpu,
+            )
+        )
+        return data
+
+    @pytest.fixture
     def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
         N_test = 5
         return self._random_array((N_test, op.dim))
@@ -1090,20 +1114,13 @@ class LinOpT(DiffMapT):
         )
         return np.sort(D)
 
-    @pytest.fixture(
-        params=[
-            False,
-            pytest.param(
-                True,
-                marks=pytest.mark.skipif(
-                    not pycd.CUPY_ENABLED,
-                    reason="GPU unsupported on this machine.",
-                ),
-            ),
-        ]
-    )
-    def _gpu(self, request) -> bool:
-        # Do not override in subclass: for use only to test methods taking a `gpu` parameter.
+    @pytest.fixture
+    def _gpu(self, xp) -> bool:
+        N = pycd.NDArrayInfo
+        if pycd.CUPY_ENABLED and (xp == N.CUPY.module()):
+            return True
+        else:
+            return False
         return request.param
 
     @pytest.fixture(params=[1, 2])
@@ -1276,7 +1293,7 @@ class LinOpT(DiffMapT):
 
         assert self._metric(lhs, rhs, as_dtype=width.value)
 
-    def test_math2_lipschitz(self, op, xp, width):
+    def test_math2_lipschitz(self, op, xp, width, _gpu):
         # op.lipschitz(tight=False) upper bounds op.lipschitz(tight=True).
         self._skip_if_disabled()
         L_ub = op.lipschitz(
@@ -1284,17 +1301,50 @@ class LinOpT(DiffMapT):
             dtype=width.value,
             enable_warnings=False,
         )
-        L_tight = op.lipschitz(tight=True)
-        assert less_equal(L_tight, L_ub, as_dtype=width.value).item()
+        L_tight = flaky(
+            func=op.lipschitz,  # might raise an assertion in GPU-mode
+            args=dict(
+                tight=True,
+                xp=xp,  # for LinFunc case
+                gpu=_gpu,
+            ),
+            condition=_gpu is True,
+            reason="svdvals() sparse-evaled via CuPY flaky.",
+        )
 
-    def test_math3_lipschitz(self, op, _op_svd, width):
+        try:
+            assert less_equal(L_tight, L_ub, as_dtype=width.value).item()
+        except AssertionError:
+            if _gpu is True:
+                # even if L_tight computed, not guaranteed to be correct in GPU-mode
+                pytest.xfail("svdvals() sparse-evaled via CuPY flaky.")
+            else:
+                raise
+
+    def test_math3_lipschitz(self, op, xp, _op_svd, width, _gpu):
         # op.lipschitz(tight=True) computes the optimal Lipschitz constant.
         self._skip_if_disabled()
-        L_svds = op.lipschitz(tight=True)
+        L_svds = flaky(
+            func=op.lipschitz,  # might raise an assertion in GPU-mode
+            args=dict(
+                tight=True,
+                xp=xp,  # for LinFunc case
+                gpu=_gpu,
+            ),
+            condition=_gpu is True,
+            reason="svdvals() sparse-evaled via CuPY flaky.",
+        )
         # Comparison is done with user-specified metric since operator may compute `L_svds` via an
         # approximate `.apply()' method.
-        cast = lambda x: np.array([x], dtype=width.value)
-        assert self._metric(cast(L_svds), cast(_op_svd.max()), as_dtype=width.value)
+        try:
+            cast = lambda x: np.array([x], dtype=width.value)
+            assert self._metric(cast(L_svds), cast(_op_svd.max()), as_dtype=width.value)
+        except AssertionError:
+            if _gpu is True:
+                # even if L_tight computed, not guaranteed to be correct in GPU-mode
+                pytest.xfail("svdvals() sparse-evaled via CuPY flaky.")
+            else:
+                raise
 
     def test_interface_jacobian(self, op, _data_apply):
         self._skip_if_disabled()

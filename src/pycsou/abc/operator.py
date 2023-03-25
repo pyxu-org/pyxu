@@ -1367,9 +1367,11 @@ class LinOp(DiffMap):
           equality is reached (worst-case scenario) when the eigenspectrum of the linear operator is
           flat.
         """
-        if kwargs.get("tight", False):
+        if kwargs.pop("tight", False):
             # Compute tightest value via svdvals()
-            self._lipschitz = self.svdvals(k=1, which="LM").item()
+            kwargs.update(k=1, which="LM")
+            kwargs.pop("xp", None)
+            self._lipschitz = self.svdvals(**kwargs).item()
         elif self._lipschitz == np.inf:
             # Upper bound via Frobenius norm
             from pycsou.math.linalg import hutchpp
@@ -2022,7 +2024,14 @@ class LinFunc(ProxDiffFunc, LinOp):
     def cogram(self) -> pyct.OpT:
         from pycsou.operator.linop import HomothetyOp
 
-        return HomothetyOp(cst=self.lipschitz() ** 2, dim=1)
+        try:
+            # If operator is domain-specific, then this may not work.
+            L = self.lipschitz()
+        except:
+            # So we sometimes must piggy-back on a potentially-slower solution.
+            L = np.linalg.norm(self.asarray().flatten())
+
+        return HomothetyOp(cst=L**2, dim=1)
 
     def svdvals(self, **kwargs) -> pyct.NDArray:
         N = pycd.NDArrayInfo
