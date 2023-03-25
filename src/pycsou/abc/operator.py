@@ -1383,6 +1383,7 @@ class LinOp(DiffMap):
             pass
         return self._lipschitz
 
+    @pycrt.enforce_precision()
     def svdvals(
         self,
         k: pyct.Integer,
@@ -2026,7 +2027,7 @@ class LinFunc(ProxDiffFunc, LinOp):
     def svdvals(self, **kwargs) -> pyct.NDArray:
         N = pycd.NDArrayInfo
         xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
-        D = xp.array([self.lipschitz()], dtype=pycrt.getPrecision().value)
+        D = xp.array([self.lipschitz(xp=xp)], dtype=pycrt.getPrecision().value)
         return D
 
     def asarray(

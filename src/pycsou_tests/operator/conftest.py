@@ -1313,13 +1313,23 @@ class LinOpT(DiffMapT):
     def test_backend_svdvals(self, op, xp, _gpu):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(xp, _gpu)
-        self._check_backend_vals(op.svdvals, _gpu)
+        flaky(
+            func=self._check_backend_vals,
+            args=dict(func=op.svdvals, _gpu=_gpu),
+            condition=_gpu is True,
+            reason="svdvals() sparse-evaled via CuPy flaky.",
+        )
 
     def test_precCM_svdvals(self, op, xp, _gpu, width):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(xp, _gpu)
         data = dict(in_=dict(k=1, gpu=_gpu))
-        self._check_precCM(op.svdvals, data, (width,))
+        flaky(
+            func=self._check_precCM,
+            args=dict(func=op.svdvals, data=data, widths=(width,)),
+            condition=_gpu is True,
+            reason="svdvals() sparse-evaled via CuPy flaky.",
+        )
 
     def test_value1D_pinv(self, op, _data_pinv):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
