@@ -1,88 +1,54 @@
 import types
-import warnings
+import typing as typ
 
 import numpy as np
 
 import pycsou.abc.operator as pyco
+import pycsou.interop._wrapper as pyciw
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
-import pycsou.util.warning as pycw
 
 
-class _PyDataWrapper:
-    @pycrt.enforce_precision(i=["lipschitz", "diff_lipschitz"])
+class _TorchWrapper(pyciw._Wrapper):
+    @pycrt.enforce_precision(i=["lipschitz", "diff_lipschitz"], o=False)
     def __init__(
         self,
-        pydata_op,
-        shape: pyct.OpShape,
-        arg_shape: pyct.NDArrayShape = None,
-        base: pyct.OpT = pyco.Map,
-        lipschitz=np.inf,
-        diff_lipschitz=np.inf,
-        name: str = "PyDataOp",
-    ):
-        self._lipschitz = lipschitz
-        self._diff_lipschitz = diff_lipschitz
-        self._pydata_op = pydata_op
-        self._base = base
-        self._shape = shape
-        self._arg_shape = arg_shape if arg_shape is not None else (shape[1],)  # pycu.canonical_form
-        self._name = name
-
-    def op(self) -> pyct.OpT:
-        if self._base.has((pyco.Property.PROXIMABLE, pyco.Property.QUADRATIC)):
-            raise pycw.AutoInferenceWarning(
-                f"Automatic construction of a {self._base} object from a DL operator is ambiguous."
-            )
-        op = self._base(shape=self._shape)
-        op._pydata_op = self._pydata_op  # embed for introspection
-        op._arg_shape = self._arg_shape
-        op._name = self._name
-        for p in op.properties():
-            for name in p.arithmetic_attributes():
-                attr = getattr(self, name)
-                setattr(op, name, attr)
-            for name in p.arithmetic_methods():
-                func = getattr(self.__class__, name, None)
-                if func is not None:
-                    setattr(op, name, types.MethodType(func, op))  # comment on warning
-        return op
-
-    def _expr(self):
-        return ("import", self._pydata_op)
-
-
-class _TorchWrapper(_PyDataWrapper):
-    torch = pycu.import_module("torch")
-
-    def __init__(
-        self,
-        torchop,
+        func,
         shape: pyct.OpShape,
         arg_shape: pyct.NDArrayShape = None,
         base: pyct.OpT = pyco.Map,
         lipschitz=np.inf,
         diff_lipschitz=np.inf,
         name: str = "TorchOp",
+        meta: typ.Any = None,
     ):
         super().__init__(
-            torchop,
+            func,
             shape=shape,
             arg_shape=arg_shape,
             base=base,
             lipschitz=lipschitz,
             diff_lipschitz=diff_lipschitz,
             name=name,
+            meta=meta,
         )
+
+    @staticmethod
+    def torch():
+        return pycu.import_module("torch")
+
+    @staticmethod
+    def functorch():
+        return pycu.import_module("torch.func")
 
     @staticmethod
     def _astensor(arr: pyct.NDArray, requires_grad: bool = False) -> "torch.Tensor":
         if pycd.NDArrayInfo.from_obj(arr) == pycd.NDArrayInfo.CUPY:
-            return torch.as_tensor(arr, device="cuda").requires_grad_(requires_grad)
+            return _TorchWrapper.torch().as_tensor(arr, device="cuda").requires_grad_(requires_grad)
         else:
-            return torch.from_numpy(arr).requires_grad_(requires_grad)
+            return _TorchWrapper.torch().from_numpy(arr).requires_grad_(requires_grad)
 
     @staticmethod
     def _asarray(tensor: "torch.Tensor") -> pyct.NDArray:
@@ -94,36 +60,143 @@ class _TorchWrapper(_PyDataWrapper):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        @pycu._delayed_if_dask(oshape=arr.shape[:-1] + (self._shape[0],))
-        def _apply(arr: pyct.NDArray) -> pyct.NDArray:
-            tensor = _TorchWrapper._astensor(arr.reshape((-1,) + self._arg_shape))
-            with torch.inference_mode():
-                return _TorchWrapper._asarray(self._pydata_op(tensor)).reshape(arr.shape[:-1] + (-1,))
+        @pycu._delayed_if_dask(i="arr", oshape=arr.shape[:-1] + (self._shape[0],))
+        def _apply(x: pyct.NDArray) -> pyct.NDArray:
+            tensor = _TorchWrapper._astensor(x.reshape((-1,) + self._arg_shape))
+            with _TorchWrapper.torch().inference_mode():
+                return _TorchWrapper._asarray(self._pydata_op(tensor)).reshape(x.shape[:-1] + (-1,))
 
         return _apply(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
-        pass
+        arr_tensor = _TorchWrapper._astensor(arr.reshape(self._arg_shape))
+
+        @pycrt.enforce_precision(i="tan")
+        def op_apply(_, tan: pyct.NDArray) -> pyct.NDArray:
+            @pycu._delayed_if_dask(i="x", oshape=tan.shape[:-1] + (self._shape[0],))
+            def _apply(x: pyct.NDArray) -> pyct.NDArray:
+                tan_tensor = _TorchWrapper._astensor(x.reshape((-1,) + self._arg_shape))
+                jvp = lambda v: _TorchWrapper.functorch().jvp(self._pydata_op, primals=(arr_tensor,), tangents=(v,))[1]
+                batched_jvp = _TorchWrapper.functorch().vmap(jvp)
+                return _TorchWrapper._asarray(batched_jvp(tan_tensor)).reshape(x.shape[:-1] + (-1,))
+
+            return _apply(tan)
+
+        @pycrt.enforce_precision(i="cotan")
+        def op_adjoint(_, cotan: pyct.NDArray) -> pyct.NDArray:
+            @pycu._delayed_if_dask(i="y", oshape=cotan.shape[:-1] + (self._shape[1],))
+            def _adjoint(y: pyct.NDArray) -> pyct.NDArray:
+                cotan_tensor = _TorchWrapper._astensor(y.reshape((-1, self._shape[0])))
+                call_ravel = lambda t: torch.reshape(self._pydata_op(t), (self._shape[0],))
+                _, vjp = _TorchWrapper.functorch().vjp(call_ravel, arr_tensor)
+                batched_vjp = lambda v: _TorchWrapper.functorch().vmap(vjp)(v)[0]
+                return _TorchWrapper._asarray(batched_vjp(cotan_tensor)).reshape(y.shape[:-1] + (-1,))
+
+            return _adjoint(cotan)
+
+        def op_expr(_) -> tuple:
+            return ("autojac_from_pytorch", self)
+
+        op = pyco.LinOp(shape=self._shape)
+        op._name = "AutoJacOp"
+        for (name, meth) in [
+            ("apply", op_apply),
+            ("adjoint", op_adjoint),
+            ("_expr", op_expr),
+        ]:
+            setattr(op, name, types.MethodType(meth, op))
+        return op
+
+    @pycrt.enforce_precision(i="arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        @pycu._delayed_if_dask(i="y", oshape=arr.shape[:-1] + (self._shape[0],))
+        def _grad(x: pyct.NDArray) -> pyct.NDArray:
+            tensor = _TorchWrapper._astensor(x.reshape((-1,) + self._arg_shape))
+            grad = _TorchWrapper.functorch().vmap(_TorchWrapper.functorch().grad(self._pydata_op))
+            return _TorchWrapper._asarray(grad(tensor)).reshape(x.shape[:-1] + (-1,))
+
+        return _grad(arr)
+
+    @pycrt.enforce_precision(i="arr")
+    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        jac = self.jacobian(arr)
+        return jac.adjoint(arr)
+
+    def _expr(self):
+        return ("from_pytorch", self._meta)
 
 
 def from_pytorch(
-    torchop,
+    func: typ.Callable,
     shape: pyct.OpShape,
     arg_shape: pyct.NDArrayShape = None,
     base: pyct.OpT = pyco.Map,
     lipschitz=np.inf,
     diff_lipschitz=np.inf,
     name: str = "TorchOp",
-):
+    meta: typ.Any = None,
+) -> pyct.OpT:
+    r"""
+    Wrap a Python function as a
+    :py:class:`~pycsou.abc.operator.Map` (or sub-classes thereof).
+
+    Parameters
+    ----------
+    func: Callable
+        A Python function with single-element Tensor input/output. Defines the :py:meth:`~pycsou.abc.operator.Map.apply`
+        method of the operator: ``func(x)==op.apply(x)``.
+    shape: tuple
+        (N,M) shape of the operator, where N and M are the sizes of the output and input Tensors respectively.
+    arg_shape: tuple
+        Optional shape of the input Tensor for N-D inputs.
+    base: pyct.OpT
+        Pycsou abstract base class to subclass from.
+    lipschitz: float
+        Lipschitz constant of the operator (if known).
+    diff_lipschitz: float
+        Diff-Lipschitz constant of the operator (if known).
+    name: str
+        Name of the operator.
+    meta: Any
+        Meta information to be provided as tail to :py:class:`~pycsou.abc.operator.Operator._expr`.
+    vectorize: bool
+        If ``True``, ``func`` is vectorized via `torch.func.vmap <https://pytorch.org/docs/stable/generated/torch.func.vmap.html#torch-func-vmap>`_
+        to be able to process batched inputs (not implemented yet).
+
+    Returns
+    -------
+    op: pyct.OpT
+        (N, M) Pycsou-compliant operator.
+
+    Notes
+    -----
+    For :py:class:`~pycsou.abc.operator.DiffMap` (or subclasses thereof) the methods :py:meth:`~pycsou.abc.operator.DiffMap.jacobian`,
+    :py:meth:`~pycsou.abc.operator.DiffFunc.grad` and :py:meth:`~pycsou.abc.operator.DiffFunc.adjoint` [*]_ are defined implicitly
+    using the auto-differentiation transforms from the module `torch.func <https://pytorch.org/docs/stable/func.html>`_
+    of PyTorch. As detailed `on this page <https://pytorch.org/docs/stable/func.ux_limitations.html>`_, such transforms works
+    well on pure functions (that is, functions where the output is completely determined by the input and that do not
+    involve side effects like mutation), but may fail on more complex functions. Moreover, the ``torch.func`` module does not
+    yet have full coverage over PyTorch operations. For functions that calls a ``torch.nn.Module``
+    `see here for some utilities <https://pytorch.org/docs/stable/func.api.html#utilities-for-working-with-torch-nn-modules>`_.
+
+    .. [*] For a linear operator ``L`` we have ``L.jacobian(arr)==L`` for any input ``arr``. Given its apply method, the
+           adjoint of ``L`` can hence be computed via automatic-differentiation as ``L.adjoint(arr) = L.jacobian(arr).adjoint(arr)``.
+
+    Warnings
+    --------
+    Operators defined from external librairies only have weak-compatibility with Dask, that is we delay the execution of the function
+    but the Dask array is fed to the latter in a single chunk.
+    """
     return _TorchWrapper(
-        torchop,
+        func,
         shape=shape,
         arg_shape=arg_shape,
         base=base,
         lipschitz=lipschitz,
         diff_lipschitz=diff_lipschitz,
         name=name,
+        meta=meta,
     ).op()
 
 
@@ -136,24 +209,39 @@ if __name__ == "__main__":
     import dask.array as da
     import numpy as np
     import torch
+    import torch.func as functorch
 
     import pycsou.runtime as pycrt
 
     xp = cp
-    size = 4000
-    m = torch.nn.Linear(size, size)
+    in_size, out_size = 4000, 3000
+    m = torch.nn.Linear(in_size, out_size)
     device = {cp: "cuda", np: "cpu"}
     if xp == cp:
         m = m.cuda()
-    op = from_pytorch(m, shape=(size, size), name="TorchOp", base=pyco.LinOp)
-    arr = da.from_array(xp.ones(size, dtype=np.float32))
-    arr_t = torch.ones(size, dtype=torch.float32, device=device[xp])
+    op = from_pytorch(lambda x: m(x), shape=(out_size, in_size), name="TorchOp", base=pyco.DiffMap, meta=m)
+    arr = xp.ones(in_size, dtype=np.float32)
+    arr_t = torch.ones(in_size, dtype=torch.float32, device=device[xp], requires_grad=True)
     with pycrt.Precision(pycrt.Width.SINGLE):
         t1 = t.time()
-        y1 = op(arr).compute()
+        y1 = op(arr)
         print(f"{t.time()-t1} seconds ellapsed (Pycsou wrapper)")
     t1 = t.time()
     with torch.inference_mode():
         y2 = m(arr_t)
     print(f"{t.time() - t1} seconds ellapsed (Pytorch)")
-    assert xp.allclose(y1, _TorchWrapper._asarray(y2))
+    assert xp.allclose(y1, _TorchWrapper._asarray(y2), atol=1e-4)
+
+    with pycrt.Precision(pycrt.Width.SINGLE):
+        jac = op.jacobian(arr)
+
+    tangents = xp.eye(in_size, dtype=np.float32)
+    cotangents = xp.eye(out_size, dtype=np.float32)
+
+    with pycrt.Precision(pycrt.Width.SINGLE):
+        jac_mat = jac.apply(tangents)
+    assert xp.allclose(jac_mat, _TorchWrapper._asarray(m.weight.transpose(0, 1)), atol=1e-4)
+
+    with pycrt.Precision(pycrt.Width.SINGLE):
+        jac_matT = jac.adjoint(cotangents)
+    assert xp.allclose(jac_matT, _TorchWrapper._asarray(m.weight), atol=1e-4)

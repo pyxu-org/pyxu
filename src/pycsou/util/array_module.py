@@ -257,7 +257,7 @@ def read_only(x: pyct.NDArray) -> pyct.NDArray:
     return y
 
 
-def _delayed_if_dask(oshape: pyct.NDArrayShape) -> cabc.Callable:
+def _delayed_if_dask(i: str, oshape: pyct.NDArrayShape) -> cabc.Callable:
     r"""
     Wraps an array-processing function to make it weakly compatible with Dask.
 
@@ -286,7 +286,7 @@ def _delayed_if_dask(oshape: pyct.NDArrayShape) -> cabc.Callable:
         def wrapper(*ARGS, **KWARGS):
             func_args = pycui.parse_params(func, *ARGS, **KWARGS)
 
-            arr = func_args.get("arr", None)
+            arr = func_args.get(i, None)
             N = pycd.NDArrayInfo
             if is_dask := (N.from_obj(arr) == N.DASK):
                 func_args.update(arr=dask.delayed(compute)(arr))
