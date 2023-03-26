@@ -1195,11 +1195,10 @@ class ChainRule(Rule):
 
     @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
-        if self.has(pyco.Property.LINEAR) and kwargs.get("tight", False):
-            if self.has(pyco.Property.FUNCTIONAL):
-                self._lipschitz = pyco.LinFunc.lipschitz(self, **kwargs)
-            else:
-                self._lipschitz = pyco.LinOp.lipschitz(self, **kwargs)
+        if self.has([pyco.Property.LINEAR, pyco.Property.FUNCTIONAL]):
+            self._lipschitz = pyco.LinFunc.lipschitz(self, **kwargs)
+        elif self.has(pyco.Property.LINEAR) and kwargs.get("tight", False):
+            self._lipschitz = pyco.LinOp.lipschitz(self, **kwargs)
         else:
             self._lipschitz = self._lhs.lipschitz(**kwargs)
             self._lipschitz *= self._rhs.lipschitz(**kwargs)
