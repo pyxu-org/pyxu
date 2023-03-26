@@ -531,4 +531,4 @@ class Stencil(pyca.SquareOp):
             # Stencil.apply().
             kwargs.update(dtype=self._dtype)
             tr = super().trace(**kwargs)
-        return tr
+        return float(tr)
