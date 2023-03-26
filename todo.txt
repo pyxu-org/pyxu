@@ -26,8 +26,13 @@ Sepand
         Changing svds() seed gives different results.
         Hunch: obtaining one of the smallest singular values, but not the smallest.
       Values are not extravagant however: the failure is acceptable.
-    * test_valueND_adjoint_dagger()
-      Did not investigate yet.
+  * Khatri-Rao
+    * test_math_cogram() fails if kr(A, B) == LinFunc
+      Reason: the cogram in this case has size (1, 1), and apply/adjoint don't work in this degenerate case.
+      Obtaining a LinFunc from kr(A, B) is so corner-case that error is acceptable.
+    * test_value1D_svdvals() fails if kr(A, B) == LinFunc
+      Reason: kr(A, B).svd() should always call LinFunc.lipschitz(), irrespective of the `tight` value. (Not done at the moment.)
+      Obtaining a LinFunc from kr(A, B) is so corner-case that error is acceptable.
   * NUFFT
     * type[123]()
       Some tests fail only with DASK inputs.
