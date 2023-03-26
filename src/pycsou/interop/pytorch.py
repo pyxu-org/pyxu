@@ -60,7 +60,7 @@ class _TorchWrapper(pyciw._Wrapper):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        @pycu._delayed_if_dask(i="arr", oshape=arr.shape[:-1] + (self._shape[0],))
+        @pycu._delayed_if_dask(i="x", oshape=arr.shape[:-1] + (self._shape[0],))
         def _apply(x: pyct.NDArray) -> pyct.NDArray:
             tensor = _TorchWrapper._astensor(x.reshape((-1,) + self._arg_shape))
             with _TorchWrapper.torch().inference_mode():
@@ -110,7 +110,7 @@ class _TorchWrapper(pyciw._Wrapper):
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
-        @pycu._delayed_if_dask(i="y", oshape=arr.shape[:-1] + (self._shape[0],))
+        @pycu._delayed_if_dask(i="x", oshape=arr.shape[:-1] + (self._shape[0],))
         def _grad(x: pyct.NDArray) -> pyct.NDArray:
             tensor = _TorchWrapper._astensor(x.reshape((-1,) + self._arg_shape))
             grad = _TorchWrapper.functorch().vmap(_TorchWrapper.functorch().grad(self._pydata_op))
