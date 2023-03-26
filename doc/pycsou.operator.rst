@@ -11,6 +11,7 @@ Subpackages
    pycsou.operator.linop
    pycsou.operator.map
    pycsou.operator.blocks
+   pycsou.operator.interop
 
 Module contents
 ---------------
