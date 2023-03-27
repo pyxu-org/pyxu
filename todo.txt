@@ -26,6 +26,11 @@ Sepand
         Changing svds() seed gives different results.
         Hunch: obtaining one of the smallest singular values, but not the smallest.
       Values are not extravagant however: the failure is acceptable.
+  * Kron
+    * test_interface_jacobian() fails if kron(A, B) == LinFunc
+      and A (or B) is IdentityOp.
+      Reason: corner case where kr(A, B) is IdentityOp(dim=1).
+      Not a problem in practice.
   * Khatri-Rao
     * test_math_cogram() fails if kr(A, B) == LinFunc
       Reason: the cogram in this case has size (1, 1), and apply/adjoint don't work in this degenerate case.
