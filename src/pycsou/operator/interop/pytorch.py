@@ -4,11 +4,15 @@ import typing as typ
 import numpy as np
 
 import pycsou.abc.operator as pyco
-import pycsou.interop._wrapper as pyciw
+import pycsou.operator.interop._wrapper as pyciw
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
+
+__all__ = [
+    "from_pytorch",
+]
 
 
 class _TorchWrapper(pyciw._Wrapper):
@@ -202,14 +206,11 @@ def from_pytorch(
 
 if __name__ == "__main__":
 
-    import pdb
     import time as t
 
     import cupy as cp
-    import dask.array as da
     import numpy as np
     import torch
-    import torch.func as functorch
 
     import pycsou.runtime as pycrt
 

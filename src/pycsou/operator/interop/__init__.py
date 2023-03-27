@@ -1,2 +1,3 @@
-from pycsou.operator.interop.scipy import *
+from pycsou.operator.interop.pytorch import *
+from pycsou.operator.interop.sciop import *
 from pycsou.operator.interop.source import *
