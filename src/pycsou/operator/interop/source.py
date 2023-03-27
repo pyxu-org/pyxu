@@ -85,13 +85,4 @@ def from_source(
         for name in p.arithmetic_methods():
             func = kwargs.get(name, getattr(cls, name))
             setattr(op, name, types.MethodType(func, op))
-
-    # special override
-    if "_expr" not in kwargs.keys():
-
-        def op_expr(self) -> tuple:
-            return ("from_source", self)
-
-        setattr(op, "_expr", types.MethodType(op_expr, op))
-
     return op
