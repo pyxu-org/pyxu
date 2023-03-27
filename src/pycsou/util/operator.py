@@ -47,7 +47,11 @@ def infer_composition_shape(sh1: pyct.OpShape, sh2: pyct.OpShape) -> pyct.OpShap
         raise ValueError(f"Composition of {sh1} and {sh2} operators forbidden.")
 
 
-def vectorize(i: pyct.VarName) -> cabc.Callable:
+def vectorize(
+    i: pyct.VarName,
+    method: str = "scan",
+    codim: pyct.Integer = None,
+) -> cabc.Callable:
     """
     Decorator to auto-vectorize an array function to abide by
     :py:class:`~pycsou.abc.operator.Property` API rules.
@@ -56,6 +60,19 @@ def vectorize(i: pyct.VarName) -> cabc.Callable:
     ----------
     i: VarName
         Function parameter to vectorize. This variable must hold an object with a NumPy API.
+    method: str
+        Vectorization strategy:
+
+        * "scan" computes outputs using a for-loop.
+        * "parallel" passes inputs to DASK and evaluates them in parallel.
+        * "scan_dask" passes inptus to DASK but evaluates inputs in sequence.
+          This is useful if the function being vectorized has a shared resource, i.e. is not
+          thread-safe.
+          It effectively gives a DASK-unaware function the ability to work with DASK inputs.
+    codim: pyct.Integer
+        Size of the function's core dimension output.
+
+        This parameter is only required in "parallel" and "scan_dask" modes.
 
     Example
     -------
@@ -73,6 +90,10 @@ def vectorize(i: pyct.VarName) -> cabc.Callable:
     -----
     See :ref:`developer-notes`
     """
+    method = method.strip().lower()
+    assert method in ("scan", "scan_dask", "parallel"), f"Unknown vectorization method '{method}'."
+    if using_dask := (method in ("scan_dask", "parallel")):
+        assert isinstance(codim, pyct.Integer), f"Parameter[codim] must be specified for DASK-backed '{method}'."
 
     def decorator(func: cabc.Callable) -> cabc.Callable:
         sig = inspect.Signature.from_callable(func)
@@ -84,27 +105,33 @@ def vectorize(i: pyct.VarName) -> cabc.Callable:
         def wrapper(*ARGS, **KWARGS):
             func_args = pycui.parse_params(func, *ARGS, **KWARGS)
 
-            x = func_args[i]
-            if is_1d := x.ndim == 1:
-                x = x.reshape((1, x.size))
-            sh_x = x.shape  # (..., N)
-            sh_xf = (np.prod(sh_x[:-1]), sh_x[-1])  # (..., N) -> (M, N)
-            x = x.reshape(sh_xf)
+            x = func_args.pop(i)
+            *sh, dim = x.shape
+            x = x.reshape((-1, dim))
+            N, xp = len(x), pycua.get_array_module(x)
 
-            # infer output dimensions + allocate
-            func_args[i] = x[0]
-            y0 = func(**func_args)
-            xp = pycua.get_array_module(y0)
-            y = xp.zeros((*sh_xf[:-1], y0.size), dtype=y0.dtype)
+            if using_dask:
+                f = lambda _: func(**{i: _, **func_args})
+                blks = _dask_zip(
+                    func=(f,) * N,
+                    data=x,
+                    out_shape=[(codim,)] * N,  # can't infer codim -> user-specified
+                    out_dtype=(x.dtype,) * N,
+                    parallel=method == "parallel",
+                )
+                y = xp.stack(blks, axis=0)  # (N, codim)
+            else:  # method = "scan"
+                # infer output dimensions + allocate
+                func_args[i] = x[0]
+                y0 = func(**func_args)
+                y = xp.zeros((N, y0.size), dtype=y0.dtype)  # (N, codim)
 
-            y[0] = y0
-            for k in range(1, sh_xf[0]):
-                func_args[i] = x[k]
-                y[k] = func(**func_args)
-            y = y.reshape((*sh_x[:-1], y.shape[-1]))
-            if is_1d:
-                y = y.reshape(-1)
+                y[0] = y0
+                for k in range(1, N):
+                    func_args[i] = x[k]
+                    y[k] = func(**func_args)
 
+            y = y.reshape(*sh, -1)
             return y
 
         return wrapper
