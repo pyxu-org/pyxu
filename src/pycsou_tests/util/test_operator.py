@@ -77,9 +77,18 @@ class TestVectorize:
     def func(self, request):
         return request.param
 
-    @pytest.fixture
-    def vfunc(self, func):
-        return pycu.vectorize("x")(func)
+    @pytest.fixture(
+        params=[  # (method, codim)  [codim-size when specified comes from `data_func` fixture.]
+            ("scan", None),
+            ("scan", 10),  # codim irrelevant; bogus value to see if unused
+            ("parallel", 5),
+            ("scan_dask", 5),
+        ]
+    )
+    def vfunc(self, func, request):
+        method, codim = request.param
+        decorate = pycu.vectorize(i="x", method=method, codim=codim)
+        return decorate(func)
 
     @pytest.fixture
     def data_func(self, func):
