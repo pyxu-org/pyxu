@@ -12,10 +12,10 @@ pycsou.operator.interop.source module
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.interop.scipy module
+pycsou.operator.interop.sciop module
 ------------------------------------
 
-.. automodule:: pycsou.operator.interop.scipy
+.. automodule:: pycsou.operator.interop.sciop
    :members:
    :undoc-members:
    :show-inheritance:
