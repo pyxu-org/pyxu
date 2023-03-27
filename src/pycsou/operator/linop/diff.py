@@ -2,6 +2,7 @@ import collections.abc as cabc
 import functools
 import itertools
 import math
+import types
 import typing as typ
 
 import numpy as np
@@ -20,8 +21,6 @@ except ImportError:
     import scipy.ndimage.filters as scif
 
 __all__ = [
-    "_FiniteDifference",
-    "_GaussianDerivative",
     "PartialDerivative",
     "Gradient",
     "Jacobian",
@@ -30,7 +29,6 @@ __all__ = [
     "DirectionalGradient",
     "DirectionalLaplacian",
     "DirectionalHessian",
-    "StructureTensor",
 ]
 
 ModeSpec = typ.Union[str, cabc.Sequence[str]]
@@ -41,96 +39,13 @@ KernelSpec = typ.Union[
 ]
 
 
-def _BaseDifferential(
-    kernel: KernelSpec,
-    center: KernelSpec,
-    arg_shape: pyct.NDArrayShape,
-    mode: ModeSpec = "constant",
-    gpu: bool = False,
-    dtype: typ.Optional[pyct.DType] = None,
-):
-    r"""
-    Helper base class for differential operators based on Numba stencils (see
-    https://numba.pydata.org/numba-doc/latest/user/stencil.html).
-
-    See Also
-    --------
-    :py:class:`~pycsou.operator.linop.stencil.stencil.Stencil`, :py:func:`~pycsou.math.stencil.make_nd_stencil`,
-    :py:class:`~pycsou.operator.linop.diff._FiniteDifferences`,
-    :py:class:`~pycsou.operator.linop.diff._GaussianDerivative`,
-    :py:class:`~pycsou.operator.linop.diff.PartialDerivative`, :py:class:`~pycsou.operator.linop.diff.Gradient`,
-    :py:class:`~pycsou.operator.linop.diff.Hessian`.
-
-    Parameters
-    ----------
-    kernel: KernelSpec
-            Stencil coefficients.
-            Two forms are accepted:
-
-            * NDArray of rank-:math:`D`: denotes a non-seperable stencil.
-            * tuple[NDArray_1, ..., NDArray_D]: a sequence of 1D stencils such that is filtered by the stencil
-              `kernel[d]` along the :math:`d`-th dimension.
-    center: IndexSpec
-        (i_1, ..., i_D) index of the stencil's center.
-
-        `center` defines how a kernel is overlaid on inputs to produce outputs.
-
-        .. math::
-
-           y[i_{1},\ldots,i_{D}]
-           =
-           \sum_{q_{1},\ldots,q_{D}=0}^{k_{1},\ldots,k_{D}}
-           x[i_{1} - c_{1} + q_{1},\ldots,i_{D} - c_{D} + q_{D}]
-           \,\cdot\,
-           k[q_{1},\ldots,q_{D}]
-    arg_shape: tuple
-        Shape of the input array.
-    mode: str | list(str)
-        Boundary conditions.
-        Multiple forms are accepted:
-
-        * str: unique mode shared amongst dimensions.
-          Must be one of:
-
-          * 'constant' (default): zero-padding
-          * 'wrap'
-          * 'reflect'
-          * 'symmetric'
-          * 'edge'
-        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
-
-        (See :py:func:`numpy.pad` for details.)
-    gpu: bool
-        Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-    dtype: pyct.DType
-        Working precision of the linear operator.
-    """
-
-    if dtype is None:
-        dtype = pycrt.getPrecision().value
-
-    if gpu:
-        assert pycd.CUPY_ENABLED
-        import cupy as xp
-    else:
-        import numpy as xp
-
-    if isinstance(kernel, cabc.Sequence):
-        for i in range(len(kernel)):
-            kernel[i] = xp.array(kernel[i], dtype=dtype)
-    else:
-        kernel = xp.array(kernel, dtype=dtype)
-
-    return pycl.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode)
-
-
 def _sanitize_init_kwargs(
     order: typ.Union[pyct.Integer, typ.Tuple[pyct.Integer, ...]],
     arg_shape: pyct.NDArrayShape,
-    sampling: typ.Union[pyct.Integer, typ.Tuple[pyct.Integer, ...]],
+    sampling: typ.Union[pyct.Real, typ.Tuple[pyct.Real, ...]],
     diff_method: str,
     diff_kwargs: dict,
-    axis: typ.Union[pyct.Integer, typ.Tuple] = None,
+    axis: typ.Union[pyct.Integer, typ.Tuple[pyct.Integer, ...]] = None,
 ) -> typ.Tuple[
     typ.Tuple[pyct.Integer, ...],
     typ.Tuple[pyct.Integer, ...],
@@ -202,13 +117,13 @@ def _sanitize_init_kwargs(
         assert len(_param1) == 1, (
             f"Parameter `{param1_name}` inconsistent with the number of elements in " "parameter `order`."
         )
-        _param1 = _param1 * len(order)
+        _param1 = _param1 * len(arg_shape)
 
     if not (len(_param2) == len(order)):
         assert len(_param2) == 1, (
             f"Parameter `{param2_name}` inconsistent with the number of elements in " "parameter `order`."
         )
-        _param2 = _param2 * len(order)
+        _param2 = _param2 * len(arg_shape)
 
     return (
         order,
@@ -219,7 +134,7 @@ def _sanitize_init_kwargs(
     )
 
 
-def _create_kernel(arg_shape, axis, _fill_coefs) -> typ.Tuple[pyct.NDArray, pyct.NDArray]:
+def _create_kernel(arg_shape, axis, _fill_coefs) -> typ.Tuple[typ.List[pyct.NDArray], pyct.NDArray]:
     r"""
     Creates kernel for stencil.
     """
@@ -231,16 +146,6 @@ def _create_kernel(arg_shape, axis, _fill_coefs) -> typ.Tuple[pyct.NDArray, pyct
     for i, ax in enumerate(axis):
         stencil_ids[ax], stencil_coefs[ax], center[ax] = _fill_coefs(i)
 
-    # Create a kernel composing all dimensions coefficients
-    # kernel = np.zeros([np.ptp(ids) + 1 if ids else 1 for ids in stencil_ids])
-    # for i, ax in enumerate(axis):
-    #     slices = tuple(
-    #         [slice(center[j], center[j] + 1) if j != ax else slice(None) for j in range(len(arg_shape))]
-    #     )
-    #     shape = [1 if j != ax else kernel.shape[ax] for j in range(len(arg_shape))]
-    #     kernel[slices] += stencil_coefs[ax].reshape(shape)
-
-    # return kernel, center
     return stencil_coefs, center
 
 
@@ -250,11 +155,7 @@ def _FiniteDifference(
     diff_type: typ.Union[str, tuple[str, ...]] = "forward",
     axis: typ.Union[pyct.Integer, tuple[pyct.Integer, ...], None] = None,
     accuracy: typ.Union[pyct.Integer, tuple[pyct.Integer, ...]] = 1,
-    mode: ModeSpec = "constant",
-    gpu: bool = False,
-    dtype: typ.Optional[pyct.DType] = None,
     sampling: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1,
-    return_linop: bool = True,
 ):
     r"""
     Finite difference base operator along a single dimension.
@@ -265,7 +166,7 @@ def _FiniteDifference(
 
     See Also
     --------
-    :py:class:`~pycsou.operator.linop.diff._BaseDifferential`, :py:class:`~pycsou.operator.linop.diff._GaussianDerivative`,
+    :py:class:`~pycsou.operator.linop.diff._GaussianDerivative`,
     :py:class:`~pycsou.operator.linop.diff.PartialDerivative`, :py:class:`~pycsou.operator.linop.diff.Gradient`,
     :py:class:`~pycsou.operator.linop.diff.Hessian`.
 
@@ -285,29 +186,8 @@ def _FiniteDifference(
         Determines the number of points used to approximate the derivative with finite differences (see `Notes`).
         Defaults to 1. If an int is provided, the same `accuracy` is assumed for all dimensions.
         If a tuple is provided, it should have as many elements as `arg_shape`.
-    mode: str | list(str)
-        Boundary conditions.
-        Multiple forms are accepted:
-
-        * str: unique mode shared amongst dimensions.
-          Must be one of:
-
-          * 'constant' (default): zero-padding
-          * 'wrap'
-          * 'reflect'
-          * 'symmetric'
-          * 'edge'
-        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
-
-        (See :py:func:`numpy.pad` for details.)
-    gpu: bool
-        Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-    dtype: pyct.DType
-        Working precision of the linear operator.
     sampling: float | tuple
         Sampling step (i.e. distance between two consecutive elements of an array). Defaults to 1.
-    return_linop: bool
-        Whether to return a linear operator object (True) or a tuple with the finite differences kernel and its center.
     """
     diff_kwargs = {"diff_type": diff_type, "accuracy": accuracy}
     order, sampling, diff_type, accuracy, axis = _sanitize_init_kwargs(
@@ -365,13 +245,7 @@ def _FiniteDifference(
         return stencil_ids, stencil_coefs, center
 
     kernel, center = _create_kernel(arg_shape, axis, _fill_coefs)
-
-    if return_linop:
-        op = _BaseDifferential(kernel=kernel, center=center, arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype)
-        op._name = "FiniteDifference"
-        return op
-    else:
-        return kernel, center
+    return kernel, center
 
 
 def _GaussianDerivative(
@@ -380,11 +254,7 @@ def _GaussianDerivative(
     sigma: typ.Union[pyct.Real, tuple[pyct.Real, ...]],
     axis: typ.Union[pyct.Integer, tuple[pyct.Integer, ...], None] = None,
     truncate: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 3.0,
-    mode: ModeSpec = "constant",
-    gpu: bool = False,
-    dtype: typ.Optional[pyct.DType] = None,
     sampling: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1,
-    return_linop: bool = True,
 ):
     r"""
     Gaussian derivative base operator along a single dimension.
@@ -415,6 +285,90 @@ def _GaussianDerivative(
     truncate: float | tuple
         Truncate the filter at this many standard deviations.
         Defaults to 3.0.
+    sampling: float | tuple
+        Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
+    """
+    diff_kwargs = {"sigma": sigma, "truncate": truncate}
+    order, sampling, sigma, truncate, axis = _sanitize_init_kwargs(
+        order=order,
+        diff_method="gd",
+        diff_kwargs=diff_kwargs,
+        arg_shape=arg_shape,
+        axis=axis,
+        sampling=sampling,
+    )
+
+    def _fill_coefs(i: pyct.Integer) -> typ.Tuple[list, pyct.NDArray, pyct.Integer]:
+        r"""
+        Defines kernel elements.
+        """
+        # make the radius of the filter equal to `truncate` standard deviations
+        sigma_pix = sigma[i] / sampling[i]  # Sigma rescaled to pixel units
+        radius = int(truncate[i] * float(sigma_pix) + 0.5)
+        stencil_coefs = _gaussian_kernel1d(sigma=sigma_pix, order=order[i], sampling=sampling[i], radius=radius)
+        stencil_ids = [i for i in range(-radius, radius + 1)]
+        return stencil_ids, stencil_coefs, radius
+
+    def _gaussian_kernel1d(
+        sigma: pyct.Real, order: pyct.Integer, sampling: pyct.Real, radius: pyct.Integer
+    ) -> pyct.NDArray:
+        """
+        Computes a 1-D Gaussian convolution kernel.
+        Wraps scipy.ndimage.filters._gaussian_kernel1d
+        It flips the output because the original kernel is meant for convolution instead of correlation.
+        """
+        coefs = np.flip(scif._gaussian_kernel1d(sigma, order, radius))
+        coefs /= sampling**order
+        return coefs
+
+    kernel, center = _create_kernel(arg_shape, axis, _fill_coefs)
+    return kernel, center
+
+
+def _PartialDerivative(
+    kernel: KernelSpec,
+    center: KernelSpec,
+    arg_shape: pyct.NDArrayShape,
+    mode: ModeSpec = "constant",
+    gpu: bool = False,
+    dtype: typ.Optional[pyct.DType] = None,
+):
+    r"""
+    Helper base class for partial derivative operator based on Numba stencils (see
+    https://numba.pydata.org/numba-doc/latest/user/stencil.html).
+
+    See Also
+    --------
+    :py:class:`~pycsou.operator.linop.diff.PartialDerivative`,
+    :py:class:`~pycsou.operator.linop.stencil.stencil.Stencil`,
+    :py:func:`~pycsou.math.stencil.make_nd_stencil`,
+    :py:class:`~pycsou.operator.linop.diff._FiniteDifference`,
+    :py:class:`~pycsou.operator.linop.diff._GaussianDerivative`,
+
+    Parameters
+    ----------
+    kernel: KernelSpec
+            Stencil coefficients.
+            Two forms are accepted:
+
+            * NDArray of rank-:math:`D`: denotes a non-seperable stencil.
+            * tuple[NDArray_1, ..., NDArray_D]: a sequence of 1D stencils such that is filtered by the stencil
+              `kernel[d]` along the :math:`d`-th dimension.
+    center: IndexSpec
+        (i_1, ..., i_D) index of the stencil's center.
+
+        `center` defines how a kernel is overlaid on inputs to produce outputs.
+
+        .. math::
+
+           y[i_{1},\ldots,i_{D}]
+           =
+           \sum_{q_{1},\ldots,q_{D}=0}^{k_{1},\ldots,k_{D}}
+           x[i_{1} - c_{1} + q_{1},\ldots,i_{D} - c_{D} + q_{D}]
+           \,\cdot\,
+           k[q_{1},\ldots,q_{D}]
+    arg_shape: tuple
+        Shape of the input array.
     mode: str | list(str)
         Boundary conditions.
         Multiple forms are accepted:
@@ -434,51 +388,62 @@ def _GaussianDerivative(
         Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
     dtype: pyct.DType
         Working precision of the linear operator.
-    sampling: float | tuple
-        Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
-    return_linop: bool
-        Whether to return a linear operator object (True) or a tuple with the finite differences kernel and its center.
     """
-    diff_kwargs = {"sigma": sigma, "truncate": truncate}
-    order, sampling, sigma, truncate, axis = _sanitize_init_kwargs(
-        order=order,
-        diff_method="gd",
-        diff_kwargs=diff_kwargs,
-        arg_shape=arg_shape,
-        axis=axis,
-        sampling=sampling,
-    )
 
-    def _fill_coefs(i: pyct.Integer) -> typ.Tuple[list, pyct.NDArray, pyct.Integer]:
-        r"""
-        Defines kernel elements.
-        """
-        # make the radius of the filter equal to `truncate` standard deviations
-        sigma_pix = sigma[i] / sampling  # Sigma rescaled to pixel units
-        radius = int(truncate[i] * float(sigma_pix) + 0.5)
-        stencil_coefs = _gaussian_kernel1d(sigma=sigma_pix, order=order[i], sampling=sampling[i], radius=radius)
-        stencil_ids = [i for i in range(-radius, radius + 1)]
-        return stencil_ids, stencil_coefs, radius
+    if dtype is None:
+        dtype = pycrt.getPrecision().value
 
-    def _gaussian_kernel1d(
-        sigma: pyct.Real, order: pyct.Integer, sampling: pyct.Real, radius: pyct.Integer
-    ) -> pyct.NDArray:
-        """
-        Computes a 1-D Gaussian convolution kernel.
-        Wraps scipy.ndimage.filters._gaussian_kernel1d
-        It flips the output because the original kernel is meant for convolution instead of correlation.
-        """
-        coefs = np.flip(scif._gaussian_kernel1d(sigma, order, radius))
-        coefs /= sampling**order
-        return coefs
-
-    kernel, center = _create_kernel(arg_shape, axis, _fill_coefs)
-    if return_linop:
-        op = _BaseDifferential(kernel=kernel, center=center, arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype)
-        op._name = "GaussianDerivative"
-        return op
+    if gpu:
+        assert pycd.CUPY_ENABLED
+        import cupy as xp
     else:
-        return kernel, center
+        import numpy as xp
+
+    if isinstance(kernel, cabc.MutableSequence):
+        for i in range(len(kernel)):
+            kernel[i] = xp.array(kernel[i], dtype=dtype)
+    else:
+        kernel = xp.array(kernel, dtype=dtype)
+
+    op = pycl.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode)
+
+    def print_kernel(_):
+        r"""
+        Print kernel used for partial derivative.
+        """
+        print("Separable kernel being used (coefficients at the origin emphasized with `()`):")
+        for ax, (kernel_ax, center_ax) in enumerate(zip(kernel, center)):
+            if (kernel_ax.size) > 1:
+                _kernel = [f"{k}" if ind != center_ax else f"({k})" for ind, k in enumerate(kernel_ax)]
+                msg = "[" + ", ".join(_kernel) + "]"
+            else:
+                msg = f"[({kernel_ax})]"
+
+            print(f"Axis {ax}: " + msg)
+
+        if len(kernel) > 1:
+            print("\nEquivalent full centered kernel:")
+            kernel_full = [
+                xp.zeros(int(kernel_ax.size + abs((kernel_ax.size - 1) / 2 - center_ax) * 2))
+                for kernel_ax, center_ax in zip(kernel, center)
+            ]
+            for ax, (kernel_ax, center_ax) in enumerate(zip(kernel, center)):
+                ini = len(kernel_full[ax]) // 2 - center_ax
+                end = ini + kernel_ax.size
+                kernel_full[ax][ini:end] = kernel_ax
+                shape = [
+                    1,
+                ] * len(kernel_full)
+                shape[ax] = -1
+                kernel_full[ax] = kernel_full[ax].reshape(*shape)
+            kernel_full = functools.reduce(np.multiply, kernel_full)
+
+            # remove negative signs in front of zero-valued coeffs.
+            kernel_full[kernel_full == 0] = 0.0
+            print(kernel_full)
+
+    op.print_kernel = types.MethodType(print_kernel, op)
+    return op
 
 
 class PartialDerivative:
@@ -501,7 +466,7 @@ class PartialDerivative:
     Partial derivatives can be implemented with `finite differences
     <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
     :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` constructor or with
-    `Gaussian derivatives <https://www.crisluengo.net/archives/22/>`_ via the
+    the `Gaussian derivative <https://www.crisluengo.net/archives/22/>`_ via the
     :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
 
     See Also
@@ -694,14 +659,15 @@ class PartialDerivative:
 
         """
 
+        isinstance(order, tuple)
         axis = np.where(np.array(order) > 0)[0]
         order = tuple(np.array(order)[axis])
+
+        diff_kwargs = {"diff_type": diff_type, "accuracy": accuracy}
         order, sampling, diff_type, accuracy, axis = _sanitize_init_kwargs(
             order=order,
-            param1=diff_type,
-            param1_name="diff_type",
-            param2=accuracy,
-            param2_name="accuracy",
+            diff_method="fd",
+            diff_kwargs=diff_kwargs,
             arg_shape=arg_shape,
             axis=tuple(axis),
             sampling=sampling,
@@ -718,16 +684,12 @@ class PartialDerivative:
                     diff_type=diff_type[i],
                     axis=axis[i],
                     accuracy=accuracy[i],
-                    mode=mode[i],
-                    gpu=gpu,
-                    dtype=dtype,
                     sampling=sampling[i],
-                    return_linop=False,
                 )
                 kernel[axis[i]] = k[axis[i]]
                 center[axis[i]] = c[axis[i]]
 
-        return _BaseDifferential(kernel=kernel, center=center, arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype)
+        return _PartialDerivative(kernel=kernel, center=center, arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype)
 
     @staticmethod
     def gaussian_derivative(
@@ -857,15 +819,13 @@ class PartialDerivative:
            assert np.allclose(out1, out2)
 
         """
-
         axis = np.where(np.array(order) > 0)[0]
         order = tuple(np.array(order)[axis])
+        diff_kwargs = {"sigma": sigma, "truncate": truncate}
         order, sampling, sigma, truncate, axis = _sanitize_init_kwargs(
             order=order,
-            param1=sigma,
-            param1_name="diff_type",
-            param2=truncate,
-            param2_name="accuracy",
+            diff_method="gd",
+            diff_kwargs=diff_kwargs,
             arg_shape=arg_shape,
             axis=tuple(axis),
             sampling=sampling,
@@ -882,16 +842,12 @@ class PartialDerivative:
                     sigma=sigma[i],
                     axis=axis[i],
                     truncate=truncate[i],
-                    mode=mode[i],
-                    gpu=gpu,
-                    dtype=dtype,
                     sampling=sampling[i],
-                    return_linop=False,
                 )
                 kernel[axis[i]] = k[axis[i]]
                 center[axis[i]] = c[axis[i]]
 
-        return _BaseDifferential(kernel=kernel, center=center, arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype)
+        return _PartialDerivative(kernel=kernel, center=center, arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype)
 
 
 def _make_unravelable(op, arg_shape=None):
@@ -909,7 +865,7 @@ def _make_unravelable(op, arg_shape=None):
     return op
 
 
-class _BaseVecDifferential:
+class _BaseStackDifferential:
     r"""
     Helper class for Gradient and Hessian.
 
@@ -923,12 +879,12 @@ class _BaseVecDifferential:
 
     @staticmethod
     def _stack_diff_ops(
-        arg_shape,
-        directions,
-        diff_method,
-        order,
-        param1,
-        param2,
+        arg_shape: pyct.NDArrayShape,
+        directions: typ.Optional[typ.Union[pyct.Integer, tuple[pyct.Integer, ...]]],
+        diff_method: str,
+        order: typ.Union[pyct.Integer, typ.Tuple[pyct.Integer, ...]],
+        param1: typ.Union[str, typ.Tuple[str, ...], pyct.Real, typ.Tuple[pyct.Real, ...]],
+        param2: typ.Union[pyct.Integer, typ.Tuple[pyct.Integer, ...], pyct.Real, typ.Tuple[pyct.Real, ...]],
         mode: ModeSpec = "constant",
         gpu: bool = False,
         dtype: typ.Optional[pyct.DType] = None,
@@ -982,12 +938,23 @@ class _BaseVecDifferential:
                         sampling=sampling,
                     )
                 )
-        return _make_unravelable(pycb.vstack(dif_op, parallel=parallel), arg_shape)
+
+        def print_kernels(_):
+            r"""
+            Print kernels used for each partial derivative.
+            """
+            for i, direction in enumerate(directions):
+                print(f"\nKernel for direction {direction}")
+                dif_op[i].print_kernel()
+
+        op = _make_unravelable(pycb.vstack(dif_op, parallel=parallel), arg_shape)
+        op.print_kernels = types.MethodType(print_kernels, op)
+        return op
 
     @staticmethod
     def _check_directions_and_order(
         arg_shape, directions
-    ) -> typ.Tuple[typ.Union[tuple[pyct.Integer, ...], tuple[tuple[pyct.Integer, ...], ...]], bool]:
+    ) -> typ.Tuple[typ.Union[typ.Tuple[pyct.Integer, ...], typ.Tuple[typ.Tuple[pyct.Integer, ...], ...]], bool]:
         def _check_directions(_directions):
             assert all(0 <= _ <= (len(arg_shape) - 1) for _ in _directions), (
                 "Direction values must be between 0 and " "the number of dimensions in `arg_shape`."
@@ -1157,15 +1124,17 @@ def Gradient(
     """
 
     directions = tuple([i for i in range(len(arg_shape))]) if directions is None else directions
+    axis = [i for i in range(len(arg_shape)) if i in directions]
 
     order, sampling, param1, param2, _ = _sanitize_init_kwargs(
         order=(1,) * len(directions),
+        axis=axis,
         arg_shape=arg_shape,
         sampling=sampling,
         diff_method=diff_method,
         diff_kwargs=diff_kwargs,
     )
-    return _BaseVecDifferential._stack_diff_ops(
+    return _BaseStackDifferential._stack_diff_ops(
         arg_shape=arg_shape,
         directions=directions,
         diff_method=diff_method,
@@ -1365,7 +1334,7 @@ def Hessian(
     arg_shape: tuple
         Shape of the input array.
     directions: int | tuple | None
-        Hessian directions. Defaults to `all`, which computes the Hessian for all directions.
+        Hessian directions. Defaults to `all`, which computes the Hessian for all directions (see ``Notes``).
     diff_method: str ['gd', 'fd']
         Method used to approximate the derivative. Must be one of:
 
@@ -1468,8 +1437,8 @@ def Hessian(
         arg_shape=arg_shape,
         sampling=sampling,
     )
-    directions, order = _BaseVecDifferential._check_directions_and_order(arg_shape, directions)
-    return _BaseVecDifferential._stack_diff_ops(
+    directions, order = _BaseStackDifferential._check_directions_and_order(arg_shape, directions)
+    return _BaseStackDifferential._stack_diff_ops(
         arg_shape=arg_shape,
         directions=directions,
         diff_method=diff_method,
@@ -2039,7 +2008,8 @@ def DirectionalLaplacian(
     else:
         if len(weights) != len(directions):
             raise ValueError("The number of weights and directions provided differ.")
-    op = pycl.NullOp(shape=(np.prod(arg_shape), np.prod(arg_shape)))
+    dim = np.prod(arg_shape).item()
+    op = pycl.NullOp(shape=(dim, dim))
     for weight, direction in zip(weights, directions):
         op += weight * DirectionalDerivative(
             arg_shape=arg_shape,
