@@ -1,9 +1,9 @@
 import collections.abc as cabc
-import types
 
 import numpy as np
 
 import pycsou.abc as pyca
+import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
@@ -110,14 +110,17 @@ def Sum(
     dim = arg_shape.prod()
     codim = dim // arg_shape[axis].prod()
 
-    klass = pyca.LinOp if codim > 1 else pyca.LinFunc
-    op = klass(shape=(codim, dim))
-    op._axis = tuple(axis)
-    op._arg_shape = tuple(arg_shape)
-    op._sum_shape = tuple(sum_shape)
-
-    op.apply = types.MethodType(op_apply, op)
-    op.adjoint = types.MethodType(op_adjoint, op)
-    op.lipschitz = types.MethodType(op_lipschitz, op)
-    op._name = "Sum"
+    op = pycsrc.from_source(
+        cls=pyca.LinOp if codim > 1 else pyca.LinFunc,
+        shape=(codim, dim),
+        embed=dict(
+            _name="Sum",
+            _axis=tuple(axis),
+            _arg_shape=tuple(arg_shape),
+            _sum_shape=tuple(sum_shape),
+        ),
+        apply=op_apply,
+        adjoint=op_adjoint,
+        lipschitz=op_lipschitz,
+    )
     return op

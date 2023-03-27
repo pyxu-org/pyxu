@@ -942,6 +942,9 @@ class ProxFunc(Func):
            plt.legend(labels)
            plt.title('Derivative of Moreau Envelope')
         """
+        from pycsou.operator.interop.source import from_source
+
+        assert mu > 0, f"mu: expected positive, got {mu}"
 
         @pycrt.enforce_precision(i="arr")
         def op_apply(_, arr):
@@ -959,16 +962,18 @@ class ProxFunc(Func):
             x /= _._mu
             return x
 
-        def op_expr(_) -> tuple:
-            return ("moreau_envelope", self, _._mu)
-
-        assert mu > 0, f"mu: expected positive, got {mu}"
-        op = DiffFunc(self.shape)
-        op._mu = mu
-        op._diff_lipschitz = 1 / mu
-        op.apply = types.MethodType(op_apply, op)
-        op.grad = types.MethodType(op_grad, op)
-        op._expr = types.MethodType(op_expr, op)
+        op = from_source(
+            cls=DiffFunc,
+            shape=self.shape,
+            embed=dict(
+                _name="moreau_envelope",
+                _mu=mu,
+            ),
+            _diff_lipschitz=1 / mu,
+            apply=op_apply,
+            grad=op_grad,
+            _expr=lambda _: ("moreau_envelope", _, _._mu),
+        )
         return op
 
 
@@ -1640,13 +1645,15 @@ class LinOp(DiffMap):
         op: pyct.OpT
             (M, N) Moore-Penrose pseudo-inverse operator.
         """
+        from pycsou.operator.interop.source import from_source
+
         kwargs_fit = dict() if kwargs_fit is None else kwargs_fit
         kwargs_init = dict() if kwargs_init is None else kwargs_init
 
         def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
             return self.pinv(
                 arr,
-                damp=damp,
+                damp=_._damp,
                 kwargs_init=copy.copy(kwargs_init),
                 kwargs_fit=copy.copy(kwargs_fit),
             )
@@ -1654,20 +1661,22 @@ class LinOp(DiffMap):
         def op_adjoint(_, arr: pyct.NDArray) -> pyct.NDArray:
             return self.T.pinv(
                 arr,
-                damp=damp,
+                damp=_._damp,
                 kwargs_init=copy.copy(kwargs_init),
                 kwargs_fit=copy.copy(kwargs_fit),
             )
 
-        def op_expr(_) -> tuple:
-            return ("dagger", self, damp)
-
-        klass = SquareOp if (self.dim == self.codim) else LinOp
-        dagger = klass(shape=(self.dim, self.codim))
-        dagger.apply = types.MethodType(op_apply, dagger)
-        dagger.__call__ = dagger.apply
-        dagger.adjoint = types.MethodType(op_adjoint, dagger)
-        dagger._expr = types.MethodType(op_expr, dagger)
+        dagger = from_source(
+            cls=SquareOp if (self.dim == self.codim) else LinOp,
+            shape=(self.dim, self.codim),
+            embed=dict(
+                _name="dagger",
+                _damp=damp,
+            ),
+            apply=op_apply,
+            adjoint=op_adjoint,
+            _expr=lambda _: (_._name, _, _._damp),
+        )
         return dagger
 
     @classmethod

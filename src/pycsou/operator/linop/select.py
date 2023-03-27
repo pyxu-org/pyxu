@@ -1,10 +1,10 @@
 import collections.abc as cabc
-import types
 import typing as typ
 
 import numpy as np
 
 import pycsou.abc as pyca
+import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
@@ -182,9 +182,12 @@ class SubSample(pyca.LinOp):
             out = _op.adjoint(_op.apply(arr))
             return out
 
-        op = pyca.OrthProjOp(shape=(self.dim, self.dim))
-        op._op = self
-        op.apply = types.MethodType(op_apply, op)
+        op = pycsrc.from_source(
+            cls=pyca.OrthProjOp,
+            shape=(self.dim, self.dim),
+            embed=dict(_op=self),
+            apply=op_apply,
+        )
         return op
 
     def cogram(self) -> pyct.OpT:
