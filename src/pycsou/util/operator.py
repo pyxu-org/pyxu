@@ -2,9 +2,12 @@ import collections.abc as cabc
 import functools
 import inspect
 
+import dask
+import dask.graph_manipulation as dgm
 import numpy as np
 
 import pycsou.util.array_module as pycua
+import pycsou.util.deps as pycd
 import pycsou.util.inspect as pycui
 import pycsou.util.ptype as pyct
 
@@ -107,3 +110,104 @@ def vectorize(i: pyct.VarName) -> cabc.Callable:
         return wrapper
 
     return decorator
+
+
+def _dask_zip(
+    func: list[cabc.Callable],
+    data: list[pyct.NDArray],
+    out_shape: list[pyct.NDArrayShape],
+    out_dtype: list[pyct.DType],
+    parallel: bool,
+) -> list[pyct.NDArray]:
+    # (This is Low-Level function.)
+    #
+    # Computes the equivalent of ``out = [f(x) for (f, x) in zip(func, data)]``, with the following semantics:
+    #
+    # * If `data` contains only NUMPY/CUPY arrays, then ``out`` is computed as above.
+    # * If `data` contains only DASK arrays, then entries of ``out`` are computed:
+    #
+    #   * if `parallel` enabled  -> dask-delay each `func`, then evaluate in parallel.
+    #   * if `parallel` disabled -> dask-delay each `func`, then evaluate in sequence.
+    #     (This is useful if `func`s share a common resource, thus not thread-safe.)
+    #
+    # For Dask-array inputs, this amounts to creating a task graph with virtual dependencies
+    # between successive `func` calls. In other words, the task graph looks like:
+    #
+    #        _dask_zip(func, data, parallel=True) -> out
+    #
+    #                    +----+              +----+
+    #          data[0]-->|func|-->blk[0]-+-->|list|-->out
+    #             .      +----+          |   +----+
+    #             .                      |
+    #             .      +----+          |
+    #          data[n]-->|func|-->blk[n]-+
+    #                    +----+
+    #
+    # ==========================================================================================================
+    #        _dask_zip(func, data, parallel=False) -> out
+    #                                                                                             +----+
+    #                              +-------------------+----------------+--------------------+----+list|-->out
+    #                              |                   |                |                    |    +----+
+    #                              |                   |                |                    |
+    #                    +----+    |        +----+     |      +---+     |         +----+     |
+    #          data[0]-->|func|-->out[0]-+->|func|-->out[1]-->|...|-->out[n-1]-+->|func|-->out[n]
+    #                    +----+          |  +----+            +---+            |  +----+
+    #                                    |                                     |
+    #          data[1]-------------------+                                     |
+    #             .                                                            |
+    #             .                                                            |
+    #             .                                                            |
+    #          data[n]---------------------------------------------------------+
+    #
+    #
+    # Parameters
+    # ----------
+    # func: list(callable)
+    #     Functions to apply to each element of `data`.
+    #
+    #     Function signatures are ``Callable[[pyct.NDArray], pyct.NDArray]``.
+    # data: list[pyct.NDArray]
+    #     (N_data,) arrays to act on.
+    # out_shape: list[pyct.NDArrayShape]
+    #     Shapes of ``func[i](data[i])``.
+    #
+    #     This parameter is only used if inputs are DASK arrays.
+    #     Its goal is to transform Delayed objects back to array form.
+    # out_dtype: list[pyct.DType]
+    #     Dtypes of ``func[i](data[i])``.
+    #
+    #     This parameter is only used if inputs are DASK arrays.
+    #     Its goal is to transform Delayed objects back to array form.
+    #
+    # Returns
+    # -------
+    # out: list[pyct.NDArray]
+    #     (N_data,) objects acted upon.
+    #
+    #     Outputs have the same backend/dtype as inputs.
+    assert all(len(_) == len(func) for _ in [data, out_shape, out_dtype])
+
+    NDI = pycd.NDArrayInfo
+    dask_input = lambda obj: NDI.from_obj(obj) == NDI.DASK
+    if all(map(dask_input, data)):
+        xp = NDI.DASK.module()
+
+        out = []
+        for i in range(len(data)):
+            f = dask.delayed(func[i], pure=True)
+            if parallel:
+                _func = f
+            else:
+                _func = dgm.bind(
+                    children=f,
+                    parents=out[i - 1] if (i > 0) else [],
+                )
+            blk = xp.from_delayed(
+                _func(data[i]),
+                shape=out_shape[i],
+                dtype=out_dtype[i],
+            )
+            out.append(blk)
+    else:
+        out = [_func(arr) for (_func, arr) in zip(func, data)]
+    return out
