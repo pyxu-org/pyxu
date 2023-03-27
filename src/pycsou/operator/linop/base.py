@@ -1,10 +1,10 @@
-import types
 import typing as typ
 import warnings
 
 import numpy as np
 
 import pycsou.abc as pyca
+import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
@@ -193,20 +193,23 @@ def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
             out = _._cst * _.codim
             return out
 
-        klass = pyca.PosDefOp if (cst > 0) else pyca.SelfAdjointOp
-        op = klass(shape=(dim, dim))
-        op._cst = cst
-        op._lipschitz = abs(cst)
-        op.apply = types.MethodType(op_apply, op)
-        op.svdvals = types.MethodType(op_svdvals, op)
-        op.eigvals = types.MethodType(op_eigvals, op)
-        op.pinv = types.MethodType(op_pinv, op)
-        op.dagger = types.MethodType(op_dagger, op)
-        op.gram = types.MethodType(op_gram, op)
-        op.cogram = op.gram
-        op.trace = types.MethodType(op_trace, op)
-        op._name = "HomothetyOp"
-
+        op = pycsrc.from_source(
+            cls=pyca.PosDefOp if (cst > 0) else pyca.SelfAdjointOp,
+            shape=(dim, dim),
+            embed=dict(
+                _name="HomothetyOp",
+                _cst=cst,
+            ),
+            _lipschitz=abs(cst),
+            apply=op_apply,
+            svdvals=op_svdvals,
+            eigvals=op_eigvals,
+            pinv=op_pinv,
+            dagger=op_dagger,
+            gram=op_gram,
+            cogram=op_gram,
+            trace=op_trace,
+        )
     return op.squeeze()
 
 
@@ -314,22 +317,25 @@ def DiagonalOp(
             def op_trace(_, **kwargs):
                 return float(_._vec.sum())
 
-            klass = pyca.PosDefOp if pycu.compute(xp.all(vec > 0)) else pyca.SelfAdjointOp
-            op = klass(shape=(dim, dim))
-            op._vec = vec
-            op._enable_warnings = bool(enable_warnings)
-            op._lipschitz = pycu.compute(xp.abs(vec).max())
-            op.apply = types.MethodType(op_apply, op)
-            op.asarray = types.MethodType(op_asarray, op)
-            op.gram = types.MethodType(op_gram, op)
-            op.cogram = op.gram
-            op.svdvals = types.MethodType(op_svdvals, op)
-            op.eigvals = types.MethodType(op_eigvals, op)
-            op.pinv = types.MethodType(op_pinv, op)
-            op.dagger = types.MethodType(op_dagger, op)
-            op.trace = types.MethodType(op_trace, op)
-            op._name = "DiagonalOp"
-
+            op = pycsrc.from_source(
+                cls=pyca.PosDefOp if pycu.compute(xp.all(vec > 0)) else pyca.SelfAdjointOp,
+                shape=(dim, dim),
+                embed=dict(
+                    _name="DiagonalOp",
+                    _vec=vec,
+                    _enable_warnings=bool(enable_warnings),
+                ),
+                _lipschitz=pycu.compute(xp.abs(vec).max()),
+                apply=op_apply,
+                asarray=op_asarray,
+                gram=op_gram,
+                cogram=op_gram,
+                svdvals=op_svdvals,
+                eigvals=op_eigvals,
+                pinv=op_pinv,
+                dagger=op_dagger,
+                trace=op_trace,
+            )
         return op.squeeze()
 
 
@@ -512,13 +518,18 @@ def _ExplicitLinOp(
             L = _.__class__.lipschitz(_, **kwargs)
         return L
 
-    op = cls(shape=mat.shape)
-    op.mat = _standard_form(mat)
-    op._enable_warnings = bool(enable_warnings)
-    op.apply = types.MethodType(op_apply, op)
-    op.adjoint = types.MethodType(op_adjoint, op)
-    op.asarray = types.MethodType(op_asarray, op)
-    op.lipschitz = types.MethodType(op_lipschitz, op)
-    op.trace = types.MethodType(op_trace, op)
-    op._name = "_ExplicitLinOp"
+    op = pycsrc.from_source(
+        cls=cls,
+        shape=mat.shape,
+        embed=dict(
+            _name="_ExplicitLinOp",
+            mat=_standard_form(mat),
+            _enable_warnings=bool(enable_warnings),
+        ),
+        apply=op_apply,
+        adjoint=op_adjoint,
+        asarray=op_asarray,
+        lipschitz=op_lipschitz,
+        trace=op_trace,
+    )
     return op
