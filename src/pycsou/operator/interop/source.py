@@ -10,6 +10,7 @@ __all__ = [
 def from_source(
     cls: pyct.OpC,
     shape: pyct.OpShape,
+    embed: dict = None,
     **kwargs,
 ) -> pyct.OpT:
     r"""
@@ -21,6 +22,10 @@ def from_source(
         Operator sub-class to instantiate.
     shape: pyct.OpShape
         (N, M) operator shape.
+    embed: dict
+        (k[str], v[value]) pairs to embed into the created operator.
+
+        `embed` is useful to attach extra information to `op` to be used by arithmetic methods.
     kwargs: dict
         ``(k[str], v[value | callable])`` pairs to use as attributes and methods.
 
@@ -37,13 +42,13 @@ def from_source(
 
     Notes
     -----
-    If provided, arithmetic methods must abide exactly to the Pycsou interface, i.e.:
-    :py:meth:`~pycsou.abc.operator.Map.apply`,
-    :py:meth:`~pycsou.abc.operator.ProxFunc.prox`,
-    :py:meth:`~pycsou.abc.operator.DiffFunc.grad`,
-    :py:meth:`~pycsou.abc.operator.LinOp.adjoint`, and
-    :py:meth:`~pycsou.abc.operator.LinOp.pinv`
-    must accept ``(..., M)``-shaped inputs for ``arr``.
+    * If provided, arithmetic methods must abide exactly to the Pycsou interface, i.e.:
+      :py:meth:`~pycsou.abc.operator.Map.apply`,
+      :py:meth:`~pycsou.abc.operator.ProxFunc.prox`,
+      :py:meth:`~pycsou.abc.operator.DiffFunc.grad`,
+      :py:meth:`~pycsou.abc.operator.LinOp.adjoint`, and
+      :py:meth:`~pycsou.abc.operator.LinOp.pinv`
+      must accept ``(..., M)``-shaped inputs for ``arr``.
 
     Examples
     --------
@@ -77,6 +82,9 @@ def from_source(
        y = f(x)  # [0, 1, 4, 9, 16]
        L = f.diff_lipschitz()  # 2  <- instead of inf
     """
+    if embed is None:
+        embed = dict()
+
     op = cls(shape=shape)
     for p in op.properties():
         for name in p.arithmetic_attributes():
@@ -85,4 +93,6 @@ def from_source(
         for name in p.arithmetic_methods():
             func = kwargs.get(name, getattr(cls, name))
             setattr(op, name, types.MethodType(func, op))
+    for (name, attr) in embed.items():
+        setattr(op, name, attr)
     return op
