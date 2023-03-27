@@ -13,6 +13,7 @@ def from_source(
     shape: pyct.OpShape,
     embed: dict = None,
     auto_vectorize: pyct.VarName = frozenset(),
+    vkwargs: dict = None,
     **kwargs,
 ) -> pyct.OpT:
     r"""
@@ -40,7 +41,12 @@ def from_source(
         Arithmetic methods to vectorize.
 
         `auto_vectorize` is useful if an arithmetic method provided to `kwargs` (ex:
-        :py:meth:`~pycsou.abc.operator.Map.apply`) does not support stacking dimensions.
+        :py:meth:`~pycsou.abc.operator.Map.apply`):
+
+        * does not support stacking dimensions; OR
+        * does not support DASK inputs.
+    vkwargs: dict
+        (k[str], v[value]) parameters to forward to :py:meth:`~pycsou.util.operator.vectorize`.
 
     Returns
     -------
@@ -95,9 +101,11 @@ def from_source(
     """
     if embed is None:
         embed = dict()
-
     if isinstance(auto_vectorize, str):
         auto_vectorize = (auto_vectorize,)
+    if vkwargs is None:
+        vkwargs = dict()
+    vkwargs.update(i="arr")  # Pycsou vectorized functions all take parameter `arr`.
 
     op = cls(shape=shape)
     for p in op.properties():
@@ -108,7 +116,7 @@ def from_source(
             if name in kwargs:
                 func = kwargs[name]
                 if name in auto_vectorize:
-                    decorate = pycu.vectorize(i="arr")
+                    decorate = pycu.vectorize(**vkwargs)
                     func = decorate(func)
             else:
                 # auto-vectorize does NOT kick in for default-provided methods.
