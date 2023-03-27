@@ -1,5 +1,6 @@
 import types
 
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 __all__ = [
@@ -11,6 +12,7 @@ def from_source(
     cls: pyct.OpC,
     shape: pyct.OpShape,
     embed: dict = None,
+    auto_vectorize: pyct.VarName = frozenset(),
     **kwargs,
 ) -> pyct.OpT:
     r"""
@@ -34,6 +36,11 @@ def from_source(
         If provided, then ``op.<k> = v``.
 
         Omitted arithmetic attributes/methods default to those provided by ``cls(shape)``.
+    auto_vectorize: pyct.VarName
+        Arithmetic methods to vectorize.
+
+        `auto_vectorize` is useful if an arithmetic method provided to `kwargs` (ex:
+        :py:meth:`~pycsou.abc.operator.Map.apply`) does not support stacking dimensions.
 
     Returns
     -------
@@ -49,6 +56,10 @@ def from_source(
       :py:meth:`~pycsou.abc.operator.LinOp.adjoint`, and
       :py:meth:`~pycsou.abc.operator.LinOp.pinv`
       must accept ``(..., M)``-shaped inputs for ``arr``.
+      If this does not hold, consider populating `auto_vectorize`.
+
+    * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
+      :py:func:`~pycsou.util.operator.vectorize`.
 
     Examples
     --------
@@ -85,13 +96,24 @@ def from_source(
     if embed is None:
         embed = dict()
 
+    if isinstance(auto_vectorize, str):
+        auto_vectorize = (auto_vectorize,)
+
     op = cls(shape=shape)
     for p in op.properties():
         for name in p.arithmetic_attributes():
             attr = kwargs.get(name, getattr(op, name))
             setattr(op, name, attr)
         for name in p.arithmetic_methods():
-            func = kwargs.get(name, getattr(cls, name))
+            if name in kwargs:
+                func = kwargs[name]
+                if name in auto_vectorize:
+                    decorate = pycu.vectorize(i="arr")
+                    func = decorate(func)
+            else:
+                # auto-vectorize does NOT kick in for default-provided methods.
+                # (We assume they are Pycsou-compliant from the start.)
+                func = getattr(cls, name)
             setattr(op, name, types.MethodType(func, op))
     for (name, attr) in embed.items():
         setattr(op, name, attr)
