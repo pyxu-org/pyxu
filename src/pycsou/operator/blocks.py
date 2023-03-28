@@ -697,27 +697,26 @@ class _COOBlock:  # See coo_block() for a detailed description.
 
     @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
-        if self.has(pyco.Property.LINEAR):
-            if self.has(pyco.Property.FUNCTIONAL):
-                L = pyco.LinFunc.lipschitz(self, **kwargs)
-            else:
-                L = pyco.LinOp.lipschitz(self, **kwargs)
+        if self.has(pyco.Property.LINEAR) and kwargs.get("tight", False):
+            klass = self.__class__
+            L = klass.lipschitz(self, **kwargs)
         else:
             # Various upper bounds apply depending on how the blocks are organized:
             #   * vertical alignment: L**2 = sum(L_k**2)
-            #   * horizontal alignment: L**2 = max(L_k**2)
+            #   * horizontal alignment: L**2 = sum(L_k**2)
             #   * block-diagonal alignment: L**2 = max(L_k**2)
-            #   * arbitrary 2D alignment: vertical+horizontal composition (or vice-versa)
-            # We compute all bounds and take the lowest one.
+            #   * arbitrary 2D alignment: L**2 = sum(L_k**2)
+            #     [obtained via vertical+horizontal composition (or vice-versa)]
 
             # squared Lipschitz constant of each block.
             Ls_all = np.zeros(self._grid_shape)
             for (r, c), op in self._block.items():
                 Ls_all[r, c] = op.lipschitz(**kwargs) ** 2
 
-            Ls_1 = Ls_all.sum(axis=0).max()  # upper bound 1
-            Ls_2 = Ls_all.max(axis=1).sum()  # upper bound 2
-            L = np.sqrt(min(Ls_1, Ls_2))
+            if np.allclose(Ls_all.sum(), Ls_all.diagonal().sum()):  # block-diag case
+                L = np.sqrt(Ls_all.max())
+            else:
+                L = np.sqrt(Ls_all.sum())
         self._lipschitz = L
         return self._lipschitz
 
@@ -810,19 +809,20 @@ class _COOBlock:  # See coo_block() for a detailed description.
         else:
             # Various upper bounds apply depending on how the blocks are organized:
             #   * vertical alignment: dL**2 = sum(dL_k**2)
-            #   * horizontal alignment: dL**2 = max(dL_k**2)
+            #   * horizontal alignment: dL**2 = sum(dL_k**2)
             #   * block-diagonal alignment: dL**2 = max(dL_k**2)
-            #   * arbitrary 2D alignment: vertical+horizontal composition (or vice-versa)
-            # We compute all bounds and take the lowest one.
+            #   * arbitrary 2D alignment: dL**2 = sum(dL_k**2)
+            #     [obtained via vertical+horizontal composition (or vice-versa)]
 
             # squared diff-Lipschitz constant of each block.
             dLs_all = np.zeros(self._grid_shape)
             for (r, c), op in self._block.items():
                 dLs_all[r, c] = op.diff_lipschitz(**kwargs) ** 2
 
-            dLs_1 = dLs_all.sum(axis=0).max()  # upper bound 1
-            dLs_2 = dLs_all.max(axis=1).sum()  # upper bound 2
-            dL = np.sqrt(min(dLs_1, dLs_2))
+            if np.allclose(dLs_all.sum(), dLs_all.diagonal().sum()):  # block-diag case
+                dL = np.sqrt(dLs_all.max())
+            else:
+                dL = np.sqrt(dLs_all.sum())
         self._diff_lipschitz = dL
         return self._diff_lipschitz
 
