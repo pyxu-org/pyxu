@@ -314,6 +314,12 @@ def DiagonalOp(
                 )
 
             @pycrt.enforce_precision()
+            def op_lipschitz(_, **kwargs):
+                if _._lipschitz == np.inf:
+                    _._lipschitz = float(abs(_._vec).max())
+                return _._lipschitz
+
+            @pycrt.enforce_precision()
             def op_trace(_, **kwargs):
                 return float(_._vec.sum())
 
@@ -325,8 +331,8 @@ def DiagonalOp(
                     _vec=vec,
                     _enable_warnings=bool(enable_warnings),
                 ),
-                _lipschitz=pycu.compute(xp.abs(vec).max()),
                 apply=op_apply,
+                lipschitz=op_lipschitz,
                 asarray=op_asarray,
                 gram=op_gram,
                 cogram=op_gram,
