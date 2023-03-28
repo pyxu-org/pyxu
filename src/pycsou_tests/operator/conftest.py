@@ -483,6 +483,11 @@ class MapT:
         self._skip_if_disabled()
         self._check_no_side_effect(op.__call__, _data_apply)
 
+    def test_interface_lipschitz(self, op, _data_lipschitz):
+        self._skip_if_disabled()
+        L = op.lipschitz(**_data_lipschitz["in_"])
+        assert isinstance(L, float)
+
     def test_precCM_lipschitz(self, op, width, _data_lipschitz):
         self._skip_if_disabled()
         func = lambda: op.lipschitz(**_data_lipschitz["in_"])
@@ -624,6 +629,11 @@ class DiffMapT(MapT):
         arr = _data_apply["in_"]["arr"]
         J = op.jacobian(arr)
         self._check_has_interface(J, LinOpT)
+
+    def test_interface_diff_lipschitz(self, op):
+        self._skip_if_disabled()
+        dL = op.diff_lipschitz()
+        assert isinstance(dL, float)
 
     def test_precCM_diff_lipschitz(self, op, width):
         self._skip_if_disabled()
@@ -1619,7 +1629,8 @@ class SquareOpT(LinOpT):
         assert op.dim == op.codim
 
     def test_interface_trace(self, op, _data_trace):
-        assert isinstance(op.trace(**_data_trace["in_"]), float)
+        tr = op.trace(**_data_trace["in_"])
+        assert isinstance(tr, float)
 
     def test_value_trace(self, op, _data_trace, _op_trace):
         # Ensure computed trace (w/ default parameter values) satisfies statistical property stated
