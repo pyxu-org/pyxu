@@ -537,10 +537,6 @@ class _COOBlock:  # See coo_block() for a detailed description.
         self._init_spec(ops)
         self._parallel = bool(parallel)
 
-        # Default Arithmetic Attributes
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
-
     def op(self) -> pyct.OpT:
         """
         Returns
@@ -559,9 +555,9 @@ class _COOBlock:  # See coo_block() for a detailed description.
             op._grid_shape = self._grid_shape  # embed for introspection
             op._parallel = self._parallel  # embed for introspection
             for p in op.properties():
-                for name in p.arithmetic_attributes():
-                    attr = getattr(self, name)
-                    setattr(op, name, attr)
+                # We do NOT override arithmetic attributes since `op` contains good values to start
+                # with.
+
                 for name in p.arithmetic_methods():
                     func = getattr(self.__class__, name)
                     setattr(op, name, types.MethodType(func, op))
