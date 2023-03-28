@@ -1,6 +1,7 @@
 import types
 import typing as typ
 
+import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
@@ -15,6 +16,7 @@ def from_source(
     embed: dict = None,
     vectorize: pyct.VarName = frozenset(),
     vmethod: typ.Union[str, dict] = None,
+    enforce_precision: pyct.VarName = frozenset(),
     **kwargs,
 ) -> pyct.OpT:
     r"""
@@ -50,6 +52,11 @@ def from_source(
         Vectorization strategy. (See :py:class:`~pycsou.util.operator.vectorize`.)
 
         Different strategies can be applied per arithmetic method via a dictionary.
+    enforce_precision: pyct.VarName
+        Arithmetic methods to make compliant with Pycsou's runtime FP-precision.
+
+        `enforce_precision` is useful if an arithmetic method provided to `kwargs` (ex:
+        :py:meth:`~pycsou.abc.Map.apply`) does not comply with Pycsou's runtime FP-precision.
 
     Returns
     -------
@@ -71,6 +78,11 @@ def from_source(
       :py:func:`~pycsou.util.operator.vectorize`.
       Auto-vectorization may be less efficient than explicitly providing a vectorized arithmetic
       method.
+
+    * Enforcing precision consists in decorating `kwargs`-specified arithmetic methods with
+      :py:func:`~pycsou.runtime.enforce_precision`.
+      Not all arithmetic methods can be made runtime FP-precision compliant.
+      It is thus recommended to make arithmetic methods precision-compliant manually.
 
     Examples
     --------
@@ -104,13 +116,14 @@ def from_source(
        y = f(x)  # [0, 1, 4, 9, 16]
        L = f.diff_lipschitz()  # 2  <- instead of inf
     """
+    # START arg-parsing =======================================================
     if embed is None:
         embed = dict()
 
+    # compute vectorize() kwargs per arithmetic method ------------------------
     if isinstance(vectorize, str):
         vectorize = (vectorize,)
 
-    # compute vectorize() kwargs per arithmetic method ------------------------
     codim, dim = shape
     vsize = dict(  # `codim` hint for vectorize()
         apply=codim,
@@ -140,6 +153,23 @@ def from_source(
     }
     # -------------------------------------------------------------------------
 
+    # compute enforce_precision() kwargs per arithmetic method ----------------
+    if isinstance(enforce_precision, str):
+        enforce_precision = (enforce_precision,)
+    if not (set(enforce_precision) <= set(vsize)):
+        msg_head = "Can only enforce precision on arithmetic methods"
+        msg_tail = ", ".join([f"{name}()" for name in vsize])
+        raise ValueError(f"{msg_head} {msg_tail}")
+    ekwargs = dict(  # Pycsou arithmetic methods enforce FP-precision along these parameters.
+        apply=dict(i="arr"),
+        prox=dict(i=("arr", "tau")),
+        grad=dict(i="arr"),
+        adjoint=dict(i="arr"),
+        pinv=dict(i=("arr", "damp")),
+    )
+    # -------------------------------------------------------------------------
+
+    # END arg-parsing =========================================================
     op = cls(shape=shape)
     for p in op.properties():
         for name in p.arithmetic_attributes():
@@ -151,8 +181,11 @@ def from_source(
                 if name in vectorize:
                     decorate = pycu.vectorize(**vkwargs[name])
                     func = decorate(func)
+                if name in enforce_precision:
+                    decorate = pycrt.enforce_precision(**ekwargs[name])
+                    func = decorate(func)
             else:
-                # vectorize() does NOT kick in for default-provided methods.
+                # vectorize() & enforce_precision() do NOT kick in for default-provided methods.
                 # (We assume they are Pycsou-compliant from the start.)
                 func = getattr(cls, name)
             setattr(op, name, types.MethodType(func, op))
