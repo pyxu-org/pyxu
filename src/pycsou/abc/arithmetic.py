@@ -175,8 +175,8 @@ class ScaleRule(Rule):
 
     @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
-        self._lipschitz = self._op.lipschitz(**kwargs)
-        self._lipschitz *= abs(self._cst)
+        L = self._op.lipschitz(**kwargs)
+        self._lipschitz = L * abs(self._cst)
         return self._lipschitz
 
     @pycrt.enforce_precision(i=("arr", "tau"))
@@ -199,8 +199,8 @@ class ScaleRule(Rule):
 
     @pycrt.enforce_precision()
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
-        self._diff_lipschitz = self._op.diff_lipschitz(**kwargs)
-        self._diff_lipschitz *= abs(self._cst)
+        dL = self._op.diff_lipschitz(**kwargs)
+        self._diff_lipschitz = dL * abs(self._cst)
         return self._diff_lipschitz
 
     @pycrt.enforce_precision(i="arr")
@@ -390,8 +390,8 @@ class ArgScaleRule(Rule):
 
     @pycrt.enforce_precision()
     def lipschitz(self, **kwargs) -> pyct.Real:
-        self._lipschitz = self._op.lipschitz(**kwargs)
-        self._lipschitz *= abs(self._cst)
+        L = self._op.lipschitz(**kwargs)
+        self._lipschitz = L * abs(self._cst)
         return self._lipschitz
 
     @pycrt.enforce_precision(i=("arr", "tau"))
@@ -420,8 +420,8 @@ class ArgScaleRule(Rule):
 
     @pycrt.enforce_precision()
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
-        self._diff_lipschitz = self._op.diff_lipschitz(**kwargs)
-        self._diff_lipschitz *= self._cst**2
+        dL = self._op.diff_lipschitz(**kwargs)
+        self._diff_lipschitz = dL * (self._cst**2)
         return self._diff_lipschitz
 
     @pycrt.enforce_precision(i="arr")
@@ -869,10 +869,10 @@ class AddRule(Rule):
             L_rhs = self._rhs.lipschitz(**kwargs)
             if self._lhs.codim < self._rhs.codim:
                 # LHS broadcasts
-                L_lhs *= np.sqrt(self._rhs.codim)
+                L_lhs = L_lhs * np.sqrt(self._rhs.codim)
             elif self._lhs.codim > self._rhs.codim:
                 # RHS broadcasts
-                L_rhs *= np.sqrt(self._lhs.codim)
+                L_rhs = L_rhs * np.sqrt(self._lhs.codim)
             self._lipschitz = L_lhs + L_rhs
         return self._lipschitz
 
@@ -905,16 +905,16 @@ class AddRule(Rule):
 
     @pycrt.enforce_precision()
     def diff_lipschitz(self, **kwargs) -> pyct.Real:
-        L_lhs = self._lhs.diff_lipschitz(**kwargs)
-        L_rhs = self._rhs.diff_lipschitz(**kwargs)
+        dL_lhs = self._lhs.diff_lipschitz(**kwargs)
+        dL_rhs = self._rhs.diff_lipschitz(**kwargs)
         if self._lhs.codim < self._rhs.codim:
             # LHS broadcasts
-            L_lhs *= np.sqrt(self._rhs.codim)
+            dL_lhs = dL_lhs * np.sqrt(self._rhs.codim)
         elif self._lhs.codim > self._rhs.codim:
             # RHS broadcasts
-            L_rhs *= np.sqrt(self._lhs.codim)
+            dL_rhs = dL_rhs * np.sqrt(self._lhs.codim)
 
-        self._diff_lipschitz = L_lhs + L_rhs
+        self._diff_lipschitz = dL_lhs + dL_rhs
         return self._diff_lipschitz
 
     @pycrt.enforce_precision(i="arr")
@@ -1200,8 +1200,9 @@ class ChainRule(Rule):
         elif self.has(pyco.Property.LINEAR) and kwargs.get("tight", False):
             self._lipschitz = pyco.LinOp.lipschitz(self, **kwargs)
         else:
-            self._lipschitz = self._lhs.lipschitz(**kwargs)
-            self._lipschitz *= self._rhs.lipschitz(**kwargs)
+            L_lhs = self._lhs.lipschitz(**kwargs)
+            L_rhs = self._rhs.lipschitz(**kwargs)
+            self._lipschitz = L_lhs * L_rhs
         return self._lipschitz
 
     @pycrt.enforce_precision(i=("arr", "tau"))
@@ -1264,11 +1265,13 @@ class ChainRule(Rule):
         elif self._lhs.has(pyco.Property.LINEAR) and self._rhs.has(pyco.Property.LINEAR):
             self._diff_lipschitz = 0
         elif self._lhs.has(pyco.Property.LINEAR) and self._rhs.has(pyco.Property.DIFFERENTIABLE):
-            self._diff_lipschitz = self._lhs.lipschitz(**kwargs)
-            self._diff_lipschitz *= self._rhs.diff_lipschitz(**kwargs)
+            L_lhs = self._lhs.lipschitz(**kwargs)
+            dL_rhs = self._rhs.diff_lipschitz(**kwargs)
+            self._diff_lipschitz = L_lhs * dL_rhs
         elif self._lhs.has(pyco.Property.DIFFERENTIABLE) and self._rhs.has(pyco.Property.LINEAR):
-            self._diff_lipschitz = self._lhs.diff_lipschitz(**kwargs)
-            self._diff_lipschitz *= self._rhs.lipschitz(**kwargs) ** 2
+            dL_lhs = self._lhs.diff_lipschitz(**kwargs)
+            L_rhs = self._rhs.lipschitz(**kwargs)
+            self._diff_lipschitz = dL_lhs * (L_rhs**2)
         else:
             self._diff_lipschitz = np.inf
         return self._diff_lipschitz
