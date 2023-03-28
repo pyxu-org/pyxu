@@ -1,4 +1,5 @@
 import types
+import typing as typ
 
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
@@ -12,8 +13,8 @@ def from_source(
     cls: pyct.OpC,
     shape: pyct.OpShape,
     embed: dict = None,
-    auto_vectorize: pyct.VarName = frozenset(),
-    vkwargs: dict = None,
+    vectorize: pyct.VarName = frozenset(),
+    vmethod: typ.Union[str, dict] = None,
     **kwargs,
 ) -> pyct.OpT:
     r"""
@@ -37,16 +38,18 @@ def from_source(
         If provided, then ``op.<k> = v``.
 
         Omitted arithmetic attributes/methods default to those provided by ``cls(shape)``.
-    auto_vectorize: pyct.VarName
+    vectorize: pyct.VarName
         Arithmetic methods to vectorize.
 
-        `auto_vectorize` is useful if an arithmetic method provided to `kwargs` (ex:
+        `vectorize` is useful if an arithmetic method provided to `kwargs` (ex:
         :py:meth:`~pycsou.abc.operator.Map.apply`):
 
         * does not support stacking dimensions; OR
         * does not support DASK inputs.
-    vkwargs: dict
-        (k[str], v[value]) parameters to forward to :py:meth:`~pycsou.util.operator.vectorize`.
+    vmethod: str | dict
+        Vectorization strategy. (See :py:class:`~pycsou.util.operator.vectorize`.)
+
+        Different strategies can be applied per arithmetic method via a dictionary.
 
     Returns
     -------
@@ -62,10 +65,12 @@ def from_source(
       :py:meth:`~pycsou.abc.operator.LinOp.adjoint`, and
       :py:meth:`~pycsou.abc.operator.LinOp.pinv`
       must accept ``(..., M)``-shaped inputs for ``arr``.
-      If this does not hold, consider populating `auto_vectorize`.
+      If this does not hold, consider populating `vectorize`.
 
     * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
       :py:func:`~pycsou.util.operator.vectorize`.
+      Auto-vectorization may be less efficient than explicitly providing a vectorized arithmetic
+      method.
 
     Examples
     --------
@@ -101,11 +106,39 @@ def from_source(
     """
     if embed is None:
         embed = dict()
-    if isinstance(auto_vectorize, str):
-        auto_vectorize = (auto_vectorize,)
-    if vkwargs is None:
-        vkwargs = dict()
-    vkwargs.update(i="arr")  # Pycsou vectorized functions all take parameter `arr`.
+
+    if isinstance(vectorize, str):
+        vectorize = (vectorize,)
+
+    # compute vectorize() kwargs per arithmetic method ------------------------
+    codim, dim = shape
+    vsize = dict(  # `codim` hint for vectorize()
+        apply=codim,
+        prox=dim,
+        grad=dim,
+        adjoint=dim,
+        pinv=dim,
+    )
+    if vmethod is None:  # infer default vectorization method
+        vmethod = pycu.parse_params(
+            pycu.vectorize,
+            i="bogus",  # doesn't matter
+        )["method"]
+    if isinstance(vmethod, str):
+        vmethod = {name: vmethod for name in vectorize}
+    if not (set(vmethod) <= set(vsize)):  # un-recognized arithmetic method
+        msg_head = "Can only vectorize arithmetic methods"
+        msg_tail = ", ".join([f"{name}()" for name in vsize])
+        raise ValueError(f"{msg_head} {msg_tail}")
+    vkwargs = {
+        name: dict(
+            i="arr",  # Pycsou arithmetic methods broadcast along parameter `arr`.
+            method=vmethod[name],
+            codim=vsize[name],
+        )
+        for name in vectorize
+    }
+    # -------------------------------------------------------------------------
 
     op = cls(shape=shape)
     for p in op.properties():
@@ -115,11 +148,11 @@ def from_source(
         for name in p.arithmetic_methods():
             if name in kwargs:
                 func = kwargs[name]
-                if name in auto_vectorize:
-                    decorate = pycu.vectorize(**vkwargs)
+                if name in vectorize:
+                    decorate = pycu.vectorize(**vkwargs[name])
                     func = decorate(func)
             else:
-                # auto-vectorize does NOT kick in for default-provided methods.
+                # vectorize() does NOT kick in for default-provided methods.
                 # (We assume they are Pycsou-compliant from the start.)
                 func = getattr(cls, name)
             setattr(op, name, types.MethodType(func, op))
