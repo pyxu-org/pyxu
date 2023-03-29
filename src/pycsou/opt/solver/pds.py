@@ -481,7 +481,7 @@ class CondatVu(_PrimalDualSplitting):
                         raise ValueError(msg)
         delta = (
             2
-            if (self._beta == 0 or (isinstance(self._f, pycf.QuadraticFunc) and gamma <= self._beta))
+            if (self._beta == 0 or (isinstance(self._f, pyco.QuadraticFunc) and gamma <= self._beta))
             else 2 - self._beta / (2 * gamma)
         )
         return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
@@ -996,7 +996,7 @@ class LorisVerhoeven(PD3O):
             Sensible primal/dual step sizes and value of the parameter :math:`delta`.
         """
         tau, sigma, _ = super()._set_step_sizes(tau=tau, sigma=sigma, gamma=gamma)
-        delta = 2 if (self._beta == 0 or isinstance(self._f, pycf.QuadraticFunc)) else 2 - self._beta / (2 * gamma)
+        delta = 2 if (self._beta == 0 or isinstance(self._f, pyco.QuadraticFunc)) else 2 - self._beta / (2 * gamma)
         return pycrt.coerce(tau), pycrt.coerce(sigma), pycrt.coerce(delta)
 
 
@@ -1316,7 +1316,7 @@ class ADMM(_PDS):
                 x_update_solver = "prox"
                 g = f  # In this case, f corresponds to g in the _PDS terminology
                 f = None
-            elif isinstance(f, pycf.QuadraticFunc):
+            elif isinstance(f, pyco.QuadraticFunc):
                 x_update_solver = "cg"
                 warnings.warn(
                     "A sub-iterative conjugate gradient algorithm is used for the x-minimization step "
@@ -1394,7 +1394,7 @@ class ADMM(_PDS):
         elif self._x_update_solver == "nlcg":
             from pycsou.opt.solver import NLCG
 
-            quad_func = pycf.QuadraticFunc(2 * self._K.gram(), pyca.LinFunc.from_array(-self._K.adjoint(arr)))
+            quad_func = pyco.QuadraticFunc(2 * self._K.gram(), pyca.LinFunc.from_array(-self._K.adjoint(arr)))
             slvr = NLCG(f=self._f + (1 / tau) * quad_func, **self._init_kwargs)
             slvr.fit(x0=self._mstate["x"], **self._fit_kwargs)  # Initialize NLCG with previous iterate
             return slvr.solution()
