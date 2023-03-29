@@ -488,7 +488,13 @@ def coo_block(
     return op
 
 
-def _wrap_if_dask(func: cabc.Callable) -> cabc.Callable:
+def _parallelize(func: cabc.Callable) -> cabc.Callable:
+    # Parallelize execution of func() under conditions.
+    #
+    # * func() must be one of the arithmetic methods [apply,prox,grad,adjoint,pinv]()
+    # * the `_parallel` attribute must be attached to the instance for it to parallelize execution
+    #   over NUMPY inputs.
+
     @functools.wraps(func)
     def wrapper(*ARGS, **KWARGS):
         func_args = pycu.parse_params(func, *ARGS, **KWARGS)
@@ -671,7 +677,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         op = klass(shape=(op_codim, op_dim))
         return op
 
-    @_wrap_if_dask
+    @_parallelize
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         # compute blocks
@@ -739,7 +745,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         tail = [_Block(idx=k, op=op) for (k, op) in self._block.items()]
         return (head, *tail)
 
-    @_wrap_if_dask
+    @_parallelize
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         if not self.has(pyco.Property.PROXIMABLE):
@@ -826,7 +832,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         self._diff_lipschitz = dL
         return self._diff_lipschitz
 
-    @_wrap_if_dask
+    @_parallelize
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         if not self.has(pyco.Property.DIFFERENTIABLE_FUNCTION):
@@ -843,7 +849,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         out = xp.concatenate(parts, axis=-1)
         return out
 
-    @_wrap_if_dask
+    @_parallelize
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         if not self.has(pyco.Property.LINEAR):
