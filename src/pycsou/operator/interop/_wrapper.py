@@ -17,7 +17,7 @@ class _Wrapper:
         op,
         shape: pyct.OpShape,
         arg_shape: pyct.NDArrayShape = None,
-        base: pyct.OpT = pyco.Map,
+        cls: pyct.OpT = pyco.Map,
         lipschitz=np.inf,
         diff_lipschitz=np.inf,
         name: str = "PyDataOp",
@@ -25,20 +25,20 @@ class _Wrapper:
     ):
         self._lipschitz = lipschitz
         self._diff_lipschitz = diff_lipschitz
-        self._pydata_op = op
-        self._base = base
+        self._op = op
+        self._cls = cls
         self._shape = shape
         self._arg_shape = arg_shape if arg_shape is not None else pycu.as_canonical_shape(shape[1])
         self._name = name
         self._meta = op if meta is None else meta
 
     def op(self) -> pyct.OpT:
-        if self._base.has((pyco.Property.PROXIMABLE, pyco.Property.QUADRATIC)):
+        if self._cls.has((pyco.Property.PROXIMABLE, pyco.Property.QUADRATIC)):
             raise pycw.AutoInferenceWarning(
-                f"Automatic construction of a {self._base} object from a DL operator is ambiguous."
+                f"Automatic construction of a {self._cls} object from a DL operator is ambiguous."
             )
-        op = self._base(shape=self._shape)
-        op._pydata_op = self._pydata_op  # embed for introspection
+        op = self._cls(shape=self._shape)
+        op._op = self._op  # embed for introspection
         op._arg_shape = self._arg_shape
         op._name = self._name
         op._meta = self._meta

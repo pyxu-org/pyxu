@@ -22,7 +22,7 @@ class _TorchWrapper(pyciw._Wrapper):
         func,
         shape: pyct.OpShape,
         arg_shape: pyct.NDArrayShape = None,
-        base: pyct.OpT = pyco.Map,
+        cls: pyct.OpT = pyco.Map,
         lipschitz=np.inf,
         diff_lipschitz=np.inf,
         name: str = "TorchOp",
@@ -32,7 +32,7 @@ class _TorchWrapper(pyciw._Wrapper):
             func,
             shape=shape,
             arg_shape=arg_shape,
-            base=base,
+            cls=cls,
             lipschitz=lipschitz,
             diff_lipschitz=diff_lipschitz,
             name=name,
@@ -68,7 +68,7 @@ class _TorchWrapper(pyciw._Wrapper):
         def _apply(x: pyct.NDArray) -> pyct.NDArray:
             tensor = _TorchWrapper._astensor(x.reshape((-1,) + self._arg_shape))
             with _TorchWrapper.torch().inference_mode():
-                return _TorchWrapper._asarray(self._pydata_op(tensor)).reshape(x.shape[:-1] + (-1,))
+                return _TorchWrapper._asarray(self._op(tensor)).reshape(x.shape[:-1] + (-1,))
 
         return _apply(arr)
 
@@ -81,7 +81,7 @@ class _TorchWrapper(pyciw._Wrapper):
             @pycu._delayed_if_dask(i="x", oshape=tan.shape[:-1] + (self._shape[0],))
             def _apply(x: pyct.NDArray) -> pyct.NDArray:
                 tan_tensor = _TorchWrapper._astensor(x.reshape((-1,) + self._arg_shape))
-                jvp = lambda v: _TorchWrapper.functorch().jvp(self._pydata_op, primals=(arr_tensor,), tangents=(v,))[1]
+                jvp = lambda v: _TorchWrapper.functorch().jvp(self._op, primals=(arr_tensor,), tangents=(v,))[1]
                 batched_jvp = _TorchWrapper.functorch().vmap(jvp)
                 return _TorchWrapper._asarray(batched_jvp(tan_tensor)).reshape(x.shape[:-1] + (-1,))
 
@@ -92,7 +92,7 @@ class _TorchWrapper(pyciw._Wrapper):
             @pycu._delayed_if_dask(i="y", oshape=cotan.shape[:-1] + (self._shape[1],))
             def _adjoint(y: pyct.NDArray) -> pyct.NDArray:
                 cotan_tensor = _TorchWrapper._astensor(y.reshape((-1, self._shape[0])))
-                call_ravel = lambda t: torch.reshape(self._pydata_op(t), (self._shape[0],))
+                call_ravel = lambda t: _TorchWrapper.torch().reshape(self._op(t), (self._shape[0],))
                 _, vjp = _TorchWrapper.functorch().vjp(call_ravel, arr_tensor)
                 batched_vjp = lambda v: _TorchWrapper.functorch().vmap(vjp)(v)[0]
                 return _TorchWrapper._asarray(batched_vjp(cotan_tensor)).reshape(y.shape[:-1] + (-1,))
@@ -117,7 +117,7 @@ class _TorchWrapper(pyciw._Wrapper):
         @pycu._delayed_if_dask(i="x", oshape=arr.shape[:-1] + (self._shape[0],))
         def _grad(x: pyct.NDArray) -> pyct.NDArray:
             tensor = _TorchWrapper._astensor(x.reshape((-1,) + self._arg_shape))
-            grad = _TorchWrapper.functorch().vmap(_TorchWrapper.functorch().grad(self._pydata_op))
+            grad = _TorchWrapper.functorch().vmap(_TorchWrapper.functorch().grad(self._op))
             return _TorchWrapper._asarray(grad(tensor)).reshape(x.shape[:-1] + (-1,))
 
         return _grad(arr)
@@ -135,7 +135,7 @@ def from_pytorch(
     func: typ.Callable,
     shape: pyct.OpShape,
     arg_shape: pyct.NDArrayShape = None,
-    base: pyct.OpT = pyco.Map,
+    cls: pyct.OpT = pyco.Map,
     lipschitz=np.inf,
     diff_lipschitz=np.inf,
     name: str = "TorchOp",
@@ -154,7 +154,7 @@ def from_pytorch(
         (N,M) shape of the operator, where N and M are the sizes of the output and input Tensors respectively.
     arg_shape: tuple
         Optional shape of the input Tensor for N-D inputs.
-    base: pyct.OpT
+    cls: pyct.OpT
         Pycsou abstract base class to subclass from.
     lipschitz: float
         Lipschitz constant of the operator (if known).
@@ -196,7 +196,7 @@ def from_pytorch(
         func,
         shape=shape,
         arg_shape=arg_shape,
-        base=base,
+        cls=cls,
         lipschitz=lipschitz,
         diff_lipschitz=diff_lipschitz,
         name=name,
@@ -215,14 +215,14 @@ if __name__ == "__main__":
     import pycsou.runtime as pycrt
 
     xp = cp
-    in_size, out_size = 4000, 3000
+    batch_size, in_size, out_size = 200, 4000, 3000
     m = torch.nn.Linear(in_size, out_size)
     device = {cp: "cuda", np: "cpu"}
     if xp == cp:
         m = m.cuda()
-    op = from_pytorch(lambda x: m(x), shape=(out_size, in_size), name="TorchOp", base=pyco.DiffMap, meta=m)
-    arr = xp.ones(in_size, dtype=np.float32)
-    arr_t = torch.ones(in_size, dtype=torch.float32, device=device[xp], requires_grad=True)
+    op = from_pytorch(lambda x: m(x), shape=(out_size, in_size), name="TorchOp", cls=pyco.DiffMap, meta=m)
+    arr = xp.ones((batch_size, in_size), dtype=np.float32)
+    arr_t = torch.ones((batch_size, in_size), dtype=torch.float32, device=device[xp], requires_grad=True)
     with pycrt.Precision(pycrt.Width.SINGLE):
         t1 = t.time()
         y1 = op(arr)
@@ -234,14 +234,15 @@ if __name__ == "__main__":
     assert xp.allclose(y1, _TorchWrapper._asarray(y2), atol=1e-4)
 
     with pycrt.Precision(pycrt.Width.SINGLE):
-        jac = op.jacobian(arr)
+        jac = op.jacobian(arr[0])
 
     tangents = xp.eye(in_size, dtype=np.float32)
     cotangents = xp.eye(out_size, dtype=np.float32)
 
     with pycrt.Precision(pycrt.Width.SINGLE):
-        jac_mat = jac.apply(tangents)
-    assert xp.allclose(jac_mat, _TorchWrapper._asarray(m.weight.transpose(0, 1)), atol=1e-4)
+        jac_mat = jac.asarray(xp=cp, dtype=cp.float32)
+        jac_batch = jac.apply(arr)
+    assert xp.allclose(jac_mat, _TorchWrapper._asarray(m.weight), atol=1e-4)
 
     with pycrt.Precision(pycrt.Width.SINGLE):
         jac_matT = jac.adjoint(cotangents)
