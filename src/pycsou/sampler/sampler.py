@@ -97,7 +97,9 @@ class MYULA(ULA):
 
     def _set_lambda(self, lamb: pyct.Real = None) -> pyct.Real:
         if lamb is None:
-            if math.isfinite(dl := self._f_diff._diff_lipschitz):
+            if self._g._name == "NullFunc":
+                return pycrt.coerce(2)  # Lambda is irrelevant if g is a NullFunc, but it must be positive
+            elif math.isfinite(dl := self._f_diff.diff_lipschitz()):
                 return pycrt.coerce(2) if dl == 0 else pycrt.coerce(min(2, 1 / dl))
             else:
                 msg = "If f has unbounded Lipschitz gradient, the lambda parameter must be provided."
