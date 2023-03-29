@@ -2081,7 +2081,7 @@ class _NUFFT3_chunked(_NUFFT3):
 
     def __init__(self, **kwargs):
         self._disable_unsupported_methods()
-        self._parallel = kwargs.pop("parallel")  # for _wrap_if_dask()
+        self._parallel = kwargs.pop("parallel")  # for _parallelize()
 
         pfw, pbw = kwargs["plan_fw"], kwargs["plan_bw"]
         kwargs.update(plan_fw=False, plan_bw=False)  # don't plan a huge NUFFT
@@ -2106,7 +2106,7 @@ class _NUFFT3_chunked(_NUFFT3):
         ]:
             setattr(self, attr, None)
 
-    @pycb._wrap_if_dask
+    @pycb._parallelize
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         assert self._initialized
@@ -2132,7 +2132,7 @@ class _NUFFT3_chunked(_NUFFT3):
         out = self._z_reorder.apply(out)
         return out
 
-    @pycb._wrap_if_dask
+    @pycb._parallelize
     @pycrt.enforce_precision("arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         assert self._initialized
