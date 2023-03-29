@@ -121,9 +121,6 @@ def from_source(
         embed = dict()
 
     # compute vectorize() kwargs per arithmetic method ------------------------
-    if isinstance(vectorize, str):
-        vectorize = (vectorize,)
-
     codim, dim = shape
     vsize = dict(  # `codim` hint for vectorize()
         apply=codim,
@@ -132,24 +129,28 @@ def from_source(
         adjoint=dim,
         pinv=dim,
     )
-    if vmethod is None:  # infer default vectorization method
-        vmethod = pycu.parse_params(
-            pycu.vectorize,
-            i="bogus",  # doesn't matter
-        )["method"]
-    if isinstance(vmethod, str):
-        vmethod = {name: vmethod for name in vectorize}
-    if not (set(vmethod) <= set(vsize)):  # un-recognized arithmetic method
+    vmethod_default = pycu.parse_params(
+        pycu.vectorize,
+        i="bogus",  # doesn't matter
+    )["method"]
+
+    if isinstance(vectorize, str):
+        vectorize = (vectorize,)
+    if not (set(vectorize) <= set(vsize)):  # un-recognized arithmetic method
         msg_head = "Can only vectorize arithmetic methods"
         msg_tail = ", ".join([f"{name}()" for name in vsize])
         raise ValueError(f"{msg_head} {msg_tail}")
+    if vmethod is None:
+        vmethod = vmethod_default
+    if isinstance(vmethod, str):
+        vmethod = {name: vmethod for name in vsize}
     vkwargs = {
         name: dict(
             i="arr",  # Pycsou arithmetic methods broadcast along parameter `arr`.
-            method=vmethod[name],
+            method=vmethod.get(name, vmethod_default),
             codim=vsize[name],
         )
-        for name in vectorize
+        for name in vsize
     }
     # -------------------------------------------------------------------------
 
