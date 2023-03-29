@@ -1,7 +1,5 @@
-import functools
 import warnings
 
-import dask
 import numpy as np
 import scipy.optimize as sopt
 
@@ -152,8 +150,9 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
 
         Notes
         -----
-        :py:meth:`~pycsou.operator.func.norm.SquaredL1Norm.prox` will always use the root method
-        when applied on Dask inputs. (Reason: sorting Dask inputs at scale is discouraged.)
+        Calling :py:meth:`~pycsou.operator.func.norm.SquaredL1Norm.prox` with DASK inputs when
+        `algo="sort"` is inefficient at scale.
+        Prefer `algo="root"` in this case.
         """
         super().__init__(shape=(1, dim))
         self._lipschitz = np.inf
@@ -169,38 +168,29 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
         return y
 
     def _prox_root(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        *sh, dim = arr.shape
-        arr = arr.reshape(-1, dim)  # (N_stack, N)
-        N_stack, N = arr.shape
-
-        # Restrict processing to non-zero inputs
         xp = pycu.get_array_module(arr)
-        idx = xp.arange(N_stack)[xp.linalg.norm(arr, axis=-1) > 0]
-
-        def f(i: pyct.Integer, mu: pyct.Real) -> pyct.Real:
-            # Proxy function to compute \mu_opt
-            #
-            # Inplace implementation of
-            #     f(i, mu) = clip(|arr[i]| * sqrt(tau / mu) - 2 * tau, 0, None).sum() - 1
-            x = xp.fabs(arr[i])
-            x *= xp.sqrt(tau / mu)
-            x -= 2 * tau
-            xp.clip(x, 0, None, out=x)
-            y = x.sum()
-            y -= 1
-
-            return y
-
-        # Part 1 below is not vectorized, hence the loop.
-        out = xp.zeros((N_stack, N), dtype=arr.dtype)
-        for i in idx:
+        norm = xp.linalg.norm(arr, axis=-1)
+        if not (norm > 0):
+            out = arr
+        else:
             # Part 1: Compute \mu_opt -----------------------------------------
-            mu_min = 1e-12
-            mu_max = xp.fabs(arr[i]).max() ** 2 / (4 * tau)  # todo: where does this come from?
+            def f(mu: pyct.Real) -> pyct.Real:
+                # Proxy function to compute \mu_opt
+                #
+                # Inplace implementation of
+                #     f(mu) = clip(|arr| * sqrt(tau / mu) - 2 * tau, 0, None).sum() - 1
+                x = xp.fabs(arr)
+                x *= xp.sqrt(tau / mu)
+                x -= 2 * tau
+                xp.clip(x, 0, None, out=x)
+                y = x.sum()
+                y -= 1
+                return y
+
             mu_opt, res = sopt.brentq(
-                f=functools.partial(f, i),
-                a=mu_min,
-                b=mu_max,
+                f=f,
+                a=1e-12,
+                b=xp.fabs(arr).max() ** 2 / (4 * tau),
                 full_output=True,
                 disp=False,
             )
@@ -210,75 +200,61 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
 
             # Part 2: Compute \lambda -----------------------------------------
             # Inplace implementation of
-            #     lambda_ = clip(|arr[i]| * sqrt(tau / mu_opt) - 2 * tau, 0, None)
-            lambda_ = xp.fabs(arr[i])
+            #     lambda_ = clip(|arr| * sqrt(tau / mu_opt) - 2 * tau, 0, None)
+            lambda_ = xp.fabs(arr)
             lambda_ *= xp.sqrt(tau / mu_opt)
             lambda_ -= 2 * tau
             xp.clip(lambda_, 0, None, out=lambda_)
 
             # Part 3: Compute \prox -------------------------------------------
             # Inplace implementation of
-            #     out[i] = arr[i] * lambda_ / (lambda_ + 2 * tau)
-            out[i] = arr[i]
-            out[i] *= lambda_
+            #     out = arr * lambda_ / (lambda_ + 2 * tau)
+            out = arr.copy()
+            out *= lambda_
             lambda_ += 2 * tau
-            out[i] /= lambda_
-
-        out = out.reshape(*sh, dim)
+            out /= lambda_
         return out
 
     def _prox_sort(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        *sh, dim = arr.shape
-        arr = arr.reshape(-1, dim)  # (N_stack, N)
-        N_stack, N = arr.shape
-
         xp = pycu.get_array_module(arr)
 
         # Inplace implementation of
-        #     y = sort(|arr|, axis=-1)[..., ::-1]
+        #     y = sort(|arr|, axis=-1)[::-1]
         y = xp.fabs(arr)
         y.sort(axis=-1)
-        y = y[..., ::-1]
+        y = y[::-1]
 
-        out = xp.zeros((N_stack, N), dtype=arr.dtype)
         z = y.cumsum(axis=-1)
-        z *= tau / (0.5 + tau * xp.arange(1, N + 1, dtype=z.dtype))
-        for i in range(N_stack):
-            p = max(xp.flatnonzero(y[i] > z[i]), default=0)
-            tau2 = z[i, p]
-            out[i] = L1Norm().prox(arr[i], tau2)
+        z *= tau / (0.5 + tau * xp.arange(1, arr.size + 1, dtype=z.dtype))
+        tau2 = z[max(xp.flatnonzero(y > z), default=0)]
 
-        out = out.reshape(*sh, N)
+        out = L1Norm().prox(arr, tau2)
         return out
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        f = dict(
-            root=self._prox_root,
-            sort=self._prox_sort,
-        ).get(self._algo)
-
         N = pycd.NDArrayInfo
-        is_dask = N.from_obj(arr) == N.DASK
-        if is_dask:
-            f = dask.delayed(f, pure=True)
-            if self._algo == "sort":
-                msg = "\n".join(
-                    [
-                        "Using prox_algo='sort' on Dask inputs is inefficient.",
-                        "Consider using prox_algo='root' instead.",
-                    ]
-                )
-                warnings.warn(msg, pycuw.PerformanceWarning)
+        if (N.from_obj(arr) == N.DASK) and (self._algo == "sort"):
+            msg = "\n".join(
+                [
+                    "Using prox_algo='sort' on DASK inputs is inefficient.",
+                    "Consider using prox_algo='root' instead.",
+                ]
+            )
+            warnings.warn(msg, pycuw.PerformanceWarning)
+
+        vectorize = pycu.vectorize(
+            # DASK backend required since prox_[root|sort]() don't accept DASK inputs.
+            i="arr",
+            method="parallel",
+            codim=arr.shape[-1],
+        )
+        f = dict(
+            root=vectorize(self._prox_root),
+            sort=vectorize(self._prox_sort),
+        )[self._algo]
 
         out = f(arr, tau)
-        if is_dask:
-            xp = N.DASK.module()
-            out = xp.from_delayed(
-                out,
-                shape=arr.shape,
-                dtype=arr.dtype,
-            )
         return out
 
 
@@ -302,20 +278,19 @@ class LInfinityNorm(ShiftLossMixin, pyca.ProxFunc):
         y = pylinalg.norm(arr, ord=np.inf, axis=-1, keepdims=True)
         return y
 
-    def _prox_dask(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        xp = pycd.NDArrayInfo.DASK.module()
-        f = dask.delayed(self.prox, pure=True)
-        out = xp.from_delayed(
-            f(arr, tau),
-            shape=arr.shape,
-            dtype=arr.dtype,
+    @pycrt.enforce_precision(i=("arr", "tau"))
+    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+        vectorize = pycu.vectorize(
+            i="arr",
+            method="parallel",
+            codim=arr.shape[-1],
         )
+        f = vectorize(self._prox)
+
+        out = f(arr, tau)
         return out
 
-    @pycrt.enforce_precision(i=("arr", "tau"))
-    @pycu.redirect("arr", DASK=_prox_dask)
-    @pycu.vectorize("arr")
-    def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
+    def _prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         y = xp.zeros(arr.shape, dtype=arr.dtype)
 
