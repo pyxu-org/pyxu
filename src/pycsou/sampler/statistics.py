@@ -109,7 +109,7 @@ def OnlineStd():
 
 def OnlineSkew():
     """Online skew."""
-    return (OnlineMoment(3) - 3 * OnlineMoment(2) * OnlineMoment(1) + 2 * OnlineMoment(1)) / OnlineStd() ** 3
+    return (OnlineMoment(3) - 3 * OnlineMoment(2) * OnlineMoment(1) + 2 * OnlineMoment(1) ** 3) / OnlineStd() ** 3
 
 
 def OnlineKurtosis():
