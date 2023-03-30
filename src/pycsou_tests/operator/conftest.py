@@ -8,7 +8,6 @@ import types
 import typing as typ
 import warnings
 
-import dask.array as da
 import numpy as np
 import numpy.random as npr
 import pytest
@@ -171,7 +170,7 @@ class MapT:
     def _random_array(
         shape: pyct.NDArrayShape,
         seed: int = 0,
-        xp: pyct.ArrayModule = np,
+        xp: pyct.ArrayModule = pycd.NDArrayInfo.NUMPY.module(),
         width: pycrt.Width = pycrt.Width.DOUBLE,
     ):
         rng = npr.default_rng(seed)

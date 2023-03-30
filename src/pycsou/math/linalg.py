@@ -42,7 +42,7 @@ def norm(x: pyct.NDArray, **kwargs):
 def hutchpp(
     op: pyca.SquareOp,
     m: pyct.Integer = 4002,
-    xp: pyct.ArrayModule = np,
+    xp: pyct.ArrayModule = pycd.NDArrayInfo.NUMPY.module(),
     dtype: pyct.DType = None,
     seed: pyct.Integer = 0,
     enable_warnings: bool = True,
