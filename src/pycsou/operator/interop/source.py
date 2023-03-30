@@ -237,6 +237,11 @@ class _FromSource:  # See from_source() for a detailed description.
             grad=dict(i="arr"),
             adjoint=dict(i="arr"),
             pinv=dict(i=("arr", "damp")),
+            lipschitz=dict(),
+            diff_lipschitz=dict(),
+            svdvals=dict(),
+            eigvals=dict(),
+            trace=dict(),
         )
 
         if isinstance(enforce_precision, str):
