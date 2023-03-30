@@ -1,3 +1,4 @@
+import types
 import typing as typ
 import warnings
 
@@ -205,11 +206,11 @@ def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
             svdvals=op_svdvals,
             eigvals=op_eigvals,
             pinv=op_pinv,
-            dagger=op_dagger,
             gram=op_gram,
             cogram=op_gram,
             trace=op_trace,
         )
+        op.dagger = types.MethodType(op_dagger, op)
     return op.squeeze()
 
 
