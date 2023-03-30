@@ -221,12 +221,16 @@ def _dask_zip(
 
         out = []
         for i in range(len(data)):
-            f = dask.delayed(func[i], pure=True)
             if parallel:
-                _func = f
+                # If parallel=True, the user guarantees that functions CAN be executed in parallel,
+                # i.e. no side-effects induced by calling the func[k] if arbitrary order.
+                # The functions are hence PURE.
+                _func = dask.delayed(func[i], pure=True)
             else:
+                # If parallel=False, side-effects MAY influence func[k] outputs.
+                # The functions are hence IMPURE.
                 _func = dgm.bind(
-                    children=f,
+                    children=dask.delayed(func[i], pure=False),
                     parents=out[i - 1] if (i > 0) else [],
                 )
             blk = xp.from_delayed(
