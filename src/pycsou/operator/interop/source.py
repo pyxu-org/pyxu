@@ -1,6 +1,8 @@
+import collections.abc as cabc
 import types
 import typing as typ
 
+import pycsou.abc.operator as pyco
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
@@ -116,80 +118,133 @@ def from_source(
        y = f(x)  # [0, 1, 4, 9, 16]
        L = f.diff_lipschitz()  # 2  <- instead of inf
     """
-    # START arg-parsing =======================================================
-    if embed is None:
-        embed = dict()
-
-    # compute vectorize() kwargs per arithmetic method ------------------------
-    codim, dim = shape
-    vsize = dict(  # `codim` hint for vectorize()
-        apply=codim,
-        prox=dim,
-        grad=dim,
-        adjoint=dim,
-        pinv=dim,
+    src = _FromSource(
+        cls=cls,
+        shape=shape,
+        embed=embed,
+        vectorize=vectorize,
+        vmethod=vmethod,
+        enforce_precision=enforce_precision,
+        **kwargs,
     )
-    vmethod_default = pycu.parse_params(
-        pycu.vectorize,
-        i="bogus",  # doesn't matter
-    )["method"]
-
-    if isinstance(vectorize, str):
-        vectorize = (vectorize,)
-    if not (set(vectorize) <= set(vsize)):  # un-recognized arithmetic method
-        msg_head = "Can only vectorize arithmetic methods"
-        msg_tail = ", ".join([f"{name}()" for name in vsize])
-        raise ValueError(f"{msg_head} {msg_tail}")
-    if vmethod is None:
-        vmethod = vmethod_default
-    if isinstance(vmethod, str):
-        vmethod = {name: vmethod for name in vsize}
-    vkwargs = {
-        name: dict(
-            i="arr",  # Pycsou arithmetic methods broadcast along parameter `arr`.
-            method=vmethod.get(name, vmethod_default),
-            codim=vsize[name],
-        )
-        for name in vsize
-    }
-    # -------------------------------------------------------------------------
-
-    # compute enforce_precision() kwargs per arithmetic method ----------------
-    if isinstance(enforce_precision, str):
-        enforce_precision = (enforce_precision,)
-    if not (set(enforce_precision) <= set(vsize)):
-        msg_head = "Can only enforce precision on arithmetic methods"
-        msg_tail = ", ".join([f"{name}()" for name in vsize])
-        raise ValueError(f"{msg_head} {msg_tail}")
-    ekwargs = dict(  # Pycsou arithmetic methods enforce FP-precision along these parameters.
-        apply=dict(i="arr"),
-        prox=dict(i=("arr", "tau")),
-        grad=dict(i="arr"),
-        adjoint=dict(i="arr"),
-        pinv=dict(i=("arr", "damp")),
-    )
-    # -------------------------------------------------------------------------
-
-    # END arg-parsing =========================================================
-    op = cls(shape=shape)
-    for p in op.properties():
-        for name in p.arithmetic_attributes():
-            attr = kwargs.get(name, getattr(op, name))
-            setattr(op, name, attr)
-        for name in p.arithmetic_methods():
-            if name in kwargs:
-                func = kwargs[name]
-                if name in vectorize:
-                    decorate = pycu.vectorize(**vkwargs[name])
-                    func = decorate(func)
-                if name in enforce_precision:
-                    decorate = pycrt.enforce_precision(**ekwargs[name])
-                    func = decorate(func)
-            else:
-                # vectorize() & enforce_precision() do NOT kick in for default-provided methods.
-                # (We assume they are Pycsou-compliant from the start.)
-                func = getattr(cls, name)
-            setattr(op, name, types.MethodType(func, op))
-    for (name, attr) in embed.items():
-        setattr(op, name, attr)
+    op = src.op()
     return op
+
+
+class _FromSource:  # See from_source() for a detailed description.
+    def __init__(
+        self,
+        cls: pyct.OpC,
+        shape: pyct.OpShape,
+        embed: dict = None,
+        vectorize: pyct.VarName = frozenset(),
+        vmethod: typ.Union[str, dict] = None,
+        enforce_precision: pyct.VarName = frozenset(),
+        **kwargs,
+    ):
+        assert cls in pyco._core_operators(), f"Unknown Operator type: {cls}."
+        self._op = cls(shape)
+
+        # Arithmetic attributes/methods to attach to `_op` in op()
+        attr = frozenset.union(*[p.arithmetic_attributes() for p in pyco.Property])
+        meth = frozenset.union(*[p.arithmetic_methods() for p in pyco.Property])
+        assert set(kwargs) <= attr | meth, "Unknown arithmetic attributes/methods provided."
+        self._kwargs = kwargs
+
+        # Extra attributes to attach to `_op` in op()
+        if embed is None:
+            self._embed = dict()
+        else:
+            assert isinstance(embed, cabc.Mapping)
+            self._embed = embed
+
+        # Add-on functionality to enable in op()
+        self._vectorize, self._vkwargs = self._parse_vectorize(vectorize, vmethod)
+        self._enforce_fp, self._ekwargs = self._parse_precision(enforce_precision)
+
+    def op(self) -> pyct.OpT:
+        _op = self._op  # shorthand
+        for p in _op.properties():
+            for name in p.arithmetic_attributes():
+                attr = self._kwargs.get(name, getattr(_op, name))
+                setattr(_op, name, attr)
+            for name in p.arithmetic_methods():
+                if func := self._kwargs.get(name, False):
+                    # vectorize() & enforce_precision() do NOT kick in for default-provided methods.
+                    # (We assume they are Pycsou-compliant from the start.)
+
+                    if name in self._vectorize:
+                        decorate = pycu.vectorize(**self._vkwargs[name])
+                        func = decorate(func)
+
+                    if name in self._enforce_fp:
+                        decorate = pycrt.enforce_precision(**self._ekwargs[name])
+                        func = decorate(func)
+
+                    setattr(_op, name, types.MethodType(func, _op))
+
+        # Embed extra attributes
+        for (name, attr) in self._embed.items():
+            setattr(_op, name, attr)
+
+        return _op
+
+    def _parse_vectorize(
+        self,
+        vectorize: pyct.VarName,
+        vmethod: typ.Union[str, dict],
+    ):
+        vsize = dict(  # `codim` hint for vectorize()
+            apply=self._op.codim,
+            prox=self._op.dim,
+            grad=self._op.dim,
+            adjoint=self._op.dim,
+            pinv=self._op.dim,
+        )
+
+        if isinstance(vectorize, str):
+            vectorize = (vectorize,)
+        if not (set(vectorize) <= set(vsize)):  # un-recognized arithmetic method
+            msg_head = "Can only vectorize arithmetic methods"
+            msg_tail = ", ".join([f"{name}()" for name in vsize])
+            raise ValueError(f"{msg_head} {msg_tail}")
+        vectorize = tuple(vectorize)
+
+        vmethod_default = pycu.parse_params(
+            pycu.vectorize,
+            i="bogus",  # doesn't matter
+        )["method"]
+        if vmethod is None:
+            vmethod = vmethod_default
+        if isinstance(vmethod, str):
+            vmethod = {name: vmethod for name in vsize}
+
+        vkwargs = {
+            name: dict(
+                i="arr",  # Pycsou arithmetic methods broadcast along parameter `arr`.
+                method=vmethod.get(name, vmethod_default),
+                codim=vsize[name],
+            )
+            for name in vsize
+        }
+        return vectorize, vkwargs
+
+    def _parse_precision(self, enforce_precision: pyct.VarName):
+        ekwargs = dict(
+            # Pycsou arithmetic methods enforce FP-precision along these parameters.
+            apply=dict(i="arr"),
+            prox=dict(i=("arr", "tau")),
+            grad=dict(i="arr"),
+            adjoint=dict(i="arr"),
+            pinv=dict(i=("arr", "damp")),
+        )
+
+        if isinstance(enforce_precision, str):
+            enforce_precision = (enforce_precision,)
+        if not (set(enforce_precision) <= set(ekwargs)):
+            msg_head = "Can only enforce precision on arithmetic methods"
+            msg_tail = ", ".join([f"{name}()" for name in vsize])
+            raise ValueError(f"{msg_head} {msg_tail}")
+        enforce_precision = tuple(enforce_precision)
+
+        return enforce_precision, ekwargs
