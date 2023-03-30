@@ -1033,7 +1033,7 @@ class NUFFT(pyca.LinOp):
 
     def ascomplexarray(
         self,
-        xp: pyct.ArrayModule = np,
+        xp: pyct.ArrayModule = pycd.NDArrayInfo.NUMPY.module(),
         dtype: pyct.DType = None,
     ) -> pyct.NDArray:
         r"""
@@ -1059,7 +1059,7 @@ class NUFFT(pyca.LinOp):
 
     def mesh(
         self,
-        xp: pyct.ArrayModule = np,
+        xp: pyct.ArrayModule = pycd.NDArrayInfo.NUMPY.module(),
         dtype: pyct.DType = None,
         scale: str = "unit",
         upsampled: bool = False,

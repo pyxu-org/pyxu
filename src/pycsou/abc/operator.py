@@ -1462,7 +1462,7 @@ class LinOp(DiffMap):
 
     def asarray(
         self,
-        xp: pyct.ArrayModule = np,
+        xp: pyct.ArrayModule = pycd.NDArrayInfo.NUMPY.module(),
         dtype: pyct.DType = None,
     ) -> pyct.NDArray:
         r"""
@@ -2050,7 +2050,7 @@ class LinFunc(ProxDiffFunc, LinOp):
 
     def asarray(
         self,
-        xp: pyct.ArrayModule = np,
+        xp: pyct.ArrayModule = pycd.NDArrayInfo.NUMPY.module(),
         dtype: pyct.DType = None,
     ) -> pyct.NDArray:
         if dtype is None:
