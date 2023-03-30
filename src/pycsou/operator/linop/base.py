@@ -340,9 +340,9 @@ def DiagonalOp(
                 svdvals=op_svdvals,
                 eigvals=op_eigvals,
                 pinv=op_pinv,
-                dagger=op_dagger,
                 trace=op_trace,
             )
+            op.dagger = types.MethodType(op_dagger, op)
         return op.squeeze()
 
 
