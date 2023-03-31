@@ -33,15 +33,14 @@ def from_source(
     embed: dict
         (k[str], v[value]) pairs to embed into the created operator.
 
-        `embed` is useful to attach extra information to `op` to be used by arithmetic methods.
+        `embed` is useful to attach extra information to synthesized
+        :py:class:`~pycsou.abc.operator.Operator` used by arithmetic methods.
     kwargs: dict
-        ``(k[str], v[value | callable])`` pairs to use as attributes and methods.
+        (k[str], v[value | callable]) pairs to use as arithmetic attributes and methods.
 
         Keys must be entries from ``cls.Property.arithmetic_[attributes,methods]()``.
 
-        If provided, then ``op.<k> = v``.
-
-        Omitted arithmetic attributes/methods default to those provided by ``cls(shape)``.
+        Omitted arithmetic attributes/methods default to those provided by `cls`.
     vectorize: pyct.VarName
         Arithmetic methods to vectorize.
 
@@ -58,7 +57,7 @@ def from_source(
         Arithmetic methods to make compliant with Pycsou's runtime FP-precision.
 
         `enforce_precision` is useful if an arithmetic method provided to `kwargs` (ex:
-        :py:meth:`~pycsou.abc.Map.apply`) does not comply with Pycsou's runtime FP-precision.
+        :py:meth:`~pycsou.abc.Map.apply`) is unaware of Pycsou's runtime FP context.
 
     Returns
     -------
@@ -67,19 +66,25 @@ def from_source(
 
     Notes
     -----
-    * If provided, arithmetic methods must abide exactly to the Pycsou interface, i.e.:
-      :py:meth:`~pycsou.abc.operator.Map.apply`,
-      :py:meth:`~pycsou.abc.operator.ProxFunc.prox`,
-      :py:meth:`~pycsou.abc.operator.DiffFunc.grad`,
-      :py:meth:`~pycsou.abc.operator.LinOp.adjoint`, and
-      :py:meth:`~pycsou.abc.operator.LinOp.pinv`
-      must accept ``(..., M)``-shaped inputs for ``arr``.
+    * If provided, arithmetic methods must abide exactly to the Pycsou interface.
+      In particular, the following arithmetic methods, if supplied, MUST have the following
+      interface:
+
+      .. code-block:: python3
+
+         def apply(self, arr: pyct.NDArray) -> pyct.NDArray
+         def grad(self, arr: pyct.NDArray) -> pyct.NDArray
+         def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray
+         def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray
+         def pinv(self, arr: pyct.NDArray, damp: pyct.Real = 0, **kwargs) -> pyct.NDArray
+
+      Moreover, the methods above MUST accept ``(..., M)``-shaped inputs for ``arr``.
       If this does not hold, consider populating `vectorize`.
 
     * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
       :py:func:`~pycsou.util.operator.vectorize`.
-      Auto-vectorization may be less efficient than explicitly providing a vectorized arithmetic
-      method.
+      Auto-vectorization may be less efficient than explicitly providing a vectorized
+      implementation.
 
     * Enforcing precision consists in decorating `kwargs`-specified arithmetic methods with
       :py:func:`~pycsou.runtime.enforce_precision`.
