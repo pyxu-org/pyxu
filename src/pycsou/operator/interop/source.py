@@ -123,6 +123,17 @@ def from_source(
        y = f(x)  # [0, 1, 4, 9, 16]
        L = f.diff_lipschitz()  # 2  <- instead of inf
     """
+    if embed is None:
+        embed = dict()
+
+    if isinstance(vectorize, str):
+        vectorize = (vectorize,)
+    vectorize = frozenset(vectorize)
+
+    if isinstance(enforce_precision, str):
+        enforce_precision = (enforce_precision,)
+    enforce_precision = frozenset(enforce_precision)
+
     src = _FromSource(
         cls=cls,
         shape=shape,
@@ -141,31 +152,35 @@ class _FromSource:  # See from_source() for a detailed description.
         self,
         cls: pyct.OpC,
         shape: pyct.OpShape,
-        embed: dict = None,
-        vectorize: pyct.VarName = frozenset(),
-        vmethod: typ.Union[str, dict] = None,
-        enforce_precision: pyct.VarName = frozenset(),
+        embed: dict,
+        vectorize: frozenset[str],
+        vmethod: typ.Union[str, dict],
+        enforce_precision: frozenset[str],
         **kwargs,
     ):
         assert cls in pyco._core_operators(), f"Unknown Operator type: {cls}."
-        self._op = cls(shape)
+        self._op = cls(shape)  # ensure shape well-formed
 
-        # Arithmetic attributes/methods to attach to `_op` in op()
+        # Arithmetic attributes/methods to attach to `_op`.
         attr = frozenset.union(*[p.arithmetic_attributes() for p in pyco.Property])
         meth = frozenset.union(*[p.arithmetic_methods() for p in pyco.Property])
-        assert set(kwargs) <= attr | meth, "Unknown arithmetic attributes/methods provided."
+        if not (set(kwargs) <= attr | meth):
+            msg_head = "Unknown arithmetic attributes/methods:"
+            unknown = set(kwargs) - (attr | meth)
+            msg_tail = ", ".join([f"{name}()" for name in unknown])
+            raise ValueError(f"{msg_head} {msg_tail}")
         self._kwargs = kwargs
 
-        # Extra attributes to attach to `_op` in op()
-        if embed is None:
-            self._embed = dict()
-        else:
-            assert isinstance(embed, cabc.Mapping)
-            self._embed = embed
+        # Extra attributes to attach to `_op`.
+        assert isinstance(embed, cabc.Mapping)
+        self._embed = embed
 
-        # Add-on functionality to enable in op()
-        self._vectorize, self._vkwargs = self._parse_vectorize(vectorize, vmethod)
-        self._enforce_fp, self._ekwargs = self._parse_precision(enforce_precision)
+        # Add-on functionality to enable.
+        self._vkwargs = self._parse_vectorize(vectorize, vmethod)
+        self._vectorize = vectorize
+
+        self._ekwargs = self._parse_precision(enforce_precision)
+        self._enforce_fp = enforce_precision
 
     def op(self) -> pyct.OpT:
         _op = self._op  # shorthand
@@ -196,7 +211,7 @@ class _FromSource:  # See from_source() for a detailed description.
 
     def _parse_vectorize(
         self,
-        vectorize: pyct.VarName,
+        vectorize: frozenset[str],
         vmethod: typ.Union[str, dict],
     ):
         vsize = dict(  # `codim` hint for vectorize()
@@ -207,13 +222,10 @@ class _FromSource:  # See from_source() for a detailed description.
             pinv=self._op.dim,
         )
 
-        if isinstance(vectorize, str):
-            vectorize = (vectorize,)
-        if not (set(vectorize) <= set(vsize)):  # un-recognized arithmetic method
+        if not (vectorize <= set(vsize)):  # un-recognized arithmetic method
             msg_head = "Can only vectorize arithmetic methods"
             msg_tail = ", ".join([f"{name}()" for name in vsize])
             raise ValueError(f"{msg_head} {msg_tail}")
-        vectorize = tuple(vectorize)
 
         vmethod_default = pycu.parse_params(
             pycu.vectorize,
@@ -232,9 +244,9 @@ class _FromSource:  # See from_source() for a detailed description.
             )
             for name in vsize
         }
-        return vectorize, vkwargs
+        return vkwargs
 
-    def _parse_precision(self, enforce_precision: pyct.VarName):
+    def _parse_precision(self, enforce_precision: frozenset[str]):
         ekwargs = dict(
             # Pycsou arithmetic methods enforce FP-precision along these parameters.
             apply=dict(i="arr"),
@@ -249,12 +261,8 @@ class _FromSource:  # See from_source() for a detailed description.
             trace=dict(),
         )
 
-        if isinstance(enforce_precision, str):
-            enforce_precision = (enforce_precision,)
-        if not (set(enforce_precision) <= set(ekwargs)):
+        if not (enforce_precision <= set(ekwargs)):
             msg_head = "Can only enforce precision on arithmetic methods"
             msg_tail = ", ".join([f"{name}()" for name in vsize])
             raise ValueError(f"{msg_head} {msg_tail}")
-        enforce_precision = tuple(enforce_precision)
-
-        return enforce_precision, ekwargs
+        return ekwargs
