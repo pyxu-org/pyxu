@@ -19,3 +19,11 @@ pycsou.operator.interop.sciop module
    :members:
    :undoc-members:
    :show-inheritance:
+
+pycsou.operator.interop.jax module
+----------------------------------
+
+.. automodule:: pycsou.operator.interop.jax
+   :members:
+   :undoc-members:
+   :show-inheritance:
