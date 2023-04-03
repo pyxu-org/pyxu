@@ -1264,13 +1264,15 @@ def Jacobian(
     )
 
     grad = Gradient(**init_kwargs)
-
-    op = pycb.block_diag(
-        [
-            grad,
-        ]
-        * n_channels
-    )
+    if n_channels > 1:
+        op = pycb.block_diag(
+            [
+                grad,
+            ]
+            * n_channels
+        )
+    else:
+        op = grad
     op._name = "Jacobian"
     return _make_unravelable(op, (n_channels, *arg_shape))
 
