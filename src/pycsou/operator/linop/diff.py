@@ -25,6 +25,7 @@ __all__ = [
     "Gradient",
     "Jacobian",
     "Hessian",
+    "Laplacian",
     "DirectionalDerivative",
     "DirectionalGradient",
     "DirectionalLaplacian",
@@ -955,6 +956,7 @@ class _BaseStackDifferential:
     def _check_directions_and_order(
         arg_shape, directions
     ) -> typ.Tuple[typ.Union[typ.Tuple[pyct.Integer, ...], typ.Tuple[typ.Tuple[pyct.Integer, ...], ...]], bool]:
+        # Convert directions to canonical form
         def _check_directions(_directions):
             assert all(0 <= _ <= (len(arg_shape) - 1) for _ in _directions), (
                 "Direction values must be between 0 and " "the number of dimensions in `arg_shape`."
@@ -976,7 +978,7 @@ class _BaseStackDifferential:
                     list(_) for _ in itertools.combinations_with_replacement(np.arange(len(arg_shape)).astype(int), 2)
                 )
             elif not isinstance(directions[0], cabc.Sequence):
-                # This corresponds to [mode 2] in Hessian  `Notes`
+                # This corresponds to [mode 1] in Hessian  `Notes`
                 assert len(directions) == 2, (
                     "If `directions` is a tuple, it should contain two elements, corresponding "
                     "to the i-th an j-th elements (dx_i and dx_j)"
@@ -985,10 +987,11 @@ class _BaseStackDifferential:
                 _check_directions(directions)
                 directions = (directions,)
             else:
-                # This corresponds to [mode 3] in Hessian `Notes`
+                # This corresponds to [mode 2] in Hessian `Notes`
                 for direction in directions:
                     _check_directions(direction)
 
+        # Convert to canonical form for PartialDerivative (direction + order)
         _directions = [
             list(direction) if (len(np.unique(direction)) == len(direction)) else np.unique(direction).tolist()
             for direction in directions
@@ -1065,7 +1068,7 @@ def Gradient(
     sampling: float | tuple
         Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
     parallel: bool
-        If ``true``, use Dask to evaluate the different partial derivatives in parallel.
+        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
         :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` and
@@ -1214,7 +1217,7 @@ def Jacobian(
     sampling: float | tuple
         Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
     parallel: bool
-        If ``true``, use Dask to evaluate the different partial derivatives in parallel.
+        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
         :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` and
@@ -1322,7 +1325,7 @@ def Hessian(
     * [mode 2]  ``directions`` is tuple of tuples, e.g.:
       ``directions=((0,0), (0,1))`` :math:`\rightarrow  \left(\frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} },
       \frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}\partial x_{1} }\right)`.
-    * [mode 3] ``directions = ''all''`` (default), computes the Hessian for all directions, i.e.:
+    * [mode 3] ``directions = 'all'`` (default), computes the Hessian for all directions, i.e.:
       :math:`\rightarrow  \left(\frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} }, \frac{ \partial^{2}\mathbf{f} }
       { \partial x_{0}\partial x_{1} }, \, \ldots , \, \frac{ \partial^{2}\mathbf{f} }{ \partial x_{D-1}^{2} }\right)`.
 
@@ -1364,7 +1367,7 @@ def Hessian(
     sampling: float | tuple
         Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
     parallel: bool
-        If ``true``, use Dask to evaluate the different partial derivatives in parallel.
+        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
         :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` and
@@ -1475,7 +1478,7 @@ def Laplacian(
     \times N_{D-1}}` is the sum of second-order partial derivatives:
 
     .. math::
-        \sum_{d = 0}{D-1} \dfrac{ \partial^{2}\mathbf{f} }{ \partial x_{d}^{2} }
+        \sum_{d = 0}^{D-1} \dfrac{ \partial^{2}\mathbf{f} }{ \partial x_{d}^{2} }
 
     The Laplacian can be approximated by `finite differences <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
     :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative <https://www.crisluengo.net/archives/22/>`_ via
@@ -1513,7 +1516,7 @@ def Laplacian(
     sampling: float | tuple
         Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
     parallel: bool
-        If ``true``, use Dask to evaluate the different partial derivatives in parallel.
+        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
         :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` and
