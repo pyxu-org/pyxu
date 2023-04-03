@@ -183,7 +183,7 @@ class TestPartialDerivative(DiffOpMixin):
 
     @pytest.fixture
     def data_shape(self, arg_shape) -> pyct.NDArrayShape:
-        size = np.prod(arg_shape)
+        size = np.prod(arg_shape).item()
         sh = (size, size)
         return sh
 
@@ -304,7 +304,7 @@ class TestGradient(DiffOpMixin):
 
     @pytest.fixture
     def data_shape(self, arg_shape, directions) -> pyct.NDArrayShape:
-        size = np.prod(arg_shape)
+        size = np.prod(arg_shape).item()
         n_derivatives = len(directions) if directions is not None else len(arg_shape)
         sh = (size * n_derivatives, size)
         return sh
@@ -349,23 +349,15 @@ class TestGradient(DiffOpMixin):
 class TestHessian(DiffOpMixin):
     @pytest.fixture(
         params=[
-            #          (arg_shape, directions)
-            (
-                (5,),
-                (0,),
-            ),
-            (
-                (5, 5),
-                (0, 1),
-            ),
-            (
-                (5, 5),
-                ((0, 0), (0, 1)),
-            ),
-            (
-                (5, 5, 5),
-                "all",
-            ),
+            # (arg_shape, directions)
+            ((5,), 0),  # Mode 0 (See Hessian Notes)
+            ((5,), (0, 0)),  # Mode 1
+            ((5,), ((0, 0),)),  # Mode 2
+            ((5,), "all"),  # Mode 3
+            ((5, 5, 5), 1),  # Mode 0
+            ((5, 5, 5), (0, 2)),  # Mode 1
+            ((5, 5, 5), ((1, 1), (1, 2))),  # Mode 2
+            ((5, 5, 5), "all"),  # Mode 3
         ]
     )
     def _spec(self, request):
@@ -382,14 +374,22 @@ class TestHessian(DiffOpMixin):
 
     @pytest.fixture
     def data_shape(self, arg_shape, directions) -> pyct.NDArrayShape:
-        size = np.prod(arg_shape)
-        n_derivatives = len(directions) if directions is not None else len(arg_shape)
-        sh = (size * n_derivatives, size)
+        size = np.prod(arg_shape).item()
+        if isinstance(directions, int):  # Case 0
+            sh = (size, size)
+        elif isinstance(directions, cabc.Sequence):
+            if isinstance(directions, str):  # case 3
+                n_derivatives = len(arg_shape) * (len(arg_shape) + 1) // 2
+                sh = (size * n_derivatives, size)
+            elif isinstance(directions[0], int):  # Case 1
+                sh = (size, size)
+            elif isinstance(directions[0], cabc.Sequence):  # Case 2
+                sh = (size * len(directions), size)
         return sh
 
     @pytest.fixture
     def diff_op(self):
-        return pycdiff.Gradient
+        return pycdiff.Hessian
 
     @pytest.fixture
     def diff_kwargs(self, arg_shape, directions, ndi, width, sampling):
@@ -404,14 +404,20 @@ class TestHessian(DiffOpMixin):
 
     @pytest.fixture
     def diff_params(self):
-        return {"diff_type": "central", "accuracy": 1}
+        return {"diff_type": "forward", "accuracy": 1}
 
     @pytest.fixture
     def data_apply(self, op, arg_shape, sampling, directions) -> conftest.DataLike:
         arr = self._random_array(arg_shape, seed=20)  # random seed for reproducibility
-        arr_pad = np.pad(arr, ((1, 1),) * len(arg_shape))
-        slices = (slice(None, None),) + (slice(1, -1, None),) * len(arg_shape)
-        grad = np.gradient(arr_pad, sampling, edge_order=2)
+
+        # compute forward finite diffs
+        grad = []
+        for ax in range(len(arg_shape)):
+            arr_pad = np.pad(arr, ((0, 0),) * ax + ((1, 1),) + ((0, 0),) * (len(arg_shape) - ax - 1))
+            slices = (
+                (slice(None, None),) * ax + (slice(1, None, None),) + (slice(None, None),) * (len(arg_shape) - ax - 1)
+            )
+            grad.append(np.diff(arr_pad, axis=ax)[slices] / sampling)
 
         # Canonical form for dimensions
         directions = np.arange(len(arg_shape)) if directions is None else directions
@@ -428,19 +434,14 @@ class TestHessian(DiffOpMixin):
             if not isinstance(directions[0], cabc.Sequence):
                 directions = (directions,)
 
-        if len(arg_shape) == 1:
-            grad = [
-                grad,
-            ]
-
-        grad = np.stack(grad)[slices]
-
         out = np.empty((len(directions),) + arg_shape)
 
         for d, (k, l) in enumerate(directions):
-            grad_pad = np.pad(grad[k], ((1, 1),) * len(arg_shape), axis=l)
-            out[d] = np.gradient(grad_pad, sampling, edge_order=2)[slices[1:]]
-
+            grad_pad = np.pad(grad[k], ((0, 0),) * l + ((1, 1),) + ((0, 0),) * (len(arg_shape) - l - 1))
+            slices = (
+                (slice(None, None),) * l + (slice(1, None, None),) + (slice(None, None),) * (len(arg_shape) - l - 1)
+            )
+            out[d] = np.diff(grad_pad, axis=l)[slices] / sampling
         return dict(
             in_=dict(arr=arr.reshape(-1)),
             out=out.reshape(-1),
@@ -448,7 +449,7 @@ class TestHessian(DiffOpMixin):
 
 
 class TestJacobian(DiffOpMixin):
-    @pytest.fixture(params=[(5,), (5, 5), (5, 5, 5)])
+    @pytest.fixture(params=[(5,), (5, 5, 5)])
     def arg_shape(self, request):
         return request.param
 
@@ -458,7 +459,7 @@ class TestJacobian(DiffOpMixin):
 
     @pytest.fixture
     def data_shape(self, arg_shape, n_channels) -> pyct.NDArrayShape:
-        size = np.prod(arg_shape)
+        size = np.prod(arg_shape).item()
         n_derivatives = len(arg_shape)
         sh = (size * n_derivatives * n_channels, size)
         return sh
@@ -485,10 +486,9 @@ class TestJacobian(DiffOpMixin):
     @pytest.fixture
     def data_apply(self, op, arg_shape, sampling, n_channels) -> conftest.DataLike:
         arr = self._random_array((n_channels,) + arg_shape, seed=20)  # random seed for reproducibility
-
         out = []
         for ch in range(n_channels):
-            x_np = np.pad(arr, ((1, 1),) * len(arg_shape))
+            x_np = np.pad(arr[ch], ((1, 1),) * len(arg_shape))
             slices = (slice(None, None),) + (slice(1, -1, None),) * len(arg_shape)
             pad_shape = tuple(d + 2 for d in arg_shape)
             out_ = np.gradient(x_np, sampling, edge_order=2)
@@ -496,6 +496,56 @@ class TestJacobian(DiffOpMixin):
                 out_ = np.concatenate(out_, axis=0)
             out.append(out_.reshape(len(arg_shape), *pad_shape)[slices])
         out = np.concatenate(out)
+        return dict(
+            in_=dict(arr=arr.reshape(-1)),
+            out=out.reshape(-1),
+        )
+
+
+class TestLaplacian(DiffOpMixin):
+    @pytest.fixture(params=[(5,), (5, 5, 5)])
+    def arg_shape(self, request):
+        return request.param
+
+    @pytest.fixture
+    def data_shape(self, arg_shape) -> pyct.NDArrayShape:
+        size = np.prod(arg_shape).item()
+        sh = (size, size)
+        return sh
+
+    @pytest.fixture
+    def diff_op(self):
+        return pycdiff.Laplacian
+
+    @pytest.fixture
+    def diff_kwargs(self, arg_shape, ndi, width, sampling):
+        return {
+            "arg_shape": arg_shape,
+            "mode": "constant",
+            "gpu": ndi.name == "CUPY",
+            "dtype": width.value,
+            "sampling": sampling,
+        }
+
+    @pytest.fixture
+    def diff_params(self):
+        return {"diff_type": "forward", "accuracy": 1}
+
+    @pytest.fixture
+    def data_apply(self, op, arg_shape, sampling) -> conftest.DataLike:
+        arr = self._random_array(arg_shape, seed=20)  # random seed for reproducibility
+
+        # compute forward finite diffs
+        out = np.zeros(arg_shape)
+        for ax in range(len(arg_shape)):
+            arr_pad = np.pad(arr, ((0, 0),) * ax + ((1, 1),) + ((0, 0),) * (len(arg_shape) - ax - 1))
+            slices = (
+                (slice(None, None),) * ax + (slice(1, None, None),) + (slice(None, None),) * (len(arg_shape) - ax - 1)
+            )
+            grad = np.diff(arr_pad, axis=ax)[slices] / sampling
+            grad_pad = np.pad(grad, ((0, 0),) * ax + ((1, 1),) + ((0, 0),) * (len(arg_shape) - ax - 1))
+            out += np.diff(grad_pad, axis=ax)[slices] / sampling
+
         return dict(
             in_=dict(arr=arr.reshape(-1)),
             out=out.reshape(-1),
