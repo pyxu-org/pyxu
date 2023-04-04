@@ -438,10 +438,16 @@ class _FromJax(pycsrc._FromSource):
         except NotImplementedError:
             # ... and fallback to auto-inference if undefined.
             f = self._jax["apply"]
-            hint = types.SimpleNamespace(shape=(self.dim,), dtype=arr.dtype)
-
             j_arr = _to_jax(arr, enable_warnings=self._enable_warnings)
-            _, f_fwd = jax.linearize(f, j_arr)
+
+            # define forward: [1] explains why jvp() is a better fit than linearize().
+            # [1] https://jax.readthedocs.io/en/latest/_autosummary/jax.linearize.html
+            _fwd = functools.partial(jax.jvp, f, (j_arr,))
+            f_fwd = lambda arr: _fwd((arr,))[1]  # jax returns a tuple
+
+            # define adjoint: [2] explains benefits of linear_transpose() over vjp().
+            # [2] https://jax.readthedocs.io/en/latest/_autosummary/jax.linear_transpose.html
+            hint = types.SimpleNamespace(shape=(self.dim,), dtype=arr.dtype)
             _adj = jax.linear_transpose(f_fwd, hint)
             f_adj = lambda arr: _adj(arr)[0]  # jax returns a tuple
 
