@@ -1234,7 +1234,7 @@ class ADMM(_PDS):
       proximal operator of :math:`\mathcal{F}`. This yields the *classical ADMM algorithm* described in Section
       5.3 of [PSA]_ (i.e. without the postcomposition trick).
 
-    * :math:`\mathcal{F}` is a :py:class:`~pycsou.operator.func.quadratic.QuadraticFunc`, that is
+    * :math:`\mathcal{F}` is a :py:class:`~pycsou.abc.operator.QuadraticFunc`, that is
       :math:`\mathcal{F}(\mathbf{x})=\frac{1}{2} \langle\mathbf{x}, \mathbf{Q}\mathbf{x}\rangle + \mathbf{c}^T\mathbf{x} + t`,
       where :math:`\mathbf{Q} \in \mathbb{R}^{N \times N}` is the Hessian of
       :math:`\mathcal{F}`, :math:`\mathbf{b} \in \mathbb{R}^N` and :math:`t>0`. Then, the unique
