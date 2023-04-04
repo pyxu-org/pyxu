@@ -339,7 +339,7 @@ class TestGradient(DiffOpMixin):
             out = [
                 out,
             ]
-        out = out[slices]
+        out = np.stack(out)[slices]
         return dict(
             in_=dict(arr=arr.reshape(-1)),
             out=out.reshape(-1),
