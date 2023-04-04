@@ -17,11 +17,13 @@ class _Wrapper:
         op,
         shape: pyct.OpShape,
         arg_shape: pyct.NDArrayShape = None,
-        cls: pyct.OpT = pyco.Map,
-        lipschitz=np.inf,
-        diff_lipschitz=np.inf,
+        cls: pyct.OpC = pyco.Map,
+        lipschitz: pyct.Real = np.inf,
+        diff_lipschitz: pyct.Real = np.inf,
         name: str = "PyDataOp",
         meta: typ.Any = None,
+        dtype: typ.Optional[pyct.DType] = None,
+        enable_warnings: bool = True,
     ):
         self._lipschitz = lipschitz
         self._diff_lipschitz = diff_lipschitz
@@ -31,6 +33,8 @@ class _Wrapper:
         self._arg_shape = arg_shape if arg_shape is not None else pycu.as_canonical_shape(shape[1])
         self._name = name
         self._meta = op if meta is None else meta
+        self._dtype = dtype
+        self._enable_warnings = enable_warnings
 
     def op(self) -> pyct.OpT:
         if self._cls.has((pyco.Property.PROXIMABLE, pyco.Property.QUADRATIC)):
@@ -42,6 +46,8 @@ class _Wrapper:
         op._arg_shape = self._arg_shape
         op._name = self._name
         op._meta = self._meta
+        op._dtype = self._dtype
+        op._enable_warnings = self._enable_warnings
         for p in op.properties():
             for name in p.arithmetic_attributes():
                 attr = getattr(self, name)

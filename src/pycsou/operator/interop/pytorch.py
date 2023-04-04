@@ -1,5 +1,6 @@
 import types
 import typing as typ
+import warnings
 
 import numpy as np
 
@@ -9,6 +10,7 @@ import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
+import pycsou.util.warning as pycuw
 
 __all__ = [
     "from_pytorch",
@@ -22,11 +24,13 @@ class _TorchWrapper(pyciw._Wrapper):
         func,
         shape: pyct.OpShape,
         arg_shape: pyct.NDArrayShape = None,
-        cls: pyct.OpT = pyco.Map,
-        lipschitz=np.inf,
-        diff_lipschitz=np.inf,
+        cls: pyct.OpC = pyco.Map,
+        lipschitz: pyct.Real = np.inf,
+        diff_lipschitz: pyct.Real = np.inf,
         name: str = "TorchOp",
         meta: typ.Any = None,
+        dtype: typ.Optional[pyct.DType] = None,
+        enable_warnings: bool = True,
     ):
         super().__init__(
             func,
@@ -37,6 +41,8 @@ class _TorchWrapper(pyciw._Wrapper):
             diff_lipschitz=diff_lipschitz,
             name=name,
             meta=meta,
+            dtype=dtype,
+            enable_warnings=enable_warnings,
         )
 
     @staticmethod
@@ -64,20 +70,37 @@ class _TorchWrapper(pyciw._Wrapper):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        if self._dtype is not None and (arr.dtype != self._dtype):
+            msg = f"Precision mis-match! Input array was coerced to {self._dtype} precision automatically."
+            warnings.warn(msg, pycuw.PrecisionWarning)
+            arr = arr.astype(self._dtype)
+
         @pycu._delayed_if_dask(i="x", oshape=arr.shape[:-1] + (self._shape[0],))
         def _apply(x: pyct.NDArray) -> pyct.NDArray:
             tensor = _TorchWrapper._astensor(x.reshape((-1,) + self._arg_shape))
             with _TorchWrapper.torch().inference_mode():
-                return _TorchWrapper._asarray(self._op(tensor)).reshape(x.shape[:-1] + (-1,))
+                return _TorchWrapper._asarray(_TorchWrapper.functorch().vmap(self._op)(tensor)).reshape(
+                    x.shape[:-1] + (-1,)
+                )
 
         return _apply(arr)
 
     @pycrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
+        if self._dtype is not None and (arr.dtype != self._dtype):
+            msg = f"Precision mis-match! Input array was coerced to {self._dtype} precision automatically."
+            warnings.warn(msg, pycuw.PrecisionWarning)
+            arr = arr.astype(self._dtype)
+
         arr_tensor = _TorchWrapper._astensor(arr.reshape(self._arg_shape))
 
         @pycrt.enforce_precision(i="tan")
         def op_apply(_, tan: pyct.NDArray) -> pyct.NDArray:
+            if self._dtype is not None and (tan.dtype != self._dtype):
+                msg = f"Precision mis-match! Input array was coerced to {self._dtype} precision automatically."
+                warnings.warn(msg, pycuw.PrecisionWarning)
+                tan = tan.astype(self._dtype)
+
             @pycu._delayed_if_dask(i="x", oshape=tan.shape[:-1] + (self._shape[0],))
             def _apply(x: pyct.NDArray) -> pyct.NDArray:
                 tan_tensor = _TorchWrapper._astensor(x.reshape((-1,) + self._arg_shape))
@@ -89,6 +112,11 @@ class _TorchWrapper(pyciw._Wrapper):
 
         @pycrt.enforce_precision(i="cotan")
         def op_adjoint(_, cotan: pyct.NDArray) -> pyct.NDArray:
+            if self._dtype is not None and (cotan.dtype != self._dtype):
+                msg = f"Precision mis-match! Input array was coerced to {self._dtype} precision automatically."
+                warnings.warn(msg, pycuw.PrecisionWarning)
+                cotan = cotan.astype(self._dtype)
+
             @pycu._delayed_if_dask(i="y", oshape=cotan.shape[:-1] + (self._shape[1],))
             def _adjoint(y: pyct.NDArray) -> pyct.NDArray:
                 cotan_tensor = _TorchWrapper._astensor(y.reshape((-1, self._shape[0])))
@@ -114,6 +142,11 @@ class _TorchWrapper(pyciw._Wrapper):
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        if self._dtype is not None and (arr.dtype != self._dtype):
+            msg = f"Precision mis-match! Input array was coerced to {self._dtype} precision automatically."
+            warnings.warn(msg, pycuw.PrecisionWarning)
+            arr = arr.astype(self._dtype)
+
         @pycu._delayed_if_dask(i="x", oshape=arr.shape[:-1] + (self._shape[0],))
         def _grad(x: pyct.NDArray) -> pyct.NDArray:
             tensor = _TorchWrapper._astensor(x.reshape((-1,) + self._arg_shape))
@@ -124,7 +157,14 @@ class _TorchWrapper(pyciw._Wrapper):
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
-        jac = self.jacobian(arr)
+        xp = pycu.get_array_module(arr)
+        if self._dtype is not None and (arr.dtype != self._dtype):
+            msg = f"Precision mis-match! Input array was coerced to {self._dtype} precision automatically."
+            warnings.warn(msg, pycuw.PrecisionWarning)
+            arr = arr.astype(self._dtype)
+
+        dtype = self._dtype if self._dtype is not None else pycrt.getPrecision().value
+        jac = self.jacobian(xp.ones(self._shape[1], dtype=dtype))
         return jac.adjoint(arr)
 
     def _expr(self):
@@ -135,11 +175,13 @@ def from_pytorch(
     func: typ.Callable,
     shape: pyct.OpShape,
     arg_shape: pyct.NDArrayShape = None,
-    cls: pyct.OpT = pyco.Map,
-    lipschitz=np.inf,
-    diff_lipschitz=np.inf,
+    cls: pyct.OpC = pyco.Map,
+    lipschitz: pyct.Real = np.inf,
+    diff_lipschitz: pyct.Real = np.inf,
     name: str = "TorchOp",
     meta: typ.Any = None,
+    dtype: typ.Optional[pyct.DType] = None,
+    enable_warnings: bool = True,
 ) -> pyct.OpT:
     r"""
     Wrap a Python function as a
@@ -164,9 +206,6 @@ def from_pytorch(
         Name of the operator.
     meta: Any
         Meta information to be provided as tail to :py:class:`~pycsou.abc.operator.Operator._expr`.
-    vectorize: bool
-        If ``True``, ``func`` is vectorized via `torch.func.vmap <https://pytorch.org/docs/stable/generated/torch.func.vmap.html#torch-func-vmap>`_
-        to be able to process batched inputs (not implemented yet).
 
     Returns
     -------
@@ -201,6 +240,8 @@ def from_pytorch(
         diff_lipschitz=diff_lipschitz,
         name=name,
         meta=meta,
+        dtype=dtype,
+        enable_warnings=enable_warnings,
     ).op()
 
 
@@ -214,7 +255,7 @@ if __name__ == "__main__":
 
     import pycsou.runtime as pycrt
 
-    xp = cp
+    xp = np
     batch_size, in_size, out_size = 200, 4000, 3000
     m = torch.nn.Linear(in_size, out_size)
     device = {cp: "cuda", np: "cpu"}
@@ -240,7 +281,7 @@ if __name__ == "__main__":
     cotangents = xp.eye(out_size, dtype=np.float32)
 
     with pycrt.Precision(pycrt.Width.SINGLE):
-        jac_mat = jac.asarray(xp=cp, dtype=cp.float32)
+        jac_mat = jac.asarray(xp=xp, dtype=np.float32)
         jac_batch = jac.apply(arr)
     assert xp.allclose(jac_mat, _TorchWrapper._asarray(m.weight), atol=1e-4)
 
