@@ -263,6 +263,6 @@ class _FromSource:  # See from_source() for a detailed description.
 
         if not (enforce_precision <= set(ekwargs)):
             msg_head = "Can only enforce precision on arithmetic methods"
-            msg_tail = ", ".join([f"{name}()" for name in vsize])
+            msg_tail = ", ".join([f"{name}()" for name in ekwargs])
             raise ValueError(f"{msg_head} {msg_tail}")
         return ekwargs
