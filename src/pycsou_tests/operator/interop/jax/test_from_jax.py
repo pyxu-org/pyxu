@@ -20,10 +20,18 @@ import pycsou.util.ptype as pyct
 import pycsou_tests.operator.examples.test_difffunc as test_difffunc
 import pycsou_tests.operator.examples.test_diffmap as test_diffmap
 import pycsou_tests.operator.examples.test_func as test_func
+import pycsou_tests.operator.examples.test_linfunc as test_linfunc
 import pycsou_tests.operator.examples.test_linop as test_linop
 import pycsou_tests.operator.examples.test_map as test_map
+import pycsou_tests.operator.examples.test_normalop as test_normalop
+import pycsou_tests.operator.examples.test_orthprojop as test_orthprojop
+import pycsou_tests.operator.examples.test_posdefop as test_posdefop
+import pycsou_tests.operator.examples.test_projop as test_projop
 import pycsou_tests.operator.examples.test_proxdifffunc as test_proxdifffunc
 import pycsou_tests.operator.examples.test_proxfunc as test_proxfunc
+import pycsou_tests.operator.examples.test_selfadjointop as test_selfadjointop
+import pycsou_tests.operator.examples.test_squareop as test_squareop
+import pycsou_tests.operator.examples.test_unitop as test_unitop
 
 
 class JaxMixin:
@@ -147,7 +155,7 @@ class TestJaxSquaredL2Norm(JaxMixin, test_difffunc.TestSquaredL2Norm):
 
     @pytest.fixture(params=[True, False])
     def kwargs(self, request) -> dict:
-        define_grad = request.param
+        define_secondary = request.param
 
         def j_apply(arr: jax.Array) -> jax.Array:
             out = (arr**2).sum(axis=-1, keepdims=True)
@@ -161,8 +169,10 @@ class TestJaxSquaredL2Norm(JaxMixin, test_difffunc.TestSquaredL2Norm):
             _diff_lipschitz=2,
             apply=j_apply,
         )
-        if define_grad:
-            data.update(grad=j_grad)
+        if define_secondary:
+            data.update(
+                grad=j_grad,
+            )
         return data
 
 
@@ -184,7 +194,9 @@ class TestJaxL1Norm(JaxMixin, test_proxfunc.TestL1Norm):
             prox=j_prox,
         )
         if dim is not None:
-            data.update(_lipschitz=np.sqrt(dim))
+            data.update(
+                _lipschitz=np.sqrt(dim),
+            )
         return data
 
 
@@ -193,7 +205,7 @@ class TestJaxSquaredL2Norm2(JaxMixin, test_proxdifffunc.TestSquaredL2Norm):
 
     @pytest.fixture(params=[True, False])
     def kwargs(self, request) -> dict:
-        define_grad = request.param
+        define_secondary = request.param
 
         def j_apply(arr: jax.Array) -> jax.Array:
             out = (arr**2).sum(axis=-1, keepdims=True)
@@ -212,8 +224,10 @@ class TestJaxSquaredL2Norm2(JaxMixin, test_proxdifffunc.TestSquaredL2Norm):
             apply=j_apply,
             prox=j_prox,
         )
-        if define_grad:
-            data.update(grad=j_grad)
+        if define_secondary:
+            data.update(
+                grad=j_grad,
+            )
         return data
 
 
@@ -222,7 +236,7 @@ class TestJaxTile(JaxMixin, test_linop.TestTile):
 
     @pytest.fixture(params=[True, False])
     def kwargs(self, codim, dim, request) -> dict:
-        define_adjoint = request.param
+        define_secondary = request.param
         M = codim // dim
 
         def j_apply(arr: jax.Array) -> jax.Array:
@@ -238,6 +252,232 @@ class TestJaxTile(JaxMixin, test_linop.TestTile):
             _lipschitz=np.sqrt(M),
             apply=j_apply,
         )
-        if define_adjoint:
-            data.update(adjoint=j_adjoint)
+        if define_secondary:
+            data.update(
+                adjoint=j_adjoint,
+            )
+        return data
+
+
+class TestJaxScaledSum(JaxMixin, test_linfunc.TestScaledSum):
+    disable_test = test_linfunc.TestScaledSum.disable_test | JaxMixin.disable_test
+
+    @pytest.fixture(params=[True, False])
+    def kwargs(self, dim, request) -> dict:
+        define_secondary = request.param
+
+        def j_apply(arr: jax.Array) -> jax.Array:
+            out = arr.cumsum(axis=-1).sum(axis=-1, keepdims=True)
+            return out
+
+        def j_grad(arr: jax.Array) -> jax.Array:
+            g = jnp.arange(dim, 0, -1, dtype=arr.dtype)
+            out = jnp.broadcast_to(g, arr.shape)
+            return out
+
+        def j_adjoint(arr: jax.Array) -> jax.Array:
+            scale = jnp.arange(dim, 0, -1, dtype=arr.dtype)
+            out = scale * arr
+            return out
+
+        data = dict(
+            _lipschitz=np.sqrt(dim * (dim + 1) * (2 * dim + 1) / 6),
+            apply=j_apply,
+        )
+        if define_secondary:
+            data.update(
+                grad=j_grad,
+                adjoint=j_adjoint,
+            )
+        return data
+
+
+class TestJaxCumSum(JaxMixin, test_squareop.TestCumSum):
+    disable_test = test_squareop.TestCumSum.disable_test | JaxMixin.disable_test
+
+    @pytest.fixture(params=[True, False])
+    def kwargs(self, dim, request) -> dict:
+        define_secondary = request.param
+
+        def j_apply(arr: jax.Array) -> jax.Array:
+            out = arr.cumsum(axis=-1)
+            return out
+
+        def j_adjoint(arr: jax.Array) -> jax.Array:
+            out = arr[..., ::-1].cumsum(axis=-1)[..., ::-1]
+            return out
+
+        data = dict(
+            _lipschitz=np.sqrt(dim * (dim + 1) / 2),  # Frobenius norm
+            apply=j_apply,
+        )
+        if define_secondary:
+            data.update(
+                adjoint=j_adjoint,
+            )
+        return data
+
+
+class TestJaxCircularConvolution(JaxMixin, test_normalop.TestCircularConvolution):
+    disable_test = test_normalop.TestCircularConvolution.disable_test | JaxMixin.disable_test
+
+    @pytest.fixture(params=[True, False])
+    def kwargs(self, request) -> dict:
+        define_secondary = request.param
+
+        h_FW = test_normalop.TestCircularConvolution.filter.reshape(-1)
+        dim = h_FW.size
+        h_BW = h_FW[jnp.array([0, *jnp.arange(1, dim)[::-1]])]
+
+        def _circ_convolve(h: jax.Array, x: jax.Array) -> jax.Array:
+            hF = jnp.fft.fft(h, axis=-1)
+            xF = jnp.fft.fft(x, axis=-1)
+            out = jnp.fft.ifft(hF * xF, axis=-1).real
+            return out
+
+        def j_apply(arr: jax.Array) -> jax.Array:
+            out = _circ_convolve(h_FW, arr)
+            return out
+
+        def j_adjoint(arr: jax.Array) -> jax.Array:
+            out = _circ_convolve(h_BW, arr)
+            return out
+
+        data = dict(
+            _lipschitz=dim * (h_FW**2).sum(),  # Frobenius norm
+            apply=j_apply,
+        )
+        if define_secondary:
+            data.update(
+                adjoint=j_adjoint,
+            )
+        return data
+
+
+class TestJaxPermutation(JaxMixin, test_unitop.TestPermutation):
+    disable_test = test_unitop.TestPermutation.disable_test | JaxMixin.disable_test
+
+    @pytest.fixture(params=[True, False])
+    def kwargs(self, request) -> dict:
+        define_secondary = request.param
+
+        def j_apply(arr: jax.Array) -> jax.Array:
+            out = arr[..., ::-1]
+            return out
+
+        def j_adjoint(arr: jax.Array) -> jax.Array:
+            out = j_apply(arr)
+            return out
+
+        def j_pinv(arr: jax.Array, damp: pyct.Real) -> jax.Array:
+            out = j_adjoint(arr) / (1 + damp)
+            return out
+
+        data = dict(
+            apply=j_apply,
+        )
+        if define_secondary:
+            data.update(
+                adjoint=j_adjoint,
+                pinv=j_pinv,
+            )
+        return data
+
+
+class TestJaxSelfAdjointConvolution(JaxMixin, test_selfadjointop.TestSelfAdjointConvolution):
+    disable_test = test_selfadjointop.TestSelfAdjointConvolution.disable_test | JaxMixin.disable_test
+
+    @pytest.fixture
+    def kwargs(self, dim) -> dict:
+        def j_apply(arr: jax.Array) -> jax.Array:
+            hF = jnp.asarray(test_selfadjointop.filterF(dim))
+            out = jnp.fft.ifft(jnp.fft.fft(arr, axis=-1) * hF, axis=-1).real
+            return out
+
+        return dict(apply=j_apply)
+
+
+class TestJaxPSDConvolution(JaxMixin, test_posdefop.TestPSDConvolution):
+    disable_test = test_posdefop.TestPSDConvolution.disable_test | JaxMixin.disable_test
+
+    @pytest.fixture
+    def kwargs(self, dim) -> dict:
+        def j_apply(arr: jax.Array) -> jax.Array:
+            hF = jnp.asarray(test_posdefop.filterF(dim))
+            out = jnp.fft.ifft(jnp.fft.fft(arr, axis=-1) * hF, axis=-1).real
+            return out
+
+        return dict(apply=j_apply)
+
+
+class TestJaxOblique(JaxMixin, test_projop.TestOblique):
+    disable_test = test_projop.TestOblique.disable_test | JaxMixin.disable_test
+
+    @pytest.fixture(params=[True, False])
+    def kwargs(self, alpha, request) -> dict:
+        define_secondary = request.param
+
+        def j_apply(arr: jax.Array) -> jax.Array:
+            x = jnp.zeros_like(arr)
+            out = jax.lax.dynamic_update_index_in_dim(
+                x,
+                update=alpha * arr[..., 0] + arr[..., -1],
+                index=-1,
+                axis=-1,
+            )
+            return out
+
+        def j_adjoint(arr: jax.Array) -> jax.Array:
+            x = jnp.zeros_like(arr)
+            y = jax.lax.dynamic_update_index_in_dim(
+                x,
+                update=alpha * arr[..., -1],
+                index=0,
+                axis=-1,
+            )
+            out = jax.lax.dynamic_update_index_in_dim(
+                y,
+                update=arr[..., -1],
+                index=-1,
+                axis=-1,
+            )
+            return out
+
+        data = dict(
+            apply=j_apply,
+        )
+        if define_secondary:
+            data.update(
+                adjoint=j_adjoint,
+            )
+        return data
+
+
+class TestJaxScaleDown(JaxMixin, test_orthprojop.TestScaleDown):
+    disable_test = test_orthprojop.TestScaleDown.disable_test | JaxMixin.disable_test
+
+    @pytest.fixture(params=[True, False])
+    def kwargs(self, request) -> dict:
+        define_secondary = request.param
+
+        def j_apply(arr: jax.Array) -> jax.Array:
+            out = jax.lax.dynamic_update_index_in_dim(
+                arr,
+                update=jnp.zeros_like(arr, shape=(*arr.shape[:-1], 1)),
+                index=-1,
+                axis=-1,
+            )
+            return out
+
+        def j_pinv(arr: jax.Array, damp: pyct.Real) -> jax.Array:
+            out = j_apply(arr) / (1 + damp)
+            return out
+
+        data = dict(
+            apply=j_apply,
+        )
+        if define_secondary:
+            data.update(
+                pinv=j_pinv,
+            )
         return data
