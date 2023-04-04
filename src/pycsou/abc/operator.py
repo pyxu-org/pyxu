@@ -1693,7 +1693,7 @@ class LinOp(DiffMap):
         A: pyct.NDArray
             (N, M) array
         enable_warnings: bool
-        If ``True``, emit a warning in case of precision mis-match issues.
+            If ``True``, emit a warning in case of precision mis-match issues.
 
         Returns
         -------
