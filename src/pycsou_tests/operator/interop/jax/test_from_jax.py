@@ -5,6 +5,10 @@
 #
 # To test a JAX-backed operator, inherit from JaxMixin and the suitable (pre-created) conftest.MapT
 # subclass from examples/.
+#
+# Only pycsou.abc.operator.QuadraticFunc() is untested. (Reason: cannot import the `xp` fixture in
+# Fixture[kwargs], hence test logic complexity should increase a lot just to test this operator.)
+# [2023.04.05] Manual tests of QuadraticFunc() show it works via from_jax().
 
 import itertools
 
