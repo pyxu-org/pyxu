@@ -948,7 +948,8 @@ class _BaseStackDifferential:
                 print(f"\nKernel for direction {direction}")
                 dif_op[i].print_kernel()
 
-        op = _make_unravelable(pycb.vstack(dif_op, parallel=parallel), arg_shape)
+        threadsafe = {"cogram": False}
+        op = _make_unravelable(pycb.vstack(dif_op, parallel=parallel, threadsafe=threadsafe), arg_shape)
         op.print_kernels = types.MethodType(print_kernels, op)
         return op
 
