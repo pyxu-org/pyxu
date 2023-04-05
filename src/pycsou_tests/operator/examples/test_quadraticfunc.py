@@ -53,7 +53,7 @@ class TestQuadraticFunc(conftest.QuadraticFuncT):
         return _spec[0][5]
 
     @pytest.fixture
-    def t_param(self, _spec) -> pyct.OpT:
+    def t_param(self, _spec) -> pyct.Real:
         return _spec[0][6]
 
     @pytest.fixture
