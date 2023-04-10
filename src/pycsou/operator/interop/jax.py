@@ -528,15 +528,28 @@ class _FromJax(pycsrc._FromSource):
 
     def asarray(self, **kwargs) -> pyct.NDArray:
         if self.has(pyco.Property.LINEAR):
-            # Lin[Op,Func].asarray() assumes the operator is precision-agnostic.
-            # This condition does not hold for JAX arrays. (See from_jax() notes.)
+            # (1) Lin[Op,Func].asarray() assumes the operator is precision-agnostic.
+            #     This condition does not hold for JAX arrays. (See from_jax() notes.)
             #
-            # Consequence: may need to cast Lin[Op,Func].asarray()'s output.
-            klass = self.__class__
-            A = klass.asarray(self, **kwargs)
+            # (2) If the operator is backend-specific (i.e. only works with CUPY), then we have no
+            #     way to determine which `xp` value use in the generic LinOp.asarray()
+            #     implementation without a potential fail.
+            #
+            # Consequence:
+            # (1) May need to cast Lin[Op,Func].asarray()'s output.
+            # (2) We must try different `xp` values until one works.
+            N = pycd.NDArrayInfo  # shorthand
+            dtype_orig = kwargs.get("dtype", pycrt.getPrecision().value)
+            xp_orig = kwargs.get("xp", N.NUMPY.module())
 
-            dtype = kwargs.get("dtype", pycrt.getPrecision().value)
-            A = A.astype(dtype=dtype, copy=False)
+            klass = self.__class__
+            try:
+                A = klass.asarray(self, dtype=dtype_orig, xp=N.NUMPY.module())
+            except:
+                A = klass.asarray(self, dtype=dtype_orig, xp=N.CUPY.module())
+
+            # Not the most efficient method, but fail-proof
+            A = xp_orig.array(pycu.to_NUMPY(A), dtype=dtype_orig)
             return A
         else:
             raise NotImplementedError
