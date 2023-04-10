@@ -43,13 +43,15 @@ def _to_jax(x: pyct.NDArray, enable_warnings: bool = True) -> jax.Array:
     #
     # [More info] https://github.com/google/jax/issues/4486#issuecomment-735842976
     N = pycd.NDArrayInfo  # shorthand
-    W = pycrt.Width  # shorthand
+    W, cW = pycrt.Width, pycrt._CWidth  # shorthand
 
     ndi = N.from_obj(x)
     if ndi == N.DASK:
         raise pycuw.BackendWarning("DASK inputs are unsupported.")
-    if x.dtype not in [w.value for w in W]:
-        msg = "For safety reasons, _to_jax() only accepts pycsou.runtime.Width-supported dtypes."
+
+    supported_dtype = set(w.value for w in W) | set(w.value for w in cW)
+    if x.dtype not in supported_dtype:
+        msg = "For safety reasons, _to_jax() only accepts pycsou.runtime.[_C]Width-supported dtypes."
         raise pycuw.PrecisionWarning(msg)
 
     xp = ndi.module()
@@ -66,7 +68,7 @@ def _to_jax(x: pyct.NDArray, enable_warnings: bool = True) -> jax.Array:
     with jax.default_device(dev):
         y = f_wrap(x)
 
-    same_dtype = W(x.dtype) == W(y.dtype)
+    same_dtype = x.dtype == y.dtype
     same_mem = xp.byte_bounds(x)[0] == y.device_buffer.unsafe_buffer_pointer()
     if not (same_dtype and same_mem) and enable_warnings:
         msg = "\n".join(
