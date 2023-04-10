@@ -92,9 +92,7 @@ class JaxMixin:
             shape=data_shape,
             vectorize=vec,
             jit=jit,
-            enable_warnings=False,
-            # Warnings are only emitted in _to_jax(), _from_jax():
-            # Purpose-built tests to validate those methods are located in ./test_conversion.py
+            enable_warnings=False,  # Warnings are only emitted in _to_jax(), _from_jax():
             **kwargs,
         )
         return op
