@@ -399,28 +399,32 @@ class _FromJax(pycsrc._FromSource):
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         j_arr = _to_jax(arr, enable_warnings=self._enable_warnings)
         func = self._jax["apply"]
-        j_out = func(j_arr)
+        with jax.default_device(j_arr.device()):
+            j_out = func(j_arr)
         out = _from_jax(j_out, xp=pycu.get_array_module(arr))
         return out
 
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         j_arr = _to_jax(arr, enable_warnings=self._enable_warnings)
         func = self._jax["grad"]
-        j_out = func(j_arr)
+        with jax.default_device(j_arr.device()):
+            j_out = func(j_arr)
         out = _from_jax(j_out, xp=pycu.get_array_module(arr))
         return out
 
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         j_arr = _to_jax(arr, enable_warnings=self._enable_warnings)
         func = self._jax["adjoint"]
-        j_out = func(j_arr)
+        with jax.default_device(j_arr.device()):
+            j_out = func(j_arr)
         out = _from_jax(j_out, xp=pycu.get_array_module(arr))
         return out
 
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         j_arr = _to_jax(arr, enable_warnings=self._enable_warnings)
         func = self._jax["prox"]
-        j_out = func(j_arr, tau)  # positional args only if auto-vectorized.
+        with jax.default_device(j_arr.device()):
+            j_out = func(j_arr, tau)  # positional args only if auto-vectorized.
         out = _from_jax(j_out, xp=pycu.get_array_module(arr))
         return out
 
@@ -428,7 +432,8 @@ class _FromJax(pycsrc._FromSource):
         j_arr = _to_jax(arr, enable_warnings=self._enable_warnings)
         func = self._jax["pinv"]
         damp = kwargs.get("damp", 0)
-        j_out = func(j_arr, damp)  # positional args only if auto-vectorized.
+        with jax.default_device(j_arr.device()):
+            j_out = func(j_arr, damp)  # positional args only if auto-vectorized.
         out = _from_jax(j_out, xp=pycu.get_array_module(arr))
         return out
 
