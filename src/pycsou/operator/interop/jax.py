@@ -23,54 +23,57 @@ def _from_jax(
     x: jax.Array,
     xp: pyct.ArrayModule = pycd.NDArrayInfo.NUMPY.module(),
 ) -> pyct.NDArray:
-    # Zero-copy JAX -> NUMPY/CUPY conversion
+    # JAX -> NUMPY/CUPY conversion.
+    #
+    # The transform is always zero-copy, but it is not easy to check this condition for all array
+    # types (contiguous, views, etc.) and backends (NUMPY, CUPY).
+    #
+    # [More info] https://github.com/google/jax/issues/1961#issuecomment-875773326
     if xp == pycd.NDArrayInfo.DASK.module():
         raise pycuw.BackendWarning("DASK inputs are unsupported.")
 
-    y = xp.from_dlpack(x)
+    y = xp.asarray(x)
     return y
 
 
 def _to_jax(x: pyct.NDArray, enable_warnings: bool = True) -> jax.Array:
     # NUMPY/CUPY -> JAX conversion.
     #
-    # Conversion is zero-copy when possible.
+    # Conversion is zero-copy when possible, i.e. 16-byte alignment, on the right device, etc.
+    #
+    # [More info] https://github.com/google/jax/issues/4486#issuecomment-735842976
     N = pycd.NDArrayInfo  # shorthand
     W = pycrt.Width  # shorthand
 
     ndi = N.from_obj(x)
     if ndi == N.DASK:
         raise pycuw.BackendWarning("DASK inputs are unsupported.")
-    if x.dtype not in [width.value for width in W]:
+    if x.dtype not in [w.value for w in W]:
         msg = "For safety reasons, _to_jax() only accepts pycsou.runtime.Width-supported dtypes."
         raise pycuw.PrecisionWarning(msg)
 
-    dev_type = {N.NUMPY: "cpu", N.CUPY: "gpu"}[ndi]
+    xp = ndi.module()
+    if ndi == N.NUMPY:
+        dev_type = "cpu"
+        f_wrap = jnp.asarray
+    elif ndi == N.CUPY:
+        dev_type = "gpu"
+        x = xp.require(x, requirements="C")  # JAX-DLPACK only supports contiguous arrays [2023.04.05]
+        f_wrap = jnp.from_dlpack
+    else:
+        raise ValueError("Unknown NDArray category.")
     dev = jax.devices(dev_type)[0]
     with jax.default_device(dev):
-        try:
-            x_dl = x.__dlpack__()
-            y = jax.dlpack.from_dlpack(x_dl)
-        except TypeError:
-            if ndi == N.NUMPY:
-                if enable_warnings:
-                    msg = "\n".join(
-                        [
-                            "_to_jax(): a zero-copy conversion did not take place.",
-                            "NUMPY does not allow DLPACK export of read-only arrays.",
-                            "(https://github.com/numpy/numpy/issues/20742)",
-                        ]
-                    )
-                    warnings.warn(msg, pycuw.BackendWarning)
-                y = jnp.asarray(x)
-            else:
-                raise
+        y = f_wrap(x)
 
-    if (W(y.dtype) != W(x.dtype)) and enable_warnings:
+    same_dtype = W(x.dtype) == W(y.dtype)
+    same_mem = xp.byte_bounds(x)[0] == y.device_buffer.unsafe_buffer_pointer()
+    if not (same_dtype and same_mem) and enable_warnings:
         msg = "\n".join(
             [
                 "_to_jax(): a zero-copy conversion did not take place.",
-                "(https://jax.readthedocs.io/en/latest/notebooks/Common_Gotchas_in_JAX.html#double-64bit-precision)",
+                "[More info] https://jax.readthedocs.io/en/latest/notebooks/Common_Gotchas_in_JAX.html#double-64bit-precision",
+                "[More info] https://github.com/google/jax/issues/4486#issuecomment-735842976",
             ]
         )
         warnings.warn(msg, pycuw.PrecisionWarning)
