@@ -2,10 +2,6 @@ import functools
 import types
 import warnings
 
-import jax
-import jax.dlpack
-import jax.numpy as jnp
-
 import pycsou.abc.operator as pyco
 import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
@@ -14,13 +10,23 @@ import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 
+jax = pycu.import_module("jax", fail_on_error=False)
+if jax is None:
+    import typing as typ
+
+    JaxArray = typ.TypeVar("JaxArray", "jax.Array")
+else:
+    JaxArray = jax.Array
+    import jax.numpy as jnp
+
+
 __all__ = [
     "from_jax",
 ]
 
 
 def _from_jax(
-    x: jax.Array,
+    x: JaxArray,
     xp: pyct.ArrayModule = pycd.NDArrayInfo.NUMPY.module(),
 ) -> pyct.NDArray:
     # JAX -> NUMPY/CUPY conversion.
@@ -36,7 +42,7 @@ def _from_jax(
     return y
 
 
-def _to_jax(x: pyct.NDArray, enable_warnings: bool = True) -> jax.Array:
+def _to_jax(x: pyct.NDArray, enable_warnings: bool = True) -> JaxArray:
     # NUMPY/CUPY -> JAX conversion.
     #
     # Conversion is zero-copy when possible, i.e. 16-byte alignment, on the right device, etc.
@@ -308,7 +314,7 @@ class _FromJax(pycsrc._FromSource):
         )
         if nl_difffunc and ("grad" not in self._kwargs):
 
-            def f_grad(arr: jax.Array) -> jax.Array:
+            def f_grad(arr: JaxArray) -> JaxArray:
                 f = self._kwargs["apply"]
                 y, f_vjp = jax.vjp(f, arr)
                 v = jnp.ones_like(y)
@@ -326,7 +332,7 @@ class _FromJax(pycsrc._FromSource):
         )
         if non_selfadj and ("adjoint" not in self._kwargs):
 
-            def f_adjoint(arr: jax.Array) -> jax.Array:
+            def f_adjoint(arr: JaxArray) -> JaxArray:
                 f = self._kwargs["apply"]
                 x = jnp.zeros_like(arr, shape=(self._op.dim,))
                 _, f_vjp = jax.vjp(f, x)
@@ -476,7 +482,7 @@ class _FromJax(pycsrc._FromSource):
     def _quad_spec(self):
         if self.has(pyco.Property.QUADRATIC):
             # auto-infer (Q, c, t)
-            def _grad(arr: jax.Array) -> jax.Array:
+            def _grad(arr: JaxArray) -> JaxArray:
                 # Just like jax.grad(f)(arr), but works with (1,)-valued functions.
                 # [jax.grad(f) expects scalar outputs.]
                 f = self._jax["apply"]
@@ -490,14 +496,14 @@ class _FromJax(pycsrc._FromSource):
             if self._jit:
                 _grad = jax.jit(_grad)
 
-            def Q_apply(arr: jax.Array) -> jax.Array:
+            def Q_apply(arr: JaxArray) -> JaxArray:
                 # \grad_{f}(x) = Q x + c = Q x + \grad_{f}(0)
                 # ==> Q x = \grad_{f}(x) - \grad_{f}(0)
                 z = jnp.zeros_like(arr)
                 out = _grad(arr) - _grad(z)
                 return out
 
-            def c_apply(arr: jax.Array) -> jax.Array:
+            def c_apply(arr: JaxArray) -> JaxArray:
                 z = jnp.zeros_like(arr)
                 c = _grad(z)
                 out = jnp.sum(c * arr, axis=-1, keepdims=True)
