@@ -907,7 +907,7 @@ class ProxFuncT(FuncT):
         lhs = op_m.grad(arr) * mu
         rhs = arr - op.prox(arr, mu)
 
-        assert allclose(lhs, rhs, as_dtype=arr.dtype)
+        assert self._metric(lhs, rhs, as_dtype=arr.dtype)
 
 
 class ProxDiffFuncT(ProxFuncT, DiffFuncT):
@@ -1707,7 +1707,7 @@ class NormalOpT(SquareOpT):
 
         lhs = op.apply(op.adjoint(x))
         rhs = op.adjoint(op.apply(x))
-        assert allclose(lhs, rhs, as_dtype=width.value)
+        assert self._metric(lhs, rhs, as_dtype=width.value)
 
 
 class UnitOpT(NormalOpT):
@@ -1752,8 +1752,8 @@ class UnitOpT(NormalOpT):
         lhs2 = pylinalg.norm(op.adjoint(x), axis=-1)
         rhs = pylinalg.norm(x, axis=-1)
 
-        assert allclose(lhs1, lhs2, as_dtype=width.value)
-        assert allclose(lhs1, rhs, as_dtype=width.value)
+        assert self._metric(lhs1, lhs2, as_dtype=width.value)
+        assert self._metric(lhs1, rhs, as_dtype=width.value)
 
     # local override of this fixture: no GPU limitations
     @pytest.mark.parametrize("k", [1, 2])
@@ -1807,7 +1807,7 @@ class SelfAdjointOpT(NormalOpT):
 
         lhs = op.apply(x)
         rhs = op.adjoint(x)
-        assert allclose(lhs, rhs, as_dtype=width.value)
+        assert self._metric(lhs, rhs, as_dtype=width.value)
 
 
 class PosDefOpT(SelfAdjointOpT):
@@ -1842,7 +1842,7 @@ class ProjOpT(SquareOpT):
         y = op.apply(x)
         z = op.apply(y)
 
-        assert allclose(y, z, as_dtype=width.value)
+        assert self._metric(y, z, as_dtype=width.value)
 
 
 class OrthProjOpT(ProjOpT, SelfAdjointOpT):
