@@ -49,6 +49,28 @@ Sepand
       Did not investigate yet.
     * test_value_fit() fails for some initializations.
       Did not investigate yet. Probably due to in-place updates.
+  * JAX interop
+    * The following tests fail with CuPy inputs (f32/f64), with mentioned errors. [Reason unknown.]
+      - TestJaxScaledSum::test_math_adjoint()
+          Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[20,1]{1,0} for argument 0 but got incompatible shape f32[20,1]{0,1}
+          Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[20,1]{1,0} for argument 1 but got incompatible shape f32[20,1]{0,1}
+          Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f64[20,1]{1,0} for argument 0 but got incompatible shape f64[20,1]{0,1}
+      - TestJaxScaledSum::test_math_cogram()
+          Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[30,1]{1,0} for argument 0 but got incompatible shape f32[30,1]{0,1}
+          Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[30,1]{1,0} for argument 1 but got incompatible shape f32[30,1]{0,1}
+          Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f64[30,1]{1,0} for argument 0 but got incompatible shape f64[30,1]{0,1}
+      - TestJaxSin::test_math_diff_lipschitz()
+      - TestJaxSquaredL2Norm::test_math_diff_lipschitz()
+      - TestJaxSquaredL2Norm2::test_math_diff_lipschitz()
+          Execution of replica 0 failed: INTERNAL: Address of buffer 0 must be a multiple of 10, but was 0x...
+          Execution of replica 0 failed: INTERNAL: Address of buffer 1 must be a multiple of 10, but was 0x...
+      - TestJaxSelfAdjointConvolution::test_backend_eigvals()
+      - TestJaxSelfAdjointConvolution::test_precCM_eigvals()
+      - TestJaxPSDConvolution::test_backend_eigvals()
+      - TestJaxPSDConvolution::test_precCM_eigvals()
+      - TestJaxScaleDown::test_precCM_eigvals()
+          INTERNAL: Address of buffer 0 must be a multiple of 10, but was 0x...
+
 * Test Suite Enhancements
   * General
     * Add @slow_test tags.
