@@ -102,16 +102,13 @@ Joan
 
 
   Roadmap:
-  - Numpy ufuncs -> Kaan
   - operators (Pycsou v1) -> core dev team
-  - functionals (Pycsou v1 but unify loss and reg with 1 class and method "asloss") -> Kaan
   - Tutorials, examples and notebooks. -> Kaan
   - CI: pip/conda packaging (quick fix of pip lenghty install) + ReadTheDocs + Run tests in cloud (Infomaniak)
   - benchmarking suite (low priority)
   - Automatic hyperparameter tuning (hyperpriors) 
   - Uncertainty quantification (approximate credibility intervals)
   - Nonconvex/linear (APGD nonconvex + PDS nonlinear)
-  - Pytorch interfacing (autodiff+jac+bwd eval) -> Alec
   - Stochastic solvers -> Alec
   - Second order solvers -> Kaan
   - LSQR/LSMR -> Kaan
