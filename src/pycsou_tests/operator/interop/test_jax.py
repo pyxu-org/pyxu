@@ -55,6 +55,21 @@ class JaxMixin:
         "test_interface_asloss",  # not worth modifying test architecture specifically for this test.
     }
 
+    # Internal helpers --------------------------------------------------------
+    @classmethod
+    def _metric(
+        cls,
+        a: pyct.NDArray,
+        b: pyct.NDArray,
+        as_dtype: pyct.DType,
+    ) -> bool:
+        # JAX precision cannot be changed at runtime.
+        # Values are thus compared based on the actual precision.
+        using_f64 = jax.config.jax_enable_x64
+        width = {True: pycrt.Width.DOUBLE, False: pycrt.Width.SINGLE}[using_f64]
+        return super()._metric(a, b, as_dtype=width.value)
+
+    # Fixtures ----------------------------------------------------------------
     @pytest.fixture(params=[True, False])
     def jit(self, request) -> bool:
         # Should JAX methods be JIT-compiled?
