@@ -10,7 +10,6 @@ import warnings
 
 import dask
 import dask.graph_manipulation as dgm
-import finufft
 import numba
 import numba.cuda
 import numpy as np
@@ -26,6 +25,13 @@ import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
+
+finufft = pycu.import_module("finufft", fail_on_error=False)
+if finufft is None:
+    finufft_Plan = typ.TypeVar("finufft_Plan", "finufft.Plan")
+else:
+    finufft_Plan = finufft.Plan
+
 
 __all__ = [
     "NUFFT",
@@ -844,7 +850,7 @@ class NUFFT(pyca.LinOp):
         raise NotImplementedError
 
     @staticmethod
-    def _plan_fw(**kwargs) -> finufft.Plan:
+    def _plan_fw(**kwargs) -> finufft_Plan:
         # create plan and set points
         raise NotImplementedError
 
@@ -855,7 +861,7 @@ class NUFFT(pyca.LinOp):
         raise NotImplementedError
 
     @staticmethod
-    def _plan_bw(**kwargs) -> finufft.Plan:
+    def _plan_bw(**kwargs) -> finufft_Plan:
         # create plan and set points
         raise NotImplementedError
 
@@ -1574,7 +1580,7 @@ class _NUFFT1(NUFFT):
         return kwargs
 
     @staticmethod
-    def _plan_fw(**kwargs) -> finufft.Plan:
+    def _plan_fw(**kwargs) -> finufft_Plan:
         kwargs = kwargs.copy()
         x, N = [kwargs.pop(_) for _ in ("x", "N")]
         _, N_dim = x.shape
@@ -1616,7 +1622,7 @@ class _NUFFT1(NUFFT):
         return out.reshape((self._n, np.prod(self._N)))
 
     @staticmethod
-    def _plan_bw(**kwargs) -> finufft.Plan:
+    def _plan_bw(**kwargs) -> finufft_Plan:
         kwargs = kwargs.copy()
         x, N = [kwargs.pop(_) for _ in ("x", "N")]
         _, N_dim = x.shape
@@ -1846,7 +1852,7 @@ class _NUFFT3(NUFFT):
         return kwargs
 
     @staticmethod
-    def _plan_fw(**kwargs) -> finufft.Plan:
+    def _plan_fw(**kwargs) -> finufft_Plan:
         kwargs = kwargs.copy()
         x, z = [kwargs.pop(_) for _ in ("x", "z")]
         _, N_dim = x.shape
@@ -1886,7 +1892,7 @@ class _NUFFT3(NUFFT):
         return out.reshape((self._n, self._N))
 
     @staticmethod
-    def _plan_bw(**kwargs) -> finufft.Plan:
+    def _plan_bw(**kwargs) -> finufft_Plan:
         kwargs = kwargs.copy()
         x, z = [kwargs.pop(_) for _ in ("x", "z")]
         _, N_dim = x.shape
