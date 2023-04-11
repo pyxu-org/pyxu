@@ -525,8 +525,16 @@ class _FromJax(pycsrc._FromSource):
                 enable_warnings=self._enable_warnings,
                 apply=c_apply,
             )
+
+            # We cannot know a-priori which backend the supplied jax-apply() function works with.
+            # Consequence: to compute `t`, we must try different backends until one works.
             f = self._jax["apply"]
-            t = float(f(jnp.zeros(self.dim)))
+            try:  # test a CPU implementation ...
+                with jax.default_device(jax.devices("cpu")[0]):
+                    t = float(f(jnp.zeros(self.dim)))
+            except:  # ... and use GPU if it doesn't work.
+                with jax.default_device(jax.devices("gpu")[0]):
+                    t = float(f(jnp.zeros(self.dim)))
 
             return (Q, c, t)
         else:
