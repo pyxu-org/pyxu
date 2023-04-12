@@ -14,7 +14,7 @@ jax = pycu.import_module("jax", fail_on_error=False)
 if jax is None:
     import typing as typ
 
-    JaxArray = typ.TypeVar("JaxArray", "jax.Array")
+    JaxArray = typ.TypeVar("JaxArray", bound="jax.Array")
 else:
     JaxArray = jax.Array
     import jax.numpy as jnp
