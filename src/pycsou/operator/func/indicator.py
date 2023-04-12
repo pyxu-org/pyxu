@@ -183,7 +183,7 @@ class PositiveOrthant(_IndicatorFunction):
        \iota_{+}(\mathbf{x})
        :=
        \begin{cases}
-           0 & \min{\mathbf{x}} \ge 0
+           0 & \min{\mathbf{x}} \ge 0,\\
            \infty & \text{otherwise}.
        \end{cases}
 

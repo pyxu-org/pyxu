@@ -1,6 +1,5 @@
 import warnings
 
-import dask.array
 import numpy as np
 import scipy.optimize as sopt
 
@@ -19,7 +18,7 @@ __all__ = [
     "SquaredL1Norm",
     "LInfinityNorm",
     "L21Norm",
-    "L1NormPositivityConstraint",
+    "PositiveL1Norm",
 ]
 
 
@@ -392,69 +391,47 @@ class L21Norm(ShiftLossMixin, pyca.ProxFunc):
         return out.reshape(*sh, -1)
 
 
-class L1NormPositivityConstraint(pyca.ProxFunc):
+class PositiveL1Norm(ShiftLossMixin, pyca.ProxFunc):
     r"""
-    Computes the :math:`\ell_1`-norm wile enforcing a non-negativity constraint by adding the indicator function of
-    the non-negative orthant. The explicit expression is given by
+    Computes the :math:`\ell_1`-norm while enforcing a positivity constraint by adding the indicator function of
+    the positive orthant.
 
     .. math::
 
        f(\mathbf{x})
-       =
-       \lVert\mathbf{x}\rVert_1 + \iota(\mathbf{x}),
-       \qquad
-       \forall \mathbf{x}\in\mathbb{R}^N,
-
-    with proximity operator given by:
+       :=
+       \lVert\mathbf{x}\rVert_1 + \iota_{+}(\mathbf{x}),
 
     .. math::
 
        \textbf{prox}_{\tau f}(\mathbf{z})
-       =
-       \begin{cases}
-        \mathrm{soft}_\tau(\mathbf{z}) \,\text{if} \,\mathbf{z}\in \mathbb{R}^N_+,\\
-         \, 0\,\text{ortherwise}.
-         \end{cases}
-       \qquad
-       \forall \mathbf{z}\in\mathbb{R}^N,
+       :=
+       \max(\mathrm{soft}_\tau(\mathbf{z}), \mathbf{0})
 
-    with :math: `\mathrm{soft}_\tau` being the coordinate-wise soft thresholding operator with parameter :math: `\tau`.
-
-    Notes
-    -----
-    See :py:class:`~pycsou.operator.func.indicator.NonNegativeOrthant` for a poper definition of the indicator
-    function :math: `\iota` enforcing the positivity constraint.
-
+    See Also
+    --------
+    :py:class:`~pycsou.operator.func.indicator.PositiveOrthant`
     """
 
-    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
-        pass
+    def __init__(self, dim: pyct.Integer = None):
+        r"""
+        Parameters
+        ----------
+        dim: pyct.Integer
+            Dimension size. (Default: domain-agnostic.)
+        """
+        super().__init__(shape=(1, dim))
+        from pycsou.operator.func.indicator import PositiveOrthant
 
-    def __init__(self, shape: pyct.Shape):
-        super().__init__(shape=shape)
+        self.indicator = PositiveOrthant(dim=dim)
+        self.l1norm = L1Norm(dim=dim)
+        self._lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        # xp = pycu.get_array_module(arr)
-        # res = xp.full(arr.shape[:-1], np.inf)
-        # indices = xp.all(arr >= 0, axis=-1)
-        # res[indices] = arr.sum(axis=-1)[indices]
-        # return res.astype(arr.dtype)
-
-        xp = pycu.get_array_module(arr)
-        if arr.ndim <= 1:
-            res = arr.sum() if xp.all(arr >= 0) else np.inf
-            return xp.asarray([res]).astype(arr.dtype)
-        else:
-            res = xp.full(arr.shape[:-1], np.inf)
-            indices = xp.all(arr >= 0, axis=-1)
-            if xp is dask.array:
-                indices = indices.compute()
-            res[indices] = arr[indices].sum(axis=-1)
-            return res.astype(arr.dtype)
+        return self.indicator(arr) + self.l1norm(arr)
 
     @pycrt.enforce_precision(i=["arr", "tau"])
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        res = xp.fmax(0.0, arr - tau)
-        return res.astype(arr.dtype)
+        return xp.fmax(0.0, arr - tau)
