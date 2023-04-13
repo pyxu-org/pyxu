@@ -27,7 +27,7 @@ import pycsou.util.warning as pycuw
 
 finufft = pycu.import_module("finufft", fail_on_error=False)
 if finufft is None:
-    finufft_Plan = typ.TypeVar("finufft_Plan", "finufft.Plan")
+    finufft_Plan = typ.TypeVar("finufft_Plan", bound="finufft.Plan")
 else:
     finufft_Plan = finufft.Plan
 
