@@ -61,10 +61,11 @@ class TestNUFFT3(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         request,
     ):
         ndi, width = request.param
+        xp, dtype = ndi.module(), width.value
         with pycrt.Precision(width):
             op = pycl.NUFFT.type3(
-                x=transform_x,
-                z=transform_z,
+                x=xp.array(transform_x, dtype=dtype),
+                z=xp.array(transform_z, dtype=dtype),
                 isign=transform_sign,
                 eps=transform_eps,
                 real=transform_real,
