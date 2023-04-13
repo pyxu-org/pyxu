@@ -1365,7 +1365,6 @@ class NUFFT(pyca.LinOp):
         x_chunks: list[typ.Union[pyct.NDArray, slice]],
         z_chunks: list[typ.Union[pyct.NDArray, slice]],
         direct_eval_threshold: pyct.Integer = 10_000,
-        enable_warnings: bool = True,
     ):
         """
         (Only applies to chunked type-3 transforms.)
@@ -1386,8 +1385,6 @@ class NUFFT(pyca.LinOp):
 
             (Defaults to 10k as per the `FINUFFT guidelines
             <https://finufft.readthedocs.io/en/latest/#do-i-even-need-a-nufft>`_.)
-        enable_warnings: bool
-            If ``True``, emit a warning when x/z are re-ordered.
 
         See Also
         --------
@@ -2326,8 +2323,7 @@ class _NUFFT3_chunked(_NUFFT3):
         self,
         x_chunks: list[typ.Union[pyct.NDArray, slice]],
         z_chunks: list[typ.Union[pyct.NDArray, slice]],
-        direct_eval_threshold: pyct.Integer = 0,
-        enable_warnings: bool = True,
+        direct_eval_threshold: pyct.Integer = 10_000,
     ):
         def _to_slice(idx_spec):
             out = idx_spec
