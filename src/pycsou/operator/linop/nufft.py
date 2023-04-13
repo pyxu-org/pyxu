@@ -556,15 +556,6 @@ class NUFFT(pyca.LinOp):
         op_t2 = op_t1.T
         op_t2._name = "_NUFFT2"
 
-        # Some methods need to be overloaded (even if non-arithmetic) since NUFFT interprets their
-        # calling parameters differently. (Ex: to_sciop's `dtype` discarded at times.)
-
-        def op_to_sciop(_, **kwargs):
-            op_s = op_t1.to_sciop(**kwargs)
-            return op_s.T
-
-        op_t2.to_sciop = types.MethodType(op_to_sciop, op_t2)  # non-arithmetic method
-        op_t2.lipschitz = types.MethodType(NUFFT.lipschitz, op_t1)
         # not strictly necessary, but users will probably want to access it.
         op_t2.params = types.MethodType(_NUFFT1.params, op_t1)
         return op_t2
@@ -831,13 +822,6 @@ class NUFFT(pyca.LinOp):
             # Analytical upper-bound known
             self._lipschitz = np.sqrt(self._M * np.prod(self._N))
         return self._lipschitz
-
-    def to_sciop(self, **kwargs):
-        # _NUFFT.apply/adjoint() only support the precision provided at init-time.
-        if not self._direct_eval:
-            kwargs.update(dtype=self._x.dtype)  # silently drop user-provided `dtype`
-        op = pyca.LinOp.to_sciop(self, **kwargs)
-        return op
 
     @staticmethod
     def _as_canonical_coordinate(x: pyct.NDArray) -> pyct.NDArray:
