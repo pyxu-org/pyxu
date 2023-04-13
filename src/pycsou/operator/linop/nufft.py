@@ -9,7 +9,6 @@ import typing as typ
 import warnings
 
 import dask
-import dask.graph_manipulation as dgm
 import numba
 import numba.cuda
 import numpy as np
@@ -926,87 +925,6 @@ class NUFFT(pyca.LinOp):
             )
         x = x.reshape((N_blk, n_trans, dim_in))
         return x, N, sh_out
-
-    @staticmethod
-    def _scan(func, data, blk_shape=None) -> list:
-        # Internal method for apply/adjoint.
-        #
-        # Computes the equivalent of ``map(func, data)``, with the constraint that `func` is applied
-        # to each element of `data` in sequence.
-        #
-        # For Dask-array inputs, this amounts to creating a task graph with virtual dependencies
-        # between successive `func` calls. In other words, the task graph looks like:
-        #
-        #        map(func, data)
-        #
-        #                    +----+              +----+
-        #          data[0]-->|func|-->blk[0]-+-->|list|-->blks
-        #             .      +----+          |   +----+
-        #             .                      |
-        #             .      +----+          |
-        #          data[n]-->|func|-->blk[n]-+
-        #                    +----+
-        #
-        # ==========================================================================================================
-        #        _scan(func, data)
-        #                                                                                             +----+
-        #                              +-------------------+----------------+--------------------+----+list|-->blks
-        #                              |                   |                |                    |    +----+
-        #                              |                   |                |                    |
-        #                    +----+    |        +----+     |      +---+     |         +----+     |
-        #          data[0]-->|func|-->blk[0]-+->|func|-->blk[1]-->|...|-->blk[n-1]-+->|func|-->blk[n]
-        #                    +----+          |  +----+            +---+            |  +----+
-        #                                    |                                     |
-        #          data[1]-------------------+                                     |
-        #             .                                                            |
-        #             .                                                            |
-        #             .                                                            |
-        #          data[n]---------------------------------------------------------+
-        #
-        #
-        # Parameters
-        # ----------
-        # func: callable | list(callable)
-        #     Function(s) to apply to each element of `data`.
-        #     If several functions are provided, then `func[i]` is applied to `data[i]`.
-        # data: list[pyct.NDArray]
-        #     (N_data,) arrays to act on.
-        # blk_shape: pyct.NDArrayShape
-        #     If provided and inputs are Dask-arrays, then `blks` will contain Dask-arrays of shape
-        #     `blk_shape`. (I.e. transform delayed objects back to array form.)
-        #
-        # Returns
-        # -------
-        # blks: list[obj]
-        #     (N_data,) objects acted upon.
-        #
-        #     If inputs were Dask-arrays, then `blks` contains Dask-delayed objects, unless
-        #     `blk_shape` is provided.
-        if callable(func):
-            func = (func,) * len(data)
-
-        NDI = pycd.NDArrayInfo
-        dask_input = lambda obj: NDI.from_obj(obj) == NDI.DASK
-        if all(map(dask_input, data)):
-            xp = NDI.DASK.module()
-
-            blks = []
-            for i in range(len(data)):
-                _func = dgm.bind(
-                    children=dask.delayed(func[i], pure=True),
-                    parents=blks[i - 1] if (i > 0) else [],
-                )
-                blk = _func(data[i])
-                if blk_shape is not None:
-                    blk = NUFFT._array_ize(
-                        blk,
-                        shape=blk_shape,
-                        dtype=data[i].dtype,
-                    )
-                blks.append(blk)
-        else:
-            blks = [_func(blk) for (_func, blk) in zip(func, data)]
-        return blks
 
     @staticmethod
     def _postprocess(
