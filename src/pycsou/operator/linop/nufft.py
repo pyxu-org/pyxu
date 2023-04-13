@@ -24,6 +24,7 @@ import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
+from pycsou.util.operator import _dask_zip
 
 finufft = pycu.import_module("finufft", fail_on_error=False)
 if finufft is None:
@@ -1672,7 +1673,13 @@ class _NUFFT1(NUFFT):
             arr = pycu.view_as_complex(arr)
 
         data, N, sh = self._preprocess(arr, self._n, np.prod(self._N))
-        blks = self._scan(self._fw, data, (self._n, np.prod(self._N)))
+        blks = _dask_zip(
+            func=(self._fw,) * len(data),
+            data=data,
+            out_shape=((self._n, np.prod(self._N)),) * len(data),
+            out_dtype=(data.dtype,) * len(data),
+            parallel=False,
+        )
         out = self._postprocess(blks, N, sh)
 
         if self._real_out:
@@ -1689,7 +1696,13 @@ class _NUFFT1(NUFFT):
             arr = pycu.view_as_complex(arr)
 
         data, N, sh = self._preprocess(arr, self._n, self._M)
-        blks = self._scan(self._bw, data, (self._n, self._M))
+        blks = _dask_zip(
+            func=(self._bw,) * len(data),
+            data=data,
+            out_shape=((self._n, self._M),) * len(data),
+            out_dtype=(data.dtype,) * len(data),
+            parallel=False,
+        )
         out = self._postprocess(blks, N, sh)
 
         if self._real_in:
@@ -1939,7 +1952,13 @@ class _NUFFT3(NUFFT):
             arr = pycu.view_as_complex(arr)
 
         data, N, sh = self._preprocess(arr, self._n, self._N)
-        blks = self._scan(self._fw, data, (self._n, self._N))
+        blks = _dask_zip(
+            func=(self._fw,) * len(data),
+            data=data,
+            out_shape=((self._n, self._N),) * len(data),
+            out_dtype=(data.dtype,) * len(data),
+            parallel=False,
+        )
         out = self._postprocess(blks, N, sh)
 
         return pycu.view_as_real(out)
@@ -1949,7 +1968,13 @@ class _NUFFT3(NUFFT):
         arr = pycu.view_as_complex(arr)
 
         data, N, sh = self._preprocess(arr, self._n, self._M)
-        blks = self._scan(self._bw, data, (self._n, self._M))
+        blks = _dask_zip(
+            func=(self._bw,) * len(data),
+            data=data,
+            out_shape=((self._n, self._M),) * len(data),
+            out_dtype=(data.dtype,) * len(data),
+            parallel=False,
+        )
         out = self._postprocess(blks, N, sh)
 
         if self._real:
