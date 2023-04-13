@@ -558,6 +558,7 @@ class NUFFT(pyca.LinOp):
 
         # not strictly necessary, but users will probably want to access it.
         op_t2.params = types.MethodType(_NUFFT1.params, op_t1)
+        op_t2.mesh = types.MethodType(_NUFFT1.mesh, op_t1)
         return op_t2
 
     @staticmethod
