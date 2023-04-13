@@ -13,7 +13,6 @@ import dask.graph_manipulation as dgm
 import numba
 import numba.cuda
 import numpy as np
-import numpy.linalg as npl
 import scipy.optimize as sopt
 import scipy.spatial as spl
 
