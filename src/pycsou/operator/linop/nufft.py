@@ -356,6 +356,7 @@ class NUFFT(pyca.LinOp):
         real: bool = False,
         plan_fw: bool = True,
         plan_bw: bool = True,
+        enable_warnings: bool = True,
         **kwargs,
     ) -> pyct.OpT:
         r"""
@@ -388,6 +389,8 @@ class NUFFT(pyca.LinOp):
             Some public methods in the :py:class:`~pycsou.abc.operator.LinOp` interface may not work
             if fw/bw transforms are disabled.
             These options only take effect if ``eps > 0``.
+        enable_warnings: bool
+            If ``True``, emit a warning in case of precision mis-match issues.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
@@ -440,6 +443,7 @@ class NUFFT(pyca.LinOp):
             real_out=False,
             plan_fw=plan_fw,
             plan_bw=plan_bw,
+            enable_warnings=enable_warnings,
             **kwargs,
         )
         return _NUFFT1(**init_kwargs)
@@ -454,6 +458,7 @@ class NUFFT(pyca.LinOp):
         real: bool = False,
         plan_fw: bool = True,
         plan_bw: bool = True,
+        enable_warnings: bool = True,
         **kwargs,
     ) -> pyct.OpT:
         r"""
@@ -486,6 +491,8 @@ class NUFFT(pyca.LinOp):
             Some public methods in the :py:class:`~pycsou.abc.operator.LinOp` interface may not work
             if fw/bw transforms are disabled.
             These options only take effect if ``eps > 0``.
+        enable_warnings: bool
+            If ``True``, emit a warning in case of precision mis-match issues.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.)
@@ -542,6 +549,7 @@ class NUFFT(pyca.LinOp):
             real_out=real,
             plan_fw=plan_bw,  # note the reversal
             plan_bw=plan_fw,  # here
+            enable_warnings=enable_warnings,
             **kwargs,
         )
         op_t1 = _NUFFT1(**init_kwargs)
@@ -571,6 +579,7 @@ class NUFFT(pyca.LinOp):
         real: bool = False,
         plan_fw: bool = True,
         plan_bw: bool = True,
+        enable_warnings: bool = True,
         chunked: bool = False,
         parallel: bool = False,
         **kwargs,
@@ -603,6 +612,8 @@ class NUFFT(pyca.LinOp):
             Some public methods in the :py:class:`~pycsou.abc.operator.LinOp` interface may not work
             if fw/bw transforms are disabled.
             These options only take effect if ``eps > 0``.
+        enable_warnings: bool
+            If ``True``, emit a warning in case of precision mis-match issues.
         chunked: bool
             If ``True``, the transform is performed in small chunks. (See Notes for details.)
         parallel: bool
@@ -730,6 +741,7 @@ class NUFFT(pyca.LinOp):
             real=real,
             plan_fw=plan_fw,
             plan_bw=plan_bw,
+            enable_warnings=enable_warnings,
             chunked=chunked,
             parallel=parallel,
             **kwargs,
@@ -870,6 +882,18 @@ class NUFFT(pyca.LinOp):
         # input: (n_trans, Q2) complex-valued
         # output: (n_trans, Q1) complex-valued
         raise NotImplementedError
+
+    def _warn_cast(self, arr: pyct.NDArray) -> pyct.NDArray:
+        W = pycrt.Width  # shorthand
+        x_width = W(self._x.dtype)
+        if (a_width := W(arr.dtype)) != x_width:
+            if self._enable_warnings:
+                msg = f"NUFFT was configured to run with {x_width.value} inputs, but provided {a_width.value} inputs."
+                warnings.warn(msg, pycuw.PrecisionWarning)
+            out = arr.astype(dtype=x_width.value)
+        else:
+            out = arr
+        return out
 
     @staticmethod
     def _preprocess(
@@ -1537,6 +1561,7 @@ class _NUFFT1(NUFFT):
 
         self._eps = kwargs.get("eps")
         self._direct_eval = not (self._eps > 0)
+        self._enable_warnings = kwargs.pop("enable_warnings")
         self._real_in = kwargs.pop("real_in")
         self._real_out = kwargs.pop("real_out")
         self._upsampfac = kwargs.get("upsampfac")
@@ -1571,6 +1596,7 @@ class _NUFFT1(NUFFT):
         kwargs["real_out"] = bool(kwargs["real_out"])
         kwargs["plan_fw"] = bool(kwargs["plan_fw"])
         kwargs["plan_bw"] = bool(kwargs["plan_bw"])
+        kwargs["enable_warnings"] = bool(kwargs["enable_warnings"])
         if (D := x.shape[-1]) == len(N):
             pass
         elif len(N) == 1:
@@ -1666,6 +1692,7 @@ class _NUFFT1(NUFFT):
 
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        arr = self._warn_cast(arr)
         if self._real_in:
             r_width = pycrt.Width(arr.dtype)
             arr = arr.astype(r_width.complex.value)
@@ -1689,6 +1716,7 @@ class _NUFFT1(NUFFT):
 
     @pycrt.enforce_precision("arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        arr = self._warn_cast(arr)
         if self._real_out:
             r_width = pycrt.Width(arr.dtype)
             arr = arr.astype(r_width.complex.value)
@@ -1821,6 +1849,7 @@ class _NUFFT3(NUFFT):
 
         self._eps = kwargs.get("eps")
         self._direct_eval = not (self._eps > 0)
+        self._enable_warnings = kwargs.pop("enable_warnings")
         self._real = kwargs.pop("real")
         self._upsampfac = kwargs.get("upsampfac")
         self._n = kwargs.get("n_trans", 1)
@@ -1850,6 +1879,7 @@ class _NUFFT3(NUFFT):
         kwargs["real"] = bool(kwargs["real"])
         kwargs["plan_fw"] = bool(kwargs["plan_fw"])
         kwargs["plan_bw"] = bool(kwargs["plan_bw"])
+        kwargs["enable_warnings"] = bool(kwargs["enable_warnings"])
         kwargs["parallel"] = bool(kwargs["parallel"])
         kwargs["chunked"] = bool(kwargs["chunked"])
 
@@ -1945,6 +1975,7 @@ class _NUFFT3(NUFFT):
 
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        arr = self._warn_cast(arr)
         if self._real:
             r_width = pycrt.Width(arr.dtype)
             arr = arr.astype(r_width.complex.value)
@@ -1965,6 +1996,7 @@ class _NUFFT3(NUFFT):
 
     @pycrt.enforce_precision("arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        arr = self._warn_cast(arr)
         arr = pycu.view_as_complex(arr)
 
         data, N, sh = self._preprocess(arr, self._n, self._M)
@@ -2321,7 +2353,7 @@ class _NUFFT3_chunked(_NUFFT3):
                     out = slice(lb, ub + 1)
             return out
 
-        def _preprocess(chunks, warn: bool, var: str):
+        def _preprocess(chunks, var: str):
             # Analyze chunk specifiers and return:
             #   * input re-ordering coordinates (if applicable)
             #   * slice() objects identifying each sub-chunk data
@@ -2353,7 +2385,7 @@ class _NUFFT3_chunked(_NUFFT3):
                     start += _len
                     chunk_spec.append(s)
 
-                if warn:
+                if self._enable_warnings:
                     msg = "\n".join(
                         [
                             f"'{var}' order is sub-optimal given provided chunk specifiers.",
@@ -2373,7 +2405,7 @@ class _NUFFT3_chunked(_NUFFT3):
                 idx = np.stack([2 * idx_spec, 2 * idx_spec + 1], axis=1).reshape(-1)
             return idx
 
-        x_idx, x_chunks = _preprocess(x_chunks, warn=enable_warnings, var="x")
+        x_idx, x_chunks = _preprocess(x_chunks, var="x")
         self._x = self._x[x_idx]
         self._x_reorder = pycs.SubSample(  # Permutation
             (self.dim,),
@@ -2388,7 +2420,7 @@ class _NUFFT3_chunked(_NUFFT3):
             for (j, x_idx) in enumerate(x_chunks)
         }
 
-        z_idx, z_chunks = _preprocess(z_chunks, warn=enable_warnings, var="z")
+        z_idx, z_chunks = _preprocess(z_chunks, var="z")
         self._z = self._z[z_idx]
         self._z_reorder = pycs.SubSample(
             (self.codim,),

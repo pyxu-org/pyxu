@@ -87,6 +87,7 @@ class TestNUFFT2(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
                 isign=transform_sign,
                 eps=transform_eps,
                 real=transform_real,
+                enable_warnings=False,
                 n_trans=transform_ntrans,
                 nthreads=transform_nthreads,
                 modeord=transform_modeord,
