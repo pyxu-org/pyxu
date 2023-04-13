@@ -24,7 +24,7 @@ import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
-from pycsou.util.operator import _dask_zip
+from pycsou.util.operator import _array_ize, _dask_zip
 
 finufft = pycu.import_module("finufft", fail_on_error=False)
 if finufft is None:
@@ -1007,25 +1007,6 @@ class NUFFT(pyca.LinOp):
         else:
             blks = [_func(blk) for (_func, blk) in zip(func, data)]
         return blks
-
-    @staticmethod
-    def _array_ize(data, shape: pyct.NDArrayShape, dtype: pyct.DType):
-        # Internal method for apply/adjoint.
-        #
-        # Transform a Dask-delayed object into its Dask-array counterpart.
-        # This function is a no-op if `data` is not a Dask-delayed object.
-        from dask.delayed import Delayed
-
-        if isinstance(data, Delayed):
-            xp = pycd.NDArrayInfo.DASK.module()
-            arr = xp.from_delayed(
-                data,
-                shape=shape,
-                dtype=dtype,
-            )
-        else:
-            arr = data
-        return arr
 
     @staticmethod
     def _postprocess(
@@ -2162,8 +2143,8 @@ class _NUFFT3_chunked(_NUFFT3):
             inner = []
             for j, down in self._down.items():
                 x = down.apply(arr)
-                y = self._array_ize(
-                    nufft(j, i, "fw", x),
+                y = _array_ize(
+                    data=nufft(j, i, "fw", x),
                     shape=(*arr.shape[:-1], up.dim),
                     dtype=arr.dtype,
                 )
@@ -2188,8 +2169,8 @@ class _NUFFT3_chunked(_NUFFT3):
             inner = []
             for i, up in self._up.items():
                 z = up.adjoint(arr)
-                y = self._array_ize(
-                    nufft(j, i, "bw", z),
+                y = _array_ize(
+                    data=nufft(j, i, "bw", z),
                     shape=(*arr.shape[:-1], down.codim),
                     dtype=arr.dtype,
                 )

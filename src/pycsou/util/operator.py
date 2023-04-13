@@ -242,3 +242,46 @@ def _dask_zip(
     else:
         out = [_func(arr) for (_func, arr) in zip(func, data)]
     return out
+
+
+def _array_ize(
+    data,
+    shape: pyct.NDArrayShape,
+    dtype: pyct.DType,
+) -> pyct.NDArray:
+    # (This is a Low-Level function.)
+    #
+    # Transform a Dask-delayed object into its Dask-array counterpart.
+    # This function is a no-op if `data` is not a Dask-delayed object.
+    #
+    # Parameters
+    # ----------
+    # data: pyct.NDArray | dask.Delayed
+    #     Array/Delayed object to act upon.
+    # shape: pyct.NDArrayShape
+    #     Shape of `data`.
+    #
+    #     This parameter is only used if `data` is a Delayed object.
+    #     Its goal is to transform the Delayed object back to array form.
+    # dtype: pyct.DType
+    #     Dtype of `data`.
+    #
+    #     This parameter is only used if `data` is a Delayed object.
+    #     Its goal is to transform the Delayed object back to array form.
+    #
+    # Returns
+    # -------
+    # arr: pyct.NDArray
+    #     Dask-backed NDArray if `data` was a Delayed object; no-op otherwise.
+    from dask.delayed import Delayed
+
+    if isinstance(data, Delayed):
+        xp = pycd.NDArrayInfo.DASK.module()
+        arr = xp.from_delayed(
+            data,
+            shape=shape,
+            dtype=dtype,
+        )
+    else:
+        arr = data
+    return arr
