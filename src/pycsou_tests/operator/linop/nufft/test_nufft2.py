@@ -40,15 +40,22 @@ class TestNUFFT2(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         transform_N,
         transform_dimension,
         transform_sign,
+        transform_modeord,
     ) -> np.ndarray:
         # Ground-truth LinOp A: \bC^{N.prod()} -> \bC^{M} which encodes the type-2 transform.
-        mesh = np.meshgrid(
-            *[np.arange(-(n // 2), (n - 1) // 2 + 1) for n in transform_N],
-            indexing="ij",
+        mesh = np.stack(  # (D, N1, ..., Nd)
+            np.meshgrid(
+                *[np.arange(-(n // 2), (n - 1) // 2 + 1) for n in transform_N],
+                indexing="ij",
+            ),
+            axis=0,
         )
-        mesh = np.stack(mesh, axis=0).reshape((transform_dimension, -1)).T
-        A = np.exp(1j * np.sign(transform_sign) * mesh @ transform_x.T).T  # (M, N.prod())
-        return A
+        if transform_modeord == 1:  # FFT order
+            mesh = np.fft.ifftshift(mesh, axes=-(1 + np.arange(len(transform_N))))
+        mesh = mesh.reshape((transform_dimension, -1))  # (D, N.prod())
+
+        A = np.exp(1j * transform_sign * mesh.T @ transform_x.T)  # (N.prod(), M)
+        return A.T  # (M, N.prod())
 
     # Fixtures from conftest.LinOpT -------------------------------------------
     @pytest.fixture(
@@ -69,6 +76,7 @@ class TestNUFFT2(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         transform_real,
         transform_ntrans,
         transform_nthreads,
+        transform_modeord,
         request,
     ):
         ndi, width = request.param
@@ -81,6 +89,7 @@ class TestNUFFT2(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
                 real=transform_real,
                 n_trans=transform_ntrans,
                 nthreads=transform_nthreads,
+                modeord=transform_modeord,
             )
         return op, ndi, width
 

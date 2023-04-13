@@ -35,7 +35,7 @@ class TestNUFFT3(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         transform_sign,
     ) -> np.ndarray:
         # Ground-truth LinOp A: \bC^{M} -> \bC^{N} which encodes the type-3 transform.
-        A = np.exp(1j * np.sign(transform_sign) * transform_z @ transform_x.T)  # (N, M)
+        A = np.exp(1j * transform_sign * transform_z @ transform_x.T)  # (N, M)
         return A
 
     # Fixtures from conftest.LinOpT -------------------------------------------
@@ -57,6 +57,7 @@ class TestNUFFT3(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         transform_real,
         transform_ntrans,
         transform_nthreads,
+        transform_modeord,
         request,
     ):
         ndi, width = request.param
@@ -69,6 +70,7 @@ class TestNUFFT3(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
                 real=transform_real,
                 n_trans=transform_ntrans,
                 nthreads=transform_nthreads,
+                modeord=transform_modeord,
             )
         return op, ndi, width
 

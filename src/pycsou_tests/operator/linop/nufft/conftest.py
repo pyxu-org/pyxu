@@ -72,6 +72,15 @@ class NUFFT_Mixin:
     def transform_real(self, request) -> bool:
         return request.param
 
+    @pytest.fixture(
+        params=[
+            0,  # LINEAR order
+            1,  # FFT order
+        ]
+    )
+    def transform_modeord(self, request) -> int:
+        return request.param
+
     # Overridden Tests --------------------------------------------------------
     def test_value_to_sciop(self, _op_sciop, _data_to_sciop):
         if _data_to_sciop["mode"] in {"matmat", "rmatmat"}:
