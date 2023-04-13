@@ -146,7 +146,7 @@ def _dask_zip(
     out_dtype: list[pyct.DType],
     parallel: bool,
 ) -> list[pyct.NDArray]:
-    # (This is Low-Level function.)
+    # (This is a Low-Level function.)
     #
     # Computes the equivalent of ``out = [f(x) for (f, x) in zip(func, data)]``, with the following semantics:
     #
@@ -211,7 +211,7 @@ def _dask_zip(
     # out: list[pyct.NDArray]
     #     (N_data,) objects acted upon.
     #
-    #     Outputs have the same backend/dtype as inputs.
+    #     Outputs have the same backend/dtype as inputs, or as specified by `out_[shape,dtype]`.
     assert all(len(_) == len(func) for _ in [data, out_shape, out_dtype])
 
     NDI = pycd.NDArrayInfo
