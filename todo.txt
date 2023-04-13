@@ -80,7 +80,6 @@ Sepand
   * NUFFT
     * CuPy backend currently not tested since only kicks in/works when eps=0.
       Enable CuPy backend once eps>0 case also becomes CuPy-capable.
-    * `modeord` is not tested
 
    
 
