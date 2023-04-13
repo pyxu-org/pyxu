@@ -233,11 +233,7 @@ def _dask_zip(
                     children=dask.delayed(func[i], pure=False),
                     parents=out[i - 1] if (i > 0) else [],
                 )
-            blk = xp.from_delayed(
-                _func(data[i]),
-                shape=out_shape[i],
-                dtype=out_dtype[i],
-            )
+            blk = _array_ize(_func(data[i]), out_shape[i], out_dtype[i])
             out.append(blk)
     else:
         out = [_func(arr) for (_func, arr) in zip(func, data)]
