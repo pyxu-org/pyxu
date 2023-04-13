@@ -1756,7 +1756,7 @@ class _NUFFT1(NUFFT):
             raise NotImplementedError
 
         if self._modeord == 1:  # FFT-order
-            grid = xp.fft.ifftshift(grid)
+            grid = xp.fft.ifftshift(grid, axes=np.arange(len(N)))
         return grid
 
     def asarray(self, **kwargs) -> pyct.NDArray:
