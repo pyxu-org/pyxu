@@ -393,8 +393,7 @@ class L21Norm(ShiftLossMixin, pyca.ProxFunc):
 
 class PositiveL1Norm(ShiftLossMixin, pyca.ProxFunc):
     r"""
-    Computes the :math:`\ell_1`-norm while enforcing a positivity constraint by adding the indicator function of
-    the positive orthant.
+    :math:`\ell_1`-norm, with a positivity constraint.
 
     .. math::
 
