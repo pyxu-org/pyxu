@@ -287,6 +287,7 @@ class Stencil(pyca.SquareOp):
         enable_warnings: bool
             If ``True``, emit a warning in case of precision mis-match issues.
         """
+        self._center = center
         arg_shape, _kernel, _center, _mode = self._canonical_repr(arg_shape, kernel, center, mode)
         codim = dim = np.prod(arg_shape)
         super().__init__(shape=(codim, dim))
@@ -568,3 +569,71 @@ class Stencil(pyca.SquareOp):
             kwargs.update(dtype=self._dtype)
             tr = super().trace(**kwargs)
         return float(tr)
+
+    @property
+    def kernel(self) -> KernelSpec:
+        r"""
+        Stencil's kernel.
+
+        Returns
+        -------
+        NDArray | tuple[NDArray_1, ..., NDArray_D]
+            Stencil coefficients stored as a single array for non-separable kernels or a list of :math:`D` arrays for
+            separable kernels.
+        """
+        if len(self._st_fw) == 1:
+            return self._st_fw[0]._kernel
+        else:
+            return [st._kernel for st in self._st_fw]
+
+    @property
+    def relative_indices(self) -> typ.Sequence[pyct.NDArray]:
+        r"""
+        Relative indices of the stencil.
+
+        Returns
+        -------
+        Sequence[NDArray]
+            Relative indices of the stencil's kernel in each dimension.
+
+        Examples
+        --------
+
+        >>> S = Stencil(arg_shape=(5,6,9), kernel=[np.r_[1, -1], np.r_[3, 2, 1], np.r_[2,-1, 3 ,1]], center=(1, 0, 3))
+        >>> S.relative_indices
+        [array([-1,  0]), array([0, 1, 2]), array([-3, -2, -1,  0])]
+
+        """
+        if len(self._st_fw) == 1:
+            return [np.arange(s) - c for c, s in zip(self._center, self.kernel.shape)]
+        else:
+            return [np.arange(k.size) - c for c, k in zip(self._center, self.kernel)]
+
+    def print_kernel(self):
+        r"""
+        Print the :math:`D`-dimensional stencil's kernel.
+
+        The stencil's center is identified by surrounding parentheses.
+
+        Examples
+        --------
+
+        >>> S = Stencil(arg_shape=(5,6,), kernel=[np.r_[3, 2, 1], np.r_[2,-1, 3 ,1]], center=(1, 2))
+        >>> S.print_kernel()
+        [[6.0 -3.0 9.0 3.0]
+         [4.0 -2.0 (6.0) 2.0]
+         [2.0 -1.0 3.0 1.0]]
+
+        """
+        if len(self._st_fw) == 1:
+            kernel_np = pycu.to_NUMPY(self.kernel)
+        else:
+            for i, k in enumerate(self.kernel):
+                if i == 0:
+                    kernel = k
+                else:
+                    kernel = kernel * k
+            kernel_np = pycu.to_NUMPY(kernel)
+        kernel_np = kernel_np.astype(str)
+        kernel_np[self._center] = "(" + kernel_np[self._center] + ")"
+        print(np.array2string(kernel_np).replace("'", ""))
