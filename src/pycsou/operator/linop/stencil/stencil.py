@@ -78,22 +78,21 @@ class Stencil(pyca.SquareOp):
 
          op = Stencil(
              arg_shape=x.shape,
-             kernel=np.array([1., 2, 3]),
+             kernel=np.array([1, 2, 3]),
              center=(2,),  # h[2] applies on x[n]
          )
 
          y = op.apply(x)  # [0, 3, 8, 14, 20, 26, 32, 38, 44, 50]
 
 
-    * **Image filtering 1**
+    * **Non-seperable image filtering**
 
       Let :math:`x[n, m]` denote a 2D image.
       The blurred image
 
       .. math::
 
-         y[n, m] = \frac{1}{4} x[n-1,m-1] + \frac{1}{4} x[n-1,m+1] + \frac{1}{4} x[n+1,m-1] +
-         \frac{1}{4} x[n+1,m+1]
+         y[n, m] = 2 x[n-1,m-1] + 3 x[n-1,m+1] + 4 x[n+1,m-1] + 5 x[n+1,m+1]
 
       can be viewed as the output of the 9-point stencil
 
@@ -102,9 +101,9 @@ class Stencil(pyca.SquareOp):
          h =
          \left[
          \begin{array}{ccc}
-            \frac{1}{4} & 0 & \frac{1}{4} \\
+            2 & 0 & 3 \\
             0 & 0 & 0 \\
-            \frac{1}{4} & 0 & \frac{1}{4}
+            4 & 0 & 5
          \end{array}
          \right].
 
@@ -123,42 +122,66 @@ class Stencil(pyca.SquareOp):
          #  [48, 49, 50, 51, 52, 53, 54, 55]
          #  [56, 57, 58, 59, 60, 61, 62, 63]]
 
-         c = 0.25
          op = Stencil(
              arg_shape=x.shape,
              kernel=np.array(
-                 [[c, 0, c],
+                 [[2, 0, 3],
                   [0, 0, 0],
-                  [c, 0, c]]),
+                  [4, 0, 5]]),
              center=(1, 1),  # h[1, 1] applies on x[n, m]
          )
 
          y = op.apply(x.reshape(-1)).reshape(8, 8)
-         # [[ 2.25,  4.5 ,  5.  ,  5.5 ,  6.  ,  6.5 ,  7.  ,  3.5 ]
-         #  [ 4.5 ,  9.  , 10.  , 11.  , 12.  , 13.  , 14.  ,  7.  ]
-         #  [ 8.5 , 17.  , 18.  , 19.  , 20.  , 21.  , 22.  , 11.  ]
-         #  [12.5 , 25.  , 26.  , 27.  , 28.  , 29.  , 30.  , 15.  ]
-         #  [16.5 , 33.  , 34.  , 35.  , 36.  , 37.  , 38.  , 19.  ]
-         #  [20.5 , 41.  , 42.  , 43.  , 44.  , 45.  , 46.  , 23.  ]
-         #  [24.5 , 49.  , 50.  , 51.  , 52.  , 53.  , 54.  , 27.  ]
-         #  [12.25, 24.5 , 25.  , 25.5 , 26.  , 26.5 , 27.  , 13.5 ]]
+         # [[ 45   82   91  100  109  118  127   56 ]
+         #  [ 88  160  174  188  202  216  230  100 ]
+         #  [152  272  286  300  314  328  342  148 ]
+         #  [216  384  398  412  426  440  454  196 ]
+         #  [280  496  510  524  538  552  566  244 ]
+         #  [344  608  622  636  650  664  678  292 ]
+         #  [408  720  734  748  762  776  790  340 ]
+         #  [147  246  251  256  261  266  271  108 ]]
 
-    * **Image filtering 2**
+    * **Seperable image filtering**
 
-      Following the example above, notice that :math:`y[n, m]` can be implemented more efficiently
+      Let :math:`x[n, m]` denote a 2D image.
+      The warped image
+
+      .. math::
+
+         \begin{align*}
+             y[n, m] = & +  4 x[n-1,m-1] +  5 x[n-1,m] +  6 x[n-1,m+1] \\
+                       & +  8 x[n  ,m-1] + 10 x[n  ,m] + 12 x[n  ,m+1] \\
+                       & + 12 x[n+1,m-1] + 15 x[n+1,m] + 18 x[n+1,m+1]
+         \end{align*}
+
+      can be viewed as the output of the 9-point stencil
+
+      .. math::
+
+         h_{2D} =
+         \left[
+         \begin{array}{ccc}
+             4 &  5 &  6 \\
+             8 & 10 & 12 \\
+            12 & 15 & 18 \\
+         \end{array}
+         \right].
+
+      Notice however that :math:`y[n, m]` can be implemented more efficiently
       by factoring the 9-point stencil as a cascade of two 3-point stencils:
 
       .. math::
 
-         h =
-         \left[
-         \begin{array}{ccc}
-            \frac{1}{2} & 0 & \frac{1}{2}
+         h_{2D}
+         = h_{1} h_{2}^{T}
+         = \left[
+         \begin{array}{c}
+            1 \\ 2 \\ 3
          \end{array}
          \right]
          \left[
          \begin{array}{c}
-            \frac{1}{2} \\ 0 \\ \frac{1}{2}
+            4 & 5 & 6
          \end{array}
          \right].
 
@@ -179,25 +202,33 @@ class Stencil(pyca.SquareOp):
          #  [48, 49, 50, 51, 52, 53, 54, 55]
          #  [56, 57, 58, 59, 60, 61, 62, 63]]
 
-         c = 0.5
-         op = Stencil(
+         op_2D = Stencil(  # using non-seperable kernel
+             arg_shape=x.shape,
+             kernel=np.array(
+                 [[ 4,  5,  6],
+                  [ 8, 10, 12],
+                  [12, 15, 18]]),
+             center=(1, 1),  # h[1, 1] applies on x[n, m]
+         )
+         op_sep = Stencil(  # using seperable kernels
              arg_shape=x.shape,
              kernel=[
-                 np.array([c, 0, c]),  # h1: stencil along 1st axis (rows)
-                 np.array([c, 0, c]),  # h2: stencil along 2nd axis (columns)
+                 np.array([1, 2, 3]),  # h1: stencil along 1st axis
+                 np.array([4, 5, 6]),  # h2: stencil along 2nd axis
              ],
              center=(1, 1),  # h1[1] * h2[1] applies on x[n, m]
          )
 
-         y = op.apply(x.reshape(-1)).reshape(8, 8)
-         # [[ 2.25,  4.5 ,  5.  ,  5.5 ,  6.  ,  6.5 ,  7.  ,  3.5 ]
-         #  [ 4.5 ,  9.  , 10.  , 11.  , 12.  , 13.  , 14.  ,  7.  ]
-         #  [ 8.5 , 17.  , 18.  , 19.  , 20.  , 21.  , 22.  , 11.  ]
-         #  [12.5 , 25.  , 26.  , 27.  , 28.  , 29.  , 30.  , 15.  ]
-         #  [16.5 , 33.  , 34.  , 35.  , 36.  , 37.  , 38.  , 19.  ]
-         #  [20.5 , 41.  , 42.  , 43.  , 44.  , 45.  , 46.  , 23.  ]
-         #  [24.5 , 49.  , 50.  , 51.  , 52.  , 53.  , 54.  , 27.  ]
-         #  [12.25, 24.5 , 25.  , 25.5 , 26.  , 26.5 , 27.  , 13.5 ]]
+         y_2D = op_2D.apply(x.reshape(-1)).reshape(8, 8)
+         y_sep = op_sep.apply(x.reshape(-1)).reshape(8, 8)  # np.allclose(y_2D, y_sep) -> True
+         # [[ 294   445   520   595   670   745   820   511 ]
+         #  [ 740  1062  1152  1242  1332  1422  1512   930 ]
+         #  [1268  1782  1872  1962  2052  2142  2232  1362 ]
+         #  [1796  2502  2592  2682  2772  2862  2952  1794 ]
+         #  [2324  3222  3312  3402  3492  3582  3672  2226 ]
+         #  [2852  3942  4032  4122  4212  4302  4392  2658 ]
+         #  [3380  4662  4752  4842  4932  5022  5112  3090 ]
+         #  [1778  2451  2496  2541  2586  2631  2676  1617 ]]
     """
 
     KernelSpec = typ.Union[
