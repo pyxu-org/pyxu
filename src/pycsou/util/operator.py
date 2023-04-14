@@ -65,7 +65,7 @@ def vectorize(
 
         * "scan" computes outputs using a for-loop.
         * "parallel" passes inputs to DASK and evaluates them in parallel.
-        * "scan_dask" passes inptus to DASK but evaluates inputs in sequence.
+        * "scan_dask" passes inputs to DASK but evaluates inputs in sequence.
           This is useful if the function being vectorized has a shared resource, i.e. is not
           thread-safe.
           It effectively gives a DASK-unaware function the ability to work with DASK inputs.
