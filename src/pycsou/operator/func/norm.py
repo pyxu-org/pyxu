@@ -422,13 +422,13 @@ class PositiveL1Norm(ShiftLossMixin, pyca.ProxFunc):
         super().__init__(shape=(1, dim))
         from pycsou.operator.func.indicator import PositiveOrthant
 
-        self.indicator = PositiveOrthant(dim=dim)
-        self.l1norm = L1Norm(dim=dim)
+        self._indicator = PositiveOrthant(dim=dim)
+        self._l1norm = L1Norm(dim=dim)
         self._lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        return self.indicator(arr) + self.l1norm(arr)
+        return self._indicator(arr) + self._l1norm(arr)
 
     @pycrt.enforce_precision(i=["arr", "tau"])
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
