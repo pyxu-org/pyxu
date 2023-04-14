@@ -433,4 +433,4 @@ class PositiveL1Norm(ShiftLossMixin, pyca.ProxFunc):
     @pycrt.enforce_precision(i=["arr", "tau"])
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        return xp.fmax(0.0, arr - tau)
+        return xp.fmax(0, arr - tau)
