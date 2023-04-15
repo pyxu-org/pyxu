@@ -2339,8 +2339,9 @@ class _NUFFT3_chunked(_NUFFT3):
     def ascomplexarray(self, **kwargs) -> pyct.NDArray:
         cA = super().ascomplexarray(**kwargs)
         rA = pycu.view_as_real_mat(cA, real_input=self._real)
-        rA = self._x_reorder.adjoint(rA)  # re-order rows
-        rA = self._z_reorder.apply(rA.T).T  # re-order columns
+        with pycrt.Precision(pycrt.Width(rA.dtype)):
+            rA = self._x_reorder.adjoint(rA)  # re-order rows
+            rA = self._z_reorder.apply(rA.T).T  # re-order columns
         cA = pycu.view_as_complex_mat(rA, real_input=self._real)
         return cA
 
