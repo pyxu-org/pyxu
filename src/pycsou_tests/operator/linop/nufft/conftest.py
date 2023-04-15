@@ -7,26 +7,6 @@ import pycsou_tests.operator.conftest as conftest
 
 
 class NUFFT_Mixin:
-    disable_test = frozenset(
-        conftest.LinOpT.disable_test
-        | {
-            # NUFFT does not support evaluating inputs at different precisions.
-            "test_precCM_adjoint",
-            "test_precCM_adjoint_dagger",
-            "test_precCM_adjoint_T",
-            "test_precCM_apply",
-            "test_precCM_apply_dagger",
-            "test_precCM_apply_T",
-            "test_precCM_call",
-            "test_precCM_call_dagger",
-            "test_precCM_call_T",
-            "test_precCM_eigvals",
-            "test_precCM_eigvals",
-            "test_precCM_pinv",
-            "test_precCM_svdvals",
-        }
-    )
-
     # Internal helpers --------------------------------------------------------
     @classmethod
     def _metric(
@@ -84,18 +64,18 @@ class NUFFT_Mixin:
     # Overridden Tests --------------------------------------------------------
     def test_value_to_sciop(self, _op_sciop, _data_to_sciop):
         if _data_to_sciop["mode"] in {"matmat", "rmatmat"}:
-            pytest.xfail(reason="Input is non-contiguous: apply/adjoint will fail.")
+            pytest.xfail(reason="Last axis is non-contiguous: apply/adjoint will fail.")
         else:
             super().test_value_to_sciop(_op_sciop, _data_to_sciop)
 
     def test_backend_to_sciop(self, _op_sciop, _data_to_sciop):
         if _data_to_sciop["mode"] in {"matmat", "rmatmat"}:
-            pytest.xfail(reason="Input is non-contiguous: apply/adjoint will fail.")
+            pytest.xfail(reason="Last axis is non-contiguous: apply/adjoint will fail.")
         else:
             super().test_backend_to_sciop(_op_sciop, _data_to_sciop)
 
     def test_prec_to_sciop(self, _op_sciop, _data_to_sciop):
         if _data_to_sciop["mode"] in {"matmat", "rmatmat"}:
-            pytest.xfail(reason="Input is non-contiguous: apply/adjoint will fail.")
+            pytest.xfail(reason="Last axis is non-contiguous: apply/adjoint will fail.")
         else:
             super().test_prec_to_sciop(_op_sciop, _data_to_sciop)
