@@ -124,16 +124,16 @@ def NullFunc(dim: pyct.Integer) -> pyct.OpT:
     return op
 
 
-def HomothetyOp(cst: pyct.Real, dim: pyct.Integer) -> pyct.OpT:
+def HomothetyOp(dim: pyct.Integer, cst: pyct.Real) -> pyct.OpT:
     """
     Scaling operator.
 
     Parameters
     ----------
-    cst: pyct.Real
-        Scaling factor.
     dim: pyct.Integer
         Dimension of the domain.
+    cst: pyct.Real
+        Scaling factor.
 
     Returns
     -------
