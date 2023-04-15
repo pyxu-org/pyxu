@@ -1146,6 +1146,11 @@ class QuadraticFunc(ProxDiffFunc):
         from pycsou.operator.linop import IdentityOp, NullFunc
 
         super().__init__(shape=shape)
+
+        # Do NOT access (_Q, _c, _t) directly through `self`:
+        # their values may not reflect the true (Q, c, t) parameterization.
+        # (Reason: arithmetic propagation.)
+        # Always access (Q, c, t) by querying the arithmetic method `_quad_spec()`.
         self._Q = IdentityOp(dim=self.dim) if (Q is None) else Q
         self._c = NullFunc(dim=self.dim) if (c is None) else c
         self._t = t

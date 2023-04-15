@@ -766,25 +766,29 @@ class AddRule(Rule):
             quad = lambda _: _.has(pyco.Property.QUADRATIC)
 
             if quad(self._lhs) and quad(self._rhs):
+                lQ, lc, lt = self._lhs._quad_spec()
+                rQ, rc, rt = self._rhs._quad_spec()
                 op = klass(
                     shape=sh_op,
-                    Q=self._lhs._Q + self._rhs._Q,
-                    c=self._lhs._c + self._rhs._c,
-                    t=self._lhs._t + self._rhs._t,
+                    Q=lQ + rQ,
+                    c=lc + rc,
+                    t=lt + rt,
                 )
             elif quad(self._lhs) and lin(self._rhs):
+                lQ, lc, lt = self._lhs._quad_spec()
                 op = klass(
                     shape=sh_op,
-                    Q=self._lhs._Q,
-                    c=self._lhs._c + self._rhs,
-                    t=self._lhs._t,
+                    Q=lQ,
+                    c=lc + self._rhs,
+                    t=lt,
                 )
             elif lin(self._lhs) and quad(self._rhs):
+                rQ, rc, rt = self._rhs._quad_spec()
                 op = klass(
                     shape=sh_op,
-                    Q=self._rhs._Q,
-                    c=self._lhs + self._rhs._c,
-                    t=self._rhs._t,
+                    Q=rQ,
+                    c=self._lhs + rc,
+                    t=rt,
                 )
             else:
                 raise ValueError("Impossible scenario: something went wrong during klass inference.")
