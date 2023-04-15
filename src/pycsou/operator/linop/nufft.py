@@ -2026,10 +2026,9 @@ class _NUFFT3_chunked(_NUFFT3):
         self._disable_unsupported_methods()
         self._parallel = kwargs.pop("parallel")  # for _parallelize()
 
-        pfw, pbw = kwargs["plan_fw"], kwargs["plan_bw"]
         kwargs.update(plan_fw=False, plan_bw=False)  # don't plan a huge NUFFT
         super().__init__(**kwargs)
-        kwargs.update(plan_fw=pfw, plan_bw=pbw)
+        self._fail_on_small_problems()
 
         self._kwargs = kwargs.copy()  # extra FINUFFT planning args
         for k in ["x", "z"]:
@@ -2381,6 +2380,17 @@ class _NUFFT3_chunked(_NUFFT3):
         for f in unsupported_fields:
             override = types.MethodType(unsupported, self)
             setattr(self, f, override)
+
+    def _fail_on_small_problems(self):
+        cst = 10
+        if (len(self._x) < cst) and (len(self._z) < cst):
+            msg = " ".join(
+                [
+                    f"A chunked-NUFFT3 is sub-optimal for very small problems:",
+                    "instantiate instead via `NUFFT.type3(x,z,eps=0)`.",
+                ]
+            )
+            raise ValueError(msg)
 
     @classmethod
     def _tree_sum(cls, data: cabc.Sequence):
