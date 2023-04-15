@@ -20,7 +20,7 @@ class TestNUFFT3(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         x = rng.normal(size=(request.param, transform_dimension))
         return x
 
-    @pytest.fixture(params=[1, 22])
+    @pytest.fixture(params=[11, 22])
     def transform_z(self, transform_dimension, request) -> np.ndarray:
         # (N, D) D-dimensional query points :math:`\mathbf{z}_{k} \in \mathbb{R}^{D}`.
         rng = np.random.default_rng(1)
@@ -107,7 +107,12 @@ class TestNUFFT3(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         )
 
 
-class TestNUFFT3_chunked(TestNUFFT3):
+class TestNUFFT3Chunked(TestNUFFT3):
+    # (Extra) Fixtures which parametrize operator -----------------------------
+    @pytest.fixture(params=[True, False])
+    def transform_parallel(self, request) -> bool:
+        return request.param
+
     # Fixtures from conftest.LinOpT -------------------------------------------
     @pytest.fixture(
         params=itertools.product(
@@ -116,7 +121,6 @@ class TestNUFFT3_chunked(TestNUFFT3):
                 pycd.NDArrayInfo.DASK,
             ],
             pycrt.Width,
-            [True, False],
         )
     )
     def spec(
@@ -128,19 +132,28 @@ class TestNUFFT3_chunked(TestNUFFT3):
         transform_real,
         transform_ntrans,
         transform_nthreads,
+        transform_modeord,
+        transform_parallel,
         request,
     ):
-        ndi, width, parallel = request.param
+        ndi, width = request.param
+        xp, dtype = ndi.module(), width.value
         with pycrt.Precision(width):
             op = pycl.NUFFT.type3(
-                x=transform_x,
-                z=transform_z,
+                x=xp.array(transform_x, dtype=dtype),
+                z=xp.array(transform_z, dtype=dtype),
                 isign=transform_sign,
                 eps=transform_eps,
                 real=transform_real,
+                enable_warnings=False,
                 n_trans=transform_ntrans,
                 nthreads=transform_nthreads,
+                modeord=transform_modeord,
                 chunked=True,
-                parallel=parallel,
+                parallel=transform_parallel,
             )
+
+            # Extra initialization steps for chunked transforms
+            x_chunks, z_chunks = op.auto_chunk()
+            op.allocate(x_chunks, z_chunks)
         return op, ndi, width
