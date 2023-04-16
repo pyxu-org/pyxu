@@ -39,6 +39,8 @@ Sepand
       Reason: kr(A, B).svd() should always call LinFunc.lipschitz(), irrespective of the `tight` value. (Not done at the moment.)
       Obtaining a LinFunc from kr(A, B) is so corner-case that error is acceptable.
   * NUFFT
+    * test_value1D_svdvals() fails sometimes when k > 1.
+      Reason unknown.
     * type[123]()
       Some tests fail only with DASK inputs.
       Reason unknown.
