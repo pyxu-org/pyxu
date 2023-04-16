@@ -1,6 +1,7 @@
 import cmath
 import collections
 import collections.abc as cabc
+import functools
 import itertools
 import math
 import threading
@@ -16,7 +17,6 @@ import scipy.optimize as sopt
 import scipy.spatial as spl
 
 import pycsou.abc as pyca
-import pycsou.operator.blocks as pycb
 import pycsou.operator.linop.select as pycs
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
@@ -2013,6 +2013,44 @@ class _NUFFT3(NUFFT):
         return h_width, center
 
 
+def _parallelize(func: cabc.Callable) -> cabc.Callable:
+    # Parallelize execution of func() under conditions.
+    #
+    # * func() must be one of the arithmetic methods [apply,prox,grad,adjoint,pinv]()
+    # * the `_parallel` attribute must be attached to the instance for it to parallelize execution
+    #   over NUMPY inputs.
+
+    @functools.wraps(func)
+    def wrapper(*ARGS, **KWARGS):
+        func_args = pycu.parse_params(func, *ARGS, **KWARGS)
+
+        arr = func_args.get("arr", None)
+        N = pycd.NDArrayInfo
+        parallelize = ARGS[0]._parallel and (N.from_obj(arr) == N.NUMPY)
+
+        # [2022.09.26] Sepand Kashani
+        # Q: Why do we parallelize only for NUMPY inputs and not CUPY?
+        # A: Given an arithmetic method `f`, there is no obligation (for DASK inputs) to satisfy the
+        #    relation `f(arr).chunk_type == arr.chunk_type`.
+        #    In particular the relationship does not hold for LinFunc.[grad, adjoint]() unless the
+        #    user provides a special implementation for DASK inputs.
+        #    Consequence: the sum() / xp.concatenate() instructions in _COOBlock() may:
+        #    * fail due to array-type mismatch; or
+        #    * induce unnecessary CPU<>GPU transfers.
+
+        if parallelize:
+            xp = N.DASK.module()
+            func_args.update(arr=xp.array(arr, dtype=arr.dtype))
+        else:
+            pass
+
+        out = func(**func_args)
+        f = {True: pycu.compute, False: lambda _: _}[parallelize]
+        return f(out)
+
+    return wrapper
+
+
 class _NUFFT3_chunked(_NUFFT3):
     # Note:
     # * params() in chunked-context returns equivalent parameters of one single huge NUFFT3 block.
@@ -2048,7 +2086,7 @@ class _NUFFT3_chunked(_NUFFT3):
         ]:
             setattr(self, attr, None)
 
-    @pycb._parallelize
+    @_parallelize
     @pycrt.enforce_precision("arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         assert self._initialized
@@ -2074,7 +2112,7 @@ class _NUFFT3_chunked(_NUFFT3):
         out = self._z_reorder.apply(out)
         return out
 
-    @pycb._parallelize
+    @_parallelize
     @pycrt.enforce_precision("arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         assert self._initialized
@@ -2104,7 +2142,7 @@ class _NUFFT3_chunked(_NUFFT3):
         NDI = pycd.NDArrayInfo
         dask_input = NDI.from_obj(arr) == NDI.DASK
 
-        if self._parallel or dask_input:
+        if dask_input:
             func = dask.delayed(
                 self._transform,
                 pure=True,
