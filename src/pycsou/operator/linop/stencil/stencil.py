@@ -492,9 +492,14 @@ class Stencil(pyca.SquareOp):
         #
         # x: (N_stack, N_1, ..., N_D)
         # y: (N_stack, N_1, ..., N_D)
-        #
-        # Caution: `x` is modified in-place.
-        y = x.copy()
+        if len(stencils) == 1:
+            x, y = x, x.copy()
+        else:
+            # [2023.04.17, Sepand]
+            # In-place updates of `x` breaks thread-safety of Stencil().
+            # This is problematic if Stencil() is used with DASK inputs.
+            x, y = x.copy(), x.copy()
+
         for st in stencils:
             st.apply(x, y, **self._dispatch_params)
             x, y = y, x
