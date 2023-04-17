@@ -1,9 +1,9 @@
 import collections
 import collections.abc as cabc
+import copy
 import functools
 import itertools
 import types
-import typing
 
 import numpy as np
 
@@ -136,7 +136,6 @@ def vstack(
         ),
         grid_shape=(N_data, 1),
         parallel=kwargs.get("parallel", False),
-        threadsafe=kwargs.get("threadsafe", True),
     ).op()
     op._expr = types.MethodType(op_expr, op)
     return op
@@ -204,7 +203,6 @@ def hstack(
         ),
         grid_shape=(1, N_data),
         parallel=kwargs.get("parallel", False),
-        threadsafe=kwargs.get("threadsafe", True),
     ).op()
     op._expr = types.MethodType(op_expr, op)
     return op
@@ -330,7 +328,6 @@ def block_diag(
         ),
         grid_shape=(N_data, N_data),
         parallel=kwargs.get("parallel", False),
-        threadsafe=kwargs.get("threadsafe", True),
     ).op()
     op.svdvals = types.MethodType(op_svdvals, op)
     op.eigvals = types.MethodType(op_eigvals, op)
@@ -423,7 +420,6 @@ def coo_block(
     grid_shape: pyct.OpShape,
     *,
     parallel: bool = False,
-    threadsafe: bool = True,
 ) -> pyct.OpT:
     r"""
     Constuct a (possibly-sparse) block-defined operator in COOrdinate format.
@@ -443,7 +439,7 @@ def coo_block(
     grid_shape: pyct.OpShape
         (M, N) shape of the coarse grid.
 
-    parallel: bool | dict
+    parallel: bool
         If ``true`` , use Dask to evaluate the following methods:
 
         * ``.apply()``
@@ -451,17 +447,6 @@ def coo_block(
         * ``.grad()``
         * ``.adjoint()``
         * ``.[co]gram().[apply,adjoint]()``
-
-    threadsafe: bool | dict
-        If a dict is passed, it should indicate with keyword arguments whether it is thread-safe
-        (https://www.wikiwand.com/en/Thread_safety) to use the Dask default scheduler to multithread.
-        Keys:
-
-        * direct (for ``.apply()``, ``.adjoint()``, ``.grad()``, ``.prox()`` and ``.jacobian()``)
-        * gram
-        * cogram
-
-        If ``true`` (``false``) , indicates that is safe parallelize computation via Dask of all (none) of the methods.
 
     Returns
     -------
@@ -508,7 +493,6 @@ def coo_block(
         ops=ops,
         grid_shape=grid_shape,
         parallel=parallel,
-        threadsafe=threadsafe,
     ).op()
     return op
 
@@ -526,9 +510,7 @@ def _parallelize(func: cabc.Callable) -> cabc.Callable:
 
         arr = func_args.get("arr", None)
         N = pycd.NDArrayInfo
-        parallelize = ARGS[0]._parallel
-        if parallelize:
-            assert ARGS[0]._threadsafe
+        parallelize = ARGS[0]._parallel and (N.from_obj(arr) == N.NUMPY)
 
         # [2022.09.26] Sepand Kashani
         # Q: Why do we parallelize only for NUMPY inputs and not CUPY?
@@ -541,27 +523,13 @@ def _parallelize(func: cabc.Callable) -> cabc.Callable:
         #    * induce unnecessary CPU<>GPU transfers.
 
         if parallelize:
-            if N.from_obj(arr) == N.NUMPY:
-                # Use Dask to create a computational graph and run in parallel
-                xp = N.DASK.module()
-                func_args.update(arr=xp.array(arr, dtype=arr.dtype))
-            else:
-                # Dask inputs will run computation in parallel by default
-                pass
+            xp = N.DASK.module()
+            func_args.update(arr=xp.array(arr, dtype=arr.dtype))
         else:
-            if N.from_obj(arr) == N.DASK:
-                # Ensure thread-safety by enforcing sequential computation over Dask task graph
-                ARGS[0]._thread_protect = True
-            else:
-                # Numpy inputs will run computation sequentially by default
-                pass
+            pass
+
         out = func(**func_args)
-        f = {True: pycu.compute, False: lambda _: _}[parallelize and (N.from_obj(arr) == N.NUMPY)]
-
-        if not parallelize and (N.from_obj(arr) == N.DASK):
-            # Clean state
-            ARGS[0]._thread_protect = False
-
+        f = {True: pycu.compute, False: lambda _: _}[parallelize]
         return f(out)
 
     return wrapper
@@ -579,18 +547,10 @@ class _COOBlock:  # See coo_block() for a detailed description.
         ],
         grid_shape: pyct.OpShape,
         parallel: bool,
-        threadsafe: typing.Union[bool, dict],
     ):
         self._grid_shape = tuple(grid_shape)
         self._init_spec(ops)
         self._parallel = bool(parallel)
-        if isinstance(threadsafe, dict):
-            self._threadsafe = bool(threadsafe.get("direct", True))
-            self._threadsafe_gram = bool(threadsafe.get("gram", True))
-            self._threadsafe_cogram = bool(threadsafe.get("cogram", True))
-        elif isinstance(threadsafe, bool):
-            self._threadsafe = self._threadsafe_gram = self._threadsafe_cogram = threadsafe
-        self._thread_protect = False  # To be modified via _parallelize wrapper
 
     def op(self) -> pyct.OpT:
         """
@@ -605,16 +565,10 @@ class _COOBlock:  # See coo_block() for a detailed description.
             _, op = blk.popitem()
         else:
             op = self._infer_op()
-
-            # embed for introspection
-            op._block = self._block
-            op._block_offset = self._block_offset
-            op._grid_shape = self._grid_shape
-            op._parallel = self._parallel
-            op._threadsafe = self._threadsafe
-            op._threadsafe_gram = self._threadsafe_gram
-            op._threadsafe_cogram = self._threadsafe_cogram
-            op._thread_protect = self._thread_protect
+            op._block = self._block  # embed for introspection
+            op._block_offset = self._block_offset  # embed for introspection
+            op._grid_shape = self._grid_shape  # embed for introspection
+            op._parallel = self._parallel  # embed for introspection
             for p in op.properties():
                 # We do NOT override arithmetic attributes since `op` contains good values to start
                 # with.
@@ -736,22 +690,11 @@ class _COOBlock:  # See coo_block() for a detailed description.
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         # compute blocks
-        from pycsou.util.operator import _dask_zip
-
-        sh = arr.shape[:-1]
         parts = dict()
-
-        funcs, data, out_shape, out_dtype = [], [], [], []
         for idx, op in self._block.items():
             offset = self._block_offset[idx][1]
-            data.append(arr[..., offset : offset + op.dim])
-            funcs.append(op.apply)
-            out_shape.append(sh + (op.codim,))
-            out_dtype.append(arr.dtype)
-
-        funcs_out = _dask_zip(funcs, data, out_shape, out_dtype, parallel=not self._thread_protect)
-        for i, (idx, _) in enumerate(self._block.items()):
-            parts[idx] = funcs_out[i]
+            p = op.apply(arr[..., offset : offset + op.dim])
+            parts[idx] = p
 
         # row-oriented reduction (via +)
         rows = collections.defaultdict(list)
@@ -816,22 +759,12 @@ class _COOBlock:  # See coo_block() for a detailed description.
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         if not self.has(pyco.Property.PROXIMABLE):
             raise NotImplementedError
-        from pycsou.util.operator import _dask_zip
 
-        sh = arr.shape[:-1]
         parts = dict()
-
-        funcs, data, out_shape, out_dtype = [], [], [], []
         for idx, op in self._block.items():
             offset = self._block_offset[idx][1]
-            data.append(arr[..., offset : offset + op.dim])
-            funcs.append(functools.partial(op.prox, tau=tau))
-            out_shape.append(sh + (op.dim,))
-            out_dtype.append(arr.dtype)
-
-        funcs_out = _dask_zip(funcs, data, out_shape, out_dtype, parallel=not self._thread_protect)
-        for i, (idx, _) in enumerate(self._block.items()):
-            parts[idx] = funcs_out[i]
+            p = op.prox(arr=arr[..., offset : offset + op.dim], tau=tau)
+            parts[idx] = p
 
         xp = pycu.get_array_module(arr)
         parts = [parts[(0, c)] for c in range(len(parts))]  # re-ordering
@@ -878,7 +811,6 @@ class _COOBlock:  # See coo_block() for a detailed description.
                 ops=(data, (i, j)),
                 grid_shape=self._grid_shape,
                 parallel=self._parallel,
-                threadsafe=self._threadsafe,
             ).op()
         return out
 
@@ -914,23 +846,12 @@ class _COOBlock:  # See coo_block() for a detailed description.
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         if not self.has(pyco.Property.DIFFERENTIABLE_FUNCTION):
             raise NotImplementedError
-        from pycsou.util.operator import _dask_zip
 
-        sh = arr.shape[:-1]
         parts = dict()
-
-        funcs, data, out_shape, out_dtype = [], [], [], []
-
         for idx, op in self._block.items():
             offset = self._block_offset[idx][1]
-            data.append(arr[..., offset : offset + op.dim])
-            funcs.append(op.grad)
-            out_shape.append(sh + (op.dim,))
-            out_dtype.append(arr.dtype)
-
-        funcs_out = _dask_zip(funcs, data, out_shape, out_dtype, parallel=not self._thread_protect)
-        for i, (idx, _) in enumerate(self._block.items()):
-            parts[idx] = funcs_out[i]
+            p = op.grad(arr[..., offset : offset + op.dim])
+            parts[idx] = p
 
         xp = pycu.get_array_module(arr)
         parts = [parts[(0, c)] for c in range(len(parts))]  # re-ordering
@@ -944,23 +865,11 @@ class _COOBlock:  # See coo_block() for a detailed description.
             raise NotImplementedError
 
         # compute blocks
-        from pycsou.util.operator import _dask_zip
-
-        sh = arr.shape[:-1]
         parts = dict()
-
-        funcs, data, out_shape, out_dtype = [], [], [], []
-
         for idx, op in self._block.items():
             offset = self._block_offset[idx][0]
-            data.append(arr[..., offset : offset + op.codim])
-            funcs.append(op.adjoint)
-            out_shape.append(sh + (op.dim,))
-            out_dtype.append(arr.dtype)
-
-        funcs_out = _dask_zip(funcs, data, out_shape, out_dtype, parallel=not self._thread_protect)
-        for i, (idx, _) in enumerate(self._block.items()):
-            parts[idx[::-1]] = funcs_out[i]
+            p = op.adjoint(arr[..., offset : offset + op.codim])
+            parts[idx[::-1]] = p
 
         # row-oriented reduction (via +)
         rows = collections.defaultdict(list)
@@ -1054,7 +963,6 @@ class _COOBlock:  # See coo_block() for a detailed description.
                 ops=(data, (i, j)),
                 grid_shape=(N_col, N_col),
                 parallel=self._parallel,
-                threadsafe=self._threadsafe_gram,
             )
             .op()
             .asop(pyco.SelfAdjointOp)
@@ -1111,7 +1019,6 @@ class _COOBlock:  # See coo_block() for a detailed description.
                 ops=(data, (i, j)),
                 grid_shape=(N_row, N_row),
                 parallel=self._parallel,
-                threadsafe=self._threadsafe_cogram,
             )
             .op()
             .asop(pyco.SelfAdjointOp)
