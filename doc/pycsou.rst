@@ -12,6 +12,7 @@ Subpackages
    pycsou.math
    pycsou.opt
    pycsou.runtime
+   pycsou.sampler
    pycsou.util
 
 Module contents
