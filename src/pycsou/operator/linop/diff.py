@@ -382,7 +382,7 @@ def _PartialDerivative(
           * 'reflect'
           * 'symmetric'
           * 'edge'
-        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+        * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
     gpu: bool
@@ -470,6 +470,30 @@ class PartialDerivative:
     the `Gaussian derivative <https://www.crisluengo.net/archives/22/>`_ via the
     :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
 
+    **Adjoint**
+
+    When using the :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` constructor, the adjoint
+    of the resulting linear operator will vary depending on the type of finite differences:
+
+    * For ``forward`` type, the adjoint corresponds to:
+
+        :math:`(\frac{\partial^{\text{fwd}}}{\partial x})^{\ast} = -\frac{\partial^{\text{bwd}}}{\partial x}`
+
+    * For ``backward`` type, the adjoint corresponds to:
+
+        :math:`(\frac{\partial^{\text{bwd}}}{\partial x})^{\ast} = -\frac{\partial^{\text{fwd}}}{\partial x}`
+
+    * For ``central`` type, and for the :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative`
+    constructor, the adjoint corresponds to:
+
+        :math:`(\frac{\partial}{\partial x})^{\ast} = -\frac{\partial}{\partial x}`
+
+
+    .. warning::
+        When dealing with high-order partial derivatives, the stencils required to compute them can become exceedingly
+        large, resulting in computationally expensive evaluations. In such scenarios, it can be more efficient to
+        construct the partial derivative through a composition of lower-order partial derivatives.
+
     See Also
     --------
     :py:class:`~pycsou.operator.linop.diff.Gradient`, :py:class:`~pycsou.operator.linop.diff.Laplacian`,
@@ -517,7 +541,7 @@ class PartialDerivative:
               * 'reflect'
               * 'symmetric'
               * 'edge'
-            * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+            * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
             (See :py:func:`numpy.pad` for details.)
         gpu: bool
@@ -731,7 +755,7 @@ class PartialDerivative:
               * 'reflect'
               * 'symmetric'
               * 'edge'
-            * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+            * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
             (See :py:func:`numpy.pad` for details.)
         gpu: bool
@@ -1015,7 +1039,7 @@ def Gradient(
 ):
     r"""
     Gradient operator based on `Numba stencils <https://numba.pydata.org/numba-doc/latest/user/stencil.html>`_.
-    
+
     Notes
     -----
 
@@ -1031,10 +1055,10 @@ def Gradient(
         \end{bmatrix} \in \mathbb{R}^{D \times N_{0} \times \cdots \times N_{D-1}}
 
     The gradient can be approximated by `finite differences <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-    :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the 
+    :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the
     `Gaussian derivative <https://www.crisluengo.net/archives/22/>`_ via
     :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
-    
+
     Parameters
     ----------
     arg_shape: tuple
@@ -1058,7 +1082,7 @@ def Gradient(
           * 'reflect'
           * 'symmetric'
           * 'edge'
-        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+        * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
     gpu: bool
@@ -1207,7 +1231,7 @@ def Jacobian(
           * 'reflect'
           * 'symmetric'
           * 'edge'
-        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+        * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
     gpu: bool
@@ -1318,16 +1342,26 @@ def Hessian(
     The Hessian being symmetric, only the upper triangular part at most needs to be computed. Due to the (possibly)
     large size of the full Hessian, 4 different options are handled:
 
-    * [mode 0] ``directions`` is an integer, e.g.:
-      ``directions=0`` :math:`\rightarrow \partial^{2}\mathbf{f}/\partial x_{0}^{2}`.
-    * [mode 1] ``directions`` is tuple of length 2, e.g.:
-      ``directions=(0,1)`` :math:`\rightarrow  \partial^{2}\mathbf{f}/\partial x_{0}\partial x_{1}`.
-    * [mode 2]  ``directions`` is tuple of tuples, e.g.:
-      ``directions=((0,0), (0,1))`` :math:`\rightarrow  \left(\frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} },
-      \frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}\partial x_{1} }\right)`.
+    * [mode 0] ``directions`` is an integer, e.g.: ``directions=0``
+
+    .. math::
+        \partial^{2}\mathbf{f}/\partial x_{0}^{2}.
+
+    * [mode 1] ``directions`` is tuple of length 2, e.g.: ``directions=(0,1)``
+
+    .. math::
+        \partial^{2}\mathbf{f}/\partial x_{0}\partial x_{1}.
+
+    * [mode 2]  ``directions`` is tuple of tuples, e.g.: ``directions=((0,0), (0,1))``
+
+    .. math::
+        \left(\frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} }, \frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}\partial x_{1} }\right).
+
     * [mode 3] ``directions = 'all'`` (default), computes the Hessian for all directions, i.e.:
-      :math:`\rightarrow  \left(\frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} }, \frac{ \partial^{2}\mathbf{f} }
-      { \partial x_{0}\partial x_{1} }, \, \ldots , \, \frac{ \partial^{2}\mathbf{f} }{ \partial x_{D-1}^{2} }\right)`.
+
+    .. math::
+        \left(\frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} }, \frac{ \partial^{2}\mathbf{f} }
+      { \partial x_{0}\partial x_{1} }, \, \ldots , \, \frac{ \partial^{2}\mathbf{f} }{ \partial x_{D-1}^{2} }\right).
 
     The shape of the output :py:class:`~pycsou.abc.operator.LinOp` depends on the number of computed directions; by
     default (all directions), we have
@@ -1357,7 +1391,7 @@ def Hessian(
           * 'reflect'
           * 'symmetric'
           * 'edge'
-        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+        * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
     gpu: bool
@@ -1506,7 +1540,7 @@ def Laplacian(
           * 'reflect'
           * 'symmetric'
           * 'edge'
-        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+        * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
     gpu: bool
@@ -1788,7 +1822,7 @@ def DirectionalGradient(
           * 'reflect'
           * 'symmetric'
           * 'edge'
-        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+        * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
     gpu: bool
@@ -1934,7 +1968,7 @@ def DirectionalLaplacian(
           * 'reflect'
           * 'symmetric'
           * 'edge'
-        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+        * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
     gpu: bool
@@ -2070,7 +2104,7 @@ def DirectionalHessian(
           * 'reflect'
           * 'symmetric'
           * 'edge'
-        * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
+        * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
     gpu: bool
