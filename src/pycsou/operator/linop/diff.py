@@ -24,6 +24,7 @@ __all__ = [
     "PartialDerivative",
     "Gradient",
     "Jacobian",
+    "Divergence",
     "Hessian",
     "Laplacian",
     "DirectionalDerivative",
@@ -1302,6 +1303,151 @@ def Jacobian(
         op = grad
     op._name = "Jacobian"
     return _make_unravelable(op, (n_channels, *arg_shape))
+
+
+def Divergence(
+    arg_shape: pyct.NDArrayShape,
+    directions: typ.Optional[typ.Union[pyct.Integer, tuple[pyct.Integer, ...]]] = None,
+    diff_method: str = "fd",
+    mode: ModeSpec = "constant",
+    gpu: bool = False,
+    dtype: typ.Optional[pyct.DType] = None,
+    sampling: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1,
+    parallel: bool = False,
+    **diff_kwargs,
+):
+    r"""
+    Divergence operator based on `Numba stencils <https://numba.pydata.org/numba-doc/latest/user/stencil.html>`_.
+
+    Notes
+    -----
+
+    This operator computes the expansion or outgoingness of a :math:`D`-dimensional vector-valued signal of
+    :math:`C` variables :math:`\mathbf{f} = [\mathbf{f}_{0}, \ldots, \mathbf{f}_{C-1}]` with
+    :math:`\mathbf{f}_{c} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}}`.
+
+    The Divergence of :math:`\mathbf{f}` is computed via the adjoint of the gradient as follows:
+
+    .. math::
+
+        \operatorname{Div} \mathbf{f} = \boldsymbol{\nabla}^{\ast} \mathbf{f}
+        = \begin{bmatrix}
+        \frac{\partial \mathbf{f}}{\partial x_0} + \cdots \frac{\partial \mathbf{f}}{\partial x_{D-1}}
+        \end{bmatrix} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}}
+
+    When using finite differences to compute the Divergence (i.e., ``diff_method = "fd"``), the divergence returns the
+    adjoint of the gradient in reversed order:
+
+    * For ``forward`` type divergence, the adjoint of the gradient of "backward" type is used.
+    * For ``backward`` type divergence, the adjoint of the gradient of "forward" type is used.
+
+    For ``central`` type divergence, and for the Gaussian derivative method (i.e., ``diff_method = "gd"``), the adjoint
+    of the gradient of "central" type is used (no reversed order).
+
+
+    Parameters
+    ----------
+    arg_shape: tuple
+        Shape of the input array.
+    directions: int | tuple | None
+        Divergence directions. Defaults to `None`, which computes the divergence for all directions.
+    diff_method: str ['gd', 'fd']
+        Method used to approximate the derivative. Must be one of:
+
+        * 'fd' (default): finite differences
+        * 'gd': Gaussian derivative
+    mode: str | list(str)
+        Boundary conditions.
+        Multiple forms are accepted:
+
+        * str: unique mode shared amongst dimensions.
+          Must be one of:
+
+          * 'constant' (default): zero-padding
+          * 'wrap'
+          * 'reflect'
+          * 'symmetric'
+          * 'edge'
+        * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
+
+        (See :py:func:`numpy.pad` for details.)
+    gpu: bool
+        Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
+    dtype: pyct.DType
+        Working precision of the linear operator.
+    sampling: float | tuple
+        Sampling step (i.e., the distance between two consecutive elements of an array). Defaults to 1.
+    parallel: bool
+        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
+    diff_kwargs: dict
+        Keyword arguments to parametrize partial derivatives (see
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` and
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+
+    Returns
+    -------
+    op: :py:class:`~pycsou.abc.operator.LinOp`
+        Divergence
+
+    Example
+    -------
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.operator.linop.diff import Jacobian
+       from pycsou.util.misc import peaks
+
+       n = 1000
+       x = np.linspace(-3, 3, n)
+       xx, yy = np.meshgrid(x, x)
+       image = peaks(xx, yy)
+       arg_shape = image.shape  # (1000, 1000)
+       grad = Gradient(arg_shape=arg_shape)
+       div = Divergence(arg_shape=arg_shape)
+       # Construct Laplacian via composition
+       laplacian1 = div * grad
+       # Compare to default Laplacian
+       laplacian2 = Laplacian(arg_shape=arg_shape)
+       output1 = laplacian1(image.ravel())
+       output2 = laplacian2(image.ravel())
+       fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+       im = axes[0].imshow(np.log(abs(output1)).reshape(*arg_shape))
+       axes[0].set_title("Laplacian via composition")
+       plt.colorbar(im, ax=axes[0])
+       im = axes[1].imshow(np.log(abs(output1)).reshape(*arg_shape))
+       axes[1].set_title("Default Laplacian")
+       plt.colorbar(im, ax=axes[1])
+       plt.show()
+
+
+    See Also
+    --------
+    :py:func:`~pycsou.operator.linop.diff.Gradient`, :py:func:`~pycsou.operator.linop.diff.PartialDerivative`
+
+    """
+
+    if diff_method == "fd":
+        change = {"central": "central", "forward": "backward", "backward": "forward"}
+        diff_type = diff_kwargs.get("diff_type", "central")
+        diff_kwargs.update({"diff_type": change[diff_type]})
+
+    init_kwargs = dict(
+        arg_shape=arg_shape,
+        directions=directions,
+        diff_method=diff_method,
+        mode=mode,
+        gpu=gpu,
+        dtype=dtype,
+        sampling=sampling,
+        parallel=parallel,
+        **diff_kwargs,
+    )
+
+    op = Gradient(**init_kwargs).T
+    op._name = "Divergence"
+    return op
 
 
 def Hessian(

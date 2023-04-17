@@ -502,6 +502,84 @@ class TestJacobian(DiffOpMixin):
         )
 
 
+class TestDivergence(DiffOpMixin):
+    @pytest.fixture(
+        params=[
+            #          (arg_shape, directions)
+            (
+                (5,),
+                (0,),
+            ),
+            (
+                (5, 5),
+                (0, 1),
+            ),
+            (
+                (5, 5),
+                None,
+            ),
+            (
+                (5, 5, 5),
+                (0, 2),
+            ),
+        ]
+    )
+    def _spec(self, request):
+        # (arg_shape, directions) configs to test
+        return request.param
+
+    @pytest.fixture
+    def arg_shape(self, _spec):
+        return _spec[0]
+
+    @pytest.fixture
+    def directions(self, _spec):
+        return _spec[1]
+
+    @pytest.fixture
+    def data_shape(self, arg_shape, directions) -> pyct.NDArrayShape:
+        size = np.prod(arg_shape).item()
+        n_derivatives = len(directions) if directions is not None else len(arg_shape)
+        sh = (size, size * n_derivatives)
+        return sh
+
+    @pytest.fixture
+    def diff_op(self):
+        return pycdiff.Divergence
+
+    @pytest.fixture
+    def diff_kwargs(self, arg_shape, directions, ndi, width, sampling):
+        return {
+            "arg_shape": arg_shape,
+            "directions": directions,
+            "mode": "constant",
+            "gpu": ndi.name == "CUPY",
+            "dtype": width.value,
+            "sampling": sampling,
+        }
+
+    @pytest.fixture
+    def diff_params(self):
+        return {"diff_type": "central", "accuracy": 1}
+
+    @pytest.fixture
+    def data_apply(self, op, arg_shape, sampling, directions) -> conftest.DataLike:
+        out = self._random_array(arg_shape, seed=20)
+        directions = np.arange(len(arg_shape)) if directions is None else directions
+        x_np = np.pad(out, ((1, 1),) * len(arg_shape))
+        slices = (slice(None, None),) + (slice(1, -1, None),) * len(arg_shape)
+        arr = np.gradient(x_np, sampling, edge_order=2, axis=directions)
+        if len(directions) == 1:
+            arr = [
+                arr,
+            ]
+        arr = np.stack(arr)[slices]
+        return dict(
+            in_=dict(arr=arr.reshape(-1)),
+            out=out.reshape(-1),
+        )
+
+
 class TestLaplacian(DiffOpMixin):
     @pytest.fixture(params=[(5,), (5, 5, 5)])
     def arg_shape(self, request):
