@@ -460,6 +460,15 @@ def coo_block(
     * Each row/column of the coarse grid **must** contain at least one entry.
     * ``parallel=True`` only parallelizes execution when inputs to listed methods are NUMPY arrays.
 
+    .. Warning::
+
+       When processing Dask inputs, or when ``parallel=True``, operators which are not thread-safe
+       may produce incorrect results.
+       There is no easy way to ensure thread-safety at the level of
+       :py:mod:`~pycsou.operator.blocks` without impacting performance of all operators involved.
+       Users are thus responsible for executing block-defined operators correctly, i.e., if
+       thread-unsafe operators are involved, stick to NumPy/CuPy inputs.
+
     Examples
     --------
 
