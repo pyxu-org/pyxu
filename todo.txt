@@ -44,13 +44,11 @@ Sepand
     * type[123]()
       Some tests fail only with DASK inputs.
       Reason unknown.
-  * ProxAdam
-    * test_precCM_fit() fails stochastically.
-      Did not investigate yet.
+  * ProxAdam [total test time: ~42min]
     * test_transparent_fit() fails for some initializations.
       Did not investigate yet.
     * test_value_fit() fails for some initializations.
-      Did not investigate yet. Probably due to in-place updates.
+      Did not investigate yet.
   * JAX interop
     * The following tests fail with CuPy inputs (f32/f64), with mentioned errors. [Reason unknown.]
       - TestJaxScaledSum::test_math_adjoint()
