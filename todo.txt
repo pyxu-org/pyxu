@@ -77,8 +77,9 @@ Sepand
   * General
     * Add @slow_test tags.
     * Add alternative tox instance to run non-@slow_test tests.
-    * Add DASK_CUPY mode.
-      [Only to the test suite. Need to figure out how to introduce /w breaking deps.py]
+    * Add DASK_CUPY mode. [Only to the test suite.]
+      >>> with dask.config.set({"array.backend": "cupy"}):  # "numpy"
+      ...     darr = da.ones(10, chunks=(5,))  # Get cupy-backed collection
   * NUFFT
     * CuPy backend currently not tested since only kicks in/works when eps=0.
       Enable CuPy backend once eps>0 case also becomes CuPy-capable.
