@@ -24,3 +24,5 @@ References
 .. [NumOpt_NocWri] Wright S, Nocedal J. "Numerical optimization". Springer Science. 1999 Apr 3;35(67-68):7.
 .. [PoCS_Dykstra] Boyle JP, Dykstra RL. "A method for finding projections onto the intersection of convex sets in Hilbert spaces." Advances in order restricted statistical inference 1986 (pp. 28-47). Springer, New York, NY.
 .. [WelfordAlg] Welford, B. P. "Note on a method for calculating corrected sums of squares and products." Technometrics 4.3 (1962): 419-420.
+.. [ULA] Alain Durmus, and Éric Moulines. "Nonasymptotic convergence analysis for the unadjusted Langevin algorithm." The Annals of Applied Probability 27(3) 1551-1587, 2017.
+.. [MYULA] Alain Durmus, Éric Moulines, and Marcelo Pereyra, "Efficient Bayesian Computation by Proximal Markov Chain Monte Carlo: When Langevin Meets Moreau", SIAM Journal of Imaging Science, 2018
