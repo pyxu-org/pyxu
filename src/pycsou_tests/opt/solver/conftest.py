@@ -344,12 +344,24 @@ class SolverT:
 
     def test_transparent_fit(self, solver, kwargs_fit):
         # Running solver twice returns same results.
-        with pycrt.EnforcePrecision(False):
-            kwargs_fit = self.as_early_stop(kwargs_fit)
-            solver.fit(**kwargs_fit.copy())
-            data1, _ = solver.stats()
-            solver.fit(**kwargs_fit.copy())
-            data2, _ = solver.stats()
+
+        # `kwargs_fit` values may be coerced on 1st call to solver.fit(), in which case transparency
+        # will not be tested. (May happen if solver takes `kwargs_fit` values as-is, and does not
+        # make a copy internally.)
+        # Solution: Manually enforce precision of all input arrays prior to calling solver.fit().
+        kw_fit = dict()
+        for k, v in kwargs_fit.items():
+            try:
+                v_c = pycrt.coerce(v)
+            except Exception:
+                v_c = v
+            kw_fit[k] = v_c
+        kw_fit = self.as_early_stop(kw_fit)
+
+        solver.fit(**kw_fit.copy())
+        data1, _ = solver.stats()
+        solver.fit(**kw_fit.copy())
+        data2, _ = solver.stats()
 
         assert self._check_allclose(data1, data2)
 
