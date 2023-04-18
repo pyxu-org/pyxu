@@ -1,3 +1,4 @@
+import math
 import warnings
 
 import pycsou.abc as pyca
@@ -235,9 +236,8 @@ class ProxAdam(pyca.Solver):
             self._g = pycof.NullFunc(dim=x0.shape[-1])
 
         if a is None:
-            try:
-                mst["a"] = pycrt.coerce(1 / self._f.diff_lipschitz())
-            except ZeroDivisionError as exc:
+            mst["a"] = pycrt.coerce(1 / self._f.diff_lipschitz())
+            if math.isinf(mst["a"]):
                 # _f is constant-valued: a is a free parameter.
                 mst["a"] = pycrt.coerce(1)
                 msg = "\n".join(
