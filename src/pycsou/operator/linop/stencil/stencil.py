@@ -691,27 +691,35 @@ class Stencil(pyca.SquareOp):
         return tuple(ctr)
 
     @property
-    def relative_indices(self) -> typ.Sequence[pyct.NDArray]:
+    def relative_indices(self) -> cabc.Sequence[pyct.NDArray]:
         r"""
         Relative indices of the stencil.
 
         Returns
         -------
-        Sequence[NDArray]
+        r_idx: list(pyct.NDArray)
             Relative indices of the stencil's kernel in each dimension.
 
-        Examples
-        --------
+        Example
+        -------
+        .. code-block:: python3
 
-        >>> S = Stencil(arg_shape=(5,6,9), kernel=[np.r_[1, -1], np.r_[3, 2, 1], np.r_[2,-1, 3 ,1]], center=(1, 0, 3))
-        >>> S.relative_indices
-        [array([-1,  0]), array([0, 1, 2]), array([-3, -2, -1,  0])]
-
+           S = Stencil(
+               arg_shape=(5, 6, 9),
+               kernel=[
+                   np.r_[1, -1],
+                   np.r_[3, 2, 1],
+                   np.r_[2, -1, 3, 1],
+               ],
+               center=(1, 0, 3),
+           )
+           S.relative_indices  # [array([-1,  0]), array([0, 1, 2]), array([-3, -2, -1,  0])]
         """
         if len(self._st_fw) == 1:
-            return [np.arange(s) - c for c, s in zip(self.center, self.kernel.shape)]
+            r_idx = [np.arange(s) - c for c, s in zip(self.center, self.kernel.shape)]
         else:
-            return [np.arange(k.size) - c for c, k in zip(self.center, self.kernel)]
+            r_idx = [np.arange(k.size) - c for c, k in zip(self.center, self.kernel)]
+        return r_idx
 
     def print_kernel(self):
         r"""
