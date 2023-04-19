@@ -658,18 +658,21 @@ class Stencil(pyca.SquareOp):
     @property
     def kernel(self) -> KernelSpec:
         r"""
-        Stencil's kernel.
+        Stencil kernel coefficients.
 
         Returns
         -------
-        NDArray | tuple[NDArray_1, ..., NDArray_D]
-            Stencil coefficients stored as a single array for non-separable kernels or a list of :math:`D` arrays for
-            separable kernels.
+        kern: :py:attr:`~pycsou.operator.linop.stencil.stencil.Stencil.KernelSpec`
+            Stencil coefficients.
+
+            If the kernel is non-seperable, a single array is returned.
+            Otherwise :math:`D` arrays are returned, one per axis.
         """
         if len(self._st_fw) == 1:
-            return self._st_fw[0]._kernel
+            kern = self._st_fw[0]._kernel
         else:
-            return [st._kernel for st in self._st_fw]
+            kern = [st._kernel for st in self._st_fw]
+        return kern
 
     @property
     def center(self) -> _Stencil.IndexSpec:
