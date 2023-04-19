@@ -886,7 +886,7 @@ def Convolve(
        \,\cdot\,
        k[q_{1},\ldots,q_{D}]
 
-    We implement this convolution via a :py:class:`~pycsou.operator.linop.stencil.Stencil` object. To do so, we transform
+    We implement this convolution via a :py:class:`~pycsou.operator.linop.stencil.stencil.Stencil` object. To do so, we transform
     the convolution in an equivalent correlation:
 
     .. math::
