@@ -26,3 +26,4 @@ References
 .. [WelfordAlg] Welford, B. P. "Note on a method for calculating corrected sums of squares and products." Technometrics 4.3 (1962): 419-420.
 .. [ULA] Alain Durmus, and Éric Moulines. "Nonasymptotic convergence analysis for the unadjusted Langevin algorithm." The Annals of Applied Probability 27(3) 1551-1587, 2017.
 .. [MYULA] Alain Durmus, Éric Moulines, and Marcelo Pereyra, "Efficient Bayesian Computation by Proximal Markov Chain Monte Carlo: When Langevin Meets Moreau", SIAM Journal of Imaging Science, 2018
+.. [UQ_MCMC] Cai, Xiaohao, Marcelo Pereyra, and Jason D. McEwen. "Uncertainty quantification for radio interferometric imaging–I. Proximal MCMC methods." Monthly Notices of the Royal Astronomical Society 480.3 (2018): 4154-4169.
