@@ -1,3 +1,25 @@
+r"""
+This sampler module implements state-of-the-art algorithms that generate samples from probability distributions. These
+algorithms are particularly well-suited for high-dimensional distributions such as posterior distributions of inverse
+problems in imaging, which is a notoriously difficult task. The ability to sample from the posterior distribution is
+extremely valuable, as it allows to explore the landscape of the objective function instead of having a single point
+estimate (the maximum a posteriori solution, i.e. the mode of the posterior). This is useful for uncertainty
+quantification (UQ) purposes [UQ_MCMC]_, and it allows compute Monte Carlo estimates of expected values with respect to
+the posterior. For example, the mean of samples from the posterior is an approximation of the minimum mean-square error
+(MMSE) estimator that can be used for image reconstruction. Higher-order pixel-wise statistics (e.g., the variance) can
+also be computed in an online fashion (see :py:mod:`~pycsou.sampler.statistics` module) and provide useful diagnostic
+tools for uncertainty quantification.
+
+In the following example, we showcase the unajusted Langevin algorithm (:py:class:`~pycsou.sampler.sampler.ULA`) applied
+to a total-variation denoising problem. We show the MMSE estimate as well as the pixelwise variance of the samples. As
+expected, the variance is higher around edges than in the smooth regions, indicating that there is higher uncertainty
+in these regions.
+
+.. plot::
+    TODO waiting for diff
+
+"""
+
 import collections.abc as cabc
 import math
 
@@ -64,11 +86,26 @@ class ULA(_Sampler):
     .. math::
         \lim_{\gamma \to 0} \Vert p_\gamma - p \Vert_{\mathrm{TV}} = 0.
 
-    The dicretization step :math:`\gamma` is subject to the bias-variance tradeoff: a larger step will lead to faster
+    The discretization step :math:`\gamma` is subject to the bias-variance tradeoff: a larger step will lead to faster
     convergence of the Markov chain at the expense of a larger bias in the approximation of the distribution :math:`p`.
     Setting :math:`\gamma` as large as possible (default behavior) is recommended for large-scale problems, since
     convergence speed (rather than approximation bias) is then typically the main bottelneck. See `Example` section
     below for a concrete illustration of this bias.
+
+    Remark
+    ______
+
+    Like all MCMC sampling methods, ULA comes with the following challenges:
+
+    * The first few samples of the chain may not be adequate for computing statistics, as they might be located in low
+      probability regions. This challenge can either be alleviated by selecting a representative starting point to the
+      chain, or by having a `burn-in` phase where the first few samples are discarded.
+
+    * Consecutive samples are typically correlated, which can deteriorate the Monte-Carlo estimation of quantities of
+      interest. This issue can be alleviated by `thinning` the chain, i.e., selecting only every :math:`k` samples, at
+      the expense of an increased computational cost. Useful diagnostic tools to quantify this correlation between
+      samples include the pixel-wise autocorrelation function and the `effective sample size
+      <https://mc-stan.org/docs/reference-manual/effective-sample-size.html>`_.
 
     Example
     -------
