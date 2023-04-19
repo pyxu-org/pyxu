@@ -4,21 +4,20 @@ import math
 import pycsou.abc as pyca
 import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
-import pycsou.util.deps as pycd
+import pycsou.util as pycu
 import pycsou.util.ptype as pyct
-import pycsou.util.random as pycr
 
 
 class _Sampler:
     """Abstract base class for samplers."""
 
-    def samples(self, seed: pyct.Integer = None, **kwargs) -> cabc.Generator:
+    def samples(self, rng=None, **kwargs) -> cabc.Generator:
         """Returns a generator; samples are drawn by calling next(generator)."""
-        self._sample_init(seed, **kwargs)
+        self._sample_init(rng, **kwargs)
         while True:
             yield self._sample()
 
-    def _sample_init(self, seed, **kwargs):
+    def _sample_init(self, rng, **kwargs):
         """Optional method to set initial state of the sampler (e.g., a starting point)."""
         pass
 
@@ -185,7 +184,7 @@ class ULA(_Sampler):
         self._rng = None
         self.x = None
 
-    def _sample_init(self, seed: pyct.Integer, x0: pyct.NDArray, rng=None):
+    def _sample_init(self, rng, x0: pyct.NDArray):
         r"""
         Parameters
         ----------
@@ -196,8 +195,8 @@ class ULA(_Sampler):
         """
         self.x = x0
         if rng is None:
-            ndi = pycd.NDArrayInfo.from_obj(x0)
-            self._rng = pycr.default_rng(ndi, seed)
+            xp = pycu.get_array_module(x0)
+            self._rng = xp.random.default_rng(None)
         else:
             self._rng = rng
 
