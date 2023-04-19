@@ -76,13 +76,17 @@ class Stencil(pyca.SquareOp):
 
     This corresponds to a *correlation* with a shifted version of the kernel :math:`k`.
 
-    Summation terms involving out-of-bounds indices of :math:`x` are handled by Numba via zero-padding. We offer support for
-    additional padding types as follows: pad the input array with one of the supported mode, perform the zero-padded stencil operation
-    on the padded array, and discard the padded region with trimming.
-
-    Any stencil operator :math:`S` instantiated with this class can hence be written as the composition :math:`S = TS_0P`, where :math:`T, S_0, P` are the trimming, stencil with zero-padding conditions and
-    padding operators respectively. This construct allows us to handle complex boundary conditions under which :math:`S` *may not be a proper
-    stencil* (i.e., varying kernel) but can still be implemented efficiently via a proper stencil upon appropriate trimming/padding.
+    Numba stencils assume summation terms involving out-of-bound indices of :math:`x` are set to zero.
+    :py:class:`~pycsou.operator.linop.stencil.stencil.Stencil` lifts this constraint by extending
+    the stencil to boundary values via pre-padding and post-trimming.
+    Concretely, any stencil operator :math:`S` instantiated with
+    :py:class:`~pycsou.operator.linop.stencil.stencil.Stencil` can be written as the composition
+    :math:`S = TS_0P`, where :math:`T, S_0, P` are trimming, stencil with zero-padding
+    conditions, and padding operators respectively.
+    This construct allows :py:class:`~pycsou.operator.linop.stencil.stencil.Stencil` to handle
+    complex boundary conditions under which :math:`S` *may not be a proper stencil* (i.e., varying
+    kernel) but can still be implemented efficiently via a proper stencil upon appropriate
+    trimming/padding.
 
     For example consider the decomposition of the following (improper) stencil operator:
 
