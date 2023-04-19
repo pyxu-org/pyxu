@@ -25,26 +25,28 @@ class Stencil(pyca.SquareOp):
     r"""
     Multi-dimensional JIT-compiled stencil.
 
-    Stencils are a common computational pattern in which array elements are updated according to some fixed
-    pattern called the stencil kernel. Notable examples include multi-dimensional convolutions, correlations and finite
-    differences (see Notes for a definition).
+    Stencils are a common computational pattern in which array elements are updated according to
+    some fixed pattern called the *stencil kernel*.
+    Notable examples include multi-dimensional convolutions, correlations and finite differences.
+    (See Notes for a definition.)
 
     Stencils can be evaluated efficiently on CPU/GPU architectures.
 
     Several boundary conditions are supported.
     Moreover boundary conditions may differ per axis.
 
-    **Implementation Notes**
+    Implementation Notes
+    --------------------
 
-    * Numba (an its ``@stencil``'s decorator) is used behind the scenes to compile efficient machine code from a stencil kernel
-      specification.
+    * Numba (and its ``@stencil`` decorator) is used behind the scenes to compile efficient machine
+      code from a stencil kernel specification.
       This has 2 consequences:
 
       * :py:class:`~pycsou.operator.linop.stencil.stencil.Stencil` instances are **not
-        arraymodule-agnostic**: they will only work with NDArrays belonging to the same array module
-        as ``kernel``.
-      * Compiled stencils are not **precision-agnostic**: they will only work on NDArrays with the
-        same dtype as ``kernel``.
+        arraymodule-agnostic**:
+        they will only work with NDArrays belonging to the same array module as ``kernel``.
+      * Compiled stencils are not **precision-agnostic**:
+        they will only work on NDArrays with the same dtype as ``kernel``.
         A warning is emitted if inputs must be cast to the kernel dtype.
 
     * Stencil kernels can be specified in two forms:
@@ -56,20 +58,21 @@ class Stencil(pyca.SquareOp):
         :math:`(k_{1},),\ldots,(k_{D},)` such that :math:`k[i_{1},\ldots,i_{D}] = \Pi_{d=1}^{D}
         k_{d}[i_{d}]`.
 
-    Notes
-    -----
-    Given a :math:`D`-dimensional array :math:`x\in\mathbb{R}^{N_1\times\cdots\times N_D}` and kernel
-    :math:`k\in\mathbb{R}^{k_1\times\cdots\times k_D}` with center :math:`(c_1, \ldots, c_D)`, the ouput of the stencil operator
-    is an array :math:`y\in\mathbb{R}^{N_1\times\cdots\times N_D}` given by:
+    Mathematical Notes
+    ------------------
+    Given a :math:`D`-dimensional array :math:`x\in\mathbb{R}^{N_1\times\cdots\times N_D}` and
+    kernel :math:`k\in\mathbb{R}^{k_1\times\cdots\times k_D}` with center :math:`(c_1, \ldots, c_D)`,
+    the output of the stencil operator is an array :math:`y\in\mathbb{R}^{N_1\times\cdots\times
+    N_D}` given by:
 
     .. math::
 
-               y[i_{1},\ldots,i_{D}]
-               =
-               \sum_{q_{1},\ldots,q_{D}=0}^{k_{1},\ldots,k_{D}}
-               x[i_{1} - c_{1} + q_{1},\ldots,i_{D} - c_{D} + q_{D}]
-               \,\cdot\,
-               k[q_{1},\ldots,q_{D}]
+       y[i_{1},\ldots,i_{D}]
+       =
+       \sum_{q_{1},\ldots,q_{D}=0}^{k_{1},\ldots,k_{D}}
+       x[i_{1} - c_{1} + q_{1},\ldots,i_{D} - c_{D} + q_{D}]
+       \,\cdot\,
+       k[q_{1},\ldots,q_{D}]
 
     This corresponds to a *correlation* with a shifted version of the kernel :math:`k`.
 
@@ -83,64 +86,88 @@ class Stencil(pyca.SquareOp):
 
     For example consider the decomposition of the following (improper) stencil operator:
 
-    >>> S = Stencil(arg_shape=(5,), kernel=np.r_[1,2,-3], center=(2,), mode="reflect")
-    [[-3.  2.  1.  0.  0.]
-     [ 2. -2.  0.  0.  0.]
-     [ 1.  2. -3.  0.  0.]
-     [ 0.  1.  2. -3.  0.]
-     [ 0.  0.  1.  2. -3.]] # Improper stencil (kernel varies across rows)
-     =
-     [[0. 0. 1. 0. 0. 0. 0. 0. 0.]
-     [0. 0. 0. 1. 0. 0. 0. 0. 0.]
-     [0. 0. 0. 0. 1. 0. 0. 0. 0.]
-     [0. 0. 0. 0. 0. 1. 0. 0. 0.]
-     [0. 0. 0. 0. 0. 0. 1. 0. 0.]] #Trimming
-     @
-     [[-3.  0.  0.  0.  0.  0.  0.  0.  0.]
-     [ 2. -3.  0.  0.  0.  0.  0.  0.  0.]
-     [ 1.  2. -3.  0.  0.  0.  0.  0.  0.]
-     [ 0.  1.  2. -3.  0.  0.  0.  0.  0.]
-     [ 0.  0.  1.  2. -3.  0.  0.  0.  0.]
-     [ 0.  0.  0.  1.  2. -3.  0.  0.  0.]
-     [ 0.  0.  0.  0.  1.  2. -3.  0.  0.]
-     [ 0.  0.  0.  0.  0.  1.  2. -3.  0.]
-     [ 0.  0.  0.  0.  0.  0.  1.  2. -3.]] #Proper stencil (Toeplitz structure)
-     @
-     [[0. 0. 1. 0. 0.]
-     [0. 1. 0. 0. 0.]
-     [1. 0. 0. 0. 0.]
-     [0. 1. 0. 0. 0.]
-     [0. 0. 1. 0. 0.]
-     [0. 0. 0. 1. 0.]
-     [0. 0. 0. 0. 1.]
-     [0. 0. 0. 1. 0.]
-     [0. 0. 1. 0. 0.]] #Padding with reflect mode.
+    .. code-block:: python3
 
-    Note that the adjoint of a stencil operator may not necessarily be a stencil operator, or the associated center and boundary
-    conditions may be hard to predict.  For example, the adjoint of the stencil operator defined above is given by:
+       >>> S = Stencil(
+       ...      arg_shape=(5,),
+       ...      kernel=np.r_[1, 2, -3],
+       ...      center=(2,),
+       ...      mode="reflect",
+       ... )
 
-    >>> S.T.asarray()
-    [[-3.,  2.,  1.,  0.,  0.],
-    [ 2., -2.,  2.,  1.,  0.],
-    [ 1.,  0., -3.,  2.,  1.],
-    [ 0.,  0.,  0., -3.,  2.],
-    [ 0.,  0.,  0.,  0., -3.]]
+       >>> S.asarray()
+       [[-3.  2.  1.  0.  0.]
+        [ 2. -2.  0.  0.  0.]
+        [ 1.  2. -3.  0.  0.]
+        [ 0.  1.  2. -3.  0.]
+        [ 0.  0.  1.  2. -3.]] # Improper stencil (kernel varies across rows)
+       =
+       [[0. 0. 1. 0. 0. 0. 0. 0. 0.]
+        [0. 0. 0. 1. 0. 0. 0. 0. 0.]
+        [0. 0. 0. 0. 1. 0. 0. 0. 0.]
+        [0. 0. 0. 0. 0. 1. 0. 0. 0.]
+        [0. 0. 0. 0. 0. 0. 1. 0. 0.]]  # Trimming
+       @
+       [[-3.  0.  0.  0.  0.  0.  0.  0.  0.]
+        [ 2. -3.  0.  0.  0.  0.  0.  0.  0.]
+        [ 1.  2. -3.  0.  0.  0.  0.  0.  0.]
+        [ 0.  1.  2. -3.  0.  0.  0.  0.  0.]
+        [ 0.  0.  1.  2. -3.  0.  0.  0.  0.]
+        [ 0.  0.  0.  1.  2. -3.  0.  0.  0.]
+        [ 0.  0.  0.  0.  1.  2. -3.  0.  0.]
+        [ 0.  0.  0.  0.  0.  1.  2. -3.  0.]
+        [ 0.  0.  0.  0.  0.  0.  1.  2. -3.]]  # Proper stencil (Toeplitz structure)
+       @
+       [[0. 0. 1. 0. 0.]
+        [0. 1. 0. 0. 0.]
+        [1. 0. 0. 0. 0.]
+        [0. 1. 0. 0. 0.]
+        [0. 0. 1. 0. 0.]
+        [0. 0. 0. 1. 0.]
+        [0. 0. 0. 0. 1.]
+        [0. 0. 0. 1. 0.]
+        [0. 0. 1. 0. 0.]]  # Padding with reflect mode.
 
-    which resembles as stencil with time-reversed kernel, but with weird (if not improper) boundary conditions. This can also
-    be seen from the fact that :math:`S^\ast = P^\ast S_0^\ast T^\ast = P^\ast S_0^\ast P_0,` and :math:`P^\ast` is in general
-    not a trimming operator (see :py:class:`~pycsou.operator.linop.pad.Pad`).
+    Note that the adjoint of a stencil operator may not necessarily be a stencil operator, or the
+    associated center and boundary conditions may be hard to predict.
+    For example, the adjoint of the stencil operator defined above is given by:
 
-    Same holds with the gram/cogram operators. Consider indeed the following order 1 backward finite-difference operator with zero-padding:
+    .. code-block:: python3
 
-    >>> S = Stencil(arg_shape=(5,), kernel=np.r_[-1, 1], center=(0,), mode='constant')
-    >>> S.gram().asarray()
-    [[ 1. -1.  0.  0.  0.]
-     [-1.  2. -1.  0.  0.]
-     [ 0. -1.  2. -1.  0.]
-     [ 0.  0. -1.  2. -1.]
-     [ 0.  0.  0. -1.  2.]]
+       >>> S.T.asarray()
+       [[-3.,  2.,  1.,  0.,  0.],
+        [ 2., -2.,  2.,  1.,  0.],
+        [ 1.,  0., -3.,  2.,  1.],
+        [ 0.,  0.,  0., -3.,  2.],
+        [ 0.,  0.,  0.,  0., -3.]]
 
-    We observe that the Gram differs from the order 2 centered finite-difference operator (reduced-order derivative on one side).
+    which resembles a stencil with time-reversed kernel, but with weird (if not improper) boundary
+    conditions.
+    This can also be seen from the fact that :math:`S^\ast = P^\ast S_0^\ast T^\ast = P^\ast
+    S_0^\ast P_0,` and :math:`P^\ast` is in general not a trimming operator.
+    (See :py:class:`~pycsou.operator.linop.pad.Pad`.)
+
+    The same holds for gram/cogram operators.
+    Consider indeed the following order-1 backward finite-difference operator with zero-padding:
+
+    .. code-block:: python3
+
+       >>> S = Stencil(
+       ...      arg_shape=(5,),
+       ...      kernel=np.r_[-1, 1],
+       ...      center=(0,),
+       ...      mode='constant',
+       ... )
+
+       >>> S.gram().asarray()
+       [[ 1. -1.  0.  0.  0.]
+        [-1.  2. -1.  0.  0.]
+        [ 0. -1.  2. -1.  0.]
+        [ 0.  0. -1.  2. -1.]
+        [ 0.  0.  0. -1.  2.]]
+
+    We observe that the Gram differs from the order 2 centered finite-difference operator
+    (reduced-order derivative on one side).
 
 
     Example
@@ -346,9 +373,10 @@ class Stencil(pyca.SquareOp):
               is filtered by stencil `kernel[k]`, that is:
 
               .. math::
+
                  k = k_1\otimes \cdots\otimes k_D,
 
-              or in Python: ``k = reduce(numpy.outer, kernel)``.
+              or in Python: ``k = reduce(operator.__mul__, kernel)``.
 
         center: IndexSpec
             (i_1, ..., i_D) index of the stencil's center.
