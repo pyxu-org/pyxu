@@ -373,7 +373,6 @@ class Stencil(pyca.SquareOp):
         enable_warnings: bool
             If ``True``, emit a warning in case of precision mis-match issues.
         """
-        self._center = center
         arg_shape, _kernel, _center, _mode = self._canonical_repr(arg_shape, kernel, center, mode)
         codim = dim = np.prod(arg_shape)
         super().__init__(shape=(codim, dim))
@@ -673,6 +672,22 @@ class Stencil(pyca.SquareOp):
             return [st._kernel for st in self._st_fw]
 
     @property
+    def center(self) -> _Stencil.IndexSpec:
+        """
+        Stencil central position.
+
+        Returns
+        -------
+        ctr: :py:attr:`~pycsou.operator.linop.stencil._stencil._Stencil.IndexSpec`
+            Stencil central position.
+        """
+        if len(self._st_fw) == 1:
+            ctr = self._st_fw[0]._center
+        else:
+            ctr = [st._center[d] for (d, st) in enumerate(self._st_fw)]
+        return tuple(ctr)
+
+    @property
     def relative_indices(self) -> typ.Sequence[pyct.NDArray]:
         r"""
         Relative indices of the stencil.
@@ -691,9 +706,9 @@ class Stencil(pyca.SquareOp):
 
         """
         if len(self._st_fw) == 1:
-            return [np.arange(s) - c for c, s in zip(self._center, self.kernel.shape)]
+            return [np.arange(s) - c for c, s in zip(self.center, self.kernel.shape)]
         else:
-            return [np.arange(k.size) - c for c, k in zip(self._center, self.kernel)]
+            return [np.arange(k.size) - c for c, k in zip(self.center, self.kernel)]
 
     def print_kernel(self):
         r"""
@@ -721,5 +736,5 @@ class Stencil(pyca.SquareOp):
                     kernel = kernel * k
             kernel_np = pycu.to_NUMPY(kernel)
         kernel_np = kernel_np.astype(str)
-        kernel_np[self._center] = "(" + kernel_np[self._center] + ")"
+        kernel_np[self.center] = "(" + kernel_np[self.center] + ")"
         print(np.array2string(kernel_np).replace("'", ""))
