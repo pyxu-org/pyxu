@@ -749,31 +749,35 @@ class Stencil(pyca.SquareOp):
             r_idx = [np.arange(k.size) - c for c, k in zip(self.center, self.kernel)]
         return r_idx
 
-    def print_kernel(self):
+    def visualize(self) -> str:
         r"""
-        Print the :math:`D`-dimensional stencil's kernel.
+        Show the :math:`D`-dimensional stencil kernel.
 
         The stencil's center is identified by surrounding parentheses.
 
-        Examples
-        --------
+        Example
+        -------
+        .. code-block:: python3
 
-        >>> S = Stencil(arg_shape=(5,6,), kernel=[np.r_[3, 2, 1], np.r_[2,-1, 3 ,1]], center=(1, 2))
-        >>> S.print_kernel()
-        [[6.0 -3.0 9.0 3.0]
-         [4.0 -2.0 (6.0) 2.0]
-         [2.0 -1.0 3.0 1.0]]
+           from pycsou.operator.linop import Stencil
 
+           S = Stencil(
+               arg_shape=(5, 6),
+               kernel=[
+                   np.r_[3, 2, 1],
+                   np.r_[2, -1, 3, 1],
+               ],
+               center=(1, 2),
+           )
+           print(S.visualize())  # [[6.0 -3.0  9.0  3.0]
+                                 #  [4.0 -2.0 (6.0) 2.0]
+                                 #  [2.0 -1.0  3.0 1.0]]
         """
-        if len(self._st_fw) == 1:
-            kernel_np = pycu.to_NUMPY(self.kernel)
-        else:
-            for i, k in enumerate(self.kernel):
-                if i == 0:
-                    kernel = k
-                else:
-                    kernel = kernel * k
-            kernel_np = pycu.to_NUMPY(kernel)
-        kernel_np = kernel_np.astype(str)
-        kernel_np[self.center] = "(" + kernel_np[self.center] + ")"
-        print(np.array2string(kernel_np).replace("'", ""))
+        kernels = [st._kernel for st in self._st_fw]
+        kernel = functools.reduce(operator.mul, kernels, 1)
+
+        kernel = pycu.to_NUMPY(kernel).astype(str)
+        kernel[self.center] = "(" + kernel[self.center] + ")"
+
+        kern = np.array2string(kernel).replace("'", "")
+        return kern
