@@ -90,7 +90,7 @@ class ULA(_Sampler):
     convergence of the Markov chain at the expense of a larger bias in the approximation of the distribution :math:`p`.
     Setting :math:`\gamma` as large as possible (default behavior) is recommended for large-scale problems, since
     convergence speed (rather than approximation bias) is then typically the main bottelneck. See `Example` section
-    below for a concrete illustration of this bias.
+    below for a concrete illustration of this tradeoff.
 
     Remark
     ______
@@ -138,12 +138,18 @@ class ULA(_Sampler):
 
     We plot the distribution of the samples of ULA for one large (:math:`\gamma_1 \approx 1`, i.e.
     :math:`\sigma_{\gamma_1}^2 \approx 2`) and one small (:math:`\gamma_2 = 0.1`, i.e. :math:`\sigma_{\gamma_2}^2
-    \approx 1.05`) step size.
+    \approx 1.05`) step size. As expected, the larger step size :math:`\gamma_1` leads to a larger bias in the
+    approximation of :math:`p(x)`. To quantify the speed of convergence of the Markov chains, we compute the `Cramér-von
+    Mises <https://en.wikipedia.org/wiki/Cram%C3%A9r%E2%80%93von_Mises_criterion>`_ tests of goodness of fit of the
+    empirical distributions to the stationary distributions of ULA :math:`p_{\gamma_1}(x)` and :math:`p_{\gamma_2}(x)`.
+    We observe that the larger step :math:`\gamma_1` leads to a better fit (lower Cramér-von Mises criterion), which
+    illustrates the aforementioned bias-variance tradeoff for the choice of the step size.
 
     .. plot::
 
         import matplotlib.pyplot as plt
         import numpy as np
+        import scipy as sp
 
         import pycsou.operator.func as pycof
         from pycsou.sampler.sampler import ULA
@@ -183,25 +189,34 @@ class ULA(_Sampler):
         biased_var = 1 / (1 - ula._gamma / 2)
         biased_var_lb = 1 / (1 - ula_lb._gamma / 2)
 
+        # Quantify goodness of fit of empirical distribution with theoretical distribution (Cramér-von Mises test)
+        cvm = sp.stats.cramervonmises(samples_ula, 'norm', args=(0, np.sqrt(biased_var)))
+        cvm_lb = sp.stats.cramervonmises(samples_ula_lb, 'norm', args=(0, np.sqrt(biased_var_lb)))
+
         # Plots
         grid = np.linspace(-4, 4, 1000)
 
         plt.figure()
-        plt.title(f"ULA samples (large step size) \n Empirical mean: {mean:.3f} (theoretical: 0) \n "
-                  f"Empirical variance: {var:.3f} (theoretical: {biased_var:.3f})")
+        plt.title(
+            f"ULA samples (large step size) \n Empirical mean: {mean:.3f} (theoretical: 0) \n "
+            f"Empirical variance: {var:.3f} (theoretical: {biased_var:.3f}) \n"
+            f"Cramér-von Mises goodness of fit: {cvm.statistic:.3f}"
+        )
         plt.hist(samples_ula, range=(min(grid), max(grid)), bins=100, density=True)
-        plt.plot(grid, np.exp(-(grid ** 2) / 2) / np.sqrt(2 * np.pi), label=r"$p(x)$")
-        plt.plot(grid, np.exp(-(grid ** 2) / (2 * biased_var)) / np.sqrt(2 * np.pi * biased_var),
-                 label=r"$p_{\gamma_1}(x)$")
+        plt.plot(grid, sp.stats.norm.pdf(grid), label=r"$p(x)$")
+        plt.plot(grid, sp.stats.norm.pdf(grid, scale=np.sqrt(biased_var)), label=r"$p_{\gamma_1}(x)$")
         plt.legend()
+        plt.show()
 
         plt.figure()
-        plt.title(f"ULA samples (small step size) \n Empirical mean: {mean_lb:.3f} (theoretical: 0) \n "
-                  f"Empirical variance: {var_lb:.3f} (theoretical: {biased_var_lb:.3f})")
+        plt.title(
+            f"ULA samples (small step size) \n Empirical mean: {mean_lb:.3f} (theoretical: 0) \n "
+            f"Empirical variance: {var_lb:.3f} (theoretical: {biased_var_lb:.3f}) \n"
+            f"Cramér-von Mises goodness of fit: {cvm_lb.statistic:.3f}"
+        )
         plt.hist(samples_ula_lb, range=(min(grid), max(grid)), bins=100, density=True)
-        plt.plot(grid, np.exp(-(grid ** 2) / 2) / np.sqrt(2 * np.pi), label=r"$p(x)$")
-        plt.plot(grid, np.exp(-(grid ** 2) / (2 * biased_var_lb)) / np.sqrt(2 * np.pi * biased_var_lb),
-                 label=r"$p_{\gamma_2}(x)$")
+        plt.plot(grid, sp.stats.norm.pdf(grid), label=r"$p(x)$")
+        plt.plot(grid, sp.stats.norm.pdf(grid, scale=np.sqrt(biased_var_lb)), label=r"$p_{\gamma_2}(x)$")
         plt.legend()
         plt.show()
     """
