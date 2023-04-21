@@ -103,7 +103,7 @@ class ViewAs:
 
     def test_backend(self, func, _valid_data):
         out = func(_valid_data[0])
-        assert type(out) == type(_valid_data[0])
+        assert type(out) == type(_valid_data[0])  # noqa: E721
 
     def test_prec(self, func, _valid_data, width_in_out):
         in_ = _valid_data[0]

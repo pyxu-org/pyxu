@@ -265,7 +265,7 @@ class MapT:
         with pycrt.EnforcePrecision(False):
             out = func(**in_)
 
-        assert type(out) == type(in_["arr"])
+        assert type(out) == type(in_["arr"])  # noqa: E721
 
     @staticmethod
     def _check_prec(func, data: DataLike):

@@ -138,4 +138,4 @@ class TestVectorize:
         in_["x"] = xp.array(in_["x"])
         out = vfunc(**in_)
 
-        assert type(out) == type(in_["x"])
+        assert type(out) == type(in_["x"])  # noqa: E721
