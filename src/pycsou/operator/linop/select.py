@@ -240,7 +240,7 @@ def Trim(
     is_seq = lambda _: isinstance(_, cabc.Sequence)
     if not is_seq(trim_width):  # int-form
         trim_width = ((trim_width, trim_width),) * N_dim
-    assert len(trim_width) == N_dim, f"arg_shape/trim_width are length-mismatched."
+    assert len(trim_width) == N_dim, "arg_shape/trim_width are length-mismatched."
     if not is_seq(trim_width[0]):  # tuple[int, ...] form
         trim_width = tuple((w, w) for w in trim_width)
     else:  # tuple[tuple[int, int], ...] form

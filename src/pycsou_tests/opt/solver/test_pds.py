@@ -253,7 +253,7 @@ class TestADMM(MixinPDS):
         # Overriden from base class
         isNLCG = (init_kwargs.get("K") is not None) and (not isinstance(init_kwargs.get("f"), pyco.QuadraticFunc))
         if (fit_kwargs["x0"].squeeze().ndim > 1) and isNLCG:
-            pytest.skip(f"NLCG scenario with multiple initial points not supported.")
+            pytest.skip("NLCG scenario with multiple initial points not supported.")
         return klass, init_kwargs, fit_kwargs
 
 

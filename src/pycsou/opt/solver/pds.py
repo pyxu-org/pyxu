@@ -727,7 +727,7 @@ class PD3O(_PrimalDualSplitting):
         sigma = None if sigma == 0 else sigma
 
         if (tau is not None) and (sigma is None):
-            assert 0 < tau <= 1 / gamma, f"tau must be positive and smaller than 1/gamma."
+            assert 0 < tau <= 1 / gamma, "tau must be positive and smaller than 1/gamma."
             if self._h._name == "NullFunc":
                 sigma = 0
             else:
@@ -1101,7 +1101,7 @@ class DavisYin(PD3O):
             Sensible primal/dual step sizes and value of :math:`\delta`.
         """
         if tau is not None:
-            assert 0 < tau <= 1 / gamma, f"tau must be positive and smaller than 1/gamma."
+            assert 0 < tau <= 1 / gamma, "tau must be positive and smaller than 1/gamma."
         else:
             tau = 1.0 if self._beta == 0 else 1 / gamma
 

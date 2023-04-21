@@ -2307,7 +2307,7 @@ class _NUFFT3_chunked(_NUFFT3):
                         [
                             f"'{var}' order is sub-optimal given provided chunk specifiers.",
                             f"'{var}' will be re-ordered internally to improve NUFFT performance.",
-                            f"The cost of re-ordering apply/adjoint inputs is significant when the number of non-uniform points x/z is large.",
+                            "The cost of re-ordering apply/adjoint inputs is significant when the number of non-uniform points x/z is large.",
                             f"It is recommended to re-initialize {self.__class__} where x/z [and apply/adjoint() inputs] are re-ordered.",
                             f"See notes/examples provided in docstring of {NUFFT.type3.__qualname__}() for how to achieve this.",
                         ]
@@ -2424,7 +2424,7 @@ class _NUFFT3_chunked(_NUFFT3):
         if (len(self._x) < cst) and (len(self._z) < cst):
             msg = " ".join(
                 [
-                    f"A chunked-NUFFT3 is sub-optimal for very small problems:",
+                    "A chunked-NUFFT3 is sub-optimal for very small problems:",
                     "instantiate instead via `NUFFT.type3(x,z,eps=0)`.",
                 ]
             )

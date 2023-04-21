@@ -743,7 +743,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
                 self._op = op
 
             def _expr(self) -> tuple:
-                head = f"block[" + ", ".join(map(str, self._idx)) + "]"
+                head = "block[" + ", ".join(map(str, self._idx)) + "]"
                 return (head, self._op)
 
         # head = coo_block[grid_shape]

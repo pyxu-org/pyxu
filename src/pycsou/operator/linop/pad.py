@@ -183,7 +183,7 @@ class Pad(pyca.LinOp):
         is_seq = lambda _: isinstance(_, cabc.Sequence)
         if not is_seq(pad_width):  # int-form
             pad_width = ((pad_width, pad_width),) * N_dim
-        assert len(pad_width) == N_dim, f"arg_shape/pad_width are length-mismatched."
+        assert len(pad_width) == N_dim, "arg_shape/pad_width are length-mismatched."
         if not is_seq(pad_width[0]):  # tuple[int, ...] form
             pad_width = tuple((w, w) for w in pad_width)
         else:  # tuple[tulpe[int, int], ...] form

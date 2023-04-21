@@ -332,7 +332,7 @@ class MapT:
                         [
                             f"{func} is not transparent when applied to CuPy inputs.",
                             f"If the same test fails for non-CuPy inputs, then {func}'s implementation is at fault -> user fix required.",
-                            f"If the same test passes for non-CuPy inputs, then this warning can be safely ignored.",
+                            "If the same test passes for non-CuPy inputs, then this warning can be safely ignored.",
                         ]
                     )
                     warnings.warn(msg, pycuw.NonTransparentWarning)
