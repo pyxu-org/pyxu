@@ -57,7 +57,7 @@ def view_as_complex(x: pyct.NDArray) -> pyct.NDArray:
         r_dtype = x.dtype
         r_width = pycrt.Width(r_dtype)
         c_dtype = r_width.complex.value
-    except:
+    except Exception:
         raise ValueError(f"Unsupported dtype {r_dtype}.")
     assert x.shape[-1] % 2 == 0, "Last array dimension should be even-valued."
 
@@ -118,7 +118,7 @@ def view_as_real(x: pyct.NDArray) -> pyct.NDArray:
         c_dtype = x.dtype
         c_width = pycrt._CWidth(c_dtype)
         r_dtype = c_width.real.value
-    except:
+    except Exception:
         raise ValueError(f"Unsupported dtype {c_dtype}.")
 
     r_sh = (*x.shape[:-1], 2 * x.shape[-1])
@@ -129,14 +129,14 @@ def view_as_real(x: pyct.NDArray) -> pyct.NDArray:
 def _is_real(x: pyct.NDArray) -> bool:
     try:
         return bool(pycrt.Width(x.dtype))
-    except:
+    except Exception:
         return False
 
 
 def _is_complex(x: pyct.NDArray) -> bool:
     try:
         return bool(pycrt._CWidth(x.dtype))
-    except:
+    except Exception:
         return False
 
 
@@ -219,7 +219,7 @@ def view_as_real_mat(
         c_dtype = cmat.dtype
         c_width = pycrt._CWidth(c_dtype)
         r_dtype = c_width.real.value
-    except:
+    except Exception:
         raise ValueError(f"Unsupported dtype {c_dtype}.")
 
     xp = pycd.NDArrayInfo.from_obj(cmat).module()
@@ -306,7 +306,7 @@ def view_as_complex_mat(
         r_dtype = rmat.dtype
         r_width = pycrt.Width(r_dtype)
         c_dtype = r_width.complex.value
-    except:
+    except Exception:
         raise ValueError(f"Unsupported dtype {r_dtype}.")
 
     N_row, N_col = rmat.shape

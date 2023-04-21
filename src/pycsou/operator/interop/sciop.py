@@ -66,7 +66,7 @@ def from_sciop(cls: pyct.OpC, sp_op: spsl.LinearOperator) -> pyct.OpT:
                 cls = _.__class__
                 _A = cls.asarray(_, xp=ndi.module(), dtype=_._sp_op.dtype)
                 break
-            except:
+            except Exception:
                 pass
 
         # Cast to user specs.

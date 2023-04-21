@@ -532,7 +532,7 @@ class _FromJax(pycsrc._FromSource):
             try:  # test a CPU implementation ...
                 with jax.default_device(jax.devices("cpu")[0]):
                     t = float(f(jnp.zeros(self.dim)))
-            except:  # ... and use GPU if it doesn't work.
+            except Exception:  # ... and use GPU if it doesn't work.
                 with jax.default_device(jax.devices("gpu")[0]):
                     t = float(f(jnp.zeros(self.dim)))
 
@@ -559,7 +559,7 @@ class _FromJax(pycsrc._FromSource):
             klass = self.__class__
             try:
                 A = klass.asarray(self, dtype=dtype_orig, xp=N.NUMPY.module())
-            except:
+            except Exception:
                 A = klass.asarray(self, dtype=dtype_orig, xp=N.CUPY.module())
 
             # Not the most efficient method, but fail-proof

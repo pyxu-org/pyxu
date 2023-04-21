@@ -46,7 +46,7 @@ def flaky(func: cabc.Callable, args: dict, condition: bool, reason: str):
     try:
         out = func(**args)
         return out
-    except:
+    except Exception:
         if condition:
             pytest.xfail(reason)
         else:
@@ -560,7 +560,7 @@ class MapT:
         self._skip_if_disabled()
         try:
             op2 = op.asop(_klass)
-        except:
+        except Exception:
             # nothing to test since `op.asop(_klass)` is illegal.
             return
         else:

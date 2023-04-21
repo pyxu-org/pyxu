@@ -33,7 +33,7 @@ def infer_sum_shape(sh1: pyct.OpShape, sh2: pyct.OpShape) -> pyct.OpShape:
             return np.broadcast_shapes((A,), (C,)) + (B,)
         else:
             raise
-    except:
+    except Exception:
         raise ValueError(f"Addition of {sh1} and {sh2} operators forbidden.")
 
 

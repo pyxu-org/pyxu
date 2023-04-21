@@ -75,7 +75,7 @@ def compute(*args, mode: str = "compute", **kwargs):
     """
     try:
         func = dict(compute=dask.compute, persist=dask.persist)[mode.lower()]
-    except:
+    except Exception:
         raise ValueError(f"mode: expected compute/persist, got {mode}.")
 
     cargs = func(*args, **kwargs)

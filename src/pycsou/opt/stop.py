@@ -53,7 +53,7 @@ class MaxIter(pyca.StoppingCriterion):
         try:
             assert int(n) > 0
             self._n = int(n)
-        except:
+        except Exception:
             raise ValueError(f"n: expected positive integer, got {n}.")
         self._i = 0
 
@@ -103,7 +103,7 @@ class MaxDuration(pyca.StoppingCriterion):
         try:
             assert t > dt.timedelta()
             self._t_max = t
-        except:
+        except Exception:
             raise ValueError(f"t: expected positive duration, got {t}.")
         self._t_start = dt.datetime.now()
         self._t_now = self._t_start
@@ -146,7 +146,7 @@ class MaxCarbon(pyca.StoppingCriterion):
         try:
             assert float(co2) > 0
             self._co2_max = float(co2)
-        except:
+        except Exception:
             raise ValueError(f"co2: expected positive carbon quantity, got {co2}.")
 
         codecarbon = pycu.import_module("codecarbon")
@@ -249,7 +249,7 @@ class AbsError(pyca.StoppingCriterion):
         try:
             assert eps > 0
             self._eps = eps
-        except:
+        except Exception:
             raise ValueError(f"eps: expected positive threshold, got {eps}.")
 
         self._var = var
@@ -258,7 +258,7 @@ class AbsError(pyca.StoppingCriterion):
         try:
             assert norm >= 0
             self._norm = norm
-        except:
+        except Exception:
             raise ValueError(f"norm: expected non-negative, got {norm}.")
 
         self._satisfy_all = satisfy_all
@@ -326,7 +326,7 @@ class RelError(pyca.StoppingCriterion):
         try:
             assert eps > 0
             self._eps = eps
-        except:
+        except Exception:
             raise ValueError(f"eps: expected positive threshold, got {eps}.")
 
         self._var = var
@@ -335,7 +335,7 @@ class RelError(pyca.StoppingCriterion):
         try:
             assert norm >= 0
             self._norm = norm
-        except:
+        except Exception:
             raise ValueError(f"norm: expected non-negative, got {norm}.")
 
         self._satisfy_all = satisfy_all

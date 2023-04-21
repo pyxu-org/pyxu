@@ -124,7 +124,7 @@ class TestStencil(conftest.SquareOpT):
         try:
             pycd.NDArrayInfo.from_obj(kernel)  # passes if array object
             kernel = xp.array(kernel)
-        except:
+        except Exception:
             kernel = [xp.array(k) for k in kernel]
 
         with pycrt.Precision(width):

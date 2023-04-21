@@ -624,7 +624,7 @@ class ArgShiftRule(Rule):
                     try:
                         cst = xp.broadcast_to(self._cst, Q1.dim)
                         t2 = float(self._op.apply(cst))
-                    except:
+                    except Exception:
                         pass
         else:
             c2 = c1 + pyco.LinFunc.from_array(

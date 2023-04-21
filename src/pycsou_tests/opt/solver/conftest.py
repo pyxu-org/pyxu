@@ -177,7 +177,7 @@ class SolverT:
             try:
                 pycu.get_array_module(v, fallback=None)
                 data[k] = xp.array(v)
-            except:
+            except Exception:
                 # Not an NDArray -> no transformation
                 pass
         return data

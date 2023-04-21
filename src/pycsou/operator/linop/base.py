@@ -405,13 +405,13 @@ def _ExplicitLinOp(
         fail_dense = False
         try:
             pycd.NDArrayInfo.from_obj(A)
-        except:
+        except Exception:
             fail_dense = True
 
         fail_sparse = False
         try:
             pycd.SparseArrayInfo.from_obj(A)
-        except:
+        except Exception:
             fail_sparse = True
 
         if fail_dense and fail_sparse:
@@ -454,7 +454,7 @@ def _ExplicitLinOp(
             elif info == S.PYDATA_SPARSE:
                 f = lambda _: _.todense()
             A = f(_.mat.astype(dtype))  # `copy` field not ubiquitous
-        except:  # Dense arrays
+        except Exception:  # Dense arrays
             info = N.from_obj(_.mat)
             A = pycu.compute(_.mat.astype(dtype, copy=False))
 
@@ -475,7 +475,7 @@ def _ExplicitLinOp(
         else:
             try:
                 tr = _.mat.trace()
-            except:
+            except Exception:
                 # .trace() missing for [PYDATA,CUPY]_SPARSE API.
                 S = pycd.SparseArrayInfo
                 info = S.from_obj(_.mat)
@@ -483,7 +483,7 @@ def _ExplicitLinOp(
                     # use `sparse.diagonal().sum()`, but array must be COO.
                     try:
                         A = _.mat.tocoo()  # GCXS inputs
-                    except:
+                    except Exception:
                         A = _.mat  # COO inputs
                     finally:
                         tr = info.module().diagonal(A).sum()
@@ -511,7 +511,7 @@ def _ExplicitLinOp(
                 xp=info.module(),
                 gpu=info == N.CUPY,
             )
-        except:  # Sparse arrays
+        except Exception:  # Sparse arrays
             info = S.from_obj(_.mat)
             gpu = info == S.CUPY_SPARSE
             kwargs.update(

@@ -220,7 +220,7 @@ def coerce(x):
                 return x.astype(dtype, copy=False)  # cast warnings impossible
             else:
                 raise
-        except:
+        except Exception:
             raise TypeError(f"Cannot coerce {type(x)} to scalar/array of precision {dtype}.")
 
 

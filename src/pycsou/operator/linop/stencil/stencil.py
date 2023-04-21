@@ -516,7 +516,7 @@ class Stencil(pyca.SquareOp):
 
             _kernel = [pycrt.coerce(kernel)]
             _center = [np.array(center, dtype=int)]
-        except:
+        except Exception:
             # sequence input -> seperable filter(s)
             assert len(kernel) == N  # one filter per dimension
 

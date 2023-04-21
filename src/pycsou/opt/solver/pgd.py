@@ -141,14 +141,14 @@ class PGD(pyca.Solver):
             try:
                 assert tau > 0
                 mst["tau"] = tau
-            except:
+            except Exception:
                 raise ValueError(f"tau must be positive, got {tau}.")
 
         if acceleration:
             try:
                 assert d > 2
                 mst["a"] = (pycrt.coerce(k / (k + 1 + d)) for k in itertools.count(start=0))
-            except:
+            except Exception:
                 raise ValueError(f"Expected d > 2, got {d}.")
         else:
             mst["a"] = itertools.repeat(pycrt.coerce(0))

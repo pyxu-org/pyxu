@@ -251,7 +251,7 @@ class ProxAdam(pyca.Solver):
             try:
                 assert a > 0
                 mst["a"] = a
-            except:
+            except Exception:
                 raise ValueError(f"`a` must be positive, got {a}.")
 
         mst["variant"] = self.__parse_variant(variant)

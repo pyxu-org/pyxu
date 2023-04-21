@@ -2043,7 +2043,7 @@ class LinFunc(ProxDiffFunc, LinOp):
         try:
             # If operator is domain-specific, then this may not work.
             L = self.lipschitz()
-        except:
+        except Exception:
             # So we sometimes must piggy-back on a potentially-slower solution.
             L = np.linalg.norm(self.asarray().flatten())
 
