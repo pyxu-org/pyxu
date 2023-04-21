@@ -14,7 +14,7 @@ class TestPrecisionContextManager:
 class TestEnforcePrecisionContextManager:
     @pytest.mark.parametrize("state", [True, False])
     def test_contextManager(self, state: bool):
-        assert pycrt.getCoerceState() == True  # default
+        assert pycrt.getCoerceState() is True  # default
         with pycrt.EnforcePrecision(state):
             assert pycrt.getCoerceState() == state
 
