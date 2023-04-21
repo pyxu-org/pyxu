@@ -33,7 +33,6 @@ class ConstantValueMixin:
     @pytest.fixture
     def data_apply(self, data_shape, cst):
         codim, dim = data_shape
-        N_test = 5
         return dict(
             in_=dict(arr=np.zeros(dim)),
             out=np.full(codim, fill_value=cst),

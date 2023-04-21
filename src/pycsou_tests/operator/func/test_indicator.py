@@ -510,8 +510,6 @@ class TestAffineSet(conftest.ProxFuncT):
         M, N = A.shape
 
         u, s, vh = np.linalg.svd(A)
-        Q = u[(slice(None), *s.nonzero())]  # orth basis of range(A)
-        Qp = np.eye(M) - Q @ Q.T  # orth basis of range(A)^\perp
 
         # override `in_set` if A is square. -> precondition was to be full-rank
         if M == N:

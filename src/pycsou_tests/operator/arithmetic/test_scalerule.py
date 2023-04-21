@@ -128,7 +128,7 @@ class ScaleRuleMixin:
         try:
             op_orig.asloss()  # detect if fails
             super().test_interface_asloss(op, xp, width)
-        except NotImplementedError as exc:
+        except NotImplementedError:
             pytest.skip("asloss() unsupported by base operator.")
 
 

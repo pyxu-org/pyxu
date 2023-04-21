@@ -322,7 +322,7 @@ class MapT:
                 # FP32-precision to avoid false negatives.
                 assert cls._metric(out_1, out_gt, as_dtype=pycrt.Width.SINGLE.value)
                 assert cls._metric(out_2, out_gt, as_dtype=pycrt.Width.SINGLE.value)
-            except AssertionError as exc:
+            except AssertionError:
                 # Function is non-transparent, but which backend caused it?
                 N = pycd.NDArrayInfo
                 ndi = N.from_obj(out_1)
@@ -594,7 +594,7 @@ class FuncT(MapT):
         try:
             assert op.asloss() is op
             self._check_has_interface(op.asloss(data), self.__class__)
-        except NotImplementedError as exc:
+        except NotImplementedError:
             msg = f"{op.asloss} is undefined, but `test_interface_asloss()` was not disabled."
             assert False, msg
 

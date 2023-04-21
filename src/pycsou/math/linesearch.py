@@ -63,7 +63,7 @@ def backtracking_linesearch(
         try:
             a0 = pycrt.coerce(1 / f.diff_lipschitz())
             assert a0 > 0, "a0: cannot auto-set step size."
-        except ZeroDivisionError as exc:
+        except ZeroDivisionError:
             # f is linear -> line-search unbounded
             raise ValueError("Line-search does not converge for linear functionals.")
     else:

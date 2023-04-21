@@ -126,7 +126,6 @@ class TestVectorize:
     def test_precision(self, func, vfunc, data_func):
         # decorated function should have same output dtype as base function.
         in_ = data_func["in_"]
-        out_gt = data_func["out"]
 
         out_f = func(**in_)
         out_vf = vfunc(**in_)

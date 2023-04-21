@@ -29,7 +29,7 @@ def infer_sum_shape(sh1: pyct.OpShape, sh2: pyct.OpShape) -> pyct.OpShape:
         elif any(domain_None):
             fill = lambda _: [1 if (k is None) else k for k in _]
             return np.broadcast_shapes(fill(sh1), fill(sh2))
-        elif domain_match := (B == D):
+        elif B == D:  # domain-match
             return np.broadcast_shapes((A,), (C,)) + (B,)
         else:
             raise
@@ -217,8 +217,6 @@ def _dask_zip(
     NDI = pycd.NDArrayInfo
     dask_input = lambda obj: NDI.from_obj(obj) == NDI.DASK
     if all(map(dask_input, data)):
-        xp = NDI.DASK.module()
-
         out = []
         for i in range(len(data)):
             if parallel:

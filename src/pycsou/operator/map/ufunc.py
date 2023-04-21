@@ -1059,7 +1059,6 @@ class SiLU(pyca.DiffMap):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
         f = Sigmoid(dim=self.dim)
         out = f.apply(arr)
         out *= arr

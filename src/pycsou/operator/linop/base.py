@@ -257,7 +257,6 @@ def DiagonalOp(
                 return out
 
             def op_asarray(_, **kwargs) -> pyct.NDArray:
-                N = pycd.NDArrayInfo
                 dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
                 xp = kwargs.pop("xp", pycd.NDArrayInfo.NUMPY.module())
 
