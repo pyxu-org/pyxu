@@ -115,7 +115,7 @@ class TestEnforcePrecisionDecorator:
             return x
 
         if allow_None:
-            assert f(None) == None
+            assert f(None) is None
         else:
             with pytest.raises(ValueError):
                 f(None)

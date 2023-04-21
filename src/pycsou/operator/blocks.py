@@ -596,7 +596,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         assert 0 <= min(i) <= max(i) < N_row, msg
         assert 0 <= min(j) <= max(j) < N_col, msg
 
-        if any(op.dim == None for op in data):
+        if any(op.dim is None for op in data):
             raise ValueError("Domain-agnostic operators are unsupported.")
 
         # block dimensions are compatible.
