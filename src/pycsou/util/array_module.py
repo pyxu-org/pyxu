@@ -73,8 +73,6 @@ def compute(*args, mode: str = "compute", **kwargs):
     *cargs: object | sequence(object)
         Evaluated objects. Non-dask arguments are passed through unchanged.
     """
-    import dask
-
     try:
         func = dict(compute=dask.compute, persist=dask.persist)[mode.lower()]
     except:
