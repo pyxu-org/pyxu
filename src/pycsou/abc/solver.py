@@ -650,8 +650,8 @@ class Solver:
         # Close file-handlers
         log_name = str(self.workdir)
         logger = logging.getLogger(log_name)
-        for l in logger.handlers:
-            l.close()
+        for handler in logger.handlers:
+            handler.close()
 
     def default_stop_crit(self) -> StoppingCriterion:
         """

@@ -239,26 +239,26 @@ class HyperSlab(_IndicatorFunction):
        \end{cases}
     """
 
-    @pycrt.enforce_precision(i=("l", "u"))
-    def __init__(self, a: pyca.LinFunc, l: pyct.Real, u: pyct.Real):
+    @pycrt.enforce_precision(i=("lb", "ub"))
+    def __init__(self, a: pyca.LinFunc, lb: pyct.Real, ub: pyct.Real):
         """
         Parameters
         ----------
         A: pyca.LinFunc
             (N,) operator
-        l: pyct.Real
+        lb: pyct.Real
             Lower bound
-        u: pyct.Real
+        ub: pyct.Real
             Upper bound
         """
-        assert l < u
+        assert lb < ub
         super().__init__(dim=a.dim)
 
         # Everything happens internally in normalized coordinates.
         _norm = a.lipschitz()  # \norm{a}{2}
         self._a = a / _norm
-        self._l = l / _norm
-        self._u = u / _norm
+        self._l = lb / _norm
+        self._u = ub / _norm
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:

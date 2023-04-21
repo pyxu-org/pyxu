@@ -338,7 +338,7 @@ def khatri_rao(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
         sh_prefix = arr.shape[:-1]
         sh_dim = len(sh_prefix)
         xp = pycu.get_array_module(arr)
-        I = xp.eye(N=_.dim, dtype=arr.dtype)  # (dim, dim)
+        I = xp.eye(N=_.dim, dtype=arr.dtype)  # noqa: E741
 
         x = arr.reshape((*sh_prefix, 1, _.dim))  # (..., 1, dim)
         y = _._B.apply(x * I)  # (..., dim, B.codim)
@@ -356,7 +356,7 @@ def khatri_rao(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
         sh_prefix = arr.shape[:-1]
         sh_dim = len(sh_prefix)
         xp = pycu.get_array_module(arr)
-        I = xp.eye(N=_.dim, dtype=arr.dtype)
+        I = xp.eye(N=_.dim, dtype=arr.dtype)  # noqa: E741
 
         x = arr.reshape((*sh_prefix, _._A.codim, _._B.codim))  # (..., A.codim, B.codim)
         y = _._B.adjoint(x)  # (..., A.codim, B.dim)

@@ -297,7 +297,7 @@ class TestHyperSlab(conftest.ProxFuncT):
 
         v = xp.array([1, 1], dtype=width.value)
         a = pyca.LinFunc.from_array(v, enable_warnings=False)
-        op = pycof.HyperSlab(a, l=-1, u=2)
+        op = pycof.HyperSlab(a, lb=-1, ub=2)
 
         return op, ndi, width
 
