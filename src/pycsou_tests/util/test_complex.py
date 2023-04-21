@@ -17,7 +17,7 @@ class ViewAs:
         raise NotImplementedError
 
     @pytest.fixture
-    def width_in_out(self) -> tuple["Width", "Width"]:
+    def width_in_out(self) -> tuple[pycrt.Width, pycrt.Width]:
         raise NotImplementedError
 
     @pytest.fixture(

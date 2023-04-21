@@ -1116,4 +1116,4 @@ class SoftMax(pyca.DiffMap):
 
 
 def softmax(op: pyct.OpT) -> pyct.OpT:
-    return Softmax(op.dim) * op
+    return SoftMax(op.dim) * op

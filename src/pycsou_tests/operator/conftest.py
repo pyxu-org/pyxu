@@ -1127,7 +1127,6 @@ class LinOpT(DiffMapT):
             return True
         else:
             return False
-        return request.param
 
     @pytest.fixture(params=[1, 2])
     def _damp(self, request) -> float:
