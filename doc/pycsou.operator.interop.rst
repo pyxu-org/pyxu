@@ -27,3 +27,11 @@ pycsou.operator.interop.jax module
    :members:
    :undoc-members:
    :show-inheritance:
+
+pycsou.operator.interop.torch module
+------------------------------------
+
+.. automodule:: pycsou.operator.interop.torch
+   :members:
+   :undoc-members:
+   :show-inheritance:
