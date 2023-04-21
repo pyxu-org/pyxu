@@ -4,7 +4,6 @@ from functools import partial
 
 import dask.array as da
 import matplotlib.pyplot as plt
-import numba as nb
 import numpy as np
 
 import pycsou.abc.operator as pyco

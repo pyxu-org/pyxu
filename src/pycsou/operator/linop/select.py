@@ -7,7 +7,6 @@ import pycsou.abc as pyca
 import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
 __all__ = [

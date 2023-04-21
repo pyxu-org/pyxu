@@ -1,5 +1,4 @@
 import collections.abc as cabc
-import datetime as dt
 import functools
 import itertools
 import operator
@@ -11,8 +10,6 @@ import pycsou.abc.operator as pyco
 import pycsou.operator as pycop
 import pycsou.operator.func as pycf
 import pycsou.opt.solver as pycos
-import pycsou.opt.stop as pycstop
-import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 import pycsou_tests.opt.solver.conftest as conftest
 

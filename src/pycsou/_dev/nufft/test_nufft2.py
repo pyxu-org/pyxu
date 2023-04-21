@@ -1,5 +1,5 @@
 import dask.array as da
-import distributed
+import distributed  # noqa: F401
 import numpy as np
 
 import pycsou.operator.linop.nufft as nufft

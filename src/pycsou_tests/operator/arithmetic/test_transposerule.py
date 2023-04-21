@@ -7,13 +7,11 @@
 #   subclass which the transposed operator should abide by.
 
 
-import collections.abc as cabc
 import itertools
 
 import numpy as np
 import pytest
 
-import pycsou.abc as pyca
 import pycsou.runtime as pycrt
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct

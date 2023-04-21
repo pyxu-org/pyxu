@@ -6,7 +6,6 @@ import pytest
 import pycsou.opt.solver as pycos
 import pycsou.util.ptype as pyct
 import pycsou_tests.opt.solver.conftest as conftest
-from pycsou.operator import shift_loss
 
 
 class TestProxAdam(conftest.SolverT):

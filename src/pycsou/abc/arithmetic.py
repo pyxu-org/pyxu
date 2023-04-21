@@ -2,7 +2,6 @@
 Operator Arithmetic.
 """
 
-import copy
 import types
 import typing as typ
 import warnings

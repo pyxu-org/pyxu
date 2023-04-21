@@ -1,4 +1,3 @@
-import types
 import warnings
 
 import scipy.sparse.linalg as spsl

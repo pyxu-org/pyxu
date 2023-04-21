@@ -6,7 +6,6 @@ import scipy.fft as fft
 import scipy.linalg as sclin
 
 import pycsou.operator.linop.nufft as nufft
-import pycsou.runtime as pycrt
 import pycsou.util as pycu
 
 nufft_kwargs = dict(

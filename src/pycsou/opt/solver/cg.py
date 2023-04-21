@@ -1,5 +1,3 @@
-import typing as typ
-
 import pycsou.abc as pyca
 import pycsou.math.linalg as pylinalg
 import pycsou.runtime as pycrt
