@@ -116,7 +116,7 @@ class Solver:
 
     .. math::
 
-        \hat{x} = \arg\min_{x \in \mathbb{R}^{N}} \mathcal{F}(x),
+       \hat{x} = \arg\min_{x \in \mathbb{R}^{N}} \mathcal{F}(x),
 
     where the form of :math:`\mathcal{F}` is solver-dependent.
 
