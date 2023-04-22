@@ -74,7 +74,7 @@ class Stencil(pyca.SquareOp):
        \sum_{q_{1},\ldots,q_{D}=0}^{K_{1},\ldots,K_{D}}
        x[i_{1} - c_{1} + q_{1},\ldots,i_{D} - c_{D} + q_{D}]
        \,\cdot\,
-       k[q_{1},\ldots,q_{D}]
+       k[q_{1},\ldots,q_{D}].
 
     This corresponds to a *correlation* with a shifted version of the kernel :math:`k`.
 
@@ -102,37 +102,37 @@ class Stencil(pyca.SquareOp):
        ... )
 
        >>> S.asarray()
-       [[-3.  2.  1.  0.  0.]
-        [ 2. -2.  0.  0.  0.]
-        [ 1.  2. -3.  0.  0.]
-        [ 0.  1.  2. -3.  0.]
-        [ 0.  0.  1.  2. -3.]] # Improper stencil (kernel varies across rows)
+       [[-3   2   1   0   0]
+        [ 2  -2   0   0   0]
+        [ 1   2  -3   0   0]
+        [ 0   1   2  -3   0]
+        [ 0   0   1   2  -3]] # Improper stencil (kernel varies across rows)
        =
-       [[0. 0. 1. 0. 0. 0. 0. 0. 0.]
-        [0. 0. 0. 1. 0. 0. 0. 0. 0.]
-        [0. 0. 0. 0. 1. 0. 0. 0. 0.]
-        [0. 0. 0. 0. 0. 1. 0. 0. 0.]
-        [0. 0. 0. 0. 0. 0. 1. 0. 0.]]  # Trimming
+       [[0  0  1  0  0  0  0  0  0]
+        [0  0  0  1  0  0  0  0  0]
+        [0  0  0  0  1  0  0  0  0]
+        [0  0  0  0  0  1  0  0  0]
+        [0  0  0  0  0  0  1  0  0]]  # Trimming
        @
-       [[-3.  0.  0.  0.  0.  0.  0.  0.  0.]
-        [ 2. -3.  0.  0.  0.  0.  0.  0.  0.]
-        [ 1.  2. -3.  0.  0.  0.  0.  0.  0.]
-        [ 0.  1.  2. -3.  0.  0.  0.  0.  0.]
-        [ 0.  0.  1.  2. -3.  0.  0.  0.  0.]
-        [ 0.  0.  0.  1.  2. -3.  0.  0.  0.]
-        [ 0.  0.  0.  0.  1.  2. -3.  0.  0.]
-        [ 0.  0.  0.  0.  0.  1.  2. -3.  0.]
-        [ 0.  0.  0.  0.  0.  0.  1.  2. -3.]]  # Proper stencil (Toeplitz structure)
+       [[-3   0   0   0   0   0   0   0   0]
+        [ 2  -3   0   0   0   0   0   0   0]
+        [ 1   2  -3   0   0   0   0   0   0]
+        [ 0   1   2  -3   0   0   0   0   0]
+        [ 0   0   1   2  -3   0   0   0   0]
+        [ 0   0   0   1   2  -3   0   0   0]
+        [ 0   0   0   0   1   2  -3   0   0]
+        [ 0   0   0   0   0   1   2  -3   0]
+        [ 0   0   0   0   0   0   1   2  -3]]  # Proper stencil (Toeplitz structure)
        @
-       [[0. 0. 1. 0. 0.]
-        [0. 1. 0. 0. 0.]
-        [1. 0. 0. 0. 0.]
-        [0. 1. 0. 0. 0.]
-        [0. 0. 1. 0. 0.]
-        [0. 0. 0. 1. 0.]
-        [0. 0. 0. 0. 1.]
-        [0. 0. 0. 1. 0.]
-        [0. 0. 1. 0. 0.]]  # Padding with reflect mode.
+       [[0  0  1  0  0]
+        [0  1  0  0  0]
+        [1  0  0  0  0]
+        [0  1  0  0  0]
+        [0  0  1  0  0]
+        [0  0  0  1  0]
+        [0  0  0  0  1]
+        [0  0  0  1  0]
+        [0  0  1  0  0]]  # Padding with reflect mode.
 
     Note that the adjoint of a stencil operator may not necessarily be a stencil operator, or the
     associated center and boundary conditions may be hard to predict.
@@ -141,11 +141,11 @@ class Stencil(pyca.SquareOp):
     .. code-block:: python3
 
        >>> S.T.asarray()
-       [[-3.,  2.,  1.,  0.,  0.],
-        [ 2., -2.,  2.,  1.,  0.],
-        [ 1.,  0., -3.,  2.,  1.],
-        [ 0.,  0.,  0., -3.,  2.],
-        [ 0.,  0.,  0.,  0., -3.]]
+       [[-3   2   1   0   0],
+        [ 2  -2   2   1   0],
+        [ 1   0  -3   2   1],
+        [ 0   0   0  -3   2],
+        [ 0   0   0   0  -3]]
 
     which resembles a stencil with time-reversed kernel, but with weird (if not improper) boundary
     conditions.
@@ -166,14 +166,14 @@ class Stencil(pyca.SquareOp):
        ... )
 
        >>> S.gram().asarray()
-       [[ 1. -1.  0.  0.  0.]
-        [-1.  2. -1.  0.  0.]
-        [ 0. -1.  2. -1.  0.]
-        [ 0.  0. -1.  2. -1.]
-        [ 0.  0.  0. -1.  2.]]
+       [[ 1  -1   0   0   0]
+        [-1   2  -1   0   0]
+        [ 0  -1   2  -1   0]
+        [ 0   0  -1   2  -1]
+        [ 0   0   0  -1   2]]
 
-    We observe that the Gram differs from the order 2 centered finite-difference operator
-    (reduced-order derivative on one side).
+    We observe that the Gram differs from the order 2 centered finite-difference operator.
+    (Reduced-order derivative on one side.)
 
 
     Example
@@ -195,7 +195,7 @@ class Stencil(pyca.SquareOp):
          import numpy as np
          from pycsou.operator.linop import Stencil
 
-         x = np.arange(10)  # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+         x = np.arange(10)  # [0  1  2  3  4  5  6  7  8  9]
 
          op = Stencil(
              arg_shape=x.shape,
@@ -203,7 +203,7 @@ class Stencil(pyca.SquareOp):
              center=(2,),  # k[2] applies on x[n]
          )
 
-         y = op.apply(x)  # [0, 3, 8, 14, 20, 26, 32, 38, 44, 50]
+         y = op.apply(x)  # [0  3  8  14  20  26  32  38  44  50]
 
 
     * **Non-seperable image filtering**
@@ -234,14 +234,14 @@ class Stencil(pyca.SquareOp):
          from pycsou.operator.linop import Stencil
 
          x = np.arange(64).reshape(8, 8)  # square image
-         # [[ 0,  1,  2,  3,  4,  5,  6,  7]
-         #  [ 8,  9, 10, 11, 12, 13, 14, 15]
-         #  [16, 17, 18, 19, 20, 21, 22, 23]
-         #  [24, 25, 26, 27, 28, 29, 30, 31]
-         #  [32, 33, 34, 35, 36, 37, 38, 39]
-         #  [40, 41, 42, 43, 44, 45, 46, 47]
-         #  [48, 49, 50, 51, 52, 53, 54, 55]
-         #  [56, 57, 58, 59, 60, 61, 62, 63]]
+         # [[ 0   1   2   3   4   5   6   7]
+         #  [ 8   9  10  11  12  13  14  15]
+         #  [16  17  18  19  20  21  22  23]
+         #  [24  25  26  27  28  29  30  31]
+         #  [32  33  34  35  36  37  38  39]
+         #  [40  41  42  43  44  45  46  47]
+         #  [48  49  50  51  52  53  54  55]
+         #  [56  57  58  59  60  61  62  63]]
 
          op = Stencil(
              arg_shape=x.shape,
@@ -314,14 +314,14 @@ class Stencil(pyca.SquareOp):
          from pycsou.operator.linop import Stencil
 
          x = np.arange(64).reshape(8, 8)  # square image
-         # [[ 0,  1,  2,  3,  4,  5,  6,  7]
-         #  [ 8,  9, 10, 11, 12, 13, 14, 15]
-         #  [16, 17, 18, 19, 20, 21, 22, 23]
-         #  [24, 25, 26, 27, 28, 29, 30, 31]
-         #  [32, 33, 34, 35, 36, 37, 38, 39]
-         #  [40, 41, 42, 43, 44, 45, 46, 47]
-         #  [48, 49, 50, 51, 52, 53, 54, 55]
-         #  [56, 57, 58, 59, 60, 61, 62, 63]]
+         # [[ 0   1   2   3   4   5   6   7]
+         #  [ 8   9  10  11  12  13  14  15]
+         #  [16  17  18  19  20  21  22  23]
+         #  [24  25  26  27  28  29  30  31]
+         #  [32  33  34  35  36  37  38  39]
+         #  [40  41  42  43  44  45  46  47]
+         #  [48  49  50  51  52  53  54  55]
+         #  [56  57  58  59  60  61  62  63]]
 
          op_2D = Stencil(  # using non-seperable kernel
              arg_shape=x.shape,
@@ -382,7 +382,7 @@ class Stencil(pyca.SquareOp):
 
                  k = k_1\otimes \cdots\otimes k_D,
 
-              or in Python: ``k = reduce(numpy.multiply.outer, kernel)``.
+              or in Python: ``k = functools.reduce(numpy.multiply.outer, kernel)``.
 
         center: IndexSpec
             (i_1, ..., i_D) index of the stencil's center.
