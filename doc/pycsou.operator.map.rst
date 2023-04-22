@@ -13,10 +13,9 @@ pycsou.operator.map.base module
 -------------------------------
 
 .. automodule:: pycsou.operator.map.base
-=============================
-
-Submodules
-----------
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 pycsou.operator.map.ufunc module
 ---------------------------------
@@ -99,11 +98,3 @@ pycsou.operator.map.ufunc module
         SoftMax
         softmax
         
-
-Module contents
----------------
-
-.. automodule::
-   :members:
-   :undoc-members:
-   :show-inheritance:
