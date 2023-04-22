@@ -458,12 +458,12 @@ class _FromTorch(pycsrc._FromSource):
             try:  # test a CPU implementation ...
                 with torch.device("cpu"):
                     t = float(f(torch.zeros(self.dim)))
-            except:  # ... and use GPU(s) if it doesn't work.
+            except Exception:  # ... and use GPU(s) if it doesn't work.
                 for id in range(torch.cuda.device_count()):
                     try:
                         with torch.device("gpu", id):
                             t = float(f(torch.zeros(self.dim)))
-                    except:
+                    except Exception:
                         continue
 
             return (Q, c, t)
