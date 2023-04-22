@@ -802,13 +802,15 @@ def Convolve(
     r"""
     Multi-dimensional JIT-compiled convolution.
 
-    Inputs are convoluted with the given kernel.
-    Several boundary conditions are supported and boundary conditions may differ per axis.
+    Inputs are convolved with the given kernel.
+
+    Several boundary conditions are supported.
+    Moreover boundary conditions may differ per axis.
 
     Parameters
     ----------
     arg_shape: pyct.NDArrayShape
-            Shape of the rank-:math:`D` input array.
+        Shape of the rank-:math:`D` input array.
     kernel: KernelSpec
         Stencil coefficients.
         Two forms are accepted:
@@ -821,7 +823,7 @@ def Convolve(
 
              k = k_1\otimes \cdots\otimes k_D,
 
-          or in Python: ``k = reduce(numpy.multiply.outer, kernel)``.
+          or in Python: ``k = functools.reduce(numpy.multiply.outer, kernel)``.
 
     center: IndexSpec
         (i_1, ..., i_D) index of the stencil's center.
@@ -848,27 +850,42 @@ def Convolve(
 
     Returns
     -------
-    conv_op: Stencil
+    op: Stencil
         Multi-dimensional convolution operator.
 
     Examples
     --------
     .. code-block:: python3
 
-        import numpy as np
-        from scipy import ndimage
-        from pycsou.operator import Convolve
+       import numpy as np
+       from scipy.ndimage import convolve
+       from pycsou.operator.linop import Convolve
 
-        a = np.array([[1, 2, 0, 0], [5, 3, 0, 4], [0, 0, 0, 7], [9, 3, 0, 0]])
-        k = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]])
-        convop = Convolve(arg_shape=a.shape, kernel=k, center=(1, 1), mode="constant")
-        z = convop(a.ravel())
-        print(z) # [[11, 10,  7,  4],
-                 #  [10,  3, 11, 11],
-                 #  [15, 12, 14,  7],
-                 #  [12,  3,  7,  0]]
-        assert np.allclose(convop(a.ravel()),
-                           ndimage.convolve(a, k, mode="constant", origin=0).ravel())
+       x = np.array([
+            [1, 2, 0, 0],
+            [5, 3, 0, 4],
+            [0, 0, 0, 7],
+            [9, 3, 0, 0],
+       ])
+       k = np.array([
+            [1, 1, 1],
+            [1, 1, 0],
+            [1, 0, 0],
+       ])
+       op = Convolve(
+           arg_shape=x.shape,
+           kernel=k,
+           center=(1, 1),
+           mode="constant",
+       )
+
+       y_op = op.apply(x.reshape(-1)).reshape(4, 4)
+       y_sp = convolve(x, k, mode="constant", origin=0)  # np.allclose(y_op, y_sp) -> True
+       # [[11  10   7   4],
+       #  [10   3  11  11],
+       #  [15  12  14   7],
+       #  [12   3   7   0]]
+
 
     Notes
     -----
@@ -884,10 +901,10 @@ def Convolve(
        \sum_{q_{1},\ldots,q_{D}=0}^{K_{1},\ldots,K_{D}}
        x[i_{1} - q_{1} + c_{1},\ldots,i_{D} - q_{D} + c_{D}]
        \,\cdot\,
-       k[q_{1},\ldots,q_{D}]
+       k[q_{1},\ldots,q_{D}].
 
-    We implement this convolution via a :py:class:`~pycsou.operator.linop.stencil.stencil.Stencil` object. To do so, we transform
-    the convolution in an equivalent correlation:
+    The convolution is implemented via :py:class:`~pycsou.operator.linop.stencil.stencil.Stencil`.
+    To do so, the convolution kernel is transformed to the equivalent correlation kernel:
 
     .. math::
 
@@ -906,5 +923,12 @@ def Convolve(
     except:  # Kernel is a sequence
         kernel = [k[::-1] for k in kernel]  # Flip each 1D kernel.
     center = [len(center) - c for c in center]  # Symmetrize the center
-    conv_op = Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode, enable_warnings=enable_warnings)
-    return conv_op
+
+    op = Stencil(
+        arg_shape=arg_shape,
+        kernel=kernel,
+        center=center,
+        mode=mode,
+        enable_warnings=enable_warnings,
+    )
+    return op
