@@ -908,17 +908,3 @@ def Convolve(
     center = [len(center) - c for c in center]  # Symmetrize the center
     conv_op = Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode, enable_warnings=enable_warnings)
     return conv_op
-
-
-# if __name__ == "__main__":
-#     import numpy as np
-#     from scipy import ndimage
-#
-#     from pycsou.operator import Convolve
-#
-#     a = np.array([[1, 2, 0, 0], [5, 3, 0, 4], [0, 0, 0, 7], [9, 3, 0, 0]])
-#     k = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]])
-#     y = ndimage.convolve(a, k, mode="constant", origin=0)
-#     convop = Convolve(arg_shape=a.shape, kernel=k, center=(1, 1), mode="constant")
-#     z = convop(a.ravel())
-#     assert np.allclose(y.ravel(), z)
