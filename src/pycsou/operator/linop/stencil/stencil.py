@@ -792,66 +792,41 @@ class Stencil(pyca.SquareOp):
 Correlate = Stencil
 
 
-def Convolve(
-    arg_shape: pyct.NDArrayShape,
-    kernel: Stencil.KernelSpec,
-    center: _Stencil.IndexSpec,
-    mode: Pad.ModeSpec = "constant",
-    enable_warnings: bool = True,
-):
+class Convolve(Stencil):
     r"""
     Multi-dimensional JIT-compiled convolution.
 
     Inputs are convolved with the given kernel.
 
-    Several boundary conditions are supported.
-    Moreover boundary conditions may differ per axis.
+    Notes
+    -----
+    Given a :math:`D`-dimensional array :math:`x\in\mathbb{R}^{N_1\times\cdots\times N_D}` and
+    kernel :math:`k\in\mathbb{R}^{K_1\times\cdots\times K_D}` with center :math:`(c_1, \ldots, c_D)`,
+    the output of the convolution operator is an array :math:`y\in\mathbb{R}^{N_1\times\cdots\times
+    N_D}` given by:
 
-    Parameters
-    ----------
-    arg_shape: pyct.NDArrayShape
-        Shape of the rank-:math:`D` input array.
-    kernel: KernelSpec
-        Stencil coefficients.
-        Two forms are accepted:
+    .. math::
 
-        * NDArray of rank-:math:`D`: denotes a non-seperable stencil.
-        * tuple[NDArray_1, ..., NDArray_D]: a sequence of 1D stencils such that dimension[k]
-          is filtered by stencil `kernel[k]`, that is:
+       y[i_{1},\ldots,i_{D}]
+       =
+       \sum_{q_{1},\ldots,q_{D}=0}^{K_{1},\ldots,K_{D}}
+       x[i_{1} - q_{1} + c_{1},\ldots,i_{D} - q_{D} + c_{D}]
+       \,\cdot\,
+       k[q_{1},\ldots,q_{D}].
 
-          .. math::
+    The convolution is implemented via :py:class:`~pycsou.operator.linop.stencil.stencil.Stencil`.
+    To do so, the convolution kernel is transformed to the equivalent correlation kernel:
 
-             k = k_1\otimes \cdots\otimes k_D,
+    .. math::
 
-          or in Python: ``k = functools.reduce(numpy.multiply.outer, kernel)``.
+       y[i_{1},\ldots,i_{D}]
+       =
+       \sum_{q_{1},\ldots,q_{D}=0}^{K_{1},\ldots,K_{D}}
+       &x[i_{1} + q_{1} - (K_{1} - c_{1}),\ldots,i_{D} + q_{D} - (K_{D} - c_{D})] \\
+       &\cdot\,
+       k[K_{1}-q_{1},\ldots,K_{D}-q_{D}].
 
-    center: IndexSpec
-        (i_1, ..., i_D) index of the stencil's center.
-
-        `center` defines how a kernel is overlaid on inputs to produce outputs.
-
-    mode: str | list(str)
-        Boundary conditions.
-        Multiple forms are accepted:
-
-        * str: unique mode shared amongst dimensions.
-          Must be one of:
-
-          * 'constant' (zero-padding)
-          * 'wrap'
-          * 'reflect'
-          * 'symmetric'
-          * 'edge'
-        * tuple[str, ...]: dimension[k] uses `mode[k]` as boundary condition.
-
-        (See :py:func:`numpy.pad` for details.)
-    enable_warnings: bool
-        If ``True``, emit a warning in case of precision mis-match issues.
-
-    Returns
-    -------
-    op: Stencil
-        Multi-dimensional convolution operator.
+    This corresponds to a correlation with a flipped kernel and center.
 
     Examples
     --------
@@ -885,50 +860,23 @@ def Convolve(
        #  [10   3  11  11],
        #  [15  12  14   7],
        #  [12   3   7   0]]
-
-
-    Notes
-    -----
-    Given a :math:`D`-dimensional array :math:`x\in\mathbb{R}^{N_1\times\cdots\times N_D}` and
-    kernel :math:`k\in\mathbb{R}^{K_1\times\cdots\times K_D}` with center :math:`(c_1, \ldots, c_D)`,
-    the output of the convolution operator is an array :math:`y\in\mathbb{R}^{N_1\times\cdots\times
-    N_D}` given by:
-
-    .. math::
-
-       y[i_{1},\ldots,i_{D}]
-       =
-       \sum_{q_{1},\ldots,q_{D}=0}^{K_{1},\ldots,K_{D}}
-       x[i_{1} - q_{1} + c_{1},\ldots,i_{D} - q_{D} + c_{D}]
-       \,\cdot\,
-       k[q_{1},\ldots,q_{D}].
-
-    The convolution is implemented via :py:class:`~pycsou.operator.linop.stencil.stencil.Stencil`.
-    To do so, the convolution kernel is transformed to the equivalent correlation kernel:
-
-    .. math::
-
-       y[i_{1},\ldots,i_{D}]
-       =
-       \sum_{q_{1},\ldots,q_{D}=0}^{K_{1},\ldots,K_{D}}
-       &x[i_{1} + q_{1} - (K_{1} - c_{1}),\ldots,i_{D} + q_{D} - (K_{D} - c_{D})] \\
-       &\cdot\,
-       k[K_{1}-q_{1},\ldots,K_{D}-q_{D}]
-
-    This corresponds to a correlation with a flipped kernel and center.
     """
-    try:  # Kernel is an array
-        xp = pycu.get_array_module(kernel)
-        kernel = xp.flip(kernel)  # Flip the kernel.
-    except:  # Kernel is a sequence
-        kernel = [k[::-1] for k in kernel]  # Flip each 1D kernel.
-    center = [len(center) - c for c in center]  # Symmetrize the center
 
-    op = Stencil(
-        arg_shape=arg_shape,
-        kernel=kernel,
-        center=center,
-        mode=mode,
-        enable_warnings=enable_warnings,
-    )
-    return op
+    def __init__(
+        self,
+        arg_shape: pyct.NDArrayShape,
+        kernel: Stencil.KernelSpec,
+        center: _Stencil.IndexSpec,
+        mode: Pad.ModeSpec = "constant",
+        enable_warnings: bool = True,
+    ):
+        super().__init__(
+            arg_shape=arg_shape,
+            kernel=kernel,
+            center=center,
+            mode=mode,
+            enable_warnings=enable_warnings,
+        )
+
+        # flip FW/BW kernels (& centers)
+        self._st_fw, self._st_bw = self._st_bw, self._st_fw
