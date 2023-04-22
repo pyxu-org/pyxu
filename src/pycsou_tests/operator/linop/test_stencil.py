@@ -187,3 +187,42 @@ class TestStencil(conftest.SquareOpT):
             in_=dict(arr=arr.reshape(-1)),
             out=out.reshape(-1),
         )
+
+
+class TestConvolve:
+    # A convolution corresponds to a stencil with reversed kernel/center.
+    # Since Convolve() inherits from Stencil(), it is sufficient to test that convolution with
+    # shifted Diracs (in 1D) gives the right results.
+    @pytest.mark.parametrize(
+        ["kernel", "center", "shift"],
+        [
+            (np.r_[1, 0], (0,), 0),  # k[n] = \delta[n]
+            (np.r_[0, 1], (0,), -1),  # k[n] = \delta[n - 1]
+            (np.r_[0, 0, 1, 0], (1,), -1),  # k[n] = \delta[n - 1]
+            (np.r_[1, 0], (1,), 1),  # k[n] = \delta[n + 1]
+            (np.r_[1, 0, 0], (1,), 1),  # k[n] = \delta[n + 1]
+            (np.r_[0, 0, 1, 0, 0, 0], (3,), 1),  # k[n] = \delta[n + 1]
+        ],
+    )
+    def test_value1D_apply(self, kernel, center, shift):
+        N = 10
+        arr = np.arange(N)
+
+        # Compute ground-truth
+        if shift == 0:
+            out_gt = arr.copy()
+        elif shift > 0:  # anti-causal filter
+            out_gt = np.pad(arr, pad_width=(0, abs(shift)))[-N:]
+        else:  # causal filter
+            out_gt = np.pad(arr, pad_width=(abs(shift), 0))[:N]
+
+        # Compute Stencil-based solution
+        op = pycl.Convolve(
+            arg_shape=arr.shape,
+            kernel=kernel,
+            center=center,
+            mode="constant",
+        )
+        out = op.apply(arr)
+
+        assert TestStencil._metric(out, out_gt, as_dtype=out.dtype)
