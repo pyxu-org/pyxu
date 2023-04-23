@@ -37,8 +37,8 @@ class Stencil(pyca.SquareOp):
     Several boundary conditions are supported.
     Moreover boundary conditions may differ per axis.
 
-    Implementation Notes
-    --------------------
+    **Implementation Notes**
+
 
     * Numba (and its ``@stencil`` decorator) is used behind the scenes to compile efficient machine
       code from a stencil kernel specification.
@@ -60,8 +60,8 @@ class Stencil(pyca.SquareOp):
         :math:`(K_{1},),\ldots,(K_{D},)` such that :math:`k[i_{1},\ldots,i_{D}] = \Pi_{d=1}^{D}
         k_{d}[i_{d}]`.
 
-    Mathematical Notes
-    ------------------
+    **Mathematical Notes**
+
     Given a :math:`D`-dimensional array :math:`x\in\mathbb{R}^{N_1\times\cdots\times N_D}` and
     kernel :math:`k\in\mathbb{R}^{K_1\times\cdots\times K_D}` with center :math:`(c_1, \ldots, c_D)`,
     the output of the stencil operator is an array :math:`y\in\mathbb{R}^{N_1\times\cdots\times
@@ -350,6 +350,12 @@ class Stencil(pyca.SquareOp):
          #  [2852  3942  4032  4122  4212  4302  4392  2658 ]
          #  [3380  4662  4752  4842  4932  5022  5112  3090 ]
          #  [1778  2451  2496  2541  2586  2631  2676  1617 ]]
+
+    See Also
+    --------
+    :py:class:`~pycsou.operator.linop.stencil.stencil.Convolve`,
+    :py:class:`~pycsou.operator.linop.stencil._stencil._Stencil`
+
     """
 
     KernelSpec = typ.Union[
@@ -860,6 +866,10 @@ class Convolve(Stencil):
        #  [10   3  11  11],
        #  [15  12  14   7],
        #  [12   3   7   0]]
+
+    See Also
+    --------
+    :py:class:`~pycsou.operator.linop.stencil.stencil.Stencil`
     """
 
     def __init__(
@@ -870,6 +880,9 @@ class Convolve(Stencil):
         mode: Pad.ModeSpec = "constant",
         enable_warnings: bool = True,
     ):
+        r"""
+        See :py:meth:`Stencil.__init__` for a description of the arguments.
+        """
         super().__init__(
             arg_shape=arg_shape,
             kernel=kernel,
