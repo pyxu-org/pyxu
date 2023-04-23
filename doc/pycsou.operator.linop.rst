@@ -28,6 +28,14 @@ pycsou.operator.linop.kron module
    :undoc-members:
    :show-inheritance:
 
+pycsou.operator.linop.fft module
+--------------------------------
+
+.. automodule:: pycsou.operator.linop.fft
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 pycsou.operator.linop.nufft module
 ----------------------------------
 
