@@ -193,7 +193,7 @@ class FFT(pyca.LinOp):
             data=arr.reshape(N_trans, *self._arg_shape),
             out_shape=(self._arg_shape,) * N_trans,
             out_dtype=(c_dtype,) * N_trans,
-            parallel=False,
+            parallel=True,
         )
 
         xp = pycu.get_array_module(arr)
@@ -214,7 +214,7 @@ class FFT(pyca.LinOp):
             data=arr.reshape(N_trans, *self._arg_shape),
             out_shape=(self._arg_shape,) * N_trans,
             out_dtype=(c_dtype,) * N_trans,
-            parallel=False,
+            parallel=True,
         )
 
         xp = pycu.get_array_module(arr)
