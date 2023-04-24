@@ -1,3 +1,6 @@
+import importlib
+import inspect
+
 import numpy as np
 
 import pycsou.abc as pyca
@@ -23,7 +26,7 @@ class FFT(pyca.LinOp):
     #   * For very small problems, use ExplicitLinOp (faster)
     #   * Example (multi-dim, real=True/False)
     #   * Implementation notes:
-    #     - PyFFTW used for NUMPY & DASK(cpu)
+    #     - PyFFTW used for NUMPY & DASK(cpu) [if installed, otherwise scipy.fft]
     #     - cuFFT for CUPY & DASK(gpu)
 
     def __init__(
@@ -158,21 +161,31 @@ class FFT(pyca.LinOp):
         ndi = N.from_obj(arr)
 
         if ndi == N.NUMPY:
-            fft = pycu.import_module("pyfftw.interfaces.scipy_fft")
+            PYFFTW_INSTALLED = importlib.util.find_spec("pyfftw") is not None
+            if PYFFTW_INSTALLED:
+                fft = pycu.import_module("pyfftw.interfaces.scipy_fft")
+            else:  # fallback to SciPy's routines
+                fft = pycu.import_module("scipy.fft")
         elif ndi == N.CUPY:
             fft = pycu.import_module("cupyx.scipy.fft")
         else:
             raise ValueError("Unknown NDArray category.")
+
         func, norm = dict(  # ref: scipy.fft norm conventions
             fw=(fft.fftn, "backward"),
             bw=(fft.ifftn, "forward"),
         )[mode]
 
+        # `self._kwargs()` contains parameters undersood by pyFFTW.
+        # If we must fallback to `scipy.fft`, need to drop all pyFFTW extra parameters.
+        sig = inspect.Signature.from_callable(func)
+        kwargs = {k: v for (k, v) in self._kwargs[ndi].items() if (k in sig.parameters)}
+
         out = func(
             x=arr,
             axes=self._axes,
             norm=norm,
-            **self._kwargs[ndi],
+            **kwargs,
         )
         return out
 
