@@ -14,7 +14,9 @@ __all__ = [
 
 def as_canonical_shape(x: pyct.NDArrayShape) -> pyct.NDArrayShape:
     # Transform a lone integer into a valid tuple-based shape specifier.
-    if not isinstance(x, cabc.Sequence):
+    if isinstance(x, cabc.Iterable):
+        x = tuple(x)
+    else:
         x = (x,)
     sh = tuple(map(int, x))
     return sh
