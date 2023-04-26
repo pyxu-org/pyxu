@@ -156,7 +156,7 @@ class _Diffusivity(pyca.Map):
     at the value obtained applying ``.apply()``  to `arr`.
 
     The class also features a ``.set_frozen_diffusivity()`` method. When applied to an array `arr`, it freezes the diffusivity
-    at the value ``arr``.
+    at the value `arr`.
 
     **Remark 2**
 
@@ -169,7 +169,7 @@ class _Diffusivity(pyca.Map):
 
     The class features the attribute ``bounded``. If ``True``, this signals that the map returns values
     in the range :math:`(0, 1]`. When implementing a new diffusivity, one should check whether this holds: if this is the case,
-    ``from_potential`` should be set to `True`.
+    ``bounded`` should be set to `True`.
     """
 
     def __init__(self, arg_shape: pyct.NDArrayShape, gradient: pyct.OpT = None):
@@ -306,31 +306,37 @@ class MfiDiffusivity(_Diffusivity):
     that cannot be written in divergence form.
     """
 
-    def __init__(self, arg_shape: pyct.NDArrayShape, tame: bool = True):
+    def __init__(self, arg_shape: pyct.NDArrayShape, beta: pyct.Real = 1.0, tame: bool = True):
         """
 
         Parameters
         ----------
         arg_shape: tuple
             Shape of the input array.
+        beta: pyct.Real
+            Contrast parameter. Defaults to `1`.
         tame: bool
             Whether to consider the tame version bounded in :math:`(0, 1]` or not. Defaults to `True`.
         """
         super().__init__(arg_shape=arg_shape)
+        assert beta > 0, "`beta` must be strictly positive"
+        self.beta = beta
         self.tame = tame
         self.bounded = tame
 
     @pycrt.enforce_precision(i="arr")
     def _apply_tame(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        y = xp.clip(arr, 0, None)
+        y = xp.clip(arr, 1e-4, None)
+        y /= self.beta
         y += 1
         return 1 / y
 
     @pycrt.enforce_precision(i="arr")
     def _apply_untamed(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        y = xp.clip(arr, 0, None)
+        y = xp.clip(arr, 1e-4, None)
+        y /= self.beta
         return 1 / y
 
     @pycrt.enforce_precision(i="arr")
@@ -940,7 +946,7 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
         for i in range(len(self.arg_shape)):
             # compute rank 1 matrices from eigenvectors, multiply them by intensities and sum up
             diffusion_tensors += lambdas[:, i].reshape(-1, 1, 1) * (
-                u[:, :, i].reshape(self.size, -1, len(self.arg_shape))
+                u[:, :, i].reshape(self.size, -1, len(self.arg_shape))  # replace -1s by 1s?
                 * u[:, :, i].reshape(self.size, len(self.arg_shape), -1)
             )
         return diffusion_tensors
@@ -1161,11 +1167,11 @@ class DiffusionCoeffAnisoCoherenceEnhancing(_DiffusionCoeffAnisotropic):
         xp = pycu.get_array_module(eigval_struct)
         coherence = (eigval_struct[:, 0] - eigval_struct[:, 1]) ** 2
         lambdas = self.alpha * xp.ones(eigval_struct.shape, dtype=eigval_struct.dtype)
-        nonzero_coherence_locs = ~np.isclose(coherence, 0)
+        nonzero_coherence_locs = ~np.isclose(coherence, 0)  # xp.isclose!!!
         # Inplace implementation of
-        #   lambdas[nonzero_coherence_locs, 1] = self.alpha + (1-self.alpha)*np.exp(-1./(coherence[nonzero_coherence_locs] ** (2*self.m)))
+        #   lambdas[nonzero_coherence_locs, 1] = self.alpha + (1-self.alpha)*np.exp(-1./(coherence[nonzero_coherence_locs] ** self.m))
         lambda1_nonzerolocs = coherence[nonzero_coherence_locs]
-        lambda1_nonzerolocs **= -(2 * self.m)
+        lambda1_nonzerolocs **= -(self.m)
         lambda1_nonzerolocs *= -self.c
         lambda1_nonzerolocs = xp.exp(lambda1_nonzerolocs)
         lambda1_nonzerolocs *= 1 - self.alpha
@@ -1814,7 +1820,7 @@ class DivergenceDiffusionOp(_DiffusionOp):
             if outer_diffusivity:
                 _known_diff_lipschitz = _known_diff_lipschitz and outer_diffusivity.bounded
         if _known_diff_lipschitz:
-            self._diff_lipschitz = gradient.lipschitz() ** 2
+            self._diff_lipschitz = 8 / (gradient.sampling[0] ** 2)  # gradient.lipschitz() ** 2
 
     @pycrt.enforce_precision(i="arr")
     @pycu.vectorize("arr")
