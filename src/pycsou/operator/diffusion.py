@@ -1592,10 +1592,13 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         if trace_diffusion_coefficient:
             if trace_diffusion_coefficient.isotropic:
                 ops = []
-                for dim in np.range(self.ndims):
+                idx = 0
+                for dim in range(self.ndims):
                     # select second order derivative operators
-                    ops.append(hessian._block[(dim, dim)])
-                hessian = pyblock.hstack(ops)
+                    ops.append(hessian._block[(idx, 0)])
+                    idx += self.ndims - dim
+                hessian = pyblock.vstack(ops)
+                hessian = pydiff._make_unravelable(hessian, arg_shape=arg_shape)
 
         # returning only objects that might have been modified.
         return (
@@ -1991,7 +1994,7 @@ class TraceDiffusionOp(_DiffusionOp):
             if outer_trace_diffusivity:
                 _known_diff_lipschitz = _known_diff_lipschitz and outer_trace_diffusivity.bounded
         if _known_diff_lipschitz:
-            self._diff_lipschitz = hessian.lipschitz()
+            self._diff_lipschitz = 8 / (hessian.sampling[0] ** 2)  # hessian.lipschitz()
 
     @pycrt.enforce_precision(i="arr")
     @pycu.vectorize("arr")
