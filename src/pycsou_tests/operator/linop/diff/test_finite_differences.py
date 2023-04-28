@@ -1,25 +1,17 @@
-import enum
-import itertools
-import math
 import typing as typ
 
 import numpy as np
-import numpy.linalg as npl
 import pytest
 import scipy.ndimage as scimage
 
-import pycsou.math.linalg as pylinalg
 import pycsou.operator.linop.diff as pycdiff
 import pycsou.runtime as pycrt
-import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
-if pycd.CUPY_ENABLED:
-    import cupy.linalg as cpl
-
-import collections.abc as cabc
+# if pycd.CUPY_ENABLED:
+#    import cupy.linalg as cpl
 
 try:
     import scipy.ndimage._filters as scif
