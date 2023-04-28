@@ -1,6 +1,5 @@
 import collections
 import collections.abc as cabc
-import copy
 import functools
 import itertools
 import types

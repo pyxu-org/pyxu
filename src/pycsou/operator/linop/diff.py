@@ -996,8 +996,8 @@ class _BaseStackDifferential:
             if isinstance(directions, str):
                 # This corresponds to [mode 3] in Hessian `Notes`
                 assert directions == "all", (
-                    f"Value for `directions` not implemented. The accepted directions types are"
-                    f"int, tuple or a str with the value `all`."
+                    "Value for `directions` not implemented. The accepted directions types are",
+                    "int, tuple or a str with the value `all`.",
                 )
                 directions = tuple(
                     list(_) for _ in itertools.combinations_with_replacement(np.arange(len(arg_shape)).astype(int), 2)
