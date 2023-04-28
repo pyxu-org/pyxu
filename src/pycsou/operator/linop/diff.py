@@ -974,6 +974,7 @@ class _BaseStackDifferential:
                 dif_op[i].print_kernel()
 
         op = _make_unravelable(pycb.vstack(dif_op, parallel=parallel), arg_shape)
+        setattr(op, "sampling", sampling)
         op.print_kernels = types.MethodType(print_kernels, op)
         return op
 

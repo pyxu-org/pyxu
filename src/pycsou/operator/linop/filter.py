@@ -2,7 +2,7 @@ import collections.abc as cabc
 import itertools
 
 import pycsou.abc.operator as pyco
-import pycsou.operator.linop as pycl
+import pycsou.operator.linop.pad as pyclp
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
@@ -74,7 +74,7 @@ def MovingAverage(
     arg_shape: pyct.NDArrayShape,
     size: typ.Union[typ.Tuple, pyct.Integer],
     center: typ.Optional[IndexSpec] = None,
-    mode: pycl.Pad.ModeSpec = "constant",
+    mode: pyclp.Pad.ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pyct.DType] = None,
 ):
@@ -173,7 +173,7 @@ def MovingAverage(
     kernel = [xp.ones(s, dtype=dtype) for s in size]  # use separable filters
     scale = 1 / np.prod(size)
 
-    op = scale * pycl.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode)
+    op = scale * pyclp.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode)
     op._name = "MovingAverage"
     return op
 
@@ -183,7 +183,7 @@ def Gaussian(
     sigma: typ.Union[typ.Tuple[pyct.Real], pyct.Real] = 1.0,
     truncate: typ.Union[typ.Tuple[pyct.Real], pyct.Real] = 3.0,
     order: typ.Union[typ.Tuple[pyct.Integer], pyct.Integer] = 0,
-    mode: pycl.Pad.ModeSpec = "constant",
+    mode: pyclp.Pad.ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pyct.DType] = None,
 ):
@@ -288,7 +288,7 @@ def Gaussian(
             kernel[i] = xp.asarray(np.flip(scif._gaussian_kernel1d(sigma_, order_, radius)), dtype=dtype)
             center[i] = radius
 
-    op = pycl.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode)
+    op = pyclp.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode)
     op._name = "Gaussian"
     return op
 
@@ -299,7 +299,7 @@ def DifferenceOfGaussians(
     high_sigma=None,
     low_truncate=3.0,
     high_truncate=3.0,
-    mode: pycl.Pad.ModeSpec = "constant",
+    mode: pyclp.Pad.ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pyct.DType] = None,
 ):
@@ -413,7 +413,7 @@ DoG = DifferenceOfGaussians
 
 def Laplace(
     arg_shape: pyct.NDArrayShape,
-    mode: pycl.Pad.ModeSpec = "constant",
+    mode: pyclp.Pad.ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pyct.DType] = None,
 ):
@@ -487,7 +487,7 @@ def Laplace(
     ndim, dtype, xp = _sanitize_inputs(arg_shape, dtype, gpu)
     centers = [[1 if i == dim else 0 for i in range(ndim)] for dim in range(ndim)]
     kernels = [xp.array([1.0, -2.0, 1.0]).reshape([-1 if i == dim else 1 for i in range(ndim)]) for dim in range(ndim)]
-    ops = [pycl.Stencil(arg_shape=arg_shape, kernel=k, center=c, mode=mode) for (k, c) in zip(kernels, centers)]
+    ops = [pyclp.Stencil(arg_shape=arg_shape, kernel=k, center=c, mode=mode) for (k, c) in zip(kernels, centers)]
     op = functools.reduce(lambda x, y: x + y, ops)
     op._name = "Laplace"
     return op
@@ -496,7 +496,7 @@ def Laplace(
 def Sobel(
     arg_shape: pyct.NDArrayShape,
     axis: typ.Optional[typ.Tuple] = None,
-    mode: pycl.Pad.ModeSpec = "constant",
+    mode: pyclp.Pad.ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pyct.DType] = None,
 ):
@@ -590,7 +590,7 @@ def Sobel(
 def Prewitt(
     arg_shape: pyct.NDArrayShape,
     axis: typ.Optional[typ.Tuple] = None,
-    mode: pycl.Pad.ModeSpec = "constant",
+    mode: pyclp.Pad.ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pyct.DType] = None,
 ):
@@ -684,7 +684,7 @@ def Prewitt(
 def Scharr(
     arg_shape: pyct.NDArrayShape,
     axis: typ.Optional[typ.Tuple] = None,
-    mode: pycl.Pad.ModeSpec = "constant",
+    mode: pyclp.Pad.ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pyct.DType] = None,
 ):
@@ -780,7 +780,7 @@ def _EdgeFilter(
     smooth_kernel: KernelSpec,
     filter_name: str,
     axis: typ.Optional[typ.Tuple] = None,
-    mode: pycl.Pad.ModeSpec = "constant",
+    mode: pyclp.Pad.ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pyct.DType] = None,
 ):
@@ -807,9 +807,9 @@ def _EdgeFilter(
             kernel[smooth_dim] = xp.asarray(smooth_kernel, dtype=dtype)
 
         if return_magnitude:
-            op_list.append(square * pycl.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode))
+            op_list.append(square * pyclp.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode))
         else:
-            op_list.append(pycl.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode))
+            op_list.append(pyclp.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode))
 
     op = functools.reduce(lambda x, y: x + y, op_list)
     if return_magnitude:
@@ -923,7 +923,7 @@ class StructureTensor(pyco.DiffMap):
         diff_method="fd",
         smooth_sigma: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1.0,
         smooth_truncate: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 3.0,
-        mode: pycl.Pad.ModeSpec = "constant",
+        mode: pyclp.Pad.ModeSpec = "constant",
         gpu: bool = False,
         dtype: typ.Optional[pyct.DType] = None,
         sampling: typ.Union[pyct.Real, tuple[pyct.Real, ...]] = 1,
@@ -942,9 +942,10 @@ class StructureTensor(pyco.DiffMap):
         if diff_method == "fd":
             diff_kwargs.update({"diff_type": diff_kwargs.pop("diff_type", "central")})
 
-        self.grad = pycl.Gradient(
+        self.grad = pyclp.Gradient(
             arg_shape=arg_shape,
             directions=None,
+            diff_method=diff_method,
             mode=mode,
             gpu=gpu,
             dtype=dtype,
@@ -964,7 +965,7 @@ class StructureTensor(pyco.DiffMap):
                 dtype=dtype,
             )
         else:
-            self.smooth = pycl.IdentityOp(dim=np.prod(arg_shape).item())
+            self.smooth = pyclp.IdentityOp(dim=np.prod(arg_shape).item())
 
     def unravel(self, arr):
         return arr.reshape(-1, *arr.shape[:-1], *self.arg_shape).swapaxes(0, 1)
