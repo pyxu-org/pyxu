@@ -5,7 +5,6 @@ import numpy as np
 import scipy.optimize as sciop
 
 import pycsou.abc as pyca
-import pycsou.abc.operator as pyco
 import pycsou.abc.solver as pysolver
 import pycsou.operator.blocks as pyblock
 import pycsou.operator.linop.base as pybase
@@ -127,7 +126,13 @@ class Erosion(_BalloonForce):
         gradient: :py:class:`~pycsou.operator.linop.diff.Gradient`
             Gradient operator. Defaults to `None`.
         """
-        self = -Dilation(arg_shape=arg_shape, gradient=gradient)
+        super().__init__(arg_shape=arg_shape, gradient=gradient)
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        grad_arr = self.grad.unravel(self.grad(arr))
+        return -xp.linalg.norm(grad_arr, axis=1, keepdims=True)
 
 
 class _Diffusivity(pyca.Map):
@@ -900,7 +905,7 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
     # how to enforce precision on tuple of outputs? should I simply use coerce?
     # Actually, both structure_tensor and svd preserve precision, so should not be an issue
     def _eigendecompose_struct_tensor(self, arr: pyct.NDArray) -> (pyct.NDArray, pyct.NDArray):
-        """
+        r"""
         Notes
         ----
         This function decomposes the structure tensor. For each pixel, the eigenvectors and associated eigenvalues are computed.
@@ -1081,7 +1086,7 @@ class DiffusionCoeffAnisoEdgeEnhancing(_DiffusionCoeffAnisotropic):
         # Inplace implementation of
         #   lambdas[nonzero_contrast_locs, 0] = 1 - xp.exp(- self.c / ((eigval_struct[nonzero_contrast_locs, 0] / self.beta) ** self.m))
         lambda0_nonzerolocs = eigval_struct[nonzero_contrast_locs, 0]
-        lambda0_nonzerolocs /= self.beta
+        lambda0_nonzerolocs /= self.beta**2
         lambda0_nonzerolocs **= -self.m
         lambda0_nonzerolocs *= -self.c
         lambda0_nonzerolocs = -xp.exp(lambda0_nonzerolocs)
@@ -1773,6 +1778,76 @@ class DivergenceDiffusionOp(_DiffusionOp):
     The action of the :py:class:`~pycsou.operator.diffusion.DivergenceDiffusionOp` on an image :math:`\mathbf{f}` can be better understood
     focusing on a single pixel :math:`f_i` of the vectorisation of :math:`\mathbf{f}` (see, e.g., discussion in
     :py:class:`~pycsou.operator.diffusion._DiffusionCoefficient`).
+
+    Example
+    -------
+
+    .. plot::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import pycsou.operator.linop.diff as pydiff
+        import pycsou.operator.linop.filter as pyfilt
+        import pycsou.opt.solver as pysol
+        import pycsou.abc.solver as pysolver
+        import pycsou.opt.stop as pystop
+        import pycsou.operator.diffusion as pydiffusion
+        import skimage as skim
+
+        # Import image
+        image = skim.io.imread(fname="../natural_images/buckeye.jpg", as_gray=True).astype(float)
+        noise_std = 0.3*np.mean(image)
+        noisy_image = image + noise_std*np.random.randn(426, 640)
+        # Instantiate needed differential operators
+        # Gradient operator
+        grad = pydiff.Gradient(arg_shape=image.shape, diff_method="fd",
+                                                 mode="symmetric", diff_kwargs={"diff_type":"forward"})
+        # Gaussian gradient operator
+        gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
+                                                 mode="symmetric", diff_kwargs={"sigma":2})
+
+        # Instantiate structure tensor
+        structure_tensor = pyfilt.StructureTensor(arg_shape=image.shape, diff_method="gd", smooth_sigma=0,
+                                                  mode="symmetric", diff_kwargs={"sigma":2})
+        # Estimate contrast parameter beta (heuristic)
+        gauss_grad_image=gauss_grad.unravel(gauss_grad(noisy_image.reshape(1,-1))).squeeze()
+        gauss_grad_norm = np.linalg.norm(gauss_grad_image, axis=0)
+        beta = np.quantile(gauss_grad_norm, 0.9) #0.1144
+        # Define two different diffusion coefficients: Perona-Malik (isotropic) and structure-tensor-based EdgeEnhancing (anisotropic)
+        # Perona-Malik coeff
+        PeronMalik_diffusivity = pydiffusion.PeronaMalikDiffusivity(arg_shape=image.shape, gradient=gauss_grad, beta=beta, pm_fct="exponential")
+        PeronaMalik_diffusion_coeff = pydiffusion.DiffusionCoeffIsotropic(arg_shape=image.shape, diffusivity=PeronMalik_diffusivity)
+
+        # Edge-enhancing coeff
+        EdgeEnhancing_diffusion_coeff = pydiffusion.DiffusionCoeffAnisoEdgeEnhancing(arg_shape=image.shape, structure_tensor=structure_tensor, beta=beta)
+        # Use defined diffusion coefficients to define two divergence-based diffusion operators
+        # Perona-Malik DiffusionOp
+        DivergenceDiffusionOpPM = pydiffusion.DivergenceDiffusionOp(arg_shape=image.shape, gradient=grad,
+                                                                  diffusion_coefficient=PeronaMalik_diffusion_coeff)
+        # Anisotropic Edge Enhancing DiffusionOp
+        DivergenceDiffusionOpEdge = pydiffusion.DivergenceDiffusionOp(arg_shape=image.shape, gradient=grad,
+                                                                  diffusion_coefficient=EdgeEnhancing_diffusion_coeff)
+        # Define stopping criterion and starting point
+        stop_crit = pystop.MaxIter(n=25)
+        x0 = noisy_image.reshape(1,-1)
+        # Perform 25 gradient flow iterations
+        PGD_PM = pysol.PGD(f = DivergenceDiffusionOpPM, g = None, show_progress=True, verbosity=100)
+        PGD_PM.fit(**dict(mode=pysolver.Mode.BLOCK, x0=x0, stop_crit=stop_crit, acceleration = False))
+        opt_PM = PGD_PM.solution()
+        PGD_Edge = pysol.PGD(f = DivergenceDiffusionOpEdge, g = None, show_progress=True, verbosity=100)
+        PGD_Edge.fit(**dict(mode=pysolver.Mode.BLOCK, x0=x0, stop_crit=stop_crit, acceleration = False))
+        opt_Edge = PGD_Edge.solution()
+        # Plot
+        fig, ax = plt.subplots(2,2,figsize=(12,9))
+        ax[0,0].imshow(image, cmap="gray")
+        ax[0,0].set_title("Image")
+        ax[0,1].imshow(noisy_image, cmap="gray")
+        ax[0,1].set_title("Noisy image")
+        ax[1,0].imshow(opt_PM.reshape(image.shape), cmap="gray")
+        ax[1,0].set_title("25 iterations Perona-Malik")
+        ax[1,1].imshow(opt_Edge.reshape(image.shape), cmap="gray")
+        ax[1,1].set_title("25 iterations Anisotropic-Edge-Enhancing")
+
     """
 
     def __init__(
@@ -1823,7 +1898,7 @@ class DivergenceDiffusionOp(_DiffusionOp):
             if outer_diffusivity:
                 _known_diff_lipschitz = _known_diff_lipschitz and outer_diffusivity.bounded
         if _known_diff_lipschitz:
-            self._diff_lipschitz = 8 / (gradient.sampling[0] ** 2)  # gradient.lipschitz() ** 2
+            self._diff_lipschitz = gradient.lipschitz() ** 2
 
     @pycrt.enforce_precision(i="arr")
     @pycu.vectorize("arr")
@@ -1994,7 +2069,7 @@ class TraceDiffusionOp(_DiffusionOp):
             if outer_trace_diffusivity:
                 _known_diff_lipschitz = _known_diff_lipschitz and outer_trace_diffusivity.bounded
         if _known_diff_lipschitz:
-            self._diff_lipschitz = 8 / (hessian.sampling[0] ** 2)  # hessian.lipschitz()
+            self._diff_lipschitz = hessian.lipschitz()
 
     @pycrt.enforce_precision(i="arr")
     @pycu.vectorize("arr")
