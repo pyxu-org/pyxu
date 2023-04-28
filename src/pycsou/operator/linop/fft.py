@@ -15,19 +15,146 @@ __all__ = [
 ]
 
 
-class FFT(pyca.LinOp):
-    # Note:
-    # * Inherits from LinOp instead of NormalOp since operator is not square if `real=True`.
-    #
-    # TODO:
-    #   Write top-level docstring.
-    #   * Write DFT definition (multi-dim), or via Kronecker product?
-    #   * Subtlety: adjoint != ifftn()
-    #   * For very small problems, use ExplicitLinOp (faster)
-    #   * Example (multi-dim, real=True/False)
-    #   * Implementation notes:
-    #     - PyFFTW used for NUMPY & DASK(cpu) [if installed, otherwise scipy.fft]
-    #     - cuFFT for CUPY & DASK(gpu)
+class FFT(pyca.LinOp):  # Inherits from LinOp instead of NormalOp since operator not square if `real=True`.
+    r"""
+    Multi-dimensional Discrete Fourier Transform (DFT) :math:`A: \mathbb{C}^{N_{1} \times \cdots
+    \times N_{D}} \to \mathbb{C}^{N_{1} \times \cdots \times N_{D}}`:
+
+    .. math::
+
+       (A \, \mathbf{x})[\mathbf{k}]
+       =
+       \sum_{\mathbf{n}} \mathbf{x}[\mathbf{n}]
+       \exp\left[-j 2 \pi \langle \frac{\mathbf{n}}{\mathbf{N}}, \mathbf{k} \rangle \right],
+
+    .. math::
+
+       (A^{*} \, \hat{\mathbf{x}})[\mathbf{n}]
+       =
+       \sum_{\mathbf{k}} \hat{\mathbf{x}}[\mathbf{k}]
+       \exp\left[j 2 \pi \langle \frac{\mathbf{n}}{\mathbf{N}}, \mathbf{k} \rangle \right],
+
+    .. math::
+
+       (\mathbf{x}, \, \hat{\mathbf{x}}) \in \mathbb{C}^{N_{1} \times \cdots \times N_{D}},
+       \quad
+       (\mathbf{n}, \, \mathbf{k}) \in \{0, \ldots, N_{1}\} \times \cdots \times \{0, \ldots, N_{D}\}.
+
+    The DFT is taken over any number of axes by means of the Fast Fourier Transform algorithm (FFT).
+
+
+    **Implementation Notes**
+
+    * The CPU implementation uses `PyFFTW <https://pyfftw.readthedocs.io/en/latest/>`_ if installed;
+      and otherwise relies on `SciPy's FFT implementation
+      <https://docs.scipy.org/doc/scipy/reference/fft.html>`_.
+    * The GPU implementation uses cuFFT via `CuPy
+      <https://docs.cupy.dev/en/latest/reference/scipy_fft.html>`_.
+
+
+    **Examples**
+
+    * 1D DFT of a cosine pulse.
+
+      .. code-block:: python3
+
+         from pycsou.operator.linop import FFT
+         import pycsou.util as pycu
+
+         N = 10
+         op = FFT(
+             arg_shape=(N,),
+             real=True,
+         )
+
+         x = np.cos(2 * np.pi / N * np.arange(N))
+         y = pycu.view_as_complex(op.apply(x))
+         # [0, N/2, 0, 0, 0, 0, 0, 0, 0, N/2]
+
+         z = op.adjoint(op.apply(x))
+         # np.allclose(z, N * x) -> True
+
+    * 1D DFT of a complex exponential pulse.
+
+      .. code-block:: python3
+
+         from pycsou.operator.linop import FFT
+         import pycsou.util as pycu
+
+         N = 10
+         op = FFT(
+             arg_shape=(N,),
+             real=False,  # complex-valued inputs
+         )
+
+         x = np.exp(1j * 2 * np.pi / N * np.arange(N))
+         y = pycu.view_as_complex(
+                 op.apply(
+                     pycu.view_as_real(x)
+                 )
+             )
+         # [0, N, 0, 0, 0, 0, 0, 0, 0, 0]
+
+         z = pycu.view_as_complex(
+                 op.adjoint(
+                     op.apply(
+                         pycu.view_as_real(x)
+                     )
+                 )
+             )
+         # np.allclose(z, N * x) -> True
+
+    * 2D DFT of an image
+
+      .. code-block:: python3
+
+         from pycsou.operator.linop import FFT
+         import pycsou.util as pycu
+
+         N_h, N_w = 10, 8
+         op = FFT(
+             arg_shape=(N_h, N_w),
+             real=True,
+         )
+
+         x = np.pad(  # an image
+             np.ones((N_h//2, N_w//2)),
+             pad_width=((0, N_h//2), (0, N_w//2)),
+         )
+         y = pycu.view_as_complex(  # sinc
+                 op.apply(x.reshape(-1))
+             ).reshape(N_h, N_w)
+         z = op.adjoint(
+                 op.apply(x.reshape(-1))
+             ).reshape(N_h, N_w)
+         # np.allclose(z, (N_h * N_w) * x) -> True
+
+    * 1D DFT of an image's rows
+
+      .. code-block:: python3
+
+         from pycsou.operator.linop import FFT
+         import pycsou.util as pycu
+
+         N_h, N_w = 10, 8
+         op = FFT(
+             arg_shape=(N_h, N_w),
+             axes=-1,
+             real=True,
+         )
+
+         x = np.pad(  # an image
+             np.ones((N_h//2, N_w//2)),
+             pad_width=((0, N_h//2), (0, N_w//2)),
+         )
+         y = pycu.view_as_complex(  # sinc
+                 op.apply(x.reshape(-1))
+             ).reshape(N_h, N_w)
+         z = op.adjoint(
+                 op.apply(x.reshape(-1))
+             ).reshape(N_h, N_w)
+         # np.allclose(z, N_w * x) -> True
+    """
 
     def __init__(
         self,
@@ -40,7 +167,7 @@ class FFT(pyca.LinOp):
         Parameters
         ----------
         arg_shape: pyct.NDArrayShape
-            (N_1, ..., N_D) shape of the input array :math:`\mathbf{X} \in \mathbb{R}^{N_{1} \times
+            (N_1, ..., N_D) shape of the input array :math:`\mathbf{x} \in \mathbb{R}^{N_{1} \times
             \cdots \times N_{D}}` or :math:`\mathbb{C}^{N_{1} \times \cdots \times N_{D}}`.
         axes: pyct.NDArrayAxis
             Axis or axes along which the DFT is performed.
@@ -191,6 +318,21 @@ class FFT(pyca.LinOp):
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: pyct.NDArray
+            * (...,  N.prod()) inputs :math:`\mathbf{x} \in \mathbb{R}^{N_{1} \times \cdots \times
+              N_{D}}` (``real=True``.)
+            * (..., 2N.prod()) inputs :math:`\mathbf{x} \in \mathbb{C}^{N_{1} \times \cdots \times
+              N_{D}}` viewed as a real array. (See :py:func:`~pycsou.util.complex.view_as_real`.)
+
+        Returns
+        -------
+        out: pyct.NDArray
+            (..., 2N.prod()) outputs :math:`\hat{\mathbf{x}} \in \mathbb{C}^{N_{1} \times \cdots
+            \times N_{D}}` viewed as a real array. (See :py:func:`~pycsou.util.complex.view_as_real`.)
+        """
         if self._real:
             r_width = pycrt.Width(arr.dtype)
             c_dtype = r_width.complex.value
@@ -216,6 +358,21 @@ class FFT(pyca.LinOp):
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: pyct.NDArray
+            (..., 2N.prod()) outputs :math:`\hat{\mathbf{x}} \in \mathbb{C}^{N_{1} \times \cdots
+            \times N_{D}}` viewed as a real array. (See :py:func:`~pycsou.util.complex.view_as_real`.)
+
+        Returns
+        -------
+        out: pyct.NDArray
+            * (...,  N.prod()) inputs :math:`\mathbf{x} \in \mathbb{R}^{N_{1} \times \cdots \times
+              N_{D}}` (``real=True``.)
+            * (..., 2N.prod()) inputs :math:`\mathbf{x} \in \mathbb{C}^{N_{1} \times \cdots \times
+              N_{D}}` viewed as a real array. (See :py:func:`~pycsou.util.complex.view_as_real`.)
+        """
         arr = pycu.view_as_complex(arr)
         c_dtype = arr.dtype
 
