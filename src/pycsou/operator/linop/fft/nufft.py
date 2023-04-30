@@ -96,9 +96,9 @@ class NUFFT(pyca.LinOp):
     algorithmic details.
 
     The transforms should be instantiated via
-    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type1`,
-    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type2`, and
-    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3` respectively.
+    :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.type1`,
+    :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.type2`, and
+    :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.type3` respectively.
     (See each method for usage examples.)
 
     The dimension of each transform is inferred from the dimensions of the input arguments, with
@@ -232,10 +232,10 @@ class NUFFT(pyca.LinOp):
     a single large NUFFT. (See note below however.)
 
     Chunking of the type-3 NUFFT is activated by passing ``chunked=True`` to
-    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3` (together with ``parallel=True`` for
+    :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.type3` (together with ``parallel=True`` for
     parallel computations).
-    Finally, :py:meth:`~pycsou.operator.linop.nufft.NUFFT.auto_chunk` can be used to
-    compute a good partition of the X/Z-domains.
+    Finally, :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.auto_chunk` can be used to compute a
+    good partition of the X/Z-domains.
 
     .. Hint::
 
@@ -295,9 +295,9 @@ class NUFFT(pyca.LinOp):
     the output format, or provide debug/timing information.
     While the default options are sensible for most setups, advanced users may overwrite them via
     the ``kwargs`` parameter of
-    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type1`,
-    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type2`, and
-    :py:meth:`~pycsou.operator.linop.nufft.NUFFT.type3`.
+    :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.type1`,
+    :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.type2`, and
+    :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.type3`.
     See the `guru interface <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_
     from FINUFFT and its `companion page
     <https://finufft.readthedocs.io/en/latest/opts.html#options-parameters>`_ for details.
@@ -306,8 +306,8 @@ class NUFFT(pyca.LinOp):
 
        FINUFFT exposes a ``dtype`` keyword to control the precision (single or double) at which
        transforms are performed.
-       This parameter is ignored by :py:class:`~pycsou.operator.linop.nufft.NUFFT`: use the context
-       manager :py:class:`~pycsou.runtime.Precision` to control floating point precision.
+       This parameter is ignored by :py:class:`~pycsou.operator.linop.fft.nufft.NUFFT`: use the
+       context manager :py:class:`~pycsou.runtime.Precision` to control floating point precision.
 
     .. Hint::
 
@@ -669,18 +669,18 @@ class NUFFT(pyca.LinOp):
              x_chunks, z_chunks = A.auto_chunk()  # auto-determine a good x/z chunking strategy
              A.allocate(x_chunks, z_chunks)  # apply the chunking strategy.
 
-          :py:meth:`~pycsou.operator.linop.nufft.NUFFT.auto_chunk` is a helper method to
+          :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.auto_chunk` is a helper method to
           auto-determine a good chunking strategy.
 
           Its runtime is significant when the number of sub-problems grows large. (1000+) In these
           contexts, assuming a good-enough x/z-split is known in advance, users can directly supply
-          them to :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`.
+          them to :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.allocate`.
 
         * apply/adjoint() runtime is minimized when x/z are well-ordered, i.e. when sub-problems can
           sub-sample inputs to apply/adjoint() via slice operators.
 
           To reduce runtime of chunked transforms,
-          :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate` automatically re-orders
+          :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.allocate` automatically re-orders
           x/z when appropriate.
 
           The side-effect is the cost of a permutation before/after calls to apply/adjoint().
@@ -690,8 +690,8 @@ class NUFFT(pyca.LinOp):
           and apply/adjoint inputs in the "correct" order from the start.
 
           A good re-ordering is computed automatically by
-          :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate` and can be used to initialize a new
-          chunked-transform with better runtime properties as such:
+          :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.allocate` and can be used to initialize a
+          new chunked-transform with better runtime properties as such:
 
           .. code-block:: python3
 
@@ -719,10 +719,10 @@ class NUFFT(pyca.LinOp):
 
         See Also
         --------
-        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.auto_chunk`,
-        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`,
-        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.diagnostic_plot`,
-        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.stats`
+        :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.auto_chunk`,
+        :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.allocate`,
+        :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.diagnostic_plot`,
+        :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.stats`
         """
         init_kwargs = _NUFFT3._sanitize_init_kwargs(
             x=x,
@@ -1117,8 +1117,8 @@ class NUFFT(pyca.LinOp):
         Notes
         -----
         When called from a chunked type-3 transform,
-        :py:meth:`~pycsou.operotar.linop.nufft.NUFFT.params` returns parameters of the equivalent
-        monolithic type-3 transform.
+        :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.params` returns parameters of the
+        equivalent monolithic type-3 transform.
         The monolithic transform is seldom instantiable due to its large memory requirements.
         This method can hence be used to estimate the memory savings induced by chunking.
         """
@@ -1253,9 +1253,9 @@ class NUFFT(pyca.LinOp):
 
         See Also
         --------
-        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`,
-        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.diagnostic_plot`,
-        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.stats`
+        :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.allocate`,
+        :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.diagnostic_plot`,
+        :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.stats`
         """
         raise NotImplementedError
 
@@ -1287,9 +1287,9 @@ class NUFFT(pyca.LinOp):
 
         See Also
         --------
-        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.auto_chunk`,
-        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.diagnostic_plot`,
-        :py:meth:`~pycsou.operator.linop.nufft.NUFFT.stats`
+        :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.auto_chunk`,
+        :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.diagnostic_plot`,
+        :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.stats`
         """
         raise NotImplementedError
 
@@ -1312,7 +1312,7 @@ class NUFFT(pyca.LinOp):
         Notes
         -----
         * This method can only be called after
-          :py:meth:`~pycsou.operator.linop.nufft.NUFFT.allocate`.
+          :py:meth:`~pycsou.operator.linop.fft.nufft.NUFFT.allocate`.
         * This method only works for 2D/3D domains.
 
         Examples

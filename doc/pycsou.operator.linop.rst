@@ -31,15 +31,12 @@ pycsou.operator.linop.kron module
 pycsou.operator.linop.fft module
 --------------------------------
 
-.. automodule:: pycsou.operator.linop.fft
+.. automodule:: pycsou.operator.linop.fft.fft
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.linop.nufft module
-----------------------------------
-
-.. automodule:: pycsou.operator.linop.nufft
+.. automodule:: pycsou.operator.linop.fft.nufft
    :members:
    :undoc-members:
    :show-inheritance:

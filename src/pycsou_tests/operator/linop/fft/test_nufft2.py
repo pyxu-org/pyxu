@@ -8,12 +8,12 @@ import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
-import pycsou_tests.operator.linop.nufft.conftest as conftest_nufft
+import pycsou_tests.operator.linop.fft.conftest_nufft as conftest_nufft
 
 
-class TestNUFFT1(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
+class TestNUFFT2(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
     # (Extra) Fixtures which parametrize operator -----------------------------
-    @pytest.fixture(params=[10, 13])
+    @pytest.fixture(params=[1, 13])
     def transform_x(self, transform_dimension, request) -> np.ndarray:
         # (M, D) D-dimensional sample points :math:`\mathbf{x}_{j} \in [-\pi, \pi)^{D}`.
         rng = np.random.default_rng(0)
@@ -21,7 +21,7 @@ class TestNUFFT1(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         x = np.fmod(_x, 2 * np.pi)
         return x
 
-    @pytest.fixture(params=[1, 10])
+    @pytest.fixture(params=[2, 10])
     def transform_N(self, transform_dimension, request) -> tuple[int]:
         # (D,) mesh size in each dimension :math:`(N_1, \ldots, N_{D})`.
         rng = np.random.default_rng(1)
@@ -42,7 +42,7 @@ class TestNUFFT1(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         transform_sign,
         transform_modeord,
     ) -> np.ndarray:
-        # Ground-truth LinOp A: \bC^{M} -> \bC^{N.prod()} which encodes the type-1 transform.
+        # Ground-truth LinOp A: \bC^{N.prod()} -> \bC^{M} which encodes the type-2 transform.
         mesh = np.stack(  # (D, N1, ..., Nd)
             np.meshgrid(
                 *[np.arange(-(n // 2), (n - 1) // 2 + 1) for n in transform_N],
@@ -55,7 +55,7 @@ class TestNUFFT1(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         mesh = mesh.reshape((transform_dimension, -1))  # (D, N.prod())
 
         A = np.exp(1j * transform_sign * mesh.T @ transform_x.T)  # (N.prod(), M)
-        return A
+        return A.T  # (M, N.prod())
 
     # Fixtures from conftest.LinOpT -------------------------------------------
     @pytest.fixture(
@@ -82,7 +82,7 @@ class TestNUFFT1(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         ndi, width = request.param
         xp, dtype = ndi.module(), width.value
         with pycrt.Precision(width):
-            op = pycl.NUFFT.type1(
+            op = pycl.NUFFT.type2(
                 x=xp.array(transform_x, dtype=dtype),
                 N=transform_N,
                 isign=transform_sign,
@@ -102,8 +102,8 @@ class TestNUFFT1(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         transform_N,
         transform_real,
     ):
-        dim = len(transform_x) * (1 if transform_real else 2)
-        codim = 2 * np.prod(transform_N)
+        dim = np.prod(transform_N) * (1 if transform_real else 2)
+        codim = 2 * len(transform_x)
         return (codim, dim)
 
     @pytest.fixture
@@ -112,10 +112,10 @@ class TestNUFFT1(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         _transform_cArray,
         transform_real,
     ):
-        N, M = _transform_cArray.shape
+        M, N = _transform_cArray.shape
 
         rng = np.random.default_rng(3)
-        w = rng.normal(size=(M,)) + 1j * rng.normal(size=(M,))
+        w = rng.normal(size=(N,)) + 1j * rng.normal(size=(N,))
         if transform_real:
             w = w.real
         v = _transform_cArray @ w
