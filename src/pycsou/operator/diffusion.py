@@ -2404,6 +2404,64 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
     The action of the :py:class:`~pycsou.operator.diffusion.CurvaturePreservingDiffusionOp` on an image :math:`\mathbf{f}` can be better understood
     focusing on a single pixel :math:`f_i` of the vectorisation of :math:`\mathbf{f}` (see, e.g., discussion in
     :py:class:`~pycsou.operator.diffusion._DiffusionCoefficient`).
+
+    Example
+    -------
+
+    .. plot::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import pycsou.operator.linop.diff as pydiff
+        import pycsou.opt.solver as pysol
+        import pycsou.abc.solver as pysolver
+        import pycsou.opt.stop as pystop
+        import pycsou.operator.diffusion as pydiffusion
+        import skimage as skim
+        # Import image
+        image = skim.color.rgb2gray(skim.data.cat())
+        # Instantiate needed differential operators
+        # Gradient operator
+        grad = pydiff.Gradient(arg_shape=image.shape, diff_method="fd",
+                                                 mode="symmetric", diff_type="forward")
+        # Gaussian gradient operator
+        gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
+                                                 mode="symmetric", sigma=2)
+        # Hessian operator
+        hessian = pydiff.Hessian(arg_shape=image.shape, diff_method="fd", mode="symmetric",
+                                                   diff_type="central", accuracy=2)
+        # Define vector field, diffusion process will preserve curvature along it
+        image_center=np.array(image.shape)/2+[0.25, 0.25]
+        curvature_preservation_field=np.zeros((2,image.size))
+        curv_pres_1 = np.zeros(image.shape)
+        curv_pres_2 = np.zeros(image.shape)
+        for i in range(image.shape[0]):
+            for j in range(image.shape[1]):
+                theta = np.arctan2(-i+image_center[0], j-image_center[1])
+                curv_pres_1[i,j] = np.cos(theta)
+                curv_pres_2[i,j] = np.sin(theta)
+        curvature_preservation_field[0,:]=curv_pres_1.reshape(1,-1)
+        curvature_preservation_field[1,:]=curv_pres_2.reshape(1,-1)
+        # Define curvature-preserving diffusion operator
+        CurvPresDiffusionOpPM = pydiffusion.CurvaturePreservingDiffusionOp(arg_shape=image.shape,
+                                                                           gradient=grad, hessian=hessian,
+                                                                  curvature_preservation_field=curvature_preservation_field)
+        # Define stopping criterion and starting point
+        stop_crit = pystop.MaxIter(n=500)
+        x0 = image.reshape(1,-1)
+        # Perform 500 gradient flow iterations
+        PGD_curve = pysol.PGD(f = CurvPresDiffusionOpPM, g = None, show_progress=True, verbosity=100)
+        PGD_curve.fit(**dict(mode=pysolver.Mode.BLOCK, x0=x0, stop_crit=stop_crit, acceleration = False))
+        opt_curve = PGD_curve.solution()
+        # Plot
+        fig, ax = plt.subplots(1,3,figsize=(20,4))
+        ax[0].imshow(image, cmap="gray", aspect="auto")
+        ax[0].set_title("Image")
+        ax[1].quiver(curv_pres_2[::40,::60], curv_pres_1[::40,::60])
+        ax[1].set_title("Vector field")
+        ax[2].imshow(opt_curve.reshape(image.shape), cmap="gray", aspect="auto")
+        ax[2].set_title("500 iterations Curvature Preserving")
+
     """
 
     def __init__(
