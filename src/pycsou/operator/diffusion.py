@@ -240,7 +240,8 @@ class _Diffusivity(pyca.Map):
 
 class TikhonovDiffusivity(_Diffusivity):
     r"""
-    Diffusivity associated to Tikhonov regularization.
+    Diffusivity associated to Tikhonov regularization. Leads to isotropic Laplacian diffusion in the context of
+    diffusion processes.
 
     Let :math:`f_i` be an entry (pixel) of the vectorisation of the :math:`D`-dimensional signal,
 
@@ -253,6 +254,36 @@ class TikhonovDiffusivity(_Diffusivity):
     .. math ::
 
         (g(\mathbf{f}))_i = 1, \quad \forall i.
+
+    Example
+    -------
+
+    .. plot::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import pycsou.operator.diffusion as pydiffusion
+        import skimage as skim
+        # Import image
+        image = skim.color.rgb2gray(skim.data.cat())
+        # Define Tikhonov diffusivity
+        Tikhonov_diffusivity = pydiffusion.TikhonovDiffusivity(arg_shape=image.shape)
+        # Evaluate diffusivity at image
+        Tikhodiff_eval = Tikhonov_diffusivity(image.reshape(1,-1)).reshape(image.shape)
+        # Plot
+        fig, ax = plt.subplots(1,3,figsize=(21,4))
+        p0=ax[0].imshow(image, cmap="gray", aspect="auto")
+        ax[0].set_title("Image", fontsize=15, pad=10)
+        plt.colorbar(p0, ax=ax[0], fraction=0.04, pad=0.01)
+        x=np.linspace(0,1,100)
+        ax[1].plot(x, np.ones(x.size))
+        ax[1].set_xlabel(r'$f$', fontsize=15)
+        ax[1].set_ylabel(r'$g$', fontsize=15, rotation=0, labelpad=7)
+        ax[1].set_xlim([0,1])
+        ax[1].set_title("Tikhonov diffusivity", fontsize=15, pad=10)
+        p2=ax[2].imshow(Tikhodiff_eval, cmap="gray", aspect="auto")
+        ax[2].set_title("Tikhonov diffusivity evaluated at image", fontsize=15, pad=10)
+        plt.colorbar(p2, ax=ax[2], fraction=0.04)
 
     """
 
@@ -296,19 +327,58 @@ class MfiDiffusivity(_Diffusivity):
     * If ``tame`` is ``False``,
     .. math ::
 
-        (g(\mathbf{f}))_i = \frac{1} { \max \{ 0, f_i \} }, \quad \forall i;
+        (g(\mathbf{f}))_i = \frac{1} { \max \{ 0, f_i \} / \beta}, \quad \forall i;
 
     * If ``tame`` is ``True``,
     .. math ::
 
-        (g(\mathbf{f}))_i = \frac{1} {1 + \max \{ 0, f_i \} }, \quad \forall i.
+        (g(\mathbf{f}))_i = \frac{1} {1 + \max \{ 0, f_i \} / \beta}, \quad \forall i.
 
 
-    **Remark**
+    **Remark 1**
 
     In both cases, the corresponding divergence-based diffusion term does not allow a variational interpretation.
     Indeed, the Euler-Lagrange equations arising from the original variational formulation yield an extra term
     that cannot be written in divergence form.
+
+    **Remark 2**
+
+    It is recommended to set ``tame`` to `True` to avoid instable behavior when the diffusivity is used in the context
+    of diffusion processes.
+
+    Example
+    -------
+
+    .. plot::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import pycsou.operator.diffusion as pydiffusion
+        import skimage as skim
+        # Import image
+        image = skim.color.rgb2gray(skim.data.cat())
+        # Instantiate gaussian gradient operator
+        gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
+                                                 mode="symmetric", diff_kwargs={"sigma":2})
+        # Define MFI diffusivity
+        MFI_diffusivity = pydiffusion.MfiDiffusivity(arg_shape=image.shape, tame=True)
+        # Evaluate diffusivity at image
+        MFIdiff_eval = MFI_diffusivity(image.reshape(1,-1)).reshape(image.shape)
+        # Plot
+        fig, ax = plt.subplots(1,3,figsize=(21,4))
+        p0=ax[0].imshow(image, cmap="gray", aspect="auto")
+        ax[0].set_title("Image", fontsize=15, pad=10)
+        plt.colorbar(p0, ax=ax[0], fraction=0.04, pad=0.01)
+        x=np.linspace(0,1,100)
+        ax[1].plot(x, 1/(1+x))
+        ax[1].set_xlabel(r'$f$', fontsize=15)
+        ax[1].set_ylabel(r'$g$', fontsize=15, rotation=0, labelpad=7)
+        ax[1].set_xlim([0,1])
+        ax[1].set_title("MFI diffusivity", fontsize=15, pad=10)
+        p2=ax[2].imshow(MFIdiff_eval, cmap="gray", aspect="auto")
+        ax[2].set_title("MFI diffusivity evaluated at image", fontsize=15, pad=10)
+        plt.colorbar(p2, ax=ax[2], fraction=0.04)
+
     """
 
     def __init__(self, arg_shape: pyct.NDArrayShape, beta: pyct.Real = 1.0, tame: bool = True):
@@ -384,6 +454,44 @@ class PeronaMalikDiffusivity(_Diffusivity):
 
     It is recommended to provide a Gaussian derivative-based gradient (:math:`\nabla=\nabla_\sigma`). This acts as regularization
     when the diffusivity is used  for the ill-posed Perona-Malik diffusion process [see `Tschumperle-Deriche <https://hal.science/hal-00332798/document>`_].
+
+    Example
+    -------
+
+    .. plot::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import pycsou.operator.linop.diff as pydiff
+        import pycsou.operator.diffusion as pydiffusion
+        import skimage as skim
+        # Import image
+        image = skim.color.rgb2gray(skim.data.cat())
+        # Instantiate gaussian gradient operator
+        gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
+                                                 mode="symmetric", diff_kwargs={"sigma":2})
+        # Set contrast parameter beta (heuristic)
+        gauss_grad_image=gauss_grad.unravel(gauss_grad(image.reshape(1,-1))).squeeze()
+        gauss_grad_norm = np.linalg.norm(gauss_grad_image, axis=0)
+        beta = np.quantile(gauss_grad_norm, 0.9)
+        # Define Perona-Malik diffusivity
+        PeronaMalik_diffusivity = pydiffusion.PeronaMalikDiffusivity(arg_shape=image.shape, gradient=gauss_grad, beta=beta, pm_fct="exponential")
+        # Evaluate diffusivity at image
+        PMdiff_eval = PeronaMalik_diffusivity(image.reshape(1,-1)).reshape(image.shape)
+        # Plot
+        fig, ax = plt.subplots(1,3,figsize=(20,4))
+        ax[0].imshow(image, cmap="gray", aspect="auto")
+        ax[0].set_title("Image", fontsize=15, pad=10)
+        x=np.linspace(0,0.25,100)
+        ax[1].plot(x, np.exp(-x**2/(beta**2)))
+        ax[1].set_xlabel(r'$\vert \nabla_\sigma f \vert$', fontsize=15)
+        ax[1].set_ylabel(r'$g$', fontsize=15, rotation=0, labelpad=10)
+        ax[1].set_xlim([0,0.25])
+        ax[1].set_title("Perona-Malik diffusivity", fontsize=15, pad=10)
+        p=ax[2].imshow(PMdiff_eval, cmap="gray", aspect="auto")
+        ax[2].set_title("Perona-Malik diffusivity evaluated at image", fontsize=15, pad=10)
+        plt.colorbar(p, ax=ax[2], fraction=0.04)
+
     """
 
     def __init__(
@@ -501,9 +609,52 @@ class TotalVariationDiffusivity(_Diffusivity):
     In both cases, the corresponding divergence-based diffusion term allows a variational interpretation
     [see `Tschumperle-Deriche <https://hal.science/hal-00332798/document>`_ for untamed case].
 
-    **Remark**
+    **Remark 1**
 
     It is recommended to provide a Gaussian derivative-based gradient (:math:`\nabla=\nabla_\sigma`) to reduce sensitivity to noise.
+
+    **Remark 2**
+
+    It is recommended to set ``tame`` to `True` to avoid instable behavior when the diffusivity is used in the context
+    of diffusion processes.
+
+    Example
+    -------
+
+    .. plot::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import pycsou.operator.linop.diff as pydiff
+        import pycsou.operator.diffusion as pydiffusion
+        import skimage as skim
+        # Import image
+        image = skim.color.rgb2gray(skim.data.cat())
+        # Instantiate gaussian gradient operator
+        gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
+                                                 mode="symmetric", diff_kwargs={"sigma":2})
+        # Set contrast parameter beta (heuristic)
+        gauss_grad_image=gauss_grad.unravel(gauss_grad(image.reshape(1,-1))).squeeze()
+        gauss_grad_norm = np.linalg.norm(gauss_grad_image, axis=0)
+        beta = np.quantile(gauss_grad_norm, 0.9)
+        # Define Total Variation diffusivity
+        TotalVariation_diffusivity = pydiffusion.TotalVariationDiffusivity(arg_shape=image.shape, gradient=gauss_grad, beta=beta, tame=True)
+        # Evaluate diffusivity at image
+        TVdiff_eval = TotalVariation_diffusivity(image.reshape(1,-1)).reshape(image.shape)
+        # Plot
+        fig, ax = plt.subplots(1,3,figsize=(20,4))
+        ax[0].imshow(image, cmap="gray", aspect="auto")
+        ax[0].set_title("Image", fontsize=15, pad=10)
+        x=np.linspace(0,0.25,100)
+        ax[1].plot(x, 1/np.sqrt(1+x**2/(beta**2)))
+        ax[1].set_xlabel(r'$\vert \nabla_\sigma f \vert$', fontsize=15)
+        ax[1].set_ylabel(r'$g$', fontsize=15, rotation=0, labelpad=10)
+        ax[1].set_xlim([0,0.25])
+        ax[1].set_title("Total Variation diffusivity", fontsize=15, pad=10)
+        p=ax[2].imshow(TVdiff_eval, cmap="gray", aspect="auto")
+        ax[2].set_title("Total Variation diffusivity evaluated at image", fontsize=15, pad=10)
+        plt.colorbar(p, ax=ax[2], fraction=0.04)
+
     """
 
     def __init__(self, arg_shape: pyct.NDArrayShape, gradient: pyct.OpT, beta: pyct.Real = 1, tame: bool = True):
@@ -735,6 +886,31 @@ class DiffusionCoeffIsotropic(_DiffusionCoefficient):
     **Remark 2**
     Instances of :py:class:`~pycsou.operator.diffusion.DiffusionCoeffIsotropic` inherit attributes
     ``from_potential`` and ``bounded`` from the diffusivity.
+
+    Example
+    -------
+
+    .. plot::
+
+        import pycsou.operator.linop.diff as pydiff
+        import pycsou.operator.diffusion as pydiffusion
+        import skimage as skim
+
+        # Import image
+        image = skim.color.rgb2gray(skim.data.cat())
+        print(image.shape) #(300, 451)
+        print(image.size) #135300
+        # Instantiate gaussian gradient operator
+        gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
+                                                 mode="symmetric", diff_kwargs={"sigma":2})
+        # Instantiate a diffusivity (e.g., Perona-Malik)
+        PeronMalik_diffusivity = pydiffusion.PeronaMalikDiffusivity(arg_shape=image.shape, gradient=gauss_grad, pm_fct="exponential")
+        # Instantiate an isotropic diffusion coefficient based on the defined diffusivity
+        PeronaMalik_diffusion_coeff = pydiffusion.DiffusionCoeffIsotropic(arg_shape=image.shape, diffusivity=PeronMalik_diffusivity)
+        # Evaluate diffusion coefficient at the image, obtaining an operator of size (2*image.size, 2*image.size).
+        PMcoeff_eval = PeronaMalik_diffusion_coeff(image.reshape(1,-1))
+        print(PMcoeff_eval) # DiagonalOp(270600, 270600)
+
     """
 
     def __init__(self, arg_shape: pyct.NDArrayShape, diffusivity: pyct.OpT = None, trace_term: bool = False):
@@ -1038,6 +1214,29 @@ class DiffusionCoeffAnisoEdgeEnhancing(_DiffusionCoeffAnisotropic):
     **Remark 2**
 
     Performance of the method can be quite sensitive to the hyperparameters :math:`\beta, m`, particularly :math:`\beta`.
+
+    Example
+    -------
+
+    .. plot::
+
+        import numpy as np
+        import pycsou.operator.linop.filter as pyfilt
+        import pycsou.operator.diffusion as pydiffusion
+        import skimage as skim
+        # Import image
+        image = skim.color.rgb2gray(skim.data.cat())
+        print(image.shape) #(300, 451)
+        print(image.size) #135300
+        # Instantiate structure tensor
+        structure_tensor = pyfilt.StructureTensor(arg_shape=image.shape, diff_method="gd", smooth_sigma=0,
+                                                  mode="symmetric", diff_kwargs={"sigma":2})
+        # Instantiate diffusion coefficient
+        EdgeEnhancing_coeff = pydiffusion.DiffusionCoeffAnisoEdgeEnhancing(arg_shape=image.shape, structure_tensor=structure_tensor)
+        # Evaluate diffusion coefficient at the image, obtaining an operator of size (2*image.size, 2*image.size).
+        EdheEnhance_coeff_eval = EdgeEnhancing_coeff(image.reshape(1,-1))
+        print(EdheEnhance_coeff_eval) # SquareOp(270600, 270600)
+
     """
 
     def __init__(
@@ -1136,6 +1335,29 @@ class DiffusionCoeffAnisoCoherenceEnhancing(_DiffusionCoeffAnisotropic):
     **Remark 2**
 
     Performance of the method can be quite sensitive to the hyperparameters :math:`\alpha, m`, particularly :math:`\alpha`.
+
+    Example
+    -------
+
+    .. plot::
+
+        import numpy as np
+        import pycsou.operator.linop.filter as pyfilt
+        import pycsou.operator.diffusion as pydiffusion
+        import skimage as skim
+        # Import image
+        image = skim.color.rgb2gray(skim.data.cat())
+        print(image.shape) #(300, 451)
+        print(image.size) #135300
+        # Instantiate structure tensor
+        structure_tensor = pyfilt.StructureTensor(arg_shape=image.shape, diff_method="gd", smooth_sigma=0,
+                                                  mode="symmetric", diff_kwargs={"sigma":2})
+        # Instantiate diffusion coefficient
+        CoherenceEnhancing_coeff = pydiffusion.DiffusionCoeffAnisoCoherenceEnhancing(arg_shape=image.shape, structure_tensor=structure_tensor)
+        # Evaluate diffusion coefficient at the image, obtaining an operator of size (2*image.size, 2*image.size).
+        CoherenceEnhance_coeff_eval = CoherenceEnhancing_coeff(image.reshape(1,-1))
+        print(CoherenceEnhance_coeff_eval) # SquareOp(270600, 270600)
+
     """
 
     def __init__(
@@ -1461,8 +1683,12 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 ]
             )
             warnings.warn(msg)
-            gradient = pydiff.Gradient.finite_difference(
-                arg_shape=arg_shape, mode="reflect", sampling=1.0, diff_type="central"
+            gradient = pydiff.Gradient(
+                arg_shape=arg_shape,
+                diff_method="fd",
+                sampling=1.0,
+                mode="symmetric",
+                diff_kwargs={"diff_type": "forward"},
             )
 
         if curvature_preservation_field.size > 0 and not gradient:
@@ -1473,8 +1699,8 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 ]
             )
             warnings.warn(msg)
-            gradient = pydiff.Gradient.finite_difference(
-                arg_shape=arg_shape, mode="edge", sampling=1.0, diff_type="central"
+            gradient = pydiff.Gradient(
+                arg_shape=arg_shape, diff_method="fd", sampling=1.0, mode="edge", diff_kwargs={"diff_type": "central"}
             )
 
         if trace_diffusion_coefficient and not hessian:
@@ -1485,8 +1711,12 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 ]
             )
             warnings.warn(msg)
-            hessian = pydiff.Hessian.finite_difference(
-                arg_shape=arg_shape, mode="reflect", sampling=1.0, diff_type="central", accuracy=2
+            hessian = pydiff.Hessian(
+                arg_shape=arg_shape,
+                diff_method="fd",
+                mode="symmetric",
+                sampling=1.0,
+                diff_kwargs={"diff_type": "central", "accuracy": 2},
             )
 
         if diffusion_coefficient and diffusion_coefficient.trace_term:
@@ -1793,30 +2023,31 @@ class DivergenceDiffusionOp(_DiffusionOp):
         import pycsou.opt.stop as pystop
         import pycsou.operator.diffusion as pydiffusion
         import skimage as skim
-
-        # Import image
-        image = skim.io.imread(fname="../natural_images/buckeye.jpg", as_gray=True).astype(float)
+        # Import image and corrupt it by noise
+        image = skim.color.rgb2gray(skim.data.cat())
+        print(image.shape) #(300, 451)
+        print(image.size) #135300
         noise_std = 0.3*np.mean(image)
-        noisy_image = image + noise_std*np.random.randn(426, 640)
-        # Instantiate needed differential operators
-        # Gradient operator
+        noisy_image = image + noise_std*np.random.randn(300, 451)
+        # Instantiate differential operators
+        # Gradient
         grad = pydiff.Gradient(arg_shape=image.shape, diff_method="fd",
                                                  mode="symmetric", diff_kwargs={"diff_type":"forward"})
-        # Gaussian gradient operator
+        # Gaussian gradient
         gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
                                                  mode="symmetric", diff_kwargs={"sigma":2})
 
-        # Instantiate structure tensor
+        # Instantiate structure tensor (smooth_sigma=0 since we will consider edge enhancement)
         structure_tensor = pyfilt.StructureTensor(arg_shape=image.shape, diff_method="gd", smooth_sigma=0,
                                                   mode="symmetric", diff_kwargs={"sigma":2})
-        # Estimate contrast parameter beta (heuristic)
+        # Estimate contrast parameter beta (heuristic, quantile-based)
         gauss_grad_image=gauss_grad.unravel(gauss_grad(noisy_image.reshape(1,-1))).squeeze()
         gauss_grad_norm = np.linalg.norm(gauss_grad_image, axis=0)
-        beta = np.quantile(gauss_grad_norm, 0.9) #0.1144
-        # Define two different diffusion coefficients: Perona-Malik (isotropic) and structure-tensor-based EdgeEnhancing (anisotropic)
+        beta = np.quantile(gauss_grad_norm, 0.9)
+        # Define diffusion coefficients. For example, Perona-Malik (isotropic) and structure-tensor-based EdgeEnhancing (anisotropic)
         # Perona-Malik coeff
-        PeronMalik_diffusivity = pydiffusion.PeronaMalikDiffusivity(arg_shape=image.shape, gradient=gauss_grad, beta=beta, pm_fct="exponential")
-        PeronaMalik_diffusion_coeff = pydiffusion.DiffusionCoeffIsotropic(arg_shape=image.shape, diffusivity=PeronMalik_diffusivity)
+        PeronaMalik_diffusivity = pydiffusion.PeronaMalikDiffusivity(arg_shape=image.shape, gradient=gauss_grad, beta=beta, pm_fct="exponential")
+        PeronaMalik_diffusion_coeff = pydiffusion.DiffusionCoeffIsotropic(arg_shape=image.shape, diffusivity=PeronaMalik_diffusivity)
 
         # Edge-enhancing coeff
         EdgeEnhancing_diffusion_coeff = pydiffusion.DiffusionCoeffAnisoEdgeEnhancing(arg_shape=image.shape, structure_tensor=structure_tensor, beta=beta)
@@ -2020,6 +2251,78 @@ class TraceDiffusionOp(_DiffusionOp):
     The action of the :py:class:`~pycsou.operator.diffusion.TraceDiffusionOp` on an image :math:`\mathbf{f}` can be better understood
     focusing on a single pixel :math:`f_i` of the vectorisation of :math:`\mathbf{f}` (see, e.g., discussion in
     :py:class:`~pycsou.operator.diffusion._DiffusionCoefficient`).
+
+    Example
+    -------
+
+    .. plot::
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import pycsou.operator.linop.diff as pydiff
+        import pycsou.operator.linop.filter as pyfilt
+        import pycsou.opt.solver as pysol
+        import pycsou.abc.solver as pysolver
+        import pycsou.opt.stop as pystop
+        import pycsou.operator.diffusion as pydiffusion
+        import skimage as skim
+        # Import image
+        image = skim.color.rgb2gray(skim.data.cat())
+        print(image.shape) #(300, 451)
+        print(image.size) #135300
+        noise_std = 0.3*np.mean(image)
+        noisy_image = image + noise_std*np.random.randn(300, 451)
+        # Instantiate needed differential operators
+        # Gaussian gradient operator
+        gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
+                                                 mode="symmetric", diff_kwargs={"sigma":2})
+        # Hessian operator
+        hessian = pydiff.Hessian(arg_shape=image.shape, diff_method="fd", mode="symmetric",
+                                                   diff_kwargs={"diff_type":"central", "accuracy":2})
+        # Instantiate structure tensor
+        structure_tensor = pyfilt.StructureTensor(arg_shape=image.shape, diff_method="gd", smooth_sigma=0,
+                                                  mode="symmetric", diff_kwargs={"sigma":2})
+        # Estimate contrast parameter beta (heuristic, quantile-based)
+        gauss_grad_image=gauss_grad.unravel(gauss_grad(noisy_image.reshape(1,-1))).squeeze()
+        gauss_grad_norm = np.linalg.norm(gauss_grad_image, axis=0)
+        beta = np.quantile(gauss_grad_norm, 0.9)
+        # Define two different diffusion coefficients: Perona-Malik (isotropic) and structure-tensor-based EdgeEnhancing (anisotropic)
+        # Perona-Malik coeff
+        PeronaMalik_diffusivity = pydiffusion.PeronaMalikDiffusivity(arg_shape=image.shape, gradient=gauss_grad, beta=beta, pm_fct="exponential")
+        PeronaMalik_diffusion_coeff = pydiffusion.DiffusionCoeffIsotropic(arg_shape=image.shape, diffusivity=PeronaMalik_diffusivity,
+                                                                          trace_term=True)
+        # Edge-enhancing coeff
+        EdgeEnhancing_diffusion_coeff = pydiffusion.DiffusionCoeffAnisoEdgeEnhancing(arg_shape=image.shape,
+                                                                                     structure_tensor=structure_tensor,
+                                                                                     beta=beta, trace_term=True)
+        # Use defined diffusion coefficients to define two trace-based diffusion operators
+        # Perona-Malik DiffusionOp
+        TraceDiffusionOpPM = pydiffusion.TraceDiffusionOp(arg_shape=image.shape, hessian=hessian,
+                                                                  trace_diffusion_coefficient=PeronaMalik_diffusion_coeff)
+        # Anisotropic Edge Enhancing DiffusionOp
+        TraceDiffusionOpEdge = pydiffusion.TraceDiffusionOp(arg_shape=image.shape, hessian=hessian,
+                                                                  trace_diffusion_coefficient=EdgeEnhancing_diffusion_coeff)
+        # Define stopping criterion and starting point
+        stop_crit = pystop.MaxIter(n=25)
+        x0 = noisy_image.reshape(1,-1)
+        # Perform 25 gradient flow iterations
+        PGD_PM = pysol.PGD(f = TraceDiffusionOpPM, g = None, show_progress=True, verbosity=100)
+        PGD_PM.fit(**dict(mode=pysolver.Mode.BLOCK, x0=x0, stop_crit=stop_crit, acceleration = False))
+        opt_PM = PGD_PM.solution()
+        PGD_Edge = pysol.PGD(f = TraceDiffusionOpEdge, g = None, show_progress=True, verbosity=100)
+        PGD_Edge.fit(**dict(mode=pysolver.Mode.BLOCK, x0=x0, stop_crit=stop_crit, acceleration = False))
+        opt_Edge = PGD_Edge.solution()
+        # Plot
+        fig, ax = plt.subplots(2,2,figsize=(12,9))
+        ax[0,0].imshow(image, cmap="gray")
+        ax[0,0].set_title("Image")
+        ax[0,1].imshow(noisy_image, cmap="gray")
+        ax[0,1].set_title("Noisy image")
+        ax[1,0].imshow(opt_PM.reshape(image.shape), cmap="gray")
+        ax[1,0].set_title("25 iterations Perona-Malik")
+        ax[1,1].imshow(opt_Edge.reshape(image.shape), cmap="gray")
+        ax[1,1].set_title("25 iterations Anisotropic-Edge-Enhancing")
+
     """
 
     def __init__(
@@ -2144,8 +2447,12 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
                 ]
             )
             warnings.warn(msg)
-            hessian = pydiff.Hessian.finite_difference(
-                arg_shape=arg_shape, mode="reflect", sampling=1.0, diff_type="central", accuracy=2
+            hessian = pydiff.Hessian(
+                arg_shape=arg_shape,
+                diff_method="fd",
+                mode="symmetric",
+                sampling=1.0,
+                diff_kwargs={"diff_type": "central", "accuracy": 2},
             )
         super().__init__(
             arg_shape=arg_shape,
