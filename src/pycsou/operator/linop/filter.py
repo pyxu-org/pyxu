@@ -2,6 +2,8 @@ import collections.abc as cabc
 import itertools
 
 import pycsou.abc.operator as pyco
+import pycsou.operator.linop.base as pyclb
+import pycsou.operator.linop.diff as pycld
 import pycsou.operator.linop.pad as pyclp
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
@@ -942,7 +944,7 @@ class StructureTensor(pyco.DiffMap):
         if diff_method == "fd":
             diff_kwargs.update({"diff_type": diff_kwargs.pop("diff_type", "central")})
 
-        self.grad = pyclp.Gradient(
+        self.grad = pycld.Gradient(
             arg_shape=arg_shape,
             directions=None,
             diff_method=diff_method,
@@ -965,7 +967,7 @@ class StructureTensor(pyco.DiffMap):
                 dtype=dtype,
             )
         else:
-            self.smooth = pyclp.IdentityOp(dim=np.prod(arg_shape).item())
+            self.smooth = pyclb.IdentityOp(dim=np.prod(arg_shape).item())
 
     def unravel(self, arr):
         return arr.reshape(-1, *arr.shape[:-1], *self.arg_shape).swapaxes(0, 1)
