@@ -431,7 +431,7 @@ class PeronaMalikDiffusivity(_Diffusivity):
 
         \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}}.
 
-    Furthermore, let :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_1})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
+    Furthermore, let :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_0})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
 
     Then the Perona-Malik diffusivity function reads
 
@@ -469,7 +469,7 @@ class PeronaMalikDiffusivity(_Diffusivity):
         image = skim.color.rgb2gray(skim.data.cat())
         # Instantiate gaussian gradient operator
         gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
-                                                 mode="symmetric", diff_kwargs={"sigma":2})
+                                                 mode="symmetric", sigma=2)
         # Set contrast parameter beta (heuristic)
         gauss_grad_image=gauss_grad.unravel(gauss_grad(image.reshape(1,-1))).squeeze()
         gauss_grad_norm = np.linalg.norm(gauss_grad_image, axis=0)
@@ -590,7 +590,7 @@ class TotalVariationDiffusivity(_Diffusivity):
 
         \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}}.
 
-    Furthermore, let :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_1})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
+    Furthermore, let :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_0})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
 
     Then the Total Variation diffusivity function reads
 
@@ -632,7 +632,7 @@ class TotalVariationDiffusivity(_Diffusivity):
         image = skim.color.rgb2gray(skim.data.cat())
         # Instantiate gaussian gradient operator
         gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
-                                                 mode="symmetric", diff_kwargs={"sigma":2})
+                                                 mode="symmetric", sigma=2)
         # Set contrast parameter beta (heuristic)
         gauss_grad_image=gauss_grad.unravel(gauss_grad(image.reshape(1,-1))).squeeze()
         gauss_grad_norm = np.linalg.norm(gauss_grad_image, axis=0)
@@ -756,7 +756,7 @@ class _DiffusionCoefficient:
 
     The meaning of the ``_DiffusionCoefficient`` :math:`\mathbf{D}` can be better understood focusing on the :math:`i`-th entry (pixel) :math:`f_i`
     of the vectorisation of :math:`\mathbf{f}`. Furthermore, let
-    :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_1})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
+    :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_0})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
     We consider the divergence-based case. Then, the :math:`i`-th component of :math:`\mathbf{D}`
     is a tensor :math:`D_i\in\mathbb{R}^{D\times D}`. When applied to the :math:`i`-th component of :math:`\nabla\mathbf{f}`, this gives
     the flux
@@ -872,7 +872,7 @@ class DiffusionCoeffIsotropic(_DiffusionCoefficient):
     .. math::
         \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}}.
 
-    Furthermore, let :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_1})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
+    Furthermore, let :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_0})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
     We consider the divergence-based case. Then, the :math:`i`-th component of :math:`\mathbf{D}`
     is the tensor :math:`D_i=(g(\mathbf{f}))_i\,I_D`, where :math:`(g(\mathbf{f}))_i\in\mathbb{R}` and :math:`I_D` is the :math:`D`-dimensional identity
     matrix.
@@ -902,7 +902,7 @@ class DiffusionCoeffIsotropic(_DiffusionCoefficient):
         print(image.size) #135300
         # Instantiate gaussian gradient operator
         gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
-                                                 mode="symmetric", diff_kwargs={"sigma":2})
+                                                 mode="symmetric", sigma=2)
         # Instantiate a diffusivity (e.g., Perona-Malik)
         PeronMalik_diffusivity = pydiffusion.PeronaMalikDiffusivity(arg_shape=image.shape, gradient=gauss_grad, pm_fct="exponential")
         # Instantiate an isotropic diffusion coefficient based on the defined diffusivity
@@ -988,7 +988,7 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
     .. math::
         \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}}.
 
-    Furthermore, let :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_1})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
+    Furthermore, let :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_0})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
     We consider the divergence-based case. Then, the :math:`i`-th component of :math:`\mathbf{D}`
     is the symmetric matrix
 
@@ -1230,7 +1230,7 @@ class DiffusionCoeffAnisoEdgeEnhancing(_DiffusionCoeffAnisotropic):
         print(image.size) #135300
         # Instantiate structure tensor
         structure_tensor = pyfilt.StructureTensor(arg_shape=image.shape, diff_method="gd", smooth_sigma=0,
-                                                  mode="symmetric", diff_kwargs={"sigma":2})
+                                                  mode="symmetric", sigma=2)
         # Instantiate diffusion coefficient
         EdgeEnhancing_coeff = pydiffusion.DiffusionCoeffAnisoEdgeEnhancing(arg_shape=image.shape, structure_tensor=structure_tensor)
         # Evaluate diffusion coefficient at the image, obtaining an operator of size (2*image.size, 2*image.size).
@@ -1351,7 +1351,7 @@ class DiffusionCoeffAnisoCoherenceEnhancing(_DiffusionCoeffAnisotropic):
         print(image.size) #135300
         # Instantiate structure tensor
         structure_tensor = pyfilt.StructureTensor(arg_shape=image.shape, diff_method="gd", smooth_sigma=0,
-                                                  mode="symmetric", diff_kwargs={"sigma":2})
+                                                  mode="symmetric", sigma=2)
         # Instantiate diffusion coefficient
         CoherenceEnhancing_coeff = pydiffusion.DiffusionCoeffAnisoCoherenceEnhancing(arg_shape=image.shape, structure_tensor=structure_tensor)
         # Evaluate diffusion coefficient at the image, obtaining an operator of size (2*image.size, 2*image.size).
@@ -1419,7 +1419,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
     documentation we consider a :math:`2`-dimensional signal :math:`\mathbf{f} \in \mathbb{R}^{N_{0},N_1}`,
     but higher dimensional signals could be considered. We denote by :math:`f_i` the :math:`i`-th entry (pixel)
     of the vectorisation of :math:`\mathbf{f}`, :math:`i=0,\dots,(N_0N_1-1)`. Furthermore, let
-    :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_1})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
+    :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_0})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
 
     To give some intuition, let us first consider a simple case: Tikhonov regularisation, corresponding to linear, isotropic,
     homogeneous smoothing. This yields the regularisation functional
@@ -1688,7 +1688,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 diff_method="fd",
                 sampling=1.0,
                 mode="symmetric",
-                diff_kwargs={"diff_type": "forward"},
+                diff_type="forward",
             )
 
         if curvature_preservation_field.size > 0 and not gradient:
@@ -1700,7 +1700,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
             )
             warnings.warn(msg)
             gradient = pydiff.Gradient(
-                arg_shape=arg_shape, diff_method="fd", sampling=1.0, mode="edge", diff_kwargs={"diff_type": "central"}
+                arg_shape=arg_shape, diff_method="fd", sampling=1.0, mode="edge", diff_type="central"
             )
 
         if trace_diffusion_coefficient and not hessian:
@@ -1712,11 +1712,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
             )
             warnings.warn(msg)
             hessian = pydiff.Hessian(
-                arg_shape=arg_shape,
-                diff_method="fd",
-                mode="symmetric",
-                sampling=1.0,
-                diff_kwargs={"diff_type": "central", "accuracy": 2},
+                arg_shape=arg_shape, diff_method="fd", mode="symmetric", sampling=1.0, diff_type="central", accuracy=2
             )
 
         if diffusion_coefficient and diffusion_coefficient.trace_term:
@@ -2032,14 +2028,14 @@ class DivergenceDiffusionOp(_DiffusionOp):
         # Instantiate differential operators
         # Gradient
         grad = pydiff.Gradient(arg_shape=image.shape, diff_method="fd",
-                                                 mode="symmetric", diff_kwargs={"diff_type":"forward"})
+                                                 mode="symmetric", diff_type="forward")
         # Gaussian gradient
         gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
-                                                 mode="symmetric", diff_kwargs={"sigma":2})
+                                                 mode="symmetric", sigma=2)
 
         # Instantiate structure tensor (smooth_sigma=0 since we will consider edge enhancement)
         structure_tensor = pyfilt.StructureTensor(arg_shape=image.shape, diff_method="gd", smooth_sigma=0,
-                                                  mode="symmetric", diff_kwargs={"sigma":2})
+                                                  mode="symmetric", sigma=2)
         # Estimate contrast parameter beta (heuristic, quantile-based)
         gauss_grad_image=gauss_grad.unravel(gauss_grad(noisy_image.reshape(1,-1))).squeeze()
         gauss_grad_norm = np.linalg.norm(gauss_grad_image, axis=0)
@@ -2275,13 +2271,13 @@ class TraceDiffusionOp(_DiffusionOp):
         # Instantiate needed differential operators
         # Gaussian gradient operator
         gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
-                                                 mode="symmetric", diff_kwargs={"sigma":2})
+                                                 mode="symmetric", sigma=2)
         # Hessian operator
         hessian = pydiff.Hessian(arg_shape=image.shape, diff_method="fd", mode="symmetric",
-                                                   diff_kwargs={"diff_type":"central", "accuracy":2})
+                                                   diff_type="central", accuracy=2)
         # Instantiate structure tensor
         structure_tensor = pyfilt.StructureTensor(arg_shape=image.shape, diff_method="gd", smooth_sigma=0,
-                                                  mode="symmetric", diff_kwargs={"sigma":2})
+                                                  mode="symmetric", sigma=2)
         # Estimate contrast parameter beta (heuristic, quantile-based)
         gauss_grad_image=gauss_grad.unravel(gauss_grad(noisy_image.reshape(1,-1))).squeeze()
         gauss_grad_norm = np.linalg.norm(gauss_grad_image, axis=0)
@@ -2452,7 +2448,8 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
                 diff_method="fd",
                 mode="symmetric",
                 sampling=1.0,
-                diff_kwargs={"diff_type": "central", "accuracy": 2},
+                diff_type="central",
+                accuracy=2,
             )
         super().__init__(
             arg_shape=arg_shape,
