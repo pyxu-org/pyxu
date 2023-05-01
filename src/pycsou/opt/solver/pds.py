@@ -139,7 +139,7 @@ class _PrimalDualSplitting(pyca.Solver):
             Lipschitz constant.
         """
         if beta is None:
-            if math.isfinite(dl := self._f._diff_lipschitz):
+            if math.isfinite(dl := self._f.diff_lipschitz()):
                 return pycrt.coerce(dl)
             else:
                 msg = "beta: automatic inference not supported for operators with unbounded Lipschitz gradients."
