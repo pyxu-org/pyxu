@@ -12,6 +12,7 @@ Subpackages
    pycsou.operator.map
    pycsou.operator.blocks
    pycsou.operator.interop
+   pycsou.operator.diffusion
 
 Module contents
 ---------------
