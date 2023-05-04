@@ -52,6 +52,14 @@ pycsou.util.complex module
    :undoc-members:
    :show-inheritance:
 
+pycsou.util.misc module
+-----------------------
+
+.. automodule:: pycsou.util.misc
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 
