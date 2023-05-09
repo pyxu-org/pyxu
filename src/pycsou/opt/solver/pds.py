@@ -373,7 +373,7 @@ class CondatVu(_PrimalDualSplitting):
        >>> downsampling = DownSampling(size=x.size, downsampling_factor=3)
        >>> downsampling.lipschitz()
        >>> y = downsampling(x)
-       >>> l22_loss = (1 / 2) * SquaredL2Norm().argshift(-y)
+       >>> l22_loss = (1 / 2) * SquaredL2Norm(y.size).argshift(-y)
        >>> fidelity = l22_loss * downsampling
        >>> H = 0.1 * L1Norm()
 
@@ -652,7 +652,7 @@ class PD3O(_PrimalDualSplitting):
        >>> downsampling = DownSampling(size=x.size, downsampling_factor=3)
        >>> downsampling.lipschitz()
        >>> y = downsampling(x)
-       >>> l22_loss = (1 / 2) * SquaredL2Norm().argshift(-y)
+       >>> l22_loss = (1 / 2) * SquaredL2Norm(dim=y.size).argshift(-y)
        >>> fidelity = l22_loss * downsampling
        >>> H = 0.1 * L1Norm()
 
@@ -1351,7 +1351,7 @@ class ADMM(_PDS):
         for i in range(M):
             subsamp_mat[i, x_samp[i]] = 1
         G = pyca.LinOp.from_array(subsamp_mat)
-        f = 1 / 2 * pycop.SquaredL2Norm().argshift(-y) * G
+        f = 1 / 2 * pycop.SquaredL2Norm(dim=y.size).argshift(-y) * G
         f.diff_lipschitz()
 
         # Regularization term (promotes sparse second derivatives)
