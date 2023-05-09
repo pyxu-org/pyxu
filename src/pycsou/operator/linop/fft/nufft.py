@@ -1321,7 +1321,7 @@ class NUFFT(pyca.LinOp):
         .. plot::
 
             import numpy as np
-            import pycsou.operator.linop.nufft as nufft
+            import pycsou.operator.linop as pycl
 
             rng = np.random.default_rng(2)
             D, M, N = 2, 500, 200
@@ -1355,7 +1355,7 @@ class NUFFT(pyca.LinOp):
                 isign=-1,
                 eps=1e-3,
             )
-            A = nufft.NUFFT.type3(**kwargs, chunked=True)
+            A = pycl.NUFFT.type3(**kwargs, chunked=True)
             x_chunks, z_chunks = A.auto_chunk(
                 max_mem=.1,
                 max_anisotropy=1,
