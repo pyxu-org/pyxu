@@ -80,3 +80,11 @@ pycsou.operator.linop.stencil module
    :members:
    :undoc-members:
    :show-inheritance:
+
+pycsou.operator.linop.diff module
+------------------------------------
+
+.. automodule:: pycsou.operator.linop.diff
+   :members:
+   :undoc-members:
+   :show-inheritance:
