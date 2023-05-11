@@ -121,7 +121,7 @@ Daniele
 Thomas
 ------
 
-* Re-run PDS tests to see if sum of QuadraticFunc bug fix changes anything
+* Design tests for sampler module
 * When diff operators are merged, add examples in documentation of B-spline module (comparison splines vs. discrete model for nonuniform sampling)
   and Sampler module (ULA with TV regularization)
 * Long term for Sampler module : add documentation and utility functions to compute autocorrelation and effective sample size for MCMC models
