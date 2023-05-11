@@ -11,12 +11,78 @@ also be computed in an online fashion (see :py:mod:`~pycsou.sampler.statistics` 
 tools for uncertainty quantification.
 
 In the following example, we showcase the unajusted Langevin algorithm (:py:class:`~pycsou.sampler.sampler.ULA`) applied
-to a total-variation denoising problem. We show the MMSE estimate as well as the pixelwise variance of the samples. As
+to a total-variation denoising problem. We show the MMSE estimator as well as the pixelwise variance of the samples. As
 expected, the variance is higher around edges than in the smooth regions, indicating that there is higher uncertainty
 in these regions.
 
 .. plot::
-    TODO waiting for diff
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import skimage as skim
+
+    import pycsou.operator.func as pycof
+    import pycsou.operator as pycop
+    from pycsou.opt.solver import PGD
+    from pycsou.sampler.sampler import ULA
+    import pycsou.sampler.statistics as pycstat
+
+    sh_im = (128, ) * 2
+    gt = skim.transform.resize(skim.data.shepp_logan_phantom(), sh_im)  # Ground-truth image
+    N = np.prod(sh_im)  # Number of pixels
+
+    # Noisy data
+    rng = np.random.default_rng(seed=0)
+    sigma = 1e-1  # Noise standard deviation
+    y = gt + sigma * rng.standard_normal(sh_im)  # Noisy image
+    f = 1 / 2 * pycof.SquaredL2Norm(dim=N).argshift(-y.ravel()) / sigma ** 2  # Data fidelity loss
+
+    # Smoothed TV regularization
+    g = pycop.L21Norm(arg_shape=(2, *sh_im)).moreau_envelope(1e-2) * pycop.Gradient(arg_shape=sh_im)
+    theta = 10  # Regularization parameter
+
+    # Compute MAP estimator
+    pgd = PGD(f=f + theta * g)
+    pgd.fit(x0=y.ravel())
+    im_MAP = pgd.solution().reshape(sh_im)
+
+    fig, ax = plt.subplots(1, 3)
+    ax[0].imshow(gt)
+    ax[0].set_title('Ground truth')
+    ax[0].axis('off')
+    ax[1].imshow(y, vmin=0, vmax=1)
+    ax[1].set_title('Noisy image')
+    ax[1].axis('off')
+    ax[2].imshow(im_MAP, vmin=0, vmax=1)
+    ax[2].set_title('MAP reconstruction')
+    ax[2].axis('off')
+
+    ula = ULA(f=f + theta * g)  # ULA sampler
+
+    n = int(1e4)  # Number of samples
+    burn_in = int(1e3)  # Number of burn-in iterations
+    gen = ula.samples(x0=np.zeros(N), rng=rng)  # Generator for ULA samples
+    # Objects for computing online statistics based on samples
+    online_mean = pycstat.OnlineMoment(order=1)
+    online_var = pycstat.OnlineVariance()
+    # Draw samples
+    for i in range(burn_in):  # Burn-in phase
+        next(gen)
+    for i in range(n):
+        sample = next(gen)  # Draw ULA sample
+        mean = online_mean.update(sample)  # Update online mean
+        var = online_var.update(sample)  # Update online variance
+
+    fig, ax = plt.subplots(1, 2)
+    mean_im = ax[0].imshow(mean.reshape(sh_im), vmin=0, vmax=1)
+    fig.colorbar(mean_im, fraction=0.05, ax=ax[0])
+    ax[0].set_title('Mean (MMSE estimator)')
+    ax[0].axis('off')
+    var_im = ax[1].imshow(var.reshape(sh_im))
+    fig.colorbar(var_im, fraction=0.05, ax=ax[1])
+    ax[1].set_title('Variance')
+    ax[1].axis('off')
+    fig.suptitle('Pixel-wise statistics of ULA samples')
 
 """
 
@@ -276,7 +342,7 @@ class ULA(_Sampler):
         else:
             try:
                 assert gamma > 0
-            except:
+            except Exception:
                 raise ValueError(f"gamma must be positive, got {gamma}.")
             return pycrt.coerce(gamma)
 
