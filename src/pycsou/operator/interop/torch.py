@@ -238,7 +238,7 @@ class _FromTorch(pycsrc._FromSource):
             def f_adjoint(tensor: TorchTensor) -> TorchTensor:
                 # out_shape -> arg_shape
                 f = self._kwargs["apply"]
-                primal = torch.zeros(size=self._arg_shape, dtype=tensor.dtype, device=tensor.get_device())
+                primal = torch.zeros(size=self._arg_shape, dtype=tensor.dtype, device=tensor.device)
                 _, f_vjp = functorch.vjp(f, primal)
                 out = f_vjp(tensor)[0]  # f_vjp returns a tuple
                 return out  # shape arg_shape
