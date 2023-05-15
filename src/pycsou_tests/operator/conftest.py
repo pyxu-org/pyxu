@@ -39,76 +39,6 @@ def get_test_class(cls: pyct.OpC) -> "MapT":
         raise ValueError(f"No known test type for {cls}.")
 
 
-def flaky(func: cabc.Callable, args: dict, condition: bool, reason: str):
-    # XFAIL if func(**args) fails when `condition` satisfied.
-    # This function is required when pytest.mark.xfail() cannot be used.
-    # (Reason: `condition` only available inside test body.)
-    try:
-        out = func(**args)
-        return out
-    except Exception:
-        if condition:
-            pytest.xfail(reason)
-        else:
-            raise
-
-
-def isclose(
-    a: typ.Union[pyct.Real, pyct.NDArray],
-    b: typ.Union[pyct.Real, pyct.NDArray],
-    as_dtype: pyct.DType,
-) -> pyct.NDArray:
-    """
-    Equivalent of `xp.isclose`, but where atol is automatically chosen based on `as_dtype`.
-
-    This function always returns a computed array, i.e. NumPy/CuPy output.
-    """
-    atol = {
-        np.dtype(np.half): 3e-2,  # former pycrt.Width.HALF
-        pycrt.Width.SINGLE.value: 2e-4,
-        pycrt._CWidth.SINGLE.value: 2e-4,
-        pycrt.Width.DOUBLE.value: 1e-8,
-        pycrt._CWidth.DOUBLE.value: 1e-8,
-    }
-    # Numbers obtained by:
-    # * \sum_{k >= (p+1)//2} 2^{-k}, where p=<number of mantissa bits>; then
-    # * round up value to 3 significant decimal digits.
-    # N_mantissa = [10, 23, 52, 112] for [half, single, double, quad] respectively.
-
-    if (prec := atol.get(as_dtype)) is None:
-        # should occur for integer types only
-        prec = atol[pycrt.Width.DOUBLE.value]
-    cast = lambda x: pycu.compute(x)
-    eq = np.isclose(cast(a), cast(b), atol=prec)
-    return eq
-
-
-def allclose(
-    a: pyct.NDArray,
-    b: pyct.NDArray,
-    as_dtype: pyct.DType,
-) -> bool:
-    """
-    Equivalent of `all(isclose)`, but where atol is automatically chosen based on `as_dtype`.
-    """
-    return bool(np.all(isclose(a, b, as_dtype)))
-
-
-def less_equal(
-    a: pyct.NDArray,
-    b: pyct.NDArray,
-    as_dtype: pyct.DType,
-) -> pyct.NDArray:
-    """
-    Equivalent of `a <= b`, but where equality tests are done at a chosen numerical precision.
-
-    This function always returns a computed array, i.e. NumPy/CuPy output.
-    """
-    x = pycu.compute(a <= b)
-    y = isclose(a, b, as_dtype)
-    return x | y
-
-
 # Naming conventions
 # ------------------
 #
@@ -208,7 +138,7 @@ class MapT(ct.DisableTestMixin):
         # -------
         # match: bool
         #    True if all (...) arrays match.
-        return allclose(a, b, as_dtype)
+        return ct.allclose(a, b, as_dtype)
 
     @classmethod
     def _check_value1D(
@@ -505,7 +435,7 @@ class MapT(ct.DisableTestMixin):
             lhs[xp.isnan(lhs)] = 0
 
             rhs = L * pylinalg.norm(x - y, axis=-1)
-            success = less_equal(lhs, rhs, as_dtype=width.value)
+            success = ct.less_equal(lhs, rhs, as_dtype=width.value)
             assert all(success)
 
     def test_interface_asop(self, op, _klass):
@@ -553,8 +483,8 @@ class MapT(ct.DisableTestMixin):
             # nothing to test since `op.asop(_klass)` is illegal.
             return
         else:
-            assert allclose(op2._lipschitz, op._lipschitz, as_dtype=width.value)
-            assert allclose(
+            assert ct.allclose(op2._lipschitz, op._lipschitz, as_dtype=width.value)
+            assert ct.allclose(
                 op2.lipschitz(**_data_lipschitz["in_"]),
                 op.lipschitz(**_data_lipschitz["in_"]),
                 as_dtype=width.value,
@@ -652,7 +582,7 @@ class DiffMapT(MapT):
                     # is not able to handle NaNs, so the former are overwritten by a sensible value
                     # in this context, i.e. 0.
                     lhs = 0
-                success = less_equal(lhs, rhs, as_dtype=width.value)
+                success = ct.less_equal(lhs, rhs, as_dtype=width.value)
                 stats.append((lhs, rhs, success))
 
             assert all(_[2] for _ in stats)
@@ -719,7 +649,7 @@ class DiffFuncT(FuncT, DiffMapT):
             g = op.grad(arr)
 
             assert J.size == g.size
-            assert allclose(J.squeeze(), g, as_dtype=arr.dtype)
+            assert ct.allclose(J.squeeze(), g, as_dtype=arr.dtype)
 
     def test_math2_grad(self, op, xp, width, _data_lipschitz):
         # f(x - \frac{1}{L} \grad_{f}(x)) <= f(x)
@@ -735,7 +665,7 @@ class DiffFuncT(FuncT, DiffMapT):
             rhs = self._random_array((N_test, N_dim), xp=xp, width=width)
             lhs = rhs - op.grad(rhs) / L
 
-            assert np.all(less_equal(op.apply(lhs), op.apply(rhs), as_dtype=width.value))
+            assert np.all(ct.less_equal(op.apply(lhs), op.apply(rhs), as_dtype=width.value))
 
 
 class ProxFuncT(FuncT):
@@ -844,7 +774,7 @@ class ProxFuncT(FuncT):
             b = pylinalg.norm(in_["arr"] - x, axis=-1, keepdims=True) ** 2
             return a + b
 
-        assert np.all(less_equal(g(y), g(x), as_dtype=y.dtype))
+        assert np.all(ct.less_equal(g(y), g(x), as_dtype=y.dtype))
 
     def test_value1D_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
@@ -883,7 +813,7 @@ class ProxFuncT(FuncT):
         lhs = op_m.apply(arr)
         rhs = op.apply(arr)
 
-        assert less_equal(lhs, rhs, as_dtype=rhs.dtype)
+        assert ct.less_equal(lhs, rhs, as_dtype=rhs.dtype)
 
     def test_math2_moreau_envelope(self, op, _op_m, _data_apply):
         # op_m.grad(x) * mu = x - op.prox(x, mu)
@@ -1022,7 +952,7 @@ class LinOpT(DiffMapT):
         out = func(**kwargs)
         idx = xp.argsort(xp.abs(out))
         assert out.size == k  # obtain N_vals asked for
-        assert allclose(out[idx], out, out.dtype)  # sorted in ascending magnitude
+        assert ct.allclose(out[idx], out, out.dtype)  # sorted in ascending magnitude
 
         # and output is correct (in magnitude)
         which = kwargs["which"]
@@ -1295,7 +1225,7 @@ class LinOpT(DiffMapT):
             dtype=width.value,
             enable_warnings=False,
         )
-        L_tight = flaky(
+        L_tight = ct.flaky(
             func=op.lipschitz,  # might raise an assertion in GPU-mode
             args=dict(
                 tight=True,
@@ -1307,7 +1237,7 @@ class LinOpT(DiffMapT):
         )
 
         try:
-            assert less_equal(L_tight, L_ub, as_dtype=width.value).item()
+            assert ct.less_equal(L_tight, L_ub, as_dtype=width.value).item()
         except AssertionError:
             if _gpu is True:
                 # even if L_tight computed, not guaranteed to be correct in GPU-mode
@@ -1318,7 +1248,7 @@ class LinOpT(DiffMapT):
     def test_math3_lipschitz(self, op, xp, _op_svd, width, _gpu):
         # op.lipschitz(tight=True) computes the optimal Lipschitz constant.
         self._skip_if_disabled()
-        L_svds = flaky(
+        L_svds = ct.flaky(
             func=op.lipschitz,  # might raise an assertion in GPU-mode
             args=dict(
                 tight=True,
@@ -1357,7 +1287,7 @@ class LinOpT(DiffMapT):
     def test_backend_svdvals(self, op, xp, _gpu):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(xp, _gpu)
-        flaky(
+        ct.flaky(
             func=self._check_backend_vals,
             args=dict(func=op.svdvals, _gpu=_gpu),
             condition=_gpu is True,
@@ -1368,7 +1298,7 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(xp, _gpu)
         data = dict(in_=dict(k=1, gpu=_gpu))
-        flaky(
+        ct.flaky(
             func=self._check_precCM,
             args=dict(func=op.svdvals, data=data, widths=(width,)),
             condition=_gpu is True,
@@ -1703,8 +1633,8 @@ class UnitOpT(NormalOpT):
     @classmethod
     def _check_identity(cls, operator, xp, width):
         x = cls._random_array((30, operator.dim), xp=xp, width=width)
-        assert allclose(operator.apply(x), x, as_dtype=width.value)
-        assert allclose(operator.adjoint(x), x, as_dtype=width.value)
+        assert ct.allclose(operator.apply(x), x, as_dtype=width.value)
+        assert ct.allclose(operator.adjoint(x), x, as_dtype=width.value)
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
@@ -1812,7 +1742,7 @@ class PosDefOpT(SelfAdjointOpT):
         x = self._random_array((N, op.dim), xp=xp, width=width)
 
         ip = lambda a, b: (a * b).sum(axis=-1)  # (N, Q) * (N, Q) -> (N,)
-        assert np.all(less_equal(0, ip(op.apply(x), x), as_dtype=width.value))
+        assert np.all(ct.less_equal(0, ip(op.apply(x), x), as_dtype=width.value))
 
 
 class ProjOpT(SquareOpT):
