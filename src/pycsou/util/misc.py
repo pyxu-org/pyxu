@@ -1,6 +1,5 @@
 import collections.abc as cabc
 
-import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
@@ -77,7 +76,8 @@ def peaks(x: pyct.NDArray, y: pyct.NDArray) -> pyct.NDArray:
        plt.imshow(z)
 
     """
-    xp = pycu.get_array_module(x)
+    ndi = pycd.NDArrayInfo.from_obj(x)
+    xp = ndi.module()
     z = (
         3 * ((1 - x) ** 2) * xp.exp(-(x**2) - (y + 1) ** 2)
         - 10 * (x / 5 - x**3 - y**5) * xp.exp(-(x**2) - y**2)
