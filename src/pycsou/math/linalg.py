@@ -94,9 +94,9 @@ def hutchpp(
                 e[i] = 1
                 tr += op.apply(e)[i]
         else:
-            rng = np.random.default_rng(seed=seed)
-            s = xp.asarray(rng.standard_normal(size=(op.dim, (m + 2) // 4)), dtype=dtype)
-            g = xp.asarray(rng.choice((1, -1), size=(op.dim, (m - 2) // 2)), dtype=dtype)
+            rng = xp.random.default_rng(seed=seed)
+            s = rng.standard_normal(size=(op.dim, (m + 2) // 4), dtype=dtype)
+            g = rng.choice(np.array([1, -1], dtype=dtype), size=(op.dim, (m - 2) // 2))
 
             data = op.apply(s.T).T
             kwargs = dict(mode="reduced")
