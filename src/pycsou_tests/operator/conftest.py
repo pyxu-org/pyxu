@@ -1,6 +1,5 @@
 import collections.abc as cabc
 import copy
-import inspect
 import itertools
 import typing as typ
 import warnings
@@ -19,6 +18,7 @@ import pycsou.util.complex as pycuc
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
+import pycsou_tests.conftest as ct
 from pycsou.abc.operator import _core_operators
 
 
@@ -142,10 +142,9 @@ def less_equal(
 DataLike = cabc.Mapping[str, typ.Any]
 
 
-class MapT:
+class MapT(ct.DisableTestMixin):
     # Class Properties --------------------------------------------------------
     base = pyca.Map
-    disable_test: cabc.Set[str] = frozenset()
     interface: cabc.Set[str] = frozenset(
         {
             "shape",
@@ -180,16 +179,6 @@ class MapT:
             return x
         else:
             return default
-
-    def _skip_if_disabled(self):
-        # Get name of function which invoked me.
-        my_frame = inspect.currentframe()
-        up_frame = inspect.getouterframes(my_frame)[1].frame
-        up_finfo = inspect.getframeinfo(up_frame)
-        up_fname = up_finfo.function
-        print(up_fname)
-        if up_fname in self.disable_test:
-            pytest.skip("disabled test")
 
     @staticmethod
     def _check_has_interface(op: pyca.Map, klass: "MapT"):
