@@ -311,7 +311,7 @@ class ULA(_Sampler):
         x0: ndarray
             Starting point of the Markov chain.
         """
-        self.x = x0
+        self.x = x0.copy()
         if rng is None:
             xp = pycu.get_array_module(x0)
             self._rng = xp.random.default_rng(None)
