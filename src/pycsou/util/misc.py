@@ -87,7 +87,12 @@ def peaks(x: pyct.NDArray, y: pyct.NDArray) -> pyct.NDArray:
 
 
 def star_like_sample(
-    N: int, w: int, s: float, po: int, x0: float, ndi: pycd.NDArrayInfo = pycd.NDArrayInfo.NUMPY
+    N: int,
+    w: int,
+    s: float,
+    po: int,
+    x0: float,
+    ndi: pycd.NDArrayInfo = pycd.NDArrayInfo.NUMPY,
 ) -> pyct.NDArray:
     r"""
     Star-like test image.
