@@ -7,8 +7,8 @@ import pycsou.opt.solver as pycos
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
+import pycsou_tests.conftest as ct
 import pycsou_tests.opt.solver.conftest as conftest
-from pycsou_tests.operator.conftest import allclose
 
 
 class TestCG(conftest.SolverT):
@@ -79,6 +79,8 @@ class TestCG(conftest.SolverT):
         cost_function,
         ground_truth,
     ):
+        self._skip_if_disabled()
+
         # Due to different b/x0 domain combinations, it is difficult to use SolverT.test_value_fit().
         # To test convergence, we just check that the (strongly-convex) cost function is minimized.
         with pycrt.Precision(width):
@@ -95,5 +97,5 @@ class TestCG(conftest.SolverT):
             c_opt = c_func.apply(pycu.to_NUMPY(x_opt))
             # cost_function defined for NUMPY inputs only. [CG-peculiarity.]
 
-            cost_value[var] = allclose(c_gt, c_opt, as_dtype=width.value)
+            cost_value[var] = ct.allclose(c_gt, c_opt, as_dtype=width.value)
         assert all(cost_value.values())

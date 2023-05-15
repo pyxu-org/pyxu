@@ -15,7 +15,7 @@ import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
-from pycsou_tests.operator.conftest import less_equal
+import pycsou_tests.conftest as ct
 
 
 def funcs(N: int, seed: int = 0) -> cabc.Sequence[tuple[pyct.OpT, pyct.OpT]]:
@@ -89,7 +89,7 @@ def generate_funcs(descr, N_term: int) -> cabc.Sequence[tuple[pyct.OpT]]:
     return stream
 
 
-class SolverT:
+class SolverT(ct.DisableTestMixin):
     # Helper Functions --------------------------------------------------------
     @staticmethod
     def _check_allclose(nd_1: dict, nd_2: dict) -> bool:
@@ -245,6 +245,8 @@ class SolverT:
     # Tests -------------------------------------------------------------------
     def test_backend_fit(self, solver, _kwargs_fit_xp, xp):
         # solver output-backend match inputs
+        self._skip_if_disabled()
+
         solver.fit(**self.as_early_stop(_kwargs_fit_xp))
         data, _ = solver.stats()
 
@@ -253,6 +255,8 @@ class SolverT:
 
     def test_precCM_fit(self, solver, kwargs_fit, width):
         # solver output-precision match context manager
+        self._skip_if_disabled()
+
         with pycrt.Precision(width):
             solver.fit(**self.as_early_stop(kwargs_fit))
             data, _ = solver.stats()
@@ -273,7 +277,8 @@ class SolverT:
         time_threshold,  # max runtime
     ):
         # Ensure algorithm converges to ground-truth. (All backends/precisions.)
-        #
+        self._skip_if_disabled()
+
         # SciPy ground truth may have converged closer to the solution than `solver` due to
         # different stopping criteria used. (Default or user-specified.)
         #
@@ -334,7 +339,7 @@ class SolverT:
 
             # Numerical errors can make c_gt > c_opt at convergence.
             # We piggy-back on less_equal() from the operator test suite to handle this case.
-            bound_1 = less_equal(c_gt, c_opt, as_dtype=width.value)
+            bound_1 = ct.less_equal(c_gt, c_opt, as_dtype=width.value)
 
             # The cost function MUST decrease. (See test-level comment for details.)
             bound_2 = c_opt < c_0
@@ -344,6 +349,7 @@ class SolverT:
 
     def test_transparent_fit(self, solver, kwargs_fit):
         # Running solver twice returns same results.
+        self._skip_if_disabled()
 
         # `kwargs_fit` values may be coerced on 1st call to solver.fit(), in which case transparency
         # will not be tested. (May happen if solver takes `kwargs_fit` values as-is, and does not
@@ -378,6 +384,8 @@ class SolverT:
         track_objective,
     ):
         # Ensure objective_func value present in history.
+        self._skip_if_disabled()
+
         kwargs_fit = self.as_early_stop(kwargs_fit)
         kwargs_fit.update(track_objective=track_objective)
         solver.fit(**kwargs_fit)
@@ -398,6 +406,8 @@ class SolverT:
         stop_rate,
     ):
         # stop_rate affects history granularity.
+        self._skip_if_disabled()
+
         kwargs_init = kwargs_init.copy()
         kwargs_init.update(stop_rate=stop_rate)
         solver = solver_klass(**kwargs_init)
@@ -411,6 +421,8 @@ class SolverT:
 
     def test_data_contains_logvar(self, solver, kwargs_fit):
         # logged data only contains variables from log_var.
+        self._skip_if_disabled()
+
         log_var = solver._astate["log_var"]
         solver.fit(**self.as_early_stop(kwargs_fit))
         data, _ = solver.stats()
@@ -418,6 +430,8 @@ class SolverT:
 
     def test_halt_implies_disk_storage(self, solver_klass, kwargs_init, kwargs_fit, tmp_path):
         # When solver stops, data+log files exist at specified folder.
+        self._skip_if_disabled()
+
         kwargs_init = kwargs_init.copy()
         kwargs_init.update(folder=tmp_path, exist_ok=True)
         solver = solver_klass(**kwargs_init)
@@ -429,6 +443,8 @@ class SolverT:
 
     def test_disk_value_matches_memory(self, solver, kwargs_fit):
         # Datafile content (values) match in-memory data after halt.
+        self._skip_if_disabled()
+
         solver.fit(**self.as_early_stop(kwargs_fit))
 
         disk = np.load(solver.datafile)
@@ -445,6 +461,8 @@ class SolverT:
 
     def test_disk_prec_matches_memory(self, solver, kwargs_fit, width):
         # Datafile content (dtypes) match in-memory dtypes after halt.
+        self._skip_if_disabled()
+
         with pycrt.Precision(width):
             solver.fit(**self.as_early_stop(kwargs_fit))
 
@@ -456,6 +474,8 @@ class SolverT:
 
     def test_transparent_mode(self, solver, kwargs_fit):
         # All execution modes return same results.
+        self._skip_if_disabled()
+
         data = dict()
         for m in [pyca.Mode.BLOCK, pyca.Mode.MANUAL]:
             kwargs_fit = self.as_early_stop(kwargs_fit)
