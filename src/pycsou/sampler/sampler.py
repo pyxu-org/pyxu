@@ -15,7 +15,7 @@ to a total-variation denoising problem. We show the MMSE estimator as well as th
 expected, the variance is higher around edges than in the smooth regions, indicating that there is higher uncertainty
 in these regions.
 
-.. plot::
+.. code-block:: python3
 
     import matplotlib.pyplot as plt
     import numpy as np
@@ -65,13 +65,15 @@ in these regions.
     # Objects for computing online statistics based on samples
     online_mean = pycstat.OnlineMoment(order=1)
     online_var = pycstat.OnlineVariance()
-    # Draw samples
-    for i in range(burn_in):  # Burn-in phase
-        next(gen)
-    for i in range(n):
-        sample = next(gen)  # Draw ULA sample
-        mean = online_mean.update(sample)  # Update online mean
-        var = online_var.update(sample)  # Update online variance
+
+    i = 0  # Number of samples
+    for sample in gen:  # Draw ULA sample
+        i += 1
+        if i > burn_in + n:
+            break
+        if i > burn_in:
+            mean = online_mean.update(sample)  # Update online mean
+            var = online_var.update(sample)  # Update online variance
 
     fig, ax = plt.subplots(1, 2)
     mean_im = ax[0].imshow(mean.reshape(sh_im), vmin=0, vmax=1)
