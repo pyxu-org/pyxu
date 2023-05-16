@@ -88,10 +88,48 @@ def less_equal(
 
 
 class DisableTestMixin:
-    disable_test: cabc.Set[str] = frozenset()
+    """
+    Disable certain tests based on user black-list.
 
-    # What this class does: ability to disab
-    # Defines a special method `_skip_if_disabled()`, which
+    Example
+    -------
+    Consider the sample file below, where `test_1` and `test_3` should not be run.
+
+    .. code-block:: python3
+
+       # file: test_myclass.py
+
+       import pytest
+       import pycsou_tests.conftest as ct
+
+       class TestMyClass(ct.DisableTestMixin):
+           disable_test = {  # disable these tests
+               "test_1",
+               "test_3",
+           }
+
+           def test_1(self):
+               self._skip_if_disabled()
+               assert False  # should fail if not disabled
+
+           def test_2(self):
+               self._skip_if_disabled()
+               assert True   # should pass
+
+           def test_3(self):
+               self._skip_if_disabled()
+               assert False  # should fail if not disabled
+
+
+    .. code-block:: bash
+
+       $ pytest --quiet test_myclass.py
+
+       s.s                           [100%]
+       1 passed, 2 skipped in 0.59s             # -> test_[13]() were skipped/disabled.
+    """
+
+    disable_test: cabc.Set[str] = frozenset()
 
     def _skip_if_disabled(self):
         # Get name of function which invoked me.
