@@ -4,10 +4,3 @@ dask >= 2023.3, < 2023.12
 sparse >= 0.13, < 1
 numba >= 0.56, < 1
 pyfftw >= 0.13, < 1
-
-# GPU dependencies ------------------------------------------------------------
-cupy >= 12.0, < 13
-cudnn
-cutensor
-nccl
-cusparselt
