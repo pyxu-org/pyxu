@@ -321,9 +321,11 @@ class ULA(_Sampler):
             self._rng = rng
 
     def _sample(self) -> pyct.NDArray:
-        self.x += -self._gamma * self._f.grad(self.x)
-        self.x += math.sqrt(2 * self._gamma) * self._rng.standard_normal(size=self.x.shape, dtype=self.x.dtype)
-        return self.x
+        x = self.x.copy()
+        x -= self._gamma * pycu.copy_if_unsafe(self._f.grad(self.x))
+        x += math.sqrt(2 * self._gamma) * self._rng.standard_normal(size=self.x.shape, dtype=self.x.dtype)
+        self.x = x
+        return x
 
     def objective_func(self) -> pyct.Real:
         r"""
@@ -332,7 +334,7 @@ class ULA(_Sampler):
         If so, the samples should accumulate around the modes of the target distribution, i.e., toward the minimum of
         :math:`\mathcal{F}`.
         """
-        return self._f.apply(self.x)
+        return pycu.copy_if_unsafe(self._f.apply(self.x))
 
     def _set_gamma(self, gamma: pyct.Real = None) -> pyct.Real:
         if gamma is None:
