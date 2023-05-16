@@ -13,7 +13,6 @@ import numpy as np
 import pycsou.abc.operator as pyco
 import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
-import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
@@ -113,8 +112,6 @@ class _FromTorch(pycsrc._FromSource):
         apply: typ.Callable,
         shape: pyct.OpShape,
         cls: pyct.OpC = pyco.Map,
-        arg_shape: pyct.NDArrayShape = None,
-        out_shape: pyct.NDArrayShape = None,
         lipschitz: pyct.Real = np.inf,
         diff_lipschitz: pyct.Real = np.inf,
         vectorize: frozenset[str] = frozenset(),
@@ -126,14 +123,6 @@ class _FromTorch(pycsrc._FromSource):
         meta: typ.Any = None,
         **kwargs,
     ):
-        if arg_shape is not None:
-            assert shape[1] == np.prod(arg_shape)
-        else:
-            arg_shape = pycu.as_canonical_shape(shape[1])
-        if out_shape is not None:
-            assert shape[0] == np.prod(out_shape)
-        else:
-            out_shape = pycu.as_canonical_shape(shape[0])
         super().__init__(
             cls=cls,
             shape=shape,
@@ -146,8 +135,7 @@ class _FromTorch(pycsrc._FromSource):
             enforce_precision=frozenset(),  # will be applied manually
             **kwargs,
         )
-        self._arg_shape = arg_shape
-        self._out_shape = out_shape
+
         self._batch_size = batch_size
         self._dtype = dtype
         self._jit = False  # JIT-compilation is currently deactivated until torch.func goes out of beta.
@@ -180,8 +168,6 @@ class _FromTorch(pycsrc._FromSource):
             cls=self._op.__class__,
             shape=self._op.shape,
             embed=dict(
-                _arg_shape=self._arg_shape,
-                _out_shape=self._out_shape,
                 _batch_size=self._batch_size,
                 _dtype=self._dtype,
                 _jit=self._jit,
@@ -236,12 +222,12 @@ class _FromTorch(pycsrc._FromSource):
         if non_selfadj and ("adjoint" not in self._kwargs):
 
             def f_adjoint(tensor: TorchTensor) -> TorchTensor:
-                # out_shape -> arg_shape
+                # codim -> dim
                 f = self._kwargs["apply"]
-                primal = torch.zeros(size=self._arg_shape, dtype=tensor.dtype, device=tensor.device)
+                primal = torch.zeros_like(tensor, shape=(self._op.dim,))
                 _, f_vjp = functorch.vjp(f, primal)
                 out = f_vjp(tensor)[0]  # f_vjp returns a tuple
-                return out  # shape arg_shape
+                return out  # size dim
 
             self._vectorize.add("adjoint")
             self._kwargs["adjoint"] = f_adjoint
@@ -331,7 +317,7 @@ class _FromTorch(pycsrc._FromSource):
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape((-1,) + self._arg_shape))
+        tensor = astensor(arr.reshape((-1,) + self._op.dim))
         func = self._torch["apply"]
         out = asarray(func(tensor)).reshape(arr.shape[:-1] + (-1,))
         return out
@@ -339,28 +325,28 @@ class _FromTorch(pycsrc._FromSource):
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape((-1,) + self._arg_shape))
+        tensor = astensor(arr.reshape((-1,) + self._op.dim))
         func = self._torch["grad"]
         return asarray(func(tensor)).reshape(arr.shape[:-1] + (-1,))
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape((-1,) + self._out_shape))
+        tensor = astensor(arr.reshape((-1,) + self._op.codim))
         func = self._torch["adjoint"]
         return asarray(func(tensor)).reshape(arr.shape[:-1] + (-1,))
 
     @pycrt.enforce_precision(i=["arr", "tau"])
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape((-1,) + self._arg_shape))
+        tensor = astensor(arr.reshape((-1,) + self._op.dim))
         func = self._torch["prox"]
         return asarray(func(tensor, tau)).reshape(arr.shape[:-1] + (-1,))
 
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape((-1,) + self._out_shape))
+        tensor = astensor(arr.reshape((-1,) + self._op.codim))
         func = self._torch["pinv"]
         damp = kwargs.get("damp", 0)
         out = func(tensor, damp)  # positional args only if auto-vectorized.
@@ -375,7 +361,7 @@ class _FromTorch(pycsrc._FromSource):
         except NotImplementedError:
             # ... and fallback to auto-inference if undefined.
             arr = self._coerce(arr)
-            primal = astensor(arr.reshape(self._arg_shape))
+            primal = astensor(arr.reshape(self._op.dim))
             f = self._torch["apply"]
 
             def jf_apply(tan: TorchTensor) -> TorchTensor:
@@ -391,8 +377,6 @@ class _FromTorch(pycsrc._FromSource):
                 apply=jf_apply,
                 shape=self.shape,
                 cls=klass,
-                arg_shape=self._arg_shape,
-                out_shape=self._out_shape,
                 lipschitz=self._diff_lipschitz,
                 vectorize=("apply", "adjoint"),
                 batch_size=self._batch_size,
@@ -427,7 +411,6 @@ class _FromTorch(pycsrc._FromSource):
                 apply=Q_apply,
                 shape=(self.dim, self.dim),
                 cls=pyco.PosDefOp,
-                arg_shape=self._arg_shape,
                 lipschitz=self._diff_lipschitz,
                 vectorize="apply",
                 batch_size=self._batch_size,
@@ -442,7 +425,6 @@ class _FromTorch(pycsrc._FromSource):
                 apply=c_apply,
                 shape=(1, self.dim),
                 cls=pyco.LinFunc,
-                arg_shape=self._arg_shape,
                 vectorize="apply",
                 batch_size=self._batch_size,
                 jit=self._jit,
@@ -505,8 +487,6 @@ def from_torch(
     apply: typ.Callable,
     shape: pyct.OpShape,
     cls: pyct.OpC = pyco.Map,
-    arg_shape: pyct.NDArrayShape = None,
-    out_shape: pyct.NDArrayShape = None,
     lipschitz: pyct.Real = np.inf,
     diff_lipschitz: pyct.Real = np.inf,
     vectorize: pyct.VarName = frozenset(),
@@ -528,10 +508,6 @@ def from_torch(
         method of the operator: ``apply(x)==op.apply(x)``.
     shape: pyct.OpShape
         (N,M) shape of the operator, where N and M are the sizes of the output and input Tensors of ``apply`` respectively.
-    arg_shape: pyct.NDArrayShape | None
-        Optional shape of the input Tensor for N-D inputs.
-    out_shape: pyct.NDArrayShape | None
-        Optional shape of the output Tensor for N-D inputs.
     cls: pyct.OpT
         Pycsou abstract base class to instantiate from.
     lipschitz: float
@@ -582,18 +558,17 @@ def from_torch(
 
       .. code-block:: python3
 
-         def apply(arr: torch.Tensor) -> torch.Tensor
-         def grad(arr: torch.Tensor) -> torch.Tensor
-         def adjoint(arr: torch.Tensor) -> torch.Tensor
-         def prox(arr: torch.Tensor, tau: pyct.Real) -> torch.Tensor
-         def pinv(arr: torch.Tensor, damp: pyct.Real) -> torch.Tensor
+         def apply(tensor: torch.Tensor) -> torch.Tensor
+         def grad(tensor: torch.Tensor) -> torch.Tensor
+         def adjoint(tensor: torch.Tensor) -> torch.Tensor
+         def prox(tensor: torch.Tensor, tau: pyct.Real) -> torch.Tensor
+         def pinv(tensor: torch.Tensor, damp: pyct.Real) -> torch.Tensor
 
-      Moreover, the methods above MUST accept an optional stacking/batching dimension as first dimension for ``arr``.
-      If this does not hold, consider populating `vectorize`. If `arg_shape` and/or `out_shape` are not `None` then
-      the arithmetic methods `apply, grad, prox` are supposed to have N-dimensional inputs with shape `arg_shape` and/or
-      N-dimensional outputs with shape `out_shape` on their core (i.e., non-stacked) dimensions. For `adjoint, pinv` the roles
-      of `arg_shape` and `out_shape` are switched since the latter are backward maps
-      (i.e., `out_shape` specifies the shape of the input and `arg_shape` the shape of the output).
+      The arithmetic methods `apply`, `grad`, `prox` MUST accept ``(-1, M)``-shaped inputs for ``tensor``, that is
+      a core dimension of size `M` and an optional stacking/batching dimension of arbitrary size.
+      The arithmetic methods `adjoint`, `pinv` MUST accept ``(-1, N)``-shaped inputs for ``tensor``, that is
+      a core dimension of size `N` and an optional stacking/batching dimension of arbitrary size.
+      If stacking/batching dimensions are not supported for some methods, consider populating `vectorize` accordingly.
 
     * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
       :py:func:`torch.vmap`. See the `PyTorch documentation <https://pytorch.org/docs/stable/func.ux_limitations.html#vmap-limitations>`_
@@ -633,8 +608,6 @@ def from_torch(
         apply=apply,
         shape=shape,
         cls=cls,
-        arg_shape=arg_shape,
-        out_shape=out_shape,
         lipschitz=lipschitz,
         diff_lipschitz=diff_lipschitz,
         vectorize=vectorize,
