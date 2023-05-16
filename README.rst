@@ -44,6 +44,10 @@ Developper Install
                   --strict-channel-priority     \
                   --channel=conda-forge         \
                   --file=conda/requirements.txt
+   $ conda install --name "${my_env}"            \
+                   --strict-channel-priority     \
+                   --channel=conda-forge         \
+                   --file=conda/cuda-requirements.txt # If you have a CUDA-capable GPU card only
    $ conda activate "${my_env}"
    $ python3 -m pip install -e ".[dev,complete_gpu]"  # 'complete_no_gpu' also available
    $ pre-commit install
