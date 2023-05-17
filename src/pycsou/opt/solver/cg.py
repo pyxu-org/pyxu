@@ -80,7 +80,7 @@ class CG(pyca.Solver):
         elif b.shape == x0.shape:
             # No broadcasting involved
             mst["b"] = b
-            mst["x"] = x0
+            mst["x"] = x0.copy()
         else:
             # In-place updates involving b/x won't work if shapes differ -> coerce to largest.
             mst["b"], mst["x"] = xp.broadcast_arrays(b, x0)
