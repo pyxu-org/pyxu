@@ -99,8 +99,9 @@ def star_like_sample(
     r"""
     Star-like test image.
 
-    Generates a NxN square image of a star-like object normalized between 0 and 1. Based on `GlobalBioIm's
-    StarLikeSample function <https://github.com/Biomedical-Imaging-Group/GlobalBioIm/blob/master/Util/StarLikeSample.m>`_.
+    Generates a (N, N) square image of a star-like object normalized between 0 and 1.
+    Based on `GlobalBioIm's StarLikeSample function
+    <https://github.com/Biomedical-Imaging-Group/GlobalBioIm/blob/master/Util/StarLikeSample.m>`_.
     This function is useful for testing purposes as it contains high-frequency information.
 
     Parameters
@@ -110,18 +111,18 @@ def star_like_sample(
     w: int
         The number of branches of the sample will be 4*w.
     s: float
-        Slope of the sigmoid function :math:`\frac1{1+\exp(s*(x-x0))}` attenuating the boundaries.
+        Slope of the sigmoid function :math:`\frac1{1+\exp[s (x-x_{0})]}` attenuating the boundaries.
     po: int
         Power-raising factor for the final image (to have smoother edges).
     x0: float
-        Radial shift of the sigmoid function :math:`\frac1{1+\exp(s*(x-x0))}`.
-    ndi: NDArrayInfo
+        Radial shift of the sigmoid function :math:`\frac1{1+\exp[s (x-x_{0})]}`.
+    ndi: pycd.NDArrayInfo
         Desired array module for the output.
 
     Returns
     -------
-    im: NDArray
-        Image of star-like sample.
+    image: pyct.NDArray
+        (N, N) image of star-like sample.
 
     Examples
     --------
@@ -131,12 +132,13 @@ def star_like_sample(
        import matplotlib.pyplot as plt
        from pycsou.util.misc import star_like_sample
 
-       star = star_like_sample(256,8,20,3,0.7)
+       star = star_like_sample(N=256, w=8, s=20, po=3, x0=0.7)
        plt.figure()
        plt.imshow(star)
-
     """
+    assert N % 2 == 0
     xp = ndi.module()
+
     grid = xp.linspace(-1, 1, N)
     x, y = xp.meshgrid(grid, grid)
     theta = xp.arctan2(y, x)
