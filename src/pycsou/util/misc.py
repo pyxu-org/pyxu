@@ -44,21 +44,24 @@ def peaks(x: pyct.NDArray, y: pyct.NDArray) -> pyct.NDArray:
     r"""
     Matlab 2D peaks function.
 
-    Peaks is a function of two variables, obtained by translating and scaling Gaussian distributions
-    (see `Matlab's peaks function <https://www.mathworks.com/help/matlab/ref/peaks.html>`_).
+    Peaks is a function of two variables, obtained by translating and scaling Gaussian
+    distributions.
+    (See `Matlab's peaks function <https://www.mathworks.com/help/matlab/ref/peaks.html>`_.)
+
     This function is useful for testing purposes.
 
     Parameters
     ----------
-    x: NDArray
+    x: pyct.NDArray
         X coordinates.
-    y: NDArray
+    y: pyct.NDArray
         Y coordinates.
 
     Returns
     -------
-    NDArray
-        Values of the 2D function ``peaks`` at the points specified by the entries of ``x`` and ``y``.
+    z: pyct.NDArray
+        Values of the 2D function ``peaks`` at the points specified by the entries of ``x`` and
+        ``y``.
 
     Examples
     --------
@@ -69,20 +72,19 @@ def peaks(x: pyct.NDArray, y: pyct.NDArray) -> pyct.NDArray:
        import matplotlib.pyplot as plt
        from pycsou.util.misc import peaks
 
-       x = np.linspace(-3,3, 1000)
-       xx, yy = np.meshgrid(x,x)
+       x = np.linspace(-3, 3, 1000)
+       xx, yy = np.meshgrid(x, x)
        z = peaks(xx, yy)
        plt.figure()
        plt.imshow(z)
-
     """
     ndi = pycd.NDArrayInfo.from_obj(x)
     xp = ndi.module()
-    z = (
-        3 * ((1 - x) ** 2) * xp.exp(-(x**2) - (y + 1) ** 2)
-        - 10 * (x / 5 - x**3 - y**5) * xp.exp(-(x**2) - y**2)
-        - (1 / 3) * xp.exp(-((x + 1) ** 2) - y**2)
-    )
+
+    a = 3 * ((1 - x) ** 2) * xp.exp(-(x**2) - (y + 1) ** 2)
+    b = -10 * ((x / 5) - x**3 - y**5) * xp.exp(-(x**2) - (y**2))
+    c = -xp.exp(-((x + 1) ** 2) - (y**2)) / 3
+    z = a + b + c
     return z
 
 
