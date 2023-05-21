@@ -576,7 +576,7 @@ class PartialDerivative:
 
             .. math::
 
-               \mathbf{D}_{F} f [n] = \frac{f[n] - f[n-1]}{h},
+               \mathbf{D}_{B} f [n] = \frac{f[n] - f[n-1]}{h},
 
             whose kernel is :math:`d = \frac{1}{h}[-1, 1]` and center is (1, ).
 
@@ -586,7 +586,7 @@ class PartialDerivative:
 
             .. math::
 
-               \mathbf{D}_{F} f [n] = \frac{f[n+1] - f[n-1]}{2h},
+               \mathbf{C}_{F} f [n] = \frac{f[n+1] - f[n-1]}{2h},
 
             whose kernel is :math:`d = \frac{1}{h}[-\frac12, 0, \frac12]` and center is (1, ).
 
@@ -1602,7 +1602,7 @@ def Hessian(
 
        \mathbf{H} \mathbf{f} = \begin{bmatrix}
        \dfrac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} } &  \dfrac{ \partial^{2}\mathbf{f} }{ \partial x_{0}\,\partial x_{1} } & \cdots & \dfrac{ \partial^{2}\mathbf{f} }{ \partial x_{0} \, \partial x_{D-1} } \\
-       \dfrac{ \partial^{2}\mathbf{f} }{ \partial x_{1} \, \partial x_{0} } & \dfrac{ \partial^{2}\mathbf{f} }{ \partial x_{2}^{2} } & \cdots & \dfrac{ \partial^{2}\mathbf{f} }{\partial x_{1} \,\partial x_{D-1}} \\
+       \dfrac{ \partial^{2}\mathbf{f} }{ \partial x_{1} \, \partial x_{0} } & \dfrac{ \partial^{2}\mathbf{f} }{ \partial x_{1}^{2} } & \cdots & \dfrac{ \partial^{2}\mathbf{f} }{\partial x_{1} \,\partial x_{D-1}} \\
        \vdots & \vdots & \ddots & \vdots \\
        \dfrac{ \partial^{2}\mathbf{f} }{ \partial x_{D-1} \, \partial x_{0} } & \dfrac{ \partial^{2}\mathbf{f} }{ \partial x_{D-1} \, \partial x_{1} } & \cdots & \dfrac{ \partial^{2}\mathbf{f} }{ \partial x_{D-1}^{2}}
        \end{bmatrix}
