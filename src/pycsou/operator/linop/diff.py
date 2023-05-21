@@ -98,7 +98,6 @@ def _sanitize_init_kwargs(
         )
         axes = _ensure_tuple(axes, param_name="axes")
         assert len(axes) == len(order), "`axes` must have the same number of elements as `order`"
-
     else:
         if axes is not None:
             axes = _ensure_tuple(axes, param_name="axes")
@@ -128,7 +127,9 @@ def _sanitize_init_kwargs(
 
 
 def _create_kernel(
-    arg_shape: pyct.NDArrayShape, axes: pyct.NDArrayAxis, _fill_coefs: typ.Callable
+    arg_shape: pyct.NDArrayShape,
+    axes: pyct.NDArrayAxis,
+    _fill_coefs: typ.Callable,
 ) -> tuple[cabc.Sequence[pyct.NDArray], pyct.NDArray]:
     r"""
     Creates kernel for stencil.
@@ -305,7 +306,10 @@ def _GaussianDerivative(
         return stencil_ids, stencil_coefs, radius
 
     def _gaussian_kernel1d(
-        sigma: pyct.Real, order: pyct.Integer, sampling: pyct.Real, radius: pyct.Integer
+        sigma: pyct.Real,
+        order: pyct.Integer,
+        sampling: pyct.Real,
+        radius: pyct.Integer,
     ) -> pyct.NDArray:
         """
         Computes a 1-D Gaussian convolution kernel.
@@ -384,7 +388,6 @@ def _PartialDerivative(
     dtype: pyct.DType
         Working precision of the linear operator.
     """
-
     if dtype is None:
         dtype = pycrt.getPrecision().value
 
@@ -401,7 +404,6 @@ def _PartialDerivative(
         kernel = xp.array(kernel, dtype=dtype)
 
     op = pycls.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode)
-
     return op
 
 
@@ -655,7 +657,6 @@ class PartialDerivative:
            plt.imshow(abs(out1 - out2) / abs(out2)), plt.colorbar()
 
         """
-
         assert isinstance(order, cabc.Sequence), "`order` should be a tuple / list"
         assert len(order) == len(arg_shape)
         diff_kwargs = {"scheme": scheme, "accuracy": accuracy}
@@ -682,7 +683,14 @@ class PartialDerivative:
                 )
                 kernel[ax] = k[ax]
                 center[ax] = c[ax]
-        return _PartialDerivative(kernel=kernel, center=center, arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype)
+        return _PartialDerivative(
+            kernel=kernel,
+            center=center,
+            arg_shape=arg_shape,
+            mode=mode,
+            gpu=gpu,
+            dtype=dtype,
+        )
 
     @staticmethod
     def gaussian_derivative(
@@ -816,7 +824,6 @@ class PartialDerivative:
 
         """
         assert isinstance(order, cabc.Sequence), "`order` should be a tuple / list"
-
         assert len(order) == len(arg_shape)
 
         diff_kwargs = {"sigma": sigma, "truncate": truncate}
@@ -843,7 +850,14 @@ class PartialDerivative:
             kernel[ax] = k[ax]
             center[ax] = c[ax]
 
-        return _PartialDerivative(kernel=kernel, center=center, arg_shape=arg_shape, mode=mode, gpu=gpu, dtype=dtype)
+        return _PartialDerivative(
+            kernel=kernel,
+            center=center,
+            arg_shape=arg_shape,
+            mode=mode,
+            gpu=gpu,
+            dtype=dtype,
+        )
 
 
 def _make_unravelable(op: pyct.OpT, arg_shape: typ.Optional[pyct.NDArrayShape] = None) -> pyct.OpT:
@@ -968,7 +982,12 @@ class _StackDiffHelper:
 
     @staticmethod
     def _check_directions_and_order(
-        arg_shape: pyct.NDArrayShape, directions: typ.Union[str, pyct.NDArrayAxis, cabc.Sequence[pyct.NDArrayAxis, ...]]
+        arg_shape: pyct.NDArrayShape,
+        directions: typ.Union[
+            str,
+            pyct.NDArrayAxis,
+            cabc.Sequence[pyct.NDArrayAxis, ...],
+        ],
     ) -> cabc.Sequence[cabc.Sequence[pyct.NDArrayAxis, ...], pyct.NDArrayAxis]:
         # Convert directions to canonical form
         def _check_directions(_directions):
@@ -1141,7 +1160,6 @@ def Gradient(
     :py:func:`~pycsou.operator.linop.diff.PartialDerivative`, :py:func:`~pycsou.operator.linop.diff.Jacobian`
 
     """
-
     directions = tuple([i for i in range(len(arg_shape))]) if directions is None else directions
     axes = tuple([i for i in range(len(arg_shape)) if i in directions])
     order, sampling, param1, param2, _ = _sanitize_init_kwargs(
@@ -1438,7 +1456,6 @@ def Divergence(
     :py:func:`~pycsou.operator.linop.diff.Gradient`, :py:func:`~pycsou.operator.linop.diff.PartialDerivative`
 
     """
-
     if diff_method == "fd":
         change = {"central": "central", "forward": "backward", "backward": "forward"}
         scheme = diff_kwargs.get("scheme", "central")
@@ -1482,7 +1499,9 @@ def Divergence(
 def Hessian(
     arg_shape: pyct.NDArrayShape,
     directions: typ.Union[
-        str, cabc.Sequence[pyct.Integer, pyct.Integer], cabc.Sequence[cabc.Sequence[pyct.Integer, pyct.Integer], ...]
+        str,
+        cabc.Sequence[pyct.Integer, pyct.Integer],
+        cabc.Sequence[cabc.Sequence[pyct.Integer, pyct.Integer], ...],
     ] = "all",
     diff_method: str = "fd",
     mode: ModeSpec = "constant",
@@ -1786,7 +1805,6 @@ def Laplacian(
     :py:class:`~pycsou.operator.linop.diff.PartialDerivative`, :py:class:`~pycsou.operator.linop.diff.Gradient`,
     :py:class:`~pycsou.operator.linop.diff.Hessian`.
     """
-
     ndims = len(arg_shape)
     directions = tuple([i for i in range(len(arg_shape))]) if directions is None else directions
     directions = [(i, i) for i in range(ndims) if i in directions]
