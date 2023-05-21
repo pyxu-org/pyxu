@@ -234,6 +234,16 @@ class DiffOpMixin(conftest.LinOpT):
         return init_params[1]
 
     @pytest.fixture
+    def diff_op(self) -> pyct.OpC:
+        # To override in subclasses.
+        raise NotImplementedError
+
+    @pytest.fixture
+    def diff_kwargs(self) -> dict:
+        # To override in subclasses.
+        raise NotImplementedError
+
+    @pytest.fixture
     def spec(
         self,
         diff_op,
