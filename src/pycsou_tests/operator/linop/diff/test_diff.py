@@ -113,8 +113,14 @@ def diff_params_gd(sigma, truncate, sampling):  # Gaussian Derivative
     sigma_pix = sigma / sampling  # Sigma rescaled to pixel units
     radius = int(truncate * float(sigma_pix) + 0.5)
     gt_diffs = {
-        0: {"coefs": np.flip(scif._gaussian_kernel1d(sigma_pix, 0, radius)), "origin": radius // 2 + 1},
-        1: {"coefs": np.flip(scif._gaussian_kernel1d(sigma_pix, 1, radius)) / sampling, "origin": radius // 2 + 1},
+        0: {
+            "coefs": np.flip(scif._gaussian_kernel1d(sigma_pix, 0, radius)),
+            "origin": radius // 2 + 1,
+        },
+        1: {
+            "coefs": np.flip(scif._gaussian_kernel1d(sigma_pix, 1, radius)) / sampling,
+            "origin": radius // 2 + 1,
+        },
         2: {
             "coefs": np.flip(scif._gaussian_kernel1d(sigma_pix, 2, radius)) / (sampling**2),
             "origin": radius // 2 + 1,
@@ -137,14 +143,18 @@ def apply_derivative(arr, arg_shape, axis, gt_diffs, order, mode="constant"):
     mode = mode if mode != "symmetric" else "reflect"
     mode = mode if mode != "edge" else "nearest"
 
-    return scimage.correlate(arr.reshape(-1, *arg_shape), kernel, mode=mode, origin=origin, cval=0.0)
+    return scimage.correlate(
+        arr.reshape(-1, *arg_shape),
+        kernel,
+        mode=mode,
+        origin=origin,
+        cval=0.0,
+    )
 
 
 def apply_gradient(arr, arg_shape, gt_diffs, directions, diff_method, mode="constant"):
-
     if diff_method == "fd":
         pd = [apply_derivative(arr, arg_shape, axis, gt_diffs, 1, mode) for axis in directions]
-
     else:
         # diff_method == "gd"
         pd = []
@@ -224,8 +234,14 @@ class DiffOpMixin(conftest.LinOpT):
         return init_params[1]
 
     @pytest.fixture
-    def spec(self, diff_op, diff_params, diff_kwargs, ndi, width) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
-
+    def spec(
+        self,
+        diff_op,
+        diff_params,
+        diff_kwargs,
+        ndi,
+        width,
+    ) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
         kwargs = diff_params.copy()
         kwargs.update(diff_kwargs)
         with pycrt.Precision(width):
@@ -307,7 +323,6 @@ class TestPartialDerivative(DiffOpMixin):
 
     @pytest.fixture
     def data_apply(self, op, gt_diffs, order, arg_shape, mode) -> conftest.DataLike:
-
         arr = self._random_array((op.dim,), seed=20)
 
         order = (order,) if not isinstance(order, tuple) else order
@@ -392,7 +407,11 @@ class TestGradient(DiffOpMixin):
         arr = self._random_array(arg_shape, seed=20)
         directions = np.arange(len(arg_shape)) if directions is None else directions
         out = apply_gradient(
-            arr, arg_shape=arg_shape, gt_diffs=gt_diffs, directions=directions, diff_method=diff_method
+            arr,
+            arg_shape=arg_shape,
+            gt_diffs=gt_diffs,
+            directions=directions,
+            diff_method=diff_method,
         )
         return dict(
             in_=dict(arr=arr.reshape(-1)),
@@ -469,7 +488,11 @@ class TestHessian(DiffOpMixin):
         arr = self._random_array(arg_shape, seed=20)  # random seed for reproducibility
 
         out = apply_hessian(
-            arr, arg_shape=arg_shape, gt_diffs=gt_diffs, directions=canonical_directions, diff_method=diff_method
+            arr,
+            arg_shape=arg_shape,
+            gt_diffs=gt_diffs,
+            directions=canonical_directions,
+            diff_method=diff_method,
         )
         return dict(
             in_=dict(arr=arr.reshape(-1)),
@@ -547,7 +570,11 @@ class TestJacobian(DiffOpMixin):
         for ch in range(n_channels):
             out.append(
                 apply_gradient(
-                    arr[ch], arg_shape=arg_shape, gt_diffs=gt_diffs, directions=directions, diff_method=diff_method
+                    arr[ch],
+                    arg_shape=arg_shape,
+                    gt_diffs=gt_diffs,
+                    directions=directions,
+                    diff_method=diff_method,
                 )
             )
         out = np.concatenate(out)
@@ -619,10 +646,16 @@ class TestDivergence(DiffOpMixin):
         directions = np.arange(len(arg_shape)) if directions is None else directions
         arr = self._random_array((len(directions),) + arg_shape, seed=20)
         out = [
-            apply_gradient(arr[i], arg_shape=arg_shape, gt_diffs=gt_diffs, directions=(ax,), diff_method=diff_method)
+            apply_gradient(
+                arr[i],
+                arg_shape=arg_shape,
+                gt_diffs=gt_diffs,
+                directions=(ax,),
+                diff_method=diff_method,
+            )
             for i, ax in enumerate(directions)
         ]
-        out = np.stack(out).sum(0)
+        out = np.stack(out).sum(axis=0)
         return dict(
             in_=dict(arr=arr.reshape(-1)),
             out=out.reshape(-1),
@@ -660,8 +693,12 @@ class TestLaplacian(DiffOpMixin):
         arr = self._random_array(arg_shape, seed=20)  # random seed for reproducibility
         directions = tuple([(i, i) for i in range(len(arg_shape))])
         out = apply_hessian(
-            arr, arg_shape=arg_shape, gt_diffs=gt_diffs, directions=directions, diff_method=diff_method
-        ).sum(0)
+            arr,
+            arg_shape=arg_shape,
+            gt_diffs=gt_diffs,
+            directions=directions,
+            diff_method=diff_method,
+        ).sum(axis=0)
 
         return dict(
             in_=dict(arr=arr.reshape(-1)),
