@@ -201,10 +201,12 @@ class DiffOpMixin(conftest.LinOpT):
 
     @pytest.fixture(params=pycd.NDArrayInfo)
     def ndi(self, request):
+        # [Sepand] Not inferred from spec(diff_kwargs) [unlike most Pycsou operators] since diff_kwargs() needs this information beforehand.
         return request.param
 
     @pytest.fixture(params=pycrt.Width)
     def width(self, request):
+        # [Sepand] Not inferred from spec(diff_kwargs) [unlike most Pycsou operators] since diff_kwargs() needs this information beforehand.
         return request.param
 
     @pytest.fixture(params=["fd", "gd"])
