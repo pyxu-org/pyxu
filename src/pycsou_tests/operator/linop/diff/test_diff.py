@@ -202,7 +202,10 @@ class DiffOpMixin(conftest.LinOpT):
     @pytest.fixture(params=pycd.NDArrayInfo)
     def ndi(self, request):
         # [Sepand] Not inferred from spec(diff_kwargs) [unlike most Pycsou operators] since diff_kwargs() needs this information beforehand.
-        return request.param
+        ndi_ = request.param
+        if ndi_.module() is None:
+            pytest.skip(f"{ndi_} unsupported on this machine.")
+        return ndi_
 
     @pytest.fixture(params=pycrt.Width)
     def width(self, request):
@@ -328,7 +331,7 @@ class TestPartialDerivative(DiffOpMixin):
             "order": order,
             "arg_shape": arg_shape,
             "mode": mode,
-            "gpu": ndi.name == "CUPY",
+            "gpu": ndi == pycd.NDArrayInfo.CUPY,
             "dtype": width.value,
             "sampling": sampling,
         }
@@ -408,7 +411,7 @@ class TestGradient(DiffOpMixin):
             "arg_shape": arg_shape,
             "directions": directions,
             "mode": "constant",
-            "gpu": ndi.name == "CUPY",
+            "gpu": ndi == pycd.NDArrayInfo.CUPY,
             "dtype": width.value,
             "sampling": sampling,
             "diff_method": diff_method,
@@ -489,7 +492,7 @@ class TestHessian(DiffOpMixin):
             "arg_shape": arg_shape,
             "directions": directions,
             "mode": "constant",
-            "gpu": ndi.name == "CUPY",
+            "gpu": ndi == pycd.NDArrayInfo.CUPY,
             "dtype": width.value,
             "sampling": sampling,
             "diff_method": diff_method,
@@ -568,7 +571,7 @@ class TestJacobian(DiffOpMixin):
             "n_channels": n_channels,
             "directions": directions,
             "mode": "constant",
-            "gpu": ndi.name == "CUPY",
+            "gpu": ndi == pycd.NDArrayInfo.CUPY,
             "dtype": width.value,
             "sampling": sampling,
             "diff_method": diff_method,
@@ -647,7 +650,7 @@ class TestDivergence(DiffOpMixin):
             "arg_shape": arg_shape,
             "directions": directions,
             "mode": "constant",
-            "gpu": ndi.name == "CUPY",
+            "gpu": ndi == pycd.NDArrayInfo.CUPY,
             "dtype": width.value,
             "sampling": sampling,
             "diff_method": diff_method,
@@ -694,7 +697,7 @@ class TestLaplacian(DiffOpMixin):
         return {
             "arg_shape": arg_shape,
             "mode": "constant",
-            "gpu": ndi.name == "CUPY",
+            "gpu": ndi == pycd.NDArrayInfo.CUPY,
             "dtype": width.value,
             "sampling": sampling,
             "diff_method": diff_method,
