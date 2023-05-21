@@ -275,12 +275,15 @@ class MapT(ct.DisableTestMixin):
         return spec[0]
 
     @pytest.fixture
-    def xp(self, spec) -> pyct.ArrayModule:
-        ndi = spec[1]
-        if (xp_ := ndi.module()) is not None:
-            return xp_
-        else:
-            pytest.skip(f"{ndi} unsupported on this machine.")
+    def ndi(self, spec) -> pycd.NDArrayInfo:
+        ndi_ = spec[1]
+        if ndi_.module() is None:
+            pytest.skip(f"{ndi_} unsupported on this machine.")
+        return ndi_
+
+    @pytest.fixture
+    def xp(self, ndi) -> pyct.ArrayModule:
+        return ndi.module()
 
     @pytest.fixture
     def width(self, spec) -> pycrt.Width:
