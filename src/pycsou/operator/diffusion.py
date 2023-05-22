@@ -227,7 +227,7 @@ class _Diffusivity(pyca.Map):
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         raise NotImplementedError
 
-    def energy_potential(self, arr: pyct.NDArray, grad: pyct.OpT = None) -> pyct.NDArray:
+    def energy_functional(self, arr: pyct.NDArray, grad: pyct.OpT = None) -> pyct.NDArray:
         """
         Notes
         -----
@@ -306,7 +306,7 @@ class TikhonovDiffusivity(_Diffusivity):
         return xp.ones(arr.size)
 
     @pycrt.enforce_precision(i="arr")
-    def energy_potential(self, arr: pyct.NDArray, grad: pyct.OpT = None) -> pyct.NDArray:
+    def energy_functional(self, arr: pyct.NDArray, grad: pyct.OpT = None) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         y = self._compute_grad_norm_sq(arr, grad)
         z = xp.sum(y, axis=-1)
@@ -1624,7 +1624,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 * (self.balloon_force is None)
                 * (self.outer_trace_diffusivity is None)
                 * (self.trace_diffusion_coefficient is None)
-                * (self.curvature_preservation_field is None)
+                * (self.curvature_preservation_field == 0)
             )
         self.sampling = sampling
         self.gradient = gradient
@@ -1864,7 +1864,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         to define the associated energy functional. When no variational formulation is detected, the method raises an error.
         """
         if self.from_potential:
-            return self.diffusion_coefficient.diffusivity.energy_potential(arr, self.gradient)
+            return self.diffusion_coefficient.diffusivity.energy_functional(arr, self.gradient)
         else:
             msg = "\n".join(
                 [
