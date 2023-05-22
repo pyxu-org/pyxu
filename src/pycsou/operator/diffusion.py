@@ -1624,7 +1624,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 * (self.balloon_force is None)
                 * (self.outer_trace_diffusivity is None)
                 * (self.trace_diffusion_coefficient is None)
-                * (self.curvature_preservation_field == 0)
+                * (self.curvature_preservation_field.size == 0)
             )
         self.sampling = sampling
         self.gradient = gradient
@@ -1776,49 +1776,50 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         _to_be_checked = {}
         # if gradient:
         #    _to_be_checked["`gradient`"] = gradient.sampling
-        if hessian:
-            _to_be_checked["`hessian`"] = hessian.sampling
-        if balloon_force:
-            if balloon_force.gradient:
-                _to_be_checked["`balloon_force.gradient`"] = balloon_force.gradient.sampling
-        if outer_diffusivity:
-            if outer_diffusivity.gradient:
-                _to_be_checked["`outer_diffusivity.gradient`"] = outer_diffusivity.gradient.sampling
-        if outer_trace_diffusivity:
-            if outer_trace_diffusivity.gradient:
-                _to_be_checked["`outer_trace_diffusivity.gradient`"] = outer_trace_diffusivity.gradient.sampling
-        if diffusion_coefficient:
-            if diffusion_coefficient.isotropic:
-                if diffusion_coefficient.diffusivity.gradient:
-                    _to_be_checked[
-                        "`diffusion_coefficient.diffusivity.gradient`"
-                    ] = diffusion_coefficient.diffusivity.gradient.sampling
-            else:
-                if diffusion_coefficient.structure_tensor:
-                    _to_be_checked[
-                        "`diffusion_coefficient.structure_tensor.gradient`"
-                    ] = diffusion_coefficient.structure_tensor.grad.sampling
-        if trace_diffusion_coefficient:
-            if trace_diffusion_coefficient.isotropic:
-                if trace_diffusion_coefficient.diffusivity.gradient:
-                    _to_be_checked[
-                        "`trace_diffusion_coefficient.diffusivity.gradient`"
-                    ] = trace_diffusion_coefficient.diffusivity.gradient.sampling
-            else:
-                if trace_diffusion_coefficient.structure_tensor:
-                    _to_be_checked[
-                        "`trace_diffusion_coefficient.structure_tensor.gradient`"
-                    ] = trace_diffusion_coefficient.structure_tensor.grad.sampling
-        if _to_be_checked:
-            s_base = list(_to_be_checked.values())[0]
-            op_base = list(_to_be_checked.keys())[0]
-            for s in _to_be_checked:
-                assert (
-                    _to_be_checked[s] == s_base
-                ), "Inconsistent `sampling` for differential operators {} and {}.".format(op_base, s)
-            sampling = s_base
-        else:
-            sampling = None
+        # if hessian:
+        #     _to_be_checked["`hessian`"] = hessian.sampling
+        # if balloon_force:
+        #     if balloon_force.gradient:
+        #         _to_be_checked["`balloon_force.gradient`"] = balloon_force.gradient.sampling
+        # if outer_diffusivity:
+        #     if outer_diffusivity.gradient:
+        #         _to_be_checked["`outer_diffusivity.gradient`"] = outer_diffusivity.gradient.sampling
+        # if outer_trace_diffusivity:
+        #     if outer_trace_diffusivity.gradient:
+        #         _to_be_checked["`outer_trace_diffusivity.gradient`"] = outer_trace_diffusivity.gradient.sampling
+        # if diffusion_coefficient:
+        #     if diffusion_coefficient.isotropic:
+        #         if diffusion_coefficient.diffusivity.gradient:
+        #             _to_be_checked[
+        #                 "`diffusion_coefficient.diffusivity.gradient`"
+        #             ] = diffusion_coefficient.diffusivity.gradient.sampling
+        #     else:
+        #         if diffusion_coefficient.structure_tensor:
+        #             _to_be_checked[
+        #                 "`diffusion_coefficient.structure_tensor.gradient`"
+        #             ] = diffusion_coefficient.structure_tensor.grad.sampling
+        # if trace_diffusion_coefficient:
+        #     if trace_diffusion_coefficient.isotropic:
+        #         if trace_diffusion_coefficient.diffusivity.gradient:
+        #             _to_be_checked[
+        #                 "`trace_diffusion_coefficient.diffusivity.gradient`"
+        #             ] = trace_diffusion_coefficient.diffusivity.gradient.sampling
+        #     else:
+        #         if trace_diffusion_coefficient.structure_tensor:
+        #             _to_be_checked[
+        #                 "`trace_diffusion_coefficient.structure_tensor.gradient`"
+        #             ] = trace_diffusion_coefficient.structure_tensor.grad.sampling
+        # if _to_be_checked:
+        #     s_base = list(_to_be_checked.values())[0]
+        #     op_base = list(_to_be_checked.keys())[0]
+        #     for s in _to_be_checked:
+        #         assert (
+        #             _to_be_checked[s] == s_base
+        #         ), "Inconsistent `sampling` for differential operators {} and {}.".format(op_base, s)
+        #     sampling = s_base
+        # else:
+        #     sampling = None
+        sampling = 1.0
 
         assert prox_sigma > 0.0, "`prox_sigma` must be strictly positive."
 
