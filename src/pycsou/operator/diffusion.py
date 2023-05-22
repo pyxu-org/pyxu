@@ -33,8 +33,7 @@ class _BalloonForce(pyca.Map):
             Gradient operator. Defaults to `None`.
         """
         self.arg_shape = arg_shape
-        self.size = int(np.prod(arg_shape))
-        super().__init__(shape=(1, self.size))
+        super().__init__(shape=(1, int(np.prod(arg_shape))))
         self.grad = gradient
         if gradient:
             msg = "`gradient.arg_shape`={} inconsistent with `arg_shape`={}.".format(gradient.arg_shape, arg_shape)
@@ -188,8 +187,7 @@ class _Diffusivity(pyca.Map):
             Gradient operator. Defaults to `None`.
         """
         self.arg_shape = arg_shape
-        self.size = int(np.prod(arg_shape))
-        super().__init__(shape=(self.size, self.size))
+        super().__init__(shape=(int(np.prod(arg_shape)), int(np.prod(arg_shape))))
         self.gradient = gradient
         if gradient:
             msg = "`gradient.arg_shape`={} inconsistent with `arg_shape`={}.".format(gradient.arg_shape, arg_shape)
@@ -200,7 +198,7 @@ class _Diffusivity(pyca.Map):
         self.bounded = False
 
     def unravel_grad(self, arr):
-        return arr.reshape(*arr.shape[:-1], -1, self.size)
+        return arr.reshape(*arr.shape[:-1], -1, self.dim)
 
     def freeze(self, arr: pyct.NDArray):
         if self.frozen:
@@ -554,7 +552,7 @@ class PeronaMalikDiffusivity(_Diffusivity):
         y /= self.beta**2
         y = -xp.exp(y)
         z = xp.sum(y, axis=-1)
-        z += self.size
+        z += self.dim
         z *= self.beta**2
         return 0.5 * z
 
@@ -820,7 +818,7 @@ class _DiffusionCoefficient:
 
         """
         self.arg_shape = arg_shape
-        self.size = int(np.prod(arg_shape))
+        self.dim = int(np.prod(arg_shape))
         self.ndims = len(self.arg_shape)
         self.isotropic = isotropic
         self.trace_term = trace_term
@@ -961,12 +959,12 @@ class DiffusionCoeffIsotropic(_DiffusionCoefficient):
             xp = pycu.get_array_module(arr)
             y = self.diffusivity(arr)
             if self.trace_term:
-                # assemble and return a LinOp(self.size, self.ndims*self.size)
+                # assemble and return a LinOp(self.dim, self.ndims*self.dim)
                 ops = [pybase.DiagonalOp(y.squeeze())]
                 ops *= self.ndims
                 return pyblock.hstack(ops)
             else:
-                # assemble and return a DiagonalOp(self.ndim*self.size, self.ndims*self.size)
+                # assemble and return a DiagonalOp(self.ndim*self.dim, self.ndims*self.dim)
                 return pybase.DiagonalOp(xp.tile(y.squeeze(), len(self.arg_shape)))
         else:
             return self.frozen_op
@@ -1127,12 +1125,12 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
     @pycrt.enforce_precision(i=("u", "lambdas"))
     def _assemble_tensors(self, u: pyct.NDArray, lambdas: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(u)
-        diffusion_tensors = xp.zeros((self.size, len(self.arg_shape), len(self.arg_shape)))
+        diffusion_tensors = xp.zeros((self.dim, len(self.arg_shape), len(self.arg_shape)))
         for i in range(len(self.arg_shape)):
             # compute rank 1 matrices from eigenvectors, multiply them by intensities and sum up
             diffusion_tensors += lambdas[:, i].reshape(-1, 1, 1) * (
-                u[:, :, i].reshape(self.size, -1, len(self.arg_shape))  # replace -1s by 1s?
-                * u[:, :, i].reshape(self.size, len(self.arg_shape), -1)
+                u[:, :, i].reshape(self.dim, -1, len(self.arg_shape))  # replace -1s by 1s?
+                * u[:, :, i].reshape(self.dim, len(self.arg_shape), -1)
             )
         return diffusion_tensors
 
@@ -1168,10 +1166,10 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
                     ops[i].append(pybase.DiagonalOp(tensors[:, i, j]))
                 ops[i] = pyblock.hstack(ops[i])
             if self.trace_term:
-                # assemble and return a LinOp(self.size, self.ndims*(self.ndims+1)*self.size/2)
+                # assemble and return a LinOp(self.dim, self.ndims*(self.ndims+1)*self.dim/2)
                 return pyblock.hstack(ops)
             else:
-                # assemble and return a DiagonalOp(self.ndims*self.size,self.ndims*self.size)
+                # assemble and return a DiagonalOp(self.ndims*self.dim,self.ndims*self.dim)
                 return pyblock.vstack(ops)
         else:
             return self.frozen_op
@@ -1577,9 +1575,8 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         of one pixel.
         """
         self.arg_shape = arg_shape
-        self.size = int(np.prod(arg_shape))
         self.ndims = len(self.arg_shape)
-        super().__init__(shape=(1, self.size))
+        super().__init__(shape=(1, int(np.prod(arg_shape))))
         # sanitize inputs
         (
             gradient,
@@ -1613,7 +1610,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
             for i in range(self.ndims):
                 vec = 0
                 for j in range(self.ndims):
-                    vec += self.jacobian[i, self.size * j : self.size * (j + 1)] * curvature_preservation_field[j, :]
+                    vec += self.jacobian[i, self.dim * j : self.dim * (j + 1)] * curvature_preservation_field[j, :]
                 ops.append(pybase.DiagonalOp(vec))
             self._jacobian_onto_field = pyblock.hstack(ops)
         # assess whether diffusion operator descends from a potential formulation or not
@@ -1654,7 +1651,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
     ):
         if hessian:
             nb_upper_entries = round(self.ndims * (self.ndims + 1) / 2)
-            expected_codim = nb_upper_entries * self.size
+            expected_codim = nb_upper_entries * self.dim
             assert hessian.codim == expected_codim, '`hessian` expected to be initialized with `directions`="all"'
 
         if outer_diffusivity and not diffusion_coefficient:
@@ -1746,11 +1743,11 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 raise ValueError(msg)
 
         if curvature_preservation_field.size > 0:
-            if curvature_preservation_field.shape != (self.ndims, self.size):
+            if curvature_preservation_field.shape != (self.ndims, self.dim):
                 msg = "\n".join(
                     [
                         "Unexpected shape {} of `curvature_preservation_field`,"
-                        "expected ({}, {}).".format(curvature_preservation_field.shape, self.ndims, self.size),
+                        "expected ({}, {}).".format(curvature_preservation_field.shape, self.ndims, self.dim),
                     ]
                 )
                 raise ValueError(msg)
@@ -2523,10 +2520,10 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
         )
         # assemble trace diffusion coefficient corresponding to the curvature preserving field
         curvature_preservation_field = curvature_preservation_field.T
-        tensors = curvature_preservation_field.reshape(self.size, self.ndims, 1) * curvature_preservation_field.reshape(
-            self.size, 1, self.ndims
+        tensors = curvature_preservation_field.reshape(self.dim, self.ndims, 1) * curvature_preservation_field.reshape(
+            self.dim, 1, self.ndims
         )
-        trace_diffusion_coefficient = tensors.reshape(self.size, -1)
+        trace_diffusion_coefficient = tensors.reshape(self.dim, -1)
         ops = []
         for i in range(self.ndims):
             # only upper diagonal entries are considered (symmetric tensors)
@@ -2568,9 +2565,8 @@ class TV_DiffusionOp(pyca.DiffFunc):
 
     def __init__(self, arg_shape: pyct.NDArrayShape, beta=1e-3):
         self.arg_shape = arg_shape
-        self.size = int(np.prod(arg_shape))
         self.ndims = len(self.arg_shape)
-        super().__init__(shape=(1, self.size))
+        super().__init__(shape=(1, int(np.prod(arg_shape))))
         filter_ = np.array([[1, 0, -1], [0, 0, 0], [-1, 0, 1]])
         self.S = pycop.Stencil(kernel=filter_, center=(1, 1), arg_shape=arg_shape)
         self.second_derivative = pydiff.Hessian(
