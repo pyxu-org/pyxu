@@ -6,6 +6,7 @@ import scipy.optimize as sciop
 
 import pycsou.abc as pyca
 import pycsou.abc.solver as pysolver
+import pycsou.operator as pycop
 import pycsou.operator.blocks as pyblock
 import pycsou.operator.linop.base as pybase
 import pycsou.operator.linop.diff as pydiff
@@ -308,8 +309,8 @@ class TikhonovDiffusivity(_Diffusivity):
     def energy_potential(self, arr: pyct.NDArray, grad: pyct.OpT = None) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         y = self._compute_grad_norm_sq(arr, grad)
-        y *= 0.5
-        return xp.sum(y, axis=-1)
+        z = xp.sum(y, axis=-1)
+        return 0.5 * z
 
 
 class MfiDiffusivity(_Diffusivity):
@@ -548,27 +549,27 @@ class PeronaMalikDiffusivity(_Diffusivity):
     def _energy_functional_exponential(self, arr: pyct.NDArray, grad: pyct.OpT) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         # Inplace implementation of
-        #   0.5*(beta**2)*(1 - xp.exp(-grad_norm_sq/beta**2)
+        #     0.5*(beta**2)*sum(1 - xp.exp(-grad_norm_sq/beta**2))
         y = -self._compute_grad_norm_sq(arr, grad)
         y /= self.beta**2
         y = -xp.exp(y)
-        y += 1
-        y *= self.beta**2
-        y *= 0.5
-        return xp.sum(y, axis=-1)
+        z = xp.sum(y, axis=-1)
+        z += self.size
+        z *= self.beta**2
+        return 0.5 * z
 
     @pycrt.enforce_precision(i="arr")
     def _energy_functional_rational(self, arr: pyct.NDArray, grad: pyct.OpT) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         # Inplace implementation of
-        #   0.5*(beta**2)*(xp.log(1+grad_norm_sq/beta**2)
+        #   0.5*(beta**2)*sum(xp.log(1+grad_norm_sq/beta**2)
         y = self._compute_grad_norm_sq(arr, grad)
         y /= self.beta**2
         y += 1
         y = xp.log(y)
-        y *= self.beta**2
-        y *= 0.5
-        return xp.sum(y, axis=-1)
+        z = xp.sum(y, axis=-1)
+        z *= self.beta**2
+        return 0.5 * z
 
     @pycrt.enforce_precision(i="arr")
     def energy_functional(self, arr: pyct.NDArray, grad: pyct.OpT) -> pyct.NDArray:
@@ -602,18 +603,16 @@ class TotalVariationDiffusivity(_Diffusivity):
     * If ``tame`` is ``True``,
         .. math ::
 
-            (g(\mathbf{f}))_i = \frac{1} { \sqrt{1+ \vert (\nabla \mathbf{f})_i \vert ^2 / \beta^2}}, \quad \forall i,
+            (g(\mathbf{f}))_i = \frac{beta} { \sqrt{\beta^2+ \vert (\nabla \mathbf{f})_i \vert ^2}}, \quad \forall i,
 
-        where :math:`\beta` is the contrast parameter.
+        where :math:`\beta` regulates the quality of the smooth approximation of the :math:`L^2`-norm featured in the TV approach.
+        The `tame` formulation stems from an approximation very similar to the Huber loss approach. Lower values
+        correspond to better approximations but typically lead to larger computational cost.
 
     In both cases, the corresponding divergence-based diffusion term allows a variational interpretation
     [see `Tschumperle-Deriche <https://hal.science/hal-00332798/document>`_ for untamed case].
 
     **Remark 1**
-
-    It is recommended to provide a Gaussian derivative-based gradient (:math:`\nabla=\nabla_\sigma`) to reduce sensitivity to noise.
-
-    **Remark 2**
 
     It is recommended to set ``tame`` to `True` to avoid instable behavior when the diffusivity is used in the context
     of diffusion processes.
@@ -657,7 +656,7 @@ class TotalVariationDiffusivity(_Diffusivity):
 
     """
 
-    def __init__(self, arg_shape: pyct.NDArrayShape, gradient: pyct.OpT, beta: pyct.Real = 1, tame: bool = True):
+    def __init__(self, arg_shape: pyct.NDArrayShape, gradient: pyct.OpT, beta: pyct.Real = 1e-3, tame: bool = True):
         """
 
         Parameters
@@ -667,7 +666,8 @@ class TotalVariationDiffusivity(_Diffusivity):
         gradient: :py:class:`~pycsou.operator.linop.diff.Gradient`
             Gradient operator. Defaults to `None`.
         beta: pyct.Real
-            Contrast parameter. Defaults to `1`.
+            Quality of :math:`L^2`-norm smooth approximation. Defaults to :math:`10^{-3}`. Lower values yield better
+            approximations, but typically larger computational cost.
         tame: bool
             Whether to consider tame version or not. Defaults to `True`.
         """
@@ -681,7 +681,7 @@ class TotalVariationDiffusivity(_Diffusivity):
     def _apply_tame(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         # Inplace implementation of
-        #   1/(xp.sqrt(1+grad_norm_sq/beta**2)
+        #   1/(xp.sqrt(1+grad_norm_sq/beta**2) = beta/(xp.sqrt(beta**2+grad_norm_sq)
         y = self._compute_grad_norm_sq(arr, self.gradient)
         y /= self.beta**2
         y += 1
@@ -701,11 +701,15 @@ class TotalVariationDiffusivity(_Diffusivity):
 
     @pycrt.enforce_precision(i="arr")
     def _energy_functional_tame(self, arr: pyct.NDArray, grad: pyct.OpT) -> pyct.NDArray:
+        # Inplace implementation of
+        #   beta**2*sum(xp.sqrt(1+grad_norm_sq/beta**2)
         xp = pycu.get_array_module(arr)
         y = self._compute_grad_norm_sq(arr, grad)
+        y /= self.beta**2
         y += 1
         y = xp.sqrt(y)
-        return xp.sum(y, axis=-1)
+        z = xp.sum(y, axis=-1)
+        return self.beta**2 * z
 
     @pycrt.enforce_precision(i="arr")
     def _energy_functional_untamed(self, arr: pyct.NDArray, grad: pyct.OpT) -> pyct.NDArray:
@@ -1688,7 +1692,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 diff_method="fd",
                 sampling=1.0,
                 mode="symmetric",
-                diff_type="forward",
+                scheme="forward",
             )
 
         if curvature_preservation_field.size > 0 and not gradient:
@@ -1700,7 +1704,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
             )
             warnings.warn(msg)
             gradient = pydiff.Gradient(
-                arg_shape=arg_shape, diff_method="fd", sampling=1.0, mode="edge", diff_type="central"
+                arg_shape=arg_shape, diff_method="fd", sampling=1.0, mode="edge", scheme="central"
             )
 
         if trace_diffusion_coefficient and not hessian:
@@ -1712,7 +1716,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
             )
             warnings.warn(msg)
             hessian = pydiff.Hessian(
-                arg_shape=arg_shape, diff_method="fd", mode="symmetric", sampling=1.0, diff_type="central", accuracy=2
+                arg_shape=arg_shape, diff_method="fd", mode="symmetric", sampling=1.0, scheme="central", accuracy=2
             )
 
         if diffusion_coefficient and diffusion_coefficient.trace_term:
@@ -1770,8 +1774,8 @@ class _DiffusionOp(pyca.ProxDiffFunc):
 
         # check sampling consistency
         _to_be_checked = {}
-        if gradient:
-            _to_be_checked["`gradient`"] = gradient.sampling
+        # if gradient:
+        #    _to_be_checked["`gradient`"] = gradient.sampling
         if hessian:
             _to_be_checked["`hessian`"] = hessian.sampling
         if balloon_force:
@@ -2028,7 +2032,7 @@ class DivergenceDiffusionOp(_DiffusionOp):
         # Instantiate differential operators
         # Gradient
         grad = pydiff.Gradient(arg_shape=image.shape, diff_method="fd",
-                                                 mode="symmetric", diff_type="forward")
+                                                 mode="symmetric", scheme="forward")
         # Gaussian gradient
         gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
                                                  mode="symmetric", sigma=2)
@@ -2274,7 +2278,7 @@ class TraceDiffusionOp(_DiffusionOp):
                                                  mode="symmetric", sigma=2)
         # Hessian operator
         hessian = pydiff.Hessian(arg_shape=image.shape, diff_method="fd", mode="symmetric",
-                                                   diff_type="central", accuracy=2)
+                                                   scheme="central", accuracy=2)
         # Instantiate structure tensor
         structure_tensor = pyfilt.StructureTensor(arg_shape=image.shape, diff_method="gd", smooth_sigma=0,
                                                   mode="symmetric", sigma=2)
@@ -2423,13 +2427,13 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
         # Instantiate needed differential operators
         # Gradient operator
         grad = pydiff.Gradient(arg_shape=image.shape, diff_method="fd",
-                                                 mode="symmetric", diff_type="forward")
+                                                 mode="symmetric", scheme="forward")
         # Gaussian gradient operator
         gauss_grad = pydiff.Gradient(arg_shape=image.shape, diff_method="gd",
                                                  mode="symmetric", sigma=2)
         # Hessian operator
         hessian = pydiff.Hessian(arg_shape=image.shape, diff_method="fd", mode="symmetric",
-                                                   diff_type="central", accuracy=2)
+                                                   scheme="central", accuracy=2)
         # Define vector field, diffusion process will preserve curvature along it
         image_center=np.array(image.shape)/2+[0.25, 0.25]
         curvature_preservation_field=np.zeros((2,image.size))
@@ -2506,7 +2510,7 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
                 diff_method="fd",
                 mode="symmetric",
                 sampling=1.0,
-                diff_type="central",
+                scheme="central",
                 accuracy=2,
             )
         super().__init__(
@@ -2554,3 +2558,46 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
         # compute curvature preserving term
         y += self._compute_curvature_preserving_term(arr)
         return y
+
+
+class TV_DiffusionOp(pyca.DiffFunc):
+    # TV diffusion operator featuring second order in space discretization scheme for gradient
+    def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
+        pass
+
+    def __init__(self, arg_shape: pyct.NDArrayShape, beta=1e-3):
+        self.arg_shape = arg_shape
+        self.size = int(np.prod(arg_shape))
+        self.ndims = len(self.arg_shape)
+        super().__init__(shape=(1, self.size))
+        filter_ = np.array([[1, 0, -1], [0, 0, 0], [-1, 0, 1]])
+        self.S = pycop.Stencil(kernel=filter_, center=(1, 1), arg_shape=arg_shape)
+        self.second_derivative = pydiff.Hessian(
+            arg_shape=arg_shape, directions=[(0, 0), (1, 1)], accuracy=2, scheme="central", mode="symmetric"
+        )
+        self.central_grad = pydiff.Gradient(arg_shape=self.arg_shape, scheme="central", mode="symmetric")
+        self.beta = beta
+        self._diff_lipschitz = 4
+
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        # Inplace implementation of
+        #   beta*sum(xp.sqrt(beta**2+grad_norm_sq))
+        xp = pycu.get_array_module(arr)
+        grad_arr = self.grad.unravel(self.grad(arr))
+        grad_arr **= 2
+        y = xp.sum(grad_arr, axis=1, keepdims=False)
+        y += self.beta**2
+        y = xp.sqrt(y)
+        z = xp.sum(y, axis=-1)
+        return self.beta * z
+
+    def grad(self, arr):
+        # gradient implementation obtained from proper second-order in space finite difference discretization
+        grad_z_central = self.central_grad.unravel(self.central_grad(arr)).squeeze().reshape(2, -1)
+        grad_z_central_norm_sq = np.sum(grad_z_central**2, axis=0, keepdims=False)
+        norm_term = (grad_z_central_norm_sq + self.beta**2) ** (-3 / 2)
+        second_deriv = self.second_derivative.unravel(self.second_derivative(arr)).squeeze().reshape(2, -1)
+        A = second_deriv[0, :] * (grad_z_central[1, :] ** 2 + self.beta**2)
+        B = second_deriv[1, :] * (grad_z_central[0, :] ** 2 + self.beta**2)
+        C = (-0.5 * grad_z_central[0, :] * grad_z_central[1, :] * self.S(arr).reshape(1, -1)).flatten()
+        return -self.beta * norm_term * (A + B + C)
