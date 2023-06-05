@@ -104,8 +104,12 @@ class _Sampler:
     def samples(self, rng=None, **kwargs) -> cabc.Generator:
         """Returns a generator; samples are drawn by calling next(generator)."""
         self._sample_init(rng, **kwargs)
-        while True:
-            yield self._sample()
+
+        def _generator():
+            while True:
+                yield self._sample()
+
+        return _generator()
 
     def _sample_init(self, rng, **kwargs):
         """Optional method to set initial state of the sampler (e.g., a starting point)."""
@@ -308,8 +312,8 @@ class ULA(_Sampler):
         r"""
         Parameters
         ----------
-        seed: int
-            Seed for the internal random generator.
+        rng:
+            Internal random generator.
         x0: ndarray
             Starting point of the Markov chain.
         """
@@ -320,6 +324,7 @@ class ULA(_Sampler):
         else:
             self._rng = rng
 
+    @pycrt.enforce_precision()
     def _sample(self) -> pyct.NDArray:
         x = self.x.copy()
         x -= self._gamma * pycu.copy_if_unsafe(self._f.grad(self.x))
