@@ -2,6 +2,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.io as scio
+from scipy import sparse
 
 import pycsou.abc as pyca
 import pycsou.operator.linop.base as pycb
@@ -19,7 +20,7 @@ def plot_diagnostics():
     center = [Lr / 2, Lz / 2]
     radcam = geom.RADCAM_system()
     fig, ax = plt.subplots(1, 3, figsize=(8, 5), sharey=True)
-    # bolo_plot = LoS.plot_LoS_ax(radcam.bolo_LoS_params, ax[0], Lr=Lr, Lz=Lz, center=center)
+    LoS.plot_LoS_ax(radcam.bolo_LoS_params, ax[0], Lr=Lr, Lz=Lz, center=center)
     LoS.plot_LoS_ax(radcam.axuv_LoS_params, ax[1], Lr=Lr, Lz=Lz, center=center)
     LoS.plot_LoS_ax(radcam.sxr_LoS_params, ax[2], Lr=Lr, Lz=Lz, center=center)
     ax[0].set_yticks([0, 1.5 / 2, 1.5])
@@ -124,14 +125,24 @@ def SpcForwardModel(diagnostic="bolo", model="lines", **other_kwargs):
         raise ValueError("Tubes not handled yet by this function")
     elif model == "spc_lines":
         if diagnostic == "bolo":
-            Tmat = scio.loadmat("forward_model/matrices/Tmatline_py.mat")["Tmatline_py"]
-            Op = pycb._ExplicitLinOp(cls=pyca.LinOp, mat=Tmat)
+            Tmat = scio.loadmat("forward_model/matrices/forward_lines_bolo.mat")["Tmatline_py"]
+            Tmat_sparse = sparse.csr_matrix(Tmat)
+            Op = pyca.LinOp.from_array(A=Tmat_sparse)
+        elif diagnostic == "axuv":
+            Tmat = scio.loadmat("forward_model/matrices/forward_lines_axuv.mat")["Tmatline_py"]
+            Tmat_sparse = sparse.csr_matrix(Tmat)
+            Op = pyca.LinOp.from_array(A=Tmat_sparse)
+        elif diagnostic == "sxr":
+            Tmat = scio.loadmat("forward_model/matrices/forward_lines_sxr.mat")["Tmatline_py"]
+            Tmat_sparse = sparse.csr_matrix(Tmat)
+            Op = pyca.LinOp.from_array(A=Tmat_sparse)
         else:
-            raise ValueError("SPC lines model currently only handled for `bolo` diagnostic.")
+            raise ValueError("SPC lines model currently only handled for `bolo`, `axuv` and `sxr` diagnostics.")
     elif model == "spc_beams":
         if diagnostic == "bolo":
-            Tmat = scio.loadmat("forward_model/matrices/Tmatvol_py.mat")["Tmatvol_py"]
-            Op = pycb._ExplicitLinOp(cls=pyca.LinOp, mat=Tmat)
+            Tmat = scio.loadmat("forward_model/matrices/forward_beams_bolo.mat")["Tmatvol_py"]
+            Tmat_sparse = sparse.csr_matrix(Tmat)
+            Op = pycb._ExplicitLinOp(cls=pyca.LinOp, mat=Tmat_sparse)
         else:
             raise ValueError("SPC beams model currently only handled for `bolo` diagnostic.")
     else:
