@@ -1,128 +1,81 @@
-Matthieu
---------
-
-* [doc] Fix missing reference warnings. (See build/html/WARNINGS.log)
-* use pycrt.coerce() where it makes sense. [PDS only]
-* use **kwargs to simplify signatures
-
-
-
 Sepand
-------
+  * Solver Tests
+      Remaining: opt/solver/pds.py
+  * Refactor docstrings, type hints, etc.
+      Remaining: opt/solver/pds.py
+  * Known Bugs
+    * General
+      * test_svdvals[SM, non-rectangular operators]
+        Returned values always wrong (esp. for fat arrays).
+        Probable cause: np.linalg.svd does not return the "true" singular values.
+    * Stencil
+      * test_value1D_svdvals[SM]
+        Always incorrect for ND kernels (seperable & non-seperable)
+        Did an experiment on NumPy backend:
+          Changing svds() seed gives different results.
+          Hunch: obtaining one of the smallest singular values, but not the smallest.
+        Values are not extravagant however: the failure is acceptable.
+    * Kron
+      * test_interface_jacobian() fails if kron(A, B) == LinFunc
+        and A (or B) is IdentityOp.
+        Reason: corner case where kr(A, B) is IdentityOp(dim=1).
+        Not a problem in practice.
+    * Khatri-Rao
+      * test_math_cogram() fails if kr(A, B) == LinFunc
+        Reason: the cogram in this case has size (1, 1), and apply/adjoint don't work in this degenerate case.
+        Obtaining a LinFunc from kr(A, B) is so corner-case that error is acceptable.
+      * test_value1D_svdvals() fails if kr(A, B) == LinFunc
+        Reason: kr(A, B).svd() should always call LinFunc.lipschitz(), irrespective of the `tight` value. (Not done at the moment.)
+        Obtaining a LinFunc from kr(A, B) is so corner-case that error is acceptable.
+    * NUFFT
+      * test_value1D_svdvals() fails sometimes when k > 1.
+        Reason unknown.
+      * type[123]()
+        Some tests fail only with DASK inputs.
+        Reason unknown.
+    * ProxAdam [total test time: ~42min]
+      * test_transparent_fit() fails for some initializations.
+        Did not investigate yet.
+      * test_value_fit() fails for some initializations.
+        Did not investigate yet.
+    * JAX interop
+      * The following tests fail with CuPy inputs (f32/f64), with mentioned errors. [Reason unknown.]
+        - TestJaxScaledSum::test_math_adjoint()
+            Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[20,1]{1,0} for argument 0 but got incompatible shape f32[20,1]{0,1}
+            Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[20,1]{1,0} for argument 1 but got incompatible shape f32[20,1]{0,1}
+            Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f64[20,1]{1,0} for argument 0 but got incompatible shape f64[20,1]{0,1}
+        - TestJaxScaledSum::test_math_cogram()
+            Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[30,1]{1,0} for argument 0 but got incompatible shape f32[30,1]{0,1}
+            Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[30,1]{1,0} for argument 1 but got incompatible shape f32[30,1]{0,1}
+            Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f64[30,1]{1,0} for argument 0 but got incompatible shape f64[30,1]{0,1}
+        - TestJaxSin::test_math_diff_lipschitz()
+        - TestJaxSquaredL2Norm::test_math_diff_lipschitz()
+        - TestJaxSquaredL2Norm2::test_math_diff_lipschitz()
+            Execution of replica 0 failed: INTERNAL: Address of buffer 0 must be a multiple of 10, but was 0x...
+            Execution of replica 0 failed: INTERNAL: Address of buffer 1 must be a multiple of 10, but was 0x...
+        - TestJaxSelfAdjointConvolution::test_backend_eigvals()
+        - TestJaxSelfAdjointConvolution::test_precCM_eigvals()
+        - TestJaxPSDConvolution::test_backend_eigvals()
+        - TestJaxPSDConvolution::test_precCM_eigvals()
+        - TestJaxScaleDown::test_precCM_eigvals()
+            INTERNAL: Address of buffer 0 must be a multiple of 10, but was 0x...
 
-* Solver Tests
-    Remaining: opt/solver/pds.py
-* Refactor docstrings, type hints, etc.
-    Remaining: opt/solver/pds.py
-* Known Bugs
-  * General
-    * test_svdvals[SM, non-rectangular operators]
-      Returned values always wrong (esp. for fat arrays).
-      Probable cause: np.linalg.svd does not return the "true" singular values.
-  * Stencil
-    * test_value1D_svdvals[SM]
-      Always incorrect for ND kernels (seperable & non-seperable)
-      Did an experiment on NumPy backend:
-        Changing svds() seed gives different results.
-        Hunch: obtaining one of the smallest singular values, but not the smallest.
-      Values are not extravagant however: the failure is acceptable.
-  * Kron
-    * test_interface_jacobian() fails if kron(A, B) == LinFunc
-      and A (or B) is IdentityOp.
-      Reason: corner case where kr(A, B) is IdentityOp(dim=1).
-      Not a problem in practice.
-  * Khatri-Rao
-    * test_math_cogram() fails if kr(A, B) == LinFunc
-      Reason: the cogram in this case has size (1, 1), and apply/adjoint don't work in this degenerate case.
-      Obtaining a LinFunc from kr(A, B) is so corner-case that error is acceptable.
-    * test_value1D_svdvals() fails if kr(A, B) == LinFunc
-      Reason: kr(A, B).svd() should always call LinFunc.lipschitz(), irrespective of the `tight` value. (Not done at the moment.)
-      Obtaining a LinFunc from kr(A, B) is so corner-case that error is acceptable.
-  * NUFFT
-    * test_value1D_svdvals() fails sometimes when k > 1.
-      Reason unknown.
-    * type[123]()
-      Some tests fail only with DASK inputs.
-      Reason unknown.
-  * ProxAdam [total test time: ~42min]
-    * test_transparent_fit() fails for some initializations.
-      Did not investigate yet.
-    * test_value_fit() fails for some initializations.
-      Did not investigate yet.
-  * JAX interop
-    * The following tests fail with CuPy inputs (f32/f64), with mentioned errors. [Reason unknown.]
-      - TestJaxScaledSum::test_math_adjoint()
-          Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[20,1]{1,0} for argument 0 but got incompatible shape f32[20,1]{0,1}
-          Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[20,1]{1,0} for argument 1 but got incompatible shape f32[20,1]{0,1}
-          Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f64[20,1]{1,0} for argument 0 but got incompatible shape f64[20,1]{0,1}
-      - TestJaxScaledSum::test_math_cogram()
-          Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[30,1]{1,0} for argument 0 but got incompatible shape f32[30,1]{0,1}
-          Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[30,1]{1,0} for argument 1 but got incompatible shape f32[30,1]{0,1}
-          Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f64[30,1]{1,0} for argument 0 but got incompatible shape f64[30,1]{0,1}
-      - TestJaxSin::test_math_diff_lipschitz()
-      - TestJaxSquaredL2Norm::test_math_diff_lipschitz()
-      - TestJaxSquaredL2Norm2::test_math_diff_lipschitz()
-          Execution of replica 0 failed: INTERNAL: Address of buffer 0 must be a multiple of 10, but was 0x...
-          Execution of replica 0 failed: INTERNAL: Address of buffer 1 must be a multiple of 10, but was 0x...
-      - TestJaxSelfAdjointConvolution::test_backend_eigvals()
-      - TestJaxSelfAdjointConvolution::test_precCM_eigvals()
-      - TestJaxPSDConvolution::test_backend_eigvals()
-      - TestJaxPSDConvolution::test_precCM_eigvals()
-      - TestJaxScaleDown::test_precCM_eigvals()
-          INTERNAL: Address of buffer 0 must be a multiple of 10, but was 0x...
-
-* Test Suite Enhancements
-  * General
-    * Add @slow_test tags.
-    * Add alternative tox instance to run non-@slow_test tests.
-    * Add DASK_CUPY mode. [Only to the test suite.]
-      >>> with dask.config.set({"array.backend": "cupy"}):  # "numpy"
-      ...     darr = da.ones(10, chunks=(5,))  # Get cupy-backed collection
-  * NUFFT
-    * CuPy backend currently not tested since only kicks in/works when eps=0.
-      Enable CuPy backend once eps>0 case also becomes CuPy-capable.
-
-   
-
-Joan
-----
-
-* [opt] Implement LSQR LSMR
-* Add SVG drawing of class diagrams in documentation
-* create benchmark suite for all operators.
-
-  We must track the runtime of operator methods across commits to identify performance regressions and fix them. A comprehensive benchmark suite is therefore required.
-
-  Desired output: DataFrame with
-  * row: class.method
-  * column: commit name
-  * value: execution time [s] (on sample data, identical throughout the commit history.)
-
-  This data can then be plotted to visualize performance changes.
+  * Test Suite Enhancements
+    * General
+      * Add @slow_test tags.
+      * Add alternative tox instance to run non-@slow_test tests.
+      * Add DASK_CUPY mode. [Only to the test suite.]
+        >>> with dask.config.set({"array.backend": "cupy"}):  # "numpy"
+        ...     darr = da.ones(10, chunks=(5,))  # Get cupy-backed collection
+    * NUFFT
+      * CuPy backend currently not tested since only kicks in/works when eps=0.
+        Enable CuPy backend once eps>0 case also becomes CuPy-capable.
 
 
-  Roadmap:
-  - operators (Pycsou v1) -> core dev team
-  - Tutorials, examples and notebooks. -> Kaan
-  - CI: pip/conda packaging (quick fix of pip lenghty install) + ReadTheDocs + Run tests in cloud (Infomaniak)
-  - benchmarking suite (low priority)
-  - Automatic hyperparameter tuning (hyperpriors) 
-  - Uncertainty quantification (approximate credibility intervals)
-  - Nonconvex/linear (APGD nonconvex + PDS nonlinear)
-  - Stochastic solvers -> Alec
-  - Second order solvers -> Kaan
-  - LSQR/LSMR -> Kaan
-
-
-
-Daniele
--------
 
 Thomas
-------
-
-* Design tests for sampler module
-* When diff operators are merged, add examples in documentation of B-spline module (comparison splines vs. discrete model for nonuniform sampling)
-  and Sampler module (ULA with TV regularization)
-* Long term for Sampler module : add documentation and utility functions to compute autocorrelation and effective sample size for MCMC models
-  (investigate if they can be approximated online)
+  * Design tests for sampler module
+  * When diff operators are merged, add examples in documentation of B-spline module (comparison splines vs. discrete model for nonuniform sampling)
+    and Sampler module (ULA with TV regularization)
+  * Long term for Sampler module : add documentation and utility functions to compute autocorrelation and effective sample size for MCMC models
+    (investigate if they can be approximated online)
