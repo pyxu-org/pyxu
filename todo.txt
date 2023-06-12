@@ -79,3 +79,61 @@ Thomas
     and Sampler module (ULA with TV regularization)
   * Long term for Sampler module : add documentation and utility functions to compute autocorrelation and effective sample size for MCMC models
     (investigate if they can be approximated online)
+
+
+
+[HTML Documentation] Towards Pycsou v2 Public Release
+  [Matthieu] Introduction/Landing Page
+    Summary: what is Pyxu
+    Statement of need + comparison with other frameworks
+    Design principles
+
+  [Sepand] Installation Instructions
+    pip-based
+    dev environment (point to dev section)
+
+  [Matthieu] Tour of Pyxu in 15min
+    Walkthrough tomographic reconstruction
+      Normal equations
+      Gradient Descent without regularization term
+        \argmin_{x}\norm{y - Ax}{2}^{2}
+      More advanced methods
+        PDS/ADMM/PnP
+
+  [TBD] Tutorials Section
+
+  How-To Section
+    [Sepand] Operator arithmetic
+      Includes discussion on rules & lipschitz propagation
+    [Sepand] GPU support
+    [Sepand] DASK support
+      Includes GPU on DASK
+    [Sepand] Controlling Precision
+    [Sepand] Building Block Operators
+    [Matthieu] LinOps (array-based & matrix-free)
+    [Sepand] Vectorization
+    [Joan] Stencils / JIT
+    [Joan] Working with DiffOps
+    [Sepand] Working with (NU)FFTs
+    [Thomas] Perform Uncertainty Quantification
+    [Thomas] Iterative Solvers
+      Includes how to set up Lipschitz constants.
+    [Sepand] Dealing with Complex Numbers
+    [Sepand] Interoperability with Deep-Learning Frameworks
+
+  [Sepand] API Reference
+    Introduction to high-level structure of Pyxu, then
+    Alphabetic listing of all public API
+
+  Being a Developer
+    [Joan] Extending Pyxu
+      Using the cookie-cutter
+      Discovering extensions -> Pyxu FAIR
+
+    Roadmap
+    [TBD] How to contribute
+    Governance
+    Obtaining support
+    Subscribe to Mailing list
+    Geting a developer install
+      How to run tests
