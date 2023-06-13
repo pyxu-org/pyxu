@@ -1,3 +1,6 @@
+Core-Team
+  Review StructureTensor
+
 Sepand
   * Solver Tests
       Remaining: opt/solver/pds.py
