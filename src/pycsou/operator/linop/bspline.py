@@ -2,32 +2,124 @@ r"""
 This B-spline module provides the basic tools to solve continuous-domain inverse problems by parametrizing the signal of
 interest in the B-spline basis and optimizing over its B-spline coefficients. This continuous-domain approach is
 particularly relevant when the forward model does not admit a straightforward discretization, such as nonuniform
-sampling (see example below and [1, 2]).
+sampling (see example below, [FuncSphere]_, and [BSplineTV]_).
 
 B-splines are basis functions for the space of splines (piecewise polynomials) with predefined knots, which means that
 *any* spline can be represented as a linear combination of B-splines. The other key feature of B-splines is that they
-are the splines with the shortest support, which is paramount for numerical applications (see [3]). In particular,
-splines can be evaluated at any point using only a very small subset of their B-spline coefficients, and B-splines lead
-to well-conditioned optimization problems (see [2]).
+are the splines with the shortest support, which is paramount for numerical applications (see [BSplineDeBoor]_). In
+particular, splines can be evaluated at any point using only a very small subset of their B-spline coefficients, and
+B-splines lead to well-conditioned optimization problems (see [BSplineTV]_).
 
 Below is an example of an image-reconstruction problem parametrized in the B-spline basis. The forward model is a
 sampling operator on a grid, but where the grid is not uniform. This can for example occur in imaging applications where
 it is difficult to impose a uniform sampling pattern due to hardware precision limitations, such as scanning
-transmission X-ray microscopy (STXM) imaging.
+transmission X-ray microscopy (STXM) imaging. To demonstrate the necessity of the B-spline-based continuous model, we
+compare it with a purely discrete model where the non-uniformity of the sampling pattern is not
+accounted for, which leads to much worse reconstruction results. In both cases, we use total-variation (TV)
+regularization :math:`||\nabla \cdot||_{2, 1}`, where :math:`\nabla` is the gradient operator and
+:math:`||\cdot ||_{2, 1}` is the mixed :math:`L_{2,1}` norm (isotropic TV). In the B-spline model, the continuous
+gradient is evaluated exactly on the pixel grid, whereas it can only be approximated using finite differences in the
+discrete model.
 
-.. plot::
+.. code-block:: python3
 
-    TODO: waiting for stencils
+    import matplotlib.pyplot as plt
+    import scipy.interpolate as sci
+    import numpy as np
+    import pycsou.operator.linop.bspline as bsp
+    from pycsou.util.misc import star_like_sample
+    import pycsou.operator as pycop
+    import pycsou.opt.solver as pycsol
+    from pycsou.operator.func.norm import L21Norm
 
+    # Generate 2D image
+    N = 128
+    grid_rec = np.arange(N)
+    image = star_like_sample(N, 8, 20, 3, 0.7)
 
-References
-----------
-.. [1] Matthieu Simeoni, `Functional Inverse Problems on Spheres: Theory, Algorithms and Applications`, PhD Thesis,
-       2020. https://infoscience.epfl.ch/record/275337
-.. [2] Thomas Debarre, Julien Fageot, Harshit Gupta, and Michael Unser, `B-Spline-Based Exact Discretization of
-       Continuous-Domain Inverse Problems With Generalized TV Regularization`, IEEE Transactions on Information
-       Theory, 2019. http://bigwww.epfl.ch/publications/debarre1903.pdf
-.. [3] Carl de Boor, `A practical guide to splines`, Springer, 2001.
+    # Interpolate image with B-splines (continuous-domain ground truth
+    degree = 3  # Cubic B-splines
+    spl = sci.RectBivariateSpline(grid_rec, grid_rec, image, kx=degree, ky=degree, s=0)
+    knots, _ = spl.get_knots()
+    c_im = spl.get_coeffs()  # Image B-spline coefficients
+
+    # Sampling locations
+    rng = np.random.default_rng(seed=0)  # For reproducibility
+    sigma_dev = (grid_rec[1] - grid_rec[0]) / 2  # Std of deviation from uniform grid
+    samp_dev_x = rng.standard_normal(len(grid_rec)) * sigma_dev  # Deviation from uniform grid in x
+    samp_dev_y = rng.standard_normal(len(grid_rec)) * sigma_dev  # Deviation from uniform grid in y
+    samp_dev_x[0], samp_dev_x[-1] = abs(samp_dev_x[0]), - abs(samp_dev_x[-1])  # Ensure that sampling is within the ROI
+    samp_dev_y[0], samp_dev_y[-1] = abs(samp_dev_y[0]), - abs(samp_dev_y[-1])  # Ensure that sampling is within the ROI
+    grid_samp_x, grid_samp_y = np.sort(grid_rec + samp_dev_x), np.sort(grid_rec + samp_dev_y)  # Sampling grid
+
+    # Nonuniform sampling operator
+    sampling_op = bsp.BSplineSampling([grid_samp_x, grid_samp_y], knots, degree, ndim=2)
+    # Measured data (nonuniform samples of the ground truth)
+    sigma_noise = 5*1e-2
+    y = sampling_op(c_im) + rng.standard_normal(sampling_op.codim) * sigma_noise
+
+    # Continuous-domain optimization problem formulation in B-spline basis
+
+    # Data fidelity term
+    f = 1 / 2 * pycop.SquaredL2Norm(dim=sampling_op.codim).asloss(y) * sampling_op
+    f.diff_lipschitz(tight=True, tol=1e-1)
+
+    # Regularization term to enforce periodicity of reconstruction
+    g = bsp.BSplinePeriodicIndFunc(knots, degree, ndim=2)
+
+    # TV Regularization term
+    K = bsp.BSplineGradientGrid(eval_grid=grid_rec, knots=knots, degrees=degree, ndim=2)
+    K.lipschitz()
+    h = L21Norm(arg_shape=(2, N, N))
+    lamb = 2*1e-2  # Regularization parameter
+
+    # Solve optimization problem
+    solver = pycsol.CV(f=f, h=lamb * h, K=K, verbosity=1000)
+    solver.fit(x0=np.zeros(f.dim))  # Solve problem
+    c_opt = solver.solution()  # Coefficients of reconstructed spline
+    rec_op = bsp.BSplineSampling(grid_rec, knots, degree, ndim=2)  # Spline-coefficients-to-image operator
+    image_rec = rec_op(c_opt).reshape(image.shape)  # Reconstructed image
+    snr = 20 * np.log10(np.linalg.norm(image) / np.linalg.norm(image - image_rec))
+
+    # Discrete optimization problem formulation (without accounting for irregular sampling)
+    # All operators are discretized versions of the continuous ones
+    f_d = 1 / 2 * pycop.SquaredL2Norm(dim=sampling_op.codim).asloss(y)  # Forward model is identity
+    K_d = pycop.Gradient(image.shape)
+    K_d.lipschitz()
+    h_d = L21Norm(arg_shape=(2, N, N))
+
+    # Solve optimization problem
+    solver_d = pycsol.CV(f=f_d, g=g, h=lamb * h_d, K=K_d, verbosity=1000)
+    solver_d.fit(x0=np.zeros(f_d.dim))  # Solve problem
+    image_rec_d = solver_d.solution().reshape(image.shape)  # Reconstructed image
+    snr_d = 20 * np.log10(np.linalg.norm(image) / np.linalg.norm(image - image_rec_d))
+
+    # Plots
+    vmin, vmax = 0, 1
+
+    plt.figure()
+    plt.imshow(image, vmin=vmin, vmax=vmax)
+    plt.axis('off')
+    plt.colorbar()
+    plt.title('Original image')
+
+    plt.figure()
+    plt.imshow(y.reshape(image.shape), vmin=vmin, vmax=vmax)
+    plt.axis('off')
+    plt.colorbar()
+    plt.title('Noisy nonuniform data')
+
+    plt.figure()
+    plt.imshow(image_rec, vmin=vmin, vmax=vmax)
+    plt.axis('off')
+    plt.colorbar()
+    plt.title(f'Reconstructed image with continuous model (SNR = {snr:.2f} dB)')
+
+    plt.figure()
+    plt.imshow(image_rec_d, vmin=vmin, vmax=vmax)
+    plt.axis('off')
+    plt.colorbar()
+    plt.title(f'Reconstructed image with discrete model (SNR = {snr_d:.2f} dB)')
 
 """
 
@@ -1206,7 +1298,8 @@ def BSplineInnos1D(
 
         \Vert S^{(k+1)} \Vert_{\mathcal{M}} = \Vert \mathbf{L} \mathbf{c} \Vert_1,
 
-    where :math:`\Vert \cdot \Vert_{\mathcal{M}}` is the total-variation norm for measures (see [1, 2]).
+    where :math:`\Vert \cdot \Vert_{\mathcal{M}}` is the total-variation norm for measures (see [BSplineRepThm]_ and
+    [BSplineTV]_).
 
     The operator ``op`` is implemented via a sparse matrix API (see the `Notes` section of the
     :py:func:`~pycsou.operator.linop.bspline.BSplineSampling` function).
@@ -1214,16 +1307,7 @@ def BSplineInnos1D(
     **Remark**
     This function requires all the `internal` knots of :math:`S` to have multiplicity 1, `i.e.`,
     :math:`t_{k+1}, \ldots, t_{-(k+1)}` must be pairwise distinct. This condition is equivalent to the innovation
-    :math:`w` being a Dirac comb as in Eq. :math:numref:`eq:inno` (see [3]).
-
-    References
-    ----------
-    .. [1] Michael Unser, Julien Fageot, and John-Paul Ward, `Splines Are Universal Solutions of Linear Inverse Problems
-           with Generalized TV Regularization`, SIAM Review, 2017. http://bigwww.epfl.ch/publications/unser1703.pdf
-    .. [2] Thomas Debarre, Julien Fageot, Harshit Gupta, and Michael Unser, `B-Spline-Based Exact Discretization of
-           Continuous-Domain Inverse Problems With Generalized TV Regularization`, IEEE Transactions on Information
-           Theory, 2019. http://bigwww.epfl.ch/publications/debarre1903.pdf
-    .. [3] Carl de Boor, `A practical guide to splines`, Springer, 2001.
+    :math:`w` being a Dirac comb as in Eq. :math:numref:`eq:inno` (see [BSplineDeBoor]_).
 
     Examples
     --------
