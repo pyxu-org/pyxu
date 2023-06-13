@@ -85,3 +85,11 @@ pycsou.operator.linop.diff module
    :members:
    :undoc-members:
    :show-inheritance:
+
+pycsou.operator.linop.bspline module
+------------------------------------
+
+.. automodule:: pycsou.operator.linop.bspline
+   :members:
+   :undoc-members:
+   :show-inheritance:
