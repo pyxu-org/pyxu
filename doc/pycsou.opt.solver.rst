@@ -44,6 +44,14 @@ pycsou.opt.solver.pds module
    :undoc-members:
    :show-inheritance:
 
+pycsou.opt.solver.reg_param_est module
+--------------------------------------
+
+.. automodule:: pycsou.opt.solver.reg_param_est
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 
