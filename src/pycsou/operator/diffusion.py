@@ -352,6 +352,7 @@ class MfiDiffusivity(_Diffusivity):
 
         import numpy as np
         import matplotlib.pyplot as plt
+        import pycsou.operator.linop.diff as pydiff
         import pycsou.operator.diffusion as pydiffusion
         import skimage as skim
         # Import image
