@@ -1,6 +1,66 @@
 r"""
+This module implements Bayesian methods to estimate regularization parameters in inverse problems. Setting such
+parameters if often a challenge in practice; this module aims to provide principled ways of setting them automatically.
 
-.. plot::
+In the following example, we showcase one such algorithm :py:class:`~pycsou.opt.solver.reg_param_est.RegParamMLE` that
+estimates regularization parameters via maximum likelihood estimation. We consider a deconvolution problem
+:math:`\mathbf{y}=\mathbf{H}\mathbf{x}_{\mathrm{GT}}+\mathbf{n}` where :math:`\mathbf{y}` is the blurry and noisy
+measured image, :math:`\mathbf{H}` (forward model) is a convolution operator with a Gaussian kernel,
+:math:`\mathbf{x}_{\mathrm{GT}}` is the ground-truth image, and :math:`\mathbf{n}` is additive i.i.d Gaussian noise with
+variance :math:`\sigma^2`. In Bayesian frameworks, one must typically find the expression of the *posterior
+distribution*, which, using Bayes’ rule, is given by
+
+.. math::
+    p(\mathbf{x}|\mathbf{y};\boldsymbol{\theta}) \propto p(\mathbf{y}|\mathbf{x}; \boldsymbol{\theta}) p(\mathbf{x};
+    \boldsymbol{\theta}),
+
+where:
+
+* :math:`\boldsymbol{\theta} \in \mathbb{R}^K` are the model parameters to be estimated.
+* :math:`p(\mathbf{y}|\mathbf{x};\boldsymbol{\theta})` is the *likelihood* of the image :math:`\mathbf{x}`, which in an
+  additive Gaussian noise model is given by :math:`p(\mathbf{y}|\mathbf{x};\boldsymbol{\theta}) \propto
+  \exp(- \frac{1}{2 \sigma^2}||\mathbf{H}\mathbf{x} -\mathbf{y}||_2^2)`.
+* :math:`p(\mathbf{x};\boldsymbol{\theta})` is the *prior distribution*.
+
+In this example, we assume that the noise variance :math:`\sigma^2` is unknown; it is thus considered as a model
+parameter to be estimated, i.e.
+
+.. math::
+    p(\mathbf{y}|\mathbf{x};\boldsymbol{\theta}) \propto \exp \left(-\frac{\theta_0}{2}||\mathbf{H}\mathbf{x} -
+    \mathbf{y}||_2^2 \right)
+
+with :math:`\theta_0 = \frac{1}{\sigma^2}`. Next, since the ground-truth image is a deep-field image from the Hubble
+space telescope that is mostly empty with a few bright galaxies, we consider an *elastic net* prior for the
+reconstruction which is known to promote group sparsity, i.e.
+
+.. math::
+    p(\mathbf{x};\boldsymbol{\theta}) \propto \exp \left(-\theta_1 ||\mathbf{x}||_1 - \frac{\theta_2}{2}
+    ||\mathbf{x}||_2^2 \right)
+
+where :math:`\theta_1, \theta_2 > 0` determine the strength of the regularization. Hence, the posterior distribution
+can be expressed as
+
+.. math::
+        p(\mathbf{x} | \mathbf{y}; \boldsymbol{\theta})) \propto \exp \left( - \sum_{k=0}^{2} \theta_k
+        \mathcal{G}_k(\mathbf{x}) \right),
+
+where:
+
+* :math:`\mathcal{G}_0(\mathbf{x}) = \frac12 ||\mathbf{H}\mathbf{x} -\mathbf{y}||_2^2`
+* :math:`\mathcal{G}_1(\mathbf{x}) = ||\mathbf{x}||_1`
+* :math:`\mathcal{G}_2(\mathbf{x}) = \frac12 ||\mathbf{x}||_2^2`.
+
+We thus apply the :py:class:`~pycsou.opt.solver.reg_param_est.RegParamMLE` algorithm with the objective functional
+:math:`\sum_{k=0}^{2} \theta_k\mathcal{G}_k(\mathbf{x})` to estimate the parameters :math:`\boldsymbol{\theta}`. We plot
+the evolution of the :math:`\boldsymbol{\theta}` iterates throughout the algorithm to illustrate their convergence.
+In this simulated example, the true noise level and thus the true value :math:`\theta_0^{\mathrm{true}}` of
+:math:`\theta_0` is known; we can observe that the algorithm is able to recover it accurately. We then compute the
+maximum-a-posteriori (MAP) reconstruction obtained with the estimated parameters :math:`\boldsymbol{\theta}`, i.e. the
+minimum of the objective functional :math:`\sum_{k=0}^{2} \theta_k\mathcal{G}_k(\mathbf{x})`. Although the theoretical
+values of :math:`\theta_1` and :math:`\theta_2` are unknown, we observe that their estimates seem reasonable since the MAP
+reconstructed image is visually satisfactory.
+
+.. code-block:: python3
 
     import numpy as np
     import scipy as sp
@@ -79,23 +139,23 @@ r"""
     # Plot convergence curves
     fig, ax = plt.subplots(1, 3)
     ax[0].plot(np.log10(theta_list[0, :]))
-    ax[0].axhline(y=np.log10(theta_min[0]), color='k', linestyle='--', label=r"$\log_{10}(\theta_0^{\min})$")
     ax[0].axhline(y=np.log10(theta_max[0]), color='k', linestyle='--', label=r"$\log_{10}(\theta_0^{\max})$")
     ax[0].axhline(y=np.log10(1/sigma_gt**2), color='r', linestyle='--', label=r"$\log_{10}(\theta_0^{\mathrm{true}})$")
+    ax[0].axhline(y=np.log10(theta_min[0]), color='b', linestyle='--', label=r"$\log_{10}(\theta_0^{\min})$")
     ax[0].set_xlabel("Iterations")
     ax[0].set_ylabel(r"$\log_{10}(\theta_0)$")
     ax[0].legend(loc="center right", bbox_to_anchor=(1, 0.7))
 
     ax[1].plot(np.log10(theta_list[1, :]))
-    ax[1].axhline(y=np.log10(theta_min[1]), color='k', linestyle='--', label=r"$\log_{10}(\theta_1^{\min})$")
     ax[1].axhline(y=np.log10(theta_max[1]), color='k', linestyle='--', label=r"$\log_{10}(\theta_1^{\max})$")
+    ax[1].axhline(y=np.log10(theta_min[1]), color='b', linestyle='--', label=r"$\log_{10}(\theta_1^{\min})$")
     ax[1].set_xlabel("Iterations")
     ax[1].set_ylabel(r"$\log_{10}(\theta_1)$")
     ax[1].legend(loc="center right", bbox_to_anchor=(1, 0.7))
 
     ax[2].plot(np.log10(theta_list[2, :]))
-    ax[2].axhline(y=np.log10(theta_min[2]), color='k', linestyle='--', label=r"$\log_{10}(\theta_2^{\min})$")
     ax[2].axhline(y=np.log10(theta_max[2]), color='k', linestyle='--', label=r"$\log_{10}(\theta_2^{\max})$")
+    ax[2].axhline(y=np.log10(theta_min[2]), color='b', linestyle='--', label=r"$\log_{10}(\theta_2^{\min})$")
     ax[2].set_xlabel("Iterations")
     ax[2].set_ylabel(r"$\log_{10}(\theta_2)$")
     ax[2].legend(loc="center right", bbox_to_anchor=(1, 0.7))
@@ -185,14 +245,16 @@ class RegParamMLE(pyca.Solver):
         \frac{\mathrm{d}}{\mathrm{d} \theta_k} \log (\mathcal{L}(\boldsymbol{\theta})) =
         - \int_{\mathbf{x}\in\mathbb{R}^N} \mathcal{G}_k(\mathbf{x}) p(\mathbf{x}|\mathbf{y};\boldsymbol{\theta})
         \mathrm{d}\mathbf{x} - \frac{\mathrm{d}}{\mathrm{d} \theta_k} \log(Z_k(\theta_k)),
+        :label: eq:Fisher
 
     where :math:`Z_k(\theta_k) = \int_{\mathbf{x}\in\mathbb{R}^N}\exp(-\theta_k\mathcal{G}_k(\mathbf{x}))\mathrm{d}
     \mathbf{x}` is the normalizing constant of the distribution :math:`p_k(\mathbf{x}; \theta_k) =
-    \frac{\exp(-\theta_k\mathcal{G}_k(\mathbf{x}))}{Z_k(\theta_k)}`. The integral is approximated using the Monte-Carlo
-    Markov chain (MCMC) method :py:class:`~pycsou.sampler.sampler.ULA` targeting the posterior distribution
-    :math:`p(\mathbf{x}|\mathbf{y};\boldsymbol{\theta})`. The second term is computed exactly using the :math:`\alpha_k`
-    -homogeneity of :math:`\mathcal{G}_k`, which yields :math:`\frac{\mathrm{d}}{\mathrm{d} \theta_k}
-    \log(Z_k(\theta_k)) = - \frac{N}{\alpha_k \theta_k}`. Hence, the iterations of the algorithm are given by
+    \frac{\exp(-\theta_k\mathcal{G}_k(\mathbf{x}))}{Z_k(\theta_k)}`. The integral in Eq. :math:numref:`eq:Fisher` is
+    approximated using the Monte-Carlo Markov chain (MCMC) method :py:class:`~pycsou.sampler.sampler.ULA` targeting the
+    posterior distribution :math:`p(\mathbf{x}|\mathbf{y};\boldsymbol{\theta})`. The second term in
+    :math:numref:`eq:Fisher` is computed exactly using the :math:`\alpha_k`-homogeneity of :math:`\mathcal{G}_k`, which
+    yields :math:`\frac{\mathrm{d}}{\mathrm{d} \theta_k} \log(Z_k(\theta_k)) = - \frac{N}{\alpha_k \theta_k}`. Hence,
+    the iterations of the algorithm are given by
 
     .. math::
         (\boldsymbol{\theta}_{n+1})_k = \mathrm{Proj}_\Theta \left( (\boldsymbol{\theta}_n)_k - (\boldsymbol{\delta}_n)_k
@@ -212,35 +274,55 @@ class RegParamMLE(pyca.Solver):
 
     **Remark 2:**
 
+    As opposed to purely maximum-a-posteriori formulations, in this Bayesian framework, multiplicative constants of
+    the objective functional are important, since they affect the sharpness of the posterior distribution
+    :math:`p(\mathbf{x} | \mathbf{y} ; \boldsymbol{\theta})) \propto \exp \Big( -\mathcal{F}(\mathbf{x}) -
+    \sum_{k=0}^{K-1} \theta_k \mathcal{G}_k(\mathbf{x}) \Big)` that is being sampled from. When :math:`\mathcal{F}` is
+    zero, this is not an issue since multiplicative constants are absorbed in the :math:`\boldsymbol{\theta}`
+    parameters. However, when :math:`\mathcal{F}` is non-zero, its multiplicative constant should be selected with care.
+    For example, in the case of inverse problems :math:`\mathbf{y}=\mathbf{H}\mathbf{x}+\mathbf{n}` where
+    :math:`\mathbf{H}` is the forward model and :math:`\mathbf{n}` is additive i.i.d Gaussian noise with variance
+    :math:`\sigma^2`, the likelihood of an image :math:`\mathbf{x}` is given by :math:`p(\mathbf{y})\propto
+    \exp(- \frac{||\mathbf{H}\mathbf{x} - \mathbf{y}||_2^2}{2 \sigma^2})`, which implies that the objective functional
+    should include the term :math:`\frac{1}{2 \sigma^2}||\mathbf{H}\mathbf{x} - \mathbf{y}||_2^2`. If the noise variance
+    :math:`\sigma^2` is known, this term can be included in :math:`\mathcal{F}(\mathbf{x})`; however, if it is unknown,
+    it should be included as :math:`\mathcal{G}_k(\mathbf{x}) = \frac{1}{2}||\mathbf{H}\mathbf{x} - \mathbf{y}||_2^2`
+    for some :math:`k \geq 0`, and the noise variance will be estimated as :math:`\hat{\sigma}^2=\frac{1}
+    {\hat{\theta_k}}`, where :math:`\hat{\theta_k}` is the estimated value of :math:`\theta_k` given by the algorithm
+    (see top-level example of this module).
+
+    **Remark 3:**
+
     This algorithm can be applied to non-differentiable proximable functionals :math:`\mathcal{G}_k` by using the
     utility class :py:class:`~pycsou.opt.solver.ProxFuncMoreau`. The gradient then calls that of the Moreau-Yosida
     envelope of the functional. This amounts to the SAPG algorithm described in [SAPG1]_. The envelope parameter
     :math:`\mu` is subject to a tradeoff between approximation bias (smaller values lead to lower bias) and convergence
     speed (smaller values lead to slower convergence) ; see [SAPG1]_ for more details.
 
-    **Remark 3:**
+    **Remark 4:**
 
     A theoretical analysis of the convergence of SAPG is given in [SAPG2]_. Note that in general, convergence is not
-    guaranteed; however, there is ample empirical evidence of convergence for standard image-reconstruction problems.
+    guaranteed; however, there is ample empirical evidence of convergence for standard image-reconstruction problems
+    (see top-level example of this module).
 
-    **Remark 4:**
+    **Remark 5:**
 
     A new :py:class:`~pycsou.sampler.sampler.ULA` chain is initialized at every iteration :math:`n` to account for the
     fact that the posterior distribution that is being targeted depends on the current iterate
     :math:`\boldsymbol{\theta}_n`. However for stability reasons, the ULA step size :math:`\gamma` is kept constant
     across iterations. By default, it is set conservatively so that the convergence guarantees of ULA are respected for
     any value of :math:`\boldsymbol{\theta}`, i.e. based on the Lipschitz constant of the gradient of :math:`\mathcal{F}
-    (\mathbf{x}) - \sum_{k=0}^{K-1} \theta_{k}^\max \mathcal{G}_k(\mathbf{x})` (see [ULA]_). The first chain can be
+    (\mathbf{x}) + \sum_{k=0}^{K-1} \theta_{k}^\max \mathcal{G}_k(\mathbf{x})` (see [ULA]_). The first chain can be
     warm-started with the ``warm_start`` parameters of the ``fit()`` method, and/or with a starting point ``x0`` that is
     representative of the posterior distribution. All subsequent chains are warm-started with the last sample of the
     previous chain :math:`\mathbf{x}_{n-1, S-1}`.
 
-    **Remark 5:**
+    **Remark 6:**
 
     Following the recommendations of [SAPG1]_, the step sizes :math:`\boldsymbol{\delta}_n` are set to be
     :math:`\boldsymbol{\delta}_n = \boldsymbol{\delta}_0 (n + 1)^{-0.8}` for all :math:`n \in \mathbb{N}`. Although the
-    choice of :math:`\boldsymbol{\delta}_0` is irrelevant in the theoretical analysis [SAPG2]_, in practice, this choice
-    can drastically affect the speed of convergence of the algorithm.
+    choice of :math:`\boldsymbol{\delta}_0` is irrelevant in the theoretical analysis [SAPG2]_, in practice, it can
+    drastically affect the convergence speed of the algorithm.
 
     **Initialization parameters of the class:**
 
@@ -248,14 +330,14 @@ class RegParamMLE(pyca.Solver):
         (K,) differentiable functionals :math:`[\mathcal{G}_0, \ldots, \mathcal{G}_{K-1}]`, where each
         :math:`\mathcal{G}_k` is an instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
     homo_factors: Real | iterable[Real]
-        (K,) homogeneity factors :math:`[\alpha_0, \ldots, \alpha_{K-1}]` corresponding to functionals ``g``.
+        (K,) homogeneity factors :math:`[\alpha_0, \ldots, \alpha_{K-1}]` corresponding to the functionals ``g``.
     f: DiffFunc | None
         Differentiable function :math:`\mathcal{F}`, instance of :py:class:`~pycsou.abc.operator.DiffFunc`.
 
     **Parameterization** of the ``fit()`` method:
 
     x0: pyct.NDArray
-        (N,) starting point of the ULA Markov chain.
+        (N,) starting point of the ULA Markov chain (see `Notes`).
     theta0: Real | iterable[Real]
         (K,) starting points for the regularization parameters.
     theta_min: Real | iterable[Real]
@@ -263,15 +345,15 @@ class RegParamMLE(pyca.Solver):
     theta_min: Real | iterable[Real]
         (K,) point-wise upper bound for the regularization parameters.
     delta0: Real | iterable[Real]
-        Starting values for the gradient ascent step.
+        Starting values for the gradient ascent step (see `Notes`).
     warm_start: int
-        Number of warm-start iterations for the ULA Markov chain. Defaults to 0.
+        Number of warm-start iterations for the ULA Markov chain (see `Notes`). Defaults to 0.
     gamma: Real
-        Discretization step of ULA.
+        Discretization step of ULA (see `Notes` of :py:class:`~pycsou.sampler.sampler.ULA` documentation`).
     batch_size: int
-        Batch size for Monte Carlo estimates. Defaults to 1.
+        Batch size for Monte Carlo estimates (see `Notes`). Defaults to 1.
     log_scale: bool
-        If True (default), perform the projected gradient ascent step in logarithmic scale.
+        If True (default), perform the projected gradient ascent step (see `Notes`) in logarithmic scale.
     rng:
         Random number generator for reproducibility. Defaults to None.
     """
