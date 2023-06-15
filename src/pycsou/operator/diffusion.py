@@ -401,7 +401,11 @@ class MfiDiffusivity(_Diffusivity):
     @pycrt.enforce_precision(i="arr")
     def _apply_tame(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        y = xp.clip(arr, 1e-4, None)
+        # clipped below 1e-5 for consistency with SPC implementation
+        # in SPC code, also normalization by mean(arr), somewhat the role of our beta?
+        # arr /= xp.mean(arr)
+        # y = arr / xp.mean(arr)
+        y = xp.clip(arr, 1e-5, None)
         y /= self.beta
         y += 1
         return 1 / y
@@ -409,7 +413,13 @@ class MfiDiffusivity(_Diffusivity):
     @pycrt.enforce_precision(i="arr")
     def _apply_untamed(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        y = xp.clip(arr, 1e-4, None)
+        # clipped below 1e-5 for consistency with SPC implementation
+        # in SPC code, also normalization by mean(arr), somewhat the role of our beta?
+        # arr /= xp.mean(arr)
+        # y = arr / xp.mean(arr)
+        # y = xp.clip(arr, 1e-5, None)
+        y = arr / xp.mean(arr)
+        y = xp.clip(y, 1e-5, None)
         y /= self.beta
         return 1 / y
 

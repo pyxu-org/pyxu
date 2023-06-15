@@ -119,7 +119,7 @@ def SpcForwardModel(diagnostic="bolo", model="lines", **other_kwargs):
             raise ValueError(
                 "Diagnostic `{}` not recognized. Admissible values are `bolo`, `axuv`, `sxr`.".format(diagnostic)
             )
-        LoS.plot_LoS(LoS_params, Lr=0.5, Lz=1.5, center=[0.25, 0.75])
+        # LoS.plot_LoS(LoS_params, Lr=0.5, Lz=1.5, center=[0.25, 0.75])
 
     elif model == "tubes":
         raise ValueError("Tubes not handled yet by this function")
@@ -151,3 +151,11 @@ def SpcForwardModel(diagnostic="bolo", model="lines", **other_kwargs):
         )
 
     return Op
+
+
+# convert mat to npy
+# import os
+# dir = 'phantoms/spc_tomo_inversion_results/'
+# for file in os.listdir(dir):
+#    inv =  scio.loadmat(os.path.join(dir, file))['inversion']
+#    np.save(os.path.join(dir, file[:-4]), inv)
