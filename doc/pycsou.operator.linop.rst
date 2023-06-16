@@ -85,3 +85,11 @@ pycsou.operator.linop.diff module
    :members:
    :undoc-members:
    :show-inheritance:
+
+pycsou.operator.linop.filter module
+------------------------------------
+
+.. automodule:: pycsou.operator.linop.filter
+   :members:
+   :undoc-members:
+   :show-inheritance:

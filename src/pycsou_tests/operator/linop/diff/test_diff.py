@@ -115,15 +115,15 @@ def diff_params_gd(sigma, truncate, sampling):  # Gaussian Derivative
     gt_diffs = {
         0: {
             "coefs": np.flip(scif._gaussian_kernel1d(sigma_pix, 0, radius)),
-            "origin": radius // 2 + 1,
+            "origin": radius,
         },
         1: {
             "coefs": np.flip(scif._gaussian_kernel1d(sigma_pix, 1, radius)) / sampling,
-            "origin": radius // 2 + 1,
+            "origin": radius,
         },
         2: {
             "coefs": np.flip(scif._gaussian_kernel1d(sigma_pix, 2, radius)) / (sampling**2),
-            "origin": radius // 2 + 1,
+            "origin": radius,
         },
     }
     return diff_params, gt_diffs

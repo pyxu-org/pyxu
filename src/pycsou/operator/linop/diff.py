@@ -1,3 +1,4 @@
+import collections
 import collections.abc as cabc
 import itertools
 import math
@@ -7,10 +8,12 @@ import typing as typ
 import numpy as np
 
 import pycsou.operator.blocks as pycb
+import pycsou.operator.linop.base as pyclb
 import pycsou.operator.linop.pad as pyclp
 import pycsou.operator.linop.reduce as pyclr
 import pycsou.operator.linop.stencil as pycls
 import pycsou.runtime as pycrt
+import pycsou.util as pycu
 import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
@@ -26,10 +29,16 @@ __all__ = [
     "Divergence",
     "Hessian",
     "Laplacian",
+    "DirectionalDerivative",
+    "DirectionalGradient",
+    "DirectionalLaplacian",
+    "DirectionalHessian",
 ]
 
 ModeSpec = pyclp.Pad.ModeSpec
 KernelSpec = pycls.Stencil.KernelSpec
+PDMetaFD = collections.namedtuple("FiniteDifferenceMeta", "sampling scheme accuracy")
+PDMetaGD = collections.namedtuple("GaussianDerivativeMeta", "sampling sigma truncate")
 
 
 def _sanitize_init_kwargs(
@@ -346,6 +355,7 @@ def _PartialDerivative(
     mode: ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pyct.DType] = None,
+    meta: typ.Optional[typ.NamedTuple] = None,
 ) -> pyct.OpT:
     r"""
     Helper base class for partial derivative operator based on Numba stencils (see
@@ -402,6 +412,15 @@ def _PartialDerivative(
         Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
     dtype: pyct.DType
         Working precision of the linear operator.
+    meta: typ.NamedTuple
+        Partial derivative metadata describing:
+
+        * Diff_type
+        * Sampling
+        * Scheme (for finite differences)
+        * Accuracy (for finite differences)
+        * Sigma (for Gaussian derivative)
+        * Truncate (for Gaussian derivative)
     """
     if dtype is None:
         dtype = pycrt.getPrecision().value
@@ -419,6 +438,8 @@ def _PartialDerivative(
         kernel = xp.array(kernel, dtype=dtype)
 
     op = pycls.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode)
+    setattr(op, "meta", meta)
+
     return op
 
 
@@ -726,6 +747,9 @@ class PartialDerivative:
                 )
                 kernel[ax] = k[ax]
                 center[ax] = c[ax]
+
+        meta = PDMetaFD(sampling=sampling, scheme=scheme, accuracy=accuracy)
+
         return _PartialDerivative(
             kernel=kernel,
             center=center,
@@ -733,6 +757,7 @@ class PartialDerivative:
             mode=mode,
             gpu=gpu,
             dtype=dtype,
+            meta=meta,
         )
 
     @staticmethod
@@ -864,8 +889,8 @@ class PartialDerivative:
            diff2 = PartialDerivative.gaussian_derivative(order=d2f_dy2, arg_shape=arg_shape, sigma=2.0)
            diff = PartialDerivative.gaussian_derivative(order=d3f_dxdy2, arg_shape=arg_shape, sigma=2.0)
            # Compute derivatives
-           out1 = (diff1 * diff2)(image.reshape(1, -1)).reshape(arg_shape)
-           out2 = diff(image.reshape(1, -1)).reshape(arg_shape)
+           out1 = (diff1 * diff2)(image.ravel()).reshape(arg_shape)
+           out2 = diff(image.ravel()).reshape(arg_shape)
            plt.figure()
            plt.imshow(image),
            plt.axis('off')
@@ -910,6 +935,8 @@ class PartialDerivative:
             kernel[ax] = k[ax]
             center[ax] = c[ax]
 
+        meta = PDMetaGD(sampling=sampling, sigma=sigma, truncate=truncate)
+
         return _PartialDerivative(
             kernel=kernel,
             center=center,
@@ -917,6 +944,7 @@ class PartialDerivative:
             mode=mode,
             gpu=gpu,
             dtype=dtype,
+            meta=meta,
         )
 
 
@@ -976,13 +1004,15 @@ class _StackDiffHelper:
         for i in range(0, len(directions)):
             _order = np.zeros_like(arg_shape)
             _order[directions[i]] = order[i]
+            _param1 = param1 if not isinstance(param1[0], (list, tuple)) else param1[i]
+            _param2 = param2 if not isinstance(param2[0], (list, tuple)) else param2[i]
             if diff_method == "fd":
                 dif_op.append(
                     PartialDerivative.finite_difference(
                         arg_shape=arg_shape,
                         order=tuple(_order),
-                        scheme=param1,
-                        accuracy=param2,
+                        scheme=_param1,
+                        accuracy=_param2,
                         mode=mode,
                         gpu=gpu,
                         dtype=dtype,
@@ -1037,8 +1067,21 @@ class _StackDiffHelper:
                 kernels.append(f"\nDirection {direction} \n" + stencil.visualize())
             return "\n".join(kernels)
 
+        if diff_method == "fd":
+            meta = PDMetaFD(
+                sampling=[op.meta.sampling for op in dif_op],
+                scheme=[op.meta.scheme for op in dif_op],
+                accuracy=[op.meta.accuracy for op in dif_op],
+            )
+        else:  # diff_method == "gd"
+            meta = PDMetaGD(
+                sampling=[op.meta.sampling for op in dif_op],
+                sigma=[op.meta.sigma for op in dif_op],
+                truncate=[op.meta.truncate for op in dif_op],
+            )
         op = _make_unravelable(pycb.vstack(dif_op, parallel=parallel), arg_shape)
         setattr(op, "visualize", types.MethodType(visualize, op))
+        setattr(op, "meta", meta)
         return op
 
     @staticmethod
@@ -1107,8 +1150,7 @@ def Gradient(
     **diff_kwargs,
 ) -> pyct.OpT:
     r"""
-    Gradient operator based on `Numba stencils
-    <https://numba.pydata.org/numba-doc/latest/user/stencil.html>`_.
+    Gradient operator.
 
     Notes
     -----
@@ -1265,8 +1307,7 @@ def Jacobian(
     **diff_kwargs,
 ) -> pyct.OpT:
     r"""
-    Jacobian operator based on `Numba stencils
-    <https://numba.pydata.org/numba-doc/latest/user/stencil.html>`_.
+    Jacobian operator.
 
     Notes
     -----
@@ -1294,6 +1335,9 @@ def Jacobian(
     The parametrization of the partial derivatives can be done via the keyword arguments
     `**diff_kwargs`, which will default to the same values as the
     :py:class:`~pycsou.operator.linop.diff.PartialDerivative` constructor.
+
+    The Jacobian operator's method :py:meth:`~pycsou.operator.linop.diff.Jacobian.unravel` allows
+    reshaping the vectorized output Jacobian to ``[..., n_channels, n_dirs, N0, ..., ND]`` (see the example below).
 
     **Remark**
 
@@ -1413,8 +1457,7 @@ def Divergence(
     **diff_kwargs,
 ) -> pyct.OpT:
     r"""
-    Divergence operator based on `Numba stencils
-    <https://numba.pydata.org/numba-doc/latest/user/stencil.html>`_.
+    Divergence operator.
 
     Notes
     -----
@@ -1450,6 +1493,9 @@ def Divergence(
 
     For ``central`` type divergence, and for the Gaussian derivative method (i.e., ``diff_method =
     "gd"``), the adjoint of the gradient of "central" type is used (no reversed order).
+
+    The divergence operator's method :py:meth:`~pycsou.operator.linop.diff.Divergence.unravel` allows
+    reshaping the vectorized output divergence to ``[..., N0, ..., ND]``.
 
 
     Parameters
@@ -1589,8 +1635,7 @@ def Hessian(
     **diff_kwargs,
 ) -> pyct.OpT:
     r"""
-    Hessian operator based on `Numba stencils
-    <https://numba.pydata.org/numba-doc/latest/user/stencil.html>`_.
+    Hessian operator.
 
     Notes
     -----
@@ -1650,7 +1695,7 @@ def Hessian(
     \mathbb{R}^{\frac{D(D-1)}{2} \times N_0 \times \cdots \times N_{D-1}}`.
 
     The Hessian operator's :py:meth:`~pycsou.operator.linop.diff.Hessian.unravel` method allows
-    reshaping the vectorized output gradient to `[n_dirs, N0, ..., ND]` (see the example below).
+    reshaping the vectorized output Hessian to `[n_dirs, N0, ..., ND]` (see the example below).
 
     Parameters
     ----------
@@ -1752,6 +1797,7 @@ def Hessian(
     # returned.
     # However, this might not hold for non-trivial padding conditions, and the user can demand all
     # Hessian components via the `directions` 2nd mode (see ``Notes``).
+
     order, sampling, param1, param2, _ = _sanitize_init_kwargs(
         order=(1,) * len(arg_shape),
         diff_method=diff_method,
@@ -1759,7 +1805,13 @@ def Hessian(
         arg_shape=arg_shape,
         sampling=diff_kwargs.get("sampling", 1.0),
     )
+
     directions, order = _StackDiffHelper._check_directions_and_order(arg_shape, directions)
+
+    # If diff_method is "fd" default to "central" for diag components and "forward" for off-diag.
+    if (diff_method == "fd") and (diff_kwargs.get("scheme", None) is None):
+        param1 = [("central", "central") if o == 2 else param1 for o in order]
+
     op = _StackDiffHelper._stack_diff_ops(
         arg_shape=arg_shape,
         directions=directions,
@@ -1788,8 +1840,7 @@ def Laplacian(
     **diff_kwargs,
 ) -> pyct.OpT:
     r"""
-    Laplacian operator based on `Numba stencils
-    <https://numba.pydata.org/numba-doc/latest/user/stencil.html>`_.
+    Laplacian operator.
 
     Notes
     -----
@@ -1812,6 +1863,8 @@ def Laplacian(
     :py:class:`~pycsou.operator.linop.diff.PartialDerivative` constructor for `diff_method='gd'`
     (gaussian derivative).
 
+    The Laplacian operator's method :py:meth:`~pycsou.operator.linop.diff.Laplacian.unravel` allows
+    reshaping the vectorized output Laplacian to ``[..., N0, ..., ND]`` (see the example below).
 
     Parameters
     ----------
@@ -1914,3 +1967,822 @@ def Laplacian(
     op = pyclr.Sum(arg_shape=(ndims,) + arg_shape, axis=0) * pds
     op._name = "Laplacian"
     return _make_unravelable(op, arg_shape)
+
+
+def DirectionalDerivative(
+    arg_shape: pyct.NDArrayShape,
+    order: pyct.Integer,
+    directions: typ.Union[pyct.NDArray, typ.Sequence[pyct.NDArray]],
+    diff_method: str = "fd",
+    mode: ModeSpec = "constant",
+    parallel: bool = False,
+    **diff_kwargs,
+) -> pyct.OpT:
+    r"""
+    Directional derivative operator.
+
+    Notes
+    -----
+    The **first-order** ``DirectionalDerivative`` of a :math:`D`-dimensional signal :math:`\mathbf{f} \in
+    \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` applies a derivative along the direction specified by a constant
+    unitary vector :math:`\mathbf{v} \in \mathbb{R}^D`:
+
+    .. math::
+
+        \boldsymbol{\nabla}_\mathbf{v} \mathbf{f} = \sum_{i=0}^{D-1} v_i \frac{\partial \mathbf{f}}{\partial x_i} \in
+        \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}
+
+    or along spatially-varying directions :math:`\mathbf{v} = [\mathbf{v}_0, \ldots , \mathbf{v}_{D-1}]^\top \in
+    \mathbb{R}^{D \times N_0 \times \cdots \times N_{D-1} }` where each direction :math:`\mathbf{v}_{\cdot, i_0, \ldots
+    , i_{D-1}} \in \mathbb{R}^D` for any :math:`0 \leq i_d \leq N_d-1` with :math:`0 \leq d \leq D-1` is a unitary vector:
+
+    .. math::
+
+        \boldsymbol{\nabla}_\mathbf{v} \mathbf{f} = \sum_{i=0}^{D-1} \mathbf{v}_i \odot
+        \frac{\partial \mathbf{f}}{\partial x_i} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}},
+
+    where :math:`\odot` denotes the Hadamard (elementwise) product.
+
+    Note that choosing :math:`\mathbf{v}= \mathbf{e}_d \in \mathbb{R}^D` (the :math:`d`-th canonical basis vector)
+    amounts to the first-order :py:func:`~pycsou.operator.linop.diff.PartialDerivative` operator applied along axis
+    :math:`d`.
+
+    The **second-order** ``DirectionalDerivative`` :math:`\boldsymbol{\nabla}^2_{\mathbf{v}_{1, 2}}` is obtained by composing the
+    first-order directional derivatives :math:`\boldsymbol{\nabla}_{\mathbf{v}_{1}}` and
+    :math:`\boldsymbol{\nabla}_{\mathbf{v}_{2}}`:
+
+    .. math::
+
+        \boldsymbol{\nabla}_{\mathbf{v}_{1}} (\boldsymbol{\nabla}_{\mathbf{v}_{2}} \mathbf{f}) =
+        \boldsymbol{\nabla}_{\mathbf{v}_{1}} (\sum_{i=0}^{D-1} {v_{2}}_{i} \frac{\partial \mathbf{f}}{\partial x_i}) =
+        \sum_{j=0}^{D-1} {v_{1}}_{j} \frac{\partial}{\partial x_j} (\sum_{i=0}^{D-1} {v_{2}}_{i} \frac{\partial \mathbf{f}}{\partial x_i}) =
+        \sum_{i, j=0}^{D-1} {v_{1}}_{j} {v_{2}}_{i} \frac{\partial}{\partial x_j} \frac{\partial}{\partial x_i}\mathbf{f} =
+        \mathbf{v}_{1}^{\top}\mathbf{H}\mathbf{f}\mathbf{v}_{2},
+
+    where :math:`\mathbf{H}` is the discrete Hessian operator, implemented via
+    :py:class:`~pycsou.operator.linop.diff.Hessian`.
+
+    Higher-order ``DirectionalDerivative`` :math:`\boldsymbol{\nabla}^{N}_\mathbf{v}` can be obtained by composing the
+    first-order directional derivative :math:`\boldsymbol{\nabla}_\mathbf{v}` :math:`N` times.
+
+    The directional derivative operator's method :py:meth:`~pycsou.operator.linop.diff.DirectionalDerivative.unravel`
+    allows reshaping the vectorized output directional derivative to ``[..., N0, ..., ND]`` (see the example below).
+
+    .. warning::
+        - :py:func:`~pycsou.operator.linop.diff.DirectionalDerivative` instances are **not array module-agnostic**: they
+          will only work with NDArrays belonging to the same array module as ``directions``. Inner
+          computations may recast input arrays when the precision of ``directions`` does not match the user-requested
+          precision.
+        - ``directions`` are always normalized to be unit vectors.
+
+    Parameters
+    ----------
+    arg_shape: pyct.NDArrayShape
+        Shape of the input array.
+    order: pyct.Integer
+        Which directional derivative (restricted to 1: First or 2: Second, see ``Notes``).
+    directions: NDArray | tuple/list
+        For ``order=1``, it can be a single direction (array of size :math:`(D,)`, where :math:`D` is the number of axes)
+        or spatially-varying directions:
+
+        * array of size :math:`(D, N_0 \times \ldots \times N_{D-1})` for ``order=1``, i.e., one direction per element
+        in the gradient, and,
+
+        * array of size :math:`(D * (D + 1) / 2, N_0 \times \ldots \times N_{D-1})` for ``order=2``, i.e., one direction
+        per element in the Hessian.
+
+        For ``order=2``, it can be a tuple/list of two single directions or spatially-varying dimensions of the same
+        shape, which will compute :math:`\mathbf{v}_{1}^{\top}\mathbf{H}\mathbf{f}\mathbf{v}_{2}` or a single direction, as for
+        ``order=1``, which will compute :math:`\mathbf{v}_{1}^{\top}\mathbf{H}\mathbf{f}\mathbf{v}_{1}`. Note that for
+        ``order=2``, even though directions are spatially-varying, no differentiation is performed for this parameter.
+    diff_method: str ['gd', 'fd']
+        Method used to approximate the derivative. Must be one of:
+
+        * 'fd' (default): finite differences
+        * 'gd': Gaussian derivative
+    mode: str | list(str)
+        Boundary conditions.
+        Multiple forms are accepted:
+
+        * str: unique mode shared amongst dimensions.
+          Must be one of:
+
+          * 'constant' (default): zero-padding
+          * 'wrap'
+          * 'reflect'
+          * 'symmetric'
+          * 'edge'
+        * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
+
+        (See :py:func:`numpy.pad` for details.)
+    parallel: bool
+        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
+    diff_kwargs: dict
+        Keyword arguments to parametrize partial derivatives (see
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` and
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+
+    Returns
+    -------
+    op: :py:class:`~pycsou.abc.operator.LinOp`
+            Directional derivative
+
+    Example
+    -------
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.operator.linop.diff import DirectionalDerivative
+       from pycsou.util.misc import peaks
+
+       x = np.linspace(-2.5, 2.5, 25)
+       xx, yy = np.meshgrid(x, x)
+       z = peaks(xx, yy)
+       directions = np.zeros(shape=(2, z.size))
+       directions[0, : z.size // 2] = 1
+       directions[1, z.size // 2:] = 1
+       dop = DirectionalDerivative(arg_shape=z.shape, order=1, directions=directions)
+       out = dop.unravel(dop(z.ravel()))
+       dop2 = DirectionalDerivative(arg_shape=z.shape, order=2, directions=directions)
+       out2 = dop2.unravel(dop2(z.ravel()))
+       fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+       axs = np.ravel(axs)
+       h = axs[0].pcolormesh(xx, yy, z, shading="auto")
+       axs[0].quiver(x, x, directions[1].reshape(xx.shape), directions[0].reshape(xx.shape))
+       plt.colorbar(h, ax=axs[0])
+       axs[0].set_title("Signal and directions of first derivatives")
+
+       h = axs[1].pcolormesh(xx, yy, out.squeeze(), shading="auto")
+       plt.colorbar(h, ax=axs[1])
+       axs[1].set_title("First-order directional derivatives")
+
+       h = axs[2].pcolormesh(xx, yy, out2.squeeze(), shading="auto")
+       plt.colorbar(h, ax=axs[2])
+       axs[2].set_title("Second-order directional derivative")
+
+    See Also
+    --------
+    :py:func:`~pycsou.operator.linop.diff.Gradient`, :py:func:`~pycsou.operator.linop.diff.DirectionalGradient`
+    """
+
+    ndim = len(arg_shape)
+    # For first directional derivative, ndim_diff == number of elements in gradient
+    # For second directional derivative, ndim_diff == number of unique elements in Hessian
+    ndim_diff = ndim if order == 1 else ndim * (ndim + 1) // 2
+
+    assert order in [1, 2], "`order` should be either 1 or 2"
+
+    # Ensure correct format of `directions`
+    if order == 1:
+        assert not isinstance(directions, cabc.Sequence), (
+            "`directions` for first directional derivative should be an " "NDArray"
+        )
+        diff_op = Gradient
+    else:
+        if isinstance(directions, cabc.Sequence):
+            error_msg = (
+                "`directions` for second directional derivative should be an NDArray or a tuple/list with two "
+                "NDArrays of the same shape"
+            )
+            assert len(directions) == 2, error_msg
+            directions, directions2 = directions
+            assert directions.shape == directions2.shape, error_msg
+        else:
+            directions2 = directions
+        diff_op = Hessian
+
+    assert directions.shape[0] == ndim, "The length of `directions` should match `len(arg_shape)`"
+
+    xp = pycu.get_array_module(directions)
+    gpu = xp == pycd.NDArrayInfo.CUPY.module()
+
+    dtype = directions.dtype
+
+    diff = diff_op(
+        arg_shape=arg_shape,
+        diff_method=diff_method,
+        mode=mode,
+        gpu=gpu,
+        dtype=dtype,
+        parallel=parallel,
+        **diff_kwargs,
+    )
+    # normalize directions to unit norm
+    norm_dirs = (directions / xp.linalg.norm(directions, axis=0, keepdims=True)).astype(dtype)
+
+    if order == 1:
+        op_name = "FirstDirectionalDerivative"
+    else:  # order == 2
+        op_name = "SecondDirectionalDerivative"
+        # Compute directions' outer product (see Notes)
+
+        norm_dirs2 = (directions2 / xp.linalg.norm(directions2, axis=0, keepdims=True)).astype(dtype)
+        norm_dirs = norm_dirs[:, None, ...] * norm_dirs2[None, ...]
+        # Multiply off-diag components x2 and use only triangular upper part of the outer product
+        if ndim > 1:
+            # (fancy nd indexing not supported in Dask)
+            norm_dirs = norm_dirs.reshape(ndim**2, *norm_dirs.shape[2:])
+            dummy_mat = np.arange(ndim**2).reshape(ndim, ndim)
+            off_diag_inds = dummy_mat[np.triu_indices(ndim, k=1)].ravel()
+            norm_dirs[off_diag_inds] *= 2
+            inds = dummy_mat[np.triu_indices(ndim, k=0)].ravel()
+            norm_dirs = norm_dirs[inds]
+        else:
+            norm_dirs = norm_dirs.ravel()
+
+    if directions.ndim == 1:
+        diag = xp.tile(norm_dirs, arg_shape + (1,)).transpose().ravel()
+
+    else:
+        diag = norm_dirs.ravel()
+
+    dop = pyclb.DiagonalOp(diag)
+    sop = pyclr.Sum(arg_shape=(ndim_diff,) + arg_shape, axis=0)
+    op = sop * dop * diff
+
+    dop_compute = pyclb.DiagonalOp(pycu.compute(diag))
+    op_compute = sop * dop_compute * diff
+
+    def op_svdvals(_, **kwargs) -> pyct.NDArray:
+        return op_compute.svdvals(**kwargs)
+
+    setattr(op, "svdvals", types.MethodType(op_svdvals, op))
+    op._name = op_name
+    return _make_unravelable(op, arg_shape=arg_shape)
+
+
+def DirectionalGradient(
+    arg_shape: pyct.NDArrayShape,
+    directions: cabc.Sequence[pyct.NDArray],
+    diff_method: str = "fd",
+    mode: ModeSpec = "constant",
+    parallel: bool = False,
+    **diff_kwargs,
+) -> pyct.OpT:
+    r"""
+    Directional gradient operator.
+
+    Notes
+    -----
+    The ``DirectionalGradient`` of a :math:`D`-dimensional signal :math:`\mathbf{f} \in
+    \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` stacks the directional derivatives of :math:`\mathbf{f}` along a list
+    of :math:`m` directions :math:`\mathbf{v}_i` for :math:`1 \leq i \leq m`:
+
+    .. math::
+
+        \boldsymbol{\nabla}_{\mathbf{v}_1, \ldots ,\mathbf{v}_m} \mathbf{f} = \begin{bmatrix}
+             \boldsymbol{\nabla}_{\mathbf{v}_1} \\
+             \vdots\\
+             \boldsymbol{\nabla}_{\mathbf{v}_m}\\
+            \end{bmatrix} \mathbf{f} \in \mathbb{R}^{m \times N_0 \times \cdots \times N_{D-1}},
+
+    where :math:`\boldsymbol{\nabla}_{\mathbf{v}_i}` is the first-order directional derivative along :math:`\mathbf{v}_i`
+    implemented with :py:func:`~pycsou.operator.linop.diff.DirectionalDerivative`, with :math:`\mathbf{v}_i \in
+    \mathbb{R}^D` or :math:`\mathbf{v}_i \in \mathbb{R}^{D \times N_0 \times \cdots \times N_{D-1}}`.
+
+    Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th
+    canonical basis vector) amounts to the :py:func:`~pycsou.operator.linop.diff.Gradient` operator.
+
+    The directional gradient operator's method :py:meth:`~pycsou.operator.linop.diff.DirectionalGradient.unravel`
+    allows reshaping the vectorized output directional derivative to ``[..., n_dirs, N0, ..., ND]`` (see the example
+    below).
+
+    Parameters
+    ----------
+    arg_shape: pyct.NDArrayShape
+        Shape of the input array.
+    directions: (pyct.NDArray, ..., pyct.NDArray)
+        List of directions, either constant (array of size :math:`(D,)`) or spatially-varying (array of size
+        :math:`(D, N_0, \ldots, N_{D-1})`)
+    diff_method: str ['gd', 'fd']
+        Method used to approximate the derivative. Must be one of:
+
+        * 'fd' (default): finite differences
+        * 'gd': Gaussian derivative
+    mode: str | list(str)
+        Boundary conditions.
+        Multiple forms are accepted:
+
+        * str: unique mode shared amongst dimensions.
+          Must be one of:
+
+          * 'constant' (default): zero-padding
+          * 'wrap'
+          * 'reflect'
+          * 'symmetric'
+          * 'edge'
+        * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
+
+        (See :py:func:`numpy.pad` for details.)
+    parallel: bool
+        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
+    diff_kwargs: dict
+        Keyword arguments to parametrize partial derivatives (see
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` and
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+
+    Returns
+    -------
+    op: :py:class:`~pycsou.abc.operator.LinOp`
+            Directional gradient
+
+
+    Example
+    -------
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.operator.linop.diff import DirectionalGradient
+       from pycsou.util.misc import peaks
+
+       x = np.linspace(-2.5, 2.5, 25)
+       xx, yy = np.meshgrid(x, x)
+       z = peaks(xx, yy)
+       directions1 = np.zeros(shape=(2, z.size))
+       directions1[0, :z.size // 2] = 1
+       directions1[1, z.size // 2:] = 1
+       directions2 = np.zeros(shape=(2, z.size))
+       directions2[1, :z.size // 2] = -1
+       directions2[0, z.size // 2:] = -1
+       arg_shape = z.shape
+       dop = DirectionalGradient(arg_shape=arg_shape, directions=[directions1, directions2])
+       out = dop.unravel(dop(z.ravel()))
+       plt.figure()
+       h = plt.pcolormesh(xx, yy, z, shading='auto')
+       plt.quiver(x, x, directions1[1].reshape(arg_shape), directions1[0].reshape(xx.shape))
+       plt.quiver(x, x, directions2[1].reshape(arg_shape), directions2[0].reshape(xx.shape), color='red')
+       plt.colorbar(h)
+       plt.title(r'Signal $\mathbf{f}$ and directions of derivatives')
+       plt.figure()
+       h = plt.pcolormesh(xx, yy, out[0], shading='auto')
+       plt.colorbar(h)
+       plt.title(r'$\nabla_{\mathbf{v}_0} \mathbf{f}$')
+       plt.figure()
+       h = plt.pcolormesh(xx, yy, out[1], shading='auto')
+       plt.colorbar(h)
+       plt.title(r'$\nabla_{\mathbf{v}_1} \mathbf{f}$')
+
+    See Also
+    --------
+    :py:func:`~pycsou.operator.linop.diff.Gradient`, :py:func:`~pycsou.operator.linop.diff.DirectionalDerivative`
+    """
+
+    diag_ops = []
+    diag_ops_compute = []
+
+    ndim = len(arg_shape)
+    assert isinstance(directions, cabc.Sequence)
+
+    xp = pycu.get_array_module(directions[0])
+    gpu = xp == pycd.NDArrayInfo.CUPY.module()
+    dtype = directions[0].dtype
+
+    grad = Gradient(
+        arg_shape=arg_shape,
+        diff_method=diff_method,
+        mode=mode,
+        gpu=gpu,
+        dtype=dtype,
+        parallel=parallel,
+        **diff_kwargs,
+    )
+    sop = pyclr.Sum(
+        arg_shape=(
+            len(directions),
+            ndim,
+        )
+        + arg_shape,
+        axis=1,
+    )
+    for direction in directions:
+        # normalize directions to unit norm
+        norm_dirs = (direction / xp.linalg.norm(direction, axis=0, keepdims=True)).astype(dtype)
+        if direction.ndim == 1:
+            diag = xp.tile(norm_dirs, arg_shape + (1,)).transpose().ravel()
+        else:
+            diag = norm_dirs.ravel()
+
+        diag_ops.append(pyclb.DiagonalOp(diag))
+        diag_ops_compute.append(pyclb.DiagonalOp(pycu.compute(diag)))
+
+    dop = pycb.vstack(diag_ops)
+    dop_compute = pycb.vstack(diag_ops_compute)
+
+    op = sop * dop * grad
+    op_compute = sop * dop_compute * grad
+
+    def op_svdvals(_, **kwargs) -> pyct.NDArray:
+        return op_compute.svdvals(**kwargs)
+
+    setattr(op, "svdvals", types.MethodType(op_svdvals, op))
+
+    op._name = "DirectionalGradient"
+    return _make_unravelable(op, arg_shape=arg_shape)
+
+
+def DirectionalLaplacian(
+    arg_shape: pyct.NDArrayShape,
+    directions: cabc.Sequence[pyct.NDArray],
+    weights: typ.Iterable = None,
+    diff_method: str = "fd",
+    mode: ModeSpec = "constant",
+    parallel: bool = False,
+    **diff_kwargs,
+) -> pyct.OpT:
+    r"""
+    Directional Laplacian operator.
+
+    Sum of the second directional derivatives of a multi-dimensional array (at least two dimensions are required)
+    along multiple ``directions`` for each entry of the array.
+
+    Notes
+    -----
+
+    The ``DirectionalLaplacian`` of a :math:`D`-dimensional signal :math:`\mathbf{f} \in
+    \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` sums the second-order directional derivatives of :math:`\mathbf{f}`
+    along a list of :math:`m` directions :math:`\mathbf{v}_i` for :math:`1 \leq i \leq m`:
+
+    .. math::
+
+        \boldsymbol{\Delta}_{\mathbf{v}_1, \ldots ,\mathbf{v}_m} \mathbf{f} = \sum_{i=1}^m
+        \boldsymbol{\nabla}^2_{\mathbf{v}_i} \mathbf{f} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}},
+
+    where :math:`\boldsymbol{\nabla}^2_{\mathbf{v}_i}` is the second-order directional derivative along
+    :math:`\mathbf{v}_i` implemented with :py:func:`~pycsou.operator.linop.diff.DirectionalDerivative`.
+
+    Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th
+    canonical basis vector) amounts to the :py:func:`~pycsou.operator.linop.diff.Laplacian` operator.
+
+    The directional Laplacian operator's method :py:meth:`~pycsou.operator.linop.diff.DirectionalLaplacian.unravel`
+    allows reshaping the vectorized output directional Laplacian to ``[..., N0, ..., ND]`` (see the example
+    below).
+
+    Parameters
+    ----------
+    arg_shape: pyct.NDArrayShape
+        Shape of the input array.
+    directions: (pyct.NDArray, ..., pyct.NDArray)
+        List of directions, either constant (array of size :math:`(D,)`) or spatially-varying (array of size
+        :math:`(D, N_0, \ldots, N_{D-1})`)
+    weights: (pyct.Real, ..., pyct.Real) | None
+        List of optional positive weights with which each second directional derivative operator is multiplied.
+    diff_method: str ['gd', 'fd']
+        Method used to approximate the derivative. Must be one of:
+
+        * 'fd' (default): finite differences
+        * 'gd': Gaussian derivative
+    mode: str | list(str)
+        Boundary conditions.
+        Multiple forms are accepted:
+
+        * str: unique mode shared amongst dimensions.
+          Must be one of:
+
+          * 'constant' (default): zero-padding
+          * 'wrap'
+          * 'reflect'
+          * 'symmetric'
+          * 'edge'
+        * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
+
+        (See :py:func:`numpy.pad` for details.)
+    parallel: bool
+        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
+    diff_kwargs: dict
+        Keyword arguments to parametrize partial derivatives (see
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` and
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+
+    Returns
+    -------
+    op: :py:class:`~pycsou.abc.operator.LinOp`
+        Directional Laplacian
+
+    Example
+    -------
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.operator.linop.diff import DirectionalLaplacian
+       from pycsou.util.misc import peaks
+
+       x = np.linspace(-2.5, 2.5, 25)
+       xx, yy = np.meshgrid(x, x)
+       z = peaks(xx, yy)
+       directions1 = np.zeros(shape=(2, z.size))
+       directions1[0, :z.size // 2] = 1
+       directions1[1, z.size // 2:] = 1
+       directions2 = np.zeros(shape=(2, z.size))
+       directions2[1, :z.size // 2] = -1
+       directions2[0, z.size // 2:] = -1
+       arg_shape = z.shape
+       dop = DirectionalLaplacian(arg_shape=arg_shape, directions=[directions1, directions2])
+       out = dop.unravel(dop(z.ravel()))
+       plt.figure()
+       h = plt.pcolormesh(xx, yy, z, shading='auto')
+       plt.quiver(x, x, directions1[1].reshape(arg_shape), directions1[0].reshape(xx.shape))
+       plt.quiver(x, x, directions2[1].reshape(arg_shape), directions2[0].reshape(xx.shape), color='red')
+       plt.colorbar(h)
+       plt.title('Signal and directions of derivatives')
+       plt.figure()
+       h = plt.pcolormesh(xx, yy, out.squeeze(), shading='auto')
+       plt.colorbar(h)
+       plt.title('Directional Laplacian')
+
+    See Also
+    --------
+    :py:func:`~pycsou.operator.linop.diff.Laplacian`, :py:func:`~pycsou.operator.linop.diff.DirectionalDerivative`
+    """
+    assert isinstance(directions, cabc.Sequence)
+
+    if weights is None:
+        weights = [1.0] * len(directions)
+    else:
+        if len(weights) != len(directions):
+            raise ValueError("The number of weights and directions provided differ.")
+
+    xp = pycu.get_array_module(directions[0])
+    gpu = xp == pycd.NDArrayInfo.CUPY.module()
+    dtype = directions[0].dtype
+
+    hess = Hessian(
+        arg_shape=arg_shape,
+        diff_method=diff_method,
+        mode=mode,
+        gpu=gpu,
+        dtype=dtype,
+        parallel=parallel,
+        **diff_kwargs,
+    )
+
+    ndim = len(arg_shape)
+    ndim_diff = ndim * (ndim + 1) // 2
+    dop = []
+    dop_compute = []
+    for i, (weight, direction) in enumerate(zip(weights, directions)):
+        # normalize directions to unit norm
+        norm_dirs = (direction / xp.linalg.norm(direction, axis=0, keepdims=True)).astype(dtype)
+        norm_dirs = norm_dirs[:, None, ...] * norm_dirs[None, ...]
+        # Multiply off-diag components x2 and use only triangular upper part of the outer product
+        if ndim > 1:
+            # (fancy nd indexing not supported in Dask)
+            norm_dirs = norm_dirs.reshape(ndim**2, *norm_dirs.shape[2:])
+            dummy_mat = np.arange(ndim**2).reshape(ndim, ndim)
+            off_diag_inds = dummy_mat[np.triu_indices(ndim, k=1)].ravel()
+            norm_dirs[off_diag_inds] *= 2
+            inds = dummy_mat[np.triu_indices(ndim, k=0)].ravel()
+            norm_dirs = norm_dirs[inds]
+        else:
+            norm_dirs = norm_dirs.ravel()
+
+        if direction.ndim == 1:
+            dop.append(pyclb.DiagonalOp(weight * xp.tile(norm_dirs, arg_shape + (1,)).transpose().ravel()))
+            dop_compute.append(
+                pyclb.DiagonalOp(pycu.compute(weight * xp.tile(norm_dirs, arg_shape + (1,)).transpose().ravel()))
+            )
+        else:
+            dop.append(pyclb.DiagonalOp(weight * norm_dirs.ravel()))
+            dop_compute.append(pyclb.DiagonalOp(pycu.compute(weight * norm_dirs.ravel())))
+
+    dop = pycb.vstack(dop)
+    dop_compute = pycb.vstack(dop_compute)
+    sop = pyclr.Sum(
+        arg_shape=(
+            len(directions),
+            ndim_diff,
+        )
+        + arg_shape,
+        axis=(0, 1),
+    )
+    op = sop * dop * hess
+    op_compute = sop * dop_compute * hess
+
+    def op_svdvals(_, **kwargs) -> pyct.NDArray:
+        return op_compute.svdvals(**kwargs)
+
+    setattr(op, "svdvals", types.MethodType(op_svdvals, op))
+
+    op._name = "DirectionalLaplacian"
+    return _make_unravelable(op, arg_shape=arg_shape)
+
+
+def DirectionalHessian(
+    arg_shape: pyct.NDArrayShape,
+    directions: cabc.Sequence[pyct.NDArray],
+    diff_method="gd",
+    mode: ModeSpec = "constant",
+    parallel: bool = False,
+    **diff_kwargs,
+) -> pyct.OpT:
+    r"""
+    Directional Hessian operator.
+
+    Notes
+    -----
+
+    The ``DirectionalHessian`` of a :math:`D`-dimensional signal :math:`\mathbf{f} \in
+    \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` stacks the second-order directional derivatives of :math:`\mathbf{f}`
+    along a list of :math:`m` directions :math:`\mathbf{v}_i` for :math:`1 \leq i \leq m`:
+
+    .. math::
+
+        \mathbf{H}_{\mathbf{v}_1, \ldots ,\mathbf{v}_m} \mathbf{f} = \begin{bmatrix}
+         \boldsymbol{\nabla}^2_{\mathbf{v}_0} & \cdots & \boldsymbol{\nabla}_{\mathbf{v}_0} \boldsymbol{\nabla}_{\mathbf{v}_{m-1}} \\
+        \vdots & \ddots & \vdots \\
+        \boldsymbol{\nabla}_{\mathbf{v}_{m-1}} \boldsymbol{\nabla}_{\mathbf{v}_0} & \cdots & \boldsymbol{\nabla}^2_{\mathbf{v}_{m-1}}
+        \end{bmatrix} \mathbf{f},
+
+    where :math:`\boldsymbol{\nabla}_{\mathbf{v}_i}` is the first-order directional derivative along
+    :math:`\mathbf{v}_i` implemented with :py:func:`~pycsou.operator.linop.diff.DirectionalDerivative`.
+
+    However, due to the symmetry of the Hessian, only the upper triangular part is computed in practice:
+
+    .. math::
+
+        \mathbf{H}_{\mathbf{v}_1, \ldots ,\mathbf{v}_m} \mathbf{f} = \begin{bmatrix}
+        \boldsymbol{\nabla}^2_{\mathbf{v}_0}\\
+        \boldsymbol{\nabla}_{\mathbf{v}_0} \boldsymbol{\nabla}_{\mathbf{v}_{1}} \\
+        \vdots \\
+        \boldsymbol{\nabla}^2_{\mathbf{v}_{m-1}}
+        \end{bmatrix} \mathbf{f} \in \mathbb{R}^{\frac{m (m-1)}{2} \times N_0 \times \cdots \times N_{D-1}}
+
+    Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th
+    canonical basis vector) amounts to the :py:func:`~pycsou.operator.linop.diff.Hessian` operator.
+
+    The directional Hessian operator's method :py:meth:`~pycsou.operator.linop.diff.DirectionalHessian.unravel`
+    allows reshaping the vectorized output directional Hessian to ``[..., n_dirs, N0, ..., ND]`` (see the example
+    below).
+
+    Parameters
+    ----------
+    arg_shape: pyct.NDArrayShape
+        Shape of the input array.
+    directions: (pyct.NDArray, ..., pyct.NDArray)
+        List of directions, either constant (array of size :math:`(D,)`) or spatially-varying (array of size
+        :math:`(D, N_0, \ldots, N_{D-1})`)
+    diff_method: str ['gd', 'fd']
+        Method used to approximate the derivative. Must be one of:
+
+        * 'fd' (default): finite differences
+        * 'gd': Gaussian derivative
+    mode: str | list(str)
+        Boundary conditions.
+        Multiple forms are accepted:
+
+        * str: unique mode shared amongst dimensions.
+          Must be one of:
+
+          * 'constant' (default): zero-padding
+          * 'wrap'
+          * 'reflect'
+          * 'symmetric'
+          * 'edge'
+        * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
+
+        (See :py:func:`numpy.pad` for details.)
+    parallel: bool
+        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
+    diff_kwargs: dict
+        Keyword arguments to parametrize partial derivatives (see
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.finite_difference` and
+        :py:meth:`~pycsou.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+
+    Returns
+    -------
+    op: :py:class:`~pycsou.abc.operator.LinOp`
+            Directional Hessian
+
+    Example
+    -------
+
+    .. plot::
+
+       import numpy as np
+       import matplotlib.pyplot as plt
+       from pycsou.operator.linop.diff import DirectionalHessian
+       from pycsou.util.misc import peaks
+
+       x = np.linspace(-2.5, 2.5, 25)
+       xx, yy = np.meshgrid(x, x)
+       z = peaks(xx, yy)
+       directions1 = np.zeros(shape=(2, z.size))
+       directions1[0, :z.size // 2] = 1
+       directions1[1, z.size // 2:] = 1
+       directions2 = np.zeros(shape=(2, z.size))
+       directions2[1, :z.size // 2] = -1
+       directions2[0, z.size // 2:] = -1
+       arg_shape = z.shape
+       d_hess = DirectionalHessian(arg_shape=arg_shape, directions=[directions1, directions2])
+       out = d_hess.unravel(d_hess(z.ravel()))
+       plt.figure()
+       h = plt.pcolormesh(xx, yy, z, shading='auto')
+       plt.quiver(x, x, directions1[1].reshape(arg_shape), directions1[0].reshape(xx.shape))
+       plt.quiver(x, x, directions2[1].reshape(arg_shape), directions2[0].reshape(xx.shape), color='red')
+       plt.colorbar(h)
+       plt.title(r'Signal $\mathbf{f}$ and directions of derivatives')
+       plt.figure()
+       h = plt.pcolormesh(xx, yy, out[0], shading='auto')
+       plt.colorbar(h)
+       plt.title(r'$\nabla^2_{\mathbf{v}_0} \mathbf{f}$')
+       plt.figure()
+       h = plt.pcolormesh(xx, yy, out[1], shading='auto')
+       plt.colorbar(h)
+       plt.title(r'$\nabla_{\mathbf{v}_0} \nabla_{\mathbf{v}_{1}} \mathbf{f}$')
+       plt.figure()
+       h = plt.pcolormesh(xx, yy, out[2], shading='auto')
+       plt.colorbar(h)
+       plt.title(r'$\nabla^2_{\mathbf{v}_1} \mathbf{f}$')
+
+    See Also
+    --------
+    :py:func:`~pycsou.operator.linop.diff.Hessian`, :py:func:`~pycsou.operator.linop.diff.DirectionalDerivative`
+    """
+
+    # dir_deriv = []
+    # kwargs = {
+    #     "arg_shape": arg_shape,
+    #     "diff_method": diff_method,
+    #     "mode": mode,
+    #     "parallel": parallel,
+    #     **diff_kwargs,
+    # }
+    # for i, dir1 in enumerate(directions):
+    #     for dir2 in directions[i:]:
+    #         dir_deriv.append(DirectionalDerivative(order=2, directions=(dir1, dir2), **kwargs))
+    #
+    # op = pycb.vstack(dir_deriv)
+
+    assert isinstance(directions, cabc.Sequence)
+
+    xp = pycu.get_array_module(directions[0])
+    gpu = xp == pycd.NDArrayInfo.CUPY.module()
+    dtype = directions[0].dtype
+
+    hess = Hessian(
+        arg_shape=arg_shape,
+        diff_method=diff_method,
+        mode=mode,
+        gpu=gpu,
+        dtype=dtype,
+        parallel=parallel,
+        **diff_kwargs,
+    )
+
+    ndim = len(arg_shape)
+    ndim_diff = ndim * (ndim + 1) // 2
+    dop = []
+    dop_compute = []
+    for i1, direction1 in enumerate(directions):
+        norm_dirs1 = (direction1 / xp.linalg.norm(direction1, axis=0, keepdims=True)).astype(dtype)
+        for i2, direction2 in enumerate(directions[i1:]):
+            norm_dirs2 = (direction2 / xp.linalg.norm(direction2, axis=0, keepdims=True)).astype(dtype)
+            norm_dirs = norm_dirs1[:, None, ...] * norm_dirs2[None, ...]
+
+            # Multiply off-diag components x2 and use only triangular upper part of the outer product
+            if ndim > 1:
+                # (fancy nd indexing not supported in Dask)
+                norm_dirs = norm_dirs.reshape(ndim**2, *norm_dirs.shape[2:])
+                dummy_mat = np.arange(ndim**2).reshape(ndim, ndim)
+                off_diag_inds = dummy_mat[np.triu_indices(ndim, k=1)].ravel()
+                norm_dirs[off_diag_inds] *= 2
+                inds = dummy_mat[np.triu_indices(ndim, k=0)].ravel()
+                norm_dirs = norm_dirs[inds]
+            else:
+                norm_dirs = norm_dirs.ravel()
+
+            if norm_dirs.ndim == 1:
+                dop.append(pyclb.DiagonalOp(xp.tile(norm_dirs, arg_shape + (1,)).transpose().ravel()))
+                dop_compute.append(
+                    pyclb.DiagonalOp(pycu.compute(xp.tile(norm_dirs, arg_shape + (1,)).transpose().ravel()))
+                )
+            else:
+                dop.append(pyclb.DiagonalOp(norm_dirs.ravel()))
+                dop_compute.append(pyclb.DiagonalOp(pycu.compute(norm_dirs.ravel())))
+
+    dop = pycb.vstack(dop)
+    dop_compute = pycb.vstack(dop_compute)
+    ndim_hess = len(directions) * (len(directions) + 1) // 2
+    sop = pyclr.Sum(
+        arg_shape=(
+            ndim_hess,
+            ndim_diff,
+        )
+        + arg_shape,
+        axis=1,
+    )
+    op = sop * dop * hess
+    op_compute = sop * dop_compute * hess
+
+    def op_svdvals(_, **kwargs) -> pyct.NDArray:
+        return op_compute.svdvals(**kwargs)
+
+    setattr(op, "svdvals", types.MethodType(op_svdvals, op))
+
+    op._name = "DirectionalHessian"
+    return _make_unravelable(op, arg_shape=arg_shape)
