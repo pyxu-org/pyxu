@@ -216,11 +216,21 @@ class _Diffusivity(pyca.Map):
 
     @pycrt.enforce_precision(i="arr")
     def _compute_grad_norm_sq(self, arr: pyct.NDArray, grad: pyct.OpT = None):
+        r"""
+
+        Notes
+        -------
+        If ``arr.shape[0]`` is not `1`, the input is considered multichannel and the Di Zienzo norm is used
+        [see `Tschumperle-Deriche <https://hal.science/hal-00332798/document>`_].
+
+        """
         # compute squared norm of gradient (on each pixel), needed for several diffusivities.
         xp = pycu.get_array_module(arr)
         grad_arr = self.unravel_grad(grad(arr))
         grad_arr **= 2
-        return xp.sum(grad_arr, axis=1, keepdims=False)
+        grad_arr = grad_arr.reshape(np.prod(grad_arr.shape[:-1]), -1)
+        return xp.sum(grad_arr, axis=0, keepdims=False)
+        # return xp.sum(grad_arr, axis=1, keepdims=False)
 
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         raise NotImplementedError
@@ -1116,6 +1126,7 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
         xp = pycu.get_array_module(arr)
         # compute upper/lower triangular component of structure tensor
         structure_tensor = self.structure_tensor.apply(arr)
+        structure_tensor = xp.sum(structure_tensor, axis=0, keepdims=True)
         structure_tensor = self.structure_tensor.unravel(structure_tensor).squeeze()
         structure_tensor = structure_tensor.reshape(structure_tensor.shape[0], -1).T
         # assemble full structure tensor
@@ -1544,6 +1555,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
     def __init__(
         self,
         arg_shape: pyct.NDArrayShape,
+        nchannels: pyct.Integer = 1,
         gradient: pyct.OpT = None,
         hessian: pyct.OpT = None,
         outer_diffusivity: pyct.OpT = None,
@@ -1587,7 +1599,9 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         """
         self.arg_shape = arg_shape
         self.ndims = len(self.arg_shape)
-        super().__init__(shape=(1, int(np.prod(arg_shape))))
+        self.nchannels = nchannels
+        super().__init__(shape=(1, int(np.prod(arg_shape)) * self.nchannels))
+        # super().__init__(shape=(1, int(np.prod(arg_shape))))
         # sanitize inputs
         (
             gradient,
@@ -1893,8 +1907,8 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 # compute flux
                 diffusion_coefficient = self.diffusion_coefficient(arr)
                 y_div = diffusion_coefficient(y_div)
-                # apply divergence
-                y_div = self.gradient.T(y_div)
+            # apply divergence
+            y_div = self.gradient.T(y_div)
             if self.outer_diffusivity:
                 outer_diffusivity = self.outer_diffusivity(arr)
                 # rescale divergence
@@ -1914,7 +1928,8 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         xp = pycu.get_array_module(arr)
         y_trace = xp.zeros(arr.shape, dtype=arr.dtype)
         if self.trace_diffusion_coefficient:
-            hessian = self.hessian.unravel(self.hessian(arr)).squeeze().reshape(1, -1)
+            # hessian = self.hessian.unravel(self.hessian(arr)).squeeze().reshape(1, -1)
+            hessian = self.hessian.unravel(self.hessian(arr)).reshape(self.nchannels, -1)
             trace_tensor = self.trace_diffusion_coefficient(arr)
             y_trace = trace_tensor(hessian)
             if self.outer_trace_diffusivity:
@@ -1936,7 +1951,8 @@ class _DiffusionOp(pyca.ProxDiffFunc):
     @pycu.vectorize("arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        arr = arr.reshape(1, -1)
+        arr = arr.reshape(self.nchannels, -1)
+        # arr = arr.reshape(1, -1)
         y = xp.zeros(arr.shape, dtype=arr.dtype)
         # compute divergence term
         y += self._compute_divergence_term(arr)
@@ -1946,7 +1962,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         y += self._compute_trace_term(arr)
         # compute curvature preserving term
         y += self._compute_curvature_preserving_term(arr)
-        return y.reshape(self.arg_shape)
+        return y.reshape(1, -1)
 
     @pycrt.enforce_precision(i="arr")
     @pycu.vectorize("arr")
@@ -2093,6 +2109,7 @@ class DivergenceDiffusionOp(_DiffusionOp):
     def __init__(
         self,
         arg_shape: pyct.NDArrayShape,
+        nchannels: pyct.Integer = 1,
         gradient: pyct.OpT = None,
         outer_diffusivity: pyct.OpT = None,
         diffusion_coefficient: pyct.OpT = None,
@@ -2121,6 +2138,7 @@ class DivergenceDiffusionOp(_DiffusionOp):
         """
         super().__init__(
             arg_shape=arg_shape,
+            nchannels=nchannels,
             gradient=gradient,
             outer_diffusivity=outer_diffusivity,
             diffusion_coefficient=diffusion_coefficient,
@@ -2144,11 +2162,12 @@ class DivergenceDiffusionOp(_DiffusionOp):
     @pycu.vectorize("arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        arr = arr.reshape(1, -1)
+        arr = arr.reshape(self.nchannels, -1)
+        # arr = arr.reshape(1, -1)
         y = xp.zeros(arr.shape, dtype=arr.dtype)
         # compute divergence term
         y += self._compute_divergence_term(arr)
-        return y
+        return y.reshape(1, -1)
 
 
 class SnakeDiffusionOp(_DiffusionOp):
@@ -2337,6 +2356,7 @@ class TraceDiffusionOp(_DiffusionOp):
     def __init__(
         self,
         arg_shape: pyct.NDArrayShape,
+        nchannels: pyct.Integer = 1,
         hessian: pyct.OpT = None,
         outer_trace_diffusivity: pyct.OpT = None,
         trace_diffusion_coefficient: pyct.OpT = None,
@@ -2365,6 +2385,7 @@ class TraceDiffusionOp(_DiffusionOp):
         """
         super().__init__(
             arg_shape=arg_shape,
+            nchannels=nchannels,
             outer_trace_diffusivity=outer_trace_diffusivity,
             trace_diffusion_coefficient=trace_diffusion_coefficient,
             hessian=hessian,
@@ -2387,11 +2408,12 @@ class TraceDiffusionOp(_DiffusionOp):
     @pycu.vectorize("arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        arr = arr.reshape(1, -1)
+        arr = arr.reshape(self.nchannels, -1)
+        # arr = arr.reshape(1, -1)
         y = xp.zeros(arr.shape, dtype=arr.dtype)
         # compute trace tensor term
         y += self._compute_trace_term(arr)
-        return y
+        return y.reshape(1, -1)
 
 
 class CurvaturePreservingDiffusionOp(_DiffusionOp):
@@ -2609,3 +2631,84 @@ class TV_DiffusionOp(pyca.DiffFunc):
         B = second_deriv[1, :] * (grad_z_central[0, :] ** 2 + self.beta**2)
         C = (-0.5 * grad_z_central[0, :] * grad_z_central[1, :] * self.S(arr).reshape(1, -1)).flatten()
         return -self.beta * norm_term * (A + B + C)
+
+
+class DivergenceDiffusionOp_NewDiscr(_DiffusionOp):
+    def __init__(
+        self,
+        arg_shape: pyct.NDArrayShape,
+        nchannels: pyct.Integer = 1,
+        gradient: pyct.OpT = None,
+        outer_diffusivity: pyct.OpT = None,
+        diffusion_coefficient: pyct.OpT = None,
+        prox_sigma: pyct.Real = 2,
+    ):
+        super().__init__(
+            arg_shape=arg_shape,
+            nchannels=nchannels,
+            gradient=gradient,
+            outer_diffusivity=outer_diffusivity,
+            diffusion_coefficient=diffusion_coefficient,
+            prox_sigma=prox_sigma,
+        )
+        # estimate diff_lipschitz
+        _known_diff_lipschitz = False
+        if diffusion_coefficient:
+            if diffusion_coefficient.bounded:
+                _known_diff_lipschitz = True
+                if not diffusion_coefficient.isotropic:
+                    # extra factor 2 in this case for exact expression?
+                    msg = "For anisotropic `diffusion_coefficient`, the estimated `diff_lipschitz` experimentally grants stability but is not guaranteed to hold."
+                    warnings.warn(msg)
+            if outer_diffusivity:
+                _known_diff_lipschitz = _known_diff_lipschitz and outer_diffusivity.bounded
+        if _known_diff_lipschitz:
+            self._diff_lipschitz = gradient.lipschitz() ** 2
+
+        filter_extradiag_x = np.array([1 / (2 * self.gradient.sampling[0]), 0, -1 / (2 * self.gradient.sampling[0])])
+        self.S_extradiag_x = pycop.Stencil(
+            kernel=(filter_extradiag_x, np.array([1])), center=(1, 0), arg_shape=arg_shape, mode="symmetric"
+        )
+        filter_extradiag_y = np.array([-1 / (2 * self.gradient.sampling[1]), 0, 1 / (2 * self.gradient.sampling[1])])
+        self.S_extradiag_y = pycop.Stencil(
+            kernel=(np.array([1]), filter_extradiag_y), center=(0, 1), arg_shape=arg_shape, mode="symmetric"
+        )
+        # filters for approximation evaluating diffusivities at midpoints via shifting
+        filter_midpoint = np.array([0.5, 0.5])
+        self.S_midx = pycop.Stencil(
+            kernel=(filter_midpoint, np.array([1])), center=(0, 0), arg_shape=arg_shape, mode="symmetric"
+        )
+        self.S_midy = pycop.Stencil(
+            kernel=(np.array([1]), filter_midpoint), center=(0, 0), arg_shape=arg_shape, mode="symmetric"
+        )
+
+    @pycrt.enforce_precision(i="arr")
+    @pycu.vectorize("arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        arr = arr.reshape(self.nchannels, -1)
+
+        u, e = self.diffusion_coefficient._eigendecompose_struct_tensor(arr)
+        lambdas = self.diffusion_coefficient._compute_intensities(e)
+        tensors = self.diffusion_coefficient._assemble_tensors(u, lambdas)
+
+        out = xp.zeros(arr.shape, dtype=arr.dtype)
+
+        # for Weickert's C term (it's our A!)
+        shifted_coeffs_x = self.S_midx(tensors[:, 0, 0])
+        # for Weickert's A term (it's ours C!)
+        shifted_coeffs_y = self.S_midy(tensors[:, 1, 1])
+        # assemble C, A terms
+        grad_ = self.gradient(arr)
+        diffusion_coeff = np.hstack((shifted_coeffs_x, shifted_coeffs_y))
+        div_arg = diffusion_coeff * grad_
+        out += self.gradient.T(div_arg)
+        # for Weickert's B term
+        B = tensors[:, 0, 1].reshape(1, -1)
+        ed1_ = self.S_extradiag_x(arr) * B
+        ed1 = self.S_extradiag_y(ed1_)
+        ed2_ = self.S_extradiag_y(arr) * B
+        ed2 = self.S_extradiag_x(ed2_)
+        out += ed1
+        out += ed2
+        return out.reshape(1, -1)
