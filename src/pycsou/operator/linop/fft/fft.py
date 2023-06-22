@@ -38,7 +38,7 @@ class FFT(pyca.LinOp):  # Inherits from LinOp instead of NormalOp since operator
 
        (\mathbf{x}, \, \hat{\mathbf{x}}) \in \mathbb{C}^{N_{1} \times \cdots \times N_{D}},
        \quad
-       (\mathbf{n}, \, \mathbf{k}) \in \{0, \ldots, N_{1}\} \times \cdots \times \{0, \ldots, N_{D}\}.
+       (\mathbf{n}, \, \mathbf{k}) \in \{0, \ldots, N_{1}-1\} \times \cdots \times \{0, \ldots, N_{D}-1\}.
 
     The DFT is taken over any number of axes by means of the Fast Fourier Transform algorithm (FFT).
 
