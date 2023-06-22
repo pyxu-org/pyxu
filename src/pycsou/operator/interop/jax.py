@@ -2,6 +2,8 @@ import functools
 import types
 import warnings
 
+import packaging.version as pkgv
+
 import pycsou.abc.operator as pyco
 import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
@@ -16,6 +18,10 @@ if jax is None:
 
     JaxArray = typ.TypeVar("JaxArray", bound="jax.Array")
 else:
+    version = pkgv.Version(jax.__version__)
+    supported = pycd.JAX_SUPPORT
+    assert supported["min"] <= version < supported["max"]
+
     JaxArray = jax.Array
     import jax.numpy as jnp
 

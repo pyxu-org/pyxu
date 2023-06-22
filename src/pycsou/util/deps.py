@@ -4,6 +4,7 @@ import types
 
 import dask.array
 import numpy
+import packaging.version as pkgv
 import scipy.sparse
 import sparse
 
@@ -137,6 +138,15 @@ def supported_sparse_modules():
     return tuple(data)
 
 
+JAX_SUPPORT = dict(
+    min=pkgv.Version("0.4.8"),
+    max=pkgv.Version("1.0"),
+)
+PYTORCH_SUPPORT = dict(
+    min=pkgv.Version("2.0"),
+    max=pkgv.Version("3.0"),
+)
+
 __all__ = [
     "CUPY_ENABLED",
     "NDArrayInfo",
@@ -145,4 +155,6 @@ __all__ = [
     "supported_array_modules",
     "supported_sparse_types",
     "supported_sparse_modules",
+    "JAX_SUPPORT",
+    "PYTORCH_SUPPORT",
 ]

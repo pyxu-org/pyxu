@@ -9,6 +9,7 @@ import warnings
 from functools import wraps
 
 import numpy as np
+import packaging.version as pkgv
 
 import pycsou.abc.operator as pyco
 import pycsou.operator.interop.source as pycsrc
@@ -20,6 +21,10 @@ from pycsou.util.inspect import import_module
 
 torch = import_module("torch", fail_on_error=False)
 if torch is not None:
+    version = pkgv.Version(torch.__version__)
+    supported = pycd.PYTORCH_SUPPORT
+    assert supported["min"] <= version < supported["max"]
+
     import torch._dynamo as dynamo
     import torch.func as functorch
 

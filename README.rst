@@ -50,13 +50,6 @@ Developper Install
    $ tox  # to run tests
 
 
-To enable JAX on GPU, run this afterwards:
-
-.. code-block:: bash
-
-   $ conda install "jaxlib=*=*cuda*" jax cuda-nvcc -c conda-forge -c nvidia
-
-
 Cite
 ----
 For citing this package, please see: http://doi.org/10.5281/zenodo.4486431
