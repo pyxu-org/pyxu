@@ -1,4 +1,3 @@
-import importlib
 import inspect
 
 import numpy as np
@@ -45,8 +44,7 @@ class FFT(pyca.LinOp):  # Inherits from LinOp instead of NormalOp since operator
 
     **Implementation Notes**
 
-    * The CPU implementation uses `PyFFTW <https://pyfftw.readthedocs.io/en/latest/>`_ if installed;
-      and otherwise relies on `SciPy's FFT implementation
+    * The CPU implementation uses `SciPy's FFT implementation
       <https://docs.scipy.org/doc/scipy/reference/fft.html>`_.
     * The GPU implementation uses cuFFT via `CuPy
       <https://docs.cupy.dev/en/latest/reference/scipy_fft.html>`_.
@@ -180,14 +178,12 @@ class FFT(pyca.LinOp):  # Inherits from LinOp instead of NormalOp since operator
             :math:`\mathbb{C}^{N}` vectors viewed as bijections with :math:`\mathbb{R}^{2N}`.
         kwargs: dict
             Extra kwargs passed to
-            :py:func:`pyfftw.interfaces.scipy_fft.fftn` or
+            :py:func:`scipy.fft.fftn` or
             :py:func:`cupyx.scipy.fft.fftn`.
 
-            Supported parameters for :py:func:`pyfftw.interfaces.scipy_fft.fftn` are:
+            Supported parameters for :py:func:`scipy.fft.fftn` are:
 
                 * workers: int = 1
-                * auto_align_input: bool = True
-                * auto_contiguous: bool = True
 
             Supported parameters for :py:func:`cupyx.scipy.fft.fftn` are:
 
@@ -214,9 +210,6 @@ class FFT(pyca.LinOp):  # Inherits from LinOp instead of NormalOp since operator
         self._kwargs = {
             pycd.NDArrayInfo.NUMPY: dict(
                 workers=kwargs.get("workers", 1),
-                planner_effort="FFTW_ESTIMATE",
-                auto_align_input=kwargs.get("auto_align_input", True),
-                auto_contiguous=kwargs.get("auto_contiguous", True),
             ),
             pycd.NDArrayInfo.CUPY: dict(),
         }
@@ -288,11 +281,7 @@ class FFT(pyca.LinOp):  # Inherits from LinOp instead of NormalOp since operator
         ndi = N.from_obj(arr)
 
         if ndi == N.NUMPY:
-            PYFFTW_INSTALLED = importlib.util.find_spec("pyfftw") is not None
-            if PYFFTW_INSTALLED:
-                fft = pycu.import_module("pyfftw.interfaces.scipy_fft")
-            else:  # fallback to SciPy's routines
-                fft = pycu.import_module("scipy.fft")
+            fft = pycu.import_module("scipy.fft")
         elif ndi == N.CUPY:
             fft = pycu.import_module("cupyx.scipy.fft")
         else:
@@ -303,8 +292,8 @@ class FFT(pyca.LinOp):  # Inherits from LinOp instead of NormalOp since operator
             bw=(fft.ifftn, "forward"),
         )[mode]
 
-        # `self._kwargs()` contains parameters undersood by pyFFTW.
-        # If we must fallback to `scipy.fft`, need to drop all pyFFTW extra parameters.
+        # `self._kwargs()` contains parameters undersood by different FFT backends.
+        # If we must fallback to `scipy.fft`, need to drop all non-standard parameters.
         sig = inspect.Signature.from_callable(func)
         kwargs = {k: v for (k, v) in self._kwargs[ndi].items() if (k in sig.parameters)}
 
