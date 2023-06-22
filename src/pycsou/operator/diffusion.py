@@ -35,7 +35,7 @@ class _BalloonForce(pyca.Map):
         self.arg_shape = arg_shape
         super().__init__(shape=(1, int(np.prod(arg_shape))))
         self.grad = gradient
-        if gradient:
+        if gradient is not None:
             msg = "`gradient.arg_shape`={} inconsistent with `arg_shape`={}.".format(gradient.arg_shape, arg_shape)
             assert gradient.arg_shape == arg_shape, msg
 
@@ -53,15 +53,15 @@ class Dilation(_BalloonForce):
 
     .. math::
 
-        \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}},
+        \mathbf{f} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}},
 
-    its ``.apply()`` method computes
+    its ``apply()`` method computes
 
     .. math::
 
-        \vert \nabla \mathbf{f} \vert \in \mathbb{R}^{N_{0}, \dots, N_{D-1}},
+        \vert \nabla \mathbf{f} \vert \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}},
 
-    where :math:`\vert\cdot\vert` represents the :math:`L^2`-norm of the gradient (on each pixel).
+    where :math:`\vert\cdot\vert` is the :math:`L^2`-norm of the gradient (on each pixel).
 
     Can be used to obtain the PDE version of the morphological dilation operator, which reads
 
@@ -99,15 +99,15 @@ class Erosion(_BalloonForce):
 
     .. math::
 
-        \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}},
+        \mathbf{f} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}},
 
-    its ``.apply()`` method computes
+    its ``apply()`` method computes
 
     .. math::
 
-        - \vert \nabla \mathbf{f} \vert \in \mathbb{R}^{N_{0}, \dots, N_{D-1}},
+        - \vert \nabla \mathbf{f} \vert \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}},
 
-    where :math:`\vert\cdot\vert` represents the :math:`L^2`-norm of the gradient (on each pixel).
+    where :math:`\vert\cdot\vert` is the :math:`L^2`-norm of the gradient (on each pixel).
 
     Can be used to obtain the PDE version of the morphological dilation operator, which reads
 
@@ -145,36 +145,36 @@ class _Diffusivity(pyca.Map):
 
     .. math::
 
-        \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}},
+        \mathbf{f} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}},
 
-    its ``.apply()`` method returns the :math:`D`-dimensional signal
+    its ``apply()`` method returns the :math:`D`-dimensional signal
 
     .. math::
 
-        g(\mathbf{f}) \in \mathbb{R}^{N_{0}, \dots, N_{D-1}},
+        g(\mathbf{f}) \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}},
 
-    where :math:`g(\cdot)` is defined through the so-called diffusivity function.
+    where :math:`g(\cdot)` is known as the *diffusivity function*.
 
     **Remark 1**
 
-    The class features a ``.freeze()`` method. When applied to an array `arr`, it freezes the diffusivity
-    at the value obtained applying ``.apply()``  to `arr`.
+    The class features a ``freeze()`` method. When applied to an array `arr`, it freezes the diffusivity
+    at the value obtained applying ``apply()``  to `arr`.
 
-    The class also features a ``.set_frozen_diffusivity()`` method. When applied to an array `arr`, it freezes the diffusivity
+    The class also features a ``set_frozen_diffusivity()`` method. When applied to an array `arr`, it freezes the diffusivity
     at the value `arr`.
 
     **Remark 2**
 
-    The class features a ``.energy_functional()`` method, which can be used to evaluate the energy potential
+    The class features a ``energy_functional()`` method, which can be used to evaluate the energy potential
     that a divergence-based diffusion term featuring the considered diffusivity derives from (when it makes sense).
     When implementing a new diffusivity, one should check whether this variational interpretation holds: if this is the case,
-    attribute ``from_potential`` should be set to `True` and method ``.energy_functional()`` should be implemented.
+    attribute ``from_potential`` should be set to ``True`` and the method ``energy_functional()`` should be implemented.
 
     **Remark 3**
 
     The class features the attribute ``bounded``. If ``True``, this signals that the map returns values
     in the range :math:`(0, 1]`. When implementing a new diffusivity, one should check whether this holds: if this is the case,
-    ``bounded`` should be set to `True`.
+    ``bounded`` should be set to ``True``.
     """
 
     def __init__(self, arg_shape: pyct.NDArrayShape, gradient: pyct.OpT = None):
@@ -189,7 +189,7 @@ class _Diffusivity(pyca.Map):
         self.arg_shape = arg_shape
         super().__init__(shape=(int(np.prod(arg_shape)), int(np.prod(arg_shape))))
         self.gradient = gradient
-        if gradient:
+        if gradient is not None:
             msg = "`gradient.arg_shape`={} inconsistent with `arg_shape`={}.".format(gradient.arg_shape, arg_shape)
             assert gradient.arg_shape == arg_shape, msg
         self.frozen = False
@@ -256,7 +256,7 @@ class TikhonovDiffusivity(_Diffusivity):
 
     .. math::
 
-        \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}}.
+        \mathbf{f} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}}.
 
     Then the Tikhonov diffusivity function reads
 
@@ -283,15 +283,18 @@ class TikhonovDiffusivity(_Diffusivity):
         fig, ax = plt.subplots(1,3,figsize=(21,4))
         p0=ax[0].imshow(image, cmap="gray", aspect="auto")
         ax[0].set_title("Image", fontsize=15, pad=10)
+        ax[0].set_title("Image", fontsize=15, pad=10)
+        ax[0].axis('off')
         plt.colorbar(p0, ax=ax[0], fraction=0.04, pad=0.01)
         x=np.linspace(0,1,100)
         ax[1].plot(x, np.ones(x.size))
-        ax[1].set_xlabel(r'$f$', fontsize=15)
-        ax[1].set_ylabel(r'$g$', fontsize=15, rotation=0, labelpad=7)
+        ax[1].set_xlabel(r'$f_i$', fontsize=15)
+        ax[1].set_ylabel(r'$(g\mathbf{f})_i$', fontsize=15, rotation=0, labelpad=7)
         ax[1].set_xlim([0,1])
-        ax[1].set_title("Tikhonov diffusivity", fontsize=15, pad=10)
+        ax[1].set_title("Tikhonov diffusivity function", fontsize=15, pad=10)
         p2=ax[2].imshow(Tikhodiff_eval, cmap="gray", aspect="auto")
         ax[2].set_title("Tikhonov diffusivity evaluated at image", fontsize=15, pad=10)
+        ax[2].axis('off')
         plt.colorbar(p2, ax=ax[2], fraction=0.04)
 
     """
@@ -329,16 +332,16 @@ class MfiDiffusivity(_Diffusivity):
 
     .. math::
 
-        \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}}.
+        \mathbf{f} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}}.
 
     Then the MFI diffusivity function reads
 
-    * If ``tame`` is ``False``,
+    * If ``tame=False``:
     .. math ::
 
         (g(\mathbf{f}))_i = \frac{1} { \max \{ 0, f_i \} / \beta}, \quad \forall i;
 
-    * If ``tame`` is ``True``,
+    * If ``tame=True``:
     .. math ::
 
         (g(\mathbf{f}))_i = \frac{1} {1 + \max \{ 0, f_i \} / \beta}, \quad \forall i.
@@ -346,13 +349,13 @@ class MfiDiffusivity(_Diffusivity):
 
     **Remark 1**
 
-    In both cases, the corresponding divergence-based diffusion term does not allow a variational interpretation.
-    Indeed, the Euler-Lagrange equations arising from the original variational formulation yield an extra term
-    that cannot be written in divergence form.
+    In both cases, the corresponding divergence-based diffusion term does not allow a variational interpretation (see
+    :py:class:`~pycsou.operator.diffusion._DiffusionOp` documentation). Indeed, the Euler-Lagrange equations arising
+    from the original variational formulation yield an extra term that cannot be written in divergence form.
 
     **Remark 2**
 
-    It is recommended to set ``tame`` to `True` to avoid instable behavior when the diffusivity is used in the context
+    It is recommended to set ``tame=True`` to avoid unstable behavior when the diffusivity is used in the context
     of diffusion processes.
 
     Example
@@ -378,15 +381,17 @@ class MfiDiffusivity(_Diffusivity):
         fig, ax = plt.subplots(1,3,figsize=(21,4))
         p0=ax[0].imshow(image, cmap="gray", aspect="auto")
         ax[0].set_title("Image", fontsize=15, pad=10)
+        ax[0].axis('off')
         plt.colorbar(p0, ax=ax[0], fraction=0.04, pad=0.01)
         x=np.linspace(0,1,100)
         ax[1].plot(x, 1/(1+x))
-        ax[1].set_xlabel(r'$f$', fontsize=15)
-        ax[1].set_ylabel(r'$g$', fontsize=15, rotation=0, labelpad=7)
+        ax[1].set_xlabel(r'$f_i$', fontsize=15)
+        ax[1].set_ylabel(r'$(g\mathbf{f})_i$', fontsize=15, rotation=0, labelpad=7)
         ax[1].set_xlim([0,1])
-        ax[1].set_title("MFI diffusivity", fontsize=15, pad=10)
+        ax[1].set_title("Tame MFI diffusivity function", fontsize=15, pad=10)
         p2=ax[2].imshow(MFIdiff_eval, cmap="gray", aspect="auto")
         ax[2].set_title("MFI diffusivity evaluated at image", fontsize=15, pad=10)
+        ax[2].axis('off')
         plt.colorbar(p2, ax=ax[2], fraction=0.04)
 
     """
@@ -449,21 +454,21 @@ class PeronaMalikDiffusivity(_Diffusivity):
 
     .. math::
 
-        \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}}.
+        \mathbf{f} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}}.
 
     Furthermore, let :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_0})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
 
     Then the Perona-Malik diffusivity function reads
 
-    * In the exponential case,
-        .. math ::
+    * In the exponential case:
+    .. math ::
 
-            (g(\mathbf{f}))_i = \exp(-\vert (\nabla \mathbf{f})_i \vert ^2 / \beta^2), \quad \forall i;
+        (g(\mathbf{f}))_i = \exp(-\vert (\nabla \mathbf{f})_i \vert ^2 / \beta^2), \quad \forall i;
 
-    * in the rational case,
-        .. math ::
+    * In the rational case:
+    .. math ::
 
-            (g(\mathbf{f}))_i = \frac{1} { 1+\vert (\nabla \mathbf{f})_i \vert ^2 / \beta^2}, \quad \forall i,
+        (g(\mathbf{f}))_i = \frac{1} { 1+\vert (\nabla \mathbf{f})_i \vert ^2 / \beta^2}, \quad \forall i,
 
     where :math:`\beta` is the contrast parameter.
 
@@ -472,7 +477,7 @@ class PeronaMalikDiffusivity(_Diffusivity):
 
     **Remark**
 
-    It is recommended to provide a Gaussian derivative-based gradient (:math:`\nabla=\nabla_\sigma`). This acts as regularization
+    It is recommended to provide a Gaussian-derivative-based gradient (:math:`\nabla=\nabla_\sigma`). This acts as regularization
     when the diffusivity is used  for the ill-posed Perona-Malik diffusion process [see `Tschumperle-Deriche <https://hal.science/hal-00332798/document>`_].
 
     Example
@@ -502,14 +507,16 @@ class PeronaMalikDiffusivity(_Diffusivity):
         fig, ax = plt.subplots(1,3,figsize=(20,4))
         ax[0].imshow(image, cmap="gray", aspect="auto")
         ax[0].set_title("Image", fontsize=15, pad=10)
+        ax[0].axis('off')
         x=np.linspace(0,0.25,100)
         ax[1].plot(x, np.exp(-x**2/(beta**2)))
-        ax[1].set_xlabel(r'$\vert \nabla_\sigma f \vert$', fontsize=15)
-        ax[1].set_ylabel(r'$g$', fontsize=15, rotation=0, labelpad=10)
+        ax[1].set_xlabel(r'$\vert (\nabla_\sigma \mathbf{f})_i \vert$', fontsize=15)
+        ax[1].set_ylabel(r'$(g\mathbf{f})_i$', fontsize=15, rotation=0, labelpad=10)
         ax[1].set_xlim([0,0.25])
-        ax[1].set_title("Perona-Malik diffusivity", fontsize=15, pad=10)
+        ax[1].set_title("Exponential Perona-Malik diffusivity function", fontsize=15, pad=10)
         p=ax[2].imshow(PMdiff_eval, cmap="gray", aspect="auto")
         ax[2].set_title("Perona-Malik diffusivity evaluated at image", fontsize=15, pad=10)
+        ax[2].axis('off')
         plt.colorbar(p, ax=ax[2], fraction=0.04)
 
     """
@@ -571,7 +578,7 @@ class PeronaMalikDiffusivity(_Diffusivity):
         #     0.5*(beta**2)*sum(1 - xp.exp(-grad_norm_sq/beta**2))
         y = -self._compute_grad_norm_sq(arr, grad)
         y /= self.beta**2
-        y = -xp.exp(y)
+        y = 1 - xp.exp(y)
         z = xp.sum(y, axis=-1)
         z += self.dim
         z *= self.beta**2
@@ -608,32 +615,32 @@ class TotalVariationDiffusivity(_Diffusivity):
 
     .. math::
 
-        \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}}.
+        \mathbf{f} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}}.
 
     Furthermore, let :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_0})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
 
     Then the Total Variation diffusivity function reads
 
-    * If ``tame`` is ``False``,
-        .. math ::
+    * If ``tame=False``:
+    .. math ::
 
-            (g(\mathbf{f}))_i = \frac{1} { \vert (\nabla \mathbf{f})_i \vert}, \quad \forall i;
+        (g(\mathbf{f}))_i = \frac{1} { \vert (\nabla \mathbf{f})_i \vert}, \quad \forall i;
 
-    * If ``tame`` is ``True``,
-        .. math ::
+    * If ``tame=True``:
+    .. math ::
 
-            (g(\mathbf{f}))_i = \frac{beta} { \sqrt{\beta^2+ \vert (\nabla \mathbf{f})_i \vert ^2}}, \quad \forall i,
+        (g(\mathbf{f}))_i = \frac{\beta} { \sqrt{\beta^2+ \vert (\nabla \mathbf{f})_i \vert ^2}}, \quad \forall i,
 
-        where :math:`\beta` regulates the quality of the smooth approximation of the :math:`L^2`-norm featured in the TV approach.
-        The `tame` formulation stems from an approximation very similar to the Huber loss approach. Lower values
-        correspond to better approximations but typically lead to larger computational cost.
+    where :math:`\beta` controls the quality of the smooth approximation of the :math:`L^2`-norm involved in the TV
+    approach. The `tame` formulation amounts to an approximation very similar to the Huber loss approach. Lower values
+    correspond to better approximations but typically lead to larger computational cost.
 
     In both cases, the corresponding divergence-based diffusion term allows a variational interpretation
     [see `Tschumperle-Deriche <https://hal.science/hal-00332798/document>`_ for untamed case].
 
     **Remark 1**
 
-    It is recommended to set ``tame`` to `True` to avoid instable behavior when the diffusivity is used in the context
+    It is recommended to set ``tame=True`` to avoid unstable behavior when the diffusivity is used in the context
     of diffusion processes.
 
     Example
@@ -663,6 +670,7 @@ class TotalVariationDiffusivity(_Diffusivity):
         fig, ax = plt.subplots(1,3,figsize=(20,4))
         ax[0].imshow(image, cmap="gray", aspect="auto")
         ax[0].set_title("Image", fontsize=15, pad=10)
+        ax[0].axis('off')
         x=np.linspace(0,0.25,100)
         ax[1].plot(x, 1/np.sqrt(1+x**2/(beta**2)))
         ax[1].set_xlabel(r'$\vert \nabla_\sigma f \vert$', fontsize=15)
@@ -671,6 +679,7 @@ class TotalVariationDiffusivity(_Diffusivity):
         ax[1].set_title("Total Variation diffusivity", fontsize=15, pad=10)
         p=ax[2].imshow(TVdiff_eval, cmap="gray", aspect="auto")
         ax[2].set_title("Total Variation diffusivity evaluated at image", fontsize=15, pad=10)
+        ax[2].axis('off')
         plt.colorbar(p, ax=ax[2], fraction=0.04)
 
     """
@@ -755,73 +764,76 @@ class _DiffusionCoefficient:
 
     .. math::
 
-        \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}},
+        \mathbf{f} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}},
 
-    ``_DiffusionCoefficient`` operators :math:`\mathbf{D}` can be used to define
+    ``_DiffusionCoefficient`` operators :math:`\mathbf{D}` can be used to define diffusion operators
 
-    * divergence-based diffusion operators
-        .. math::
-            \text{div} (\mathbf{D} \nabla \mathbf{f}),
+    * within a divergence-based term
+    .. math::
+        \mathrm{div} (\mathbf{D} \nabla \mathbf{f}), \qquad \text{where } \mathbf{D} \in
+        \mathbb{R}^{D N_{tot} \times D N_{tot} }
 
-    * trace-based diffusion operators
-        .. math::
-            \text{trace}(\mathbf{D} \mathbf{H}(\mathbf{f})),
-        where :math:`\mathbf{H}(\cdot)` is the Hessian.
+    * within a trace-based term
+    .. math::
+        \mathrm{trace}(\mathbf{D} \mathbf{H}(\mathbf{f})), \qquad \text{where } \mathbf{D} \in
+        \mathbb{R}^{D^2 N_{tot} \times D^2 N_{tot} }
+    where :math:`\mathbf{H}(\cdot)` is the Hessian.
 
 
     **Remark 1**
 
     In principle ``_DiffusionCoefficient`` depends on the input signal itself (or on some other quantity), so
-    that :math:`\mathbf{D}=\mathbf{D}(\mathbf{f})`. The ``.apply()`` method, when applied to an array `arr`, returns
-    the operator associated to the diffusion coefficient evaluated in `arr`.
+    that :math:`\mathbf{D}=\mathbf{D}(\mathbf{f})`. The ``apply()`` method, when applied to an array `arr`, returns
+    the operator associated to the diffusion coefficient evaluated at `arr`.
 
     **Remark 2**
 
-    The meaning of the ``_DiffusionCoefficient`` :math:`\mathbf{D}` can be better understood focusing on the :math:`i`-th entry (pixel) :math:`f_i`
+    The effect of the ``_DiffusionCoefficient`` :math:`\mathbf{D}` can be better understood by focusing on the :math:`i`-th entry (pixel) :math:`f_i`
     of the vectorisation of :math:`\mathbf{f}`. Furthermore, let
     :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_0})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
     We consider the divergence-based case. Then, the :math:`i`-th component of :math:`\mathbf{D}`
-    is a tensor :math:`D_i\in\mathbb{R}^{D\times D}`. When applied to the :math:`i`-th component of :math:`\nabla\mathbf{f}`, this gives
+    is a tensor :math:`\mathbf{D}_i\in\mathbb{R}^{D\times D}`. When applied to the :math:`i`-th component of :math:`\nabla\mathbf{f}`, this gives
     the flux
 
     .. math::
-        \Phi_i = D_i (\nabla\mathbf{f})_i \in \mathbb{R}^D,
+        \Phi_i = \mathbf{D}_i (\nabla\mathbf{f})_i \in \mathbb{R}^D,
 
     which, applying the divergence, yields
 
     .. math::
-        \Delta f_i = \text{div}(\Phi_i) \in \mathbb{R}.
+        \Delta f_i = \mathrm{div}(\Phi_i) \in \mathbb{R}.
 
     In the context of PDE-based image processing, :math:`\Delta f_i` represents the update of :math:`f_i`
-    in a denoising/reconstruction process. ``_DiffusionCoefficient`` operators are obtained
-    suitably stacking the tensors :math:`D_i, i=1,\dots, N_0\cdot\dots\cdot N_{D-1}`.
+    in a denoising/reconstruction process. ``_DiffusionCoefficient`` operators are obtained by
+    suitably stacking the tensors :math:`D_i, i=1,\dots, N_0 \cdots N_{D-1}`.
 
     **Remark 3**
 
-    The class features a ``.freeze()`` method. When applied to an array `arr`, it freezes the diffusion coefficient
-    at the operator obtained applying ``.apply()`` to `arr`.
+    The class features a ``freeze()`` method. When applied to an array `arr`, it freezes the diffusion coefficient
+    at the operator obtained applying ``apply()`` to `arr`.
 
-    The class also features a ``.set_frozen_diffusivity()`` method. When fed an operator `frozen_op`, it freezes the
+    The class also features a ``set_frozen_diffusivity()`` method. When fed an operator `frozen_op`, it freezes the
     diffusion coefficient at the operator `frozen_op`.
 
     **Remark 4**
 
     The class features the boolean attribute ``trace_term``, indicating whether the diffusion coefficient is meant to
     be used in a divergence-based (``trace_term`` should be set to `False`) or in a trace-based operator (``trace_term``
-    should be set to `True`). The stacking used to generate the operator in the ``.apply()`` method is different in the
-    two cases. When ``trace_term`` is ``True``, the output of ``.apply()`` is an operator which, when applied to a suitable
+    should be set to ``True``). The stacking used to generate the operator in the ``apply()`` method is different in the
+    two cases. When ``trace_term`` is ``True``, the output of ``apply()`` is an operator which, when applied to a suitable
     object, already computes the trace of the diffusion tensor applied to that object.
 
     **Remark 5**
 
-    The class features the attributes ``from_potential`` and ``bounded``. See discussion for ``_Diffusivity``.
+    The class features the attributes ``from_potential`` and ``bounded``. See discussion in
+    :py:class:`~pycsou.operator.diffusion._Diffusivity`.
 
     Developer notes
     --------------
-    Currently, _DiffusionCoefficient is not a pycsou operator. This is because the method``.apply()`` returns
+    Currently, instances of _DiffusionCoefficient are not Pyxu operators. This is because the ``apply()`` method returns
     a LinOp/DiagonalOp and not a scalar NDArray. We define some basic arithmetic that allows to consider sums
-    between different diffusion coefficient objects and multiplying/dividing by scalars. _DiffusionCoefficient
-    do not allow multidimensional inputs though. Maybe acceptable since it is not a pycsou operator and these
+    between different diffusion coefficient objects and multiplying/dividing by scalars. However, _DiffusionCoefficient
+    do not allow multidimensional inputs. Maybe acceptable since it is not a Pyxu operator and these
     operators will likely only ever be used in the context of diffusion processes?
     """
 
@@ -835,7 +847,7 @@ class _DiffusionCoefficient:
             Whether ``_DiffusionCoefficient`` is isotropic or not. Defaults to `True`.
         trace_term: bool
             Whether ``_DiffusionCoefficient`` is meant to be used in a trace formulation or not.
-            Defaults to `False`. Method ``.apply()`` acts differently depending on value of `trace_term`.
+            Defaults to `False`. Method ``apply()`` acts differently depending on value of `trace_term`.
 
         """
         self.arg_shape = arg_shape
@@ -888,25 +900,26 @@ class DiffusionCoeffIsotropic(_DiffusionCoefficient):
 
     **Remark 1**
 
-    By isotropic, we thus mean that the diffusion tensor is fully described by a diffusivity function :math:`g(\cdot)`.
+    *Isotropic* implies that the diffusion tensor is fully described by a diffusivity function :math:`g(\cdot)`.
     Indeed, let :math:`\mathbf{D}` be a ``DiffusionCoeffIsotropic`` and let :math:`f_i` be the :math:`i`-th entry
     (pixel) of the vectorisation of the :math:`D`-dimensional signal
 
     .. math::
-        \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}}.
+        \mathbf{f} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}}.
 
     Furthermore, let :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_0})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
     We consider the divergence-based case. Then, the :math:`i`-th component of :math:`\mathbf{D}`
-    is the tensor :math:`D_i=(g(\mathbf{f}))_i\,I_D`, where :math:`(g(\mathbf{f}))_i\in\mathbb{R}` and :math:`I_D` is the :math:`D`-dimensional identity
-    matrix.
+    is the tensor :math:`\mathbf{D}_i=(g(\mathbf{f}))_i\,\mathbf{I}_D`, where :math:`(g(\mathbf{f}))_i\in\mathbb{R}` and
+    :math:`\mathbf{I}_D` is the :math:`D`-dimensional identity matrix.
 
-    Applying :math:`D_i` to the :math:`i`-th component of :math:`\nabla\mathbf{f}` gives
+    Applying :math:`\mathbf{D}_i` to the :math:`i`-th component of :math:`\nabla\mathbf{f}` gives
     the flux
 
     .. math::
         \Phi_i = (g(\mathbf{f}))_i\,I_D (\nabla\mathbf{f})_i = (g(\mathbf{f}))_i (\nabla\mathbf{f})_i \in \mathbb{R}^D.
 
     **Remark 2**
+
     Instances of :py:class:`~pycsou.operator.diffusion.DiffusionCoeffIsotropic` inherit attributes
     ``from_potential`` and ``bounded`` from the diffusivity.
 
@@ -948,7 +961,7 @@ class DiffusionCoeffIsotropic(_DiffusionCoefficient):
             Tikhonov diffusivity is used.
         trace_term: bool
             Whether diffusion coefficient is meant to be used in a trace formulation or not.
-            Defaults to `False`. Method ``.apply()`` acts differently depending on value of `trace_term`.
+            Defaults to `False`. Method ``apply()`` acts differently depending on value of `trace_term`.
 
         """
         super().__init__(arg_shape=arg_shape, isotropic=True, trace_term=trace_term)
@@ -960,7 +973,7 @@ class DiffusionCoeffIsotropic(_DiffusionCoefficient):
             )
             assert diffusivity.arg_shape == arg_shape, msg
             self.diffusivity = diffusivity
-        self.from_potential = self.diffusivity.from_potential * (not trace_term)
+        self.from_potential = self.diffusivity.from_potential and (not trace_term)
         if diffusivity.bounded:
             self.bounded = True
 
@@ -969,11 +982,11 @@ class DiffusionCoeffIsotropic(_DiffusionCoefficient):
 
         Notes
         -----
-        Let :math:`N_{tot}=N_0\cdot\ldots\cdot N_{D-1}`, where :math:`D` is the dimension of the signal. The method
+        Let :math:`N_{tot}=N_0 \cdots N_{D-1}`, where :math:`D` is the dimension of the signal. The method
         returns an operator which is:
 
-        * if ``trace_term`` is ``True`` a :py:class:`~pycsou.abc.arithmetic.LinOp` of shape :math:`(N_{tot}, N_{tot}D)`;
-        * if ``trace_term`` is ``False`` a :py:class:`~pycsou.operator.linop.base.DiagonalOp` of shape :math:`(N_{tot}D, N_{tot}D)`.
+        * if ``trace_term=True`` a :py:class:`~pycsou.abc.operator.LinOp` with shape :math:`(N_{tot}, N_{tot}D)`;
+        * if ``trace_term=False`` a :py:class:`~pycsou.operator.linop.base.DiagonalOp` with shape :math:`(N_{tot}D, N_{tot}D)`.
 
         """
         if not self.frozen:
@@ -1004,68 +1017,70 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
 
     **Remark 2**
 
-    By `anisotropic` we mean that the diffusion tensors, locally, are not multiples of the identity matrix.
+    *Anisotropic* implies that the diffusion tensors, locally, are not multiples of the identity matrix.
     Indeed, let :math:`\mathbf{D}` be a ``DiffusionCoeffAnisotropic`` and let :math:`f_i` be the :math:`i`-th entry
     (pixel) of the vectorisation of the :math:`D`-dimensional signal
 
     .. math::
-        \mathbf{f} \in \mathbb{R}^{N_{0}, \dots, N_{D-1}}.
+        \mathbf{f} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}}.
 
     Furthermore, let :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_0})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
     We consider the divergence-based case. Then, the :math:`i`-th component of :math:`\mathbf{D}`
     is the symmetric matrix
 
     .. math::
-        D_i=
+        \mathbf{D}_i=
         \left(\begin{array}{ccc}
-        (D_i)_{11} & \cdots & (D_i)_{1D} \\
+        (\mathbf{D}_i)_{11} & \cdots & (\mathbf{D}_i)_{1D} \\
         \vdots & \ddots & \vdots \\
-        (D_i)_{1D} & \cdots & (D_i)_{DD}
+        (\mathbf{D}_i)_{1D} & \cdots & (\mathbf{D}_i)_{DD}
         \end{array}\right)\in\mathbb{R}^{D\times D}.
 
-    Applying :math:`D_i` to the :math:`i`-th component of :math:`\nabla\mathbf{f}` gives
+    Applying :math:`\mathbf{D}_i` to the :math:`i`-th component of :math:`\nabla\mathbf{f}` gives
     the flux
 
     .. math::
-        \Phi_i = D_i (\nabla\mathbf{f})_i \in \mathbb{R}^D,
+        \Phi_i = \mathbf{D}_i (\nabla\mathbf{f})_i \in \mathbb{R}^D,
 
-    which, since :math:`D_i` is not a multiple of the identity matrix :math:`I_D`, is not a simple rescaling of the
-    gradient. As a consequence, the flux can point towards directions different from the gradient,
-    allowing smoothing processes along interesting directions. These directions can be chosen to enhance, for example,
+    which, is not a simple rescaling of the gradient when :math:`\mathbf{D}_i` is not a multiple of the identity matrix
+    :math:`\mathbf{I}_D`. Consequently, the flux can point towards directions that are not aligned with gradient, which
+    allows for smoothing processes along interesting directions. These directions can be chosen to enhance, for example,
     the `edges` or the `coherence` of the signal.
 
     **Remark 3**
 
     As mentioned above, this class considers diffusion coefficients which depend on the structure tensor
-    (see :py:class:`~pycsou.operator.linop.diff.StructureTensor`), as we now describe. Let us consider, for each pixel,
+    (see :py:class:`~pycsou.operator.linop.filter.StructureTensor`), as we now describe. Let us consider, for each pixel,
     the structure tensor
 
     .. math::
-        S_i = (\nabla\mathbf{f})_i(\nabla \mathbf{f})_i^T\,\in\mathbb{R}^{D\times D}.
+        \mathbf{S}_i = (\nabla\mathbf{f})_i(\nabla \mathbf{f})_i^T\,\in\mathbb{R}^{D\times D}.
 
-    The matrix :math:`S_i` is a symmetric positive semidefinite matrix. From its eigenvalue decomposition,
-    we obtain the eigenvectors :math:`\mathbf{v}_0,\dots,\mathbf{v}_{D-1}` and the associated eigenvalues
-    :math:`e_0, \dots,e_{D-1}`, with
-
-    .. math::
-        S_i = \sum_{j=0}^{D-1} e_j\mathbf{v}_j(\mathbf{v}_j)^T.
-
-    The :math:`i`-th component :math:`D_i` of the ``_DiffusionCoeffAnisotropic`` :math:`\mathbf{D}` is given
-    by
+    The matrix :math:`\mathbf{S}_i` is a symmetric positive semidefinite matrix. From its eigenvalue decomposition,
+    we obtain the eigenvectors :math:`\mathbf{v}_0,\dots,\mathbf{v}_{D-1}` and the associated sorted eigenvalues
+    :math:`e_0 \geq \dots \geq e_{D-1}`, with
 
     .. math::
-        D_i = \sum_{j=0}^{D-1} \lambda_j\mathbf{v}_j(\mathbf{v}_j)^T,
+        \mathbf{S}_i = \sum_{d=0}^{D-1} e_d\mathbf{v}_d(\mathbf{v}_d)^T.
 
-    where :math:`\lambda_j=\lambda_j(e_0,\dots,e_{D-1}), j=0,\dots,D-1`. This corresponds to assigning intensities
-    :math:`\lambda_j` different from the eigenvalues :math:`e_j` to the eigenvectors of the structure tensor. The result
-    is a diffusion coefficient that, when used in the context of diffusion operators, will enhance or dampen features
-    by smoothing with different intensities along the different eigenvector directions.
+    The :math:`i`-th component :math:`\mathbf{D}_i` of the ``_DiffusionCoeffAnisotropic`` operator :math:`\mathbf{D}` is
+    given by
+
+    .. math::
+        \mathbf{D}_i = \sum_{d=0}^{D-1} \lambda_d\mathbf{v}_d(\mathbf{v}_d)^T,
+
+    where the choice of intensities :math:`\lambda_d` for :math:`d=0,\dots,D-1`, which are functions of the eigenvalues
+    :math:`e_0, \ldots, e_{D-1}`, specify the ``_DiffusionCoeffAnisotropic`` operator entirely. This results
+    in a diffusion coefficient that, when used in the context of diffusion operators, will enhance or dampen features
+    by smoothing with different intensities along the different eigenvector directions. More specifically, a large
+    intensity value :math:`\lambda_0` will result in a strong diffusion along the direction of the gradient (i.e.,
+    edges), whereas :math:`\lambda_d` for :math:`d > 0` controls the diffusion strength in the orthogonal directions.
 
     **Remark 4**
 
     Daughter classes of :py:class:`~pycsou.operator.diffusion._DiffusionCoeffAnisotropic` only need to implement the
-    method ``_compute_intensities()``, which defines a rule to compute the smoothing intensities associated to each
-    eigenvector of the structure tensor. These intensities define the smoothing behavior of the tensor
+    method ``_compute_intensities()``, which defines a rule to compute the smoothing intensities  :math:`\lambda_d`
+    associated to each eigenvector of the structure tensor. These intensities define the smoothing behavior of the tensor
     (edge-enhancing, coherence-enhancing).
 
     """
@@ -1077,11 +1092,11 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
         ----------
         arg_shape: tuple
             Shape of the input array.
-        structure_tensor: :py:class:`~pycsou.operator.linop.diff.StructureTensor`
+        structure_tensor: :py:class:`~pycsou.operator.linop.filter.StructureTensor`
             Structure tensor operator.
         trace_term: bool
             Whether diffusion coefficient is meant to be used in a trace formulation or not.
-            Defaults to `False`. Method ``.apply()`` acts differently depending on value of `trace_term`.
+            Defaults to `False`. Method ``apply()`` acts differently depending on value of `trace_term`.
         """
         super().__init__(arg_shape=arg_shape, isotropic=False, trace_term=trace_term)
         msg = "`structure_tensor.arg_shape`={} inconsistent with `arg_shape`={}.".format(
@@ -1112,16 +1127,18 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
         Developer notes
         --------------
         **Remark 1**
+
         Currently, ``xp.linalg.svd`` is used to decompose the matrices.
         * In NUMPY case, the argument Hermitian=True prompts a call to the efficient ``numpy.linalg.eigh()``.
         * In CUPY case, the argument Hermitian does not exist. There is a method ``cupy.linalg.eigh()`` though, we could leverage it.
-        * In DASK case, the argument Hermitian does not exist. Moreover, there is no dask version of ``.eigh()``. We should therefore use ``.svd()``.
+        * In DASK case, the argument Hermitian does not exist. Moreover, there is no dask version of ``eigh()``. We should therefore use ``svd()``.
+
 
         **Remark 2**
 
-        In the two-dimensional case :math:`D=2`, where the input signal is an image :math:`\mathbf{f}\in\mathbb{R}^{N_0,N_1}`, closed formulas
-        could be used for the eigendecomposition of the structur tensor. To keep things general and be able to work in :math:`D` dimensions,
-        we do not exploit them and apply ``.svd()`` instead.
+        In the two-dimensional case :math:`D=2`, where the input signal is an image :math:`\mathbf{f}\in\mathbb{R}^{N_0 \times N_1}`, closed-form expressions
+        could be used for the eigendecomposition of the structure tensor. To keep things general and be to be able to work in :math:`D` dimensions,
+        we do not exploit them and apply ``svd()`` instead.
         """
         xp = pycu.get_array_module(arr)
         # compute upper/lower triangular component of structure tensor
@@ -1161,15 +1178,16 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
 
         Notes
         -----
-        Let :math:`N_{tot}=N_0\cdot\ldots\cdot N_{D-1}`, where :math:`D` is the dimension of the signal. The number of
-        extra-diagonal elements in a :math:`\mathbb{R}^{D\times D}` matrix is :math:`D_{extra}=D(D+1)/2`. The method
-        returns an operator which is:
+        Let :math:`N_{tot}=N_0\cdots N_{D-1}`, where :math:`D` is the dimension of the signal. The number of
+        supradiagonal elements in a :math:`\mathbb{R}^{D\times D}` matrix is :math:`D_{extra}=D(D+1)/2`. The method
+        returns an operator:
 
-        * if ``trace_term`` is ``True`` a :py:class:`~pycsou.abc.arithmetic.LinOp` of shape :math:`(N_{tot}, N_{tot}D_{extra})`;
-        * if ``trace_term`` is ``False`` a :py:class:`~pycsou.operator.linop.base.DiagonalOp` of shape :math:`(N_{tot}D, N_{tot}D)`.
+        * if ``trace_term=True``, a :py:class:`~pycsou.abc.operator.LinOp` with shape :math:`(N_{tot}, N_{tot}D_{extra})`;
+        * if ``trace_term=False``, a :py:class:`~pycsou.operator.linop.base.DiagonalOp` with shape :math:`(N_{tot}D, N_{tot}D)`.
 
         **Remark**
-        The current implementation in the trace-based case (``trace_term`` is ``True``) relies on the fact that, for each pixel,
+
+        The current implementation in the trace-based case (``trace_term=True``) relies on the fact that, for each pixel,
         both the Hessian and the diffusion tensor are symmetric.
         """
         if not self.frozen:
@@ -1199,21 +1217,22 @@ class _DiffusionCoeffAnisotropic(_DiffusionCoefficient):
 
 class DiffusionCoeffAnisoEdgeEnhancing(_DiffusionCoeffAnisotropic):
     r"""
-    Edge-enhancing anisotropic diffusion coefficient, based on structure tensor [see `Weickert <https://www.mia.uni-saarland.de/weickert/Papers/book.pdf>`_].
+    Edge-enhancing anisotropic diffusion coefficient, based on the :py:class:`~pycsou.operator.linop.filter.StructureTensor`
+    [see `Weickert <https://www.mia.uni-saarland.de/weickert/Papers/book.pdf>`_].
 
     Notes
     -----
 
-    Let us consider the two-dimensional case :math:`D=2`, where the input signal is an image :math:`\mathbf{f}\in\mathbb{R}^{N_0,N_1}`.
+    Let us consider the two-dimensional case :math:`D=2`, where the input signal is an image :math:`\mathbf{f}\in\mathbb{R}^{N_0 \times N_1}`.
     We follow the notation from the documentation of :py:class:`~pycsou.operator.diffusion._DiffusionCoeffAnisotropic`. In the context of
     diffusion operators, operators of :py:class:`~pycsou.operator.diffusion.DiffusionCoeffAnisoEdgeEnhancing` can be
     used to enhance the edges in the image.
-    Let us consider the :math:`i`-th pixel of the image. The edge enhancing effect is achieved by the following choice
-    of smoothing intensities associated to the eigenvalues of the structure tensor :math:`S_i`:
+    Let us consider the :math:`i`-th pixel of the image. The edge-enhancing effect is achieved with the following choice
+    of smoothing intensities associated to the eigenvalues of the structure tensor :math:`\mathbf{S}_i`:
 
     .. math::
-        \lambda_0 = g(e_0),\\
-        \lambda_1 = 1,
+        \lambda_0 &= g(e_0),\\
+        \lambda_1 &= 1,
 
     with
 
@@ -1227,9 +1246,10 @@ class DiffusionCoeffAnisoEdgeEnhancing(_DiffusionCoeffAnisotropic):
     where :math:`\beta` is a contrast parameter, :math:`m` controls the decay rate of :math:`\lambda_0` as a function
     of :math:`e_0`, and :math:`C\in\mathbb{R}` is a constant.
 
-    The edge enhancement is achieved by reducing the smoothing intensity in the first eigendirection (connected to the direction
-    of largest variation of :math:`\mathbf{f}`, thus perpendicular ot the edges) for large values of the first
-    eigenvalue of :math:`S_i` (the contrast in the first eigendirection, connected to the magnitude of the gradient).
+    Since :math:`\lambda_1 \geq \lambda_0`, the smoothing intensity is stronger in the direction of the second
+    eigenvector of :math:`\mathbf{S}_i` (perpendicular to the gradient). Moreover, :math:`\lambda_0` is a decreasing
+    function of :math:`e_0`, which indicates that when the gradient magnitude is high (sharp edges), there is little
+    smoothing in the direction of the gradient, i.e., edges are preserved.
 
     **Remark 1**
 
@@ -1277,11 +1297,11 @@ class DiffusionCoeffAnisoEdgeEnhancing(_DiffusionCoeffAnisotropic):
         ----------
         arg_shape: tuple
             Shape of the input array.
-        structure_tensor: :py:class:`~pycsou.operator.linop.diff.StructureTensor`
+        structure_tensor: :py:class:`~pycsou.operator.linop.filter.StructureTensor`
             Structure tensor operator.
         trace_term: bool
             Whether diffusion coefficient is meant to be used in a trace formulation or not.
-            Defaults to `False`. Method ``.apply()`` acts differently depending on value of `trace_term`.
+            Defaults to `False`. Method ``apply()`` acts differently depending on value of `trace_term`.
         beta: pyct.Real
             Contrast parameter. Defaults to `1`.
         m: pyct.Real
@@ -1325,16 +1345,16 @@ class DiffusionCoeffAnisoCoherenceEnhancing(_DiffusionCoeffAnisotropic):
     Notes
     -----
 
-    Let us consider the two-dimensional case :math:`D=2`, where the input signal is an image :math:`\mathbf{f}\in\mathbb{R}^{N_0,N_1}`.
+    Let us consider the two-dimensional case :math:`D=2`, where the input signal is an image :math:`\mathbf{f}\in\mathbb{R}^{N_0 \times N_1}`.
     We follow the notation from the documentation of :py:class:`~pycsou.operator.diffusion._DiffusionCoeffAnisotropic`. In the context of
     diffusion operators, operators of :py:class:`~pycsou.operator.diffusion.DiffusionCoeffAnisoCoherenceEnhancing` can be
     used to enhance the coherence in the image.
-    Let us consider the :math:`i`-th pixel of the image. The coherence enhancing effect is achieved by the following choice
-    of smoothing intensities associated to the eigenvalues of the structure tensor :math:`S_i`:
+    Let us consider the :math:`i`-th pixel of the image. The coherence enhancing effect is achieved with the following choice
+    of smoothing intensities associated to the eigenvalues of the structure tensor :math:`\mathbf{S}_i`:
 
     .. math::
-        \lambda_0 = \alpha,\\
-        \lambda_1 = h(e_0, e_1),
+        \lambda_0 &= \alpha,\\
+        \lambda_1 &= h(e_0, e_1),
 
     with
 
@@ -1345,20 +1365,21 @@ class DiffusionCoeffAnisoCoherenceEnhancing(_DiffusionCoeffAnisotropic):
            \alpha + (1-\alpha) \exp \big(\frac{-C}{(e_0-e_1)^{2m}}\big) & \text{otherwise},
        \end{cases}
 
-    where :math:`\alpha` controls the smoothing intensity in first eigendirection, :math:`m` controls the decay
-    rate of :math:`\lambda_0` as a function of :math:`(e_0-e_1)`, and :math:`C\in\mathbb{R}` is a constant.
+    where :math:`\alpha \in (0, 1)` controls the smoothing intensity in the first eigendirection, :math:`m` controls the
+    decay rate of :math:`\lambda_0` as a function of :math:`(e_0-e_1)`, and :math:`C\in\mathbb{R}` is a constant.
 
-    The coherence enhancement is achieved by increasing the smoothing intensity in the second eigendirection
-    (connected to the direction of smallest variation of :math:`\mathbf{f}`, thus parallel ot the edges) for large values
-    of the coherence, measured as :math:`(e_0-e_1)^2`.
+    For regions with low coherence, which is measured as :math:`(e_0-e_1)^2`, smoothing is performed uniformly along all
+    directions with intensity :math:`\lambda_1 \approx \lambda_0 = \alpha`. For regions with high coherence, we have
+    :math:`\lambda_1 \approx 1 > \lambda_0 = \alpha`, hence the smoothing intensity is higher in the direction of the
+    gradient.
 
     **Remark 1**
 
-    Currently, only two-dimensional case :math:`D=2` is handled. Need to implement rules to compute intensity for case :math:`D>2`.
+    Currently, only the two-dimensional case :math:`D=2` is handled. Need to implement rules to compute intensity for case :math:`D>2`.
 
     **Remark 2**
 
-    Performance of the method can be quite sensitive to the hyperparameters :math:`\alpha, m`, particularly :math:`\alpha`.
+    The performance of the method can be quite sensitive to the hyperparameters :math:`\alpha, m`, particularly :math:`\alpha`.
 
     Example
     -------
@@ -1393,11 +1414,11 @@ class DiffusionCoeffAnisoCoherenceEnhancing(_DiffusionCoeffAnisotropic):
         ----------
         arg_shape: tuple
             Shape of the input array.
-        structure_tensor: :py:class:`~pycsou.operator.linop.diff.StructureTensor`
+        structure_tensor: :py:class:`~pycsou.operator.linop.filter.StructureTensor`
             Structure tensor operator.
         trace_term: bool
             Whether diffusion coefficient is meant to be used in a trace formulation or not.
-            Defaults to `False`. Method ``.apply()`` acts differently depending on value of `trace_term`.
+            Defaults to `False`. Method ``apply()`` acts differently depending on value of `trace_term`.
         alpha: pyct.Real
             Smoothing intensity in first eigendirection. Defaults to `0.1`.
         m: pyct.Real
@@ -1440,7 +1461,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
     -----
 
     This class provides an interface to deal with PDE-based regularisation. For simplicity, throughout the
-    documentation we consider a :math:`2`-dimensional signal :math:`\mathbf{f} \in \mathbb{R}^{N_{0},N_1}`,
+    documentation we consider a :math:`2`-dimensional signal :math:`\mathbf{f} \in \mathbb{R}^{N_{0} \times N_1}`,
     but higher dimensional signals could be considered. We denote by :math:`f_i` the :math:`i`-th entry (pixel)
     of the vectorisation of :math:`\mathbf{f}`, :math:`i=0,\dots,(N_0N_1-1)`. Furthermore, let
     :math:`(\nabla \mathbf{f})_i = \big((\frac{\partial \mathbf{f}}{\partial x_0})_i,\dots,(\frac{\partial \mathbf{f}}{\partial x_{D-1}})_i\big)^T`.
@@ -1456,40 +1477,39 @@ class _DiffusionOp(pyca.ProxDiffFunc):
 
     .. math::
         \nabla \phi(\mathbf{f}) = \nabla^T\nabla\mathbf{f}
-                                = -\text{div}(\nabla\mathbf{f})
+                                = -\mathrm{div}(\nabla\mathbf{f})
 
     where :math:`\nabla^T` is the adjoint of the gradient operator and where we exploited the fact that
-    :math:`\nabla^T = -\text{div}`, the divergence. If we now wanted to solve the
-    optimization problem
+    :math:`\nabla^T = -\mathrm{div}`, the divergence. To solve the optimization problem
 
     .. math::
-        \text{argmin}_\mathbf{f}\phi(\mathbf{f}),
+        \underset{\mathbf{f}}{\mathrm{argmin}} \ \phi(\mathbf{f}),
 
-    we could apply gradient descent starting from an initial state :math:`\mathbf{f}_0`, so that
-
-    .. math::
-        \mathbf{f}_1 = \mathbf{f}_0 + \eta \text{div}(\nabla\mathbf{f}_0),
-
-    where :math:`\eta` represents the step size of the algorithm. The above update equation can be interpreted as
-    one step in time of the explicit Euler integration method applied to the PDE
+    we could apply gradient descent, whose update formula is given by
 
     .. math::
-        \frac{\partial\mathbf{f}}{\partial t} = \text{div}(\nabla\mathbf{f})
+        \mathbf{f}_{n+1} = \mathbf{f}_n + \eta \mathrm{div}(\nabla\mathbf{f}_n),
+
+    where :math:`\mathbf{f}_n` is the :math:`n`-th iterate and :math:`\eta` is the step size of the algorithm. The above
+    update equation can be interpreted as one step in time of the explicit Euler integration method applied to the PDE
+
+    .. math::
+        \frac{\partial\mathbf{f}}{\partial t} = \mathrm{div}(\nabla\mathbf{f})
                                               = \Delta \mathbf{f},
 
-    with initial condition :math:`\mathbf{f}=\mathbf{f}_0\,\text{for }t=0` and time step size :math:`\Delta t=\eta`.
-    This time-dependent PDE represents the gradient flow formulation of the original optimization problem, where by
-    `time` we refer to an artificial time characterising the optimization process. We recognise, moreover, that
-    we actually obtained the well-known heat equation.
+    with the step size :math:`\Delta t=\eta` in time.
+    This time-dependent PDE represents the gradient flow formulation of the original optimization problem, where the
+    time is artificial and characterises the optimization process. We recognise, moreover, that we obtain the
+    well-known heat equation.
 
-    We can thus let the PDE evolve in time until it reaches a steady-state :math:`\frac{\partial\mathbf{f}}{\partial t}=0`.
+    We can thus let the PDE evolve in time until it reaches a steady state :math:`\frac{\partial\mathbf{f}}{\partial t}=0`.
     The solution will therefore satisfy the first order optimality condition :math:`\nabla \phi(\mathbf{f})=0`.
 
-    If formulated as above, a trivial steady-state corresponding to an infinitely flat solution will be obtained.
+    If formulated as above, a trivial steady state corresponding to an infinitely flat solution will be obtained.
     However, if the functional :math:`\phi(\cdot)` is combined with a data-fidelity functional :math:`\ell(\cdot)`
     in the context of an inverse problem, an extra term :math:`\nabla \ell(\cdot)` will arise in the gradient flow
-    formulation. This will lead to a non-trivial steady-state representing the equilibrium between the data-fidelity
-    and regularisation term.
+    formulation. This will lead to a non-trivial steady state corresponding to the balance between the data-fidelity
+    and regularisation terms.
 
     In the context of PDE-based regularisation, it is not necessary to limit ourselves to consider cases where it is possible
     to explicitly define a variational functional :math:`\phi(\cdot)`. In the spirit of Plug&Play (PnP) approaches,
@@ -1500,35 +1520,35 @@ class _DiffusionOp(pyca.ProxDiffFunc):
     In particular, we consider diffusion processes that, in their most general form, can be written as the composite term
 
     .. math::
-        \frac{\partial\mathbf{f}}{\partial t} = \mathbf{D}_{out}\text{div}(\mathbf{D}_{in}\nabla\mathbf{f})
-        + \mathbf{B} + \mathbf{T}_{out}\text{trace}\big(\mathbf{T}_{in}\mathbf{H}(\mathbf{f})\big) + (\nabla\mathbf{f})^T \mathbf{J}_{\mathbf{w}}\mathbf{w},
+        \frac{\partial\mathbf{f}}{\partial t} = \mathbf{D}_{out}\mathrm{div}(\mathbf{D}_{in}\nabla\mathbf{f})
+        + \mathbf{b} + \mathbf{T}_{out}\mathrm{trace}\big(\mathbf{T}_{in}\mathbf{H}(\mathbf{f})\big) + (\nabla\mathbf{f})^T \mathbf{J}_{\mathbf{w}}\mathbf{w},
 
     where
-        * :math:`\mathbf{D}_{out} = \mathbf{D}_{out}(\mathbf{f})` is the outer diffusivity for the divergence term;
-        * :math:`\mathbf{D}_{in} = \mathbf{D}_{in}(\mathbf{f})` is the diffusion coefficient for the divergence term;
-        * :math:`\mathbf{B} = \mathbf{B}(\mathbf{f})` is the balloon force;
-        * :math:`\mathbf{T}_{out} = \mathbf{T}_{out}(\mathbf{f})` is the outer diffusivity for the trace term;
-        * :math:`\mathbf{T}_{in} = \mathbf{T}_{in}(\mathbf{f})` is the diffusion coefficient for the trace term;
-        * :math:`\mathbf{w}` is a vector field assigning a :math:`2`-dimensional vector to each pixel;
-        * :math:`\mathbf{J}_\mathbf{w}` is the Jacobian of the vector field :math:`\mathbf{w}`.
+        * :math:`\mathbf{D}_{out} = \mathbf{D}_{out}(\mathbf{f}) \in \mathbb{R}^{N_{tot} \times N_{tot} }` is the outer diffusivity for the divergence term;
+        * :math:`\mathbf{D}_{in} = \mathbf{D}_{in}(\mathbf{f}) \in \mathbb{R}^{D N_{tot} \times D N_{tot} }` is the diffusion coefficient for the divergence term;
+        * :math:`\mathbf{b} = \mathbf{b}(\mathbf{f}) \in \mathbb{R}^{N_{tot}}` is the balloon force;
+        * :math:`\mathbf{T}_{out} = \mathbf{T}_{out}(\mathbf{f}) \in \mathbb{R}^{N_{tot} \times N_{tot} }` is the outer diffusivity for the trace term;
+        * :math:`\mathbf{T}_{in} = \mathbf{T}_{in}(\mathbf{f}) \in \mathbb{R}^{D^2 N_{tot} \times D^2 N_{tot} }` is the diffusion coefficient for the trace term;
+        * :math:`\mathbf{w} \in \mathbb{R}^{D N_{tot}}` is a vector field assigning a :math:`2`-dimensional vector to each pixel;
+        * :math:`\mathbf{J}_\mathbf{w} \in \mathbb{R}^{D N_{tot}^2 \times D N_{tot}}` is the Jacobian of the vector field :math:`\mathbf{w}`.
 
-    The right-hand side of the above PDE represents the output of the ``.grad()`` method applied to the image :math:`\mathbf{f}`.
+    The right-hand side of the above PDE represents the output of the ``grad()`` method applied to the image :math:`\mathbf{f}`.
 
-    To conclude, we remark that the action of the diffusion operator on an image :math:`\mathbf{f}` can be better understood
-    focusing on a single pixel :math:`f_i` of the vectorisation of :math:`\mathbf{f}` (see, e.g., discussion in
+    To conclude, we remark that the effect of the diffusion operator on an image :math:`\mathbf{f}` can be better understood
+    by focusing on a single pixel :math:`f_i` of the vectorisation of :math:`\mathbf{f}` (see, e.g., discussion in
     :py:class:`~pycsou.operator.diffusion._DiffusionCoefficient`).
 
     **Remark 1**
 
-    ``_DiffusionOp`` represents an atypical :py:class:`~pycsou.abc.operator.ProxDiffFunc`. Indeed,
-    the ``.apply()`` method is not necessarily defined, in the case of implicitly defined functionals.
-    The key method is ``.grad()``, necessary to perform gradient flow optimization (and also used by
-    ``.prox()``).
+    ``_DiffusionOp`` is an atypical :py:class:`~pycsou.abc.operator.ProxDiffFunc`. Indeed,
+    the ``apply()`` method is not necessarily defined, in the case of implicitly defined functionals.
+    The key method is ``grad()``, necessary to perform gradient flow optimization (and also used by
+    ``prox()``).
 
     **Remark 2**
 
-    The ``.apply()`` method raises a ``NotImplementedError`` unless the diffusion term is known to derive from
-    a variational formulation. Currently, only the case where :math:`\mathbf{D}_{in}` is a member of
+    The ``apply()`` method raises a ``NotImplementedError`` unless the diffusion term is known to derive from
+    a variational formulation. Currently, only the case where :math:`\mathbf{D}_{in}` is a
     :py:class:`~pycsou.operator.diffusion.DiffusionCoeffIsotropic` and all other diffusion coefficients/diffusivities
     are `None` may detect an underlying variational formulation. Other cases exist but are not treated for now.
 
@@ -1542,10 +1562,10 @@ class _DiffusionOp(pyca.ProxDiffFunc):
 
     Developer Notes
     ---------------
-    * In method ``.grad()``, to avoid using the @vectorize decorator, all ``_compute()`` functions should be changed, suitably stacking
+    * In method ``grad()``, to avoid using the @vectorize decorator, all ``_compute()`` functions should be changed, suitably stacking
       all operators and results along the stacking dimensions. For now this has not been done, to be discussed if less naif
       vectorisation is important. It would be cumbersome especially for the terms involving diffusion coefficients, whose
-      ``.apply()`` method returns a pycsou operator.
+      ``apply()`` method returns a Pyxu operator.
 
     * For now, user is meant to initialize independently all the building blocks and provide them at initialization of a
       diffusion operator. We could provide, of course, simpler interfaces for some of the most standard diffusion operators.
@@ -1563,7 +1583,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         balloon_force: pyct.OpT = None,
         outer_trace_diffusivity: pyct.OpT = None,
         trace_diffusion_coefficient: pyct.OpT = None,
-        curvature_preservation_field: pyct.NDArray = np.zeros(0),
+        curvature_preservation_field: pyct.NDArray = None,
         prox_sigma: pyct.Real = 2,
     ):
         r"""
@@ -1577,17 +1597,17 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         hessian:  :py:class:`~pycsou.operator.linop.diff.Hessian`
             Hessian operator. Defaults to `None`.
         outer_diffusivity: :py:class:`~pycsou.operator.diffusion._Diffusivity`
-            Outer diffusivity operator, to be applied to the divergence term.
+            Outer diffusivity operator of the divergence term.
         diffusion_coefficient: :py:class:`~pycsou.operator.diffusion._DiffusionCoefficient`
-            Diffusion coefficient operator, featured inside divergence term.
+            Diffusion coefficient operator of the divergence term.
         balloon_force: :py:class:`~pycsou.operator.diffusion._BalloonForce`
             Balloon force operator.
         outer_trace_diffusivity: :py:class:`~pycsou.operator.diffusion._Diffusivity`
-            Outer diffusivity operator, to be applied to the trace term.
+            Outer diffusivity operator of the trace term.
         trace_diffusion_coefficient: :py:class:`~pycsou.operator.diffusion._DiffusionCoefficient`
-            Diffusion coefficient operator, featured inside trace term.
+            Diffusion coefficient operator of the trace term.
         curvature_preservation_field: pyct.NDArray
-            Vector field along which curvature should be preserved. Defaults to `np.zeros(0)`.
+            Vector field along which curvature should be preserved. Defaults to `None`.
         prox_sigma: pyct.Real
             Size of the structures that should be smoothed out by prox computation (when implemented in PnP-fashion).
 
@@ -1628,7 +1648,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         self.outer_trace_diffusivity = outer_trace_diffusivity
         self.trace_diffusion_coefficient = trace_diffusion_coefficient
         self.curvature_preservation_field = curvature_preservation_field
-        if curvature_preservation_field.size > 0:
+        if curvature_preservation_field is not None:
             # compute jacobian of the field and apply it to field itself
             self.jacobian = gradient(curvature_preservation_field)
             ops = []
@@ -1639,14 +1659,14 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 ops.append(pybase.DiagonalOp(vec))
             self._jacobian_onto_field = pyblock.hstack(ops)
         # assess whether diffusion operator descends from a potential formulation or not
-        if self.diffusion_coefficient:
+        if self.diffusion_coefficient is not None:
             self.from_potential = (
                 self.diffusion_coefficient.from_potential
-                * (self.outer_diffusivity is None)
-                * (self.balloon_force is None)
-                * (self.outer_trace_diffusivity is None)
-                * (self.trace_diffusion_coefficient is None)
-                * (self.curvature_preservation_field.size == 0)
+                and (self.outer_diffusivity is None)
+                and (self.balloon_force is None)
+                and (self.outer_trace_diffusivity is None)
+                and (self.trace_diffusion_coefficient is None)
+                and (self.curvature_preservation_field is None)
             )
         self.sampling = sampling
         self.gradient = gradient
@@ -1674,24 +1694,24 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         curvature_preservation_field: pyct.NDArray,
         prox_sigma: pyct.Real,
     ):
-        if hessian:
+        if hessian is not None:
             nb_upper_entries = round(self.ndims * (self.ndims + 1) / 2)
             expected_codim = nb_upper_entries * self.dim
             assert hessian.codim == expected_codim, '`hessian` expected to be initialized with `directions`="all"'
 
-        if outer_diffusivity and not diffusion_coefficient:
+        if outer_diffusivity is not None and diffusion_coefficient is None:
             raise ValueError("Cannot provide `outer_diffusivity` without providing `diffusion_coefficient`.")
 
-        if outer_trace_diffusivity and not trace_diffusion_coefficient:
+        if outer_trace_diffusivity is not None and trace_diffusion_coefficient is None:
             raise ValueError(
                 "Cannot provide `outer_trace_diffusivity` without providing `trace_diffusion_coefficient`."
             )
 
         if (
-            (not diffusion_coefficient)
-            * (not balloon_force)
-            * (not trace_diffusion_coefficient)
-            * (curvature_preservation_field.size == 0)
+            (diffusion_coefficient is None)
+            and (balloon_force is None)
+            and (trace_diffusion_coefficient is None)
+            and (curvature_preservation_field is None)
         ):
             msg = "\n".join(
                 [
@@ -1701,7 +1721,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
             )
             raise ValueError(msg)
 
-        if diffusion_coefficient and not gradient:
+        if diffusion_coefficient is not None and gradient is None:
             msg = "\n".join(
                 [
                     "No`gradient` was passed, needed for divergence term involving `diffusion_coefficient`.",
@@ -1717,7 +1737,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 scheme="forward",
             )
 
-        if curvature_preservation_field.size > 0 and not gradient:
+        if curvature_preservation_field is not None and gradient is None:
             msg = "\n".join(
                 [
                     "No `gradient` was passed, needed for term involving `curvature_preservation_field`.",
@@ -1729,7 +1749,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 arg_shape=arg_shape, diff_method="fd", sampling=1.0, mode="edge", scheme="central"
             )
 
-        if trace_diffusion_coefficient and not hessian:
+        if trace_diffusion_coefficient is not None and hessian is None:
             msg = "\n".join(
                 [
                     "No `hessian` was passed, needed for trace term involving `trace_diffusion_coefficient`.",
@@ -1741,7 +1761,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 arg_shape=arg_shape, diff_method="fd", mode="symmetric", sampling=1.0, scheme="central", accuracy=2
             )
 
-        if diffusion_coefficient and diffusion_coefficient.trace_term:
+        if diffusion_coefficient is not None and diffusion_coefficient.trace_term:
             if not diffusion_coefficient.frozen:
                 warnings.warn("`diffusion_coefficient.trace_term` set to True. Modifying to False.")
                 diffusion_coefficient.trace_term = True
@@ -1754,7 +1774,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 )
                 raise ValueError(msg)
 
-        if trace_diffusion_coefficient and not trace_diffusion_coefficient.trace_term:
+        if trace_diffusion_coefficient is not None and not trace_diffusion_coefficient.trace_term:
             if not trace_diffusion_coefficient.frozen:
                 warnings.warn("`trace_diffusion_coefficient.trace_term` set to False. Modifying to True.")
                 trace_diffusion_coefficient.trace_term = True
@@ -1767,7 +1787,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
                 )
                 raise ValueError(msg)
 
-        if curvature_preservation_field.size > 0:
+        if curvature_preservation_field is not None:
             if curvature_preservation_field.shape != (self.ndims, self.dim):
                 msg = "\n".join(
                     [
@@ -1847,7 +1867,7 @@ class _DiffusionOp(pyca.ProxDiffFunc):
 
         # if trace_diffusion_coefficient is isotropic,
         # convert hessian to second derivative operator
-        if trace_diffusion_coefficient:
+        if trace_diffusion_coefficient is not None:
             if trace_diffusion_coefficient.isotropic:
                 ops = []
                 idx = 0
@@ -1899,63 +1919,65 @@ class _DiffusionOp(pyca.ProxDiffFunc):
 
     @pycrt.enforce_precision(i="arr")
     def _compute_divergence_term(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        y_div = xp.zeros(arr.shape, dtype=arr.dtype)
-        if self.diffusion_coefficient or self.outer_diffusivity:
+        if self.diffusion_coefficient is not None or self.outer_diffusivity is not None:
             y_div = self.gradient(arr)
-            if self.diffusion_coefficient:
+            if self.diffusion_coefficient is not None:
                 # compute flux
                 diffusion_coefficient = self.diffusion_coefficient(arr)
                 y_div = diffusion_coefficient(y_div)
             # apply divergence
             y_div = self.gradient.T(y_div)
-            if self.outer_diffusivity:
+            if self.outer_diffusivity is not None:
                 outer_diffusivity = self.outer_diffusivity(arr)
                 # rescale divergence
                 y_div *= outer_diffusivity
+        else:
+            xp = pycu.get_array_module(arr)
+            y_div = xp.zeros_like(arr)
         return y_div
 
     @pycrt.enforce_precision(i="arr")
     def _compute_balloon_term(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        balloon_force = xp.zeros(arr.shape, dtype=arr.dtype)
-        if self.balloon_force:
+        if self.balloon_force is not None:
             balloon_force = self.balloon_force(arr)
+        else:
+            xp = pycu.get_array_module(arr)
+            balloon_force = xp.zeros_like(arr)
         return -balloon_force
 
     @pycrt.enforce_precision(i="arr")
     def _compute_trace_term(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        y_trace = xp.zeros(arr.shape, dtype=arr.dtype)
-        if self.trace_diffusion_coefficient:
+        if self.trace_diffusion_coefficient is not None:
             # hessian = self.hessian.unravel(self.hessian(arr)).squeeze().reshape(1, -1)
             hessian = self.hessian.unravel(self.hessian(arr)).reshape(self.nchannels, -1)
             trace_tensor = self.trace_diffusion_coefficient(arr)
             y_trace = trace_tensor(hessian)
-            if self.outer_trace_diffusivity:
+            if self.outer_trace_diffusivity is not None:
                 outer_trace_diffusivity = self.outer_trace_diffusivity(arr)
                 # rescale trace
                 y_trace *= outer_trace_diffusivity(arr)
+        else:
+            xp = pycu.get_array_module(arr)
+            y_trace = xp.zeros_like(arr)
         return -y_trace
 
     @pycrt.enforce_precision(i="arr")
     def _compute_curvature_preserving_term(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
-        y_curv = xp.zeros(arr.shape, dtype=arr.dtype)
-        if self.curvature_preservation_field.size > 0:
+        if self.curvature_preservation_field is not None:
             grad_arr = self.gradient(arr)
             y_curv = self._jacobian_onto_field(grad_arr)
+        else:
+            xp = pycu.get_array_module(arr)
+            y_curv = xp.zeros_like(arr)
         return -y_curv
 
     @pycrt.enforce_precision(i="arr")
     @pycu.vectorize("arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
         arr = arr.reshape(self.nchannels, -1)
         # arr = arr.reshape(1, -1)
-        y = xp.zeros(arr.shape, dtype=arr.dtype)
         # compute divergence term
-        y += self._compute_divergence_term(arr)
+        y = self._compute_divergence_term(arr)
         # compute balloon force term
         y += self._compute_balloon_term(arr)
         # compute trace tensor term
@@ -1971,40 +1993,38 @@ class _DiffusionOp(pyca.ProxDiffFunc):
 
         Notes
         -----
-        Let :math:`\phi(\cdot)` be the functional (it could be defined only implicitly) underlying
-        the diffusion operator. The actual prox operator would read
+        Let :math:`\phi(\cdot)` be the functional (possibly defined only implicitly via its gradient) underlying
+        the diffusion operator. Its prox operator is defined as
 
         .. math::
-            \text{prox}_{\tau \phi}(arr) = \text{argmin}_{y}\frac{1}{2\tau}\Vert arr - y\Vert _2^2+\phi(y).
+            \mathrm{prox}_{\tau \phi}(\mathbf{x}) = \underset{\mathbf{y}}{\mathrm{argmin}} \frac{1}{2\tau}\Vert \mathbf{x} - \mathbf{y}\Vert _2^2+\phi(\mathbf{y}).
 
-        If we were to compute the prox solution by means of gradient descent, the :math:`n`-th iteration of the
-        algorithm would take steps in the direction
+        The prox can be interpreted as a denoising operator [see `Romano <https://arxiv.org/pdf/1611.02862.pdf>`_],
+        where the data-fidelity term :math:`\frac{1}{2\tau}\Vert \mathbf{x} - \mathbf{y}\Vert _2^2`
+        ensures that the result stays close to :math:`\mathbf{x}` and the regularisation term :math:`\phi(\mathbf{y})`
+        smooths the image.
+
+        In the spirit of Plug&Play (PnP) approaches [see `Romano <https://arxiv.org/pdf/1611.02862.pdf>`_], we
+        replace the solution of the prox problem with a denoiser that consists in performing a fixed number of
+        gradient-descent steps to solve the prox problem, which only requires evaluating its gradient
 
         .. math::
-            \frac{1}{\tau}(y_n - arr)-\nabla\phi(y_n).
+            \frac{1}{\tau}(\mathbf{y} - \mathbf{x})-\nabla\phi(\mathbf{y}).
 
-        The prox applied to `arr` can be interpreted as a denoised version of `arr` [see `Romano <https://arxiv.org/pdf/1611.02862.pdf>`_],
-        where the data-fidelity term :math:`\frac{1}{2*\tau}\Vert arr - y\Vert _2^2` ensures that the result does not
-        get too far from `arr` and the regularisation term :math:`\phi(y)` tries to make the image smoother.
+        This approach allows us to:
 
-        In our setting :math:`\nabla\phi(\cdot)` would correspond to ``.grad()``.
-
-        In a Plug&Play (PnP) spirit [see `Romano <https://arxiv.org/pdf/1611.02862.pdf>`_], we
-        replace the solution of the prox problem by the activation of a denoising engine consisting
-        in performing a fixed number of ``.grad()`` steps. This approach allows us to:
-
-        * bypass the problem of the explicit definition of the regularisation prior :math:`\phi(\cdot)`;
-        * have a prox operator that can be evaluated at a fixed cost (the number of ``.grad()`` calls
-          chosen, i.e., ``prox_steps``), which does not depend on the number of iterations needed to
-          achieve convergence as in the actual prox computation.
+        * bypass the problem of the explicit definition of the functional :math:`\phi(\cdot)` (only its gradient
+          :math:`\nabla\phi(\cdot)` is needed);
+        * have a prox operator that can be evaluated at a fixed cost (the number of chosen ``grad()`` calls,
+          i.e., ``prox_steps``), independent of the number of iterations required to converge to the true prox solution.
 
         This denoising approach relies on the scale-space interpretation of diffusion operators
         [see `Weickert <https://www.mia.uni-saarland.de/weickert/Papers/book.pdf>`_], according to which
         denoising at a characteristic noise scale :math:`\sigma` can be achieved by stopping the diffusion
-        at a given time :math:`T`. In the linear isotropic diffusion case where ``.grad()`` is the
-        Laplacian, smoothing structures of order :math:`\sigma` is achieved stopping the diffusion
+        at a given time :math:`T`. In the linear isotropic diffusion case where the gradient of the diffusion operator
+        is the Laplacian, smoothing structures of scale :math:`\sigma` is achieved stopping the diffusion
         process at :math:`T=\frac{\sigma^2}{2}`. Following the linear diffusion analogy,
-        the stopping time for prox computation is computed as :math:`T=\frac{\text{prox\_sigma}^2}{2}`,
+        the stopping time for the prox computation is given by :math:`T=\frac{\mathrm{prox\_sigma}^2}{2}`,
         where ``prox_sigma`` is provided at initialization. Better estimates of stopping time
         could/should be studied.
         """
@@ -2022,16 +2042,16 @@ class DivergenceDiffusionOp(_DiffusionOp):
     In particular, we consider diffusion processes that can be written as
 
     .. math::
-        \frac{\partial\mathbf{f}}{\partial t} = \mathbf{D}_{out}\text{div}(\mathbf{D}_{in}\nabla\mathbf{f}),
+        \frac{\partial\mathbf{f}}{\partial t} = \mathbf{D}_{out}\mathrm{div}(\mathbf{D}_{in}\nabla\mathbf{f}),
 
     where
         * :math:`\mathbf{D}_{out} = \mathbf{D}_{out}(\mathbf{f})` is the outer diffusivity for the divergence term;
         * :math:`\mathbf{D}_{in} = \mathbf{D}_{in}(\mathbf{f})` is the diffusion coefficient for the divergence term.
 
-    The right-hand side of the above PDE represents the output of the ``.grad()`` method applied to the image :math:`\mathbf{f}`.
+    The right-hand side of the above PDE represents the output of the ``grad()`` method applied to the image :math:`\mathbf{f}`.
 
-    The action of the :py:class:`~pycsou.operator.diffusion.DivergenceDiffusionOp` on an image :math:`\mathbf{f}` can be better understood
-    focusing on a single pixel :math:`f_i` of the vectorisation of :math:`\mathbf{f}` (see, e.g., discussion in
+    The effect of the :py:class:`~pycsou.operator.diffusion.DivergenceDiffusionOp` on an image :math:`\mathbf{f}` can be better understood
+    by focusing on a single pixel :math:`f_i` of the vectorisation of :math:`\mathbf{f}` (see, e.g., the discussion in
     :py:class:`~pycsou.operator.diffusion._DiffusionCoefficient`).
 
     Example
@@ -2097,12 +2117,16 @@ class DivergenceDiffusionOp(_DiffusionOp):
         fig, ax = plt.subplots(2,2,figsize=(12,9))
         ax[0,0].imshow(image, cmap="gray")
         ax[0,0].set_title("Image")
+        ax[0,0].axis('off')
         ax[0,1].imshow(noisy_image, cmap="gray")
         ax[0,1].set_title("Noisy image")
+        ax[0,1].axis('off')
         ax[1,0].imshow(opt_PM.reshape(image.shape), cmap="gray")
         ax[1,0].set_title("25 iterations Perona-Malik")
+        ax[1,0].axis('off')
         ax[1,1].imshow(opt_Edge.reshape(image.shape), cmap="gray")
         ax[1,1].set_title("25 iterations Anisotropic-Edge-Enhancing")
+        ax[1,1].axis('off')
 
     """
 
@@ -2126,7 +2150,7 @@ class DivergenceDiffusionOp(_DiffusionOp):
         outer_diffusivity: :py:class:`~pycsou.operator.diffusion._Diffusivity`
             Outer diffusivity operator, to be applied to the divergence term.
         diffusion_coefficient: :py:class:`~pycsou.operator.diffusion._DiffusionCoefficient`
-            Diffusion coefficient operator, featured inside divergence term.
+            Diffusion coefficient operator of the divergence term.
         prox_sigma: pyct.Real
             Size of the structures that should be smoothed out by prox computation (when implemented in PnP-fashion).
 
@@ -2146,14 +2170,14 @@ class DivergenceDiffusionOp(_DiffusionOp):
         )
         # estimate diff_lipschitz
         _known_diff_lipschitz = False
-        if diffusion_coefficient:
+        if diffusion_coefficient is not None:
             if diffusion_coefficient.bounded:
                 _known_diff_lipschitz = True
                 if not diffusion_coefficient.isotropic:
                     # extra factor 2 in this case for exact expression?
                     msg = "For anisotropic `diffusion_coefficient`, the estimated `diff_lipschitz` experimentally grants stability but is not guaranteed to hold."
                     warnings.warn(msg)
-            if outer_diffusivity:
+            if outer_diffusivity is not None:
                 _known_diff_lipschitz = _known_diff_lipschitz and outer_diffusivity.bounded
         if _known_diff_lipschitz:
             self._diff_lipschitz = gradient.lipschitz() ** 2
@@ -2161,12 +2185,10 @@ class DivergenceDiffusionOp(_DiffusionOp):
     @pycrt.enforce_precision(i="arr")
     @pycu.vectorize("arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
-        xp = pycu.get_array_module(arr)
         arr = arr.reshape(self.nchannels, -1)
         # arr = arr.reshape(1, -1)
-        y = xp.zeros(arr.shape, dtype=arr.dtype)
         # compute divergence term
-        y += self._compute_divergence_term(arr)
+        y = self._compute_divergence_term(arr)
         return y.reshape(1, -1)
 
 
@@ -2178,16 +2200,16 @@ class SnakeDiffusionOp(_DiffusionOp):
     In particular, we consider diffusion processes that can be written as
 
     .. math::
-        \frac{\partial\mathbf{f}}{\partial t} = \mathbf{D}_{out}\text{div}(\mathbf{D}_{in}\nabla\mathbf{f})+ \mathbf{B},
+        \frac{\partial\mathbf{f}}{\partial t} = \mathbf{D}_{out}\mathrm{div}(\mathbf{D}_{in}\nabla\mathbf{f})+ \mathbf{b},
     where
         * :math:`\mathbf{D}_{out} = \mathbf{D}_{out}(\mathbf{f})` is the outer diffusivity for the divergence term;
         * :math:`\mathbf{D}_{in} = \mathbf{D}_{in}(\mathbf{f})` is the diffusion coefficient for the divergence term;
-        * :math:`\mathbf{B} = \mathbf{B}(\mathbf{f})` is the balloon force.
+        * :math:`\mathbf{b} = \mathbf{b}(\mathbf{f})` is the balloon force.
 
-    The right-hand side of the above PDE represents the output of the ``.grad()`` method applied to the image :math:`\mathbf{f}`.
+    The right-hand side of the above PDE represents the output of the ``grad()`` method applied to the image :math:`\mathbf{f}`.
 
-    The action of the :py:class:`~pycsou.operator.diffusion.SnakeDiffusionOp` on an image :math:`\mathbf{f}` can be better understood
-    focusing on a single pixel :math:`f_i` of the vectorisation of :math:`\mathbf{f}` (see, e.g., discussion in
+    The effect of the :py:class:`~pycsou.operator.diffusion.SnakeDiffusionOp` on an image :math:`\mathbf{f}` can be better understood
+    by focusing on a single pixel :math:`f_i` of the vectorisation of :math:`\mathbf{f}` (see, e.g., discussion in
     :py:class:`~pycsou.operator.diffusion._DiffusionCoefficient`).
     """
 
@@ -2211,7 +2233,7 @@ class SnakeDiffusionOp(_DiffusionOp):
         outer_diffusivity: :py:class:`~pycsou.operator.diffusion._Diffusivity`
             Outer diffusivity operator, to be applied to the divergence term.
         diffusion_coefficient: :py:class:`~pycsou.operator.diffusion._DiffusionCoefficient`
-            Diffusion coefficient operator, featured inside divergence term.
+            Diffusion coefficient operator of the divergence term.
         balloon_force: :py:class:`~pycsou.operator.diffusion._BalloonForce`
             Balloon force operator.
         prox_sigma: pyct.Real
@@ -2233,18 +2255,18 @@ class SnakeDiffusionOp(_DiffusionOp):
         )
         # estimate diff_lipschitz
         _known_diff_lipschitz = False
-        if diffusion_coefficient:
+        if diffusion_coefficient is not None:
             if diffusion_coefficient.bounded:
                 _known_diff_lipschitz = True
                 if not diffusion_coefficient.isotropic:
                     # extra factor 2 in this case for exact expression?
                     msg = "For anisotropic `diffusion_coefficient`, the estimated `diff_lipschitz` experimentally grants stability but is not guaranteed to hold."
                     warnings.warn(msg)
-            if outer_diffusivity:
+            if outer_diffusivity is not None:
                 _known_diff_lipschitz = _known_diff_lipschitz and outer_diffusivity.bounded
         if _known_diff_lipschitz:
             self._diff_lipschitz = gradient.lipschitz() ** 2
-        if balloon_force:
+        if balloon_force is not None:
             self._diff_lipschitz += balloon_force._lipschitz
 
     @pycrt.enforce_precision(i="arr")
@@ -2252,7 +2274,7 @@ class SnakeDiffusionOp(_DiffusionOp):
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         arr = arr.reshape(1, -1)
-        y = xp.zeros(arr.shape, dtype=arr.dtype)
+        y = xp.zeros_like(arr)
         # compute divergence term
         y += self._compute_divergence_term(arr)
         # compute balloon force term
@@ -2268,16 +2290,16 @@ class TraceDiffusionOp(_DiffusionOp):
     In particular, we consider diffusion processes that can be written as
 
     .. math::
-        \frac{\partial\mathbf{f}}{\partial t} = \mathbf{T}_{out}\text{trace}\big(\mathbf{T}_{in}\mathbf{H}(\mathbf{f})\big),
+        \frac{\partial\mathbf{f}}{\partial t} = \mathbf{T}_{out}\mathrm{trace}\big(\mathbf{T}_{in}\mathbf{H}(\mathbf{f})\big),
 
     where
         * :math:`\mathbf{T}_{out} = \mathbf{T}_{out}(\mathbf{f})` is the outer diffusivity for the trace term;
         * :math:`\mathbf{T}_{in} = \mathbf{T}_{in}(\mathbf{f})` is the diffusion coefficient for the trace term.
 
-    The right-hand side of the above PDE represents the output of the ``.grad()`` method applied to the image :math:`\mathbf{f}`.
+    The right-hand side of the above PDE represents the output of the ``grad()`` method applied to the image :math:`\mathbf{f}`.
 
-    The action of the :py:class:`~pycsou.operator.diffusion.TraceDiffusionOp` on an image :math:`\mathbf{f}` can be better understood
-    focusing on a single pixel :math:`f_i` of the vectorisation of :math:`\mathbf{f}` (see, e.g., discussion in
+    The effect of the :py:class:`~pycsou.operator.diffusion.TraceDiffusionOp` on an image :math:`\mathbf{f}` can be better understood
+    by focusing on a single pixel :math:`f_i` of the vectorisation of :math:`\mathbf{f}` (see, e.g., discussion in
     :py:class:`~pycsou.operator.diffusion._DiffusionCoefficient`).
 
     Example
@@ -2344,12 +2366,16 @@ class TraceDiffusionOp(_DiffusionOp):
         fig, ax = plt.subplots(2,2,figsize=(12,9))
         ax[0,0].imshow(image, cmap="gray")
         ax[0,0].set_title("Image")
+        ax[0,0].axis('off')
         ax[0,1].imshow(noisy_image, cmap="gray")
         ax[0,1].set_title("Noisy image")
+        ax[0,1].axis('off')
         ax[1,0].imshow(opt_PM.reshape(image.shape), cmap="gray")
         ax[1,0].set_title("25 iterations Perona-Malik")
+        ax[1,0].axis('off')
         ax[1,1].imshow(opt_Edge.reshape(image.shape), cmap="gray")
         ax[1,1].set_title("25 iterations Anisotropic-Edge-Enhancing")
+        ax[1,1].axis('off')
 
     """
 
@@ -2373,7 +2399,7 @@ class TraceDiffusionOp(_DiffusionOp):
         outer_trace_diffusivity: :py:class:`~pycsou.operator.diffusion._Diffusivity`
             Outer diffusivity operator, to be applied to the trace term.
         trace_diffusion_coefficient: :py:class:`~pycsou.operator.diffusion._DiffusionCoefficient`
-            Diffusion coefficient operator, featured inside trace term.
+            Diffusion coefficient operator of the trace term.
         prox_sigma: pyct.Real
             Size of the structures that should be smoothed out by prox computation (when implemented in PnP-fashion).
 
@@ -2393,13 +2419,13 @@ class TraceDiffusionOp(_DiffusionOp):
         )
         # estimate diff_lipschitz (further think, extra factors may arise for trace case)
         _known_diff_lipschitz = False
-        if trace_diffusion_coefficient:
+        if trace_diffusion_coefficient is not None:
             if trace_diffusion_coefficient.bounded:
                 _known_diff_lipschitz = True
                 if not trace_diffusion_coefficient.isotropic:
                     msg = "For anisotropic `trace_diffusion_coefficient`, the estimated `diff_lipschitz` experimentally grants stability but is not guaranteed to hold."
                     warnings.warn(msg)
-            if outer_trace_diffusivity:
+            if outer_trace_diffusivity is not None:
                 _known_diff_lipschitz = _known_diff_lipschitz and outer_trace_diffusivity.bounded
         if _known_diff_lipschitz:
             self._diff_lipschitz = hessian.lipschitz()
@@ -2410,7 +2436,7 @@ class TraceDiffusionOp(_DiffusionOp):
         xp = pycu.get_array_module(arr)
         arr = arr.reshape(self.nchannels, -1)
         # arr = arr.reshape(1, -1)
-        y = xp.zeros(arr.shape, dtype=arr.dtype)
+        y = xp.zeros_like(arr)
         # compute trace tensor term
         y += self._compute_trace_term(arr)
         return y.reshape(1, -1)
@@ -2424,7 +2450,7 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
     In particular, we consider diffusion processes that can be written as
 
     .. math::
-        \frac{\partial\mathbf{f}}{\partial t} = \mathbf{T}_{out}\text{trace}\big(\mathbf{T}_{in}\mathbf{H}(\mathbf{f})\big) + (\nabla\mathbf{f})^T \mathbf{J}_{\mathbf{w}}\mathbf{w},
+        \frac{\partial\mathbf{f}}{\partial t} = \mathbf{T}_{out}\mathrm{trace}\big(\mathbf{T}_{in}\mathbf{H}(\mathbf{f})\big) + (\nabla\mathbf{f})^T \mathbf{J}_{\mathbf{w}}\mathbf{w},
 
     where
         * :math:`\mathbf{T}_{out} = \mathbf{T}_{out}(\mathbf{f})` is the outer diffusivity for the trace term;
@@ -2432,12 +2458,12 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
         * :math:`\mathbf{w}` is a vector field assigning a :math:`2`-dimensional vector to each pixel;
         * :math:`\mathbf{J}_\mathbf{w}` is the Jacobian of the vector field :math:`\mathbf{w}`.
 
-    The right-hand side of the above PDE represents the output of the ``.grad()`` method applied to the image :math:`\mathbf{f}`.
+    The right-hand side of the above PDE represents the output of the ``grad()`` method applied to the image :math:`\mathbf{f}`.
 
     The resulting smoothing process tries to preserve the curvature of the vector field :math:`\mathbf{w}`.
 
-    The action of the :py:class:`~pycsou.operator.diffusion.CurvaturePreservingDiffusionOp` on an image :math:`\mathbf{f}` can be better understood
-    focusing on a single pixel :math:`f_i` of the vectorisation of :math:`\mathbf{f}` (see, e.g., discussion in
+    The effect of the :py:class:`~pycsou.operator.diffusion.CurvaturePreservingDiffusionOp` on an image :math:`\mathbf{f}` can be better understood
+    by focusing on a single pixel :math:`f_i` of the vectorisation of :math:`\mathbf{f}` (see, e.g., discussion in
     :py:class:`~pycsou.operator.diffusion._DiffusionCoefficient`).
 
     Example
@@ -2492,10 +2518,13 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
         fig, ax = plt.subplots(1,3,figsize=(20,4))
         ax[0].imshow(image, cmap="gray", aspect="auto")
         ax[0].set_title("Image")
+        ax[0].axis('off')
         ax[1].quiver(curv_pres_2[::40,::60], curv_pres_1[::40,::60])
         ax[1].set_title("Vector field")
+        ax[1].axis('off')
         ax[2].imshow(opt_curve.reshape(image.shape), cmap="gray", aspect="auto")
         ax[2].set_title("500 iterations Curvature Preserving")
+        ax[2].axis('off')
 
     """
 
@@ -2504,7 +2533,7 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
         arg_shape: pyct.NDArrayShape,
         gradient: pyct.OpT = None,
         hessian: pyct.OpT = None,
-        curvature_preservation_field: pyct.NDArray = np.zeros(0),
+        curvature_preservation_field: pyct.NDArray = None,
         prox_sigma: pyct.Real = 2,
     ):
         r"""
@@ -2518,7 +2547,7 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
         hessian:  :py:class:`~pycsou.operator.linop.diff.Hessian`
             Hessian operator. Defaults to `None`.
         curvature_preservation_field: pyct.NDArray
-            Vector field along which curvature should be preserved. Defaults to `np.zeros(0)`.
+            Vector field along which curvature should be preserved. Defaults to `None`.
         prox_sigma: pyct.Real
             Size of the structures that should be smoothed out by prox computation (when implemented in PnP-fashion).
 
@@ -2528,7 +2557,7 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
         operators involved, ``prox_sigma`` equal to `1` is meant to yield a prox which smoothes structures of the order
         of one pixel.
         """
-        if not hessian:
+        if hessian is None:
             msg = "\n".join(
                 [
                     "No `hessian` was passed, needed for trace term involving `trace_diffusion_coefficient`.",
@@ -2571,7 +2600,7 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
         self.trace_diffusion_coefficient.set_frozen_op(pyblock.hstack(ops))
         # estimate diff_lipschitz
         self._diff_lipschitz = hessian.lipschitz()
-        if self.curvature_preservation_field.size > 0:
+        if self.curvature_preservation_field is not None:
             max_norm = np.max(np.linalg.norm(curvature_preservation_field, axis=1))
             self._diff_lipschitz *= max_norm
             # abs(<gradient(u), J_w(w)>) \leq norm(gradient(u)) * norm(J_w(w))
@@ -2583,7 +2612,7 @@ class CurvaturePreservingDiffusionOp(_DiffusionOp):
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
         arr = arr.reshape(1, -1)
-        y = xp.zeros(arr.shape, dtype=arr.dtype)
+        y = xp.zeros_like(arr)
         # compute trace tensor term
         y += self._compute_trace_term(arr)
         # compute curvature preserving term
