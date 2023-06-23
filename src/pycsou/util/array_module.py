@@ -135,7 +135,7 @@ def redirect(
         name of the array-like variable in `f` to base dispatch on.
     **kwargs: dict[str, callable]
 
-        key: array backend short-name as defined in :py:func:`~pycsou.util.deps.array_backend_info`.
+        key: array backend short-name as defined in :py:class:`~pycsou.util.deps.NDArrayInfo`.
 
         value: function/method to dispatch to.
 
@@ -155,7 +155,7 @@ def redirect(
     -------
     >>> def f(x, y): return "f"
     >>>
-    >>> @redirect('x', NUMPY=f)    # if 'x' lies in the array namespace having
+    >>> @redirect('x', NUMPY=f)    # if 'x' is of type NDArrayInfo.NUMPY, i.e. has
     >>> def g(x, y): return "g"    # short-name 'NUMPY' -> reroute execution to `f`
     >>>
     >>> x1 = np.arange(5)
