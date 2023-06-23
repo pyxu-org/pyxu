@@ -6,8 +6,6 @@ import pycsou.util.ptype as pyct
 __all__ = [
     "as_canonical_shape",
     "next_fast_len",
-    "peaks",
-    "star_like_sample",
 ]
 
 
