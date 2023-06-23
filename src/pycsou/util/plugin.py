@@ -24,6 +24,13 @@ def _load_entry_points(glob, group, names=None):
     """
     eps = tuple(entry_points(group=group))
 
+    # Check for duplicated entry points
+    seen = set()
+    duplicated = [ep.name for ep in eps if ep in seen or seen.add(ep.name)]
+    if len(duplicated):
+        warnings.warn(f"Found duplicated entry points: {duplicated}.", pycuw.ContributionWarning)
+
+    # Load entry points
     try:
         for i, ep in enumerate(eps):
             ep_load = ep.load()
@@ -51,7 +58,7 @@ def _load_entry_points(glob, group, names=None):
                 if name in glob:
                     warnings.warn(
                         f"Attempting to overload Pycsou base class/function `{name}`.\n"
-                        + f"Overloading plugins must start with underscore `_`.\n"
+                        + "Overloading plugins must start with underscore `_`.\n"
                         + f"Defaulting to base class/function `{name}`.\n",
                         pycuw.ContributionWarning,
                     )
