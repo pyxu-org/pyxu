@@ -6,7 +6,7 @@ import numbers as nb
 
 import numpy as np
 
-import pycsou.util as pycu
+import pycsou.util.inspect as pycui
 import pycsou.util.ptype as pyct
 
 
@@ -157,7 +157,7 @@ def enforce_precision(
     def decorator(func: cabc.Callable) -> cabc.Callable:
         @functools.wraps(func)
         def wrapper(*ARGS, **KWARGS):
-            func_args = pycu.parse_params(func, *ARGS, **KWARGS)
+            func_args = pycui.parse_params(func, *ARGS, **KWARGS)
 
             for k in [i] if isinstance(i, str) else i:
                 if k not in func_args:
@@ -207,7 +207,7 @@ def coerce(x):
     ----
     This method is a NO-OP if `getCoerceState()` returns False.
     """
-    if getCoerceState() == False:
+    if getCoerceState() is False:
         return x
     else:
         dtype = getPrecision().value
