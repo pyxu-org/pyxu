@@ -847,7 +847,6 @@ class ProxFunc(Func):
         out += arr
         return out
 
-    @pycrt.enforce_precision(i="mu", o=False)
     def moreau_envelope(self, mu: pyct.Real) -> pyct.OpT:
         r"""
         Approximate proximable functional :math:`f` by its *Moreau envelope* :math:`f^{\mu}`.
