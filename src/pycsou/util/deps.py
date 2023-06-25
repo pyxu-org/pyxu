@@ -51,6 +51,13 @@ class NDArrayInfo(enum.Enum):
                     return ndi
         raise ValueError(f"No known array type to match {obj}.")
 
+    @classmethod
+    def from_flag(cls, gpu: bool) -> "NDArrayInfo":
+        if gpu:
+            return cls.CUPY
+        else:
+            return cls.NUMPY
+
     def module(self, linalg: bool = False) -> types.ModuleType:
         if self.name == "NUMPY":
             xp = numpy
