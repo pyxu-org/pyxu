@@ -28,7 +28,6 @@ def get_test_class(cls: pyct.OpC) -> "MapT":
         [
             hasattr(_, "base"),
             hasattr(_, "interface"),
-            hasattr(_, "disable_test"),
         ]
     )
     candidates = {_ for _ in globals().values() if is_test(_)}
