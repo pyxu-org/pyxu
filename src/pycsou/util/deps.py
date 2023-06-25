@@ -29,6 +29,10 @@ class NDArrayInfo(enum.Enum):
     DASK = enum.auto()
     CUPY = enum.auto()
 
+    @classmethod
+    def default(cls) -> "NDArrayInfo":
+        return cls.NUMPY
+
     def type(self) -> type:
         if self.name == "NUMPY":
             return numpy.ndarray
@@ -71,6 +75,10 @@ class SparseArrayInfo(enum.Enum):
     SCIPY_SPARSE = enum.auto()
     PYDATA_SPARSE = enum.auto()
     CUPY_SPARSE = enum.auto()
+
+    @classmethod
+    def default(cls) -> "SparseArrayInfo":
+        return cls.PYDATA_SPARSE
 
     def type(self) -> type:
         if self.name == "SCIPY_SPARSE":
