@@ -40,19 +40,19 @@ class IdentityOp(pyca.OrthProjOp):
         return pyca.UnitOp.svdvals(self, **kwargs)
 
     def asarray(self, **kwargs) -> pyct.NDArray:
-        dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
-        xp = kwargs.pop("xp", pycd.NDArrayInfo.NUMPY.module())
+        xp = kwargs.get("xp", pycd.NDArrayInfo.default().module())
+        dtype = kwargs.get("dtype", pycrt.getPrecision().value)
         A = xp.eye(N=self.dim, dtype=dtype)
         return A
 
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = arr.copy()
-        out /= 1 + kwargs.pop("damp", 0)
+        out /= 1 + kwargs.get("damp", 0)
         return out
 
     def dagger(self, **kwargs) -> pyct.OpT:
-        cst = 1 / (1 + kwargs.pop("damp", 0))
+        cst = 1 / (1 + kwargs.get("damp", 0))
         op = HomothetyOp(cst=cst, dim=self.dim)
         return op
 
@@ -89,9 +89,11 @@ class NullOp(pyca.LinOp):
         )
 
     def svdvals(self, **kwargs) -> pyct.NDArray:
-        N = pycd.NDArrayInfo
-        xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
-        D = xp.zeros(kwargs.pop("k"), dtype=pycrt.getPrecision().value)
+        gpu = kwargs.get("gpu", False)
+        xp = pycd.NDArrayInfo.from_flag(gpu).module()
+        width = pycrt.getPrecision()
+
+        D = xp.zeros(kwargs["k"], dtype=width.value)
         return D
 
     def gram(self) -> pyct.OpT:
@@ -103,8 +105,8 @@ class NullOp(pyca.LinOp):
         return op.asop(pyca.SelfAdjointOp).squeeze()
 
     def asarray(self, **kwargs) -> pyct.NDArray:
-        dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
-        xp = kwargs.pop("xp", pycd.NDArrayInfo.NUMPY.module())
+        xp = kwargs.get("xp", pycd.NDArrayInfo.default().module())
+        dtype = kwargs.get("dtype", pycrt.getPrecision().value)
         A = xp.zeros(self.shape, dtype=dtype)
         return A
 
@@ -160,12 +162,14 @@ def HomothetyOp(dim: pyct.Integer, cst: pyct.Real) -> pyct.OpT:
             return out
 
         def op_svdvals(_, **kwargs) -> pyct.NDArray:
-            N = pycd.NDArrayInfo
-            xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
+            gpu = kwargs.get("gpu", False)
+            xp = pycd.NDArrayInfo.from_flag(gpu).module()
+            width = pycrt.getPrecision()
+
             D = xp.full(
-                shape=kwargs.pop("k"),
+                shape=kwargs["k"],
                 fill_value=abs(_._cst),
-                dtype=pycrt.getPrecision().value,
+                dtype=width.value,
             )
             return D
 
@@ -177,12 +181,12 @@ def HomothetyOp(dim: pyct.Integer, cst: pyct.Real) -> pyct.OpT:
         @pycrt.enforce_precision(i="arr")
         def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
             out = arr.copy()
-            scale = _._cst / (_._cst**2 + kwargs.pop("damp", 0))
+            scale = _._cst / (_._cst**2 + kwargs.get("damp", 0))
             out *= scale
             return out
 
         def op_dagger(_, **kwargs) -> pyct.OpT:
-            scale = _._cst / (_._cst**2 + kwargs.pop("damp", 0))
+            scale = _._cst / (_._cst**2 + kwargs.get("damp", 0))
             op = HomothetyOp(cst=scale, dim=_.dim)
             return op
 
@@ -257,8 +261,8 @@ def DiagonalOp(
                 return out
 
             def op_asarray(_, **kwargs) -> pyct.NDArray:
-                dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
-                xp = kwargs.pop("xp", pycd.NDArrayInfo.NUMPY.module())
+                xp = kwargs.get("xp", pycd.NDArrayInfo.default().module())
+                dtype = kwargs.get("dtype", pycrt.getPrecision().value)
 
                 v = pycu.compute(_._vec.astype(dtype=dtype, copy=False))
                 v = pycu.to_NUMPY(v)
@@ -272,28 +276,34 @@ def DiagonalOp(
                 )
 
             def op_svdvals(_, **kwargs):
-                k = kwargs.pop("k")
-                which = kwargs.pop("which", "LM")
-                N = pycd.NDArrayInfo
-                xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
+                gpu = kwargs.get("gpu", False)
+                xp = pycd.NDArrayInfo.from_flag(gpu).module()
+                width = pycrt.getPrecision()
+
+                k = kwargs["k"]
+                which = kwargs.get("which", "LM")
+
                 D = xp.abs(pycu.compute(_._vec))
                 D = D[xp.argsort(D)]
-                D = D.astype(pycrt.getPrecision().value, copy=False)
+                D = D.astype(width.value, copy=False)
                 return D[:k] if (which == "SM") else D[-k:]
 
             def op_eigvals(_, **kwargs):
-                k = kwargs.pop("k")
-                which = kwargs.pop("which", "LM")
-                N = pycd.NDArrayInfo
-                xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
+                gpu = kwargs.get("gpu", False)
+                xp = pycd.NDArrayInfo.from_flag(gpu).module()
+                width = pycrt.getPrecision()
+
+                k = kwargs["k"]
+                which = kwargs.get("which", "LM")
+
                 D = pycu.compute(_._vec)
                 D = D[xp.argsort(xp.abs(D))]
-                D = D.astype(pycrt.getPrecision().value, copy=False)
+                D = D.astype(width.value, copy=False)
                 return D[:k] if (which == "SM") else D[-k:]
 
             @pycrt.enforce_precision(i="arr")
             def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-                damp = kwargs.pop("damp", 0)
+                damp = kwargs.get("damp", 0)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     scale = _._vec / (_._vec**2 + damp)
@@ -303,7 +313,7 @@ def DiagonalOp(
                 return out
 
             def op_dagger(_, **kwargs) -> pyct.OpT:
-                damp = kwargs.pop("damp", 0)
+                damp = kwargs.get("damp", 0)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     scale = _._vec / (_._vec**2 + damp)
@@ -391,12 +401,12 @@ def _ExplicitLinOp(
     Notes
     -----
     * :py:class:`~pycsou.operator.linop.base._ExplicitLinOp` instances are **not arraymodule-agnostic**:
-      they will only work with NDArrays belonging to the same (dense) array module as ``mat``.
-      Moreover, inner computations may cast input arrays when the precision of ``mat`` does not
+      they will only work with NDArrays belonging to the same (dense) array module as `mat`.
+      Moreover, inner computations may cast input arrays when the precision of `mat` does not
       match the user-requested precision.
       If such a situation occurs, a warning is raised.
 
-    * The matrix provided in :py:meth:`~pycsou.operator.linop.base._ExplicitLinOp.__init__` is used as-is
+    * The matrix provided to :py:func:`~pycsou.operator.linop.base._ExplicitLinOp` is used as-is
       and can be accessed via ``.mat``.
     """
 
@@ -418,7 +428,7 @@ def _ExplicitLinOp(
         else:
             return A
 
-    def _matmat(A, b, warn: bool = True) -> pyct.NDArray:
+    def _matmat(A, b, warn: bool) -> pyct.NDArray:
         # A: (M, N) dense/sparse
         # b: (..., N) dense
         # out: (..., M) dense
@@ -443,8 +453,8 @@ def _ExplicitLinOp(
     def op_asarray(_, **kwargs) -> pyct.NDArray:
         N = pycd.NDArrayInfo
         S = pycd.SparseArrayInfo
-        dtype = kwargs.pop("dtype", pycrt.getPrecision().value)
-        xp = kwargs.pop("xp", pycd.NDArrayInfo.NUMPY.module())
+        xp = kwargs.get("xp", pycd.NDArrayInfo.default().module())
+        dtype = kwargs.get("dtype", pycrt.getPrecision().value)
 
         try:  # Sparse arrays
             info = S.from_obj(_.mat)
@@ -492,38 +502,6 @@ def _ExplicitLinOp(
                     raise ValueError(f"Unknown sparse format {_.mat}.")
             return float(tr)
 
-    @pycrt.enforce_precision()
-    def op_lipschitz(_, **kwargs) -> pyct.Real:
-        # We want to piggy-back onto Lin[Op,Func].lipschitz() to compute the Lipschitz constant L.
-        # Problem: LinOp.lipschitz() relies on svdvals() or hutchpp() to compute L, and they take
-        # different parameters to do computations on the GPU.
-        # Solution:
-        # * we add the relevant kwargs before calling the LinOp.lipschitz() + drop all unrecognized
-        #   kwargs there as needed.
-        # * similarly for LinFunc.lipschitz().
-        N = pycd.NDArrayInfo
-        S = pycd.SparseArrayInfo
-
-        try:  # Dense arrays
-            info = N.from_obj(_.mat)
-            kwargs.update(
-                xp=info.module(),
-                gpu=info == N.CUPY,
-            )
-        except Exception:  # Sparse arrays
-            info = S.from_obj(_.mat)
-            gpu = info == S.CUPY_SPARSE
-            kwargs.update(
-                xp=N.CUPY.module() if gpu else N.NUMPY.module(),
-                gpu=gpu,
-            )
-
-        if _.codim == 1:
-            L = pyca.LinFunc.lipschitz(_, **kwargs)
-        else:
-            L = _.__class__.lipschitz(_, **kwargs)
-        return L
-
     op = pycsrc.from_source(
         cls=cls,
         shape=mat.shape,
@@ -535,7 +513,6 @@ def _ExplicitLinOp(
         apply=op_apply,
         adjoint=op_adjoint,
         asarray=op_asarray,
-        lipschitz=op_lipschitz,
         trace=op_trace,
     )
     return op

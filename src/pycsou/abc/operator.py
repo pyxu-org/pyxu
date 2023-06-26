@@ -1424,6 +1424,8 @@ class LinOp(DiffMap):
         D: pyct.NDArray
             (k,) singular values in ascending order.
         """
+        which = which.upper().strip()
+        assert which in {"SM", "LM"}
 
         def _dense_eval():
             if gpu:
@@ -1466,7 +1468,7 @@ class LinOp(DiffMap):
 
     def asarray(
         self,
-        xp: pyct.ArrayModule = pycd.NDArrayInfo.NUMPY.module(),
+        xp: pyct.ArrayModule = None,
         dtype: pyct.DType = None,
     ) -> pyct.NDArray:
         r"""
@@ -1491,8 +1493,11 @@ class LinOp(DiffMap):
         :py:meth:`~pycsou.abc.operator.LinOp.asarray`
         may need to be overriden.
         """
+        if xp is None:
+            xp = pycd.NDArrayInfo.default().module()
         if dtype is None:
             dtype = pycrt.getPrecision().value
+
         with pycrt.EnforcePrecision(False):
             E = xp.eye(self.dim, dtype=dtype)
             A = self.apply(E).T
@@ -1548,7 +1553,7 @@ class LinOp(DiffMap):
     def pinv(
         self,
         arr: pyct.NDArray,
-        damp: pyct.Real = 0,
+        damp: pyct.Real = None,
         kwargs_init=None,
         kwargs_fit=None,
     ) -> pyct.NDArray:
@@ -1610,24 +1615,27 @@ class LinOp(DiffMap):
 
         kwargs_fit = dict() if kwargs_fit is None else kwargs_fit
         kwargs_init = dict() if kwargs_init is None else kwargs_init
-        b = self.adjoint(arr)
-        if np.isclose(damp, 0):
+        kwargs_init.update(show_progress=kwargs_init.get("show_progress", False))
+
+        if damp is None:
             A = self.gram()
         else:
             A = self.gram() + HomothetyOp(cst=damp, dim=self.dim)
-        kwargs_init.update(show_progress=kwargs_init.get("show_progress", False))
+
         cg = CG(A, **kwargs_init)
         if "stop_crit" not in kwargs_fit:
             # .pinv() may not have sufficiently converged given the default CG stopping criteria.
             # To avoid infinite loops, CG iterations are thresholded.
             sentinel = MaxIter(n=20 * A.dim)
             kwargs_fit["stop_crit"] = cg.default_stop_crit() | sentinel
+
+        b = self.adjoint(arr)
         cg.fit(b=b, **kwargs_fit)
         return cg.solution()
 
     def dagger(
         self,
-        damp: pyct.Real = 0,
+        damp: pyct.Real = None,
         kwargs_init=None,
         kwargs_fit=None,
     ) -> pyct.OpT:
@@ -1650,24 +1658,24 @@ class LinOp(DiffMap):
         """
         from pycsou.operator.interop.source import from_source
 
-        kwargs_fit = dict() if kwargs_fit is None else kwargs_fit
-        kwargs_init = dict() if kwargs_init is None else kwargs_init
-
         def op_apply(_, arr: pyct.NDArray) -> pyct.NDArray:
             return self.pinv(
                 arr,
                 damp=_._damp,
-                kwargs_init=copy.copy(kwargs_init),
-                kwargs_fit=copy.copy(kwargs_fit),
+                kwargs_init=_._kwargs_init,
+                kwargs_fit=_._kwargs_fit,
             )
 
         def op_adjoint(_, arr: pyct.NDArray) -> pyct.NDArray:
             return self.T.pinv(
                 arr,
                 damp=_._damp,
-                kwargs_init=copy.copy(kwargs_init),
-                kwargs_fit=copy.copy(kwargs_fit),
+                kwargs_init=_._kwargs_init,
+                kwargs_fit=_._kwargs_fit,
             )
+
+        kwargs_fit = dict() if kwargs_fit is None else kwargs_fit
+        kwargs_init = dict() if kwargs_init is None else kwargs_init
 
         dagger = from_source(
             cls=SquareOp if (self.dim == self.codim) else LinOp,
@@ -1675,6 +1683,8 @@ class LinOp(DiffMap):
             embed=dict(
                 _name="dagger",
                 _damp=damp,
+                _kwargs_init=copy.copy(kwargs_init),
+                _kwargs_fit=copy.copy(kwargs_fit),
             ),
             apply=op_apply,
             adjoint=op_adjoint,
@@ -1770,6 +1780,9 @@ class NormalOp(SquareOp):
         symmetric: bool,
         **kwargs,
     ) -> pyct.NDArray:
+        which = which.upper().strip()
+        assert which in {"SM", "LM"}
+
         def _dense_eval():
             if gpu:
                 import cupy as xp
@@ -1790,12 +1803,14 @@ class NormalOp(SquareOp):
             else:
                 spx = spsl
             op = self.to_sciop(pycrt.getPrecision().value, gpu)
-            kwargs.update(k=k, which=which, return_eigenvectors=False)
+            kwargs.update(
+                k=k,
+                which=which,
+                return_eigenvectors=False,
+            )
             f = getattr(spx, "eigsh" if symmetric else "eigs")
             return f(op, **kwargs)
 
-        if which not in ("LM", "SM"):
-            raise NotImplementedError
         if k >= self.dim // 2:
             msg = "Too many eigvals wanted: performing via matrix-based ops."
             warnings.warn(msg, pycw.DenseWarning)
@@ -1858,14 +1873,9 @@ class SelfAdjointOp(NormalOp):
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         return self.apply(arr)
 
-    def eigvals(
-        self,
-        k: pyct.Integer,
-        which: str = "LM",
-        gpu: bool = False,
-        **kwargs,
-    ) -> pyct.NDArray:
-        return self._eigvals(k, which, gpu, symmetric=True, **kwargs)
+    def eigvals(self, **kwargs) -> pyct.NDArray:
+        kwargs.update(symmetric=True)
+        return self._eigvals(**kwargs)
 
 
 class UnitOp(NormalOp):
@@ -1891,7 +1901,7 @@ class UnitOp(NormalOp):
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = self.adjoint(arr)
-        if not np.isclose(damp := kwargs.get("damp", 0), 0):
+        if (damp := kwargs.get("damp")) is not None:
             out = pycu.copy_if_unsafe(out)
             out /= 1 + damp
         return out
@@ -1906,9 +1916,11 @@ class UnitOp(NormalOp):
         return IdentityOp(dim=self.dim).squeeze()
 
     def svdvals(self, **kwargs) -> pyct.NDArray:
-        N = pycd.NDArrayInfo
-        xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
-        D = xp.ones(kwargs.pop("k"), dtype=pycrt.getPrecision().value)
+        gpu = kwargs.get("gpu", False)
+        xp = pycd.NDArrayInfo.from_flag(gpu).module()
+        width = pycrt.getPrecision()
+
+        D = xp.ones(kwargs["k"], dtype=width.value)
         return D
 
 
@@ -1959,7 +1971,7 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = self.apply(arr)
-        if not np.isclose(damp := kwargs.get("damp", 0), 0):
+        if (damp := kwargs.get("damp")) is not None:
             out = pycu.copy_if_unsafe(out)
             out /= 1 + damp
         return out
@@ -2050,18 +2062,17 @@ class LinFunc(ProxDiffFunc, LinOp):
         return HomothetyOp(cst=L**2, dim=1)
 
     def svdvals(self, **kwargs) -> pyct.NDArray:
-        N = pycd.NDArrayInfo
-        xp = {True: N.CUPY, False: N.NUMPY}[kwargs.pop("gpu", False)].module()
-        D = xp.array([self.lipschitz(xp=xp)], dtype=pycrt.getPrecision().value)
+        gpu = kwargs.get("gpu", False)
+        xp = pycd.NDArrayInfo.from_flag(gpu).module()
+        width = pycrt.getPrecision()
+
+        D = xp.array([self.lipschitz()], dtype=width.value)
         return D
 
-    def asarray(
-        self,
-        xp: pyct.ArrayModule = pycd.NDArrayInfo.NUMPY.module(),
-        dtype: pyct.DType = None,
-    ) -> pyct.NDArray:
-        if dtype is None:
-            dtype = pycrt.getPrecision().value
+    def asarray(self, **kwargs) -> pyct.NDArray:
+        xp = kwargs.get("xp", pycd.NDArrayInfo.default().module())
+        dtype = kwargs.get("dtype", pycrt.getPrecision().value)
+
         with pycrt.EnforcePrecision(False):
             x = xp.ones((1, 1), dtype=dtype)
             A = self.adjoint(x)
