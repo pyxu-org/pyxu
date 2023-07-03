@@ -152,7 +152,7 @@ class ULA(_Sampler):
     for all :math:`k \in \mathbb{Z}`, where :math:`\gamma` is the discretization step size and :math:`(\mathbf{Z}_k)_{k
     \in \mathbb{Z}}` is a sequence of independant and identically distributed :math:`N`-dimensional standard Gaussian
     distributions. When :math:`\mathcal{F}` is differentiable with :math:`\beta`-Lipschitz continuous gradient and
-    :math:`0 < \gamma \leq \beta`, the ULA Markov chain converges (see [ULA]_) to a unique stationary distribution
+    :math:`\gamma \leq \frac{1}{\beta}`, the ULA Markov chain converges (see [ULA]_) to a unique stationary distribution
     :math:`p_\gamma` such that
 
     .. math::
@@ -394,8 +394,9 @@ class MYULA(ULA):
         p^\lambda(\mathbf{x}) \propto \exp(-\mathcal{F}(\mathbf{x})-\mathcal{G}^\lambda(\mathbf{x})),
 
     which introduces some additional bias on top of the bias of ULA related to the step size :math:`\gamma` (see `Notes`
-    of :py:class:`~pycsou.sampler.sampler.ULA` documentation). Hence, the stationary distribution of MYULA is a
-    distribution :math:`p^\lambda_\gamma(\mathbf{x})`, which satisfies
+    of :py:class:`~pycsou.sampler.sampler.ULA` documentation). MYULA is guaranteed to converges when :math:`\gamma \leq
+    \frac{1}{\beta + \frac{1}{\lambda}}`, in which case it converges toward the stationary distribution
+    :math:`p^\lambda_\gamma(\mathbf{x})` that satisfies
 
     .. math::
         \lim_{\gamma, \lambda \to 0} \Vert p^\lambda_\gamma - p \Vert_{\mathrm{TV}} = 0
