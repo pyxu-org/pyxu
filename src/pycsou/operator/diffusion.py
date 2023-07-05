@@ -1,4 +1,6 @@
+import collections.abc as cabc
 import functools
+import typing as typ
 import warnings
 
 import numpy as np
@@ -34,7 +36,7 @@ class _BalloonForce(pyca.Map):
         """
         self.arg_shape = arg_shape
         super().__init__(shape=(1, int(np.prod(arg_shape))))
-        self.grad = gradient
+        self.gradient = gradient
         if gradient is not None:
             msg = "`gradient.arg_shape`={} inconsistent with `arg_shape`={}.".format(gradient.arg_shape, arg_shape)
             assert gradient.arg_shape == arg_shape, msg
@@ -85,7 +87,7 @@ class Dilation(_BalloonForce):
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        grad_arr = self.grad.unravel(self.grad(arr))
+        grad_arr = self.gradient.unravel(self.gradient(arr))
         return xp.linalg.norm(grad_arr, axis=1, keepdims=True)
 
 
@@ -131,8 +133,37 @@ class Erosion(_BalloonForce):
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        grad_arr = self.grad.unravel(self.grad(arr))
+        grad_arr = self.gradient.unravel(self.gradient(arr))
         return -xp.linalg.norm(grad_arr, axis=1, keepdims=True)
+
+
+class MfiBalloonTerm(_BalloonForce):
+    def __init__(self, arg_shape: pyct.NDArrayShape, gradient: pyct.OpT = None, beta: pyct.Real = 1):
+        """
+
+        Parameters
+        ----------
+        arg_shape: tuple
+            Shape of the input array.
+        gradient: :py:class:`~pycsou.operator.linop.diff.Gradient`
+            Gradient operator. Defaults to `None`.
+        """
+        super().__init__(arg_shape=arg_shape, gradient=gradient)
+        self.beta = beta
+
+    @pycrt.enforce_precision(i="arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        y = self.gradient.unravel(self.gradient(arr))
+        y **= 2
+        y = xp.sum(y, axis=1, keepdims=False)
+        y = y.reshape(y.shape[0], -1)
+        z = xp.clip(arr, 1e-5, None)
+        z /= self.beta
+        z += 1
+        z **= -2
+        z /= 2 * self.beta
+        return y * z
 
 
 class _Diffusivity(pyca.Map):
@@ -2032,6 +2063,64 @@ class _DiffusionOp(pyca.ProxDiffFunc):
         pgd = pysol.PGD(f=self, g=None, show_progress=False, verbosity=100)
         pgd.fit(**dict(mode=pysolver.Mode.BLOCK, x0=arr, stop_crit=stop_crit, acceleration=False))
         return pgd.solution()
+
+
+class MfiDiffusionOp(_DiffusionOp):
+    def __init__(
+        self,
+        arg_shape: pyct.NDArrayShape,
+        sampling: typ.Union[pyct.Real, cabc.Sequence[pyct.Real, ...]] = 1,
+        beta: pyct.Real = 1,
+    ):
+        # super().__init__(arg_shape)
+        # need some sort of call to default-initialize gradients and so on, based also on kwargs. in super call to mother class? think.
+        # also, some sanitize kwargs for diffusion op specific parameters (beta etc)
+        if len(sampling) == 1:
+            sampling = sampling * len(arg_shape)
+        # h_true = (0.0125, 0.012775)
+        gradient = pydiff.Gradient(
+            arg_shape=arg_shape, diff_method="fd", scheme="forward", mode="symmetric", sampling=sampling
+        )
+        mfi_diffusion_coeff = DiffusionCoeffIsotropic(
+            arg_shape=arg_shape, diffusivity=MfiDiffusivity(arg_shape=arg_shape, beta=beta)
+        )
+        mfi_balloon_term = MfiBalloonTerm(arg_shape=arg_shape, gradient=gradient, beta=beta)
+        super().__init__(
+            arg_shape, gradient=gradient, diffusion_coefficient=mfi_diffusion_coeff, balloon_force=mfi_balloon_term
+        )
+        self._diff_lipschitz = gradient.lipschitz() ** 2
+        # self.mfi_linear = DivergenceDiffusionOp(arg_shape, gradient=self.gradient, diffusion_coefficient=MfiDiffusionCoeff)
+        # grad: extra term is actually -1/beta*[1/((1+arr/beta)^2)]*(grad(arr)**2)
+
+    # @pycrt.enforce_precision(i="arr")
+    # @pycu.vectorize("arr")
+    # def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+    #    # it is basically divergence term plus balloon force... implement it that way, enforcing correct Lipschitz constant (if any) in the balloon term
+    #    grad_mfi_linear = self.mfi_linear.grad(arr)
+    #    grad_arr = self.gradient(arr)**2
+    #    mfi_diff = self.mfi_diffusivity(arr)
+    #    return
+
+    @pycrt.enforce_precision(i="arr")
+    @pycu.vectorize("arr")
+    def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
+        xp = pycu.get_array_module(arr)
+        arr = arr.reshape(self.nchannels, -1)
+        y = xp.zeros(arr.shape, dtype=arr.dtype)
+        # compute divergence term
+        y += self._compute_divergence_term(arr)
+        # compute balloon force term
+        y += self._compute_balloon_term(arr)
+        return y
+
+    @pycrt.enforce_precision(i="arr")
+    @pycu.vectorize("arr")
+    def apply(self, arr: pyct.NDArray) -> pyct.Real:
+        xp = pycu.get_array_module(arr)
+        # mfi_linear_grad = self.mfi_linear.grad(arr)
+        # out = xp.dot(arr, mfi_linear_grad)
+        y = self._compute_divergence_term(arr)
+        return xp.dot(arr, y) / 2
 
 
 class DivergenceDiffusionOp(_DiffusionOp):
