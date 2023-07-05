@@ -2,7 +2,134 @@ r"""
 This module implements Bayesian methods to estimate regularization parameters in inverse problems. Setting such
 parameters if often a challenge in practice; this module aims to provide principled ways of setting them automatically.
 
-In the following example, we showcase one such algorithm :py:class:`~pycsou.opt.solver.reg_param_est.RegParamMLE` that
+**Example 1**
+
+In this first example, we showcase the hierarchical Bayesian method
+:py:class:`~pycsou.opt.solver.reg_param_est.RegParamMAP` that estimates regularization parameters via
+maximum-a-posteriori estimation. We consider a denoising problem :math:`\mathbf{y}=\mathbf{x}_{\mathrm{GT}}+\mathbf{n}`
+where :math:`\mathbf{y}` is the measured noisy image, :math:`\mathbf{x}_{\mathrm{GT}}` is the ground-truth image, and
+:math:`\mathbf{n}` is additive i.i.d Gaussian noise with variance :math:`\sigma^2`. In Bayesian frameworks, one must
+typically find the expression of the *posterior distribution* (conditional to :math:`\theta`), which, using Bayes’ rule,
+is given by
+
+.. math::
+    p(\mathbf{x}|\mathbf{y},\theta) \propto p(\mathbf{y}|\mathbf{x}, \theta) p(\mathbf{x} | \theta),
+
+where:
+
+* :math:`\theta > 0` is the regularization parameter to be estimated. In *hierarchical Bayesian methods*, this
+  parameter is modelled as a random variable defined via a hyper-prior distribution :math:`p(\theta)`.
+* :math:`p(\mathbf{y}|\mathbf{x},\theta)` is the *likelihood* of the image :math:`\mathbf{x}`, which in an
+  additive Gaussian noise model is given by :math:`p(\mathbf{y}|\mathbf{x},\theta) \propto \exp(- \frac{1}{2 \sigma^2}
+  ||\mathbf{x} -\mathbf{y}||_2^2)`.
+* :math:`p(\mathbf{x}|\theta)` is the *prior distribution*.
+
+In this example, we assume an *isotropic total-variation (TV) prior* given by the distribution
+
+.. math::
+        p(\mathbf{x} | \theta) \propto \exp \Big( - \theta \mathrm{TV}(\mathbf{x}) \Big),
+
+with :math:`\mathrm{TV}(\mathbf{x}) = || \nabla \mathbf{x} ||_{2, 1}` where :math:`|| \cdot ||_{2, 1}` is the mixed
+:math:`L_{2, 1}` norm :py:class:`~pycsou.operator.func.norm.L21Norm` and :math:`\nabla` is the
+:py:class:`~pycsou.operator.linop.diff.Gradient` operator. The posterior distribution is thus given by
+
+.. math::
+    p(\mathbf{x}|\mathbf{y},\boldsymbol{\theta}) \propto \exp \Big(-( \mathcal{F}(\mathbf{x}) + \theta \mathcal{H}
+    ( \mathcal{K}(\mathbf{x})) \Big),
+
+with:
+
+* :math:`\mathcal{F}(\mathbf{x}) = \frac{1}{2 \sigma^2} ||\mathbf{x} -\mathbf{y}||_2^2`
+* :math:`\mathcal{H}(\mathbf{x}) = || \mathbf{x} ||_{2,1}`
+* :math:`\mathcal{K}(\mathbf{x}) = \nabla \mathbf{x}`.
+
+We thus apply the :py:class:`~pycsou.opt.solver.reg_param_est.RegParamMAP` algorithm with the objective functional
+:math:`\mathcal{F}(\mathbf{x}) + \theta \mathcal{H}(\mathcal{K}(\mathbf{x}))` to estimate the regularization parameter
+:math:`\theta`, where the TV functional :math:`\mathrm{TV}(\mathbf{x}) = \mathcal{H}(\mathcal{K}(\mathbf{x}))` is
+1-homogeneous since :math:`\mathrm{TV}(\lambda \mathbf{x}) = \lambda \mathrm{TV}(\mathbf{x})`. We plot the evolution of
+the :math:`\theta` iterates throughout the algorithm to illustrate their convergence, as well as the denoised image
+:math:`\mathbf{x}`.
+
+.. code-block:: python3
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import skimage as skim
+
+    from pycsou.abc import Mode
+    import pycsou.operator as pycop
+    import pycsou.opt.solver as pycsol
+    import pycsou.opt.stop as pycstop
+    from pycsou.opt.solver.reg_param_est import RegParamMAP
+
+    plt.rcParams["text.usetex"] = True
+
+    gt = skim.data.shepp_logan_phantom()  # Ground-truth image
+    sh_im = gt.shape
+    N = np.prod(sh_im)
+
+    # Noisy data
+    rng = np.random.default_rng(seed=0)
+    sigma = 1e-1
+    y = gt.ravel() + sigma * rng.standard_normal(N)
+
+    f = 1 / 2 * pycop.SquaredL2Norm(dim=y.size).asloss(y.ravel()) / sigma ** 2
+
+    # Regularization
+    K = pycop.Gradient(arg_shape=sh_im)
+    K.lipschitz()
+    h = pycop.L21Norm(arg_shape=(2, *sh_im))
+
+    # MAP estimation parameters
+    x0 = y
+    theta0 = 1
+
+    # Inner-loop solver (Condat-Vu) parameters
+    rel_tol, max_iter, verb = 1e-4, 1e4, 1e2
+    kwargs_CV = dict(f=f, g=None, h=h, K=K, verbosity=verb)
+    stop_crit_CV = (pycstop.RelError(eps=rel_tol, var="x") & pycstop.RelError(eps=rel_tol, var="z")) |\
+                pycstop.MaxIter(max_iter)
+    fit_kwargs_CV = dict(x0=x0, stop_crit=stop_crit_CV)
+
+
+    map_est = RegParamMAP(g=h * K, reg_key="h", homo_fact=1, solver=pycsol.CV, kwargs_solver=kwargs_CV)
+    fit_kwargs = dict(mode=Mode.MANUAL, x0=x0, theta0=theta0, fit_kwargs_solver=fit_kwargs_CV)
+
+    map_est.fit(**fit_kwargs)
+
+    max_iter = int(1e1)
+    theta_list = np.zeros(max_iter)
+    it = 0
+    for data in map_est.steps(n=max_iter):
+        theta = data["theta"]
+        x_opt = data["x"]
+        theta_list[it] = theta
+        it += 1
+
+    theta_list = theta_list[:it]
+
+    im_opt = x_opt.reshape(sh_im)
+
+    fig, ax = plt.subplots()
+    ax.plot(theta_list)
+    ax.set_xlabel("Iterations")
+    ax.set_ylabel(r"$\theta$")
+
+    # Plot denoised image
+    fig, ax = plt.subplots(1, 2)
+    shw = ax[0].imshow(y.reshape(sh_im), vmin=0, vmax=1)
+    ax[0].set_title('Noisy image')
+    ax[0].axis('off')
+    ax[1].imshow(im_opt, vmin=0, vmax=1)
+    ax[1].set_title('Denoised image')
+    ax[1].axis('off')
+    cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+    fig.subplots_adjust(right=0.8)
+    fig.colorbar(shw, cax=cbar_ax)
+
+**Example 2**
+
+In the next example, we showcase another algorithm :py:class:`~pycsou.opt.solver.reg_param_est.RegParamMLE` that
 estimates regularization parameters via maximum likelihood estimation. We consider a deconvolution problem
 :math:`\mathbf{y}=\mathbf{H}\mathbf{x}_{\mathrm{GT}}+\mathbf{n}` where :math:`\mathbf{y}` is the blurry and noisy
 measured image, :math:`\mathbf{H}` (forward model) is a convolution operator with a Gaussian kernel,
@@ -57,8 +184,8 @@ In this simulated example, the true noise level and thus the true value :math:`\
 :math:`\theta_0` is known; we can observe that the algorithm is able to recover it accurately. We then compute the
 maximum-a-posteriori (MAP) reconstruction obtained with the estimated parameters :math:`\boldsymbol{\theta}`, i.e. the
 minimum of the objective functional :math:`\sum_{k=0}^{2} \theta_k\mathcal{G}_k(\mathbf{x})`. Although the theoretical
-values of :math:`\theta_1` and :math:`\theta_2` are unknown, we observe that their estimates seem reasonable since the MAP
-reconstructed image is visually satisfactory.
+values of :math:`\theta_1` and :math:`\theta_2` are unknown, we observe that their estimates seem reasonable since the
+MAP reconstructed image is visually satisfactory.
 
 .. code-block:: python3
 
@@ -190,6 +317,232 @@ import pycsou.sampler.sampler as pycs
 import pycsou.util.ptype as pyct
 
 
+class RegParamMAP(pyca.Solver):
+    r"""
+    Maximum-a-posteriori estimation algorithm that jointly recovers an estimate of the signal of interest and of the
+    regularization parameter [MAP_RegParam]_.
+
+    It can be used to solve problems of the form:
+
+    .. math::
+       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\; \theta \mathcal{G}(\mathbf{x})}
+       :label: eq:map
+
+    while estimating a suitable regularization :math:`\theta > 0` using a Bayesian inference method (see `Notes`
+    section).
+
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and
+      :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` are such that Eq. :math:numref:`eq:map` can
+      be solved with a suitable external solver.
+
+    * :math:`\mathcal{G}` is a :math:`{k}`-homogeneous functional, `i.e.`, :math:`\mathcal{G}(\lambda \mathbf{x}) =
+      \lambda^{k} \mathcal{G}(\mathbf{x}) \quad \forall \mathcal{x} \in \mathbb{R}^N, \forall \eta > 0`.
+
+    Notes
+    -----
+    This algorithm is a *hierarchical Bayesian method* for estimating regularization parameters. It models the
+    regularization parameter :math:`\theta` as a random variable whose prior distribution is the gamma distribution
+
+    .. math::
+        p(\theta) = \frac{\beta^\alpha}{\Gamma(\alpha)} \theta^{\alpha - 1} \exp(- \beta \theta)
+        \iota_{\mathbb{R}^+}(\theta)
+
+    with parameters :math:`\alpha, \beta > 0`, and the posterior distribution conditional to :math:`\theta` is given by
+
+    .. math::
+        p(\mathbf{x}|\mathbf{y},\theta)\propto\exp\Big(-(\mathcal{F}(\mathbf{x})+\theta\mathcal{G}(\mathbf{x})\Big)
+
+    The algorithm consists in maximizing the full posterior distribution :math:`p(\mathbf{x},\theta|\mathbf{y})` with
+    two different approaches:
+
+    * Computing the joint maximum-a-posteriori estimates
+
+      .. math::
+        \operatorname*{arg\,max}_{\mathbf{x}\in\mathbb{R}^N,\,\theta\in\mathbb{R}} \;p(\mathbf{x},\theta|\mathbf{y}),
+
+      which corresponds to ``theta_update_method="joint"``.
+    * Computing the marginalized maximum-a-posteriori estimate
+
+      .. math::
+        \operatorname*{arg\,max}_{\mathbf{x}\in\mathbb{R}^N} \int_{0}^{+ \infty} p(\mathbf{x},\theta|\mathbf{y})
+        \mathrm{d} \theta,
+      which corresponds to ``theta_update_method="marginalization"``.
+
+    In both approaches, the algorithm consists in alternately optimizing with respect to :math:`\mathbf{x}` and
+    :math:`\theta` via the following steps at iteration :math:`n`:
+
+    .. math::
+        &(1) \quad \mathbf{x}_n \in \operatorname*{arg\,min}_{\mathbf{x} \in \mathbb{R}^N} \;
+        \mathcal{F}(\mathbf{x}) \;\;+\;\;  \theta_{n-1} \mathcal{G}(\mathbf{x}) \\
+        &(2) \quad \theta_n = \begin{cases}
+                              \frac{N / k + \alpha - 1}{\mathcal{G}(\mathbf{x}_n) + \beta} \quad
+                              \text{for theta_update_method="joint"} \\
+                              \frac{N / k + \alpha}{\mathcal{G}(\mathbf{x}_n) + \beta} \quad
+                              \text{for theta_update_method="marginalization"} \\
+                              \end{cases}
+
+    Step (1) (the :math:`\mathbf{x}`-update) is performed using the inner-loop ``solver`` attribute instanciated with
+    the ``kwargs_solver`` keyword arguments, and can be computationally intensive.
+
+    Step (2) (the :math:`\theta`-update) is comparatively very cheap since it only involves a single evaluation of the
+    :math:`\mathcal{G}` functional.
+
+    **Remark 1:**
+
+    There are no known theoretical convergence guarantees for this algorithm, only empirical evidence. Hence, the output
+    may depend on the initialization parameters, in particular that of the regularization parameter :math:`\theta`.
+
+    **Remark 2:**
+
+    The ``reg_key`` argument specifies which functional within the ``kwargs_solver`` keyword arguments corresponds to
+    the regularization term. Note that this functional does not necessarily coincide with :math:`\mathcal{G}`, which
+    may be provided as a composition. For example, we may have :math:`\mathcal{G}(\mathbf{x}) = \mathcal{H}(\mathcal{K}
+    (\mathbf{x}))` where :math:`\mathcal{H}` is a functional and :math:`\mathcal{K}` a linear operator within a
+    :py:class:`~pycsou.opt.solver.pds.CP` solver, in which case we would have ``reg_key="h"``.
+
+    **Remark 3:**
+
+    In high-dimensional problems, both approaches ``theta_update_method="joint"`` and
+    ``theta_update_method="marginalization"`` yield similar results since :math:`N/k \gg 1`.
+
+    **Remark 4:**
+
+    The :math:`\alpha` and :math:`\beta` parameters have little impact on the output of the algorithm; the default
+    values should be suitable for most problems.
+
+    **Initialization parameters of the class:**
+
+    g: Func | None
+        Regularization functional :math:`\mathcal{G}`, instance of :py:class:`~pycsou.abc.operator.Func`.
+    reg_key: str
+        Key corresponding to the regularization functional in the initialization parameters of ``solver``. Note that
+        this functional does not necessarily coincide with :math:`\mathcal{G}`, which can be a composition
+        (see `Remark 2`).
+    solver: Solver
+        Inner-loop solver, instance of :py:class:`~pycsou.abc.solver.Solver`
+    kwargs_solver: dict
+        Dictionary of keyword arguments that are passed as initialization parameters to ``solver``.
+
+    **Parameterization of the ``fit()`` method:**
+
+    x0: NDArray
+        (..., N) initial point(s).
+    theta0: Real | NDArray
+        (..., 1) initial point(s) for the regularization parameter.
+    fit_kwargs_solver: dict
+        Dictionary of keyword arguments that are passed as initialization parameters to the ``solver.fit()`` method.
+    alpha: Real
+        Alpha parameter in the gamma distribution hyper-prior for the regularization parameter. Defaults to 1.
+    beta: Real
+        Beta parameter in the gamma distribution hyper-prior for the regularization parameter. Defaults to 1.
+    theta_update_method: str
+        Update method for the regularization parameter. Default to "joint".
+
+    """
+
+    def __init__(
+        self, g: pyca.Func, reg_key: str, homo_fact: pyct.Real, solver: type[pyca.Solver], kwargs_solver: dict, **kwargs
+    ):
+        kwargs.update(
+            log_var=kwargs.get("log_var", ("x", "theta")),
+        )
+        super().__init__(**kwargs)
+        self._g = g
+        self._reg_key = reg_key
+        self._homo_fact = homo_fact
+        self._solver = solver
+        self._kwargs_solver = kwargs_solver
+
+    @pycrt.enforce_precision(i="x0")
+    def m_init(
+        self,
+        x0: pyct.NDArray,
+        theta0: typ.Union[pyct.Real, pyct.NDArray],
+        fit_kwargs_solver,
+        alpha: pyct.Real = 1,
+        beta: pyct.Real = 1,
+        theta_update_method: str = "joint",
+    ):
+        mst = self._mstate  # shorthand
+        try:
+            assert theta0 > 0 and alpha > 0 and beta > 0
+            mst["theta"], mst["alpha"], mst["beta"] = theta0, alpha, beta
+        except Exception:
+            raise ValueError(f"theta, alpha, and beta must be positive, got {theta0}, {alpha}, and {beta}.")
+        try:
+            assert theta_update_method in ["joint", "marginalization"]
+            self._theta_update_method = theta_update_method
+        except Exception:
+            raise ValueError("Unsupported theta update method.")
+
+        mst["x"] = x0
+        mst["fit_kwargs_solver"] = fit_kwargs_solver.copy()
+        self._update_fit_kwargs_solver(dict(x=x0))
+        mst["kwargs_solver"] = self._kwargs_solver.copy()
+        self._instantiate_solver()
+
+    def m_step(self):
+        mst = self._mstate  # shorthand
+
+        # Solve problem over x
+        slv = mst["solver"]
+        slv.fit(**mst["fit_kwargs_solver"])
+        data, _ = slv.stats()
+        mst["x"] = data["x"]
+        self._update_fit_kwargs_solver(data)  # Warm start next iteration with result of current iteration
+        self._update_theta()  # Update regularization parameter
+        self._instantiate_solver()
+
+    def default_stop_crit(self) -> pyca.StoppingCriterion:
+        from pycsou.opt.stop import RelError
+
+        stop_crit_x = RelError(
+            eps=1e-4,
+            var="x",
+        )
+        stop_crit_theta = RelError(
+            eps=1e-4,
+            var="theta",
+        )
+        stop_crit = stop_crit_x | stop_crit_theta
+        return stop_crit
+
+    def objective_func(self) -> pyct.NDArray:
+        return self._mstate["solver"].objective_func()
+
+    def solution(self) -> pyct.NDArray:
+        """
+        Returns
+        -------
+        x: pyct.NDArray
+            (..., N) solution.
+        theta: pyct.NDArray
+            (..., 1) regularisation parameter.
+        """
+        data, _ = self.stats()
+        return data.get("x"), data.get("theta")
+
+    def _instantiate_solver(self):
+        mst = self._mstate  # shorthand
+        # Update regularisation
+        mst["kwargs_solver"][self._reg_key] = mst["theta"] * self._kwargs_solver.get(self._reg_key)
+        mst["solver"] = self._solver(**mst["kwargs_solver"])
+
+    def _update_fit_kwargs_solver(self, data):
+        mst = self._mstate  # shorthand
+        for k in data:
+            # TODO does this have a risk of breaking ?
+            mst["fit_kwargs_solver"][k + "0"] = data.get(k)  # Update starting point(s) of solver
+
+    def _update_theta(self):
+        mst = self._mstate  # shorthand
+        x = mst["x"]
+        if self._theta_update_method == "joint":
+            mst["theta"] = (x.shape[-1] / self._homo_fact + mst["alpha"] - 1) / (self._g(x) + mst["beta"])
+        elif self._theta_update_method == "marginalization":
+            mst["theta"] = (x.shape[-1] / self._homo_fact + mst["alpha"]) / (self._g(x) + mst["beta"])
+
+
 class RegParamMLE(pyca.Solver):
     r"""
     Maximum likelihood estimation (MLE) of regularization parameters.
@@ -226,7 +579,7 @@ class RegParamMLE(pyca.Solver):
 
     .. math::
         p(\mathbf{y},\mathbf{x}; \boldsymbol{\theta})) \propto p(\mathbf{x} | \mathbf{y} ; \boldsymbol{\theta})) \propto
-        \exp \Big( -\mathcal{F}(\mathbf{x}) - \sum_{k=0}^{K-1} \theta_k \mathcal{G}_k(\mathbf{x}) \Big).
+        \exp \left( -\mathcal{F}(\mathbf{x}) - \sum_{k=0}^{K-1} \theta_k \mathcal{G}_k(\mathbf{x}) \right).
 
     This algorithm iteratively updates :math:`\boldsymbol{\theta}` via projected gradient ascent on the log likelihood:
 
@@ -276,8 +629,8 @@ class RegParamMLE(pyca.Solver):
 
     As opposed to purely maximum-a-posteriori formulations, in this Bayesian framework, multiplicative constants of
     the objective functional are important, since they affect the sharpness of the posterior distribution
-    :math:`p(\mathbf{x} | \mathbf{y} ; \boldsymbol{\theta})) \propto \exp \Big( -\mathcal{F}(\mathbf{x}) -
-    \sum_{k=0}^{K-1} \theta_k \mathcal{G}_k(\mathbf{x}) \Big)` that is being sampled from. When :math:`\mathcal{F}` is
+    :math:`p(\mathbf{x} | \mathbf{y} ; \boldsymbol{\theta})) \propto \exp \left( -\mathcal{F}(\mathbf{x}) -
+    \sum_{k=0}^{K-1} \theta_k \mathcal{G}_k(\mathbf{x}) \right)` that is being sampled from. When :math:`\mathcal{F}` is
     zero, this is not an issue since multiplicative constants are absorbed in the :math:`\boldsymbol{\theta}`
     parameters. However, when :math:`\mathcal{F}` is non-zero, its multiplicative constant should be selected with care.
     For example, in the case of inverse problems :math:`\mathbf{y}=\mathbf{H}\mathbf{x}+\mathbf{n}` where
@@ -363,7 +716,7 @@ class RegParamMLE(pyca.Solver):
         g: typ.Union[pyca.DiffFunc, list[pyca.DiffFunc]],
         homo_factors: typ.Union[pyct.Real, typ.Iterable],
         f: pyca.DiffFunc = None,
-        **kwargs
+        **kwargs,
     ):
 
         kwargs.update(
@@ -377,7 +730,7 @@ class RegParamMLE(pyca.Solver):
         else:
             self._g = [g]
 
-        self._homo_factors = np.array(homo_factors)
+        self._homo_factors = np.atleast_1d(homo_factors)
         self._f = pyco.NullFunc(dim=g[0].dim) if (f is None) else f
 
     def m_init(

@@ -113,7 +113,7 @@ def plot_LoS_ax(LoS_params, ax, Lr=0.6, Lz=1.6, center=[0.3, 0.8]):
             p = LoS_params[i, 0]
             theta = LoS_params[i, 1]
             y = center[1] + p / np.sin(theta) - (r - center[0]) / np.tan(theta)
-            ax.plot(r, y, "r")
+            ax.plot(r, y, "r", alpha=0.2)
     ax.set_xlim([0, Lr])
     ax.set_ylim([0, Lz])
 
