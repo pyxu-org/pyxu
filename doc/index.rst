@@ -44,10 +44,10 @@ Pyxu
     <h3 style="margin-top: 0; font-weight: bold; text-align: left; ">Modular Computational Imaging in Python</h3>
     <p>
     <b> Pyxu </b> (pronounced [piksu], formerly known as Pycsou) is an open-source software framework for Python
-    allowing scientists at any level to quickly prototype/deploy <em> hardware accelerated and distributed </em> computational imaging pipelines at scale.
+    allowing scientists at any level to quickly prototype/deploy <em> hardware-accelerated and distributed </em> computational imaging pipelines at scale.
     <br>
     Thanks to its hardware-agnostic <b>microservice architecture </b> and its tight integration with the PyData ecosystem, 
-    Pyxu supports a wide range of imaging applications, scales and compute architectures.
+    Pyxu supports a wide range of imaging applications, scales, and compute architectures.
     </p>
     
     <div class="homepage-button-container">
@@ -241,12 +241,12 @@ Ecosystem
 =========
 
 Pyxu is part of, looks and feels like, and is highly interoperable with the wider scientific Python ecosystem. It is indeed built on a minimal set of foundational and robust scientific computing 
-librairies from the PyData stack. Pyxu supports notably multiple array backends --`NumPy <https://numpy.org/>`_, `Dask <https://www.dask.org/>`_, `Sparse <https://sparse.pydata.org/en/stable/>`_ and 
+libraries from the PyData stack. Pyxu notably supports multiple array backends --`NumPy <https://numpy.org/>`_, `Dask <https://www.dask.org/>`_, `Sparse <https://sparse.pydata.org/en/stable/>`_ and
 optionally `CuPy <https://cupy.dev/>`_ (for CUDA devices only), allowing users to choose array backends that work best for their application/computation.
 Aside from `SciPy <https://scipy.org/>`_ and  `Numba <https://numba.pydata.org/>`_ --which we use for scientific computing and `JIT-compiling <https://numba.readthedocs.io/en/stable/user/5minguide.html#how-does-numba-work>`_ respectively--
-these are Pyxu's **only** dependencies, making the software very easy to ship, install, deploy in production and sustain in the long-term. 
+these are Pyxu's **only** dependencies, making the software very easy to ship, install, deploy in production, and sustain in the long-term.
 
-Pyxus is also interoperable with (but does not depend on) the major deep learning frameworks `JAX <https://jax.readthedocs.io/en/latest/>`_ and `PyTorch <https://pytorch.org/>`_, 
+Pyxu is also interoperable with (but does not depend on) the major deep learning frameworks `JAX <https://jax.readthedocs.io/en/latest/>`_ and `PyTorch <https://pytorch.org/>`_,
 allowing users to benefit from the latest incursions of deep learning in the field of computational imaging (e.g., PnP methods, unrolled neural networks, deep generative priors). 
 Our wrappers can moreover leverage the autograd engine to auto-infer gradients or adjoints operations. 
 
@@ -523,7 +523,7 @@ but the repo itself is public and we welcome external contributions. We are comm
             :shadow: none
             :class-card: sd-border-0
 
-            .. image:: _static/EPFL_Unités_Center-for-imaging.svg
+            .. image:: _static/EPFL_Unités_Center-for-imaging.svg
                :width: 70%
                :align: center
     
