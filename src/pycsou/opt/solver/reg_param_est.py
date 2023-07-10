@@ -211,7 +211,7 @@ MAP reconstructed image is visually satisfactory.
     sigma_blur = 2
     filt = sp.ndimage._filters._gaussian_kernel1d(sigma=sigma_blur, order=0, radius=int(3*sigma_blur + 0.5))
     H = pycop.Stencil(kernel=(filt, filt),
-                      center=(filt.size//2 + 1, filt.size//2 + 1),
+                      center=(filt.size//2, filt.size//2),
                       arg_shape=sh_im)
 
     # Noisy data
@@ -345,12 +345,12 @@ class RegParamMAP(pyca.Solver):
 
     .. math::
         p(\theta) = \frac{\beta^\alpha}{\Gamma(\alpha)} \theta^{\alpha - 1} \exp(- \beta \theta)
-        \iota_{\mathbb{R}^+}(\theta)
+        \iota_{+}(\theta)
 
     with parameters :math:`\alpha, \beta > 0`, and the posterior distribution conditional to :math:`\theta` is given by
 
     .. math::
-        p(\mathbf{x}|\mathbf{y},\theta)\propto\exp\Big(-(\mathcal{F}(\mathbf{x})+\theta\mathcal{G}(\mathbf{x})\Big)
+        p(\mathbf{x}|\mathbf{y},\theta)\propto\exp\Big(-(\mathcal{F}(\mathbf{x})+\theta\mathcal{G}(\mathbf{x}))\Big)
 
     The algorithm consists in maximizing the full posterior distribution :math:`p(\mathbf{x},\theta|\mathbf{y})` with
     two different approaches:
