@@ -607,7 +607,7 @@ class PartialDerivative:
 
             .. math::
 
-               \mathbf{C}_{F} f [n] = \frac{f[n+1] - f[n-1]}{2h},
+               \mathbf{D}_{C} f [n] = \frac{f[n+1] - f[n-1]}{2h},
 
             whose kernel is :math:`d = \frac{1}{h}[-\frac12, 0, \frac12]` and center is (1, ).
 
@@ -644,7 +644,7 @@ class PartialDerivative:
 
         **Remark 1:**
 
-        The number of coeffiecients of the finite-difference kernel is chosen to guarantee the
+        The number of coefficients of the finite-difference kernel is chosen to guarantee the
         requested accuracy, but might be larger than requested accuracy.
         For example, if choosing `scheme='central'` with `accuracy=1`, it will create a kernel
         corresponding to `accuracy=2`, as it is the minimum accuracy possible for such scheme (see
