@@ -505,8 +505,8 @@ class PartialDerivative:
 
     @staticmethod
     def finite_difference(
-        order: cabc.Sequence[pyct.Integer, ...],
         arg_shape: pyct.NDArrayShape,
+        order: cabc.Sequence[pyct.Integer, ...],
         scheme: typ.Union[str, cabc.Sequence[str, ...]] = "forward",
         accuracy: typ.Union[pyct.Integer, cabc.Sequence[pyct.Integer, ...]] = 1,
         mode: ModeSpec = "constant",
