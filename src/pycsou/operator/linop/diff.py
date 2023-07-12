@@ -1443,7 +1443,7 @@ def Jacobian(
     else:
         op = grad
     op._name = "Jacobian"
-    return _make_unravelable(op, (n_channels, *arg_shape))
+    return _make_unravelable(op, (grad.codim // grad.dim, *arg_shape))
 
 
 def Divergence(
