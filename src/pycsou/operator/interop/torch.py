@@ -317,7 +317,7 @@ class _FromTorch(pycsrc._FromSource):
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape((-1,) + self._op.dim))
+        tensor = astensor(arr.reshape(-1, self.dim))
         func = self._torch["apply"]
         out = asarray(func(tensor)).reshape(arr.shape[:-1] + (-1,))
         return out
@@ -325,28 +325,28 @@ class _FromTorch(pycsrc._FromSource):
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape((-1,) + self._op.dim))
+        tensor = astensor(arr.reshape(-1, +self.dim))
         func = self._torch["grad"]
         return asarray(func(tensor)).reshape(arr.shape[:-1] + (-1,))
 
     @pycrt.enforce_precision(i="arr")
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape((-1,) + self._op.codim))
+        tensor = astensor(arr.reshape(-1, +self.codim))
         func = self._torch["adjoint"]
         return asarray(func(tensor)).reshape(arr.shape[:-1] + (-1,))
 
     @pycrt.enforce_precision(i=["arr", "tau"])
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape((-1,) + self._op.dim))
+        tensor = astensor(arr.reshape(-1, +self.dim))
         func = self._torch["prox"]
         return asarray(func(tensor, tau)).reshape(arr.shape[:-1] + (-1,))
 
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape((-1,) + self._op.codim))
+        tensor = astensor(arr.reshape(-1, +self.codim))
         func = self._torch["pinv"]
         damp = kwargs.get("damp", 0)
         out = func(tensor, damp)  # positional args only if auto-vectorized.
@@ -361,7 +361,7 @@ class _FromTorch(pycsrc._FromSource):
         except NotImplementedError:
             # ... and fallback to auto-inference if undefined.
             arr = self._coerce(arr)
-            primal = astensor(arr.reshape(self._op.dim))
+            primal = astensor(arr.reshape(self.dim))
             f = self._torch["apply"]
 
             def jf_apply(tan: TorchTensor) -> TorchTensor:
