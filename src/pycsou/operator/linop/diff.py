@@ -415,7 +415,7 @@ def _PartialDerivative(
     meta: typ.NamedTuple
         Partial derivative metadata describing:
 
-        * Diff_type
+        * Diff_method
         * Sampling
         * Scheme (for finite differences)
         * Accuracy (for finite differences)
@@ -1617,7 +1617,7 @@ def Divergence(
     )
     op = pyclr.Sum(arg_shape=(n_dir,) + arg_shape, axis=0) * pds
     op._name = "Divergence"
-    return _make_unravelable(op, arg_shape)
+    return _make_unravelable(op, arg_shape[1:])
 
 
 def Hessian(
@@ -1966,7 +1966,7 @@ def Laplacian(
     )
     op = pyclr.Sum(arg_shape=(ndims,) + arg_shape, axis=0) * pds
     op._name = "Laplacian"
-    return _make_unravelable(op, arg_shape)
+    return _make_unravelable(op, arg_shape[1:])
 
 
 def DirectionalDerivative(
