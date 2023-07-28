@@ -1005,10 +1005,10 @@ class StructureTensor(pyco.DiffMap):
             self.smooth = pyclb.IdentityOp(dim=np.prod(arg_shape).item())
 
     def unravel(self, arr):
-        return arr.reshape(-1, *arr.shape[:-1], *self.arg_shape).swapaxes(0, 1)
+        return arr.reshape(*arr.shape[:-1], -1, *self.arg_shape)
 
     def ravel(self, arr):
-        return arr.swapaxes(0, 1).reshape(*arr.shape[: -1 - len(self.arg_shape)], -1)
+        return arr.reshape(*arr.shape[: -1 - len(self.arg_shape)], -1)
 
     def apply(self, arr):
         xp = pycu.get_array_module(arr)
