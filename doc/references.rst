@@ -30,3 +30,4 @@ References
 .. [BSplineTV] Debarre, Thomas, Julien Fageot, Harshit Gupta, and Michael Unser. "B-spline-based exact discretization of continuous-domain inverse problems with generalized TV regularization." IEEE Transactions on Information Theory 65, no. 7 (2019): 4457-4470.
 .. [BSplineDeBoor] De Boor, Carl. "A Practical Guide to Splines." Vol. 27. New York: Springer-Verlag, 1978.
 .. [BSplineRepThm] Unser, Michael, Julien Fageot, and John Paul Ward. "Splines are universal solutions of linear inverse problems with generalized TV regularization." SIAM Review 59, no. 4 (2017): 769-793.
+.. [HessianSchatten] Lefkimmiatis, Stamatios, John Paul Ward, and Michael Unser. "Hessian Schatten-norm regularization for linear inverse problems." IEEE transactions on image processing 22, no. 5 (2013): 1873-1888.

@@ -30,6 +30,7 @@ discrete model.
     from pycsou.util.misc import star_like_sample
     import pycsou.operator as pycop
     import pycsou.opt.solver as pycsol
+    import pycsou.opt.stop as pycstop
     from pycsou.operator.func.norm import L21Norm
 
     # Generate 2D image
@@ -67,15 +68,19 @@ discrete model.
     # Regularization term to enforce periodicity of reconstruction
     g = bsp.BSplinePeriodicIndFunc(knots, degree, ndim=2)
 
-    # TV Regularization term
+    # TV regularization term
     K = bsp.BSplineGradientGrid(eval_grid=grid_rec, knots=knots, degrees=degree, ndim=2)
     K.lipschitz()
     h = L21Norm(arg_shape=(2, N, N))
     lamb = 2*1e-2  # Regularization parameter
 
+    # Stopping criterion
+    tol = 1e-4
+    stop_crit = pycstop.RelError(eps=tol, var="x") & pycstop.RelError(eps=tol, var="z")
+
     # Solve optimization problem
-    solver = pycsol.CV(f=f, h=lamb * h, K=K, verbosity=1000)
-    solver.fit(x0=np.zeros(f.dim))  # Solve problem
+    solver = pycsol.CV(f=f, g=g, h=lamb * h, K=K, verbosity=1000)
+    solver.fit(x0=y, stop_crit=stop_crit)  # Solve problem
     c_opt = solver.solution()  # Coefficients of reconstructed spline
     rec_op = bsp.BSplineSampling(grid_rec, knots, degree, ndim=2)  # Spline-coefficients-to-image operator
     image_rec = rec_op(c_opt).reshape(image.shape)  # Reconstructed image
@@ -89,8 +94,158 @@ discrete model.
     h_d = L21Norm(arg_shape=(2, N, N))
 
     # Solve optimization problem
-    solver_d = pycsol.CV(f=f_d, g=g, h=lamb * h_d, K=K_d, verbosity=1000)
-    solver_d.fit(x0=np.zeros(f_d.dim))  # Solve problem
+    solver_d = pycsol.CV(f=f_d, h=lamb * h_d, K=K_d, verbosity=1000)
+    solver_d.fit(x0=y, stop_crit=stop_crit)  # Solve problem
+    image_rec_d = solver_d.solution().reshape(image.shape)  # Reconstructed image
+    snr_d = 20 * np.log10(np.linalg.norm(image) / np.linalg.norm(image - image_rec_d))
+
+    # Plots
+    vmin, vmax = 0, 1
+
+    plt.figure()
+    plt.imshow(image, vmin=vmin, vmax=vmax)
+    plt.axis('off')
+    plt.colorbar()
+    plt.title('Original image')
+
+    plt.figure()
+    plt.imshow(y.reshape(image.shape), vmin=vmin, vmax=vmax)
+    plt.axis('off')
+    plt.colorbar()
+    plt.title('Noisy nonuniform data')
+
+    plt.figure()
+    plt.imshow(image_rec, vmin=vmin, vmax=vmax)
+    plt.axis('off')
+    plt.colorbar()
+    plt.title(f'Reconstructed image with continuous model (SNR = {snr:.2f} dB)')
+
+    plt.figure()
+    plt.imshow(image_rec_d, vmin=vmin, vmax=vmax)
+    plt.axis('off')
+    plt.colorbar()
+    plt.title(f'Reconstructed image with discrete model (SNR = {snr_d:.2f} dB)')
+
+Below is the same example with Hessian-Schatten regularization :math:`||\mathbf{H} \cdot||_{1, *} =
+\sum_{i=1}^N ||\mathbf{H}_i \cdot ||_{*}`, where :math:`\mathbf{H} = (\mathbf{H}_0, \ldots, \mathbf{H}_{N-1})` is the
+Hessian operator where :math:`\mathbf{H}_i` is the Hessian at the :math:`i`-th pixel and :math:`||\cdot ||_*` is the
+1-Schatten norm for matrices (or nuclear norm). This type of regularization was first introduced in [HessianSchatten]_.
+In the B-spline model, the continuous Hessian is evaluated exactly on the pixel grid, whereas it can only be
+approximated using finite differences in the discrete model.
+
+Notes:
+
+* This example is meant to demonstrate how to implement the Hessian-Schatten norm with Pyxu (the Schatten norm could be
+  generalized to the :math:`p \neq 1` cases with minimal effort). However, this is not be the best test case for
+  Hessian-Schatten regularization, as the best SNR is achieved with very low regularization. Hessian-Schatten
+  regularization tends to promote piewise-linear reconstructions with few linear regions. It also works well for images
+  with filament-like structures, whose Hessian have a sparse SVD decomposition (i.e., a single non-zero singular value
+  in 2D images).
+* The Condat-Vu algorithm converges very slowly in these examples; a stricter stopping criterion leads to
+  significantly better (and slower) reconstructions.
+
+.. code-block:: python3
+
+    import matplotlib.pyplot as plt
+    import scipy.interpolate as sci
+    import numpy as np
+    import pycsou.operator.linop.bspline as bsp
+    from pycsou.util.misc import star_like_sample
+    import pycsou.operator as pycop
+    import pycsou.opt.solver as pycsol
+    import pycsou.opt.stop as pycstop
+
+    class NuclearNorm(pyca.ProxFunc):
+
+        def __init__(self, arg_shape):
+            ndim = len(arg_shape)
+            dim = int(np.prod(arg_shape) * ndim * (ndim + 1) / 2)
+            super().__init__(shape=(1, dim))
+            self.ndim = ndim
+            self._arg_shape = arg_shape
+
+        def apply(self, arr):
+            return np.linalg.norm(self._reshape_to_mat(arr), ord="nuc", axis=(-2, -1))
+
+        def prox(self, arr, tau):
+            u, s, vh = np.linalg.svd(a=self._reshape_to_mat(arr), full_matrices=False, hermitian=True)
+            s_prox = np.fmax(0, np.fabs(s) - tau) * np.sign(s)  # Soft thresholding of singular values
+            out = (u * s_prox[..., None, :] @ vh).reshape((*arr.shape[:-1], np.prod(self._arg_shape), self.ndim, self.ndim))
+            return np.swapaxes(out[..., *np.triu_indices(self.ndim)], -1, -2).ravel()
+
+        def _reshape_to_mat(self, arr):
+            arr_mat = np.zeros((*arr.shape[:-1], np.prod(self._arg_shape), self.ndim, self.ndim))
+            arr = arr.reshape((*arr.shape[:-1], -1, np.prod(self._arg_shape)))
+            idx_i, idx_j = np.triu_indices(self.ndim)
+            for idx in range(int(self.ndim * (self.ndim - 1) / 2)):
+                i, j = idx_i[idx], idx_j[idx]
+                arr_mat[..., i, j] = arr[..., idx, :]
+                arr_mat[..., j, i] = arr[..., idx, :]
+            return arr_mat
+
+    # Generate 2D image
+    N = 128
+    grid_rec = np.arange(N)
+    image = star_like_sample(N, 8, 20, 3, 0.7)
+
+    # Interpolate image with B-splines (continuous-domain ground truth
+    degree = 3  # Cubic B-splines
+    spl = sci.RectBivariateSpline(grid_rec, grid_rec, image, kx=degree, ky=degree, s=0)
+    knots, _ = spl.get_knots()
+    c_im = spl.get_coeffs()  # Image B-spline coefficients
+
+    # Sampling locations
+    rng = np.random.default_rng(seed=0)  # For reproducibility
+    sigma_dev = (grid_rec[1] - grid_rec[0]) / 2  # Std of deviation from uniform grid
+    samp_dev_x = rng.standard_normal(len(grid_rec)) * sigma_dev  # Deviation from uniform grid in x
+    samp_dev_y = rng.standard_normal(len(grid_rec)) * sigma_dev  # Deviation from uniform grid in y
+    samp_dev_x[0], samp_dev_x[-1] = abs(samp_dev_x[0]), - abs(samp_dev_x[-1])  # Ensure that sampling is within the ROI
+    samp_dev_y[0], samp_dev_y[-1] = abs(samp_dev_y[0]), - abs(samp_dev_y[-1])  # Ensure that sampling is within the ROI
+    grid_samp_x, grid_samp_y = np.sort(grid_rec + samp_dev_x), np.sort(grid_rec + samp_dev_y)  # Sampling grid
+
+    # Nonuniform sampling operator
+    sampling_op = bsp.BSplineSampling([grid_samp_x, grid_samp_y], knots, degree, ndim=2)
+    # Measured data (nonuniform samples of the ground truth)
+    sigma_noise = 5*1e-2
+    y = sampling_op(c_im) + rng.standard_normal(sampling_op.codim) * sigma_noise
+
+    # Continuous-domain optimization problem formulation in B-spline basis
+
+    # Data fidelity term
+    f = 1 / 2 * pycop.SquaredL2Norm(dim=sampling_op.codim).asloss(y) * sampling_op
+    f.diff_lipschitz(tight=True, tol=1e-1)
+
+    # Regularization term to enforce periodicity of reconstruction
+    g = bsp.BSplinePeriodicIndFunc(knots, degree, ndim=2)
+
+    # Hessian-Schatten regularization term
+    K = bsp.BSplineHessianGrid(eval_grid=grid_rec, knots=knots, degrees=degree, ndim=2)
+    K.lipschitz()
+    h = NuclearNorm(arg_shape=(N, N))
+    lamb = 1e-8  # Regularization parameter
+
+    # Stopping criterion
+    tol = 1e-4
+    stop_crit = pycstop.RelError(eps=tol, var="x") & pycstop.RelError(eps=tol, var="z")
+
+    # Solve optimization problem
+    solver = pycsol.CV(f=f, g=g, h=lamb * h, K=K, verbosity=1000)
+    solver.fit(x0=y, stop_crit=stop_crit)  # Solve problem
+    c_opt = solver.solution()  # Coefficients of reconstructed spline
+    rec_op = bsp.BSplineSampling(grid_rec, knots, degree, ndim=2)  # Spline-coefficients-to-image operator
+    image_rec = rec_op(c_opt).reshape(image.shape)  # Reconstructed image
+    snr = 20 * np.log10(np.linalg.norm(image) / np.linalg.norm(image - image_rec))
+
+    # Discrete optimization problem formulation (without accounting for irregular sampling)
+    # All operators are discretized versions of the continuous ones
+    f_d = 1 / 2 * pycop.SquaredL2Norm(dim=sampling_op.codim).asloss(y)  # Forward model is identity
+    K_d = pycop.Hessian(image.shape)
+    K_d.lipschitz()
+    h_d = NuclearNorm(arg_shape=(N, N))
+
+    # Solve optimization problem
+    solver_d = pycsol.CV(f=f_d, h=lamb * h_d, K=K_d, verbosity=1000)
+    solver_d.fit(x0=y, stop_crit=stop_crit)  # Solve problem
     image_rec_d = solver_d.solution().reshape(image.shape)  # Reconstructed image
     snr_d = 20 * np.log10(np.linalg.norm(image) / np.linalg.norm(image - image_rec_d))
 
