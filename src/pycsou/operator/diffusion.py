@@ -35,7 +35,7 @@ class _BalloonForce(pyca.Map):
             Gradient operator. Defaults to `None`.
         """
         self.arg_shape = arg_shape
-        super().__init__(shape=(1, int(np.prod(arg_shape))))
+        super().__init__(shape=(int(np.prod(arg_shape)), int(np.prod(arg_shape))))
         self.gradient = gradient
         if gradient is not None:
             msg = "`gradient.arg_shape`={} inconsistent with `arg_shape`={}.".format(gradient.arg_shape, arg_shape)
@@ -2075,8 +2075,8 @@ class MfiDiffusionOp(_DiffusionOp):
         # super().__init__(arg_shape)
         # need some sort of call to default-initialize gradients and so on, based also on kwargs. in super call to mother class? think.
         # also, some sanitize kwargs for diffusion op specific parameters (beta etc)
-        if len(sampling) == 1:
-            sampling = sampling * len(arg_shape)
+        # if len(sampling) == 1:
+        #     sampling = sampling * len(arg_shape)
         # h_true = (0.0125, 0.012775)
         gradient = pydiff.Gradient(
             arg_shape=arg_shape, diff_method="fd", scheme="forward", mode="symmetric", sampling=sampling
