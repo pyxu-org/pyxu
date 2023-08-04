@@ -7,10 +7,10 @@ import numpy as np
 import pycsou.abc as pyca
 import pycsou.info.deps as pycd
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.warning as pycuw
 
 __all__ = [
     "IdentityOp",
@@ -251,7 +251,7 @@ def DiagonalOp(
             def op_apply(_, arr):
                 if (_._vec.dtype != arr.dtype) and _._enable_warnings:
                     msg = "Computation may not be performed at the requested precision."
-                    warnings.warn(msg, pycuw.PrecisionWarning)
+                    warnings.warn(msg, pycw.PrecisionWarning)
                 out = arr.copy()
                 out *= _._vec
                 return out
@@ -424,7 +424,7 @@ def _ExplicitLinOp(
         # out: (..., M) dense
         if (A.dtype != b.dtype) and warn:
             msg = "Computation may not be performed at the requested precision."
-            warnings.warn(msg, pycuw.PrecisionWarning)
+            warnings.warn(msg, pycw.PrecisionWarning)
 
         M, N = A.shape
         sh_out = (*b.shape[:-1], M)

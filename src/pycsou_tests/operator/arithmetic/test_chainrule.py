@@ -19,9 +19,9 @@ import scipy.linalg as splinalg
 import pycsou.abc as pyca
 import pycsou.info.deps as pycd
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.warning as pycuw
 import pycsou_tests.operator.conftest as conftest
 
 # It is expected for DenseWarning to be raised when creating some operators, or fallback matrix ops.
@@ -74,7 +74,7 @@ def op_quadraticfunc(dim: int = 7):
     from pycsou_tests.operator.examples.test_linfunc import ScaledSum
 
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", pycuw.DenseWarning)
+        warnings.simplefilter("ignore", pycw.DenseWarning)
         return pyca.QuadraticFunc(
             shape=(1, dim),
             Q=HomothetyOp(dim=dim, cst=3),

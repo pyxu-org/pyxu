@@ -5,11 +5,11 @@ import numpy as np
 import pytest
 
 import pycsou.info.deps as pycd
+import pycsou.info.warning as pycw
 import pycsou.operator as pycop
 import pycsou.runtime as pycrt
 import pycsou.sampler.sampler as pycs
 import pycsou.util as pycu
-import pycsou.util.warning as pycuw
 import pycsou_tests.sampler.sampler.conftest as ct
 
 
@@ -57,7 +57,7 @@ class TestULA(ct.SamplerT):
                             "If the same test passes for non-CuPy inputs, then this warning can be safely ignored.",
                         ]
                     )
-                    warnings.warn(msg, pycuw.NonTransparentWarning)
+                    warnings.warn(msg, pycw.NonTransparentWarning)
                 else:
                     raise
 

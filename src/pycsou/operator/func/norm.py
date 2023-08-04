@@ -6,10 +6,10 @@ import scipy.optimize as sopt
 import pycsou.abc as pyca
 import pycsou.info.deps as pycd
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.math.linalg as pylinalg
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.warning as pycuw
 
 __all__ = [
     "L1Norm",
@@ -224,7 +224,7 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
                     "Consider using prox_algo='root' instead.",
                 ]
             )
-            warnings.warn(msg, pycuw.PerformanceWarning)
+            warnings.warn(msg, pycw.PerformanceWarning)
 
         vectorize = pycu.vectorize(
             # DASK backend required since prox_[root|sort]() don't accept DASK inputs.

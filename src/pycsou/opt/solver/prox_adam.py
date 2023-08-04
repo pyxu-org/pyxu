@@ -3,12 +3,12 @@ import warnings
 
 import pycsou.abc as pyca
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.operator.func as pycof
 import pycsou.operator.linop as pycl
 import pycsou.opt.solver as pycos
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.warning as pycuw
 
 __all__ = [
     "ProxAdam",
@@ -246,7 +246,7 @@ class ProxAdam(pyca.Solver):
                         r"Choosing a manually may lead to faster convergence.",
                     ]
                 )
-                warnings.warn(msg, pycuw.AutoInferenceWarning)
+                warnings.warn(msg, pycw.AutoInferenceWarning)
         else:
             try:
                 assert a > 0

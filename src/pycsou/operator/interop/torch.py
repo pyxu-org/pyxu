@@ -14,9 +14,9 @@ import packaging.version as pkgv
 import pycsou.abc.operator as pyco
 import pycsou.info.deps as pycd
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
-import pycsou.util.warning as pycuw
 from pycsou.util.inspect import import_module
 
 torch = import_module("torch", fail_on_error=False)
@@ -314,7 +314,7 @@ class _FromTorch(pycsrc._FromSource):
         if self._dtype is not None and (arr.dtype != self._dtype):
             if self._enable_warnings:
                 msg = f"Precision mis-match! Input array was coerced to {self._dtype} precision automatically."
-                warnings.warn(msg, pycuw.PrecisionWarning)
+                warnings.warn(msg, pycw.PrecisionWarning)
             arr = arr.astype(self._dtype, copy=False)
         return arr
 

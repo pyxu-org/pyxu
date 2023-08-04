@@ -7,10 +7,10 @@ import packaging.version as pkgv
 import pycsou.abc.operator as pyco
 import pycsou.info.deps as pycd
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.warning as pycuw
 
 jax = pycu.import_module("jax", fail_on_error=False)
 if jax is None:
@@ -42,7 +42,7 @@ def _from_jax(
     #
     # [More info] https://github.com/google/jax/issues/1961#issuecomment-875773326
     if xp == pycd.NDArrayInfo.DASK.module():
-        raise pycuw.BackendWarning("DASK inputs are unsupported.")
+        raise pycw.BackendWarning("DASK inputs are unsupported.")
 
     y = xp.asarray(x)
     return y
@@ -59,12 +59,12 @@ def _to_jax(x: pyct.NDArray, enable_warnings: bool = True) -> JaxArray:
 
     ndi = N.from_obj(x)
     if ndi == N.DASK:
-        raise pycuw.BackendWarning("DASK inputs are unsupported.")
+        raise pycw.BackendWarning("DASK inputs are unsupported.")
 
     supported_dtype = set(w.value for w in W) | set(w.value for w in cW)
     if x.dtype not in supported_dtype:
         msg = "For safety reasons, _to_jax() only accepts pycsou.runtime.[_C]Width-supported dtypes."
-        raise pycuw.PrecisionWarning(msg)
+        raise pycw.PrecisionWarning(msg)
 
     xp = ndi.module()
     if ndi == N.NUMPY:
@@ -90,7 +90,7 @@ def _to_jax(x: pyct.NDArray, enable_warnings: bool = True) -> JaxArray:
                 "[More info] https://github.com/google/jax/issues/4486#issuecomment-735842976",
             ]
         )
-        warnings.warn(msg, pycuw.PrecisionWarning)
+        warnings.warn(msg, pycw.PrecisionWarning)
     return y
 
 

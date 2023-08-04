@@ -4,10 +4,10 @@ import warnings
 
 import pycsou.abc as pyca
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.warning as pycuw
 
 __all__ = [
     "PGD",
@@ -136,7 +136,7 @@ class PGD(pyca.Solver):
                         r"Choosing \tau manually may lead to faster convergence.",
                     ]
                 )
-                warnings.warn(msg, pycuw.AutoInferenceWarning)
+                warnings.warn(msg, pycw.AutoInferenceWarning)
         else:
             try:
                 assert tau > 0

@@ -5,10 +5,10 @@ import scipy.sparse.linalg as spsl
 import pycsou.abc.operator as pyco
 import pycsou.info.deps as pycd
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.warning as pycuw
 
 __all__ = [
     "from_sciop",
@@ -35,7 +35,7 @@ def from_sciop(cls: pyct.OpC, sp_op: spsl.LinearOperator) -> pyct.OpT:
     if sp_op.dtype not in [_.value for _ in pycrt.Width]:
         warnings.warn(
             "Computation may not be performed at the requested precision.",
-            pycuw.PrecisionWarning,
+            pycw.PrecisionWarning,
         )
 
     # [r]matmat only accepts 2D inputs -> reshape apply|adjoint inputs as needed.

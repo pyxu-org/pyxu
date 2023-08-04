@@ -13,11 +13,11 @@ import scipy.sparse.linalg as spsl
 import pycsou.abc as pyca
 import pycsou.info.deps as pycd
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.math.linalg as pylinalg
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.complex as pycuc
-import pycsou.util.warning as pycuw
 import pycsou_tests.conftest as ct
 from pycsou.abc.operator import _core_operators
 
@@ -259,7 +259,7 @@ class MapT(ct.DisableTestMixin):
                             "If the same test passes for non-CuPy inputs, then this warning can be safely ignored.",
                         ]
                     )
-                    warnings.warn(msg, pycuw.NonTransparentWarning)
+                    warnings.warn(msg, pycw.NonTransparentWarning)
                 else:
                     raise
 

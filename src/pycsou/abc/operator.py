@@ -12,9 +12,9 @@ import scipy.sparse.linalg as spsl
 
 import pycsou.info.deps as pycd
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.warning as pycuw
 
 
 class Property(enum.Enum):
@@ -1235,7 +1235,7 @@ class LinOp(DiffMap):
                 "It is advised to cross-check results with CPU-computed results.",
             ]
         )
-        warnings.warn(msg, pycuw.BackendWarning)
+        warnings.warn(msg, pycw.BackendWarning)
 
     # -----------------------------------------------------
 
@@ -1454,7 +1454,7 @@ class LinOp(DiffMap):
 
         if k >= min(self.shape) // 2:
             msg = "Too many svdvals wanted: using matrix-based ops."
-            warnings.warn(msg, pycuw.DenseWarning)
+            warnings.warn(msg, pycw.DenseWarning)
             D = _dense_eval()
         else:
             D = _sparse_eval()
@@ -1798,7 +1798,7 @@ class NormalOp(SquareOp):
             raise NotImplementedError
         if k >= self.dim // 2:
             msg = "Too many eigvals wanted: performing via matrix-based ops."
-            warnings.warn(msg, pycuw.DenseWarning)
+            warnings.warn(msg, pycw.DenseWarning)
             D = _dense_eval()
         else:
             D = _sparse_eval()

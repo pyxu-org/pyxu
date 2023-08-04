@@ -19,10 +19,10 @@ import scipy.spatial as spl
 import pycsou.abc as pyca
 import pycsou.info.deps as pycd
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.operator.linop.select as pycs
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.warning as pycuw
 from pycsou.util.operator import _array_ize, _dask_zip
 
 finufft = pycu.import_module("finufft", fail_on_error=False)
@@ -873,7 +873,7 @@ class NUFFT(pyca.LinOp):
         if (a_width := W(arr.dtype)) != x_width:
             if self._enable_warnings:
                 msg = f"NUFFT was configured to run with {x_width.value} inputs, but provided {a_width.value} inputs."
-                warnings.warn(msg, pycuw.PrecisionWarning)
+                warnings.warn(msg, pycw.PrecisionWarning)
             out = arr.astype(dtype=x_width.value)
         else:
             out = arr
@@ -2312,7 +2312,7 @@ class _NUFFT3_chunked(_NUFFT3):
                             f"See notes/examples provided in docstring of {NUFFT.type3.__qualname__}() for how to achieve this.",
                         ]
                     )
-                    warnings.warn(msg, pycuw.PerformanceWarning)
+                    warnings.warn(msg, pycw.PerformanceWarning)
             return reorder_spec, chunk_spec
 
         def _r2c(idx_spec):

@@ -9,9 +9,9 @@ import numpy as np
 import pycsou.abc as pyca
 import pycsou.info.deps as pycd
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.warning as pycuw
 from pycsou.operator.linop.pad import Pad
 from pycsou.operator.linop.select import Trim
 from pycsou.operator.linop.stencil._stencil import _Stencil
@@ -638,7 +638,7 @@ class Stencil(pyca.SquareOp):
         else:
             if self._enable_warnings:
                 msg = "Computation may not be performed at the requested precision."
-                warnings.warn(msg, pycuw.PrecisionWarning)
+                warnings.warn(msg, pycw.PrecisionWarning)
             out = arr.astype(dtype=self._dtype)
         return out
 

@@ -3,8 +3,8 @@ import warnings
 import pycsou.abc as pyca
 import pycsou.info.deps as pycd
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.util as pycu
-import pycsou.util.warning as pycuw
 
 __all__ = [
     "hutchpp",
@@ -83,7 +83,7 @@ def hutchpp(
         if m >= op.dim:
             if enable_warnings:
                 msg = "Number of queries >= dim(op): fallback to deterministic trace eval."
-                warnings.warn(msg, pycuw.DenseWarning)
+                warnings.warn(msg, pycw.DenseWarning)
             tr = 0
             for i in range(op.dim):
                 e = xp.zeros(op.dim, dtype=dtype)

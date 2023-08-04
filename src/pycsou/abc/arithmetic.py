@@ -11,9 +11,9 @@ import numpy as np
 import pycsou.abc.operator as pyco
 import pycsou.info.deps as pycd
 import pycsou.info.ptype as pyct
+import pycsou.info.warning as pycw
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.warning as pycuw
 
 
 class Rule:
@@ -1018,7 +1018,7 @@ class AddRule(Rule):
                     "    lhs.asloss(data) + rhs.asloss(data)",
                 ]
             )
-            warnings.warn(msg, pycuw.AutoInferenceWarning)
+            warnings.warn(msg, pycw.AutoInferenceWarning)
 
             if data is None:
                 op = self
