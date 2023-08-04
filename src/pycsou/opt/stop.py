@@ -6,8 +6,8 @@ import warnings
 import numpy as np
 
 import pycsou.abc as pyca
+import pycsou.info.ptype as pyct
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 
 __all__ = [
     "AbsError",

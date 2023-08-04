@@ -1,7 +1,7 @@
 import collections.abc as cabc
 
 import pycsou.info.deps as pycd
-import pycsou.util.ptype as pyct
+import pycsou.info.ptype as pyct
 
 __all__ = [
     "as_canonical_shape",

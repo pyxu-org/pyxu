@@ -4,8 +4,8 @@ import math
 import types
 import typing as typ
 
+import pycsou.info.ptype as pyct
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 
 
 class _OnlineStat:

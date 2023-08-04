@@ -7,9 +7,9 @@ import numpy as np
 import pytest
 
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 
 
 @pytest.fixture(params=pycd.supported_array_modules())

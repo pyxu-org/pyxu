@@ -92,10 +92,10 @@ import collections.abc as cabc
 import math
 
 import pycsou.abc as pyca
+import pycsou.info.ptype as pyct
 import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 
 
 class _Sampler:

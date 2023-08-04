@@ -3,9 +3,9 @@ import types
 import typing as typ
 
 import pycsou.abc.operator as pyco
+import pycsou.info.ptype as pyct
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 
 __all__ = [
     "from_source",

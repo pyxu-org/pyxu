@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from test_diff import DiffOpMixin, apply_gradient, apply_hessian
 
+import pycsou.info.ptype as pyct
 import pycsou.operator.linop.diff as pycld
-import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
 

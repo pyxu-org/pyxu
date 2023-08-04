@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
+import pycsou.info.ptype as pyct
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
 

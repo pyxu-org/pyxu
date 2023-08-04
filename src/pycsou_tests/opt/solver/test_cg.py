@@ -3,10 +3,10 @@ import itertools
 import numpy as np
 import pytest
 
+import pycsou.info.ptype as pyct
 import pycsou.opt.solver as pycos
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 import pycsou_tests.conftest as ct
 import pycsou_tests.opt.solver.conftest as conftest
 

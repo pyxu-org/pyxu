@@ -3,13 +3,13 @@ import itertools
 
 import pycsou.abc.operator as pyco
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.operator.linop.base as pyclb
 import pycsou.operator.linop.diff as pycld
 import pycsou.operator.linop.pad as pyclp
 import pycsou.operator.linop.stencil as pycls
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 
 try:
     import scipy.ndimage._filters as scif

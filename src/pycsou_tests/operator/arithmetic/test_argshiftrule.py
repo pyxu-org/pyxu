@@ -18,8 +18,8 @@ import pytest
 
 import pycsou.abc as pyca
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.runtime as pycrt
-import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 import pycsou_tests.operator.examples.test_diffmap as tc_diffmap
 import pycsou_tests.operator.examples.test_linfunc as tc_linfunc

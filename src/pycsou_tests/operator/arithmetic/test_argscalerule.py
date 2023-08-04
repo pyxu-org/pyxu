@@ -16,8 +16,8 @@ import pytest
 
 import pycsou.abc as pyca
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.runtime as pycrt
-import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
 op_scale_params = frozenset({-2.3, -1, 1, 2})

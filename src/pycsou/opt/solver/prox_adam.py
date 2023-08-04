@@ -2,12 +2,12 @@ import math
 import warnings
 
 import pycsou.abc as pyca
+import pycsou.info.ptype as pyct
 import pycsou.operator.func as pycof
 import pycsou.operator.linop as pycl
 import pycsou.opt.solver as pycos
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 
 __all__ = [

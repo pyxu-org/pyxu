@@ -5,11 +5,11 @@ import operator
 import numpy as np
 
 import pycsou.abc as pyca
+import pycsou.info.ptype as pyct
 import pycsou.math.linalg as pylinalg
 import pycsou.operator.func.norm as pycofn
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 
 __all__ = [
     "L1Ball",

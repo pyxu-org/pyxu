@@ -11,9 +11,9 @@ import numpy as np
 import scipy.sparse.linalg as spsl
 
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 
 

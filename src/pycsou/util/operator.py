@@ -7,9 +7,9 @@ import dask.graph_manipulation as dgm
 import numpy as np
 
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.util.array_module as pycua
 import pycsou.util.inspect as pycui
-import pycsou.util.ptype as pyct
 
 __all__ = [
     "infer_composition_shape",

@@ -5,11 +5,11 @@ import warnings
 
 import pycsou.abc as pyca
 import pycsou.abc.operator as pyco
+import pycsou.info.ptype as pyct
 import pycsou.operator.func as pycf
 import pycsou.operator.linop as pyclo
 import pycsou.opt.stop as pycos
 import pycsou.runtime as pycrt
-import pycsou.util.ptype as pyct
 
 __all__ = [
     *("CondatVu", "CV"),

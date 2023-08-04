@@ -1,7 +1,7 @@
 import pycsou.abc as pyca
+import pycsou.info.ptype as pyct
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 
 __all__ = [
     "backtracking_linesearch",

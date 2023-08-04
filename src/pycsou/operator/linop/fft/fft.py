@@ -4,9 +4,9 @@ import numpy as np
 
 import pycsou.abc as pyca
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 from pycsou.util.operator import _dask_zip
 
 __all__ = [

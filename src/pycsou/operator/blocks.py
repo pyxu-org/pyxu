@@ -8,9 +8,9 @@ import numpy as np
 
 import pycsou.abc.operator as pyco
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 
 __all__ = [
     "stack",

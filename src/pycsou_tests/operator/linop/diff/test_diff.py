@@ -5,9 +5,9 @@ import pytest
 import scipy.ndimage as scimage
 
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.operator.linop.diff as pycld
 import pycsou.runtime as pycrt
-import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 
 try:

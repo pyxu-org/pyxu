@@ -6,8 +6,8 @@ import numbers as nb
 
 import numpy as np
 
+import pycsou.info.ptype as pyct
 import pycsou.util.inspect as pycui
-import pycsou.util.ptype as pyct
 
 __all__ = [
     "Width",

@@ -4,8 +4,8 @@ import functools
 import dask
 
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.util.inspect as pycui
-import pycsou.util.ptype as pyct
 
 __all__ = [
     "compute",

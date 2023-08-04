@@ -6,10 +6,10 @@ import packaging.version as pkgv
 
 import pycsou.abc.operator as pyco
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 
 jax = pycu.import_module("jax", fail_on_error=False)

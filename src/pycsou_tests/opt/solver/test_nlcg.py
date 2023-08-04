@@ -3,8 +3,8 @@ import itertools
 import numpy as np
 import pytest
 
+import pycsou.info.ptype as pyct
 import pycsou.opt.solver as pycos
-import pycsou.util.ptype as pyct
 import pycsou_tests.opt.solver.conftest as conftest
 
 

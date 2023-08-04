@@ -1,4 +1,4 @@
-import pycsou.util.ptype as pyct
+import pycsou.info.ptype as pyct
 
 __all__ = [
     "shift_loss",

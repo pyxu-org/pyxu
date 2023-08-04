@@ -8,9 +8,9 @@ import numpy as np
 
 import pycsou.abc as pyca
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 from pycsou.operator.linop.pad import Pad
 from pycsou.operator.linop.select import Trim

@@ -6,9 +6,9 @@ import scipy.ndimage as scimage
 import skimage
 
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.operator.linop.filter as pycfilt
 import pycsou.runtime as pycrt
-import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 import pycsou_tests.operator.linop.diff.test_diff as pyctd
 

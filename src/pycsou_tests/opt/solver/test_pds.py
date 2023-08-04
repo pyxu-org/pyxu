@@ -7,10 +7,10 @@ import numpy as np
 import pytest
 
 import pycsou.abc.operator as pyco
+import pycsou.info.ptype as pyct
 import pycsou.operator as pycop
 import pycsou.operator.func as pycf
 import pycsou.opt.solver as pycos
-import pycsou.util.ptype as pyct
 import pycsou_tests.opt.solver.conftest as conftest
 
 

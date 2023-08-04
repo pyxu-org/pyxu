@@ -4,10 +4,10 @@ import typing as typ
 import numpy as np
 
 import pycsou.abc as pyca
+import pycsou.info.ptype as pyct
 import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 
 __all__ = [
     "SubSample",

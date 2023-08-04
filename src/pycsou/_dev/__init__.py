@@ -3,8 +3,8 @@ import typing as typ
 import numpy as np
 
 import pycsou.abc.operator as pyco
+import pycsou.info.ptype as pyct
 import pycsou.util as pycu
-import pycsou.util.ptype as pyct
 
 
 class SquaredL2Norm(pyco.DiffFunc):

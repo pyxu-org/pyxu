@@ -8,8 +8,8 @@ import string
 import numpy as np
 
 import pycsou.info.deps as pycd
+import pycsou.info.ptype as pyct
 import pycsou.runtime as pycrt
-import pycsou.util.ptype as pyct
 
 
 def _signature(params, returns) -> str:
