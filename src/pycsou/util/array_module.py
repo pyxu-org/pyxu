@@ -135,7 +135,7 @@ def redirect(
         name of the array-like variable in `f` to base dispatch on.
     kwargs: dict[str, callable]
 
-        key: array backend short-name as defined in :py:class:`~pycsou.util.deps.NDArrayInfo`.
+        key: array backend short-name as defined in :py:class:`~pycsou.info.deps.NDArrayInfo`.
 
         value: function/method to dispatch to.
 
