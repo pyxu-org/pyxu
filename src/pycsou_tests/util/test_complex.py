@@ -120,10 +120,10 @@ class TestViewAsComplex(ViewAs):
     def func(self) -> cabc.Callable:
         return pycu.view_as_complex
 
-    @pytest.fixture(params=[_.name for _ in pycrt._CWidth])
+    @pytest.fixture(params=[_.name for _ in pycrt.CWidth])
     def width_in_out(self, request):
         w_in = pycrt.Width[request.param]
-        w_out = pycrt._CWidth[request.param]
+        w_out = pycrt.CWidth[request.param]
         return w_in, w_out
 
     @pytest.fixture
@@ -132,7 +132,7 @@ class TestViewAsComplex(ViewAs):
         out = np.r_[0, 2, 4] + 1j * np.r_[1, 3, 5]
         return in_, out
 
-    @pytest.fixture(params=[_.value for _ in list(pycrt._CWidth)])
+    @pytest.fixture(params=[_.value for _ in list(pycrt.CWidth)])
     def no_op_dtype(self, request):
         return request.param
 
@@ -142,9 +142,9 @@ class TestViewAsReal(ViewAs):
     def func(self) -> cabc.Callable:
         return pycu.view_as_real
 
-    @pytest.fixture(params=[_.name for _ in pycrt._CWidth])
+    @pytest.fixture(params=[_.name for _ in pycrt.CWidth])
     def width_in_out(self, request):
-        w_in = pycrt._CWidth[request.param]
+        w_in = pycrt.CWidth[request.param]
         w_out = pycrt.Width[request.param]
         return w_in, w_out
 
@@ -173,8 +173,8 @@ class TestViewAsMat:
     def xp(self, request) -> pyct.ArrayModule:
         return request.param
 
-    @pytest.fixture(params=pycrt._CWidth)
-    def cwidth(self, request) -> pycrt._CWidth:
+    @pytest.fixture(params=pycrt.CWidth)
+    def cwidth(self, request) -> pycrt.CWidth:
         return request.param
 
     @pytest.fixture
@@ -208,7 +208,7 @@ class TestViewAsMat:
             real_input=real_input,
             real_output=real_output,
         )
-        in_prec = pycrt._CWidth(_input.dtype)
+        in_prec = pycrt.CWidth(_input.dtype)
         out_prec = pycrt.Width(out.dtype).complex
         assert in_prec == out_prec
 

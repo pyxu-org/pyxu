@@ -116,7 +116,7 @@ def view_as_real(x: pyct.NDArray) -> pyct.NDArray:
 
     try:
         c_dtype = x.dtype
-        c_width = pycrt._CWidth(c_dtype)
+        c_width = pycrt.CWidth(c_dtype)
         r_dtype = c_width.real.value
     except Exception:
         raise ValueError(f"Unsupported dtype {c_dtype}.")
@@ -135,7 +135,7 @@ def _is_real(x: pyct.NDArray) -> bool:
 
 def _is_complex(x: pyct.NDArray) -> bool:
     try:
-        return bool(pycrt._CWidth(x.dtype))
+        return bool(pycrt.CWidth(x.dtype))
     except Exception:
         return False
 
@@ -217,7 +217,7 @@ def view_as_real_mat(
 
     try:
         c_dtype = cmat.dtype
-        c_width = pycrt._CWidth(c_dtype)
+        c_width = pycrt.CWidth(c_dtype)
         r_dtype = c_width.real.value
     except Exception:
         raise ValueError(f"Unsupported dtype {c_dtype}.")

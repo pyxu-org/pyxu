@@ -29,15 +29,15 @@ class Width(enum.Enum):
         return float(eps)
 
     @property
-    def complex(self) -> "_CWidth":
+    def complex(self) -> "CWidth":
         """
         Returns precision-equivalent complex-valued type.
         """
-        return _CWidth[self.name]
+        return CWidth[self.name]
 
 
 @enum.unique
-class _CWidth(enum.Enum):
+class CWidth(enum.Enum):
     """
     Machine-dependent complex-valued floating-point types.
     """

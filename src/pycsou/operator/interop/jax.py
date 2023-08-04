@@ -55,7 +55,7 @@ def _to_jax(x: pyct.NDArray, enable_warnings: bool = True) -> JaxArray:
     #
     # [More info] https://github.com/google/jax/issues/4486#issuecomment-735842976
     N = pycd.NDArrayInfo  # shorthand
-    W, cW = pycrt.Width, pycrt._CWidth  # shorthand
+    W, cW = pycrt.Width, pycrt.CWidth  # shorthand
 
     ndi = N.from_obj(x)
     if ndi == N.DASK:
