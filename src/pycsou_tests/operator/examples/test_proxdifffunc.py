@@ -4,9 +4,9 @@ import numpy as np
 import pytest
 
 import pycsou.abc as pyca
+import pycsou.info.deps as pycd
 import pycsou.math.linalg as pylinalg
 import pycsou.runtime as pycrt
-import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 

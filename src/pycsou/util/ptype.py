@@ -9,7 +9,7 @@ import typing as typ
 
 import numpy.typing as npt
 
-import pycsou.util.deps as pycd
+import pycsou.info.deps as pycd
 
 if typ.TYPE_CHECKING:
     import pycsou.abc.operator as pyco

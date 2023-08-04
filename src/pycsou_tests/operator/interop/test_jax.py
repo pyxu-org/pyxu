@@ -17,9 +17,9 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
+import pycsou.info.deps as pycd
 import pycsou.operator.interop as pycio
 import pycsou.runtime as pycrt
-import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou_tests.operator.examples.test_difffunc as test_difffunc
 import pycsou_tests.operator.examples.test_diffmap as test_diffmap

@@ -4,11 +4,11 @@ import warnings
 import numpy as np
 import pytest
 
+import pycsou.info.deps as pycd
 import pycsou.operator as pycop
 import pycsou.runtime as pycrt
 import pycsou.sampler.sampler as pycs
 import pycsou.util as pycu
-import pycsou.util.deps as pycd
 import pycsou.util.warning as pycuw
 import pycsou_tests.sampler.sampler.conftest as ct
 

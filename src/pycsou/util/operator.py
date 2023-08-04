@@ -6,8 +6,8 @@ import dask
 import dask.graph_manipulation as dgm
 import numpy as np
 
+import pycsou.info.deps as pycd
 import pycsou.util.array_module as pycua
-import pycsou.util.deps as pycd
 import pycsou.util.inspect as pycui
 import pycsou.util.ptype as pyct
 

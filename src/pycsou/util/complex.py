@@ -1,5 +1,5 @@
+import pycsou.info.deps as pycd
 import pycsou.runtime as pycrt
-import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 
 __all__ = [

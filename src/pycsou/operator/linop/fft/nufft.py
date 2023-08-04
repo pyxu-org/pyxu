@@ -17,10 +17,10 @@ import scipy.optimize as sopt
 import scipy.spatial as spl
 
 import pycsou.abc as pyca
+import pycsou.info.deps as pycd
 import pycsou.operator.linop.select as pycs
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 from pycsou.util.operator import _array_ize, _dask_zip

@@ -12,9 +12,9 @@ import numpy as np
 import packaging.version as pkgv
 
 import pycsou.abc.operator as pyco
+import pycsou.info.deps as pycd
 import pycsou.operator.interop.source as pycsrc
 import pycsou.runtime as pycrt
-import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 from pycsou.util.inspect import import_module

@@ -3,9 +3,9 @@ import itertools
 import pytest
 import scipy.sparse.linalg as spsl
 
+import pycsou.info.deps as pycd
 import pycsou.operator.interop.sciop as isp
 import pycsou.runtime as pycrt
-import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou_tests.operator.conftest as conftest
 

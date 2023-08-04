@@ -1,8 +1,8 @@
 import warnings
 
 import pycsou.abc as pyca
+import pycsou.info.deps as pycd
 import pycsou.util as pycu
-import pycsou.util.deps as pycd
 import pycsou.util.ptype as pyct
 import pycsou.util.warning as pycuw
 

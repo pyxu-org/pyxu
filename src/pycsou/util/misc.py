@@ -1,6 +1,6 @@
 import collections.abc as cabc
 
-import pycsou.util.deps as pycd
+import pycsou.info.deps as pycd
 import pycsou.util.ptype as pyct
 
 __all__ = [

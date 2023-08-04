@@ -3,7 +3,7 @@ import functools
 
 import dask
 
-import pycsou.util.deps as pycd
+import pycsou.info.deps as pycd
 import pycsou.util.inspect as pycui
 import pycsou.util.ptype as pyct
 

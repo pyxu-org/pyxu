@@ -3,9 +3,9 @@ import itertools
 import numpy as np
 import pytest
 
+import pycsou.info.deps as pycd
 import pycsou.operator.func as pycof
 import pycsou.runtime as pycrt
-import pycsou.util.deps as pycd
 import pycsou_tests.operator.conftest as conftest
 
 
