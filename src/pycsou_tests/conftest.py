@@ -53,11 +53,8 @@ def isclose(
     # * round up value to 3 significant decimal digits.
     # N_mantissa = [10, 23, 52, 112] for [half, single, double, quad] respectively.
 
-    if (prec := atol.get(as_dtype)) is None:
-        # should occur for integer types only
-        prec = atol[pycrt.Width.DOUBLE.value]
-    cast = lambda x: pycu.compute(x)
-    eq = np.isclose(cast(a), cast(b), atol=prec)
+    prec = atol.get(as_dtype, pycrt.Width.DOUBLE.value)  # default only should occur for integer types
+    eq = np.isclose(pycu.compute(a), pycu.compute(b), atol=prec)
     return eq
 
 
