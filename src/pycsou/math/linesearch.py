@@ -41,7 +41,7 @@ def backtracking_linesearch(
         (..., N) gradient of `f` at initial search point(s).
 
         Specifying `gradient` when known is an optimization:
-        it will be autocomputed via ``f.grad(x)`` if unspecified.
+        it will be autocomputed via :py:meth:`~pycsou.abc.DiffFunc.grad` if unspecified.
     a0: pyct.Real
         Initial step size.
 
@@ -60,12 +60,8 @@ def backtracking_linesearch(
     assert 0 < r < 1
     assert 0 < c < 1
     if a0 is None:
-        try:
-            a0 = pycrt.coerce(1 / f.diff_lipschitz())
-            assert a0 > 0, "a0: cannot auto-set step size."
-        except ZeroDivisionError:
-            # f is linear -> line-search unbounded
-            raise ValueError("Line-search does not converge for linear functionals.")
+        a0 = pycrt.coerce(1 / f.diff_lipschitz)
+        assert a0 > 0, "a0: cannot auto-set step size."
     else:
         assert a0 > 0
 
