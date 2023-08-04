@@ -170,7 +170,7 @@ def apply_gradient(arr, arg_shape, gt_diffs, directions, diff_method, mode="cons
 
 def apply_hessian(arr, arg_shape, gt_diffs, directions, diff_method, mode="constant"):
     pd = []
-    for (ax1, ax2) in directions:
+    for ax1, ax2 in directions:
         if ax1 == ax2:
             out = apply_derivative(arr, arg_shape, ax1, gt_diffs, 2, mode)
         else:

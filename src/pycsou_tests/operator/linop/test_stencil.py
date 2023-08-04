@@ -166,7 +166,7 @@ class TestStencil(conftest.SquareOpT):
 
         # perform correlation via scipy.ndimage.correlate
         corr_out = corr_in.copy()
-        for (k, c) in zip(kernel, center):
+        for k, c in zip(kernel, center):
             origin = [cc - (n // 2) for (cc, n) in zip(c, k.shape)]
             corr_out = snd.correlate(
                 input=corr_out,

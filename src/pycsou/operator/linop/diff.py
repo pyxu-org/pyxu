@@ -990,7 +990,6 @@ class _StackDiffHelper:
         sampling: typ.Union[pyct.Real, cabc.Sequence[pyct.Real, ...]] = 1,
         parallel: bool = False,
     ) -> pyct.OpT:
-
         if isinstance(mode, str):
             mode = (mode,)
         if isinstance(mode, cabc.Sequence):

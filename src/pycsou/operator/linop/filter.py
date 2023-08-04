@@ -58,7 +58,6 @@ def _get_axes(axis, ndim):
 
 
 def _sanitize_inputs(arg_shape, dtype, gpu):
-
     ndim = len(arg_shape)
 
     if dtype is None:

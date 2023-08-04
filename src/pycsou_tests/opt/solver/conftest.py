@@ -230,7 +230,7 @@ class SolverT(ct.DisableTestMixin):
 
         rng = np.random.default_rng()
         data = dict()
-        for (log_var, cost_f) in cost_function.items():
+        for log_var, cost_f in cost_function.items():
             res = sopt.minimize(
                 fun=fun,
                 args=(cost_f,),

@@ -204,7 +204,7 @@ class _FromSource:  # See from_source() for a detailed description.
                     setattr(_op, name, types.MethodType(func, _op))
 
         # Embed extra attributes
-        for (name, attr) in self._embed.items():
+        for name, attr in self._embed.items():
             setattr(_op, name, attr)
 
         return _op

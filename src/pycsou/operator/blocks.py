@@ -602,7 +602,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         # block dimensions are compatible.
         row = collections.defaultdict(list)  # row_idx -> [block]
         col = collections.defaultdict(list)  # col_idx -> [block]
-        for (d, _i, _j) in zip(data, i, j):
+        for d, _i, _j in zip(data, i, j):
             row[_i].append(d)
             col[_j].append(d)
         msg = lambda dim, idx, dom: f"All sub-operators on {dim} {idx} must have same {dom} size."
@@ -619,7 +619,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         # ---------------------------------------------------------------------
         # create block
         block = dict()  # coarse_grid(int, int) -> pyct.OpT
-        for (d, _i, _j) in zip(data, i, j):
+        for d, _i, _j in zip(data, i, j):
             block[(_i, _j)] = d.squeeze()
         self._block = block
 

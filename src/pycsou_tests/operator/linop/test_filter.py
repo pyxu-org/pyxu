@@ -127,7 +127,6 @@ class TestGaussian(FilterMixin):
 
     @pytest.fixture
     def data_apply(self, _spec, mode) -> conftest.DataLike:
-
         arg_shape, sigma, order, truncate = _spec
         arr = self._random_array(arg_shape)
         out = scimage.gaussian_filter(arr, sigma=sigma, truncate=truncate, order=order, mode=mode)
@@ -171,7 +170,6 @@ class TestDoG(FilterMixin):
 
     @pytest.fixture
     def data_apply(self, _spec, mode) -> conftest.DataLike:
-
         arg_shape, low_sigma, high_sigma, low_truncate, high_truncate = _spec
         arr = self._random_array(arg_shape)
         out_low = scimage.gaussian_filter(arr, sigma=low_sigma, truncate=low_truncate, order=0, mode=mode)

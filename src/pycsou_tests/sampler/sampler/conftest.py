@@ -11,7 +11,6 @@ import pycsou_tests.conftest as ct
 
 
 class SamplerT(ct.DisableTestMixin):
-
     # Internal helpers --------------------------------------------------------
     @classmethod
     def _check_shape(

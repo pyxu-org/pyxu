@@ -225,6 +225,7 @@ class TestScaleRulePosDefOp_NegativeScale(ScaleRulePosDefOp, conftest.SelfAdjoin
 
 # END PosDefOp ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+
 # START ProjOp ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 class ScaleRuleProjOp(ScaleRuleMixin):
     @pytest.fixture
@@ -307,6 +308,7 @@ class TestScaleRuleProxFunc_NegativeScale(ScaleRuleProxFunc, conftest.FuncT):
 
 # END ProxFunc ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+
 # START ProxDiffFunc ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 class ScaleRuleProxDiffFunc(ScaleRuleMixin):
     @pytest.fixture(params=[None, 7])
@@ -327,6 +329,7 @@ class TestScaleRuleProxDiffFunc_NegativeScale(ScaleRuleProxDiffFunc, conftest.Di
 
 
 # END ProxDiffFunc ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 
 # START QuadraticFunc ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 class ScaleRuleQuadraticFunc(ScaleRuleMixin):

@@ -15,15 +15,17 @@ import pycsou_tests.operator.conftest as conftest
 class TestFFT(conftest.LinOpT):
     # Internal Helpers ----------------------------------------------------------------------------
     @staticmethod
-    def spec_data() -> list[
-        tuple[
-            pycd.NDArrayInfo,
-            pycrt.Width,
-            typ.Any,  # (arg_shape, axes), user-provided to FFT.__init__()
-            typ.Any,  # (arg_shape, axes), ground-truth it corresponds to. (Canonical form.)
-            dict,  # kwargs
+    def spec_data() -> (
+        list[
+            tuple[
+                pycd.NDArrayInfo,
+                pycrt.Width,
+                typ.Any,  # (arg_shape, axes), user-provided to FFT.__init__()
+                typ.Any,  # (arg_shape, axes), ground-truth it corresponds to. (Canonical form.)
+                dict,  # kwargs
+            ]
         ]
-    ]:
+    ):
         N = pycd.NDArrayInfo
         W = pycrt.Width
         data = []

@@ -208,6 +208,7 @@ class TestArgScaleRulePosDefOp_NegativeScale(ArgScaleRulePosDefOp, conftest.Self
 
 # END PosDefOp ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+
 # START ProjOp ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 class ArgScaleRuleProjOp(ArgScaleRuleMixin):
     @pytest.fixture

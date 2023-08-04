@@ -22,6 +22,7 @@ import pycsou_tests.operator.conftest as conftest
 # It is expected for DenseWarning to be raised when creating some operators, or fallback matrix ops.
 pytestmark = pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
 
+
 # A/B test operators ----------------------------------------------------------
 def op_linop(dim: int, codim_scale: int):
     import pycsou_tests.operator.examples.test_linop as tc
