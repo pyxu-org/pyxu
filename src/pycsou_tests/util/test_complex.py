@@ -200,7 +200,7 @@ class TestViewAsMat:
             real_input=real_input,
             real_output=real_output,
         )
-        assert type(out) == type(_input)
+        assert type(out) == type(_input)  # noqa: E721
 
     def test_prec_asmat(self, _input, real_input, real_output):
         out = pycu.view_as_real_mat(
