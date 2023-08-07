@@ -94,7 +94,7 @@ def hutchpp(
         else:
             rng = xp.random.default_rng(seed=seed)
             s = rng.standard_normal(size=(op.dim, (m + 2) // 4), dtype=dtype)
-            g = rng.integers(0, 2, size=(op.dim, (m - 2) // 2))
+            g = rng.integers(0, 2, size=(op.dim, (m - 2) // 2)) * 2 - 1
 
             data = op.apply(s.T).T
             kwargs = dict(mode="reduced")
