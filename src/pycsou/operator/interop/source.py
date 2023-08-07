@@ -252,7 +252,6 @@ class _FromSource:  # See from_source() for a detailed description.
             adjoint=dict(i="arr"),
             pinv=dict(i=("arr", "damp")),
             svdvals=dict(),
-            eigvals=dict(),
             trace=dict(),
         )
 

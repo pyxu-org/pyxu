@@ -52,12 +52,6 @@ class TestDiagonalOp(conftest.PosDefOpT):
             out=out,
         )
 
-    def test_math_eig(self, _op_eig, vec):
-        if np.any(pycu.compute(vec < 0)):
-            pytest.skip("disabled since operator is not positive-definite.")
-        else:
-            super().test_math_eig(_op_eig)
-
     def test_math_posdef(self, op, xp, width, vec):
         if np.any(pycu.compute(vec < 0)):
             pytest.skip("disabled since operator is not positive-definite.")

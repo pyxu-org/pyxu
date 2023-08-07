@@ -17,7 +17,6 @@ import pycsou.info.warning as pycw
 import pycsou.math.linalg as pylinalg
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
-import pycsou.util.complex as pycuc
 import pycsou_tests.conftest as ct
 from pycsou.abc.operator import _core_operators
 
@@ -1006,7 +1005,7 @@ class LinOpT(DiffMapT):
         # However, for 0-valued singular vectors, the relative error between converged solution and
         # GT is sometimes slightly higher than the relative tolerance set for FP32/FP64 to consider
         # them identical.
-        # We therefore assess [svd,eig]vals() outputs at FP32-precision only.
+        # We therefore assess svdvals() outputs at FP32-precision only.
         # This precision is enough to query an operator's spectrum for further diagnostics.
         assert cls._metric(xp.abs(out), xp.abs(gt), as_dtype=pycrt.Width.SINGLE.value)
 
@@ -1597,57 +1596,8 @@ class SquareOpT(LinOpT):
 class NormalOpT(SquareOpT):
     # Class Properties --------------------------------------------------------
     base = pyca.NormalOp
-    interface = frozenset(SquareOpT.interface | {"eigvals"})
-
-    # Internal Helpers --------------------------------------------------------
-    eigvals_unsupported_on_gpu = pytest.mark.parametrize(
-        "_gpu",
-        [
-            False,
-            pytest.param(
-                True,
-                marks=pytest.mark.xfail(
-                    True,
-                    reason="eigvals unsupported by CuPy.",
-                    strict=True,
-                ),
-            ),
-        ],
-    )
-
-    # Fixtures ----------------------------------------------------------------
-    @pytest.fixture
-    def _op_eig(self, op) -> np.ndarray:
-        # compute all eigenvalues, sorted in ascending magnitude order.
-        D = np.linalg.eigvals(op.asarray())
-        D = D[np.argsort(np.abs(D))]
-        return D
 
     # Tests -------------------------------------------------------------------
-    @pytest.mark.parametrize("k", [1, 2])
-    @pytest.mark.parametrize("which", ["SM", "LM"])
-    @eigvals_unsupported_on_gpu
-    def test_value1D_eigvals(self, op, xp, _gpu, _op_eig, k, which):
-        self._skip_if_disabled()
-        self._skip_unless_NUMPY_CUPY(xp, _gpu)
-        data = dict(k=k, which=which, gpu=_gpu)
-        self._check_value1D_vals(op.eigvals, data, _op_eig)
-
-    @eigvals_unsupported_on_gpu
-    def test_backend_eigvals(self, op, xp, _gpu):
-        self._skip_if_disabled()
-        self._skip_unless_NUMPY_CUPY(xp, _gpu)
-        self._check_backend_vals(op.eigvals, _gpu)
-
-    @eigvals_unsupported_on_gpu
-    def test_precCM_eigvals(self, op, xp, _gpu, width):
-        self._skip_if_disabled()
-        self._skip_unless_NUMPY_CUPY(xp, _gpu)
-        data = dict(in_=dict(k=1, gpu=_gpu))
-        self._check_precCM(op.eigvals, data, (width.complex,))  # <<===
-        # We use the complex-valued types since .eigvals() should return complex.
-        # (Exception: SelfAdjointOp)
-
     def test_math_normality(self, op, xp, width):
         # AA^{*} = A^{*}A
         self._skip_if_disabled()
@@ -1677,10 +1627,6 @@ class UnitOpT(NormalOpT):
         return D
 
     # Tests -------------------------------------------------------------------
-    def test_math_eig(self, _op_eig):
-        # |\lambda| == 1
-        assert np.allclose(np.abs(_op_eig), 1)
-
     def test_math_gram(self, op, xp, width):
         # op_g == I
         self._skip_if_disabled()
@@ -1709,38 +1655,7 @@ class SelfAdjointOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
     base = pyca.SelfAdjointOp
 
-    # Fixtures ----------------------------------------------------------------
-    @pytest.fixture
-    def _op_eig(self, op) -> np.ndarray:
-        # compute all eigenvalues, sorted in ascending order.
-        D = np.linalg.eigvalsh(op.asarray())
-        D = D[np.argsort(D)]
-        return D
-
     # Tests -------------------------------------------------------------------
-    def test_math_eig(self, _op_eig):
-        self._skip_if_disabled()
-        assert pycuc._is_real(_op_eig)
-
-    # local override of this fixture: back to standard _gpu rules
-    @pytest.mark.parametrize("k", [1, 2])
-    @LinOpT.coupled_gpu_which
-    def test_value1D_eigvals(self, op, xp, _gpu, _op_eig, k, which):
-        self._skip_if_disabled()
-        super().test_value1D_eigvals(op, xp, _gpu, _op_eig, k, which)
-
-    # local override of this fixture: back to standard _gpu rules
-    def test_backend_eigvals(self, op, xp, _gpu):
-        self._skip_if_disabled()
-        super().test_backend_eigvals(op, xp, _gpu)
-
-    def test_precCM_eigvals(self, op, xp, _gpu, width):
-        self._skip_if_disabled()
-        self._skip_unless_NUMPY_CUPY(xp, _gpu)
-        data = dict(in_=dict(k=1, gpu=_gpu))
-        self._check_precCM(op.eigvals, data, (width,))  # <<===
-        # We revert back to real-valued types since .eigvals() should return real.
-
     def test_math_selfadjoint(self, op, xp, width):
         # A = A^{*}
         self._skip_if_disabled()
@@ -1757,11 +1672,6 @@ class PosDefOpT(SelfAdjointOpT):
     base = pyca.PosDefOp
 
     # Tests -------------------------------------------------------------------
-    def test_math_eig(self, _op_eig):
-        self._skip_if_disabled()
-        assert pycuc._is_real(_op_eig)
-        assert np.all(_op_eig > 0)
-
     def test_math_posdef(self, op, xp, width):
         # <Ax,x> > 0
         self._skip_if_disabled()

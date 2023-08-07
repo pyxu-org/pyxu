@@ -41,12 +41,6 @@ class TestHomothetyOp(conftest.PosDefOpT):
             out=out,
         )
 
-    def test_math_eig(self, _op_eig, cst):
-        if cst < 0:
-            pytest.skip("disabled since operator is not positive-definite.")
-        else:
-            super().test_math_eig(_op_eig)
-
     def test_math_posdef(self, op, xp, width, cst):
         if cst < 0:
             pytest.skip("disabled since operator is not positive-definite.")

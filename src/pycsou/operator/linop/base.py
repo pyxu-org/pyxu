@@ -37,9 +37,6 @@ class IdentityOp(pyca.OrthProjOp):
     def svdvals(self, **kwargs) -> pyct.NDArray:
         return pyca.UnitOp.svdvals(self, **kwargs)
 
-    def eigvals(self, **kwargs) -> pyct.NDArray:
-        return pyca.UnitOp.svdvals(self, **kwargs)
-
     def asarray(self, **kwargs) -> pyct.NDArray:
         xp = kwargs.get("xp", pycd.NDArrayInfo.default().module())
         dtype = kwargs.get("dtype", pycrt.getPrecision().value)
@@ -174,11 +171,6 @@ def HomothetyOp(dim: pyct.Integer, cst: pyct.Real) -> pyct.OpT:
             )
             return D
 
-        def op_eigvals(_, **kwargs) -> pyct.NDArray:
-            D = _.svdvals(**kwargs)
-            D *= np.sign(_._cst)
-            return D
-
         @pycrt.enforce_precision(i="arr")
         def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
             out = arr.copy()
@@ -209,7 +201,6 @@ def HomothetyOp(dim: pyct.Integer, cst: pyct.Real) -> pyct.OpT:
             ),
             apply=op_apply,
             svdvals=op_svdvals,
-            eigvals=op_eigvals,
             pinv=op_pinv,
             gram=op_gram,
             cogram=op_gram,
@@ -289,19 +280,6 @@ def DiagonalOp(
                 D = D.astype(width.value, copy=False)
                 return D[:k] if (which == "SM") else D[-k:]
 
-            def op_eigvals(_, **kwargs):
-                gpu = kwargs.get("gpu", False)
-                xp = pycd.NDArrayInfo.from_flag(gpu).module()
-                width = pycrt.getPrecision()
-
-                k = kwargs["k"]
-                which = kwargs.get("which", "LM")
-
-                D = pycu.compute(_._vec)
-                D = D[xp.argsort(xp.abs(D))]
-                D = D.astype(width.value, copy=False)
-                return D[:k] if (which == "SM") else D[-k:]
-
             @pycrt.enforce_precision(i="arr")
             def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
                 damp = kwargs.get("damp", 0)
@@ -342,7 +320,6 @@ def DiagonalOp(
                 gram=op_gram,
                 cogram=op_gram,
                 svdvals=op_svdvals,
-                eigvals=op_eigvals,
                 pinv=op_pinv,
                 trace=op_trace,
             )

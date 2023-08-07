@@ -176,26 +176,6 @@ def kron(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
             )[-k:]
         return D_C
 
-    def op_eigvals(_, **kwargs) -> pyct.NDArray:
-        # (A \kron B).eigvals(k, which)
-        # = outer(
-        #     A.eigvals(k, which),
-        #     B.eigvals(k, which)
-        #   ).abs().[top|bottom](k)
-        if not _.has(pyco.Property.LINEAR_NORMAL):
-            raise NotImplementedError
-
-        D_A = _._A.eigvals(**kwargs)
-        D_B = _._B.eigvals(**kwargs)
-
-        xp = pycu.get_array_module(D_A)
-        D_C = xp.outer(D_A, D_B).reshape(-1)
-        D_C = D_C[xp.argsort(xp.abs(D_C))]
-
-        k = kwargs.get("k", 1)
-        which = kwargs.get("which", "LM")
-        return D_C[:k] if (which.upper() == "SM") else D_C[-k:]
-
     @pycrt.enforce_precision(i="arr")
     def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         damp = kwargs.get("damp", 0)
@@ -249,7 +229,6 @@ def kron(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
             gram=op_gram,
             cogram=op_cogram,
             svdvals=op_svdvals,
-            eigvals=op_eigvals,
             pinv=op_pinv,
             trace=op_trace,
             lipschitz=op_lipschitz,

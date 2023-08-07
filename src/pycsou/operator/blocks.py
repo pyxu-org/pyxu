@@ -264,21 +264,6 @@ def block_diag(
             D = xp.sort(xp.concatenate(parts, axis=0), axis=None)[-k:]
         return D
 
-    def op_eigvals(_, **kwargs) -> pyct.NDArray:
-        # op.eigvals(**kwargs) = [top|bottom-k]([op1.eigvals(**kwargs), ..., opN.eigvals(**kwargs)])
-        if not _.has(pyco.Property.LINEAR_NORMAL):
-            raise NotImplementedError
-
-        parts = [op.eigvals(**kwargs) for op in _._block.values()]
-        xp = pycu.get_array_module(parts[0])
-        D = xp.concatenate(parts, axis=0)
-        D = D[xp.argsort(xp.abs(D))]
-
-        k = kwargs.get("k", 1)
-        which = kwargs.get("which", "LM")
-        D = D[:k] if (which.upper() == "SM") else D[-k:]
-        return D
-
     @pycrt.enforce_precision(i="arr")
     def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         # op.pinv(y, damp) = concatenate([op1.pinv(y1, damp), ..., opN.pinv(yN, damp)], axis=-1)
@@ -329,7 +314,6 @@ def block_diag(
         parallel=kwargs.get("parallel", False),
     ).op()
     op.svdvals = types.MethodType(op_svdvals, op)
-    op.eigvals = types.MethodType(op_eigvals, op)
     op.pinv = types.MethodType(op_pinv, op)
     op.trace = types.MethodType(op_trace, op)
     op._expr = types.MethodType(op_expr, op)
@@ -896,10 +880,6 @@ class _COOBlock:  # See coo_block() for a detailed description.
 
     def svdvals(self, **kwargs) -> pyct.NDArray:
         D = self.__class__.svdvals(self, **kwargs)
-        return D
-
-    def eigvals(self, **kwargs) -> pyct.NDArray:
-        D = self.__class__.eigvals(self, **kwargs)
         return D
 
     @pycrt.enforce_precision(i="arr")
