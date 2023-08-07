@@ -442,10 +442,9 @@ class _FromJax(pycsrc._FromSource):
         out = _from_jax(j_out, xp=pycu.get_array_module(arr))
         return out
 
-    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+    def pinv(self, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
         j_arr = _to_jax(arr, enable_warnings=self._enable_warnings)
         func = self._jax["pinv"]
-        damp = kwargs.get("damp", 0)
         with jax.default_device(j_arr.device()):
             j_out = func(j_arr, damp)  # positional args only if auto-vectorized.
         out = _from_jax(j_out, xp=pycu.get_array_module(arr))

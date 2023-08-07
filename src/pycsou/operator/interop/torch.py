@@ -348,12 +348,11 @@ class _FromTorch(pycsrc._FromSource):
         func = self._torch["prox"]
         return asarray(func(tensor, tau)).reshape(arr.shape[:-1] + (-1,))
 
-    @pycrt.enforce_precision(i="arr")
-    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+    @pycrt.enforce_precision(i=("arr", "damp"))
+    def pinv(self, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
         arr = self._coerce(arr)
         tensor = astensor(arr.reshape(-1, +self.codim))
         func = self._torch["pinv"]
-        damp = kwargs.get("damp", 0)
         out = func(tensor, damp)  # positional args only if auto-vectorized.
         return asarray(out).reshape(arr.shape[:-1] + (-1,))
 

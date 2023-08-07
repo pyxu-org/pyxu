@@ -239,19 +239,15 @@ class FFT(pyca.LinOp):  # Inherits from LinOp instead of NormalOp since operator
             op_cg = HomothetyOp(dim=self.codim, cst=self.lipschitz() ** 2)
         return op_cg
 
-    @pycrt.enforce_precision(i="arr")
-    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+    @pycrt.enforce_precision(i=("arr", "damp"))
+    def pinv(self, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
         N = self.lipschitz() ** 2
-        damp = kwargs.get("damp", 0)
-
         out = self.adjoint(arr)
         out /= N + damp
         return out
 
-    def dagger(self, **kwargs) -> pyct.OpT:
+    def dagger(self, damp: pyct.Real, **kwargs) -> pyct.OpT:
         N = self.lipschitz() ** 2
-        damp = kwargs.get("damp", 0)
-
         op = self.T / (N + damp)
         return op
 

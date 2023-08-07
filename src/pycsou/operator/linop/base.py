@@ -43,14 +43,14 @@ class IdentityOp(pyca.OrthProjOp):
         A = xp.eye(N=self.dim, dtype=dtype)
         return A
 
-    @pycrt.enforce_precision(i="arr")
-    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+    @pycrt.enforce_precision(i=("arr", "damp"))
+    def pinv(self, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
         out = arr.copy()
-        out /= 1 + kwargs.get("damp", 0)
+        out /= 1 + damp
         return out
 
-    def dagger(self, **kwargs) -> pyct.OpT:
-        cst = 1 / (1 + kwargs.get("damp", 0))
+    def dagger(self, damp: pyct.Real, **kwargs) -> pyct.OpT:
+        cst = 1 / (1 + damp)
         op = HomothetyOp(cst=cst, dim=self.dim)
         return op
 
@@ -171,15 +171,15 @@ def HomothetyOp(dim: pyct.Integer, cst: pyct.Real) -> pyct.OpT:
             )
             return D
 
-        @pycrt.enforce_precision(i="arr")
-        def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+        @pycrt.enforce_precision(i=("arr", "damp"))
+        def op_pinv(_, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
             out = arr.copy()
-            scale = _._cst / (_._cst**2 + kwargs.get("damp", 0))
+            scale = _._cst / (_._cst**2 + damp)
             out *= scale
             return out
 
-        def op_dagger(_, **kwargs) -> pyct.OpT:
-            scale = _._cst / (_._cst**2 + kwargs.get("damp", 0))
+        def op_dagger(_, damp: pyct.Real, **kwargs) -> pyct.OpT:
+            scale = _._cst / (_._cst**2 + damp)
             op = HomothetyOp(cst=scale, dim=_.dim)
             return op
 
@@ -280,9 +280,8 @@ def DiagonalOp(
                 D = D.astype(width.value, copy=False)
                 return D[:k] if (which == "SM") else D[-k:]
 
-            @pycrt.enforce_precision(i="arr")
-            def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-                damp = kwargs.get("damp", 0)
+            @pycrt.enforce_precision(i=("arr", "damp"))
+            def op_pinv(_, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     scale = _._vec / (_._vec**2 + damp)
@@ -291,8 +290,7 @@ def DiagonalOp(
                 out *= scale
                 return out
 
-            def op_dagger(_, **kwargs) -> pyct.OpT:
-                damp = kwargs.get("damp", 0)
+            def op_dagger(_, damp: pyct.Real, **kwargs) -> pyct.OpT:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     scale = _._vec / (_._vec**2 + damp)

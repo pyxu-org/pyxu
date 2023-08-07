@@ -176,16 +176,15 @@ def kron(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
             )[-k:]
         return D_C
 
-    @pycrt.enforce_precision(i="arr")
-    def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-        damp = kwargs.get("damp", 0)
+    @pycrt.enforce_precision(i=("arr", "damp"))
+    def op_pinv(_, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
         if np.isclose(damp, 0):
             # (A \kron B).dagger() = A.dagger() \kron B.dagger()
-            op_d = kron(_._A.dagger(**kwargs), _._B.dagger(**kwargs))
+            op_d = kron(_._A.dagger(damp, **kwargs), _._B.dagger(damp, **kwargs))
             out = op_d.apply(arr)
         else:
             # default algorithm
-            out = _.__class__.pinv(_, arr, **kwargs)
+            out = _.__class__.pinv(_, arr, damp, **kwargs)
         return out
 
     @pycrt.enforce_precision()

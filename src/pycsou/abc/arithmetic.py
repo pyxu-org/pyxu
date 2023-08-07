@@ -51,9 +51,9 @@ class Rule:
         D = self.__class__.svdvals(self, **kwargs)
         return D
 
-    @pycrt.enforce_precision(i="arr")
-    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-        out = self.__class__.pinv(self, arr=arr, **kwargs)
+    @pycrt.enforce_precision(i=("arr", "damp"))
+    def pinv(self, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
+        out = self.__class__.pinv(self, arr=arr, damp=damp, **kwargs)
         return out
 
     @pycrt.enforce_precision()
@@ -224,10 +224,10 @@ class ScaleRule(Rule):
         D *= abs(self._cst)
         return D
 
-    @pycrt.enforce_precision(i="arr")
-    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-        scale = kwargs.get("damp", 0) / (self._cst**2)
-        out = pycu.copy_if_unsafe(self._op.pinv(arr, damp=scale))
+    @pycrt.enforce_precision(i=("arr", "damp"))
+    def pinv(self, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
+        scale = damp / (self._cst**2)
+        out = pycu.copy_if_unsafe(self._op.pinv(arr, damp=scale, **kwargs))
         out /= self._cst
         return out
 
@@ -437,10 +437,10 @@ class ArgScaleRule(Rule):
         D *= abs(self._cst)
         return D
 
-    @pycrt.enforce_precision(i="arr")
-    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-        scale = kwargs.get("damp", 0) / (self._cst**2)
-        out = pycu.copy_if_unsafe(self._op.pinv(arr, damp=scale))
+    @pycrt.enforce_precision(i=("arr", "damp"))
+    def pinv(self, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
+        scale = damp / (self._cst**2)
+        out = pycu.copy_if_unsafe(self._op.pinv(arr, damp=scale, **kwargs))
         out /= self._cst
         return out
 

@@ -328,7 +328,7 @@ class RangeSet(_IndicatorFunction):
         # Could not figure out why the CG line breaks down at times with multi-inputs.
         #
         # Temporary(/Permanent?) workaround: use @vectorize() to evaluate prox calls one at a time.
-        y = self._A.pinv(arr)
+        y = self._A.pinv(arr, damp=0)
         out = self._A.apply(y)
         return out
 
@@ -379,7 +379,7 @@ class AffineSet(_IndicatorFunction):
 
         # Some approximate solution to A x = b, i.e x0.
         # x0 must be a good estimate given assumptions on (A, b).
-        self._x0 = A.pinv(b)
+        self._x0 = A.pinv(b, damp=0)
         self._b = A.apply(self._x0)  # fuzz `b` slightly to avoid numerical issues in .apply()
         self._A = A
 

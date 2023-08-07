@@ -76,7 +76,7 @@ def from_source(
          def grad(self, arr: pyct.NDArray) -> pyct.NDArray
          def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray
          def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray
-         def pinv(self, arr: pyct.NDArray, damp: pyct.Real = 0, **kwargs) -> pyct.NDArray
+         def pinv(self, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray
 
       Moreover, the methods above MUST accept ``(..., M)``-shaped inputs for ``arr``.
       If this does not hold, consider populating `vectorize`.

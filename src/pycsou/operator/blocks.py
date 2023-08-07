@@ -264,8 +264,8 @@ def block_diag(
             D = xp.sort(xp.concatenate(parts, axis=0), axis=None)[-k:]
         return D
 
-    @pycrt.enforce_precision(i="arr")
-    def op_pinv(_, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+    @pycrt.enforce_precision(i=("arr", "damp"))
+    def op_pinv(_, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
         # op.pinv(y, damp) = concatenate([op1.pinv(y1, damp), ..., opN.pinv(yN, damp)], axis=-1)
         if not _.has(pyco.Property.LINEAR):
             raise NotImplementedError
@@ -273,7 +273,7 @@ def block_diag(
         parts = dict()
         for idx, op in _._block.items():
             offset = _._block_offset[idx][0]
-            p = op.pinv(arr[..., offset : offset + op.codim], **kwargs)
+            p = op.pinv(arr[..., offset : offset + op.codim], damp, **kwargs)
             parts[idx] = p
 
         xp = pycu.get_array_module(arr)
@@ -882,9 +882,9 @@ class _COOBlock:  # See coo_block() for a detailed description.
         D = self.__class__.svdvals(self, **kwargs)
         return D
 
-    @pycrt.enforce_precision(i="arr")
-    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
-        out = self.__class__.pinv(self, arr=arr, **kwargs)
+    @pycrt.enforce_precision(i=("arr", "damp"))
+    def pinv(self, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
+        out = self.__class__.pinv(self, arr=arr, damp=damp, **kwargs)
         return out
 
     def gram(self) -> pyct.OpT:

@@ -195,15 +195,14 @@ class SubSample(pyca.LinOp):
         CG = IdentityOp(dim=self.codim)
         return CG.squeeze()
 
-    @pycrt.enforce_precision(i="arr")
-    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+    @pycrt.enforce_precision(i=("arr", "damp"))
+    def pinv(self, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
         out = self.adjoint(arr)
-        if not np.isclose(damp := kwargs.get("damp", 0), 0):
-            out /= 1 + damp
+        out /= 1 + damp
         return out
 
-    def dagger(self, **kwargs) -> pyct.OpT:
-        op = self.T / (1 + kwargs.get("damp", 0))
+    def dagger(self, damp: pyct.Real, **kwargs) -> pyct.OpT:
+        op = self.T / (1 + damp)
         return op
 
 

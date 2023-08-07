@@ -1673,11 +1673,11 @@ class LinOp(DiffMap):
         op._expr = types.MethodType(op_expr, op)
         return op.asop(SelfAdjointOp).squeeze()
 
-    @pycrt.enforce_precision(i=("arr", "damp"), allow_None=True)
+    @pycrt.enforce_precision(i=("arr", "damp"))
     def pinv(
         self,
         arr: pyct.NDArray,
-        damp: pyct.Real = None,
+        damp: pyct.Real,
         kwargs_init=None,
         kwargs_fit=None,
     ) -> pyct.NDArray:
@@ -1689,7 +1689,7 @@ class LinOp(DiffMap):
         arr: pyct.NDArray
             (..., N) input points.
         damp: pyct.Real
-            Positive dampening factor regularizing the pseudo-inverse in case of ill-conditioning.
+            Positive dampening factor regularizing the pseudo-inverse.
         kwargs_init: cabc.Mapping
             Optional kwargs to be passed to :py:meth:`pycsou.opt.solver.cg.CG.__init__`.
         kwargs_fit: cabc.Mapping
@@ -1741,7 +1741,7 @@ class LinOp(DiffMap):
         kwargs_init = dict() if kwargs_init is None else kwargs_init
         kwargs_init.update(show_progress=kwargs_init.get("show_progress", False))
 
-        if damp is None:
+        if np.isclose(damp, 0):
             A = self.gram()
         else:
             A = self.gram() + HomothetyOp(cst=damp, dim=self.dim)
@@ -1759,7 +1759,7 @@ class LinOp(DiffMap):
 
     def dagger(
         self,
-        damp: pyct.Real = None,
+        damp: pyct.Real,
         kwargs_init=None,
         kwargs_fit=None,
     ) -> pyct.OpT:
@@ -1769,7 +1769,7 @@ class LinOp(DiffMap):
         Parameters
         ----------
         damp: pyct.Real
-            Positive dampening factor regularizing the pseudo-inverse in case of ill-conditioning.
+            Positive dampening factor regularizing the pseudo-inverse.
         kwargs_init: cabc.Mapping
             Optional kwargs to be passed to :py:meth:`pycsou.opt.solver.cg.CG.__init__`.
         kwargs_fit: cabc.Mapping
@@ -1935,16 +1935,16 @@ class UnitOp(NormalOp):
     def estimate_lipschitz(self, **kwargs) -> pyct.Real:
         return 1
 
-    @pycrt.enforce_precision(i="arr")
-    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+    @pycrt.enforce_precision(i=("arr", "damp"))
+    def pinv(self, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
         out = self.adjoint(arr)
-        if (damp := kwargs.get("damp")) is not None:
+        if not np.isclose(damp, 0):
             out = pycu.copy_if_unsafe(out)
             out /= 1 + damp
         return out
 
-    def dagger(self, **kwargs) -> pyct.OpT:
-        op = self.T / (1 + kwargs.get("damp", 0))
+    def dagger(self, damp: pyct.Real, **kwargs) -> pyct.OpT:
+        op = self.T / (1 + damp)
         return op
 
     def gram(self) -> pyct.OpT:
@@ -2004,16 +2004,16 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
     def cogram(self) -> pyct.OpT:
         return self.squeeze()
 
-    @pycrt.enforce_precision(i="arr")
-    def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
+    @pycrt.enforce_precision(i=("arr", "damp"))
+    def pinv(self, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
         out = self.apply(arr)
-        if (damp := kwargs.get("damp")) is not None:
+        if not np.isclose(damp, 0):
             out = pycu.copy_if_unsafe(out)
             out /= 1 + damp
         return out
 
-    def dagger(self, **kwargs) -> pyct.OpT:
-        op = self / (1 + kwargs.get("damp", 0))
+    def dagger(self, damp: pyct.Real, **kwargs) -> pyct.OpT:
+        op = self / (1 + damp)
         return op
 
 
