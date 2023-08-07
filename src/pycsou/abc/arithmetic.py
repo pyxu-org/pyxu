@@ -51,10 +51,6 @@ class Rule:
         D = self.__class__.svdvals(self, **kwargs)
         return D
 
-    def eigvals(self, **kwargs) -> pyct.NDArray:
-        D = self.__class__.eigvals(self, **kwargs)
-        return D
-
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         out = self.__class__.pinv(self, arr=arr, **kwargs)
@@ -99,7 +95,7 @@ class ScaleRule(Rule):
         |--------------------------|-------------|--------------------------------------------------------------------|
         | LINEAR_SQUARE            | yes         | op_new.trace() = op_old.trace() * \alpha                           |
         |--------------------------|-------------|--------------------------------------------------------------------|
-        | LINEAR_NORMAL            | yes         | op_new.eigvals() = op_old.eigvals() * \alpha                       |
+        | LINEAR_NORMAL            | yes         |                                                                    |
         |--------------------------|-------------|--------------------------------------------------------------------|
         | LINEAR_UNITARY           | \alpha = -1 |                                                                    |
         |--------------------------|-------------|--------------------------------------------------------------------|
@@ -228,11 +224,6 @@ class ScaleRule(Rule):
         D *= abs(self._cst)
         return D
 
-    def eigvals(self, **kwargs) -> pyct.NDArray:
-        D = pycu.copy_if_unsafe(self._op.eigvals(**kwargs))
-        D *= self._cst
-        return D
-
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
         scale = kwargs.get("damp", 0) / (self._cst**2)
@@ -297,7 +288,7 @@ class ArgScaleRule(Rule):
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | LINEAR_SQUARE            | yes         | op_new.trace() = op_old.trace() * \alpha                                    |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
-        | LINEAR_NORMAL            | yes         | op_new.eigvals() = op_old.eigvals() * \alpha                                |
+        | LINEAR_NORMAL            | yes         |                                                                             |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | LINEAR_UNITARY           | \alpha = -1 |                                                                             |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
@@ -444,11 +435,6 @@ class ArgScaleRule(Rule):
     def svdvals(self, **kwargs) -> pyct.NDArray:
         D = pycu.copy_if_unsafe(self._op.svdvals(**kwargs))
         D *= abs(self._cst)
-        return D
-
-    def eigvals(self, **kwargs) -> pyct.NDArray:
-        D = pycu.copy_if_unsafe(self._op.eigvals(**kwargs))
-        D *= self._cst
         return D
 
     @pycrt.enforce_precision(i="arr")
@@ -1421,9 +1407,6 @@ class TransposeRule(Rule):
 
     * LINEAR_SQUARE
         opT.trace() = op.trace()
-
-    * LINEAR_NORMAL
-        opT.eigvals() = op.eigvals().conj()
     """
 
     def __init__(self, op: pyct.OpT):
@@ -1520,10 +1503,6 @@ class TransposeRule(Rule):
     def trace(self, **kwargs) -> pyct.Real:
         tr = self._op.trace(**kwargs)
         return tr
-
-    def eigvals(self, **kwargs) -> pyct.NDArray:
-        D = self._op.eigvals(**kwargs)
-        return D.conj()
 
 
 # Helper Class/Functions ------------------------------------------------------

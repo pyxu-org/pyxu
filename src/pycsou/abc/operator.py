@@ -67,7 +67,6 @@ class Property(enum.Enum):
             ]
         )
         data[self.LINEAR_SQUARE].append("trace")
-        data[self.LINEAR_NORMAL].append("eigvals")
         data[self.QUADRATIC].append("_quad_spec")
 
         meth = frozenset(data[self])
@@ -1341,7 +1340,7 @@ class LinOp(DiffMap):
         msg = "\n".join(
             [
                 "Potential Error:",
-                "Sparse GPU-evaluation of svdvals/eigvals() is known to produce incorrect results. (CuPy-specific + Matrix-Dependant.)",
+                "Sparse GPU-evaluation of svdvals() is known to produce incorrect results. (CuPy-specific + Matrix-Dependant.)",
                 "It is advised to cross-check results with CPU-computed results.",
             ]
         )
@@ -1897,88 +1896,6 @@ class NormalOp(SquareOp):
         p.add(Property.LINEAR_NORMAL)
         return frozenset(p)
 
-    def _eigvals(
-        self,
-        k: pyct.Integer,
-        which: str,
-        gpu: bool,
-        symmetric: bool,
-        **kwargs,
-    ) -> pyct.NDArray:
-        which = which.upper().strip()
-        assert which in {"SM", "LM"}
-
-        def _dense_eval():
-            if gpu:
-                import cupy as xp
-                import cupy.linalg as spx
-            else:
-                import numpy as xp
-                import scipy.linalg as spx
-            op = self.asarray(xp=xp, dtype=pycrt.getPrecision().value)
-            f = getattr(spx, "eigvalsh" if symmetric else "eigvals")
-            return f(op)
-
-        def _sparse_eval():
-            if gpu:
-                assert pycd.CUPY_ENABLED
-                import cupyx.scipy.sparse.linalg as spx
-
-                self._warn_vals_sparse_gpu()
-            else:
-                spx = spsl
-            op = self.to_sciop(pycrt.getPrecision().value, gpu)
-            kwargs.update(
-                k=k,
-                which=which,
-                return_eigenvectors=False,
-            )
-            f = getattr(spx, "eigsh" if symmetric else "eigs")
-            return f(op, **kwargs)
-
-        if k >= self.dim // 2:
-            msg = "Too many eigvals wanted: performing via matrix-based ops."
-            warnings.warn(msg, pycw.DenseWarning)
-            D = _dense_eval()
-        else:
-            D = _sparse_eval()
-
-        # Filter to k largest/smallest magnitude + sorted
-        xp = pycu.get_array_module(D)
-        D = D[xp.argsort(xp.abs(D))]
-        return D[:k] if (which == "SM") else D[-k:]
-
-    def eigvals(
-        self,
-        k: pyct.Integer,
-        which: str = "LM",
-        gpu: bool = False,
-        **kwargs,
-    ) -> pyct.NDArray:
-        r"""
-        Find eigenvalues of a normal operator.
-
-        Parameters
-        ----------
-        k: pyct.Integer
-            Number of eigenvalues to compute.
-        which: LM | SM
-            Which `k` eigenvalues to find:
-
-                * `LM`: largest magnitude
-                * `SM`: smallest magnitude
-        gpu: bool
-            If ``True`` the eigenvalue decomposition is performed on the GPU.
-        kwargs: cabc.Mapping
-            Additional kwargs accepted by :py:func:`scipy.sparse.linalg.eigs`.
-
-        Returns
-        -------
-        D: pyct.NDArray
-            (k,) eigenvalues in ascending magnitude order.
-        """
-        return self._eigvals(k, which, gpu, symmetric=False, **kwargs)
-
     def cogram(self) -> pyct.OpT:
         return self.gram()
 
@@ -1997,10 +1914,6 @@ class SelfAdjointOp(NormalOp):
 
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         return self.apply(arr)
-
-    def eigvals(self, **kwargs) -> pyct.NDArray:
-        kwargs.update(symmetric=True)
-        return self._eigvals(**kwargs)
 
 
 class UnitOp(NormalOp):
