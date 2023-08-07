@@ -1,9 +1,11 @@
 import pycsou.abc as pyca
+import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
 
 __all__ = [
     "shift_loss",
+    "KLDivergence",
 ]
 
 
@@ -104,13 +106,17 @@ class KLDivergence(pyca.ProxFunc):
         super().__init__(shape=(1, dim))
         self.data = data
 
+    @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        z = xp.true_divide(self.data, arr, where=(arr > 0) * (self.data > 0))
-        z = xp.log(z, where=(arr > 0) * (self.data > 0))
-        z *= self.data
-        return xp.sum(z - self.data + arr)
+        out = xp.true_divide(self.data, arr, where=(arr > 0) * (self.data > 0), out=xp.zeros_like(arr))
+        out = xp.log(out, where=out > 0, out=xp.zeros_like(out))
+        out *= self.data
+        out -= self.data
+        out += arr
+        return xp.sum(out, axis=-1, keepdims=True)
 
+    @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         r"""
         Proximal operator of the KL-divergence functional (see [FuncSphere]_ Section 5 of Chapter 7).
