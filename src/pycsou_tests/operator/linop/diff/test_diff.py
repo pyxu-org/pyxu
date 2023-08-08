@@ -186,7 +186,7 @@ def apply_hessian(arr, arg_shape, gt_diffs, directions, diff_method, mode="const
     return np.stack(pd)
 
 
-@pytest.mark.filterwarnings("ignore::pycsou.util.warning.PrecisionWarning")
+@pytest.mark.filterwarnings("ignore::pycsou.info.warning.PrecisionWarning")
 @pytest.mark.filterwarnings("ignore::numba.core.errors.NumbaPerformanceWarning")
 class DiffOpMixin(conftest.LinOpT):
     @pytest.fixture(

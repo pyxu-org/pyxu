@@ -9,7 +9,7 @@ import pycsou_tests.opt.solver.conftest as conftest
 
 
 # We disable AutoInferenceWarning since we do not test convergence speed.
-@pytest.mark.filterwarnings("ignore::pycsou.util.warning.AutoInferenceWarning")
+@pytest.mark.filterwarnings("ignore::pycsou.info.warning.AutoInferenceWarning")
 class TestPGD(conftest.SolverT):
     @staticmethod
     def spec_data(N: int) -> list[tuple[pyct.SolverC, dict, dict]]:

@@ -221,7 +221,7 @@ class TestSquaredL2Norm(conftest.QuadraticFuncT):
 
 
 # We disable PerformanceWarnings due to prox_algo="sort" used on Dask inputs.
-@pytest.mark.filterwarnings("ignore::pycsou.util.warning.PerformanceWarning")
+@pytest.mark.filterwarnings("ignore::pycsou.info.warning.PerformanceWarning")
 class TestSquaredL1Norm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(

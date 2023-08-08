@@ -25,7 +25,7 @@ import pycsou.util as pycu
 import pycsou_tests.operator.conftest as conftest
 
 # It is expected for DenseWarning to be raised when creating some operators, or fallback matrix ops.
-pytestmark = pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
+pytestmark = pytest.mark.filterwarnings("ignore::pycsou.info.warning.DenseWarning")
 
 
 # LHS/RHS test operators ------------------------------------------------------

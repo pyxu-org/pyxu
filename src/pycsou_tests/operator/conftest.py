@@ -840,7 +840,7 @@ class ProxDiffFuncT(ProxFuncT, DiffFuncT):
     interface = frozenset(ProxFuncT.interface | DiffFuncT.interface)
 
 
-@pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
+@pytest.mark.filterwarnings("ignore::pycsou.info.warning.DenseWarning")
 class QuadraticFuncT(ProxDiffFuncT):
     # Class Properties --------------------------------------------------------
     base = pyca.QuadraticFunc
@@ -899,7 +899,7 @@ class QuadraticFuncT(ProxDiffFuncT):
         assert self._metric(out.T, Q, as_dtype=width.value)
 
 
-@pytest.mark.filterwarnings("ignore::pycsou.util.warning.DenseWarning")
+@pytest.mark.filterwarnings("ignore::pycsou.info.warning.DenseWarning")
 class LinOpT(DiffMapT):
     # Class Properties --------------------------------------------------------
     base = pyca.LinOp

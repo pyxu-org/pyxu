@@ -13,7 +13,7 @@ import pycsou_tests.operator.conftest as conftest
 
 # We disable PrecisionWarnings since Stencil() is not precision-agnostic.
 # We disable NumbaPerformanceWarnings due to solving small-scale problems at test time.
-@pytest.mark.filterwarnings("ignore::pycsou.util.warning.PrecisionWarning")
+@pytest.mark.filterwarnings("ignore::pycsou.info.warning.PrecisionWarning")
 @pytest.mark.filterwarnings("ignore::numba.core.errors.NumbaPerformanceWarning")
 class TestStencil(conftest.SquareOpT):
     @pytest.fixture(

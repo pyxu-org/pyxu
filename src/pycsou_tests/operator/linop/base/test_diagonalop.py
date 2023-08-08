@@ -12,7 +12,7 @@ import pycsou_tests.operator.conftest as conftest
 
 # We disable PrecisionWarnings since DiagonalOp() is not precision-agnostic, but the outputs
 # computed must still be valid.
-@pytest.mark.filterwarnings("ignore::pycsou.util.warning.PrecisionWarning")
+@pytest.mark.filterwarnings("ignore::pycsou.info.warning.PrecisionWarning")
 class TestDiagonalOp(conftest.PosDefOpT):
     @pytest.fixture
     def dim(self):

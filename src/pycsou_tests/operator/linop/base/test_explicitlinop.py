@@ -10,7 +10,7 @@ import pycsou_tests.operator.conftest as conftest
 
 # We disable PrecisionWarnings since ExplicitLinOp() is not precision-agnostic, but the outputs
 # computed must still be valid.
-@pytest.mark.filterwarnings("ignore::pycsou.util.warning.PrecisionWarning")
+@pytest.mark.filterwarnings("ignore::pycsou.info.warning.PrecisionWarning")
 class ExplicitOpMixin:
     # Mixin class which must be inherited from by each concrete ExplicitLinOp sub-class.
     # Reason: sets all parameters such that users only need to provide the linear operator (in array
