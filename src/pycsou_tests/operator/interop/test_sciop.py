@@ -29,15 +29,14 @@ class FromSciOpMixin:
     )
     def spec(self, op_orig, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
         ndi, width = request.param
-        if (xp := ndi.module()) is None:
-            pytest.skip(f"{ndi} unsupported on this machine.")
+        self._skip_if_unsupported(ndi)
 
         if ndi == pycd.NDArrayInfo.CUPY:
             import cupyx.scipy.sparse.linalg as xpl
         else:  # NUMPY
             xpl = spsl
 
-        A = op_orig.asarray(xp=xp, dtype=width.value)
+        A = op_orig.asarray(xp=ndi.module(), dtype=width.value)
         B = xpl.aslinearoperator(A)
         op = isp.from_sciop(cls=self.base, sp_op=B)
 

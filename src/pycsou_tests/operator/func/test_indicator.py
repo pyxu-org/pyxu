@@ -292,8 +292,8 @@ class TestHyperSlab(conftest.ProxFuncT):
     )
     def spec(self, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
         ndi, width = request.param
-        if (xp := ndi.module()) is None:
-            pytest.skip(f"{ndi} unsupported on this machine.")
+        self._skip_if_unsupported(ndi)
+        xp = ndi.module()
 
         v = xp.array([1, 1], dtype=width.value)
         a = pyca.LinFunc.from_array(v, enable_warnings=False)
@@ -378,8 +378,8 @@ class TestRangeSet(conftest.ProxFuncT):
     )
     def spec(self, A, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
         ndi, width = request.param
-        if (xp := ndi.module()) is None:
-            pytest.skip(f"{ndi} unsupported on this machine.")
+        self._skip_if_unsupported(ndi)
+        xp = ndi.module()
 
         A = xp.array(A, dtype=width.value)
         A = pyca.LinOp.from_array(A, enable_warnings=False)
@@ -483,8 +483,8 @@ class TestAffineSet(conftest.ProxFuncT):
     )
     def spec(self, A, b, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
         ndi, width = request.param
-        if (xp := ndi.module()) is None:
-            pytest.skip(f"{ndi} unsupported on this machine.")
+        self._skip_if_unsupported(ndi)
+        xp = ndi.module()
 
         with pycrt.Precision(width):
             A = xp.array(A, dtype=width.value)

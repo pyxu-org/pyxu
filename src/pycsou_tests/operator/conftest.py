@@ -93,6 +93,11 @@ class MapT(ct.DisableTestMixin):
 
     # Internal helpers --------------------------------------------------------
     @staticmethod
+    def _skip_if_unsupported(ndi: pycd.NDArrayInfo):
+        if ndi.module() is None:
+            pytest.skip(f"{ndi} unsupported on this machine.")
+
+    @staticmethod
     def _random_array(
         shape: pyct.NDArrayShape,
         seed: int = 0,
@@ -277,8 +282,7 @@ class MapT(ct.DisableTestMixin):
     @pytest.fixture
     def ndi(self, spec) -> pycd.NDArrayInfo:
         ndi_ = spec[1]
-        if ndi_.module() is None:
-            pytest.skip(f"{ndi_} unsupported on this machine.")
+        self._skip_if_unsupported(ndi_)
         return ndi_
 
     @pytest.fixture
@@ -916,10 +920,9 @@ class LinOpT(DiffMapT):
     )
 
     # Internal helpers --------------------------------------------------------
-    def _skip_unless_NUMPY_CUPY(self, xp, gpu):
+    def _skip_unless_NUMPY_CUPY(self, ndi):
         N = pycd.NDArrayInfo
-        xp_ = {True: N.CUPY, False: N.NUMPY}[gpu].module()
-        if xp != xp_:
+        if ndi not in {N.NUMPY, N.CUPY}:
             pytest.skip("Only NUMPY/CUPY backends supported.")
 
     coupled_gpu_which = pytest.mark.parametrize(
@@ -1152,9 +1155,9 @@ class LinOpT(DiffMapT):
             "rmatmat",
         ]
     )
-    def _data_to_sciop(self, op, xp, width, _gpu, request) -> DataLike:
+    def _data_to_sciop(self, op, ndi, xp, width, request) -> DataLike:
         # Do not override in subclass: for internal use only to test `op.to_sciop()`.
-        self._skip_unless_NUMPY_CUPY(xp, _gpu)
+        self._skip_unless_NUMPY_CUPY(ndi)
 
         N_test = 7
         f = lambda _: self._random_array(_, xp=xp, width=width)
@@ -1282,15 +1285,15 @@ class LinOpT(DiffMapT):
 
     @pytest.mark.parametrize("k", [1, 2])
     @coupled_gpu_which
-    def test_value1D_svdvals(self, op, xp, _gpu, _op_svd, k, which):
+    def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k, which):
         self._skip_if_disabled()
-        self._skip_unless_NUMPY_CUPY(xp, _gpu)
+        self._skip_unless_NUMPY_CUPY(ndi)
         data = dict(k=k, which=which, gpu=_gpu)
         self._check_value1D_vals(op.svdvals, data, _op_svd)
 
-    def test_backend_svdvals(self, op, xp, _gpu):
+    def test_backend_svdvals(self, op, ndi, _gpu):
         self._skip_if_disabled()
-        self._skip_unless_NUMPY_CUPY(xp, _gpu)
+        self._skip_unless_NUMPY_CUPY(ndi)
         ct.flaky(
             func=self._check_backend_vals,
             args=dict(func=op.svdvals, _gpu=_gpu),
@@ -1298,9 +1301,9 @@ class LinOpT(DiffMapT):
             reason="svdvals() sparse-evaled via CuPy flaky.",
         )
 
-    def test_precCM_svdvals(self, op, xp, _gpu, width):
+    def test_precCM_svdvals(self, op, ndi, _gpu, width):
         self._skip_if_disabled()
-        self._skip_unless_NUMPY_CUPY(xp, _gpu)
+        self._skip_unless_NUMPY_CUPY(ndi)
         data = dict(in_=dict(k=1, gpu=_gpu))
         ct.flaky(
             func=self._check_precCM,
@@ -1508,9 +1511,9 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
     # Tests -------------------------------------------------------------------
     @pytest.mark.parametrize("k", [1])
     @pytest.mark.parametrize("which", ["SM", "LM"])
-    def test_value1D_svdvals(self, op, xp, _gpu, _op_svd, k, which):
+    def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k, which):
         self._skip_if_disabled()
-        super().test_value1D_svdvals(op, xp, _gpu, _op_svd, k, which)
+        super().test_value1D_svdvals(op, ndi, _gpu, _op_svd, k, which)
 
     @pytest.mark.skip("Notion of loss undefined for LinFuncs.")
     def test_interface_asloss(self, op, xp, width):
@@ -1677,9 +1680,9 @@ class UnitOpT(NormalOpT):
     # local override of this fixture: no GPU limitations
     @pytest.mark.parametrize("k", [1, 2])
     @pytest.mark.parametrize("which", ["SM", "LM"])
-    def test_value1D_svdvals(self, op, xp, _gpu, _op_svd, k, which):
+    def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k, which):
         self._skip_if_disabled()
-        super().test_value1D_svdvals(op, xp, _gpu, _op_svd, k, which)
+        super().test_value1D_svdvals(op, ndi, _gpu, _op_svd, k, which)
 
 
 class SelfAdjointOpT(NormalOpT):

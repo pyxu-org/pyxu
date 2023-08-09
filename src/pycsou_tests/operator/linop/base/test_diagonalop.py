@@ -35,8 +35,8 @@ class TestDiagonalOp(conftest.PosDefOpT):
     )
     def spec(self, vec, request):
         ndi = request.param[0]
-        if (xp := ndi.module()) is None:
-            pytest.skip(f"{ndi} unsupported on this machine.")
+        self._skip_if_unsupported(ndi)
+        xp = ndi.module()
         width = request.param[1]
 
         vec = xp.array(vec, dtype=width.value)
