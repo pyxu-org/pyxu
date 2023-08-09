@@ -100,21 +100,29 @@ class KLDivergence(pyca.ProxFunc):
 
     def __init__(
         self,
-        dim: pyct.Integer = None,
-        data: pyct.NDArray = None,
+        dim: pyct.Integer,
+        data: pyct.NDArray,
     ):
         super().__init__(shape=(1, dim))
-        self.data = data
+
+        xp = pycu.get_array_module(data)
+        assert data.ndim == 1, "`data` must have 1 axis only."
+        assert data.size == dim, "`data` must have the same size as the domain dimension."
+        assert xp.all(data > 0), "KL Divergence only defined for positive-valued arguments."
+        self.data = data.reshape(1, -1)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         xp = pycu.get_array_module(arr)
-        out = xp.true_divide(self.data, arr, where=(arr > 0) * (self.data > 0), out=xp.zeros_like(arr))
-        out = xp.log(out, where=out > 0, out=xp.zeros_like(out))
+        assert xp.all(arr > 0), "KL Divergence only defined for positive-valued arguments."
+        sh = arr.shape[:-1]
+        arr = arr.reshape(-1, self.data.size)
+        out = xp.true_divide(self.data, arr)
+        out = xp.log(out)
         out *= self.data
         out -= self.data
         out += arr
-        return xp.sum(out, axis=-1, keepdims=True)
+        return xp.sum(out, axis=-1).reshape(*sh, -1)
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
@@ -134,4 +142,7 @@ class KLDivergence(pyca.ProxFunc):
             Proximal point of arr.
         """
         xp = pycu.get_array_module(arr)
-        return (arr - tau + xp.sqrt((arr - tau) ** 2 + 4 * tau * self.data)) / 2
+        sh = arr.shape[:-1]
+        arr = arr.reshape(-1, self.data.size)
+        out = (arr - tau + xp.sqrt((arr - tau) ** 2 + 4 * tau * self.data)) / 2
+        return out.reshape(*sh, -1)
