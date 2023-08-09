@@ -223,7 +223,7 @@ class SolverT(ct.DisableTestMixin):
         # Compute the optimal value of the cost functions.
         #
         # Must return the same output as solver.stats()[0], i.e. the data dictionary.
-        def fun(x: np.ndarray, cost_f: pyct.OpT) -> (float, np.ndarray):  # f(x), \grad_{f}(x)
+        def fun(x: np.ndarray, cost_f: pyct.OpT) -> tuple[float, np.ndarray]:  # f(x), \grad_{f}(x)
             val = cost_f.apply(x)
             grad = cost_f.grad(x)
             return float(val), grad

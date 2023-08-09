@@ -32,21 +32,10 @@ class ShiftLossMixin:
 
 class L1Norm(ShiftLossMixin, pyca.ProxFunc):
     r"""
-    :math:`\ell_1`-norm, :math:`\Vert\mathbf{x}\Vert_1:=\sum_{i=1}^N |x_i|`.
+    :math:`\ell_{1}`-norm, :math:`\Vert\mathbf{x}\Vert_{1} := \sum_{i=1}^{N} |x_{i}|`.
     """
 
     def __init__(self, dim: pyct.Integer = None):
-        r"""
-        Parameters
-        ----------
-        dim: pyct.Integer
-            Dimension size. (Default: domain-agnostic.)
-
-        Notes
-        -----
-        The operator's Lipschitz constant is set to :math:`\infty` if domain-agnostic.
-        It is recommended to set `dim` explicitly to compute a tight closed-form.
-        """
         super().__init__(shape=(1, dim))
         if dim is None:
             self._lipschitz = np.inf
@@ -68,7 +57,7 @@ class L1Norm(ShiftLossMixin, pyca.ProxFunc):
 
 class L2Norm(ShiftLossMixin, pyca.ProxFunc):
     r"""
-    :math:`\ell_2`-norm, :math:`\Vert\mathbf{x}\Vert_2:=\sqrt{\sum_{i=1}^N |x_i|^2}`.
+    :math:`\ell_{2}`-norm, :math:`\Vert\mathbf{x}\Vert_{2} := \sqrt{\sum_{i=1}^{N} |x_{i}|^{2}}`.
     """
 
     def __init__(self, dim: pyct.Integer = None):
@@ -93,16 +82,10 @@ class L2Norm(ShiftLossMixin, pyca.ProxFunc):
 
 class SquaredL2Norm(pyca.QuadraticFunc):
     r"""
-    :math:`\ell^2_2`-norm, :math:`\Vert\mathbf{x}\Vert^2_2:=\sum_{i=1}^N |x_i|^2`.
+    :math:`\ell^{2}_{2}`-norm, :math:`\Vert\mathbf{x}\Vert^{2}_{2} := \sum_{i=1}^{N} |x_{i}|^{2}`.
     """
 
     def __init__(self, dim: pyct.Integer):
-        r"""
-        Parameters
-        ----------
-        dim: pyct.Integer
-            Dimension size. (Default: domain-agnostic.)
-        """
         super().__init__(shape=(1, dim))
         self._lipschitz = np.inf
         self._diff_lipschitz = 2
@@ -134,7 +117,7 @@ class SquaredL2Norm(pyca.QuadraticFunc):
 
 class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
     r"""
-    :math:`\ell^2_1`-norm, :math:`\Vert\mathbf{x}\Vert^2_1:=(\sum_{i=1}^N |x_i|)^2`.
+    :math:`\ell^{2}_{1}`-norm, :math:`\Vert\mathbf{x}\Vert^{2}_{1} := (\sum_{i=1}^{N} |x_{i}|)^{2}`.
     """
 
     def __init__(self, dim: pyct.Integer = None, prox_algo: str = "sort"):
@@ -142,11 +125,10 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
         Parameters
         ----------
         dim: pyct.Integer
-            Dimension size. (Default: domain-agnostic.)
         prox_algo: str
             Algorithm used for computing the proximal operator:
 
-            * 'root' uses [FirstOrd]_ Lemma 6.70
+            * 'root' uses [FirstOrd]_ Lemma 6.70,
             * 'sort' uses [OnKerLearn]_ Algorithm 2 (faster).
 
         Notes
@@ -261,16 +243,10 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
 
 class LInfinityNorm(ShiftLossMixin, pyca.ProxFunc):
     r"""
-    :math:`\ell_{\infty}`-norm, :math:`\Vert\mathbf{x}\Vert_\infty:=\max_{i=1,\ldots,N} |x_i|`.
+    :math:`\ell_{\infty}`-norm, :math:`\Vert\mathbf{x}\Vert_{\infty} := \max_{i=1,\ldots,N} |x_{i}|`.
     """
 
     def __init__(self, dim: pyct.Integer = None):
-        r"""
-        Parameters
-        ----------
-        dim: pyct.Integer
-            Dimension size. (Default: domain-agnostic.)
-        """
         super().__init__(shape=(1, dim))
         self._lipschitz = 1
 
@@ -323,14 +299,14 @@ class LInfinityNorm(ShiftLossMixin, pyca.ProxFunc):
 class L21Norm(ShiftLossMixin, pyca.ProxFunc):
     r"""
     Mixed :math:`\ell_{2}-\ell_{1}` norm,
-    :math:`\Vert\mathbf{x}\Vert_{2, 1}:=\sum_{i=1}^{N} \sqrt{\sum_{j=1}^{M} x_{i, j}^{2}}`,
+    :math:`\Vert\mathbf{x}\Vert_{2, 1} := \sum_{i=1}^{N} \sqrt{\sum_{j=1}^{M} x_{i, j}^{2}}`,
     for arrays of dimension :math:`\geq 2`.
 
     Notes
     -----
     The input array need not be 2-dimensional:
-    the :math:`\ell_2` norm is applied along a predefined subset of dimensions, and the
-    :math:`\ell_1` norm on the remaining ones.
+    the :math:`\ell_{2}` norm is applied along a predefined subset of dimensions, and the
+    :math:`\ell_{1}` norm on the remaining ones.
     """
 
     def __init__(
@@ -393,13 +369,13 @@ class L21Norm(ShiftLossMixin, pyca.ProxFunc):
 
 class PositiveL1Norm(ShiftLossMixin, pyca.ProxFunc):
     r"""
-    :math:`\ell_1`-norm, with a positivity constraint.
+    :math:`\ell_{1}`-norm, with a positivity constraint.
 
     .. math::
 
        f(\mathbf{x})
        :=
-       \lVert\mathbf{x}\rVert_1 + \iota_{+}(\mathbf{x}),
+       \lVert\mathbf{x}\rVert_{1} + \iota_{+}(\mathbf{x}),
 
     .. math::
 
@@ -413,12 +389,6 @@ class PositiveL1Norm(ShiftLossMixin, pyca.ProxFunc):
     """
 
     def __init__(self, dim: pyct.Integer = None):
-        r"""
-        Parameters
-        ----------
-        dim: pyct.Integer
-            Dimension size. (Default: domain-agnostic.)
-        """
         super().__init__(shape=(1, dim))
         from pycsou.operator.func.indicator import PositiveOrthant
 

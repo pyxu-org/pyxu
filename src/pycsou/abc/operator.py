@@ -175,7 +175,7 @@ class Operator:
         -----
         * The interface of `cast_to` is provided via encapsulation + forwarding.
         * If ``self`` does not implement all methods from ``cast_to``, then unimplemented methods
-          will raise ``NotImplementedError`` when called.
+          will raise :py:class:`NotImplementedError` when called.
         """
         if cast_to not in _core_operators():
             raise ValueError(f"cast_to: expected a core base-class, got {cast_to}.")
@@ -347,7 +347,7 @@ class Operator:
         Notes
         -----
         Exponentiation is only allowed for endomorphisms, i.e. square operators.
-        Chaining domain-agnostic operators is moreover forbidden.
+        Chaining domain-agnostic operators is not supported.
 
         See Also
         --------
@@ -473,24 +473,24 @@ class Operator:
 
         .. code-block:: python3
 
-           >>> import numpy as np
-           >>> import pycsou.abc as pyca
+           import numpy as np
+           import pycsou.abc as pyca
 
-           >>> N = 5
-           >>> op1 = pyca.LinFunc.from_array(np.arange(N))
-           >>> op2 = pyca.LinOp.from_array(np.ones((N, N)))
-           >>> op = ((2 * op1) + (op2 ** 3)).argshift(np.full(N, 4))
+           N = 5
+           op1 = pyca.LinFunc.from_array(np.arange(N))
+           op2 = pyca.LinOp.from_array(np.ones((N, N)))
+           op = ((2 * op1) + (op2 ** 3)).argshift(np.full(N, 4))
 
-           >>> print(op.expr())
-           [argshift, ==> DiffMap(5, 5)
-           .[add, ==> SquareOp(5, 5)
-           ..[scale, ==> LinFunc(1, 5)
-           ...LinFunc(1, 5),
-           ...2.0],
-           ..[exp, ==> SquareOp(5, 5)
-           ...LinOp(5, 5),
-           ...3]],
-           .(5,)]
+           print(op.expr())
+           # [argshift, ==> DiffMap(5, 5)
+           # .[add, ==> SquareOp(5, 5)
+           # ..[scale, ==> LinFunc(1, 5)
+           # ...LinFunc(1, 5),
+           # ...2.0],
+           # ..[exp, ==> SquareOp(5, 5)
+           # ...LinOp(5, 5),
+           # ...3]],
+           # .(5,)]
         """
         fmt = lambda obj, lvl: ("." * lvl) + str(obj)
         lines = []
@@ -521,7 +521,7 @@ class Operator:
 
 class Map(Operator):
     r"""
-    Base class for real-valued maps :math:`\mathbf{M}:\mathbb{R}^M\to \mathbb{R}^N`.
+    Base class for real-valued maps :math:`\mathbf{f}: \mathbb{R}^{M} \to \mathbb{R}^{N}`.
 
     Instances of this class must implement
     :py:meth:`~pycsou.abc.operator.Map.apply`.
@@ -600,7 +600,7 @@ class Map(Operator):
 
 class Func(Map):
     r"""
-    Base class for real-valued functionals :math:`f:\mathbb{R}^M \to \mathbb{R}\cup\{+\infty\}`.
+    Base class for real-valued functionals :math:`f: \mathbb{R}^{M} \to \mathbb{R}\cup\{+\infty\}`.
 
     Instances of this class must implement
     :py:meth:`~pycsou.abc.operator.Map.apply`.
@@ -624,8 +624,11 @@ class Func(Map):
         """
         Transform a functional into a loss functional.
 
-        The meaning of ``asloss()`` is operator-dependent: always examine ``op.expr()`` to determine
-        the loss-notion involved.
+        The meaning of
+        :py:meth:`~pycsou.abc.operator.Func.asloss`
+        is operator-dependent: always examine the output of
+        :py:meth:`~pycsou.abc.operator.Operator.expr`
+        to determine the loss-notion involved.
 
         Parameters
         ----------
@@ -643,7 +646,7 @@ class Func(Map):
 
 class DiffMap(Map):
     r"""
-    Base class for real-valued differentiable maps :math:`\mathbf{M}:\mathbb{R}^M \to \mathbb{R}^N`.
+    Base class for real-valued differentiable maps :math:`\mathbf{f}: \mathbb{R}^{M} \to \mathbb{R}^{N}`.
 
     Instances of this class must implement
     :py:meth:`~pycsou.abc.operator.Map.apply` and
@@ -667,7 +670,7 @@ class DiffMap(Map):
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         r"""
-        Evaluate the Jacobian of a vector-valued differentiable map at the specified point.
+        Evaluate the Jacobian of :math:`\mathbf{f}` at the specified point.
 
         Parameters
         ----------
@@ -681,29 +684,31 @@ class DiffMap(Map):
 
         Notes
         -----
-        Let :math:`\mathbf{h}=[h_1, \ldots, h_N]: \mathbb{R}^M\to\mathbb{R}^N` be a differentiable
-        multidimensional map.
-        The *Jacobian* (or *differential*) of :math:`\mathbf{h}` at
-        :math:`\mathbf{z}\in\mathbb{R}^M` is defined as the best linear approximator of
-        :math:`\mathbf{h}` near :math:`\mathbf{z}`, in the sense that
+        Let :math:`\mathbf{f}=[f_{1}, \ldots, f_{N}]: \mathbb{R}^{M} \to \mathbb{R}^{N}` be a differentiable
+        multi-dimensional map.
+        The *Jacobian* (or *differential*) of :math:`\mathbf{f}` at
+        :math:`\mathbf{z} \in \mathbb{R}^{M}` is defined as the best linear approximator of
+        :math:`\mathbf{f}` near :math:`\mathbf{z}`, in the following sense:
 
         .. math::
 
-           \mathbf{h}(\mathbf{x}) - \mathbf{h}(\mathbf{z})
+           \mathbf{f}(\mathbf{x}) - \mathbf{f}(\mathbf{z})
            =
-           \mathbf{J}_{\mathbf {h}}(\mathbf{z})(\mathbf{x} -\mathbf{z})+o(\|\mathbf{x} -\mathbf{z} \|)
+           \mathbf{J}_{\mathbf{f}}(\mathbf{z}) (\mathbf{x} - \mathbf{z})
+           +
+           o(\| \mathbf{x} - \mathbf{z} \|)
            \quad
-           \text{as} \quad \mathbf {x} \to \mathbf {z}.
+           \text{as} \quad \mathbf{x} \to \mathbf{z}.
 
         The Jacobian admits the following matrix representation:
 
         .. math::
 
-           (\mathbf{J}_{\mathbf{h}}(\mathbf{x}))_{ij}
+           [\mathbf{J}_{\mathbf{f}}(\mathbf{x})]_{ij}
            :=
-           \frac{\partial h_i}{\partial x_j}(\mathbf{x}),
+           \frac{\partial f_{i}}{\partial x_{j}}(\mathbf{x}),
            \qquad
-           \forall (i,j)\in\{1,\cdots,N\} \times \{1,\cdots,M\}.
+           \forall (i,j) \in \{1,\ldots,N\} \times \{1,\ldots,M\}.
         """
         raise NotImplementedError
 
@@ -740,11 +745,10 @@ class DiffMap(Map):
 
 class ProxFunc(Func):
     r"""
-    Base class for real-valued proximable functionals :math:`f:\mathbb{R}^M\to\mathbb{R}\cup\{+\infty\}`.
+    Base class for real-valued proximable functionals :math:`f: \mathbb{R}^{M} \to \mathbb{R} \cup \{+\infty\}`.
 
-    A functional :math:`f:\mathbb{R}^M\to\mathbb{R}\cup\{+\infty\}` is said *proximable* if its
-    **proximity operator** (see :py:meth:`~pycsou.abc.operator.ProxFunc.prox` for a definition)
-    admits
+    A functional :math:`f: \mathbb{R}^{M} \to \mathbb{R} \cup \{+\infty\}` is said *proximable* if its
+    **proximity operator** (see :py:meth:`~pycsou.abc.operator.ProxFunc.prox` for a definition) admits
     a *simple closed-form expression*
     **or**
     can be evaluated *efficiently* and with *high accuracy*.
@@ -769,7 +773,7 @@ class ProxFunc(Func):
 
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
         r"""
-        Evaluate proximity operator of the ``tau``-scaled functional at specified point(s).
+        Evaluate proximity operator of :math:`\tau f` at specified point(s).
 
         Parameters
         ----------
@@ -785,16 +789,16 @@ class ProxFunc(Func):
 
         Notes
         -----
-        For :math:`\tau>0`, the *proximity operator* of a ``tau``-scaled functional
-        :math:`f:\mathbb{R}^M\to \mathbb{R}` is defined as:
+        For :math:`\tau >0`, the *proximity operator* of a scaled functional
+        :math:`f: \mathbb{R}^{M} \to \mathbb{R}` is defined as:
 
         .. math::
 
            \mathbf{\text{prox}}_{\tau f}(\mathbf{z})
            :=
-           \arg\min_{\mathbf{x}\in\mathbb{R}^M} f(x)+\frac{1}{2\tau} \|\mathbf{x}-\mathbf{z}\|_2^2,
+           \arg\min_{\mathbf{x}\in\mathbb{R}^{M}} f(x)+\frac{1}{2\tau} \|\mathbf{x}-\mathbf{z}\|_{2}^{2},
            \quad
-           \forall \mathbf{z}\in\mathbb{R}^M.
+           \forall \mathbf{z} \in \mathbb{R}^{M}.
 
         .. Important::
 
@@ -805,15 +809,14 @@ class ProxFunc(Func):
     @pycrt.enforce_precision(i=("arr", "sigma"))
     def fenchel_prox(self, arr: pyct.NDArray, sigma: pyct.Real) -> pyct.NDArray:
         r"""
-        Evaluate proximity operator of the ``sigma``-scaled Fenchel conjugate of a functional at
-        specified point(s).
+        Evaluate proximity operator of :math:`\sigma f^{\ast}`, the scaled Fenchel conjugate of :math:`f`, at specified point(s).
 
         Parameters
         ----------
         arr: pyct.NDArray
             (..., M) input points.
         sigma: pyct.Real
-            Positive scale factor
+            Positive scale factor.
 
         Returns
         -------
@@ -822,19 +825,19 @@ class ProxFunc(Func):
 
         Notes
         -----
-        For :math:`\sigma>0`, the *Fenchel conjugate* is defined as:
+        For :math:`\sigma > 0`, the *Fenchel conjugate* is defined as:
 
         .. math::
 
-           f^\ast(\mathbf{z})
+           f^{\ast}(\mathbf{z})
            :=
-           \max_{\mathbf{x}\in\mathbb{R}^M} \langle \mathbf{x},\mathbf{z} \rangle - f(\mathbf{x}).
+           \max_{\mathbf{x}\in\mathbb{R}^{M}} \langle \mathbf{x},\mathbf{z} \rangle - f(\mathbf{x}).
 
         From **Moreau's identity**, its proximal operator is given by:
 
         .. math::
 
-           \mathbf{\text{prox}}_{\sigma f^\ast}(\mathbf{z})
+           \mathbf{\text{prox}}_{\sigma f^{\ast}}(\mathbf{z})
            =
            \mathbf{z} - \sigma \mathbf{\text{prox}}_{f/\sigma}(\mathbf{z}/\sigma).
         """
@@ -847,7 +850,7 @@ class ProxFunc(Func):
     @pycrt.enforce_precision(i="mu", o=False)
     def moreau_envelope(self, mu: pyct.Real) -> pyct.OpT:
         r"""
-        Approximate proximable functional by its *Moreau envelope*.
+        Approximate proximable functional :math:`f` by its *Moreau envelope* :math:`f^{\mu}`.
 
         Parameters
         ----------
@@ -862,54 +865,51 @@ class ProxFunc(Func):
         Notes
         -----
         Consider a convex non-smooth proximable functional
-        :math:`f:\mathbb{R}^M\to\mathbb{R}\cup\{+\infty\}`
-        and a regularization parameter :math:`\mu>0`.
-        Then, the :math:`\mu`-*Moreau envelope* (or *Moreau-Yoshida envelope*) of
-        :math:`f` is given by
+        :math:`f: \mathbb{R}^{M} \to \mathbb{R} \cup \{+\infty\}`
+        and a regularization parameter :math:`\mu > 0`.
+        The :math:`\mu`-*Moreau envelope* (or *Moreau-Yoshida envelope*) of :math:`f` is given by
 
         .. math::
 
-           f^\mu(\mathbf{x})
+           f^{\mu}(\mathbf{x})
            =
-           \min_{\mathbf{z}\in\mathbb{R}^M}
+           \min_{\mathbf{z} \in \mathbb{R}^{M}}
            f(\mathbf{z})
-           \quad+\quad
-           \frac{1}{2\mu}\|\mathbf{x}-\mathbf{z}\|^{2}.
+           \quad + \quad
+           \frac{1}{2\mu} \|\mathbf{x} - \mathbf{z}\|^{2}.
 
-        The parameter :math:`\mu` controls the trade-off between
-        the regularity properties of :math:`f^\mu`
-        and
+        The parameter :math:`\mu` controls the trade-off between the regularity properties of :math:`f^{\mu}` and
         the approximation error incurred by the Moreau-Yoshida regularization.
 
-        The Moreau envelope inherits the convexity of :math:`f` and is gradient Lipschitz (with
-        Lipschitz constant :math:`\mu^{-1}`), even if :math:`f` is non-smooth.
+        The Moreau envelope inherits the convexity of :math:`f` and is gradient-Lipschitz (with Lipschitz constant
+        :math:`\mu^{-1}`), even if :math:`f` is non-smooth.
         Its gradient is moreover given by:
 
         .. math::
 
-           \nabla f^\mu(\mathbf{x})
+           \nabla f^{\mu}(\mathbf{x})
            =
            \mu^{-1} \left(\mathbf{x} - \text{prox}_{\mu f}(\mathbf{x})\right).
 
-        In addition, :math:`f^\mu` envelopes :math:`f` from below:
-        :math:`f^\mu(\mathbf{x})\leq f(\mathbf{x})`.
-        This envelope becomes tighter as :math:`\mu\to 0`:
+        In addition, :math:`f^{\mu}` envelopes :math:`f` from below:
+        :math:`f^{\mu}(\mathbf{x}) \leq f(\mathbf{x})`.
+        This envelope becomes tighter as :math:`\mu \to 0`:
 
         .. math::
 
-           \lim_{\mu\to 0} f^\mu(\mathbf{x}) = f(\mathbf{x}).
+           \lim_{\mu \to 0} f^{\mu}(\mathbf{x}) = f(\mathbf{x}).
 
-        Finally, it can be shown that the minimizers of :math:`f` and :math:`f^\mu` coincide, and
-        that the Fenchel conjugate of :math:`f^\mu` is strongly-convex.
+        Finally, it can be shown that the minimizers of :math:`f` and :math:`f^{\mu}` coincide, and
+        that the Fenchel conjugate of :math:`f^{\mu}` is strongly-convex.
 
         Example
         -------
-        In the example below we construct and plot the Moreau envelope of the :math:`\ell_1`-norm:
+        In the example below we construct and plot the Moreau envelope of the :math:`\ell_{1}`-norm:
 
         .. plot::
 
            import numpy as np
-           import matplotlib. pyplot as plt
+           import matplotlib.pyplot as plt
            from pycsou.abc import ProxFunc
 
            class L1Norm(ProxFunc):
@@ -925,7 +925,7 @@ class ProxFunc(Func):
            mus = [0.1, 0.5, 1]
            smooth_l1_norms = [l1_norm.moreau_envelope(mu) for mu in mus]
 
-           x = np.linspace(-1,1, 512)[:, None]
+           x = np.linspace(-1, 1, 512)[:, None]
            labels=['mu=0']
            labels.extend([f'mu={mu}' for mu in mus])
            plt.figure()
@@ -979,7 +979,7 @@ class ProxFunc(Func):
 
 class DiffFunc(DiffMap, Func):
     r"""
-    Base class for real-valued differentiable functionals :math:`f:\mathbb{R}^M\to\mathbb{R}`.
+    Base class for real-valued differentiable functionals :math:`f: \mathbb{R}^{M} \to \mathbb{R}`.
 
     Instances of this class must implement
     :py:meth:`~pycsou.abc.operator.Map.apply` and
@@ -1023,17 +1023,17 @@ class DiffFunc(DiffMap, Func):
 
         Notes
         -----
-        The gradient of a functional :math:`f:\mathbb{R}^M\to \mathbb{R}` is given, for every
-        :math:`\mathbf{x}\in\mathbb{R}^M`, by
+        The gradient of a functional :math:`f: \mathbb{R}^{M} \to \mathbb{R}` is given, for every
+        :math:`\mathbf{x} \in \mathbb{R}^{M}`, by
 
         .. math::
 
            \nabla f(\mathbf{x})
            :=
            \left[\begin{array}{c}
-           \frac{\partial f}{\partial x_1}(\mathbf{x}) \\
+           \frac{\partial f}{\partial x_{1}}(\mathbf{x}) \\
            \vdots \\
-           \frac{\partial f}{\partial x_M}(\mathbf{x})
+           \frac{\partial f}{\partial x_{M}}(\mathbf{x})
            \end{array}\right].
 
         .. Important::
@@ -1046,7 +1046,7 @@ class DiffFunc(DiffMap, Func):
 class ProxDiffFunc(ProxFunc, DiffFunc):
     r"""
     Base class for real-valued differentiable *and* proximable functionals
-    :math:`f:\mathbb{R}^M\to\mathbb{R}`.
+    :math:`f:\mathbb{R}^{M} \to \mathbb{R}`.
 
     Instances of this class must implement
     :py:meth:`~pycsou.abc.operator.Map.apply`,
@@ -1074,44 +1074,44 @@ class ProxDiffFunc(ProxFunc, DiffFunc):
 class QuadraticFunc(ProxDiffFunc):
     # This is a special abstract base class with more __init__ parameters than `shape`.
     r"""
-    Base class for quadratic functionals :math:`\mathbb{R}^{M} \to \mathbb{R}\cup\{+\infty\}`.
+    Base class for quadratic functionals :math:`f: \mathbb{R}^{M} \to \mathbb{R} \cup \{+\infty\}`.
 
     The quadratic functional is defined as:
 
     .. math::
 
-        f(\mathbf{x})
-        =
-        \frac{1}{2} \langle\mathbf{x}, \mathbf{Q}\mathbf{x}\rangle
-        +
-        \mathbf{c}^T\mathbf{x}
-        +
-        t,
-        \qquad \forall \mathbf{x}\in\mathbb{R}^N,
+       f(\mathbf{x})
+       =
+       \frac{1}{2} \langle\mathbf{x}, \mathbf{Q}\mathbf{x}\rangle
+       +
+       \mathbf{c}^T\mathbf{x}
+       +
+       t,
+       \qquad \forall \mathbf{x} \in \mathbb{R}^{M},
 
     where
-    :math:`Q` is a positive-definite operator :math:`\mathbf{Q}:\mathbb{R}^N\rightarrow\mathbb{R}^N`,
-    :math:`\mathbf{c}\in\mathbb{R}^N`, and
-    :math:`t>0`.
+    :math:`Q` is a positive-definite operator :math:`\mathbf{Q}:\mathbb{R}^{M} \to \mathbb{R}^{M}`,
+    :math:`\mathbf{c} \in \mathbb{R}^{M}`, and
+    :math:`t > 0`.
 
     Its gradient is given by:
 
     .. math::
 
-        \nabla f(\mathbf{x}) = \mathbf{Q}\mathbf{x} + \mathbf{c}
+       \nabla f(\mathbf{x}) = \mathbf{Q}\mathbf{x} + \mathbf{c}
 
-    and proximity operator:
+    Its proximity operator by:
 
     .. math::
 
-        \text{prox}_{\tau f}(x)
-        =
-        \left(
-            \mathbf{Q} + \tau^{-1} \mathbf{Id}
-        \right)^{-1}
-        \left(
-            \tau^{-1}\mathbf{x} - \mathbf{c}
-        \right).
+       \text{prox}_{\tau f}(x)
+       =
+       \left(
+           \mathbf{Q} + \tau^{-1} \mathbf{Id}
+       \right)^{-1}
+       \left(
+           \tau^{-1}\mathbf{x} - \mathbf{c}
+       \right).
 
     In practice the proximity operator is evaluated via :py:class:`~pycsou.opt.solver.cg.CG`.
 
@@ -1214,7 +1214,7 @@ class QuadraticFunc(ProxDiffFunc):
 
 class LinOp(DiffMap):
     r"""
-    Base class for real-valued linear operators :math:`L:\mathbb{R}^M\to\mathbb{R}^N`.
+    Base class for real-valued linear operators :math:`\mathbf{A}: \mathbb{R}^{M} \to \mathbb{R}^{N}`.
 
     Instances of this class must implement
     :py:meth:`~pycsou.abc.operator.Map.apply` and
@@ -1223,7 +1223,7 @@ class LinOp(DiffMap):
     If known, the Lipschitz constant of the linear map should be stored in the attribute
     ``_lipschitz`` (initialized to :math:`+\infty` by default).
 
-    The Jacobian of a linear map :math:`\mathbf{h}` is constant.
+    The Jacobian of a linear map :math:`\mathbf{A}` is constant.
     """
 
     # Internal Helpers ------------------------------------
@@ -1266,16 +1266,16 @@ class LinOp(DiffMap):
 
         Notes
         -----
-        The *adjoint* :math:`\mathbf{L}^\ast:\mathbb{R}^N\to \mathbb{R}^M` of a linear operator
-        :math:`\mathbf{L}:\mathbb{R}^M\to \mathbb{R}^N` is defined as:
+        The *adjoint* :math:`\mathbf{A}^{\ast}: \mathbb{R}^{N} \to \mathbb{R}^{M}` of
+        :math:`\mathbf{A}: \mathbb{R}^{M} \to \mathbb{R}^{N}` is defined as:
 
         .. math::
 
-           \langle \mathbf{x}, \mathbf{L}^\ast\mathbf{y}\rangle_{\mathbb{R}^M}
+           \langle \mathbf{x}, \mathbf{A}^{\ast}\mathbf{y}\rangle_{\mathbb{R}^{M}}
            :=
-           \langle \mathbf{L}\mathbf{x}, \mathbf{y}\rangle_{\mathbb{R}^N},
+           \langle \mathbf{A}\mathbf{x}, \mathbf{y}\rangle_{\mathbb{R}^{N}},
            \qquad
-           \forall (\mathbf{x},\mathbf{y})\in \mathbb{R}^M \times \mathbb{R}^N.
+           \forall (\mathbf{x},\mathbf{y})\in \mathbb{R}^{M} \times \mathbb{R}^{N}.
 
         .. Important::
 
@@ -1289,7 +1289,7 @@ class LinOp(DiffMap):
     @property
     def T(self) -> pyct.OpT:
         r"""
-        Return the (M, N) adjoint of the linear operator.
+        Return the (M, N) adjoint of :math:`\mathbf{A}`.
         """
         import pycsou.abc.arithmetic as arithmetic
 
@@ -1404,20 +1404,20 @@ class LinOp(DiffMap):
         **kwargs,
     ) -> pyct.NDArray:
         r"""
-        Compute the ``k`` largest or smallest singular values of the linear operator.
+        Compute singular values of a linear operator.
 
         Parameters
         ----------
         k: pyct.Integer
             Number of singular values to compute.
-        which: 'LM' | 'SM'
-            Which k singular values to find:
+        which: LM | SM
+            Which `k` singular values to find:
 
-                * ‘LM’ : largest magnitude
-                * ‘SM’ : smallest magnitude
+                * `LM`: largest magnitude
+                * `SM`: smallest magnitude
         gpu: bool
             If ``True`` the singular value decomposition is performed on the GPU.
-        kwargs:
+        kwargs: cabc.Mapping
             Additional kwargs accepted by :py:func:`scipy.sparse.linalg.svds`.
 
         Returns
@@ -1476,20 +1476,21 @@ class LinOp(DiffMap):
         Parameters
         ----------
         xp: pyct.ArrayModule
-            Which array module to use to represent the output.
+            Which array module to use to represent the output. (Default: NumPy.)
         dtype: pyct.DType
-            Optional type of the array.
+            Precision of the array. (Default: current runtime precision.)
 
         Returns
         -------
         A: NDArray
-            (codim, dim) array-representation of the operator.
+            (N, M) array-representation of the operator.
 
         Note
         ----
         This generic implementation assumes the operator is backend-agnostic.
-        Thus, when defining a new backend-specific operator, ``.asarray()`` may need to be
-        overriden.
+        Thus, when defining a new backend-specific operator,
+        :py:meth:`~pycsou.abc.operator.LinOp.asarray`
+        may need to be overriden.
         """
         if dtype is None:
             dtype = pycrt.getPrecision().value
@@ -1500,7 +1501,7 @@ class LinOp(DiffMap):
 
     def gram(self) -> pyct.OpT:
         r"""
-        Gram operator :math:`L^\ast L:\mathbb{R}^M\to \mathbb{R}^M`.
+        Gram operator :math:`\mathbf{A}^{\ast} \mathbf{A}: \mathbb{R}^{M} \to \mathbb{R}^{M}`.
 
         Returns
         -------
@@ -1511,8 +1512,7 @@ class LinOp(DiffMap):
         -----
         By default the Gram is computed by the composition ``self.T * self``.
         This may not be the fastest way to compute the Gram operator.
-        If the Gram can be computed more efficiently (e.g. with a convolution), the user should
-        re-define this method.
+        If the Gram can be computed more efficiently (e.g. with a convolution), the user should re-define this method.
         """
 
         def op_expr(_) -> tuple:
@@ -1524,7 +1524,7 @@ class LinOp(DiffMap):
 
     def cogram(self) -> pyct.OpT:
         r"""
-        Co-Gram operator :math:`LL^\ast:\mathbb{R}^N\to \mathbb{R}^N`.
+        Co-Gram operator :math:`\mathbf{A}\mathbf{A}^{\ast}:\mathbb{R}^{N} \to \mathbb{R}^{N}`.
 
         Returns
         -------
@@ -1535,8 +1535,7 @@ class LinOp(DiffMap):
         -----
         By default the co-Gram is computed by the composition ``self * self.T``.
         This may not be the fastest way to compute the co-Gram operator.
-        If the co-Gram can be computed more efficiently (e.g. with a convolution), the user should
-        re-define this method.
+        If the co-Gram can be computed more efficiently (e.g. with a convolution), the user should re-define this method.
         """
 
         def op_expr(_) -> tuple:
@@ -1555,7 +1554,7 @@ class LinOp(DiffMap):
         kwargs_fit=None,
     ) -> pyct.NDArray:
         r"""
-        Evaluate the Moore-Penrose pseudo-inverse :math:`L^\dagger` at specified point(s).
+        Evaluate the Moore-Penrose pseudo-inverse :math:`\mathbf{A}^{\dagger}` at specified point(s).
 
         Parameters
         ----------
@@ -1575,36 +1574,36 @@ class LinOp(DiffMap):
 
         Notes
         -----
-        The Moore-Penrose pseudo-inverse of an operator :math:`L:\mathbb{R}^M\to \mathbb{R}^N` is
-        defined as the operator :math:`L^\dagger:\mathbb{R}^N\to \mathbb{R}^M` verifying the
+        The Moore-Penrose pseudo-inverse of an operator :math:`\mathbf{A}: \mathbb{R}^{M} \to \mathbb{R}^{N}` is
+        defined as the operator :math:`\mathbf{A}^{\dagger}: \mathbb{R}^{N} \to \mathbb{R}^{M}` verifying the
         Moore-Penrose conditions:
 
-            1. :math:`LL^\dagger L =L`,
-            2. :math:`L^\dagger LL^\dagger =L^\dagger`,
-            3. :math:`(L^\dagger L)^\ast=L^\dagger L`,
-            4. :math:`(LL^\dagger)^\ast=LL^\dagger`.
+            1. :math:`\mathbf{A} \mathbf{A}^{\dagger} \mathbf{A} = \mathbf{A}`,
+            2. :math:`\mathbf{A}^{\dagger} \mathbf{A} \mathbf{A}^{\dagger} = \mathbf{A}^{\dagger}`,
+            3. :math:`(\mathbf{A}^{\dagger} \mathbf{A})^{\ast} = \mathbf{A}^{\dagger} \mathbf{A}`,
+            4. :math:`(\mathbf{A} \mathbf{A}^{\dagger})^{\ast} = \mathbf{A} \mathbf{A}^{\dagger}`.
 
         This operator exists and is unique for any finite-dimensional linear operator.
-        The action of the pseudo-inverse :math:`L^\dagger \mathbf{y}` for every
-        :math:`\mathbf{y}\in\mathbb{R}^N` can be computed in matrix-free fashion by solving the
+        The action of the pseudo-inverse :math:`\mathbf{A}^{\dagger} \mathbf{y}` for every
+        :math:`\mathbf{y} \in \mathbb{R}^{N}` can be computed in matrix-free fashion by solving the
         *normal equations*:
 
         .. math::
 
-           L^\ast L \mathbf{x}= L^\ast \mathbf{y}
+           \mathbf{A}^{\ast} \mathbf{A} \mathbf{x} = \mathbf{A}^{\ast} \mathbf{y}
            \quad\Leftrightarrow\quad
-           \mathbf{x}=L^\dagger \mathbf{y},
+           \mathbf{x} = \mathbf{A}^{\dagger} \mathbf{y},
            \quad
-           \forall (\mathbf{x},\mathbf{y})\in\mathbb{R}^M\times\mathbb{R}^N.
+           \forall (\mathbf{x}, \mathbf{y}) \in \mathbb{R}^{M} \times \mathbb{R}^{N}.
 
-        In the case of severe ill-conditioning, it is also possible to consider the dampened normal
-        equations for a numerically-stabler approximation of :math:`L^\dagger \mathbf{y}`:
+        In the case of severe ill-conditioning, it is possible to consider the dampened normal
+        equations for a numerically-stabler approximation of :math:`\mathbf{A}^{\dagger} \mathbf{y}`:
 
         .. math::
 
-           (L^\ast L + \tau I) \mathbf{x}= L^\ast \mathbf{y},
+           (\mathbf{A}^{\ast} \mathbf{A} + \tau I) \mathbf{x} = \mathbf{A}^{\ast} \mathbf{y},
 
-        where :math:`\tau>0` corresponds to the ``damp`` parameter.
+        where :math:`\tau > 0` corresponds to the `damp` parameter.
         """
         from pycsou.operator.linop import HomothetyOp
         from pycsou.opt.solver import CG
@@ -1634,7 +1633,7 @@ class LinOp(DiffMap):
         kwargs_fit=None,
     ) -> pyct.OpT:
         r"""
-        Return the Moore-Penrose pseudo-inverse operator :math:`L^\dagger`.
+        Return the Moore-Penrose pseudo-inverse operator :math:`\mathbf{A}^\dagger`.
 
         Parameters
         ----------
@@ -1712,8 +1711,7 @@ class LinOp(DiffMap):
 
 class SquareOp(LinOp):
     r"""
-    Base class for *square* linear operators, i.e. :math:`L:\mathbb{R}^M\to \mathbb{R}^M`
-    (endomorphsisms).
+    Base class for *square* linear operators, i.e. :math:`\mathbf{A}: \mathbb{R}^{M} \to \mathbb{R}^{M}` (endomorphsisms).
     """
 
     @classmethod
@@ -1753,9 +1751,10 @@ class NormalOp(SquareOp):
 
     Notes
     -----
-    Normal operators commute with their adjoint, i.e. :math:`LL^\ast=L^\ast L`.
+    Normal operators commute with their adjoint, i.e.
+    :math:`\mathbf{A} \mathbf{A}^{\ast} = \mathbf{A}^{\ast} \mathbf{A}`.
     It is `possible to show <https://www.wikiwand.com/en/Spectral_theorem#/Normal_matrices>`_ that
-    an operator is normal iff it is *unitarily diagonalizable*, i.e. :math:`L=UDU^\ast`.
+    an operator is normal iff it is *unitarily diagonalizable*, i.e. :math:`\mathbf{A} = U D U^{\ast}`.
     """
 
     @classmethod
@@ -1818,25 +1817,25 @@ class NormalOp(SquareOp):
         **kwargs,
     ) -> pyct.NDArray:
         r"""
-        Find ``k`` eigenvalues of a normal operator.
+        Find eigenvalues of a normal operator.
 
         Parameters
         ----------
         k: pyct.Integer
             Number of eigenvalues to compute.
-        which: ‘LM’ | ‘SM’
-            Which ``k`` eigenvalues to find:
+        which: LM | SM
+            Which `k` eigenvalues to find:
 
-                * ‘LM’ : largest magnitude
-                * ‘SM’ : smallest magnitude
+                * `LM`: largest magnitude
+                * `SM`: smallest magnitude
         gpu: bool
             If ``True`` the eigenvalue decomposition is performed on the GPU.
-        kwargs: dict
+        kwargs: cabc.Mapping
             Additional kwargs accepted by :py:func:`scipy.sparse.linalg.eigs`.
 
         Returns
         -------
-        D: NDArray
+        D: pyct.NDArray
             (k,) eigenvalues in ascending magnitude order.
         """
         return self._eigvals(k, which, gpu, symmetric=False, **kwargs)
@@ -1847,7 +1846,8 @@ class NormalOp(SquareOp):
 
 class SelfAdjointOp(NormalOp):
     r"""
-    Base class for *self-adjoint* operators, i.e. :math:`L^\ast=L`.
+    Base class for *self-adjoint* operators, i.e.
+    :math:`\mathbf{A}^{\ast} = \mathbf{A}`.
     """
 
     @classmethod
@@ -1871,7 +1871,8 @@ class SelfAdjointOp(NormalOp):
 
 class UnitOp(NormalOp):
     r"""
-    Base class for *unitary* operators, i.e. :math:`LL^\ast=L^\ast L = I`.
+    Base class for *unitary* operators, i.e.
+    :math:`\mathbf{A} \mathbf{A}^{\ast} = \mathbf{A}^{\ast} \mathbf{A} = I`.
     """
 
     @classmethod
@@ -1916,7 +1917,8 @@ class ProjOp(SquareOp):
     r"""
     Base class for *projection* operators.
 
-    Projection operators are *idempotent*, i.e. :math:`L^2=L`.
+    Projection operators are *idempotent*, i.e.
+    :math:`\mathbf{A}^{2} = \mathbf{A}`.
     """
 
     @classmethod
@@ -1931,7 +1933,7 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
     Base class for *orthogonal projection* operators.
 
     Orthogonal projection operators are *idempotent* and *self-adjoint*, i.e.
-    :math:`L^2=L` and :math:`L^\ast=L`.
+    :math:`\mathbf{A}^{2} = \mathbf{A}` and :math:`\mathbf{A}^{\ast} = \mathbf{A}`.
     """
 
     @classmethod
@@ -1982,11 +1984,12 @@ class PosDefOp(SelfAdjointOp):
 
 class LinFunc(ProxDiffFunc, LinOp):
     r"""
-    Base class for real-valued linear functionals :math:`f:\mathbb{R}^M\to\mathbb{R}`.
+    Base class for real-valued linear functionals :math:`f: \mathbb{R}^{M} \to \mathbb{R}`.
 
     Instances of this class must implement
-    :py:meth:`~pycsou.abc.operator.Apply.apply`, and
-    :py:meth:`~pycsou.abc.operator.Adjoint.adjoint`.
+    :py:meth:`~pycsou.abc.operator.Map.apply`, and
+    :py:meth:`~pycsou.abc.operator.LinOp.adjoint`.
+
 
     If known, the Lipschitz constant of the linear functional should be stored in the attribute
     ``_lipschitz`` (initialized to :math:`+\infty` by default).
@@ -2005,6 +2008,7 @@ class LinFunc(ProxDiffFunc, LinOp):
         super().__init__(shape=shape)
         ProxDiffFunc.__init__(self, shape)
         LinOp.__init__(self, shape)
+
         assert self.dim is not None, "shape: domain-agnostic LinFuncs are not supported."
         # Reason: `op.adjoint(arr).shape` cannot be inferred based on `arr.shape` and `op.dim`.
 

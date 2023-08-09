@@ -63,9 +63,9 @@ def vectorize(
     method: str
         Vectorization strategy:
 
-        * "scan" computes outputs using a for-loop.
-        * "parallel" passes inputs to DASK and evaluates them in parallel.
-        * "scan_dask" passes inputs to DASK but evaluates inputs in sequence.
+        * `scan` computes outputs using a for-loop.
+        * `parallel` passes inputs to DASK and evaluates them in parallel.
+        * `scan_dask` passes inputs to DASK but evaluates inputs in sequence.
           This is useful if the function being vectorized has a shared resource, i.e. is not
           thread-safe.
           It effectively gives a DASK-unaware function the ability to work with DASK inputs.
@@ -76,15 +76,17 @@ def vectorize(
 
     Example
     -------
+    .. code-block:: python3
 
-    >>> import pycsou.util as pycu
-    >>> @pycu.vectorize('x')
-    ... def f(x):
-    ...     return x.sum(keepdims=True)
-    ...
-    >>> x = np.arange(10).reshape((2, 5))
-    >>> f(x[0]), f(x[1])  #  [10], [35]
-    >>> f(x)              #  [10, 35] -> would have retured [45] if not decorated.
+       import pycsou.util as pycu
+
+       @pycu.vectorize('x')
+       def f(x):
+           return x.sum(keepdims=True)
+
+       x = np.arange(10).reshape((2, 5))
+       f(x[0]), f(x[1])  #  [10], [35]
+       f(x)              #  [10, 35] -> would have retured [45] if not decorated.
 
     Notes
     -----

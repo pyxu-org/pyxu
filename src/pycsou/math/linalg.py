@@ -23,7 +23,7 @@ def norm(x: pyct.NDArray, **kwargs):
     ----------
     x: pyct.NDArray
         Input array.
-    **kwargs
+    kwargs: dict
         Any kwarg accepted by :py:func:`numpy.linalg.norm`.
 
     Returns
@@ -47,8 +47,8 @@ def hutchpp(
     **kwargs,
 ) -> pyct.Real:
     r"""
-    Stochastic estimate of the trace of a linear operator based on the Hutch++ algorithm.
-    (Specifically algorithm 3 of the paper https://arxiv.org/abs/2010.09649)
+    Stochastic trace estimation of a linear operator based on the Hutch++ algorithm.
+    (Specifically algorithm 3 from `this paper <https://arxiv.org/abs/2010.09649>`_.)
 
     Parameters
     ----------
@@ -56,10 +56,8 @@ def hutchpp(
     m: pyct.Integer
         Number of queries used to estimate the trace of the linear operator.
 
-        ``m`` is set to 4002 by default based on the analysis of the variance described in theorem
-        10.
-        This default corresponds to having an estimation error smaller than 0.01 with probability
-        0.9.
+        ``m`` is set to 4002 by default based on the analysis of the variance described in theorem 10.
+        This default corresponds to having an estimation error smaller than 0.01 with probability 0.9.
     xp: pyct.ArrayModule
         Array module used for internal computations.
     dtype: pyct.DType

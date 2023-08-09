@@ -61,11 +61,14 @@ class Precision(contextlib.AbstractContextManager):
 
     Example
     -------
-    >>> import pycsou.runtime as pycrt
-    >>> pycrt.getPrecision()                      # Width.DOUBLE
-    ... with pycrt.Precision(pycrt.Width.SINGLE):
-    ...     pycrt.getPrecision()                  # Width.SINGLE
-    ... pycrt.getPrecision()                      # Width.DOUBLE
+    .. code-block:: python3
+
+       import pycsou.runtime as pycrt
+
+       pycrt.getPrecision()                      # Width.DOUBLE
+       with pycrt.Precision(pycrt.Width.SINGLE):
+           pycrt.getPrecision()                  # Width.SINGLE
+       pycrt.getPrecision()                      # Width.DOUBLE
     """
 
     def __init__(self, width: Width):
@@ -93,11 +96,14 @@ class EnforcePrecision(contextlib.AbstractContextManager):
 
     Example
     -------
-    >>> import pycsou.runtime as pycrt
-    >>> pycrt.getCoerceState()                    # True
-    ... with pycrt.EnforcePrecision(False):
-    ...     pycrt.getCoerceState()                # False
-    ... pycrt.getCoerceState()                    # True
+    .. code-block:: python3
+
+       import pycsou.runtime as pycrt
+
+       pycrt.getCoerceState()                    # True
+       with pycrt.EnforcePrecision(False):
+           pycrt.getCoerceState()                # False
+       pycrt.getCoerceState()                    # True
     """
 
     def __init__(self, state: bool):
@@ -139,19 +145,21 @@ def enforce_precision(
 
     Example
     -------
-    >>> import pycsou.runtime as pycrt
-    >>> @pycrt.enforce_precision(i='y', o=False)  # `i` can process multiple args: `i=('x','y')`.
-    ... def f(x, y, z=1):
-    ...     print(x.dtype, y.dtype)
-    ...     return x + y + z
-    >>> x, y = np.arange(5), np.r_[0.5]
-    >>> print(x.dtype, y.dtype)
-    int64 float64
-    >>> with pycrt.Precision(pycrt.Width.SINGLE):
-    ...     out = f(x,y)                         # int64, float32 (printed inside f-call.)
-    int64 float32
-    >>> print(out.dtype)                         # float64 (would have been float32 if `o=True`)
-    float64
+    .. code-block:: python3
+
+       import pycsou.runtime as pycrt
+
+       @pycrt.enforce_precision(i='y', o=False)  # `i` can process multiple args: `i=('x','y')`.
+       def f(x, y, z=1):
+           print(x.dtype, y.dtype)
+           return x + y + z
+
+       x, y = np.arange(5), np.r_[0.5]
+       print(x.dtype, y.dtype)  # int64, float64
+
+       with pycrt.Precision(pycrt.Width.SINGLE):
+           out = f(x,y)                         # (int64, float32) [printed inside f-call.]
+       print(out.dtype)                         # float64 [would have been float32 if `o=True`.]
     """
 
     def decorator(func: cabc.Callable) -> cabc.Callable:

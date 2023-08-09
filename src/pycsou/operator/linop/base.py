@@ -219,13 +219,13 @@ def DiagonalOp(
     enable_warnings: bool = True,
 ) -> pyct.OpT:
     r"""
-    Diagonal linear operator :math:`L: \mathbf{x} \to \text{diag}(\mathbf{v}) \mathbf{x}`.
+    Diagonal linear operator :math:`\mathbf{D}: \mathbf{x} \to \text{diag}(\mathbf{v}) \mathbf{x}`.
 
     Notes
     -----
     :py:func:`~pycsou.operator.linop.base.DiagonalOp` instances are **not arraymodule-agnostic**:
-    they will only work with NDArrays belonging to the same array module as ``vec``.
-    Moreover, inner computations may cast input arrays when the precision of ``vec`` does not match
+    they will only work with NDArrays belonging to the same array module as `vec`.
+    Moreover, inner computations may cast input arrays when the precision of `vec` does not match
     the user-requested precision.
     If such a situation occurs, a warning is raised.
 
@@ -353,7 +353,7 @@ def _ExplicitLinOp(
     r"""
     Build a linear operator from its matrix representation.
 
-    Given a matrix :math:`\mathbf{A}\in\mathbb{R}^{M\times N}`, the *explicit linear operator*
+    Given a matrix :math:`\mathbf{A} \in \mathbb{R}^{N \times M}`, the *explicit linear operator*
     associated to :math:`\mathbf{A}` is defined as
 
     .. math::
@@ -362,17 +362,17 @@ def _ExplicitLinOp(
        =
        \mathbf{A}\mathbf{x},
        \qquad
-       \forall \mathbf{x}\in\mathbb{R}^N,
+       \forall \mathbf{x} \in \mathbb{R}^{M},
 
     with adjoint given by:
 
     .. math::
 
-       f^\ast_\mathbf{A}(\mathbf{z})
+       f^{\ast}_{\mathbf{A}}(\mathbf{z})
        =
-       \mathbf{A}^T\mathbf{z},
+       \mathbf{A}^{T}\mathbf{z},
        \qquad
-       \forall \mathbf{z}\in\mathbb{R}^M.
+       \forall \mathbf{z} \in \mathbb{R}^{N}.
 
     Parameters
     ----------
@@ -390,14 +390,14 @@ def _ExplicitLinOp(
 
     Notes
     -----
-    * :py:class:`~pycsou.operator.linop.base._ExplicitLinOp` instances are **not
-      arraymodule-agnostic**: they will only work with NDArrays belonging to the same (dense) array
-      module as ``mat``.
+    * :py:class:`~pycsou.operator.linop.base._ExplicitLinOp` instances are **not arraymodule-agnostic**:
+      they will only work with NDArrays belonging to the same (dense) array module as ``mat``.
       Moreover, inner computations may cast input arrays when the precision of ``mat`` does not
       match the user-requested precision.
       If such a situation occurs, a warning is raised.
 
-    * The matrix provided in ``__init__()`` is used as-is and can be accessed via ``.mat``.
+    * The matrix provided in :py:meth:`~pycsou.operator.linop.base._ExplicitLinOp.__init__` is used as-is
+      and can be accessed via ``.mat``.
     """
 
     def _standard_form(A):

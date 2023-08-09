@@ -71,7 +71,7 @@ class _NormBall(_IndicatorFunction):
 
 def L1Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
     r"""
-    Indicator function of the :math:`\ell_1`-ball.
+    Indicator function of the :math:`\ell_{1}`-ball.
 
     .. math::
 
@@ -91,7 +91,6 @@ def L1Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
     Parameters
     ----------
     dim: pyct.Integer
-        Dimension size. (Default: domain-agnostic.)
     radius: pyct.Real
         Ball radius. (Default: unit ball.)
 
@@ -106,7 +105,7 @@ def L1Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
 
 def L2Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
     r"""
-    Indicator function of the :math:`\ell_2`-ball.
+    Indicator function of the :math:`\ell_{2}`-ball.
 
     .. math::
 
@@ -126,7 +125,6 @@ def L2Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
     Parameters
     ----------
     dim: pyct.Integer
-        Dimension size. (Default: domain-agnostic.)
     radius: pyct.Real
         Ball radius. (Default: unit ball.)
 
@@ -141,7 +139,7 @@ def L2Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
 
 def LInfinityBall(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
     r"""
-    Indicator function of the :math:`\ell_\infty`-ball.
+    Indicator function of the :math:`\ell_{\infty}`-ball.
 
     .. math::
 
@@ -161,7 +159,6 @@ def LInfinityBall(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
     Parameters
     ----------
     dim: pyct.Integer
-        Dimension size. (Default: domain-agnostic.)
     radius: pyct.Real
         Ball radius. (Default: unit ball.)
 
@@ -195,12 +192,6 @@ class PositiveOrthant(_IndicatorFunction):
     """
 
     def __init__(self, dim: pyct.Integer = None):
-        """
-        Parameters
-        ----------
-        dim: pyct.Integer
-            Dimension size. (Default: domain-agnostic.)
-        """
         super().__init__(dim=dim)
 
     @pycrt.enforce_precision(i="arr")
@@ -368,8 +359,7 @@ class AffineSet(_IndicatorFunction):
       * :math:`\mathbf{b} \in \text{span}(\mathbf{A})`.
       * :math:`\mathbf{A}` has full row-rank, i.e. :math:`\mathbf{A}` is square or fat.
 
-    * :py:class:`~pycsou.operator.func.indicator.AffineSet` instances are **not
-      arraymodule-agnostic**:
+    * :py:class:`~pycsou.operator.func.indicator.AffineSet` instances are **not arraymodule-agnostic**:
       they will only work with NDArrays belonging to the same array module as ``A`` and ``b``.
     """
 

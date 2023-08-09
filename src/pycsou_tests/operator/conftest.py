@@ -53,22 +53,23 @@ def get_test_class(cls: pyct.OpC) -> "MapT":
 #         * in_ are kwargs to `op.<method>()`;
 #         * out denotes the output of `op.method(**data[in_])`.
 #
-# * test_[value,backend,prec,precCM,transparent]_<method>(op, ...)
+# * data_math_<method>()
+#       Special test data for mathematical identities.
+#
+# * test_[value,backend,
+#         prec,precCM,
+#         transparent,math,
+#         interface
+#        ]_<method>(op, ...)
 #       Verify that <method>, returns
 #       * value: right output values
 #       * backend: right output type
 #       * prec: input/output have same precision
 #       * precCM: output respects context-manager choice
-#       * transparent: referential-transparency, i.e. no side-effects.
+#       * transparent: referential-transparency, i.e. no side-effects
+#       * math: mathematical identities hold
+#       * interface: objects have the right interface
 #
-# * data_math_<method>()
-#       Special test data for mathematical identities.
-#
-# * test_math_<method>()
-#       Verify mathematical identities involving <method>.
-#
-# * test_interface_[<method>]()
-#       Verify objects have the right interface.
 DataLike = cabc.Mapping[str, typ.Any]
 
 
@@ -98,7 +99,7 @@ class MapT(ct.DisableTestMixin):
         seed: int = 0,
         xp: pyct.ArrayModule = pycd.NDArrayInfo.NUMPY.module(),
         width: pycrt.Width = pycrt.Width.DOUBLE,
-    ):
+    ) -> pyct.NDArray:
         rng = npr.default_rng(seed)
         x = rng.normal(size=shape)
         return xp.array(x, dtype=width.value)
@@ -124,7 +125,7 @@ class MapT(ct.DisableTestMixin):
     ) -> bool:
         # Function used to assess if computed values returned by arithmetic methods are correct.
         #
-        # Users may override this function to introduce an alternative metrics when justified.
+        # Users may override this function to introduce an alternative metric when justified.
         # The default metric is point-wise match.
         #
         # Parameters
@@ -402,6 +403,7 @@ class MapT(ct.DisableTestMixin):
         self._check_no_side_effect(op.__call__, _data_apply)
 
     def test_interface_lipschitz(self, op, _data_lipschitz):
+        # .lipschitz() always returns a float.
         self._skip_if_disabled()
         L = op.lipschitz(**_data_lipschitz["in_"])
         assert isinstance(L, float)
@@ -474,8 +476,7 @@ class MapT(ct.DisableTestMixin):
 
     def test_value_asop(self, op, _data_lipschitz, width, _klass):
         # Ensure encapsulated arithmetic fields are forwarded.
-        # We only test fields known to belong to any Map subclass:
-        # * _lipschitz (attribute)
+        # We only test arithmetic fields known to belong to any Map subclass:
         # * lipschitz (method)
         # * apply (method)
         # * __call__ (special method)
@@ -549,6 +550,7 @@ class DiffMapT(MapT):
         self._check_has_interface(J, LinOpT)
 
     def test_interface_diff_lipschitz(self, op):
+        # .diff_lipschitz() always returns a float.
         self._skip_if_disabled()
         dL = op.diff_lipschitz()
         assert isinstance(dL, float)
@@ -1754,6 +1756,7 @@ class ProjOpT(SquareOpT):
 
     # Fixtures ----------------------------------------------------------------
     def test_math_idempotent(self, op, xp, width):
+        # op.apply = op.apply^2
         self._skip_if_disabled()
         N = 30
         x = self._random_array((N, op.dim), xp=xp, width=width)

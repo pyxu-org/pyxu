@@ -133,7 +133,7 @@ def redirect(
     ----------
     i: str
         name of the array-like variable in `f` to base dispatch on.
-    **kwargs: dict[str, callable]
+    kwargs: dict[str, callable]
 
         key: array backend short-name as defined in :py:class:`~pycsou.util.deps.NDArrayInfo`.
 
@@ -153,15 +153,17 @@ def redirect(
 
     Example
     -------
-    >>> def f(x, y): return "f"
-    >>>
-    >>> @redirect('x', NUMPY=f)    # if 'x' is of type NDArrayInfo.NUMPY, i.e. has
-    >>> def g(x, y): return "g"    # short-name 'NUMPY' -> reroute execution to `f`
-    >>>
-    >>> x1 = np.arange(5)
-    >>> x2 = da.array(x1)
-    >>> y = 1
-    >>> g(x1, y), g(x2, y)  # 'f', 'g'
+    .. code-block:: python3
+
+       def f(x, y): return "f"
+
+       @redirect('x', NUMPY=f)    # if 'x' is of type NDArrayInfo.NUMPY, i.e. has
+       def g(x, y): return "g"    # short-name 'NUMPY' -> reroute execution to `f`
+
+       x1 = np.arange(5)
+       x2 = da.array(x1)
+       y = 1
+       g(x1, y), g(x2, y)  # 'f', 'g'
     """
 
     def decorator(func: cabc.Callable) -> cabc.Callable:

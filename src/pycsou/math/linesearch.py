@@ -32,13 +32,13 @@ def backtracking_linesearch(
     Parameters
     ----------
     f: pyca.DiffFunc
-        Differentiable functional
+        Differentiable functional.
     x: pyct.NDArray
-        (..., N) initial search point(s)
+        (..., N) initial search point(s).
     direction: pyct.NDArray
-        (..., N) search direction(s) corresponding to initial point(s)
+        (..., N) search direction(s) corresponding to initial point(s).
     gradient: pyct.NDArray
-        (..., N) gradient of `f` at initial search point(s)
+        (..., N) gradient of `f` at initial search point(s).
 
         Specifying `gradient` when known is an optimization:
         it will be autocomputed via ``f.grad(x)`` if unspecified.

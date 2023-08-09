@@ -39,11 +39,9 @@ class Sin(pyca.DiffMap):
     -----
     * :math:`f(x) = \sin(x)`
     * :math:`f'(x) = \cos(x)`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      1`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
 
-      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = k \pi, \, k \in
-      \mathbb{Z}`.)
+      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = k \pi, \, k \in \mathbb{Z}`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
       constant :math:`\partial L = 1`.
 
@@ -79,8 +77,7 @@ class Cos(pyca.DiffMap):
     -----
     * :math:`f(x) = \cos(x)`
     * :math:`f'(x) = -\sin(x)`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      1`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = (2k + 1)
       \frac{\pi}{2}, \, k \in \mathbb{Z}`.)
@@ -119,8 +116,7 @@ class Tan(pyca.DiffMap):
     -----
     * :math:`f(x) = \tan(x)`
     * :math:`f'(x) = \cos^{-2}(x)`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      \infty`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [-\pi, \pi]`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
@@ -159,8 +155,7 @@ class ArcSin(pyca.DiffMap):
     -----
     * :math:`f(x) = \arcsin(x)`
     * :math:`f'(x) = (1 - x^{2})^{-\frac{1}{2}}`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      \infty`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
@@ -201,8 +196,7 @@ class ArcCos(pyca.DiffMap):
     -----
     * :math:`f(x) = \arccos(x)`
     * :math:`f'(x) = -(1 - x^{2})^{-\frac{1}{2}}`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      \infty`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
@@ -241,15 +235,13 @@ class ArcTan(pyca.DiffMap):
     -----
     * :math:`f(x) = \arctan(x)`
     * :math:`f'(x) = (1 + x^{2})^{-1}`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      1`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = 0`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
       constant :math:`\partial L = 3 \sqrt{3} / 8`.
 
-      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \pm
-      \frac{1}{\sqrt{3}}`.)
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \pm \frac{1}{\sqrt{3}}`.)
     """
 
     def __init__(self, dim: pyct.Integer):
@@ -285,8 +277,7 @@ class Sinh(pyca.DiffMap):
     -----
     * :math:`f(x) = \sinh(x)`
     * :math:`f'(x) = \cosh(x)`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      \infty`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
@@ -323,8 +314,7 @@ class Cosh(pyca.DiffMap):
     -----
     * :math:`f(x) = \cosh(x)`
     * :math:`f'(x) = \sinh(x)`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      \infty`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
@@ -361,8 +351,7 @@ class Tanh(pyca.DiffMap):
     -----
     * :math:`f(x) = \tanh(x)`
     * :math:`f'(x) = 1 - \tanh^{2}(x)`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      1`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = 0`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
@@ -406,15 +395,13 @@ class ArcSinh(pyca.DiffMap):
     -----
     * :math:`f(x) = \sinh^{-1}(x) = \ln(x + \sqrt{x^{2} + 1})`
     * :math:`f'(x) = (x^{2} + 1)^{-\frac{1}{2}}`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      1`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = 0`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
       constant :math:`\partial L = \frac{2}{3 \sqrt{3}}`.
 
-      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \pm
-      \frac{1}{\sqrt{2}}`.)
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \pm \frac{1}{\sqrt{2}}`.)
     """
 
     def __init__(self, dim: pyct.Integer):
@@ -451,8 +438,7 @@ class ArcCosh(pyca.DiffMap):
     -----
     * :math:`f(x) = \cosh^{-1}(x) = \ln(x + \sqrt{x^{2} - 1})`
     * :math:`f'(x) = (x^{2} - 1)^{-\frac{1}{2}}`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      \infty`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [1, \infty[`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
@@ -492,8 +478,7 @@ class ArcTanh(pyca.DiffMap):
     -----
     * :math:`f(x) = \tanh^{-1}(x) = \frac{1}{2}\ln\left(\frac{1+x}{1-x}\right)`
     * :math:`f'(x) = (1 - x^{2})^{-1}`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      \infty`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
@@ -533,8 +518,7 @@ class Exp(pyca.DiffMap):
     -----
     * :math:`f_{b}(x) = b^{x}`
     * :math:`f_{b}'(x) = b^{x} \ln(b)`
-    * :math:`\vert f_{b}(x) - f_{b}(y) \vert \le L \vert x - y \vert`, with Lipschitz constant
-      :math:`L = \infty`.
+    * :math:`\vert f_{b}(x) - f_{b}(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f_{b}'(x)` is unbounded on :math:`\text{dom}(f_{b}) = \mathbb{R}`.)
     * :math:`\vert f_{b}'(x) - f_{b}'(y) \vert \le \partial L \vert x - y \vert`, with
@@ -579,8 +563,7 @@ class Log(pyca.DiffMap):
     -----
     * :math:`f_{b}(x) = \log_{b}(x)`
     * :math:`f_{b}'(x) = x^{-1} / \ln(b)`
-    * :math:`\vert f_{b}(x) - f_{b}(y) \vert \le L \vert x - y \vert`, with Lipschitz constant
-      :math:`L = \infty`.
+    * :math:`\vert f_{b}(x) - f_{b}(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f_{b}'(x)` is unbounded on :math:`\text{dom}(f_{b}) = \mathbb{R}_{+}`.)
     * :math:`\vert f_{b}'(x) - f_{b}'(y) \vert \le \partial L \vert x - y \vert`, with
@@ -630,8 +613,7 @@ class Clip(pyca.Map):
              x, & a < x < b, \\
              b, & \text{if} \ x \geq b.
          \end{cases}
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      1`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
     """
 
     def __init__(self, dim: pyct.Integer, a_min: pyct.Real = None, a_max: pyct.Real = None):
@@ -667,8 +649,7 @@ class Sqrt(pyca.DiffMap):
     -----
     * :math:`f(x) = \sqrt{x}`
     * :math:`f'(x) = 1 / 2 \sqrt{x}`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      \infty`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}_{+}`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
@@ -706,8 +687,7 @@ class Cbrt(pyca.DiffMap):
     -----
     * :math:`f(x) = \sqrt[3]{x}`
     * :math:`f'(x) = 1 / 3 \sqrt[3]{x^{2}}`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      \infty`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
@@ -746,8 +726,7 @@ class Square(pyca.DiffMap):
     -----
     * :math:`f(x) = x^{2}`
     * :math:`f'(x) = 2 x`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      \infty`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
@@ -785,8 +764,7 @@ class Abs(pyca.Map):
     Notes
     -----
     * :math:`f(x) = \vert x \vert`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      1`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
     """
 
     def __init__(self, dim: pyct.Integer):
@@ -810,8 +788,7 @@ class Sign(pyca.Map):
     Notes
     -----
     * :math:`f(x) = x / \vert x \vert`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      2`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 2`.
     """
 
     def __init__(self, dim: pyct.Integer):
@@ -835,8 +812,7 @@ class CumSum(pyca.SquareOp):
     Notes
     -----
     * :math:`[f(x_{1},\ldots,x_{N})]_{i} = \sum_{k=1}^{i} x_{k}`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      \sqrt{N (N+1) / 2}`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \sqrt{N (N+1) / 2}`.
     """
 
     def __init__(self, dim: pyct.Integer):
@@ -866,8 +842,7 @@ class Gaussian(pyca.DiffMap):
     -----
     * :math:`f(x) = \exp(-x^{2})`
     * :math:`f'(x) = -2 x \exp(-x^{2})`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      \sqrt{2 / e}`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \sqrt{2 / e}`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = \pm 1 / \sqrt{2}`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
@@ -910,15 +885,13 @@ class Sigmoid(pyca.DiffMap):
     -----
     * :math:`f(x) = (1 + e^{-x})^{-1}`
     * :math:`f'(x) = f(x) [ f(x) - 1 ]`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1
-      / 4`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1 / 4`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = 0`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
       constant :math:`\partial L = 1 / 6 \sqrt{3}`.
 
-      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \ln(2 \pm
-      \sqrt{3})`.)
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \ln(2 \pm \sqrt{3})`.)
     """
 
     def __init__(self, dim: pyct.Integer):
@@ -955,11 +928,9 @@ class SoftPlus(pyca.DiffMap):
     -----
     * :math:`f(x) = \ln(1 + e^{x})`
     * :math:`f'(x) = (1 + e^{-x})^{-1}`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      1`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
 
-      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` on :math:`\text{dom}(f) =
-      \mathbb{R}`.)
+      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` on :math:`\text{dom}(f) = \mathbb{R}`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
       constant :math:`\partial L = 1 / 4`.
 
@@ -993,10 +964,8 @@ class LeakyReLU(pyca.Map):
 
     Notes
     -----
-    * :math:`f(x) = x \left[\mathbb{1}_{\ge 0}(x) + \alpha \mathbb{1}_{< 0}(x)\right], \quad \alpha
-      \ge 0`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      \max(1, \alpha)`.
+    * :math:`f(x) = x \left[\mathbb{1}_{\ge 0}(x) + \alpha \mathbb{1}_{< 0}(x)\right], \quad \alpha \ge 0`
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \max(1, \alpha)`.
     """
 
     def __init__(self, dim: pyct.Integer, alpha: pyct.Real):
@@ -1022,8 +991,7 @@ class ReLU(LeakyReLU):
     Notes
     -----
     * :math:`f(x) = \lfloor x \rfloor_{+}`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      1`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
     """
 
     def __init__(self, dim: pyct.Integer):
@@ -1042,8 +1010,7 @@ class SiLU(pyca.DiffMap):
     -----
     * :math:`f(x) = x / (1 + e^{-x})`
     * :math:`f'(x) = (1 + e^{-x} + x e^{-x}) / (1 + e^{-x})^{2}`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      1.1`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1.1`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x \approx 2.4`.)
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
@@ -1088,8 +1055,7 @@ class SoftMax(pyca.DiffMap):
     -----
     * :math:`[f(x_{1},\ldots,x_{N})]_{i} = e^{x_{i}} / \sum_{k=1}^{N} e^{x_{k}}`
     * :math:`J_{f}(\mathbf{x}) = \text{diag}(f(\mathbf{x})) - f(\mathbf{x}) f(\mathbf{x})^{T}`
-    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L =
-      1`.
+    * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
       constant :math:`\partial L = 1`.
     """

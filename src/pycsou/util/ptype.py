@@ -1,6 +1,5 @@
 """
-The purpose of this module is to group all abstract types and helpers usefol Python's static
-type-checker.
+The purpose of this module is to group all abstract types and helpers useful to Python's static type-checker.
 """
 
 import collections.abc as cabc

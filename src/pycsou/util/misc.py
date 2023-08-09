@@ -58,8 +58,7 @@ def peaks(x: pyct.NDArray, y: pyct.NDArray) -> pyct.NDArray:
     Returns
     -------
     z: pyct.NDArray
-        Values of the 2D function ``peaks`` at the points specified by the entries of ``x`` and
-        ``y``.
+        Values of the 2D function ``peaks`` at the points specified by the entries of ``x`` and ``y``.
 
     Examples
     --------
@@ -87,11 +86,11 @@ def peaks(x: pyct.NDArray, y: pyct.NDArray) -> pyct.NDArray:
 
 
 def star_like_sample(
-    N: int,
-    w: int,
-    s: float,
-    po: int,
-    x0: float,
+    N: pyct.Integer,
+    w: pyct.Integer,
+    s: pyct.Real,
+    po: pyct.Integer,
+    x0: pyct.Real,
     ndi: pycd.NDArrayInfo = pycd.NDArrayInfo.NUMPY,
 ) -> pyct.NDArray:
     r"""
@@ -104,15 +103,15 @@ def star_like_sample(
 
     Parameters
     ----------
-    N: int
+    N: pyct.Integer
         Size of the image (must be an even number).
-    w: int
+    w: pyct.Integer
         The number of branches of the sample will be 4*w.
-    s: float
+    s: pyct.Real
         Slope of the sigmoid function :math:`\frac1{1+\exp[s (x-x_{0})]}` attenuating the boundaries.
-    po: int
+    po: pyct.Integer
         Power-raising factor for the final image (to have smoother edges).
-    x0: float
+    x0: pyct.Real
         Radial shift of the sigmoid function :math:`\frac1{1+\exp[s (x-x_{0})]}`.
     ndi: pycd.NDArrayInfo
         Desired array module for the output.

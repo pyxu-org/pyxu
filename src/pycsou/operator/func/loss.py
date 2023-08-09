@@ -21,7 +21,7 @@ def shift_loss(
     -------
     op: pyct.OpT
         (1, M) Loss functionial.
-        If `data = None`, then this function is a no-op.
+        If `data` is omitted, then this function is a no-op.
     """
     if data is None:
         return op
