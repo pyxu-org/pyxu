@@ -144,5 +144,8 @@ class KLDivergence(pyca.ProxFunc):
         xp = pycu.get_array_module(arr)
         sh = arr.shape[:-1]
         arr = arr.reshape(-1, self.data.size)
-        out = (arr - tau + xp.sqrt((arr - tau) ** 2 + 4 * tau * self.data)) / 2
+        out = xp.sqrt((arr - tau) ** 2 + 4 * tau * self.data)
+        out += arr
+        out -= tau
+        out /= 2
         return out.reshape(*sh, -1)
