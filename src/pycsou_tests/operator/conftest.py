@@ -933,7 +933,7 @@ class LinOpT(DiffMapT):
     @classmethod
     def _check_value1D_vals(cls, func, kwargs, ground_truth):
         N = pycd.NDArrayInfo
-        xp = {True: N.CUPY, False: N.NUMPY}[kwargs["gpu"]].module()
+        xp = N.from_flag(kwargs["gpu"]).module()
         if kwargs["gpu"]:
             ground_truth = xp.array(ground_truth)
 
@@ -965,10 +965,8 @@ class LinOpT(DiffMapT):
     @staticmethod
     def _check_backend_vals(func, _gpu):
         N = pycd.NDArrayInfo
-        xp_truth = {True: N.CUPY, False: N.NUMPY}[_gpu].module()
-
         out = func(k=1, gpu=_gpu)
-        assert pycu.get_array_module(out) == xp_truth
+        assert N.from_obj(out) == N.from_flag(_gpu)
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
