@@ -36,66 +36,6 @@ def shift_loss(
 class KLDivergence(pyca.ProxFunc):
     r"""
     Generalised Kullback-Leibler divergence :math:`D_{KL}(\mathbf{y}||\mathbf{x}):=\sum_{i=1}^N y_i\log(y_i/x_i) -y_i +x_i`.
-
-    The generalised Kullback-Leibler divergence is defined as:
-
-    .. math::
-
-       D_{KL}(\mathbf{y}||\mathbf{x}):=\sum_{i=1}^N H(y_i,x_i) -y_i +x_i, \quad \forall \mathbf{y}, \mathbf{x} \in \mathbb{R}^N,
-
-    where
-
-    .. math::
-
-       H(y,x):=\begin{cases}
-       y\log(y/x) &\, \text{if} \,x>0, y>0,\\
-       0&\, \text{if} \,x=0, y\geq 0,\\
-       +\infty &\,\text{otherwise.}
-       \end{cases}
-
-    Parameters
-    ----------
-    dim: int
-        Dimension of the domain.
-    data: Union[Number, np.ndarray]
-        Data vector :math:`\mathbf{y}` to match.
-
-    Returns
-    -------
-    :py:class:`~pycsou.core.functional.ProximableFunctional`
-        The KL-divergence.
-
-    Examples
-    --------
-
-    .. testsetup::
-
-       import numpy as np
-       from pycsou.func.loss import KLDivergence
-
-    .. doctest::
-
-       >>> y = np.arange(10)
-       >>> loss = KLDivergence(dim=y.size, data=y)
-       >>> x = 2 * np.arange(10)
-       >>> loss(x)
-       13.80837687480246
-       >>> np.round(loss.prox(x, tau=1))
-       array([ 0.,  2.,  4.,  6.,  8., 10., 12., 14., 16., 18.])
-
-    Notes
-    -----
-    In information theory, and in the case where :math:`\mathbf{y}` and :math:`\mathbf{x}`  sum to one  --and hence can be interpreted as discrete probability distributions,
-    the KL-divergence can be interpreted as the relative entropy of :math:`\mathbf{y}` w.r.t. :math:`\mathbf{x}`,
-    i.e. the amount of information lost when using :math:`\mathbf{x}` to approximate :math:`\mathbf{y}`.
-    It is particularly useful in the context of count data with Poisson distribution. Indeed, the KL-divergence corresponds
-    –up to an additive constant– to the likelihood of the data :math:`\mathbf{y}` where each component is independent
-    with Poisson distribution and respective intensities given by the entries of :math:`\mathbf{x}`.
-    See [FuncSphere]_ Section 5 of Chapter 7 for the computation of its proximal operator.
-
-    See Also
-    --------
-    :py:class:`~pycsou.func.penalty.ShannonEntropy`, :py:class:`~pycsou.func.penalty.LogBarrier`
     """
 
     def __init__(
@@ -103,6 +43,37 @@ class KLDivergence(pyca.ProxFunc):
         dim: pyct.Integer,
         data: pyct.NDArray,
     ):
+        r"""
+        Parameters
+        ----------
+        dim: pyct.Integer
+            Dimension size.
+        data: pyct.NDArray
+            (M,) strictly positive input data.
+
+        Examples
+        --------
+           import numpy as np
+           from pycsou.operator.func.loss import KLDivergence
+           y = np.arange(10)
+           loss = KLDivergence(dim=y.size, data=y)
+           x = 2 * np.arange(10)
+           loss(x)
+           # 13.80837687480246
+           np.round(loss.prox(x, tau=1))
+           # array([ 0.,  2.,  4.,  6.,  8., 10., 12., 14., 16., 18.])
+
+        Notes
+        -----
+        In information theory, and in the case where :math:`\mathbf{y}` and :math:`\mathbf{x}`  sum to one  --and hence
+        can be interpreted as discrete probability distributions, the KL-divergence can be interpreted as the relative
+        entropy of :math:`\mathbf{y}` w.r.t. :math:`\mathbf{x}`, i.e. the amount of information lost when using
+        :math:`\mathbf{x}` to approximate :math:`\mathbf{y}`. It is particularly useful in the context of count data
+        with Poisson distribution. Indeed, the KL-divergence corresponds –up to an additive constant– to the likelihood
+        of the data :math:`\mathbf{y}` where each component is independent with Poisson distribution and respective
+        intensities given by the entries of :math:`\mathbf{x}`. See [FuncSphere]_ Section 5 of Chapter 7 for the
+        computation of its proximal operator.
+        """
         super().__init__(shape=(1, dim))
 
         xp = pycu.get_array_module(data)
@@ -126,21 +97,6 @@ class KLDivergence(pyca.ProxFunc):
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
-        r"""
-        Proximal operator of the KL-divergence functional (see [FuncSphere]_ Section 5 of Chapter 7).
-
-        Parameters
-        ----------
-        arr: pyct.NDArray
-            Input.
-        tau: pyct.Real
-            Scaling constant.
-
-        Returns
-        -------
-        pyct.NDArray
-            Proximal point of arr.
-        """
         xp = pycu.get_array_module(arr)
         sh = arr.shape[:-1]
         arr = arr.reshape(-1, self.data.size)
