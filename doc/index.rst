@@ -18,7 +18,6 @@
     }
     /* Override all h1 headers except for the hidden ones */
     h1:not(.sd-d-none) {
-    font-weight: bold;
     font-size: 48px;
     text-align: center;
     margin-bottom: 4rem;
@@ -509,7 +508,7 @@ Pyxu's Steering Council meets regularly (every two weeks or so) and currently co
               
                 <p style="text-align: center;">
                 <strong> Matthieu Simeoni </strong> <br/> 
-                Pyxu's creator and team lead
+                Pyxu's creator/architect, project manager and team lead
                 </p>
 
     
@@ -527,7 +526,7 @@ Pyxu's Steering Council meets regularly (every two weeks or so) and currently co
               
                 <p style="text-align: center;">
                 <strong> Sepand Kashani </strong> <br/> 
-                Technical lead and software architect
+                Technical lead, software architect & tests
                 </p>
     
     .. grid-item-card:: 
@@ -544,7 +543,7 @@ Pyxu's Steering Council meets regularly (every two weeks or so) and currently co
               
                 <p style="text-align: center;">
                 <strong> Joan Rué-Queralt </strong> <br/> 
-                Technical lead and community engagement
+                Technical lead, solution architect & plugins
                 </p>
         
 Contributors
@@ -766,3 +765,13 @@ Partners & Sponsors
     </div>
     </div>
     </div>
+
+.. toctree::
+   :maxdepth: 1
+   :hidden: 
+
+   intro/index
+   guide/index
+   examples/index
+   api/index
+   plugins/index

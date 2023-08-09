@@ -15,6 +15,7 @@
 display: inline-block !important;
 }
 
+
 /* -------------------- THEME OVERRIDES -------------------- */
 
 html[data-theme="light"] {
@@ -50,11 +51,18 @@ h1 {
     background: linear-gradient(to right, var(--pst-color-primary), rgb(245, 188, 71));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    font-weight: bold;
     }
 h2 {
 background: linear-gradient(to right, var(--pst-color-primary), rgb(245, 188, 71));
 -webkit-background-clip: text;
 -webkit-text-fill-color: transparent;
+}
+
+
+.navbar-icon-links img.icon-link-image {
+    border-radius: 0rem;
+    height: 2em;
 }
 
 

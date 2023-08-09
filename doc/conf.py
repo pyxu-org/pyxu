@@ -108,7 +108,7 @@ extensions = [
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-# templates_path = ["_templates"]
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -189,11 +189,11 @@ html_short_title = "Pyxu"
 html_theme_options = {
     "external_links": [
         {
-            "url": "https://imaging.epfl.ch/",
-            "name": "EPFL Center for Imaging",
+            "url": "https://pyxu-org.github.io/pyxu-fair/html/index",
+            "name": "Pyxu FAIR",
         },
     ],
-    "header_links_before_dropdown": 4,
+    "header_links_before_dropdown": 6,
     "icon_links": [
         {
             "name": "GitHub",
@@ -210,18 +210,24 @@ html_theme_options = {
             "url": "mailto: matthieu.simeoni@gmail.com",
             "icon": "fa-brands fa-telegram",
         },
+        {
+            "name": "EPFL Center for Imaging",
+            "url": "https://imaging.epfl.ch/",
+            "icon": "_static/imaging.png",
+            "type": "local",
+        },
     ],
     # alternative way to set twitter and github header icons
     # "github_url": "https://github.com/pydata/pydata-sphinx-theme",
     # "twitter_url": "https://twitter.com/PyData",
     "use_edit_page_button": True,
     "show_toc_level": 1,
-    "navbar_align": "left",  # [left, content, right] For testing that the navbar items align properly
-    # "navbar_center": ["version-switcher", "navbar-nav"],
+    "navbar_align": "content",  # [left, content, right] For testing that the navbar items align properly
+    "navbar_center": ["navbar-nav"],
     # "announcement": "https://raw.githubusercontent.com/pydata/pydata-sphinx-theme/main/docs/_templates/custom-template.html",
     # "show_nav_level": 2,
-    # "navbar_start": ["navbar-logo"],
-    # "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "navbar_start": ["navbar-logo"],
+    "navbar_end": ["navbar-version", "navbar-icon-links"],
     # "navbar_persistent": ["search-button"],
     # "primary_sidebar_end": ["custom-template.html", "sidebar-ethical-ads.html"],
     # "article_footer_items": ["test.html", "test.html"],
@@ -233,7 +239,7 @@ html_theme_options = {
     #    "json_url": json_url,
     #    "version_match": version_match,
     # },
-    # "search_bar_position": "navbar",  # TODO: Deprecated - remove in future version
+    "pygment_light_style": "monokai",
 }
 
 # html_sidebars = {
