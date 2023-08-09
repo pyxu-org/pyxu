@@ -1729,7 +1729,7 @@ class SelfAdjointOpT(NormalOpT):
 
         lhs = op.apply(x)
         rhs = op.adjoint(x)
-        assert self._metric(lhs, rhs, as_dtype=width.value)
+        assert ct.allclose(lhs, rhs, as_dtype=width.value)
 
 
 class PosDefOpT(SelfAdjointOpT):
