@@ -290,6 +290,11 @@ class MapT(ct.DisableTestMixin):
         return ndi.module()
 
     @pytest.fixture
+    def _gpu(self, ndi) -> bool:
+        # Boolean flag needed by some methods
+        return ndi == pycd.NDArrayInfo.CUPY
+
+    @pytest.fixture
     def width(self, spec) -> pycrt.Width:
         return spec[2]
 
@@ -1045,14 +1050,6 @@ class LinOpT(DiffMapT):
             compute_uv=False,
         )
         return np.sort(D)
-
-    @pytest.fixture
-    def _gpu(self, xp) -> bool:
-        N = pycd.NDArrayInfo
-        if pycd.CUPY_ENABLED and (xp == N.CUPY.module()):
-            return True
-        else:
-            return False
 
     @pytest.fixture(params=[1, 2])
     def _damp(self, request) -> float:
