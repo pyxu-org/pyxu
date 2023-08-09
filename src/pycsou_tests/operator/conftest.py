@@ -409,7 +409,7 @@ class MapT(ct.DisableTestMixin):
         # .lipschitz() always returns a float.
         self._skip_if_disabled()
         L = op.lipschitz(**_data_lipschitz["in_"])
-        assert isinstance(L, float)
+        assert isinstance(L, pyct.Real)
 
     def test_precCM_lipschitz(self, op, width, _data_lipschitz):
         self._skip_if_disabled()
@@ -1551,7 +1551,7 @@ class SquareOpT(LinOpT):
 
     def test_interface_trace(self, op, _data_trace):
         tr = op.trace(**_data_trace["in_"])
-        assert isinstance(tr, float)
+        assert isinstance(tr, pyct.Real)
 
     def test_value_trace(self, op, _data_trace, _op_trace):
         # Ensure computed trace (w/ default parameter values) satisfies statistical property stated
