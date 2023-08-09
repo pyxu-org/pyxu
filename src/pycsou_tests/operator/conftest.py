@@ -930,29 +930,6 @@ class LinOpT(DiffMapT):
         if ndi not in {N.NUMPY, N.CUPY}:
             pytest.skip("Only NUMPY/CUPY backends supported.")
 
-    coupled_gpu_which = pytest.mark.parametrize(
-        ["_gpu", "which"],
-        [
-            (False, "LM"),
-            (False, "SM"),
-            pytest.param(
-                *(True, "LM"),
-                marks=pytest.mark.xfail(
-                    reason="`which=LM` sparse-evaled via CuPy flaky.",
-                    strict=False,  # fails based on matrix structure.
-                ),
-            ),
-            pytest.param(
-                *(True, "SM"),
-                marks=pytest.mark.xfail(
-                    True,
-                    reason="`which=SM` unsupported by CuPy",
-                    strict=False,
-                ),
-            ),
-        ],
-    )
-
     @classmethod
     def _check_value1D_vals(cls, func, kwargs, ground_truth):
         N = pycd.NDArrayInfo
@@ -1281,7 +1258,28 @@ class LinOpT(DiffMapT):
         assert J is op
 
     @pytest.mark.parametrize("k", [1, 2])
-    @coupled_gpu_which
+    @pytest.mark.parametrize(
+        ["_gpu", "which"],
+        [
+            (False, "LM"),
+            (False, "SM"),
+            pytest.param(
+                *(True, "LM"),
+                marks=pytest.mark.xfail(
+                    reason="`which=LM` sparse-evaled via CuPy flaky.",
+                    strict=False,  # fails based on matrix structure.
+                ),
+            ),
+            pytest.param(
+                *(True, "SM"),
+                marks=pytest.mark.xfail(
+                    True,
+                    reason="`which=SM` unsupported by CuPy",
+                    strict=False,
+                ),
+            ),
+        ],
+    )
     def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k, which):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(ndi)
