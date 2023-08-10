@@ -950,6 +950,64 @@ class QuadraticFuncT(ProxDiffFuncT):
         out = op.grad(x) - c
         assert self._metric(out.T, Q, as_dtype=width.value)
 
+    def test_math2_diff_lipschitz(self, op, _data_estimate_diff_lipschitz, _gpu):
+        # op.estimate_diff_lipschitz(svd) <= op.estimate_diff_lipschitz(trace)
+        self._skip_if_disabled()
+        kwargs = _data_estimate_diff_lipschitz["in_"].copy()
+        kwargs.pop("method")  # over-written below ...
+        dtype = kwargs["dtype"]
+
+        dL_ub = op.estimate_diff_lipschitz(method="trace", **kwargs)
+        dL_opt = ct.flaky(  # might raise exception in GPU-mode
+            op.estimate_diff_lipschitz,
+            args=dict(method="svd", **kwargs),
+            condition=_gpu is True,
+            reason="svdvals() sparse-evaled via CuPy flaky.",
+        )
+
+        try:
+            assert ct.less_equal(dL_opt, dL_ub, as_dtype=dtype).item()
+        except AssertionError:
+            if _gpu is True:
+                # even if dL_opt computed, not guaranteed to be correct in GPU-mode
+                pytest.xfail("svdvals() sparse-evaled via CuPy flaky.")
+            else:
+                raise
+
+    def test_math3_diff_lipschitz(self, op, _data_estimate_diff_lipschitz, _gpu):
+        # op.estimate_diff_lipschitz(svd) computes the optimal diff-Lipschitz constant.
+        self._skip_if_disabled()
+        kwargs = _data_estimate_diff_lipschitz["in_"].copy()
+        kwargs.pop("method")  # over-written below ...
+        dtype = kwargs["dtype"]
+
+        dL_svds = ct.flaky(  # might raise an assertion in GPU-mode
+            func=op.estimate_diff_lipschitz,
+            args=dict(method="svd", **kwargs),
+            condition=_gpu is True,
+            reason="svdvals() sparse-evaled via CuPy flaky.",
+        )
+
+        Q, _, _ = op._quad_spec()
+        QL_svds = ct.flaky(  # might raise an assertion in GPU-mode
+            func=Q.estimate_lipschitz,
+            args=dict(method="svd", **kwargs),
+            condition=_gpu is True,
+            reason="svdvals() sparse-evaled via CuPy flaky.",
+        )
+
+        # Comparison is done with user-specified metric since operator may compute `dL_svds` via an
+        # approximate `.apply()' method.
+        try:
+            cast = lambda x: np.array([x], dtype=dtype)
+            assert self._metric(cast(dL_svds), cast(QL_svds), as_dtype=dtype)
+        except AssertionError:
+            if _gpu is True:
+                # even if dL_opt computed, not guaranteed to be correct in GPU-mode
+                pytest.xfail("svdvals() sparse-evaled via CuPy flaky.")
+            else:
+                raise
+
 
 @pytest.mark.filterwarnings("ignore::pycsou.info.warning.DenseWarning")
 class LinOpT(DiffMapT):
@@ -1262,7 +1320,7 @@ class LinOpT(DiffMapT):
             assert ct.less_equal(L_opt, L_ub, as_dtype=dtype).item()
         except AssertionError:
             if _gpu is True:
-                # even if L_tight computed, not guaranteed to be correct in GPU-mode
+                # even if L_opt computed, not guaranteed to be correct in GPU-mode
                 pytest.xfail("svdvals() sparse-evaled via CuPy flaky.")
             else:
                 raise
@@ -1286,7 +1344,7 @@ class LinOpT(DiffMapT):
             assert self._metric(cast(L_svds), cast(_op_svd.max()), as_dtype=dtype)
         except AssertionError:
             if _gpu is True:
-                # even if L_tight computed, not guaranteed to be correct in GPU-mode
+                # even if L_opt computed, not guaranteed to be correct in GPU-mode
                 pytest.xfail("svdvals() sparse-evaled via CuPy flaky.")
             else:
                 raise
