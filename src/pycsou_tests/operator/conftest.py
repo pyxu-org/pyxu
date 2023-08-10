@@ -1258,33 +1258,24 @@ class LinOpT(DiffMapT):
         assert J is op
 
     @pytest.mark.parametrize("k", [1, 2])
-    @pytest.mark.parametrize(
-        ["_gpu", "which"],
-        [
-            (False, "LM"),
-            (False, "SM"),
-            pytest.param(
-                *(True, "LM"),
-                marks=pytest.mark.xfail(
-                    reason="`which=LM` sparse-evaled via CuPy flaky.",
-                    strict=False,  # fails based on matrix structure.
-                ),
-            ),
-            pytest.param(
-                *(True, "SM"),
-                marks=pytest.mark.xfail(
-                    True,
-                    reason="`which=SM` unsupported by CuPy",
-                    strict=False,
-                ),
-            ),
-        ],
-    )
+    @pytest.mark.parametrize("which", ["LM", "SM"])
     def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k, which):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(ndi)
-        data = dict(k=k, which=which, gpu=_gpu)
-        self._check_value1D_vals(op.svdvals, data, _op_svd)
+        gpu_reason = dict(
+            LM="`which=LM` sparse-evaled via CuPy flaky.",
+            SM="`which=SM` unsupported by CuPy",
+        )
+        ct.flaky(
+            func=self._check_value1D_vals,
+            args=dict(
+                func=op.svdvals,
+                kwargs=dict(k=k, which=which, gpu=_gpu),
+                ground_truth=_op_svd,
+            ),
+            condition=_gpu is True,
+            reason=gpu_reason[which],
+        )
 
     def test_backend_svdvals(self, op, ndi, _gpu):
         self._skip_if_disabled()
@@ -1504,7 +1495,7 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
         )
 
     # Tests -------------------------------------------------------------------
-    @pytest.mark.parametrize("k", [1])
+    @pytest.mark.parametrize("k", [1])  # override: only `k=1` feasible for LinFuncs
     @pytest.mark.parametrize("which", ["SM", "LM"])
     def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k, which):
         self._skip_if_disabled()
@@ -1671,13 +1662,6 @@ class UnitOpT(NormalOpT):
 
         assert self._metric(lhs1, lhs2, as_dtype=width.value)
         assert self._metric(lhs1, rhs, as_dtype=width.value)
-
-    # local override of this fixture: no GPU limitations
-    @pytest.mark.parametrize("k", [1, 2])
-    @pytest.mark.parametrize("which", ["SM", "LM"])
-    def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k, which):
-        self._skip_if_disabled()
-        super().test_value1D_svdvals(op, ndi, _gpu, _op_svd, k, which)
 
 
 class SelfAdjointOpT(NormalOpT):

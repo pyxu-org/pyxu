@@ -196,12 +196,12 @@ class TestTransposeRuleLinOp(TransposeRuleMixin, conftest.LinOpT):
         return request.param
 
     @pytest.mark.parametrize("k", [1, 2])
-    @conftest.LinOpT.coupled_gpu_which
-    def test_value1D_svdvals(self, op, xp, _gpu, _op_svd, k, which):
+    @pytest.mark.parametrize("which", ["LM", "SM"])
+    def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k, which):
         self._skip_if_disabled()
         if k > min(op.shape):
             pytest.skip(f"k={k} too high for {op.shape}-shaped operator.")
-        super().test_value1D_svdvals(op, xp, _gpu, _op_svd, k, which)
+        super().test_value1D_svdvals(op, ndi, _gpu, _op_svd, k, which)
 
 
 class TestTransposeRuleLinFunc(TransposeRuleMixin, conftest.LinFuncT):
