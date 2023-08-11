@@ -187,12 +187,6 @@ html_sourcelink_suffix = ""
 html_short_title = "Pyxu"
 
 html_theme_options = {
-    "external_links": [
-        {
-            "url": "https://pyxu-org.github.io/pyxu-fair/html/index",
-            "name": "Pyxu FAIR",
-        },
-    ],
     "header_links_before_dropdown": 6,
     "icon_links": [
         {
