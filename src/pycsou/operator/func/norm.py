@@ -37,10 +37,7 @@ class L1Norm(ShiftLossMixin, pyca.ProxFunc):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(1, dim))
-        if dim is None:
-            self._lipschitz = np.inf
-        else:
-            self._lipschitz = np.sqrt(dim)
+        self.lipschitz = np.sqrt(dim)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -62,8 +59,8 @@ class L2Norm(ShiftLossMixin, pyca.ProxFunc):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(1, dim))
-        self._lipschitz = 1
-        self._diff_lipschitz = np.inf
+        self.lipschitz = 1
+        self.diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -87,8 +84,8 @@ class SquaredL2Norm(pyca.QuadraticFunc):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(1, dim))
-        self._lipschitz = np.inf
-        self._diff_lipschitz = 2
+        self.lipschitz = np.inf
+        self.diff_lipschitz = 2
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -138,7 +135,7 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
         Prefer `algo="root"` in this case.
         """
         super().__init__(shape=(1, dim))
-        self._lipschitz = np.inf
+        self.lipschitz = np.inf
 
         algo = prox_algo.strip().lower()
         assert algo in ("root", "sort")
@@ -248,7 +245,7 @@ class LInfinityNorm(ShiftLossMixin, pyca.ProxFunc):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(1, dim))
-        self._lipschitz = 1
+        self.lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -333,7 +330,7 @@ class L21Norm(ShiftLossMixin, pyca.ProxFunc):
         l1_axis = np.setdiff1d(np.arange(N_dim), l2_axis)
 
         super().__init__(shape=(1, np.prod(arg_shape)))
-        self._lipschitz = np.inf
+        self.lipschitz = np.inf
         self._arg_shape = arg_shape
         self._l1_axis = l1_axis
         self._l2_axis = l2_axis
@@ -394,7 +391,7 @@ class PositiveL1Norm(ShiftLossMixin, pyca.ProxFunc):
 
         self._indicator = PositiveOrthant(dim=dim)
         self._l1norm = L1Norm(dim=dim)
-        self._lipschitz = np.inf
+        self.lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:

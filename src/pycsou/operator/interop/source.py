@@ -36,9 +36,9 @@ def from_source(
         `embed` is useful to attach extra information to synthesized
         :py:class:`~pycsou.abc.operator.Operator` used by arithmetic methods.
     kwargs: dict
-        (k[str], v[value | callable]) pairs to use as arithmetic attributes and methods.
+        (k[str], v[callable]) pairs to use as arithmetic methods.
 
-        Keys must be entries from ``cls.Property.arithmetic_[attributes,methods]()``.
+        Keys must be entries from :py:meth:`~pycsou.abc.operator.Property.arithmetic_methods`.
 
         Omitted arithmetic attributes/methods default to those provided by `cls`.
     vectorize: pyct.VarName
@@ -83,8 +83,7 @@ def from_source(
 
     * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
       :py:func:`~pycsou.util.operator.vectorize`.
-      Auto-vectorization may be less efficient than explicitly providing a vectorized
-      implementation.
+      Auto-vectorization may be less efficient than explicitly providing a vectorized implementation.
 
     * Enforcing precision consists in decorating `kwargs`-specified arithmetic methods with
       :py:func:`~pycsou.runtime.enforce_precision`.
@@ -105,7 +104,7 @@ def from_source(
        )
        x = np.arange(N)
        y = f(x)  # [0, 1, 4, 9, 16]
-       L = f.diff_lipschitz()  # inf (default value provided by DiffMap class.)
+       dL = f.diff_lipschitz  # inf (default value provided by DiffMap class.)
 
     In practice we know that :math:`f` has a finite-valued diff-Lipschitz constant.
     It is thus recommended to set it too when instantiating via ``from_source``:
@@ -116,12 +115,14 @@ def from_source(
        f = from_source(
            cls=pycsou.abc.DiffMap,
            shape=(N, N),
+           embed=dict(  # special form to set (diff-)Lipschitz attributes via from_source()
+               _diff_lipschitz=2,
+           ),
            apply=lambda _, arr: arr**2,
-           diff_lipschitz=lambda _, **kwargs: 2,
        )
        x = np.arange(N)
        y = f(x)  # [0, 1, 4, 9, 16]
-       L = f.diff_lipschitz()  # 2  <- instead of inf
+       dL = f.diff_lipschitz  # 2  <- instead of inf
     """
     if embed is None:
         embed = dict()
@@ -161,12 +162,11 @@ class _FromSource:  # See from_source() for a detailed description.
         assert cls in pyco._core_operators(), f"Unknown Operator type: {cls}."
         self._op = cls(shape)  # ensure shape well-formed
 
-        # Arithmetic attributes/methods to attach to `_op`.
-        attr = frozenset.union(*[p.arithmetic_attributes() for p in pyco.Property])
+        # Arithmetic methods to attach to `_op`.
         meth = frozenset.union(*[p.arithmetic_methods() for p in pyco.Property])
-        if not (set(kwargs) <= attr | meth):
-            msg_head = "Unknown arithmetic attributes/methods:"
-            unknown = set(kwargs) - (attr | meth)
+        if not (set(kwargs) <= meth):
+            msg_head = "Unknown arithmetic methods:"
+            unknown = set(kwargs) - meth
             msg_tail = ", ".join([f"{name}()" for name in unknown])
             raise ValueError(f"{msg_head} {msg_tail}")
         self._kwargs = kwargs
@@ -185,9 +185,6 @@ class _FromSource:  # See from_source() for a detailed description.
     def op(self) -> pyct.OpT:
         _op = self._op  # shorthand
         for p in _op.properties():
-            for name in p.arithmetic_attributes():
-                attr = self._kwargs.get(name, getattr(_op, name))
-                setattr(_op, name, attr)
             for name in p.arithmetic_methods():
                 if func := self._kwargs.get(name, False):
                     # vectorize() & enforce_precision() do NOT kick in for default-provided methods.
@@ -254,8 +251,6 @@ class _FromSource:  # See from_source() for a detailed description.
             grad=dict(i="arr"),
             adjoint=dict(i="arr"),
             pinv=dict(i=("arr", "damp")),
-            lipschitz=dict(),
-            diff_lipschitz=dict(),
             svdvals=dict(),
             eigvals=dict(),
             trace=dict(),

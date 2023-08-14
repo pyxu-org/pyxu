@@ -24,6 +24,7 @@ __all__ = [
 class IdentityOp(pyca.OrthProjOp):
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
+        self.lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -70,7 +71,7 @@ class NullOp(pyca.LinOp):
 
     def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
-        self._lipschitz = 0
+        self.lipschitz = 0
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -204,8 +205,8 @@ def HomothetyOp(dim: pyct.Integer, cst: pyct.Real) -> pyct.OpT:
             embed=dict(
                 _name="HomothetyOp",
                 _cst=cst,
+                _lipschitz=abs(cst),
             ),
-            _lipschitz=abs(cst),
             apply=op_apply,
             svdvals=op_svdvals,
             eigvals=op_eigvals,
@@ -324,12 +325,6 @@ def DiagonalOp(
                 )
 
             @pycrt.enforce_precision()
-            def op_lipschitz(_, **kwargs):
-                if _._lipschitz == np.inf:
-                    _._lipschitz = float(abs(_._vec).max())
-                return _._lipschitz
-
-            @pycrt.enforce_precision()
             def op_trace(_, **kwargs):
                 return float(_._vec.sum())
 
@@ -340,9 +335,9 @@ def DiagonalOp(
                     _name="DiagonalOp",
                     _vec=vec,
                     _enable_warnings=bool(enable_warnings),
+                    _lipschitz=float(abs(vec).max()),
                 ),
                 apply=op_apply,
-                lipschitz=op_lipschitz,
                 asarray=op_asarray,
                 gram=op_gram,
                 cogram=op_gram,

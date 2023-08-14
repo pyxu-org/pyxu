@@ -51,8 +51,8 @@ class Sin(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = 1
-        self._diff_lipschitz = 1
+        self.lipschitz = 1
+        self.diff_lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -90,8 +90,8 @@ class Cos(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = 1
-        self._diff_lipschitz = 1
+        self.lipschitz = 1
+        self.diff_lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -127,8 +127,8 @@ class Tan(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
+        self.lipschitz = np.inf
+        self.diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -166,8 +166,8 @@ class ArcSin(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
+        self.lipschitz = np.inf
+        self.diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -246,8 +246,8 @@ class ArcTan(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = 1
-        self._diff_lipschitz = 3 * np.sqrt(3) / 8
+        self.lipschitz = 1
+        self.diff_lipschitz = 3 * np.sqrt(3) / 8
         #   max_{x \in R} |arctan''(x)|
         # = max_{x \in R} |2x / (1+x^2)^2|
         # = 3 \sqrt(3) / 8  [at x = +- 1/\sqrt(3)]
@@ -288,8 +288,8 @@ class Sinh(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
+        self.lipschitz = np.inf
+        self.diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -325,8 +325,8 @@ class Cosh(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
+        self.lipschitz = np.inf
+        self.diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -363,8 +363,8 @@ class Tanh(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = 1
-        self._diff_lipschitz = 4 / (3 * np.sqrt(3))
+        self.lipschitz = 1
+        self.diff_lipschitz = 4 / (3 * np.sqrt(3))
         #   max_{x \in R} |tanh''(x)|
         # = max_{x \in R} |-2 tanh(x) [1 - tanh(x)^2|
         # = 4 / (3 \sqrt(3))  [at x = ln(2 +- \sqrt(3))]
@@ -406,8 +406,8 @@ class ArcSinh(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = 1
-        self._diff_lipschitz = 2 / (3 * np.sqrt(3))
+        self.lipschitz = 1
+        self.diff_lipschitz = 2 / (3 * np.sqrt(3))
         #   max_{x \in R} |arcsinh''(x)|
         # = max_{x \in R} |-x (x^2 + 1)^{-3/2}|
         # = 2 / (3 \sqrt(3))  [at x = += 1 / \sqrt(2)]
@@ -449,8 +449,8 @@ class ArcCosh(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
+        self.lipschitz = np.inf
+        self.diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -489,8 +489,8 @@ class ArcTanh(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
+        self.lipschitz = np.inf
+        self.diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -529,8 +529,8 @@ class Exp(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer, base: pyct.Real = None):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
+        self.lipschitz = np.inf
+        self.diff_lipschitz = np.inf
         self._base = base
 
     @pycrt.enforce_precision(i="arr")
@@ -574,8 +574,8 @@ class Log(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer, base: pyct.Real = None):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
+        self.lipschitz = np.inf
+        self.diff_lipschitz = np.inf
         self._base = base
 
     @pycrt.enforce_precision(i="arr")
@@ -622,7 +622,7 @@ class Clip(pyca.Map):
             raise ValueError("One of Parameter[a_min, a_max] must be specified.")
         self._llim = a_min
         self._ulim = a_max
-        self._lipschitz = 1
+        self.lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -660,8 +660,8 @@ class Sqrt(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
+        self.lipschitz = np.inf
+        self.diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -698,8 +698,8 @@ class Cbrt(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
+        self.lipschitz = np.inf
+        self.diff_lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -737,8 +737,8 @@ class Square(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = np.inf
-        self._diff_lipschitz = 2
+        self.lipschitz = np.inf
+        self.diff_lipschitz = 2
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -769,7 +769,7 @@ class Abs(pyca.Map):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = 1
+        self.lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -793,7 +793,7 @@ class Sign(pyca.Map):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = 2
+        self.lipschitz = 2
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -817,7 +817,7 @@ class CumSum(pyca.SquareOp):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = np.sqrt(dim * (dim + 1) / 2)
+        self.lipschitz = np.sqrt(dim * (dim + 1) / 2)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -853,8 +853,8 @@ class Gaussian(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = np.sqrt(2 / np.e)
-        self._diff_lipschitz = 2
+        self.lipschitz = np.sqrt(2 / np.e)
+        self.diff_lipschitz = 2
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -896,8 +896,8 @@ class Sigmoid(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = 1 / 4
-        self._diff_lipschitz = 1 / (6 * np.sqrt(3))
+        self.lipschitz = 1 / 4
+        self.diff_lipschitz = 1 / (6 * np.sqrt(3))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -939,8 +939,8 @@ class SoftPlus(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = 1
-        self._diff_lipschitz = 1 / 4
+        self.lipschitz = 1
+        self.diff_lipschitz = 1 / 4
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -972,7 +972,7 @@ class LeakyReLU(pyca.Map):
         super().__init__(shape=(dim, dim))
         self._alpha = float(alpha)
         assert self._alpha >= 0
-        self._lipschitz = float(max(alpha, 1))
+        self.lipschitz = float(max(alpha, 1))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1021,8 +1021,8 @@ class SiLU(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = 1.1
-        self._diff_lipschitz = 1 / 2
+        self.lipschitz = 1.1
+        self.diff_lipschitz = 1 / 2
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1062,8 +1062,8 @@ class SoftMax(pyca.DiffMap):
 
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(dim, dim))
-        self._lipschitz = 1
-        self._diff_lipschitz = 1
+        self.lipschitz = 1
+        self.diff_lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:

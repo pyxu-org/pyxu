@@ -26,7 +26,7 @@ __all__ = [
 class _IndicatorFunction(pycofn.ShiftLossMixin, pyca.ProxFunc):
     def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(1, dim))
-        self._lipschitz = np.inf
+        self.lipschitz = np.inf
 
     @staticmethod
     def _bool2indicator(x: pyct.NDArray, dtype: pyct.DType) -> pyct.NDArray:
@@ -246,7 +246,7 @@ class HyperSlab(_IndicatorFunction):
         super().__init__(dim=a.dim)
 
         # Everything happens internally in normalized coordinates.
-        _norm = a.lipschitz()  # \norm{a}{2}
+        _norm = a.lipschitz  # \norm{a}{2}
         self._a = a / _norm
         self._l = lb / _norm
         self._u = ub / _norm
