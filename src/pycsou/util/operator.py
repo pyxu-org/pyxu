@@ -20,28 +20,15 @@ __all__ = [
 
 def infer_sum_shape(sh1: pyct.OpShape, sh2: pyct.OpShape) -> pyct.OpShape:
     A, B, C, D = *sh1, *sh2
-    if None in (A, C):
-        raise ValueError("Addition of codomain-dimension-agnostic operators is not supported.")
-    try:
-        domain_None = (B is None, D is None)
-        if all(domain_None):
-            return np.broadcast_shapes((A,), (C,)) + (None,)
-        elif any(domain_None):
-            fill = lambda _: [1 if (k is None) else k for k in _]
-            return np.broadcast_shapes(fill(sh1), fill(sh2))
-        elif B == D:  # domain-match
-            return np.broadcast_shapes((A,), (C,)) + (B,)
-        else:
-            raise
-    except Exception:
+    if B == D:
+        return np.broadcast_shapes((A,), (C,)) + (B,)
+    else:
         raise ValueError(f"Addition of {sh1} and {sh2} operators forbidden.")
 
 
 def infer_composition_shape(sh1: pyct.OpShape, sh2: pyct.OpShape) -> pyct.OpShape:
     A, B, C, D = *sh1, *sh2
-    if None in (A, C):
-        raise ValueError("Composition of codomain-dimension-agnostic operators is not supported.")
-    elif (B == C) or (B is None):
+    if B == C:
         return (A, D)
     else:
         raise ValueError(f"Composition of {sh1} and {sh2} operators forbidden.")

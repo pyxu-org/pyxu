@@ -63,7 +63,7 @@ SolverM = typ.TypeVar("SolverM", bound="pycs.Mode")
 Integer = int  # [Sepand] `nb.Integral` seems to not work will with PyCharm...
 Real = nb.Real
 DType = npt.DTypeLike
-OpShape = tuple[Integer, typ.Union[Integer, None]]
+OpShape = tuple[Integer, Integer]
 NDArrayAxis = typ.Union[Integer, tuple[Integer, ...]]
 NDArrayShape = typ.Union[Integer, tuple[Integer, ...]]
 Path = typ.Union[str, plib.Path]

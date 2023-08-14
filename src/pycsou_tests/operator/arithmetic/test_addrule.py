@@ -33,7 +33,7 @@ def op_map():
 def op_func():
     import pycsou_tests.operator.examples.test_func as tc
 
-    return tc.Median()
+    return tc.Median(dim=7)
 
 
 def op_diffmap():

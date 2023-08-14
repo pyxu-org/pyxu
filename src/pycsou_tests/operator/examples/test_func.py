@@ -13,9 +13,8 @@ import pycsou_tests.operator.conftest as conftest
 class Median(pyca.Func):
     # f: \bR^{M} -> \bR
     #      x     -> median(x)
-    def __init__(self):
-        super().__init__(shape=(1, None))
-        self._lipschitz = np.inf
+    def __init__(self, dim: int):
+        super().__init__(shape=(1, dim))
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):
@@ -34,17 +33,25 @@ class TestMedian(conftest.FuncT):
 
     @pytest.fixture(
         params=itertools.product(
-            (Median(),),
+            ((5, Median(dim=5)),),
             pycd.NDArrayInfo,
             pycrt.Width,
         )
     )
-    def spec(self, request):
+    def _spec(self, request):
         return request.param
 
     @pytest.fixture
-    def data_shape(self):
-        return (1, None)
+    def spec(self, _spec):
+        return _spec[0][1], _spec[1], _spec[2]
+
+    @pytest.fixture
+    def dim(self, _spec):
+        return _spec[0][0]
+
+    @pytest.fixture
+    def data_shape(self, dim):
+        return (1, dim)
 
     @pytest.fixture(
         params=[  # 2 test points

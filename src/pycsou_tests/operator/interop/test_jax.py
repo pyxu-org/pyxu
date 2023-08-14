@@ -209,11 +209,8 @@ class TestJaxL1Norm(JaxMixin, test_proxfunc.TestL1Norm):
         data = dict(
             apply=j_apply,
             prox=j_prox,
+            _lipschitz=np.sqrt(dim),
         )
-        if dim is not None:
-            data.update(
-                _lipschitz=np.sqrt(dim),
-            )
         return data
 
 

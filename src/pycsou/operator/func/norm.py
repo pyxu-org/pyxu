@@ -35,7 +35,7 @@ class L1Norm(ShiftLossMixin, pyca.ProxFunc):
     :math:`\ell_{1}`-norm, :math:`\Vert\mathbf{x}\Vert_{1} := \sum_{i=1}^{N} |x_{i}|`.
     """
 
-    def __init__(self, dim: pyct.Integer = None):
+    def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(1, dim))
         if dim is None:
             self._lipschitz = np.inf
@@ -60,7 +60,7 @@ class L2Norm(ShiftLossMixin, pyca.ProxFunc):
     :math:`\ell_{2}`-norm, :math:`\Vert\mathbf{x}\Vert_{2} := \sqrt{\sum_{i=1}^{N} |x_{i}|^{2}}`.
     """
 
-    def __init__(self, dim: pyct.Integer = None):
+    def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(1, dim))
         self._lipschitz = 1
         self._diff_lipschitz = np.inf
@@ -120,7 +120,7 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
     :math:`\ell^{2}_{1}`-norm, :math:`\Vert\mathbf{x}\Vert^{2}_{1} := (\sum_{i=1}^{N} |x_{i}|)^{2}`.
     """
 
-    def __init__(self, dim: pyct.Integer = None, prox_algo: str = "sort"):
+    def __init__(self, dim: pyct.Integer, prox_algo: str = "sort"):
         r"""
         Parameters
         ----------
@@ -246,7 +246,7 @@ class LInfinityNorm(ShiftLossMixin, pyca.ProxFunc):
     :math:`\ell_{\infty}`-norm, :math:`\Vert\mathbf{x}\Vert_{\infty} := \max_{i=1,\ldots,N} |x_{i}|`.
     """
 
-    def __init__(self, dim: pyct.Integer = None):
+    def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(1, dim))
         self._lipschitz = 1
 
@@ -388,7 +388,7 @@ class PositiveL1Norm(ShiftLossMixin, pyca.ProxFunc):
     :py:class:`~pycsou.operator.func.indicator.PositiveOrthant`
     """
 
-    def __init__(self, dim: pyct.Integer = None):
+    def __init__(self, dim: pyct.Integer):
         super().__init__(shape=(1, dim))
         from pycsou.operator.func.indicator import PositiveOrthant
 

@@ -15,12 +15,9 @@ import pycsou_tests.operator.conftest as conftest
 class L1Norm(pyca.ProxFunc):
     # f: \bR^{M} -> \bR
     #      x     -> \norm{x}{1}
-    def __init__(self, M: int = None):
+    def __init__(self, M: int):
         super().__init__(shape=(1, M))
-        if M is None:
-            self._lipschitz = np.inf
-        else:
-            self._lipschitz = np.sqrt(M)
+        self._lipschitz = np.sqrt(M)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):
@@ -44,10 +41,7 @@ class L1Norm(pyca.ProxFunc):
 class TestL1Norm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            (  # dim, op
-                (5, L1Norm(M=5)),
-                (None, L1Norm(M=None)),
-            ),
+            ((5, L1Norm(M=5)),),  # dim, op
             pycd.NDArrayInfo,
             pycrt.Width,
         )
@@ -120,10 +114,7 @@ class TestL1NormMoreau(conftest.DiffFuncT):
 
     @pytest.fixture(
         params=itertools.product(
-            (  # dim, mu, op
-                (4, 2, L1Norm(M=4).moreau_envelope(mu=2)),
-                (None, 2, L1Norm(M=None).moreau_envelope(mu=2)),
-            ),
+            ((4, 2, L1Norm(M=4).moreau_envelope(mu=2)),),  # dim, mu, op
             pycd.NDArrayInfo,
             pycrt.Width,
         )

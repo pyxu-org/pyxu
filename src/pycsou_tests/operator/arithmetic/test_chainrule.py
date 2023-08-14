@@ -35,10 +35,10 @@ def op_map(dim: int = 7):
     return tc.ReLU(M=dim)
 
 
-def op_func():
+def op_func(dim: int = 7):
     import pycsou_tests.operator.examples.test_func as tc
 
-    return tc.Median()
+    return tc.Median(dim=dim)
 
 
 def op_diffmap(dim: int = 7):
@@ -455,14 +455,14 @@ class TestChainRuleFunc(ChainRuleMixin, conftest.FuncT):
     @pytest.fixture(
         params=[
             (op_func(), op_map()),
-            (op_func(), op_func()),
+            (op_func(dim=1), op_func()),
             (op_func(), op_diffmap()),
-            (op_func(), op_difffunc()),
-            (op_func(), op_proxfunc()),
-            (op_func(), op_proxdifffunc()),
-            (op_func(), op_quadraticfunc()),
+            (op_func(dim=1), op_difffunc()),
+            (op_func(dim=1), op_proxfunc()),
+            (op_func(dim=1), op_proxdifffunc()),
+            (op_func(dim=1), op_quadraticfunc()),
             (op_func(), op_linop()),
-            (op_func(), op_linfunc()),
+            (op_func(dim=1), op_linfunc()),
             (op_func(), op_squareop()),
             (op_func(), op_normalop()),
             (op_func(), op_unitop()),
@@ -471,17 +471,9 @@ class TestChainRuleFunc(ChainRuleMixin, conftest.FuncT):
             (op_func(), op_projop()),
             (op_func(), op_orthprojop()),
             (op_difffunc(), op_map()),
-            (op_difffunc(dim=None), op_func()),
-            (op_difffunc(dim=None), op_proxfunc()),
             (op_proxfunc(), op_map()),
-            (op_proxfunc(dim=None), op_func()),
             (op_proxfunc(), op_diffmap()),
-            (op_proxfunc(dim=None), op_difffunc()),
-            (op_proxfunc(dim=None), op_proxfunc()),
-            (op_proxfunc(dim=None), op_proxdifffunc()),
-            (op_proxfunc(dim=None), op_quadraticfunc()),
             (op_proxfunc(), op_linop()),
-            (op_proxfunc(dim=None), op_linfunc()),
             (op_proxfunc(), op_squareop()),
             (op_proxfunc(), op_normalop()),
             (op_proxfunc(), op_selfadjointop()),
@@ -489,8 +481,6 @@ class TestChainRuleFunc(ChainRuleMixin, conftest.FuncT):
             (op_proxfunc(), op_projop()),
             (op_proxfunc(), op_orthprojop()),
             (op_proxdifffunc(), op_map()),
-            (op_proxdifffunc(dim=None), op_func()),
-            (op_proxdifffunc(dim=None), op_proxfunc()),
             (op_quadraticfunc(), op_map()),
             (op_quadraticfunc(dim=1), op_func()),
             (op_quadraticfunc(dim=1), op_proxfunc()),
@@ -508,11 +498,7 @@ class TestChainRuleDiffFunc(ChainRuleMixin, conftest.DiffFuncT):
     @pytest.fixture(
         params=[
             (op_difffunc(), op_diffmap()),
-            (op_difffunc(dim=None), op_difffunc()),
-            (op_difffunc(dim=None), op_proxdifffunc()),
-            (op_difffunc(dim=None), op_quadraticfunc()),
             (op_difffunc(), op_linop()),
-            (op_difffunc(dim=None), op_linfunc()),
             (op_difffunc(), op_squareop()),
             (op_difffunc(), op_normalop()),
             (op_difffunc(), op_unitop()),
@@ -521,11 +507,7 @@ class TestChainRuleDiffFunc(ChainRuleMixin, conftest.DiffFuncT):
             (op_difffunc(), op_projop()),
             (op_difffunc(), op_orthprojop()),
             (op_proxdifffunc(), op_diffmap()),
-            (op_proxdifffunc(dim=None), op_difffunc()),
-            (op_proxdifffunc(dim=None), op_proxdifffunc()),
-            (op_proxdifffunc(dim=None), op_quadraticfunc()),
             (op_proxdifffunc(), op_linop()),
-            (op_proxdifffunc(dim=None), op_linfunc()),
             (op_proxdifffunc(), op_squareop()),
             (op_proxdifffunc(), op_normalop()),
             (op_proxdifffunc(), op_selfadjointop()),

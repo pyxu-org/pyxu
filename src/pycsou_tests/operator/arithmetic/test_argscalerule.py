@@ -255,15 +255,15 @@ class TestArgScaleRuleOrthProjOp_NonIdentityScale(ArgScaleRuleOrthProjOp, confte
 
 # Test classes (Funcs) --------------------------------------------------------
 class TestArgScaleRuleFunc(ArgScaleRuleMixin, conftest.FuncT):
-    @pytest.fixture
-    def op_orig(self):
+    @pytest.fixture(params=[7])
+    def op_orig(self, request):
         import pycsou_tests.operator.examples.test_func as tc
 
-        return tc.Median()
+        return tc.Median(dim=request.param)
 
 
 class TestArgScaleRuleDiffFunc(ArgScaleRuleMixin, conftest.DiffFuncT):
-    @pytest.fixture(params=[None, 7])
+    @pytest.fixture(params=[7])
     def op_orig(self, request):
         import pycsou_tests.operator.examples.test_difffunc as tc
 
@@ -271,7 +271,7 @@ class TestArgScaleRuleDiffFunc(ArgScaleRuleMixin, conftest.DiffFuncT):
 
 
 class TestArgScaleRuleProxFunc(ArgScaleRuleMixin, conftest.ProxFuncT):
-    @pytest.fixture(params=[None, 7])
+    @pytest.fixture(params=[7])
     def op_orig(self, request):
         import pycsou_tests.operator.examples.test_proxfunc as tc
 
@@ -279,7 +279,7 @@ class TestArgScaleRuleProxFunc(ArgScaleRuleMixin, conftest.ProxFuncT):
 
 
 class TestArgScaleRuleProxDiffFunc(ArgScaleRuleMixin, conftest.ProxDiffFuncT):
-    @pytest.fixture(params=[None, 7])
+    @pytest.fixture(params=[7])
     def op_orig(self, request):
         import pycsou_tests.operator.examples.test_proxdifffunc as tc
 

@@ -12,10 +12,7 @@ import pycsou_tests.operator.conftest as conftest
 class TestL1Norm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            (  # dim, op
-                (5, pycof.L1Norm(dim=5)),
-                (None, pycof.L1Norm(dim=None)),
-            ),
+            ((5, pycof.L1Norm(dim=5)),),  # dim, op
             pycd.NDArrayInfo,
             pycrt.Width,
         )
@@ -80,10 +77,7 @@ class TestL1Norm(conftest.ProxFuncT):
 class TestL2Norm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            (  # dim, op
-                (5, pycof.L2Norm(dim=5)),
-                (None, pycof.L2Norm(dim=None)),
-            ),
+            ((5, pycof.L2Norm(dim=5)),),  # dim, op
             pycd.NDArrayInfo,
             pycrt.Width,
         )
@@ -228,8 +222,6 @@ class TestSquaredL1Norm(conftest.ProxFuncT):
             (  # dim, op
                 (5, pycof.SquaredL1Norm(dim=5, prox_algo="sort")),
                 (5, pycof.SquaredL1Norm(dim=5, prox_algo="root")),
-                (None, pycof.SquaredL1Norm(dim=None, prox_algo="sort")),
-                (None, pycof.SquaredL1Norm(dim=None, prox_algo="root")),
             ),
             pycd.NDArrayInfo,
             pycrt.Width,
@@ -295,10 +287,7 @@ class TestSquaredL1Norm(conftest.ProxFuncT):
 class TestLInfinityNorm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            (  # dim, op
-                (5, pycof.LInfinityNorm(dim=5)),
-                (None, pycof.LInfinityNorm(dim=None)),
-            ),
+            ((5, pycof.LInfinityNorm(dim=5)),),  # dim, op
             pycd.NDArrayInfo,
             pycrt.Width,
         )
@@ -428,10 +417,7 @@ class TestL21Norm(conftest.ProxFuncT):
 class TestPositiveL1Norm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            (  # dim, op
-                (5, pycof.PositiveL1Norm(dim=5)),
-                (None, pycof.PositiveL1Norm(dim=None)),
-            ),
+            ((5, pycof.PositiveL1Norm(dim=5)),),  # dim, op
             pycd.NDArrayInfo,
             pycrt.Width,
         )

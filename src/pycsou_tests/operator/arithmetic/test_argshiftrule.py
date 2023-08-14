@@ -160,15 +160,15 @@ class TestArgShiftRuleDiffMap(ArgShiftRuleMixin, conftest.DiffMapT):
 
 # Test classes (Funcs) --------------------------------------------------------
 class TestArgShiftRuleFunc(ArgShiftRuleMixin, conftest.FuncT):
-    @pytest.fixture
-    def op_orig(self):
+    @pytest.fixture(params=[7])
+    def op_orig(self, request):
         import pycsou_tests.operator.examples.test_func as tc
 
-        return tc.Median()
+        return tc.Median(dim=request.param)
 
 
 class TestArgShiftRuleDiffFunc(ArgShiftRuleMixin, conftest.DiffFuncT):
-    @pytest.fixture(params=[None, 7])
+    @pytest.fixture(params=[7])
     def op_orig(self, request):
         import pycsou_tests.operator.examples.test_difffunc as tc
 
@@ -176,7 +176,7 @@ class TestArgShiftRuleDiffFunc(ArgShiftRuleMixin, conftest.DiffFuncT):
 
 
 class TestArgShiftRuleProxFunc(ArgShiftRuleMixin, conftest.ProxFuncT):
-    @pytest.fixture(params=[None, 7])
+    @pytest.fixture(params=[7])
     def op_orig(self, request):
         import pycsou_tests.operator.examples.test_proxfunc as tc
 
@@ -206,7 +206,6 @@ class TestArgShiftRuleProxDiffFunc(ArgShiftRuleMixin, conftest.ProxDiffFuncT):
     @pytest.fixture(
         params=[
             tc_proxdifffunc.SquaredL2Norm(M=7),
-            tc_proxdifffunc.SquaredL2Norm(M=None),
             tc_linfunc.ScaledSum(N=7),
         ]
     )

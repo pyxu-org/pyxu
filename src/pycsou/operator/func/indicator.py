@@ -69,7 +69,7 @@ class _NormBall(_IndicatorFunction):
         return out
 
 
-def L1Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
+def L1Ball(dim: pyct.Integer, radius: pyct.Real = 1) -> pyct.OpT:
     r"""
     Indicator function of the :math:`\ell_{1}`-ball.
 
@@ -103,7 +103,7 @@ def L1Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
     return op
 
 
-def L2Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
+def L2Ball(dim: pyct.Integer, radius: pyct.Real = 1) -> pyct.OpT:
     r"""
     Indicator function of the :math:`\ell_{2}`-ball.
 
@@ -137,7 +137,7 @@ def L2Ball(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
     return op
 
 
-def LInfinityBall(dim: pyct.Integer = None, radius: pyct.Real = 1) -> pyct.OpT:
+def LInfinityBall(dim: pyct.Integer, radius: pyct.Real = 1) -> pyct.OpT:
     r"""
     Indicator function of the :math:`\ell_{\infty}`-ball.
 
@@ -191,7 +191,7 @@ class PositiveOrthant(_IndicatorFunction):
        \max(\mathbf{x}, \mathbf{0})
     """
 
-    def __init__(self, dim: pyct.Integer = None):
+    def __init__(self, dim: pyct.Integer):
         super().__init__(dim=dim)
 
     @pycrt.enforce_precision(i="arr")

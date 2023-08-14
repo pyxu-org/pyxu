@@ -366,7 +366,6 @@ def block(
 
     Notes
     -----
-    * Domain-agnostic operators, i.e. operators with None-valued ``dim`` s, are unsupported.
     * Each row/column may contain a different number of operators.
 
     Examples
@@ -454,7 +453,6 @@ def coo_block(
 
     Notes
     -----
-    * Domain-agnostic operators, i.e. operators with None-valued ``dim`` s, are unsupported.
     * Blocks on the same row/column must have the same ``codim`` / ``dim`` s.
     * Each row/column of the coarse grid **must** contain at least one entry.
     * ``parallel=True`` only parallelizes execution when inputs to listed methods are NUMPY arrays.
@@ -595,9 +593,6 @@ class _COOBlock:  # See coo_block() for a detailed description.
         assert 0 < N_block <= N_row * N_col, msg
         assert 0 <= min(i) <= max(i) < N_row, msg
         assert 0 <= min(j) <= max(j) < N_col, msg
-
-        if any(op.dim is None for op in data):
-            raise ValueError("Domain-agnostic operators are unsupported.")
 
         # block dimensions are compatible.
         row = collections.defaultdict(list)  # row_idx -> [block]

@@ -14,7 +14,7 @@ import pycsou_tests.operator.conftest as conftest
 class SquaredL2Norm(pyca.ProxDiffFunc):
     # f: \bR^{M} -> \bR
     #      x     -> \norm{x}{2}^{2}
-    def __init__(self, M: int = None):
+    def __init__(self, M: int):
         super().__init__(shape=(1, M))
         self._lipschitz = np.inf
         self._diff_lipschitz = 2
@@ -45,10 +45,7 @@ class SquaredL2Norm(pyca.ProxDiffFunc):
 class TestSquaredL2Norm(conftest.ProxDiffFuncT):
     @pytest.fixture(
         params=itertools.product(
-            (  # dim, op
-                (7, SquaredL2Norm(M=7)),
-                (None, SquaredL2Norm(M=None)),
-            ),
+            ((7, SquaredL2Norm(M=7)),),  # dim, op
             pycd.NDArrayInfo,
             pycrt.Width,
         )
