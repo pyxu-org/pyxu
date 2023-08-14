@@ -73,7 +73,7 @@ def generate_funcs(descr, N_term: int) -> cabc.Sequence[tuple[pyct.OpT]]:
 
     def chain(x, y):
         comp = x * y
-        comp.diff_lipschitz()
+        comp.diff_lipschitz = comp.estimate_diff_lipschitz(method="svd")
         return comp
 
     stream = []
@@ -83,7 +83,7 @@ def generate_funcs(descr, N_term: int) -> cabc.Sequence[tuple[pyct.OpT]]:
         # The remaining terms are summed in the last subset (no need to permute them)
         to_sum = list(set(descr) - set(d))
         p = functools.reduce(operator.add, [chain(*dd) for dd in to_sum])
-        p.diff_lipschitz()
+        p.diff_lipschitz = p.estimate_diff_lipschitz(method="svd")
         parts.append(p)
         stream.append(tuple(parts))
     return stream

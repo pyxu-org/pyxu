@@ -131,7 +131,7 @@ class NLCG(pyca.Solver):
         mst = self._mstate  # shorthand
 
         if (a0 := kwargs.get("a0")) is None:
-            d_l = self._f.diff_lipschitz()
+            d_l = self._f.diff_lipschitz
             if np.isclose(d_l, np.inf) or np.isclose(d_l, 0):
                 msg = "[NLCG] cannot auto-infer initial step size: specify `a0` manually in NLCG.fit()"
                 raise ValueError(msg)

@@ -236,7 +236,7 @@ class ProxAdam(pyca.Solver):
             self._g = pycof.NullFunc(dim=x0.shape[-1])
 
         if a is None:
-            mst["a"] = pycrt.coerce(1 / self._f.diff_lipschitz())
+            mst["a"] = pycrt.coerce(1 / self._f.diff_lipschitz)
             if math.isinf(mst["a"]):
                 # _f is constant-valued: a is a free parameter.
                 mst["a"] = pycrt.coerce(1)
