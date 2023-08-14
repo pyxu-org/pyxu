@@ -17,11 +17,6 @@ import pycsou.util as pycu
 
 
 class Rule:
-    def __init__(self):
-        # Default Arithmetic Attributes
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
-
     def op(self) -> pyct.OpT:
         """
         Returns
@@ -30,6 +25,19 @@ class Rule:
             Synthesized operator given inputs to :py:meth:`~pycsou.abc.arithmetic.Rule.__init__`.
         """
         raise NotImplementedError
+
+    # Helper Methods ----------------------------------------------------------
+
+    @staticmethod
+    def _propagate_constants(op: pyct.OpT):
+        # Propagate (diff-)Lipschitz constants forward via special call to
+        # Rule()-overridden `estimate_[diff_]lipschitz()` methods.
+
+        # Important: we write to _[diff_]lipschitz to not overwrite estimate_[diff_]lipschitz() methods.
+        if op.has(pyco.Property.CAN_EVAL):
+            op._lipschitz = op.estimate_lipschitz(__rule=True)
+        if op.has(pyco.Property.DIFFERENTIABLE):
+            op._diff_lipschitz = op.estimate_diff_lipschitz(__rule=True)
 
     # Default Arithmetic Methods ----------------------------------------------
     # Fallback on these when no simple form in terms of Rule.__init__() args is known.
@@ -68,22 +76,14 @@ class ScaleRule(Rule):
         |         Property         |  Preserved? |                     Arithmetic Update Rule(s)                      |
         |--------------------------|-------------|--------------------------------------------------------------------|
         | CAN_EVAL                 | yes         | op_new.apply(arr) = op_old.apply(arr) * \alpha                     |
-        |                          |             | op_new._lipschitz = op_old._lipschitz * abs(\alpha)                |
-        |                          |             |                                                                    |
-        |                          |             | op_new.lipschitz()                                                 |
-        |                          |             | = op_old.lipschitz() * abs(\alpha)                                 |
-        |                          |             | + update op_new._lipschitz                                         |
+        |                          |             | op_new.lipschitz = op_old.lipschitz * abs(\alpha)                  |
         |--------------------------|-------------|--------------------------------------------------------------------|
         | FUNCTIONAL               | yes         | op_new.asloss(\beta) = op_old.asloss(\beta) * \alpha               |
         |--------------------------|-------------|--------------------------------------------------------------------|
         | PROXIMABLE               | \alpha > 0  | op_new.prox(arr, tau) = op_old.prox(arr, tau * \alpha)             |
         |--------------------------|-------------|--------------------------------------------------------------------|
         | DIFFERENTIABLE           | yes         | op_new.jacobian(arr) = op_old.jacobian(arr) * \alpha               |
-        |                          |             | op_new._diff_lipschitz = op_old._diff_lipschitz * abs(\alpha)      |
-        |                          |             |                                                                    |
-        |                          |             | diff_lipschitz()                                                   |
-        |                          |             | = op_old.diff_lipschitz() * abs(\alpha)                            |
-        |                          |             | + update op_new._diff_lipschitz                                    |
+        |                          |             | op_new.diff_lipschitz = op_old.diff_lipschitz * abs(\alpha)        |
         |--------------------------|-------------|--------------------------------------------------------------------|
         | DIFFERENTIABLE_FUNCTION  | yes         | op_new.grad(arr) = op_old.grad(arr) * \alpha                       |
         |--------------------------|-------------|--------------------------------------------------------------------|
@@ -129,12 +129,10 @@ class ScaleRule(Rule):
             op._op = self._op  # embed for introspection
             op._cst = self._cst  # embed for introspection
             for p in op.properties():
-                for name in p.arithmetic_attributes():
-                    attr = getattr(self, name)
-                    setattr(op, name, attr)
                 for name in p.arithmetic_methods():
                     func = getattr(self.__class__, name)
                     setattr(op, name, types.MethodType(func, op))
+            self._propagate_constants(op)
         return op
 
     def _expr(self) -> tuple:
@@ -172,11 +170,14 @@ class ScaleRule(Rule):
         out *= self._cst
         return out
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        L = self._op.lipschitz(**kwargs)
-        self._lipschitz = L * abs(self._cst)
-        return self._lipschitz
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
+        if no_eval:
+            L = float(self._op.lipschitz)
+        else:
+            L = self._op.estimate_lipschitz(**kwargs)
+        L *= abs(self._cst)
+        return L
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
@@ -196,11 +197,14 @@ class ScaleRule(Rule):
             op = self._op.jacobian(arr) * self._cst
         return op
 
-    @pycrt.enforce_precision()
-    def diff_lipschitz(self, **kwargs) -> pyct.Real:
-        dL = self._op.diff_lipschitz(**kwargs)
-        self._diff_lipschitz = dL * abs(self._cst)
-        return self._diff_lipschitz
+    def estimate_diff_lipschitz(self, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
+        if no_eval:
+            dL = float(self._op.diff_lipschitz)
+        else:
+            dL = self._op.estimate_diff_lipschitz(**kwargs)
+        dL *= abs(self._cst)
+        return dL
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -270,22 +274,13 @@ class ArgScaleRule(Rule):
         |         Property         |  Preserved? |                          Arithmetic Update Rule(s)                          |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | CAN_EVAL                 | yes         | op_new.apply(arr) = op_old.apply(arr * \alpha)                              |
-        |                          |             | op_new._lipschitz = op_old._lipschitz * abs(\alpha)                         |
-        |                          |             |                                                                             |
-        |                          |             | op_new.lipschitz()                                                          |
-        |                          |             | = op_old.lipschitz() * abs(\alpha)                                          |
-        |                          |             | + update op_new._lipschitz                                                  |
+        |                          |             | op_new.lipschitz = op_old.lipschitz * abs(\alpha)                           |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | FUNCTIONAL               | yes         | op_new.asloss(\beta) = AMBIGUOUS -> DISABLED                                |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | PROXIMABLE               | yes         | op_new.prox(arr, tau) = op_old.prox(\alpha * arr, \alpha**2 * tau) / \alpha |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
-        | DIFFERENTIABLE           | yes         | _diff_lipschitz = op_old._diff_lipschitz * (\alpha**2)                      |
-        |                          |             |                                                                             |
-        |                          |             | diff_lipschitz()                                                            |
-        |                          |             | = op_old.diff_lipschitz() * (\alpha**2)                                     |
-        |                          |             | + update op_new._diff_lipschitz                                             |
-        |                          |             |                                                                             |
+        | DIFFERENTIABLE           | yes         | op_new.diff_lipschitz = op_old.diff_lipschitz * (\alpha**2)                 |
         |                          |             | op_new.jacobian(arr) = op_old.jacobian(arr * \alpha) * \alpha               |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | DIFFERENTIABLE_FUNCTION  | yes         | op_new.grad(arr) = op_old.grad(\alpha * arr) * \alpha                       |
@@ -347,12 +342,10 @@ class ArgScaleRule(Rule):
             op._op = self._op  # embed for introspection
             op._cst = self._cst  # embed for introspection
             for p in op.properties():
-                for name in p.arithmetic_attributes():
-                    attr = getattr(self, name)
-                    setattr(op, name, attr)
                 for name in p.arithmetic_methods():
                     func = getattr(self.__class__, name)
                     setattr(op, name, types.MethodType(func, op))
+            self._propagate_constants(op)
         return op
 
     def _expr(self) -> tuple:
@@ -387,11 +380,14 @@ class ArgScaleRule(Rule):
         out = self._op.apply(x)
         return out
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        L = self._op.lipschitz(**kwargs)
-        self._lipschitz = L * abs(self._cst)
-        return self._lipschitz
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
+        if no_eval:
+            L = float(self._op.lipschitz)
+        else:
+            L = self._op.estimate_lipschitz(**kwargs)
+        L *= abs(self._cst)
+        return L
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
@@ -417,11 +413,14 @@ class ArgScaleRule(Rule):
             op = self._op.jacobian(x) * self._cst
         return op
 
-    @pycrt.enforce_precision()
-    def diff_lipschitz(self, **kwargs) -> pyct.Real:
-        dL = self._op.diff_lipschitz(**kwargs)
-        self._diff_lipschitz = dL * (self._cst**2)
-        return self._diff_lipschitz
+    def estimate_diff_lipschitz(self, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
+        if no_eval:
+            dL = self._op.diff_lipschitz
+        else:
+            dL = self._op.estimate_diff_lipschitz(**kwargs)
+        dL *= self._cst**2
+        return dL
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -494,15 +493,13 @@ class ArgShiftRule(Rule):
         |         Property         | Preserved? |                    Arithmetic Update Rule(s)                    |
         |--------------------------|------------|-----------------------------------------------------------------|
         | CAN_EVAL                 | yes        | op_new.apply(arr) = op_old.apply(arr + \shift)                  |
-        |                          |            | op_new._lipschitz = op_old._lipschitz                           |
-        |                          |            | op_new.lipschitz() = op_new._lipschitz alias                    |
+        |                          |            | op_new.lipschitz = op_old.lipschitz                             |
         |--------------------------|------------|-----------------------------------------------------------------|
         | FUNCTIONAL               | yes        | op_new.asloss(\beta) = AMBIGUOUS -> DISABLED                    |
         |--------------------------|------------|-----------------------------------------------------------------|
         | PROXIMABLE               | yes        | op_new.prox(arr, tau) = op_old.prox(arr + \shift, tau) - \shift |
         |--------------------------|------------|-----------------------------------------------------------------|
-        | DIFFERENTIABLE           | yes        | op_new._diff_lipschitz = op_old._diff_lipschitz                 |
-        |                          |            | op_new.diff_lipschitz() = op_new._diff_lipschitz alias          |
+        | DIFFERENTIABLE           | yes        | op_new.diff_lipschitz = op_old.diff_lipschitz                   |
         |                          |            | op_new.jacobian(arr) = op_old.jacobian(arr + \shift)            |
         |--------------------------|------------|-----------------------------------------------------------------|
         | DIFFERENTIABLE_FUNCTION  | yes        | op_new.grad(arr) = op_old.grad(arr + \shift)                    |
@@ -549,12 +546,10 @@ class ArgShiftRule(Rule):
             op._op = self._op  # embed for introspection
             op._cst = self._cst  # embed for introspection
             for p in op.properties():
-                for name in p.arithmetic_attributes():
-                    attr = getattr(self, name)
-                    setattr(op, name, attr)
                 for name in p.arithmetic_methods():
                     func = getattr(self.__class__, name)
                     setattr(op, name, types.MethodType(func, op))
+            self._propagate_constants(op)
         return op
 
     def _expr(self) -> tuple:
@@ -593,10 +588,13 @@ class ArgShiftRule(Rule):
         out = self._op.apply(x)
         return out
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        self._lipschitz = self._op.lipschitz(**kwargs)
-        return self._lipschitz
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
+        if no_eval:
+            L = self._op.lipschitz
+        else:
+            L = self._op.estimate_lipschitz(**kwargs)
+        return L
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
@@ -643,10 +641,13 @@ class ArgShiftRule(Rule):
         op = self._op.jacobian(x)
         return op
 
-    @pycrt.enforce_precision()
-    def diff_lipschitz(self, **kwargs) -> pyct.Real:
-        self._diff_lipschitz = self._op.diff_lipschitz(**kwargs)
-        return self._diff_lipschitz
+    def estimate_diff_lipschitz(self, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
+        if no_eval:
+            dL = self._op.diff_lipschitz
+        else:
+            dL = self._op.estimate_diff_lipschitz(**kwargs)
+        return dL
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -699,10 +700,7 @@ class AddRule(Rule):
     -------------------------
     * CAN_EVAL
         op.apply(arr) = _lhs.apply(arr) + _rhs.apply(arr)
-        op._lipschitz = _lhs._lipschitz + _rhs._lipschitz
-        op.lipschitz()
-            = _lhs.lipschitz() + _rhs.lipschitz()
-            + update op._lipschitz
+        op.lipschitz = _lhs.lipschitz + _rhs.lipschitz
         IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
                    operand's Lipschitz constant must be magnified by \sqrt{M}.
 
@@ -717,10 +715,7 @@ class AddRule(Rule):
 
     * DIFFERENTIABLE
         op.jacobian(arr) = _lhs.jacobian(arr) + _rhs.jacobian(arr)
-        op._diff_lipschitz = _lhs._diff_lipschitz + _rhs._diff_lipschitz
-        op.diff_lipschitz()
-            = _lhs.diff_lipschitz() + _rhs.diff_lipschitz()
-            + update op._diff_lipschitz
+        op.diff_lipschitz = _lhs.diff_lipschitz + _rhs.diff_lipschitz
         IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
                    operand's diff-Lipschitz constant must be magnified by \sqrt{M}.
 
@@ -796,12 +791,10 @@ class AddRule(Rule):
             op._lhs = self._lhs  # embed for introspection
             op._rhs = self._rhs  # embed for introspection
             for p in op.properties():
-                for name in p.arithmetic_attributes():
-                    attr = getattr(self, name)
-                    setattr(op, name, attr)
                 for name in p.arithmetic_methods():
                     func = getattr(self.__class__, name)
                     setattr(op, name, types.MethodType(func, op))
+            self._propagate_constants(op)
         return op
 
     def _expr(self) -> tuple:
@@ -860,24 +853,28 @@ class AddRule(Rule):
         out = out_lhs + out_rhs
         return out
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        if self.has(pyco.Property.LINEAR) and kwargs.get("tight", False):
-            if self.has(pyco.Property.FUNCTIONAL):
-                self._lipschitz = pyco.LinFunc.lipschitz(self, **kwargs)
-            else:
-                self._lipschitz = pyco.LinOp.lipschitz(self, **kwargs)
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
+        if no_eval:
+            L_lhs = self._lhs.lipschitz
+            L_rhs = self._rhs.lipschitz
+        elif self.has(pyco.Property.LINEAR):
+            L = self.__class__.estimate_lipschitz(self, **kwargs)
+            return L
         else:
-            L_lhs = self._lhs.lipschitz(**kwargs)
-            L_rhs = self._rhs.lipschitz(**kwargs)
-            if self._lhs.codim < self._rhs.codim:
-                # LHS broadcasts
-                L_lhs = L_lhs * np.sqrt(self._rhs.codim)
-            elif self._lhs.codim > self._rhs.codim:
-                # RHS broadcasts
-                L_rhs = L_rhs * np.sqrt(self._lhs.codim)
-            self._lipschitz = L_lhs + L_rhs
-        return self._lipschitz
+            L_lhs = self._lhs.estimate_lipschitz(**kwargs)
+            L_rhs = self._rhs.estimate_lipschitz(**kwargs)
+
+        # Account for broadcasting
+        if self._lhs.codim < self._rhs.codim:
+            # LHS broadcasts
+            L_lhs = L_lhs * np.sqrt(self._rhs.codim)
+        elif self._lhs.codim > self._rhs.codim:
+            # RHS broadcasts
+            L_rhs = L_rhs * np.sqrt(self._lhs.codim)
+
+        L = L_lhs + L_rhs
+        return L
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
@@ -906,10 +903,19 @@ class AddRule(Rule):
             op = op_lhs + op_rhs
         return op
 
-    @pycrt.enforce_precision()
-    def diff_lipschitz(self, **kwargs) -> pyct.Real:
-        dL_lhs = self._lhs.diff_lipschitz(**kwargs)
-        dL_rhs = self._rhs.diff_lipschitz(**kwargs)
+    def estimate_diff_lipschitz(self, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
+        if no_eval:
+            dL_lhs = self._lhs.diff_lipschitz
+            dL_rhs = self._rhs.diff_lipschitz
+        elif self.has(pyco.Property.LINEAR):
+            dL_lhs = 0
+            dL_rhs = 0
+        else:
+            dL_lhs = self._lhs.estimate_diff_lipschitz(**kwargs)
+            dL_rhs = self._rhs.estimate_diff_lipschitz(**kwargs)
+
+        # Account for broadcasting
         if self._lhs.codim < self._rhs.codim:
             # LHS broadcasts
             dL_lhs = dL_lhs * np.sqrt(self._rhs.codim)
@@ -917,8 +923,8 @@ class AddRule(Rule):
             # RHS broadcasts
             dL_rhs = dL_rhs * np.sqrt(self._lhs.codim)
 
-        self._diff_lipschitz = dL_lhs + dL_rhs
-        return self._diff_lipschitz
+        dL = dL_lhs + dL_rhs
+        return dL
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1061,10 +1067,7 @@ class ChainRule(Rule):
     -------------------------
     * CAN_EVAL
         op.apply(arr) = _lhs.apply(_rhs.apply(arr))
-        op._lipschitz = _lhs._lipschitz * _rhs._lipschitz
-        op.lipschitz()
-            = _lhs.lipschitz() * _rhs.lipschitz()
-            + update op._lipschitz
+        op.lipschitz = _lhs.lipschitz * _rhs.lipschitz
 
     * FUNCTIONAL
         op.asloss(\beta) = ambiguous -> disabled
@@ -1074,15 +1077,12 @@ class ChainRule(Rule):
 
     * DIFFERENTIABLE
         op.jacobian(arr) = _lhs.jacobian(_rhs.apply(arr)) * _rhs.jacobian(arr)
-        op._diff_lipschitz =
-            quadratic            => _quad_spec().Q.lipschitz()
+        op.diff_lipschitz =
+            quadratic            => _quad_spec().Q.lipschitz
             linear \comp linear  => 0
-            linear \comp diff    => _lhs._lipschitz * _rhs.diff_lipschitz
-            diff   \comp linear  => _lhs._diff_lipschitz * (_rhs.lipschitz ** 2)
+            linear \comp diff    => _lhs.lipschitz * _rhs.diff_lipschitz
+            diff   \comp linear  => _lhs.diff_lipschitz * (_rhs.lipschitz ** 2)
             diff   \comp diff    => \infty
-        op.diff_lipschitz()
-            = COMPLEX; see above.
-            + update op._diff_lipschitz
 
     * DIFFERENTIABLE_FUNCTION (1D input)
         op.grad(arr) = _lhs.grad(_rhs.apply(arr)) @ _rhs.jacobian(arr).asarray()
@@ -1110,12 +1110,10 @@ class ChainRule(Rule):
         op._lhs = self._lhs  # embed for introspection
         op._rhs = self._rhs  # embed for introspection
         for p in op.properties():
-            for name in p.arithmetic_attributes():
-                attr = getattr(self, name)
-                setattr(op, name, attr)
             for name in p.arithmetic_methods():
                 func = getattr(self.__class__, name)
                 setattr(op, name, types.MethodType(func, op))
+        self._propagate_constants(op)
         return op
 
     def _expr(self) -> tuple:
@@ -1196,17 +1194,20 @@ class ChainRule(Rule):
         out = self._lhs.apply(x)
         return out
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        if self.has([pyco.Property.LINEAR, pyco.Property.FUNCTIONAL]):
-            self._lipschitz = pyco.LinFunc.lipschitz(self, **kwargs)
-        elif self.has(pyco.Property.LINEAR) and kwargs.get("tight", False):
-            self._lipschitz = pyco.LinOp.lipschitz(self, **kwargs)
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
+        if no_eval:
+            L_lhs = self._lhs.lipschitz
+            L_rhs = self._rhs.lipschitz
+        elif self.has(pyco.Property.LINEAR):
+            L = self.__class__.estimate_lipschitz(self, **kwargs)
+            return L
         else:
-            L_lhs = self._lhs.lipschitz(**kwargs)
-            L_rhs = self._rhs.lipschitz(**kwargs)
-            self._lipschitz = L_lhs * L_rhs
-        return self._lipschitz
+            L_lhs = self._lhs.estimate_lipschitz(**kwargs)
+            L_rhs = self._rhs.estimate_lipschitz(**kwargs)
+
+        L = L_lhs * L_rhs
+        return L
 
     @pycrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pyct.NDArray, tau: pyct.Real) -> pyct.NDArray:
@@ -1259,25 +1260,36 @@ class ChainRule(Rule):
             op = J_lhs * J_rhs
         return op
 
-    @pycrt.enforce_precision()
-    def diff_lipschitz(self, **kwargs) -> pyct.Real:
+    def estimate_diff_lipschitz(self, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
         if self.has(pyco.Property.QUADRATIC):
             Q, c, t = self._quad_spec()
             op = pyco.QuadraticFunc(shape=self.shape, Q=Q, c=c, t=t)
-            self._diff_lipschitz = op.diff_lipschitz(**kwargs)
+            if no_eval:
+                dL = op.diff_lipschitz
+            else:
+                dL = op.estimate_diff_lipschitz(**kwargs)
         elif self._lhs.has(pyco.Property.LINEAR) and self._rhs.has(pyco.Property.LINEAR):
-            self._diff_lipschitz = 0
+            dL = 0
         elif self._lhs.has(pyco.Property.LINEAR) and self._rhs.has(pyco.Property.DIFFERENTIABLE):
-            L_lhs = self._lhs.lipschitz(**kwargs)
-            dL_rhs = self._rhs.diff_lipschitz(**kwargs)
-            self._diff_lipschitz = L_lhs * dL_rhs
+            if no_eval:
+                L_lhs = self._lhs.lipschitz
+                dL_rhs = self._rhs.diff_lipschitz
+            else:
+                L_lhs = self._lhs.estimate_lipschitz(**kwargs)
+                dL_rhs = self._rhs.estimate_diff_lipschitz(**kwargs)
+            dL = L_lhs * dL_rhs
         elif self._lhs.has(pyco.Property.DIFFERENTIABLE) and self._rhs.has(pyco.Property.LINEAR):
-            dL_lhs = self._lhs.diff_lipschitz(**kwargs)
-            L_rhs = self._rhs.lipschitz(**kwargs)
-            self._diff_lipschitz = dL_lhs * (L_rhs**2)
+            if no_eval:
+                dL_lhs = self._lhs.diff_lipschitz
+                L_rhs = self._rhs.lipschitz
+            else:
+                dL_lhs = self._lhs.estimate_diff_lipschitz(**kwargs)
+                L_rhs = self._rhs.estimate_lipschitz(**kwargs)
+            dL = dL_lhs * (L_rhs**2)
         else:
-            self._diff_lipschitz = np.inf
-        return self._diff_lipschitz
+            dL = np.inf
+        return dL
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -1385,10 +1397,7 @@ class TransposeRule(Rule):
     -------------------------
     * CAN_EVAL
         opT.apply(arr) = op.adjoint(arr)
-        opT._lipschitz = op._lipschitz
-        opT.lipschitz()
-            = op.lipschitz()
-            + update opT._lipschitz
+        opT.lipschitz = op.lipschitz
 
     * FUNCTIONAL
         opT.asloss(\beta) = UNDEFINED
@@ -1398,8 +1407,7 @@ class TransposeRule(Rule):
 
     * DIFFERENTIABLE
         opT.jacobian(arr) = opT
-        opT._diff_lipschitz = 0
-        opT.diff_lipschitz() = 0
+        opT.diff_lipschitz = 0
 
     * DIFFERENTIABLE_FUNCTION
         opT.grad(arr) = LinFunc.grad(arr)
@@ -1421,20 +1429,16 @@ class TransposeRule(Rule):
     def __init__(self, op: pyct.OpT):
         super().__init__()
         self._op = op
-        self._lipschitz = op._lipschitz
-        self._diff_lipschitz = op._diff_lipschitz
 
     def op(self) -> pyct.OpT:
         klass = self._infer_op_klass()
         op = klass(shape=(self._op.dim, self._op.codim))
         op._op = self._op  # embed for introspection
         for p in op.properties():
-            for name in p.arithmetic_attributes():
-                attr = getattr(self, name)
-                setattr(op, name, attr)
             for name in p.arithmetic_methods():
                 func = getattr(self.__class__, name)
                 setattr(op, name, types.MethodType(func, op))
+        self._propagate_constants(op)
         return op
 
     def _expr(self) -> tuple:
@@ -1464,16 +1468,13 @@ class TransposeRule(Rule):
         out = self._op.adjoint(arr)
         return out
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        if self.shape == (1, 1):
-            # self._op.lipschitz() may point to a non-LinFunc instance, in which case stochastic
-            # estimation of L may be far from the truth `L_gt` if L_gt < 1.
-            # In the case of LinFuncs, we therefore always return the optimal Lipschitz constant.
-            self._lipschitz = pyco.LinFunc.lipschitz(self, **kwargs)
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
+        if no_eval:
+            L = self._op.lipschitz
         else:
-            self._lipschitz = self._op.lipschitz(**kwargs)
-        return self._lipschitz
+            L = self._op.estimate_lipschitz(**kwargs)
+        return L
 
     def asloss(self, data: pyct.NDArray = None) -> pyct.OpT:
         raise NotImplementedError
@@ -1486,8 +1487,7 @@ class TransposeRule(Rule):
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return self
 
-    @pycrt.enforce_precision()
-    def diff_lipschitz(self, **kwargs) -> pyct.Real:
+    def estimate_diff_lipschitz(self, **kwargs) -> pyct.Real:
         return 0
 
     @pycrt.enforce_precision(i="arr")

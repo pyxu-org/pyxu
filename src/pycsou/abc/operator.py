@@ -36,15 +36,6 @@ class Property(enum.Enum):
     LINEAR_UNITARY = enum.auto()
     QUADRATIC = enum.auto()
 
-    def arithmetic_attributes(self) -> cabc.Set[str]:
-        "Attributes affected by arithmetic operations."
-        data = collections.defaultdict(list)
-        data[self.CAN_EVAL].append("_lipschitz")
-        data[self.DIFFERENTIABLE].append("_diff_lipschitz")
-
-        attr = frozenset(data[self])
-        return attr
-
     def arithmetic_methods(self) -> cabc.Set[str]:
         "Instance methods affected by arithmetic operations."
         data = collections.defaultdict(list)
@@ -52,7 +43,7 @@ class Property(enum.Enum):
             [
                 "apply",
                 "__call__",
-                "lipschitz",
+                "estimate_lipschitz",
                 "_expr",
             ]
         )
@@ -61,7 +52,7 @@ class Property(enum.Enum):
         data[self.DIFFERENTIABLE].extend(
             [
                 "jacobian",
-                "diff_lipschitz",
+                "estimate_diff_lipschitz",
             ]
         )
         data[self.DIFFERENTIABLE_FUNCTION].append("grad")
@@ -195,9 +186,6 @@ class Operator:
 
             # Forward shared arithmetic fields from core to shell.
             for p in p_shell & p_core:
-                for a in p.arithmetic_attributes():
-                    a_core = getattr(self, a)
-                    setattr(op, a, a_core)
                 for m in p.arithmetic_methods():
                     m_core = getattr(self, m)
                     setattr(op, m, m_core)
@@ -526,9 +514,8 @@ class Map(Operator):
     Instances of this class must implement
     :py:meth:`~pycsou.abc.operator.Map.apply`.
 
-    If the map is Lipschitz-continuous with known Lipschitz constant, the latter should be stored in
-    the private instance attribute
-    ``_lipschitz`` (initialized to :math:`+\infty` by default).
+    If :math:`\mathbf{f}` is Lipschitz-continuous with known Lipschitz constant :math:`L`, the latter should be stored
+    in the :py:attr:`~pycsou.abc.operator.Map.lipschitz` property.
     """
 
     @classmethod
@@ -539,7 +526,7 @@ class Map(Operator):
 
     def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
-        self._lipschitz = np.inf
+        self.lipschitz = np.inf
 
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         """
@@ -568,34 +555,97 @@ class Map(Operator):
         """
         return self.apply(arr)
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
+    @property
+    def lipschitz(self) -> pyct.Real:
+        r"""
+        Return the last computed Lipschitz constant of :math:`\mathbf{f}`.
+
+        Notes
+        -----
+        * If a Lipschitz constant is known apriori, it can be stored in the instance as follows:
+
+          .. code-block:: python3
+
+             class TestOp(Map):
+                 def __init__(self, shape):
+                     super().__init__(shape=shape)
+                     self.lipschitz = 2
+
+             op = TestOp(shape=(2, 3))
+             op.lipschitz  # => 2
+
+
+          Alternatively the Lipschitz constant can be set manually after initialization:
+
+          .. code-block:: python3
+
+             class TestOp(Map):
+                 def __init__(self, shape):
+                     super().__init__(shape=shape)
+
+             op = TestOp(shape=(2,3))
+             op.lipschitz  # => inf, since unknown apriori
+
+             op.lipschitz = 2  # post-init specification
+             op.lipschitz  # => 2
+
+        * :py:meth:`~pycsou.abc.operator.Map.lipschitz` **NEVER** computes anything:
+          call :py:meth:`~pycsou.abc.operator.Map.estimate_lipschitz` manually to *compute* a new Lipschitz estimate:
+
+          .. code-block:: python3
+
+             op.lipschitz = op.estimate_lipschitz()
+        """
+        if not hasattr(self, "_lipschitz"):
+            self._lipschitz = self.estimate_lipschitz()
+
+        return pycrt.coerce(self._lipschitz)
+
+    @lipschitz.setter
+    def lipschitz(self, L: pyct.Real):
+        assert L >= 0
+        self._lipschitz = float(L)
+
+        # If no algorithm available to auto-determine estimate_lipschitz(), then enforce user's choice.
+        if not self.has(Property.LINEAR):
+
+            def op_estimate_lipschitz(_, **kwargs) -> pyct.Real:
+                return _._lipschitz
+
+            self.estimate_lipschitz = types.MethodType(op_estimate_lipschitz, self)
+
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
         r"""
         Compute a Lipschitz constant of the operator.
+
+        Parameters
+        ----------
+        kwargs: cabc.Mapping
+            Class-specific kwargs to configure Lipschitz estimation.
 
         Notes
         -----
         * This method should always be callable without specifying any kwargs.
 
-        * A constant :math:`L_\mathbf{h}>0` is said to be a *Lipschitz constant* for a map
-          :math:`\mathbf{h}:\mathbb{R}^M\to \mathbb{R}^N` if:
+        * A constant :math:`L_{\mathbf{f}} > 0` is said to be a *Lipschitz constant* for a map
+          :math:`\mathbf{f}: \mathbb{R}^{M} \to \mathbb{R}^{N}` if:
 
           .. math::
 
-             \|\mathbf{h}(\mathbf{x})-\mathbf{h}(\mathbf{y})\|_{\mathbb{R}^N}
+             \|\mathbf{f}(\mathbf{x}) - \mathbf{f}(\mathbf{y})\|_{\mathbb{R}^{N}}
              \leq
-             L_\mathbf{h} \|\mathbf{x}-\mathbf{y}\|_{\mathbb{R}^M},
+             L_{\mathbf{f}} \|\mathbf{x} - \mathbf{y}\|_{\mathbb{R}^{M}},
              \qquad
-             \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^M,
+             \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^{M},
 
           where
-          :math:`\|\cdot\|_{\mathbb{R}^M}` and
-          :math:`\|\cdot\|_{\mathbb{R}^N}`
+          :math:`\|\cdot\|_{\mathbb{R}^{M}}` and
+          :math:`\|\cdot\|_{\mathbb{R}^{N}}`
           are the canonical norms on their respective spaces.
 
           The smallest Lipschitz constant of a map is called the *optimal Lipschitz constant*.
         """
-        return self._lipschitz
+        raise NotImplementedError
 
 
 class Func(Map):
@@ -605,9 +655,8 @@ class Func(Map):
     Instances of this class must implement
     :py:meth:`~pycsou.abc.operator.Map.apply`.
 
-    If the functional is Lipschitz-continuous with known Lipschitz constant, the latter should be
-    stored in the private instance attribute
-    ``_lipschitz`` (initialized to :math:`+\infty` by default).
+    If :math:`f` is Lipschitz-continuous with known Lipschitz constant :math:`L`, the latter should be stored in the
+    :py:attr:`~pycsou.abc.operator.Map.lipschitz` property.
     """
 
     @classmethod
@@ -652,10 +701,11 @@ class DiffMap(Map):
     :py:meth:`~pycsou.abc.operator.Map.apply` and
     :py:meth:`~pycsou.abc.operator.DiffMap.jacobian`.
 
-    If the map and/or its Jacobian are Lipschitz-continuous with known Lipschitz constants, the
-    latter should be stored in the private instance attributes
-    ``_lipschitz`` (initialized to :math:`+\infty` by default),
-    ``_diff_lipschitz`` (initialized to :math:`+\infty` by default).
+    If :math:`\mathbf{f}` is Lipschitz-continuous with known Lipschitz constant :math:`L`, the latter should be stored
+    in the :py:attr:`~pycsou.abc.operator.Map.lipschitz` property.
+
+    If :math:`\mathbf{J}_{\mathbf{f}}` is Lipschitz-continuous with known Lipschitz constant :math:`\partial L`, the
+    latter should be stored in the :py:attr:`~pycsou.abc.operator.DiffMap.diff_lipschitz` property.
     """
 
     @classmethod
@@ -666,7 +716,7 @@ class DiffMap(Map):
 
     def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
-        self._diff_lipschitz = np.inf
+        self.diff_lipschitz = np.inf
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         r"""
@@ -712,35 +762,97 @@ class DiffMap(Map):
         """
         raise NotImplementedError
 
-    @pycrt.enforce_precision()
-    def diff_lipschitz(self, **kwargs) -> pyct.Real:
+    @property
+    def diff_lipschitz(self) -> pyct.Real:
+        r"""
+        Return the last computed Lipschitz constant of :math:`\mathbf{J}_{\mathbf{f}}`.
+
+        Notes
+        -----
+        * If a diff-Lipschitz constant is known apriori, it can be stored in the instance as follows:
+
+          .. code-block:: python3
+
+             class TestOp(DiffMap):
+                 def __init__(self, shape):
+                     super().__init__(shape=shape)
+                     self.diff_lipschitz = 2
+
+             op = TestOp(shape=(2, 3))
+             op.diff_lipschitz  # => 2
+
+
+          Alternatively the diff-Lipschitz constant can be set manually after initialization:
+
+          .. code-block:: python3
+
+             class TestOp(DiffMap):
+                 def __init__(self, shape):
+                     super().__init__(shape=shape)
+
+             op = TestOp(shape=(2,3))
+             op.diff_lipschitz  # => inf, since unknown apriori
+
+             op.diff_lipschitz = 2  # post-init specification
+             op.diff_lipschitz  # => 2
+
+        * :py:meth:`~pycsou.abc.operator.DiffMap.diff_lipschitz` **NEVER** computes anything:
+          call :py:meth:`~pycsou.abc.operator.DiffMap.estimate_diff_lipschitz` manually to *compute* a new diff-Lipschitz estimate:
+
+          .. code-block:: python3
+
+             op.diff_lipschitz = op.estimate_diff_lipschitz()
+        """
+        if not hasattr(self, "_diff_lipschitz"):
+            self._diff_lipschitz = self.estimate_diff_lipschitz()
+
+        return pycrt.coerce(self._diff_lipschitz)
+
+    @diff_lipschitz.setter
+    def diff_lipschitz(self, dL: pyct.Real):
+        assert dL >= 0
+        self._diff_lipschitz = float(dL)
+
+        # If no algorithm available to auto-determine estimate_diff_lipschitz(), then enforce user's choice.
+        if not self.has(Property.QUADRATIC):
+
+            def op_estimate_diff_lipschitz(_, **kwargs) -> pyct.Real:
+                return _._diff_lipschitz
+
+            self.estimate_diff_lipschitz = types.MethodType(op_estimate_diff_lipschitz, self)
+
+    def estimate_diff_lipschitz(self, **kwargs) -> pyct.Real:
         r"""
         Compute a Lipschitz constant of :py:meth:`~pycsou.abc.operator.DiffMap.jacobian`.
+
+        Parameters
+        ----------
+        kwargs: cabc.Mapping
+            Class-specific kwargs to configure diff-Lipschitz estimation.
 
         Notes
         -----
         * This method should always be callable without specifying any kwargs.
 
-        * A Lipschitz constant :math:`L_{\mathbf{J}_{\mathbf{h}}}>0` of the Jacobian map
-          :math:`\mathbf{J}_{\mathbf{h}}:\mathbf{R}^M\to \mathbf{R}^{N \times M}` is such that:
+        * A Lipschitz constant :math:`L_{\mathbf{J}_{\mathbf{f}}} > 0` of the Jacobian map
+          :math:`\mathbf{J}_{\mathbf{f}}: \mathbb{R}^{M} \to \mathbb{R}^{N \times M}` is such that:
 
           .. math::
 
-             \|\mathbf{J}_{\mathbf{h}}(\mathbf{x})-\mathbf{J}_{\mathbf{h}}(\mathbf{y})\|_{\mathbb{R}^{N \times M}}
+             \|\mathbf{J}_{\mathbf{f}}(\mathbf{x}) - \mathbf{J}_{\mathbf{f}}(\mathbf{y})\|_{\mathbb{R}^{N \times M}}
              \leq
-             L_{\mathbf{J}_{\mathbf{h}}} \|\mathbf{x}-\mathbf{y}\|_{\mathbb{R}^M},
+             L_{\mathbf{J}_{\mathbf{f}}} \|\mathbf{x} - \mathbf{y}\|_{\mathbb{R}^{M}},
              \qquad
-             \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^M,
+             \forall \mathbf{x}, \mathbf{y} \in \mathbb{R}^{M},
 
           where
           :math:`\|\cdot\|_{\mathbb{R}^{N \times M}}` and
-          :math:`\|\cdot\|_{\mathbb{R}^M}`
+          :math:`\|\cdot\|_{\mathbb{R}^{M}}`
           are the canonical norms on their respective spaces.
 
-          The smallest Lipschitz constant of the Jacobian is called the *optimal diff-Lipschitz
-          constant*.
+          The smallest Lipschitz constant of the Jacobian is called the *optimal diff-Lipschitz constant*.
         """
-        return self._diff_lipschitz
+        raise NotImplementedError
 
 
 class ProxFunc(Func):
@@ -757,9 +869,8 @@ class ProxFunc(Func):
     :py:meth:`~pycsou.abc.operator.Map.apply` and
     :py:meth:`~pycsou.abc.operator.ProxFunc.prox`.
 
-    If the functional is Lipschitz-continuous with known Lipschitz constant, the latter should be
-    stored in the private instance attribute
-    ``_lipschitz`` (initialized to :math:`+\infty` by default).
+    If :math:`f` is Lipschitz-continuous with known Lipschitz constant :math:`L`, the latter should be stored in the
+    :py:attr:`~pycsou.abc.operator.Map.lipschitz` property.
     """
 
     @classmethod
@@ -967,8 +1078,8 @@ class ProxFunc(Func):
             embed=dict(
                 _name="moreau_envelope",
                 _mu=mu,
+                _diff_lipschitz=float(1 / mu),
             ),
-            _diff_lipschitz=1 / mu,
             apply=op_apply,
             grad=op_grad,
             _expr=lambda _: ("moreau_envelope", _, _._mu),
@@ -984,10 +1095,12 @@ class DiffFunc(DiffMap, Func):
     :py:meth:`~pycsou.abc.operator.Map.apply` and
     :py:meth:`~pycsou.abc.operator.DiffFunc.grad`.
 
-    If the functional and/or its derivative are Lipschitz-continuous with known Lipschitz constants,
-    the latter should be stored in the private instance attributes
-    ``_lipschitz`` (initialized to :math:`+\infty` by default) and
-    ``_diff_lipschitz`` (initialized to :math:`+\infty` by default).
+    If :math:`f` and/or its derivative :math:`f'` are Lipschitz-continuous with known Lipschitz constants :math:`L` and
+    :math:`\partial L`, the latter should be stored in the
+    :py:attr:`~pycsou.abc.operator.Map.lipschitz`
+    and
+    :py:attr:`~pycsou.abc.operator.DiffMap.diff_lipschitz`
+    properties.
     """
 
     @classmethod
@@ -1052,10 +1165,12 @@ class ProxDiffFunc(ProxFunc, DiffFunc):
     :py:meth:`~pycsou.abc.operator.DiffFunc.grad`, and
     :py:meth:`~pycsou.abc.operator.ProxFunc.prox`.
 
-    If the functional and/or its derivative are Lipschitz-continuous with known Lipschitz constants,
-    the latter should be stored in the private instance attributes
-    ``_lipschitz`` (initialized to :math:`+\infty` by default) and
-    ``_diff_lipschitz`` (initialized to :math:`+\infty` by default).
+    If :math:`f` and/or its derivative :math:`f'` are Lipschitz-continuous with known Lipschitz constants :math:`L` and
+    :math:`\partial L`, the latter should be stored in the
+    :py:attr:`~pycsou.abc.operator.Map.lipschitz`
+    and
+    :py:attr:`~pycsou.abc.operator.DiffMap.diff_lipschitz`
+    properties.
     """
 
     @classmethod
@@ -1114,8 +1229,8 @@ class QuadraticFunc(ProxDiffFunc):
 
     In practice the proximity operator is evaluated via :py:class:`~pycsou.opt.solver.cg.CG`.
 
-    The Lipschitz constant of a quadratic on an unbounded domain is unbounded.
-    The Lipschitz constant of the gradient is given by the spectral norm of :math:`\mathbf{Q}`.
+    The Lipschitz constant :math:`L` of a quadratic on an unbounded domain is unbounded.
+    The Lipschitz constant :math:`\partial L` of :math:`\nabla f` is given by the spectral norm of :math:`\mathbf{Q}`.
     """
 
     @classmethod
@@ -1158,9 +1273,6 @@ class QuadraticFunc(ProxDiffFunc):
         assert self._Q.shape == (self.dim, self.dim)
         assert self._c.shape == self.shape
 
-        self._lipschitz = np.inf
-        self._diff_lipschitz = np.inf
-
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         Q, c, t = self._quad_spec()
@@ -1198,12 +1310,10 @@ class QuadraticFunc(ProxDiffFunc):
         op = shift_loss(op=self, data=data)
         return op
 
-    @pycrt.enforce_precision()
-    def diff_lipschitz(self, **kwargs) -> pyct.Real:
-        if (self._diff_lipschitz == np.inf) or kwargs.get("tight", False):
-            Q, *_ = self._quad_spec()
-            self._diff_lipschitz = Q.lipschitz(**kwargs)
-        return self._diff_lipschitz
+    def estimate_diff_lipschitz(self, **kwargs) -> pyct.Real:
+        Q, *_ = self._quad_spec()
+        dL = Q.estimate_lipschitz(**kwargs)
+        return dL
 
     def _quad_spec(self):
         # canonical quadratic parameterization.
@@ -1219,8 +1329,8 @@ class LinOp(DiffMap):
     :py:meth:`~pycsou.abc.operator.Map.apply` and
     :py:meth:`~pycsou.abc.operator.LinOp.adjoint`.
 
-    If known, the Lipschitz constant of the linear map should be stored in the attribute
-    ``_lipschitz`` (initialized to :math:`+\infty` by default).
+    If known, the Lipschitz constant :math:`L` should be stored in the
+    :py:attr:`~pycsou.abc.operator.Map.lipschitz` property.
 
     The Jacobian of a linear map :math:`\mathbf{A}` is constant.
     """
@@ -1247,7 +1357,7 @@ class LinOp(DiffMap):
 
     def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
-        self._diff_lipschitz = 0
+        self.diff_lipschitz = 0
 
     def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
         r"""
@@ -1342,57 +1452,72 @@ class LinOp(DiffMap):
             dtype=dtype,
         )
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
         r"""
-        Return a (not necessarily optimal) Lipschitz constant of the operator.
+        Compute a Lipschitz constant of the operator.
 
         Parameters
         ----------
-        tight: bool
-            If ``True``, compute the optimal Lipschitz constant.
-            If ``False``, return any memoized finite-valued Lipschitz constant.
+        method: svd | trace
+            If `svd`, compute the optimal Lipschitz constant.
+            If `trace`, compute an upper bound. (Default)
         kwargs:
-            Optional kwargs passed on to :py:func:`scipy.sparse.linalg.svds` (``tight=True``) or
-            :py:func:`pycsou.math.linalg.hutchpp` (``tight=False``).
+            Optional kwargs passed on to:
 
-        Returns
-        -------
-        L : pyct.Real
-            Value of the Lipschitz constant.
+            * `svd`: :py:func:`~pycsou.abc.operator.LinOp.svdvals`
+            * `trace`: :py:func:`~pycsou.math.linalg.hutchpp`
 
         Notes
         -----
-        * The tightest Lipschitz constant is given by the spectral norm of the operator :math:`L`:
-          :math:`\|L\|_2`.
+        * The tightest Lipschitz constant is given by the spectral norm of the operator :math:`\mathbf{A}`:
+          :math:`\|\mathbf{A}\|_{2}`.
           It can be computed via the SVD, which is compute-intensive task for large operators.
           In this setting, it may be advantageous to overestimate the Lipschitz constant with the
-          Frobenius norm of :math:`L` since :math:`\|L\|_F \geq \|L\|_2`.
+          Frobenius norm of :math:`\mathbf{A}` since :math:`\|\mathbf{A}\|_{F} \geq \|\mathbf{A}\|_{2}`.
 
-          :math:`\|L\|_F` can be efficiently approximated by computing the trace of :math:`L^\ast L`
-          (or :math:`LL^\ast`) via the `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_.
+          :math:`\|\mathbf{A}\|_{F}` can be efficiently approximated by computing the trace of :math:`\mathbf{A}^{\ast} \mathbf{A}`
+          (or :math:`\mathbf{A}\mathbf{A}^{\ast}`) via the `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_.
 
-        * :math:`\|L\|_F` is upper bounded by :math:`\|L\|_F \leq \sqrt{n} \|L\|_2`, where the
-          equality is reached (worst-case scenario) when the eigenspectrum of the linear operator is
-          flat.
+        * :math:`\|\mathbf{A}\|_{F}` is upper-bounded by :math:`\|\mathbf{A}\|_{F} \leq \sqrt{n} \|\mathbf{A}\|_{2}`,
+          where the equality is reached (worst-case scenario) when the eigenspectrum of the linear operator is flat.
         """
-        if kwargs.pop("tight", False):
-            # Compute tightest value via svdvals()
-            kwargs.update(k=1, which="LM")
-            kwargs.pop("xp", None)  # `xp` unsupported by svdvals(), if provided.
-            self._lipschitz = self.svdvals(**kwargs).item()
-        elif self._lipschitz == np.inf:
-            # Upper bound via Frobenius norm
-            from pycsou.math.linalg import hutchpp
+        method = kwargs.get("method", "trace").lower().strip()
 
-            kwargs.update(m=kwargs.get("m", 126))
-            kwargs.pop("gpu", None)  # `gpu` unsupported by hutchpp(), if provided.
-            op = self.gram() if (self.codim >= self.dim) else self.cogram()
-            self._lipschitz = np.sqrt(hutchpp(op, **kwargs)).item()
+        if method == "svd":
+            # svdvals() may have alternative signature in specialized classes, but we must always use
+            # the LinOp.svdvals() interface below for kwargs-filtering.
+            func, sig_func = self.__class__.svdvals, LinOp.svdvals
+            kwargs.update(
+                k=1,
+                which="LM",
+            )
+            estimate = lambda: func(self, **kwargs).item()
+        elif method == "trace":
+            if self.shape == (1, 1):
+                # [Sepand] Special case of degenerate LinOps (which are not LinFuncs).
+                # Cannot call .gram() below since it will recurse indefinitely.
+                # [Reason: asop().squeeze() combinations don't work for (1, 1) degenerate LinOps.]
+                func = sig_func = LinFunc.estimate_lipschitz
+                estimate = lambda: func(self.squeeze(), **kwargs)
+            else:
+                from pycsou.math.linalg import hutchpp as func
+
+                sig_func = func
+
+                kwargs.update(
+                    op=self.gram() if (self.codim >= self.dim) else self.cogram(),
+                    m=kwargs.get("m", 126),
+                )
+                estimate = lambda: np.sqrt(func(**kwargs)).item()
         else:
-            # Any finite-valued memoized quantity will do.
-            pass
-        return self._lipschitz
+            raise NotImplementedError
+
+        # Filter unsupported kwargs
+        sig = inspect.Signature.from_callable(sig_func)
+        kwargs = {k: v for (k, v) in kwargs.items() if (k in sig.parameters)}
+
+        L = estimate()
+        return L
 
     @pycrt.enforce_precision()
     def svdvals(
@@ -1892,11 +2017,10 @@ class UnitOp(NormalOp):
 
     def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
-        self._lipschitz = 1
+        self.lipschitz = UnitOp.estimate_lipschitz(self)
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        return self._lipschitz
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
+        return 1
 
     @pycrt.enforce_precision(i="arr")
     def pinv(self, arr: pyct.NDArray, **kwargs) -> pyct.NDArray:
@@ -1956,11 +2080,10 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
 
     def __init__(self, shape: pyct.OpShape):
         super().__init__(shape=shape)
-        self._lipschitz = 1
+        self.lipschitz = OrthProjOp.estimate_lipschitz(self)
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        return self._lipschitz
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
+        return 1
 
     def gram(self) -> pyct.OpT:
         return self.squeeze()
@@ -2001,11 +2124,8 @@ class LinFunc(ProxDiffFunc, LinOp):
     :py:meth:`~pycsou.abc.operator.Map.apply`, and
     :py:meth:`~pycsou.abc.operator.LinOp.adjoint`.
 
-
-    If known, the Lipschitz constant of the linear functional should be stored in the attribute
-    ``_lipschitz`` (initialized to :math:`+\infty` by default).
-
-    The Lipschitz constant of the gradient is 0 since the latter is constant-valued.
+    If known, the Lipschitz constant :math:`L` should be stored in the
+    :py:attr:`~pycsou.abc.operator.Map.lipschitz` property.
     """
 
     @classmethod
@@ -2023,12 +2143,16 @@ class LinFunc(ProxDiffFunc, LinOp):
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return LinOp.jacobian(self, arr)
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
-        g = self.grad(xp.ones(self.dim))
-        self._lipschitz = float(xp.linalg.norm(g))
-        return self._lipschitz
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
+        # Try all backends until one works.
+        for ndi in pycd.NDArrayInfo:
+            try:
+                xp = ndi.module()
+                g = self.grad(xp.ones(self.dim))
+                L = float(xp.linalg.norm(g))
+                return L
+            except Exception:
+                pass
 
     @pycrt.enforce_precision(i="arr")
     def grad(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -2052,13 +2176,7 @@ class LinFunc(ProxDiffFunc, LinOp):
     def cogram(self) -> pyct.OpT:
         from pycsou.operator.linop import HomothetyOp
 
-        try:
-            # If operator is domain-specific, then this may not work.
-            L = self.lipschitz()
-        except Exception:
-            # So we sometimes must piggy-back on a potentially-slower solution.
-            L = np.linalg.norm(self.asarray().flatten())
-
+        L = self.estimate_lipschitz()
         return HomothetyOp(cst=L**2, dim=1)
 
     def svdvals(self, **kwargs) -> pyct.NDArray:
@@ -2066,7 +2184,8 @@ class LinFunc(ProxDiffFunc, LinOp):
         xp = pycd.NDArrayInfo.from_flag(gpu).module()
         width = pycrt.getPrecision()
 
-        D = xp.array([self.lipschitz()], dtype=width.value)
+        L = self.estimate_lipschitz()
+        D = xp.array([L], dtype=width.value)
         return D
 
     def asarray(self, **kwargs) -> pyct.NDArray:
