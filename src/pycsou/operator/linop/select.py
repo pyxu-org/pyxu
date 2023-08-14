@@ -114,6 +114,7 @@ class SubSample(pyca.LinOp):
         self._sub_shape = np.atleast_1d(output).shape
 
         super().__init__(shape=(np.prod(self._sub_shape), np.prod(self._arg_shape)))
+        self.lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
@@ -164,11 +165,6 @@ class SubSample(pyca.LinOp):
 
         out = out.reshape(*sh, -1)
         return out
-
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        self._lipschitz = 1
-        return self._lipschitz
 
     def svdvals(self, **kwargs) -> pyct.NDArray:
         D = pyca.UnitOp.svdvals(self, **kwargs)

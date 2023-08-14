@@ -814,15 +814,6 @@ class NUFFT(pyca.LinOp):
         """
         raise NotImplementedError
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        if kwargs.get("tight", False):
-            self._lipschitz = pyca.LinOp.lipschitz(self, **kwargs)
-        else:
-            # Analytical upper-bound known
-            self._lipschitz = np.sqrt(self._M * np.prod(self._N))
-        return self._lipschitz
-
     @staticmethod
     def _as_canonical_coordinate(x: pyct.NDArray) -> pyct.NDArray:
         if (N_dim := x.ndim) == 1:
@@ -1462,7 +1453,7 @@ class _NUFFT1(NUFFT):
         sh_op[0] //= 2 if self._real_out else 1
         sh_op[1] //= 2 if self._real_in else 1
         super().__init__(shape=sh_op)
-        self._lipschitz = self.lipschitz()
+        self.lipschitz = np.sqrt(self._M * np.prod(self._N))  # analytical upper bound
 
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:
@@ -1747,7 +1738,7 @@ class _NUFFT3(NUFFT):
         sh_op = [2 * self._N, 2 * self._M]
         sh_op[1] //= 2 if self._real else 1
         super().__init__(shape=sh_op)
-        self._lipschitz = self.lipschitz()
+        self.lipschitz = np.sqrt(self._M * np.prod(self._N))  # analytical upper bound
 
     @classmethod
     def _sanitize_init_kwargs(cls, **kwargs) -> dict:

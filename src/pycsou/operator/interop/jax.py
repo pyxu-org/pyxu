@@ -63,7 +63,7 @@ def _to_jax(x: pyct.NDArray, enable_warnings: bool = True) -> JaxArray:
 
     supported_dtype = set(w.value for w in W) | set(w.value for w in cW)
     if x.dtype not in supported_dtype:
-        msg = "For safety reasons, _to_jax() only accepts pycsou.runtime.[_C]Width-supported dtypes."
+        msg = "For safety reasons, _to_jax() only accepts pycsou.runtime.[C]Width-supported dtypes."
         raise pycw.PrecisionWarning(msg)
 
     xp = ndi.module()
@@ -112,16 +112,15 @@ def from_jax(
     shape: pyct.OpShape
         (N, M) operator shape.
     kwargs: dict
-        (k[str], v[value | callable]) pairs to use as arithmetic attributes and methods.
+        (k[str], v[callable]) pairs to use as arithmetic methods.
 
-        Keys are restricted to the following arithmetic attributes/methods:
+        Keys are restricted to the following arithmetic methods:
 
         .. code-block:: python3
 
-           _lipschitz, _diff_lipschitz                 # attributes
-           apply(), grad(), prox(), pinv(), adjoint()  # methods
+           apply(), grad(), prox(), pinv(), adjoint()
 
-        Omitted arithmetic attributes/methods default to those provided by `cls`, or are
+        Omitted arithmetic methods default to those provided by `cls`, or are
         auto-inferred via auto-diff rules.
     vectorize: pyct.VarName
         Arithmetic methods to vectorize.
@@ -191,7 +190,8 @@ def from_jax(
        import pycsou.abc as pyca
        import pycsou.runtime as pycrt
        import pycsou.operator.interop.jax as pycjax
-       import jax, jax.numpy as jnp, numpy as np
+       import jax, jax.numpy as jnp
+       import numpy as np
 
        @jax.jit
        def j_apply(arr: jax.Array) -> jax.Array:
@@ -239,8 +239,7 @@ def from_jax(
 
 
 class _FromJax(pycsrc._FromSource):
-    # supported attributes/methods in __init__(**kwargs)
-    _attr = frozenset({"_lipschitz", "_diff_lipschitz"})
+    # supported methods in __init__(**kwargs)
     _meth = frozenset({"apply", "grad", "prox", "pinv", "adjoint"})
 
     def __init__(  # See from_jax() for a detailed description.
@@ -265,10 +264,10 @@ class _FromJax(pycsrc._FromSource):
         self._jit = jit
         self._enable_warnings = enable_warnings
 
-        # Only a subset of arithmetic attributes/methods allowed from from_jax().
-        if not (set(self._kwargs) <= self._attr | self._meth):
-            msg_head = "Unsupported arithmetic attributes/methods:"
-            unsupported = set(self._kwargs) - (self._attr | self._meth)
+        # Only a subset of arithmetic methods allowed from from_jax().
+        if not (set(self._kwargs) <= self._meth):
+            msg_head = "Unsupported arithmetic methods:"
+            unsupported = set(self._kwargs) - self._meth
             msg_tail = ", ".join([f"{name}()" for name in unsupported])
             raise ValueError(f"{msg_head} {msg_tail}")
 
@@ -396,11 +395,8 @@ class _FromJax(pycsrc._FromSource):
 
         kwargs = dict()
         for name, obj in self._kwargs.items():
-            if name in self._attr:
-                kwargs[name] = obj
-            else:
-                func = getattr(self.__class__, name)
-                kwargs[name] = func  # necessarily a pycsou_func
+            func = getattr(self.__class__, name)
+            kwargs[name] = func  # necessarily a pycsou_func
 
         # Special cases.
         # (Reason: not in `_kwargs` [c.f. from_jax() docstring], but need to be inferred.)
@@ -559,7 +555,7 @@ class _FromJax(pycsrc._FromSource):
             # (2) We must try different `xp` values until one works.
             N = pycd.NDArrayInfo  # shorthand
             dtype_orig = kwargs.get("dtype", pycrt.getPrecision().value)
-            xp_orig = kwargs.get("xp", N.NUMPY.module())
+            xp_orig = kwargs.get("xp", N.default().module())
 
             klass = self.__class__
             try:

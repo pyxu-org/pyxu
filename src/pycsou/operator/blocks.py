@@ -108,10 +108,7 @@ def vstack(
 
     Notes
     -----
-    * All sub-operator domains must have compatible shapes, i.e.
-
-      * domain-agnostic operators forbidden, and
-      * all integer-valued ``dim`` s must be identical.
+    * All sub-operator domains must have compatible shapes, i.e. all integer-valued ``dim`` s must be identical.
 
     See Also
     --------
@@ -175,10 +172,7 @@ def hstack(
 
     Notes
     -----
-    * All sub-operator domains must have compatible shapes, i.e.
-
-      * all ``codim`` s must be identical, and
-      * domain-agnostic operators forbidden.
+    * All sub-operator domains must have compatible shapes, i.e. all ``codim`` s must be identical.
 
     See Also
     --------
@@ -545,18 +539,18 @@ class _COOBlock:  # See coo_block() for a detailed description.
         if len(blk) == 1:
             _, op = blk.popitem()
         else:
+            import pycsou.abc.arithmetic as arithmetic
+
             op = self._infer_op()
             op._block = self._block  # embed for introspection
             op._block_offset = self._block_offset  # embed for introspection
             op._grid_shape = self._grid_shape  # embed for introspection
             op._parallel = self._parallel  # embed for introspection
             for p in op.properties():
-                # We do NOT override arithmetic attributes since `op` contains good values to start
-                # with.
-
                 for name in p.arithmetic_methods():
                     func = getattr(self.__class__, name)
                     setattr(op, name, types.MethodType(func, op))
+            arithmetic.Rule._propagate_constants(op)
         return op
 
     def _init_spec(self, ops):
@@ -688,30 +682,31 @@ class _COOBlock:  # See coo_block() for a detailed description.
     def __call__(self, arr: pyct.NDArray) -> pyct.NDArray:
         return self.apply(arr)
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        if self.has(pyco.Property.LINEAR) and kwargs.get("tight", False):
-            klass = self.__class__
-            L = klass.lipschitz(self, **kwargs)
-        else:
-            # Various upper bounds apply depending on how the blocks are organized:
-            #   * vertical alignment: L**2 = sum(L_k**2)
-            #   * horizontal alignment: L**2 = sum(L_k**2)
-            #   * block-diagonal alignment: L**2 = max(L_k**2)
-            #   * arbitrary 2D alignment: L**2 = sum(L_k**2)
-            #     [obtained via vertical+horizontal composition (or vice-versa)]
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
+        Ls_all = np.zeros(self._grid_shape)  # squared Lipschitz constant of each block.
 
-            # squared Lipschitz constant of each block.
-            Ls_all = np.zeros(self._grid_shape)
+        no_eval = "__rule" in kwargs
+        if no_eval:
             for (r, c), op in self._block.items():
-                Ls_all[r, c] = op.lipschitz(**kwargs) ** 2
+                Ls_all[r, c] = op.lipschitz**2
+        elif self.has(pyco.Property.LINEAR):
+            L = self.__class__.estimate_lipschitz(self, **kwargs)
+            return L
+        else:
+            for (r, c), op in self._block.items():
+                Ls_all[r, c] = op.estimate_lipschitz(**kwargs) ** 2
 
-            if np.allclose(Ls_all.sum(), Ls_all.diagonal().sum()):  # block-diag case
-                L = np.sqrt(Ls_all.max())
-            else:
-                L = np.sqrt(Ls_all.sum())
-        self._lipschitz = L
-        return self._lipschitz
+        # [non-linear case] Various upper bounds apply depending on how the blocks are organized:
+        #   * vertical alignment: L**2 = sum(L_k**2)
+        #   * horizontal alignment: L**2 = sum(L_k**2)
+        #   * block-diagonal alignment: L**2 = max(L_k**2)
+        #   * arbitrary 2D alignment: L**2 = sum(L_k**2)
+        #     [obtained via vertical+horizontal composition (or vice-versa)]
+        if np.allclose(Ls_all.sum(), Ls_all.diagonal().sum()):  # block-diag case
+            L = np.sqrt(Ls_all.max())
+        else:
+            L = np.sqrt(Ls_all.sum())
+        return L
 
     def _expr(self) -> tuple:
         class _Block(pyco.Operator):
@@ -792,32 +787,37 @@ class _COOBlock:  # See coo_block() for a detailed description.
             ).op()
         return out
 
-    @pycrt.enforce_precision()
-    def diff_lipschitz(self, **kwargs) -> pyct.Real:
+    def estimate_diff_lipschitz(self, **kwargs) -> pyct.Real:
         if not self.has(pyco.Property.DIFFERENTIABLE):
             raise NotImplementedError
 
-        if self.has(pyco.Property.LINEAR):
-            dL = self.__class__.diff_lipschitz(self, **kwargs)
-        else:
-            # Various upper bounds apply depending on how the blocks are organized:
-            #   * vertical alignment: dL**2 = sum(dL_k**2)
-            #   * horizontal alignment: dL**2 = sum(dL_k**2)
-            #   * block-diagonal alignment: dL**2 = max(dL_k**2)
-            #   * arbitrary 2D alignment: dL**2 = sum(dL_k**2)
-            #     [obtained via vertical+horizontal composition (or vice-versa)]
+        dLs_all = np.zeros(self._grid_shape)  # squared diff-Lipschitz constant of each block.
 
-            # squared diff-Lipschitz constant of each block.
-            dLs_all = np.zeros(self._grid_shape)
+        no_eval = "__rule" in kwargs
+        if no_eval:
             for (r, c), op in self._block.items():
-                dLs_all[r, c] = op.diff_lipschitz(**kwargs) ** 2
+                dLs_all[r, c] = op.diff_lipschitz**2
+        elif self.has(pyco.Property.QUADRATIC):
+            dL = pyco.QuadraticFunc.estimate_diff_lipschitz(self, **kwargs)
+            return dL
+        elif self.has(pyco.Property.LINEAR):
+            dL = 0
+            return dL
+        else:
+            for (r, c), op in self._block.items():
+                dLs_all[r, c] = op.estimate_diff_lipschitz(**kwargs) ** 2
 
-            if np.allclose(dLs_all.sum(), dLs_all.diagonal().sum()):  # block-diag case
-                dL = np.sqrt(dLs_all.max())
-            else:
-                dL = np.sqrt(dLs_all.sum())
-        self._diff_lipschitz = dL
-        return self._diff_lipschitz
+        # Various upper bounds apply depending on how the blocks are organized:
+        #   * vertical alignment: dL**2 = sum(dL_k**2)
+        #   * horizontal alignment: dL**2 = sum(dL_k**2)
+        #   * block-diagonal alignment: dL**2 = max(dL_k**2)
+        #   * arbitrary 2D alignment: dL**2 = sum(dL_k**2)
+        #     [obtained via vertical+horizontal composition (or vice-versa)]
+        if np.allclose(dLs_all.sum(), dLs_all.diagonal().sum()):  # block-diag case
+            dL = np.sqrt(dLs_all.max())
+        else:
+            dL = np.sqrt(dLs_all.sum())
+        return dL
 
     @_parallelize
     @pycrt.enforce_precision(i="arr")
@@ -869,7 +869,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
             p = op.asarray(**kwargs)
             parts[idx] = p
 
-        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
+        xp = kwargs.get("xp", pycd.NDArrayInfo.default().module())
         dtype = kwargs.get("dtype", pycrt.getPrecision().value)
         A = xp.zeros(self.shape, dtype=dtype)
         for idx, p in parts.items():

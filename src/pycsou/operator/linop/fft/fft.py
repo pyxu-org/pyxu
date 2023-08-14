@@ -214,18 +214,19 @@ class FFT(pyca.LinOp):  # Inherits from LinOp instead of NormalOp since operator
             pycd.NDArrayInfo.CUPY: dict(),
         }
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
+        self.lipschitz = self.estimate_lipschitz()
+
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
         arg_shape = np.array(self._arg_shape, dtype=int)
         axes = np.array(self._axes, dtype=int)
 
-        self._lipschitz = np.sqrt(arg_shape[axes].prod())
-        return self._lipschitz
+        L = np.sqrt(arg_shape[axes].prod())
+        return L
 
     def gram(self) -> pyct.OpT:
         from pycsou.operator.linop import HomothetyOp
 
-        op_g = HomothetyOp(dim=self.dim, cst=self.lipschitz() ** 2)
+        op_g = HomothetyOp(dim=self.dim, cst=self.lipschitz**2)
         return op_g
 
     def cogram(self) -> pyct.OpT:
@@ -236,24 +237,24 @@ class FFT(pyca.LinOp):  # Inherits from LinOp instead of NormalOp since operator
         else:
             from pycsou.operator.linop import HomothetyOp
 
-            op_cg = HomothetyOp(dim=self.codim, cst=self.lipschitz() ** 2)
+            op_cg = HomothetyOp(dim=self.codim, cst=self.lipschitz**2)
         return op_cg
 
     @pycrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pyct.NDArray, damp: pyct.Real, **kwargs) -> pyct.NDArray:
-        N = self.lipschitz() ** 2
+        N = self.lipschitz**2
         out = self.adjoint(arr)
         out /= N + damp
         return out
 
     def dagger(self, damp: pyct.Real, **kwargs) -> pyct.OpT:
-        N = self.lipschitz() ** 2
+        N = self.lipschitz**2
         op = self.T / (N + damp)
         return op
 
     @pycrt.enforce_precision()
     def svdvals(self, **kwargs) -> pyct.NDArray:
-        D = pyca.UnitOp.svdvals(self, **kwargs) * self.lipschitz()
+        D = pyca.UnitOp.svdvals(self, **kwargs) * self.lipschitz
         return D
 
     def _transform(self, arr: pyct.NDArray, mode: str) -> pyct.NDArray:

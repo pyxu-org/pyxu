@@ -54,12 +54,12 @@ def ConstantValued(
             embed=dict(
                 _name="ConstantValued",
                 _cst=cst,
-                _lipschitz=0,
-                _diff_lipschitz=0,
             ),
             apply=op_apply,
             jacobian=op_jacobian,
             grad=op_grad,
             prox=op_prox,
         )
+        op.lipschitz = 0
+        op.diff_lipschitz = 0
     return op.squeeze()

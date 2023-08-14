@@ -444,6 +444,10 @@ class Stencil(pyca.SquareOp):
         self._dtype = _kernel[0].dtype  # useful constant
         self._enable_warnings = bool(enable_warnings)
 
+        # We know a crude Lipschitz bound by default. Since computing it takes (code) space,
+        # the estimate is computed as a special case of estimate_lipschitz()
+        self.lipschitz = self.estimate_lipschitz(__rule=True)
+
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         x = self._pad.apply(arr)
@@ -642,11 +646,9 @@ class Stencil(pyca.SquareOp):
             out = arr.astype(dtype=self._dtype)
         return out
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        if kwargs.get("tight", False):
-            self._lipschitz = super().lipschitz(**kwargs)
-        else:
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
+        if no_eval:
             # Analytic upper bound from Young's convolution inequality:
             #     \norm{x \ast h}{2} \le \norm{x}{2}\norm{h}{1}
             #
@@ -655,12 +657,13 @@ class Stencil(pyca.SquareOp):
             kernel = functools.reduce(operator.mul, kernels, 1)
             L_st = np.linalg.norm(pycu.to_NUMPY(kernel).reshape(-1), ord=1)
 
-            L_pad = self._pad.lipschitz()
-            L_trim = self._trim.lipschitz()
+            L_pad = self._pad.lipschitz
+            L_trim = self._trim.lipschitz
 
-            L_ub = L_trim * L_st * L_pad
-            self._lipschitz = min(L_ub, self._lipschitz)
-        return self._lipschitz
+            L = L_trim * L_st * L_pad  # upper bound
+        else:
+            L = super().estimate_lipschitz(**kwargs)
+        return L
 
     def to_sciop(self, **kwargs):
         # Stencil.apply/adjoint() prefer precision provided at init-time.

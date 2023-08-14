@@ -197,7 +197,6 @@ def HomothetyOp(dim: pyct.Integer, cst: pyct.Real) -> pyct.OpT:
             embed=dict(
                 _name="HomothetyOp",
                 _cst=cst,
-                _lipschitz=abs(cst),
             ),
             apply=op_apply,
             svdvals=op_svdvals,
@@ -207,6 +206,7 @@ def HomothetyOp(dim: pyct.Integer, cst: pyct.Real) -> pyct.OpT:
             trace=op_trace,
         )
         op.dagger = types.MethodType(op_dagger, op)
+        op.lipschitz = abs(cst)
     return op.squeeze()
 
 
@@ -304,6 +304,11 @@ def DiagonalOp(
             def op_trace(_, **kwargs):
                 return float(_._vec.sum())
 
+            def op_estimate_lipschitz(_, **kwargs):
+                # Calling LinOp's generic method=svd solver may fail since it relies on LinearOperator.
+                # We insead use the fact that _lipschitz is computed exactly at construction time.
+                return _._lipschitz
+
             op = pycsrc.from_source(
                 cls=pyca.PosDefOp if pycu.compute(xp.all(vec > 0)) else pyca.SelfAdjointOp,
                 shape=(dim, dim),
@@ -311,9 +316,9 @@ def DiagonalOp(
                     _name="DiagonalOp",
                     _vec=vec,
                     _enable_warnings=bool(enable_warnings),
-                    _lipschitz=float(abs(vec).max()),
                 ),
                 apply=op_apply,
+                estimate_lipschitz=op_estimate_lipschitz,
                 asarray=op_asarray,
                 gram=op_gram,
                 cogram=op_gram,
@@ -322,6 +327,7 @@ def DiagonalOp(
                 trace=op_trace,
             )
             op.dagger = types.MethodType(op_dagger, op)
+            op.lipschitz = float(abs(vec).max())
         return op.squeeze()
 
 

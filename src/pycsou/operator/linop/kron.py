@@ -117,21 +117,21 @@ def kron(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
         out = u.reshape((*sh_prefix, -1))  # (..., A.dim * B.dim)
         return out
 
-    @pycrt.enforce_precision()
-    def op_lipschitz(_, **kwargs) -> pyct.Real:
-        if kwargs.get("tight", False):
-            _._lipschitz = _.__class__.lipschitz(_, **kwargs)
+    def op_estimate_lipschitz(_, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
+        if no_eval:
+            L_A = _._A.lipschitz
+            L_B = _._B.lipschitz
+            L = L_A * L_B
         else:
-            L_A = _._A.lipschitz(**kwargs)
-            L_B = _._B.lipschitz(**kwargs)
-            _._lipschitz = L_A * L_B
-        return _._lipschitz
+            L = _.__class__.estimate_lipschitz(_, **kwargs)
+        return L
 
     def op_asarray(_, **kwargs) -> pyct.NDArray:
         # (A \kron B).asarray() = A.asarray() \kron B.asarray()
         A = _._A.asarray(**kwargs)
         B = _._B.asarray(**kwargs)
-        xp = kwargs.get("xp", pycd.NDArrayInfo.NUMPY.module())
+        xp = kwargs.get("xp", pycd.NDArrayInfo.default().module())
         C = xp.tensordot(A, B, axes=0).transpose((0, 2, 1, 3)).reshape(_.shape)
         return C
 
@@ -230,9 +230,10 @@ def kron(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
             svdvals=op_svdvals,
             pinv=op_pinv,
             trace=op_trace,
-            lipschitz=op_lipschitz,
+            estimate_lipschitz=op_estimate_lipschitz,
             _expr=lambda _: (_._name, _._A, _._B),
         )
+        op.lipschitz = op.estimate_lipschitz(__rule=True)
     return op
 
 
@@ -357,8 +358,6 @@ def khatri_rao(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
         if kwargs.get("tight", False):
             _._lipschitz = _.__class__.lipschitz(_, **kwargs)
         else:
-            # kr(A,B) = kron(A,B) + sub-sampling
-            # -> upper-bound provided by kron(A,B).lipschitz()
             op = kron(_._A, _._B)
             _._lipschitz = op.lipschitz(**kwargs)
         return _._lipschitz
@@ -378,7 +377,9 @@ def khatri_rao(A: pyct.OpT, B: pyct.OpT) -> pyct.OpT:
         apply=op_apply,
         adjoint=op_adjoint,
         asarray=op_asarray,
-        lipschitz=op_lipschitz,
         _expr=lambda _: (_._name, _._A, _._B),
     )
+
+    # kr(A,B) = kron(A,B) + sub-sampling -> upper-bound provided by kron(A,B).lipschitz
+    op.lipschitz = kron(_A, _B).lipschitz
     return op

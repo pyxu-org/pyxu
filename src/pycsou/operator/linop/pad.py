@@ -232,6 +232,10 @@ class Pad(pyca.LinOp):
             lhs, rhs = self._pad_width[i]
             assert max(lhs, rhs) <= w_max, f"pad_width along dim-{i} is limited to {w_max}."
 
+        # We know a crude Lipschitz bound by default. Since computing it takes (code) space,
+        # the estimate is computed as a special case of estimate_lipschitz()
+        self.lipschitz = self.estimate_lipschitz(__rule=True)
+
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
         sh = arr.shape[:-1]
@@ -374,11 +378,9 @@ class Pad(pyca.LinOp):
         out = out.reshape(*sh, self.dim)
         return out
 
-    @pycrt.enforce_precision()
-    def lipschitz(self, **kwargs) -> pyct.Real:
-        if kwargs.get("tight", False):
-            self._lipschitz = super().lipschitz(**kwargs)
-        else:
+    def estimate_lipschitz(self, **kwargs) -> pyct.Real:
+        no_eval = "__rule" in kwargs
+        if no_eval:
             L = []  # 1D pad-op Lipschitz constants
             for N, m, (lhs, rhs) in zip(self._arg_shape, self._mode, self._pad_width):
                 if m == "constant":
@@ -390,8 +392,10 @@ class Pad(pyca.LinOp):
                 elif m == "edge":
                     _L = np.sqrt(1 + max(lhs, rhs))
                 L.append(_L)
-            self._lipschitz = np.prod(L)
-        return self._lipschitz
+            L = np.prod(L)
+        else:
+            L = super().estimate_lipschitz(**kwargs)
+        return L
 
     def gram(self) -> pyct.OpT:
         if all(m == "constant" for m in self._mode):

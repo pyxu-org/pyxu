@@ -101,11 +101,10 @@ def Sum(
         out = out.reshape(*sh, -1)
         return out
 
-    @pycrt.enforce_precision()
-    def op_lipschitz(_, **kwargs) -> pyct.Real:
+    def op_estimate_lipschitz(_, **kwargs) -> pyct.Real:
         N = np.prod(_._arg_shape) / np.prod(_._sum_shape)
-        _._lipschitz = np.sqrt(N)
-        return _._lipschitz
+        L = np.sqrt(N)
+        return L
 
     dim = arg_shape.prod()
     codim = dim // arg_shape[axis].prod()
@@ -121,6 +120,7 @@ def Sum(
         ),
         apply=op_apply,
         adjoint=op_adjoint,
-        lipschitz=op_lipschitz,
+        estimate_lipschitz=op_estimate_lipschitz,
     )
+    op.lipschitz = op.estimate_lipschitz()
     return op
