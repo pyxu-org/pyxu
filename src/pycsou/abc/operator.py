@@ -109,10 +109,10 @@ class Operator:
             (N, M) operator shape.
             Shapes of the form (N, None) denote domain-agnostic maps.
         """
+        shape = pycu.as_canonical_shape(shape)
         assert len(shape) == 2, f"shape: expected {pyct.OpShape}, got {shape}."
-        assert shape[0] is not None, "shape: codomain-agnostic operators are not supported."
-        intify = lambda _: int(_) if (_ is not None) else _
-        self._shape = tuple(map(intify, shape))
+
+        self._shape = shape
         self._name = self.__class__.__name__
 
     # Public Interface --------------------------------------------------------
@@ -912,19 +912,19 @@ class ProxFunc(Func):
            from pycsou.abc import ProxFunc
 
            class L1Norm(ProxFunc):
-               def __init__(self):
-                   super().__init__(shape=(1, None))
-                   self._lipschitz = 1
+               def __init__(self, dim: int):
+                   super().__init__(shape=(1, dim))
                def apply(self, arr):
                    return np.linalg.norm(arr, axis=-1, keepdims=True, ord=1)
                def prox(self, arr, tau):
                    return np.clip(np.abs(arr)-tau, a_min=0, a_max=None) * np.sign(arr)
 
-           l1_norm = L1Norm()
+           N = 512
+           l1_norm = L1Norm(dim=N)
            mus = [0.1, 0.5, 1]
            smooth_l1_norms = [l1_norm.moreau_envelope(mu) for mu in mus]
 
-           x = np.linspace(-1, 1, 512)[:, None]
+           x = np.linspace(-1, 1, N)[:, None]
            labels=['mu=0']
            labels.extend([f'mu={mu}' for mu in mus])
            plt.figure()
@@ -2007,9 +2007,6 @@ class LinFunc(ProxDiffFunc, LinOp):
         super().__init__(shape=shape)
         ProxDiffFunc.__init__(self, shape)
         LinOp.__init__(self, shape)
-
-        assert self.dim is not None, "shape: domain-agnostic LinFuncs are not supported."
-        # Reason: `op.adjoint(arr).shape` cannot be inferred based on `arr.shape` and `op.dim`.
 
     def jacobian(self, arr: pyct.NDArray) -> pyct.OpT:
         return LinOp.jacobian(self, arr)

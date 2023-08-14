@@ -454,7 +454,7 @@ class MapT(ct.DisableTestMixin):
     def test_interface_asop(self, op, _klass):
         # * .asop() is no-op if same klass or parent
         # * .asop() has correct interface otherwise.
-        # * Expect an exception if cast is illegal. (shape-issues, domain-agnostic linfuncs)
+        # * Expect an exception if cast is illegal. (shape-issues)
         self._skip_if_disabled()
         P = pyca.Property
         if _klass in op.__class__.__mro__:
@@ -464,17 +464,8 @@ class MapT(ct.DisableTestMixin):
             # Casting to functionals when codim != 1.
             with pytest.raises(Exception):
                 op2 = op.asop(_klass)
-        elif ({P.FUNCTIONAL, P.LINEAR} <= _klass.properties()) and (op.dim is None):
-            # Casting to domain-agnostic linear functionals.
-            with pytest.raises(Exception):
-                op2 = op.asop(_klass)
         elif (P.LINEAR_SQUARE in _klass.properties()) and (op.codim != op.dim):
             # Casting non-square operators to square linops.
-            # Includes domain-agnostic functionals.
-            with pytest.raises(Exception):
-                op2 = op.asop(_klass)
-        elif (P.QUADRATIC in _klass.properties()) and (op.dim is None):
-            # Casting to domain-agnostic quadratics.
             with pytest.raises(Exception):
                 op2 = op.asop(_klass)
         else:
