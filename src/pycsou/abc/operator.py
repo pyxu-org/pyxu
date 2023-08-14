@@ -1860,21 +1860,42 @@ class SquareOp(LinOp):
     @pycrt.enforce_precision()
     def trace(self, **kwargs) -> pyct.Real:
         """
-        Approximate trace of a linear operator.
+        Compute trace of the operator.
 
         Parameters
         ----------
+        method: explicit | hutchpp
+            If `explicit`, compute the exact trace.
+            If `hutchpp`, compute an approximation.
         kwargs: cabc.Mapping
-            Optional kwargs passed to the algorithm used for computing the trace.
+            Optional kwargs passed to:
+
+            * `explicit`: :py:func:`~pycsou.math.linalg.trace`
+            * `hutchpp`: :py:func:`~pycsou.math.linalg.hutchpp`
 
         Returns
         -------
         tr: pyct.Real
             Trace estimate.
         """
-        from pycsou.math.linalg import hutchpp
+        from pycsou.math.linalg import hutchpp, trace
 
-        tr = hutchpp(self, **kwargs)
+        method = kwargs.get("method", "hutchpp").lower().strip()
+
+        if method == "explicit":
+            func = sig_func = trace
+            estimate = lambda: func(op=self, **kwargs)
+        elif method == "hutchpp":
+            func = sig_func = hutchpp
+            estimate = lambda: func(op=self, **kwargs)
+        else:
+            raise NotImplementedError
+
+        # Filter unsupported kwargs
+        sig = inspect.Signature.from_callable(sig_func)
+        kwargs = {k: v for (k, v) in kwargs.items() if (k in sig.parameters)}
+
+        tr = estimate()
         return tr
 
 

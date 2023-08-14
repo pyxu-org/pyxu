@@ -1564,6 +1564,7 @@ class SquareOpT(LinOpT):
         # Do not override in subclass: for internal use only to test `op.trace()`.
         data = dict(
             in_=dict(
+                method="explicit",  # hutchpp() variant is time-consuming: tested in test_linalg.py
                 xp=xp,
                 dtype=width.value,
             )
@@ -1579,13 +1580,10 @@ class SquareOpT(LinOpT):
         tr = op.trace(**_data_trace["in_"])
         assert isinstance(tr, pyct.Real)
 
-    def test_value_trace(self, op, _data_trace, _op_trace):
-        # Ensure computed trace (w/ default parameter values) satisfies statistical property stated
-        # in hutchpp() docstring, i.e.: estimation error smaller than 1e-2 w/ probability 0.9
-        N_trial = 100
-        tr = np.array([op.trace(**_data_trace["in_"]) for _ in range(N_trial)])
-        N_pass = sum(np.abs(tr - _op_trace) <= 1e-2)
-        assert N_pass >= 0.9 * N_trial
+    def test_value_trace(self, op, _data_trace, _op_trace, width):
+        # tr(op) == op.trace(method=explicit)
+        tr = op.trace(**_data_trace["in_"])
+        assert ct.allclose(tr, _op_trace, as_dtype=width.value)
 
     def test_precCM_trace(self, op, _data_trace, width):
         self._skip_if_disabled()
