@@ -42,23 +42,6 @@ upstream. A link to an issue-tracker entry is provided if already reported.
      >>> np_z.shape, da_z.shape
      ((30, 20), (30, 1))
 
-* [https://github.com/cupy/cupy/issues/6446]
-  ``cupyx.scipy.sparse.linalg.eigsh()`` returns wrong results.
-
-  .. code::
-
-     import cupy as cp
-     import cupy.linalg as cpl
-     import cupyx.scipy.sparse.linalg as cpsl
-
-     N = 5
-     x = cp.eye(N)
-     y_dense = cpl.eigvalsh(x)[0]
-     y_sparse = cpsl.eigsh(x, k=1, return_eigenvectors=False)  # sometimes gives ``LinAlgError("Eigenvalues did not converge")``
-
-     >>> y_dense, y_sparse
-     (array(1.), array([4.3384545]))
-
 * ``cupyx.scipy.sparse.linalg.svds()`` returns wrong results.
 
   .. code::
@@ -75,8 +58,5 @@ upstream. A link to an issue-tracker entry is provided if already reported.
      >>> y_dense, y_sparse
      (array(1.), array([2.08290313]))
 
-* ``cupyx.scipy.sparse.linalg.[eigsh,svds]()`` only support computing leading
-  singular-/eigen-values, i.e. ``which="LM"``. (``which="SM"`` unsupported.)
-
-* ``cupy.linalg.eigvals()`` does not exist. CuPy only supports computing eigenvalues of Hermitian
-  matrices via ``cupy.linalg.eigvalsh()``.
+* ``cupyx.scipy.sparse.linalg.svds()`` only support computing leading
+  singular-values, i.e. ``which="LM"``. (``which="SM"`` unsupported.)

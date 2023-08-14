@@ -36,6 +36,7 @@ Sepand
       * type[123]()
         Some tests fail only with DASK inputs.
         Reason unknown.
+      * test_math(\d*)_lipschitz() fails when calling hutchpp(): non-contiguous axis.
     * ProxAdam [total test time: ~42min]
       * test_transparent_fit() fails for some initializations.
         Did not investigate yet.
@@ -56,12 +57,6 @@ Sepand
         - TestJaxSquaredL2Norm2::test_math_diff_lipschitz()
             Execution of replica 0 failed: INTERNAL: Address of buffer 0 must be a multiple of 10, but was 0x...
             Execution of replica 0 failed: INTERNAL: Address of buffer 1 must be a multiple of 10, but was 0x...
-        - TestJaxSelfAdjointConvolution::test_backend_eigvals()
-        - TestJaxSelfAdjointConvolution::test_precCM_eigvals()
-        - TestJaxPSDConvolution::test_backend_eigvals()
-        - TestJaxPSDConvolution::test_precCM_eigvals()
-        - TestJaxScaleDown::test_precCM_eigvals()
-            INTERNAL: Address of buffer 0 must be a multiple of 10, but was 0x...
 
   * Test Suite Enhancements
     * General
