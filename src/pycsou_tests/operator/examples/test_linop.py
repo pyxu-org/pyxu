@@ -15,7 +15,7 @@ class Tile(pyca.LinOp):
     #      x     -> [x ... x] (M times)
     def __init__(self, N: int, M: int):
         super().__init__(shape=(N * M, N))
-        self._lipschitz = np.sqrt(M)
+        self.lipschitz = np.sqrt(M)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):

@@ -17,7 +17,7 @@ class L1Norm(pyca.ProxFunc):
     #      x     -> \norm{x}{1}
     def __init__(self, M: int):
         super().__init__(shape=(1, M))
-        self._lipschitz = np.sqrt(M)
+        self.lipschitz = np.sqrt(M)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):

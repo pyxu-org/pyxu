@@ -14,7 +14,7 @@ class CumSum(pyca.SquareOp):
     #      x     -> [x1, x1+x2, ..., x1+...+xN]
     def __init__(self, N: int):
         super().__init__(shape=(N, N))
-        self._lipschitz = np.sqrt(N * (N + 1) / 2)  # Frobenius norm
+        self.lipschitz = np.sqrt(N * (N + 1) / 2)  # Frobenius norm
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):

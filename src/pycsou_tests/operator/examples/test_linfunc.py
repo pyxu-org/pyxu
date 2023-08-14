@@ -15,7 +15,7 @@ class ScaledSum(pyca.LinFunc):
     #      x     -> cumsum(x).sum()
     def __init__(self, N: int):
         super().__init__(shape=(1, N))
-        self._lipschitz = np.sqrt(N * (N + 1) * (2 * N + 1) / 6)
+        self.lipschitz = np.sqrt(N * (N + 1) * (2 * N + 1) / 6)
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):

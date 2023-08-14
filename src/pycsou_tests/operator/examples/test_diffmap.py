@@ -16,8 +16,8 @@ class Sin(pyca.DiffMap):
     #      x     -> sin(x)
     def __init__(self, M: int):
         super().__init__(shape=(M, M))
-        self._lipschitz = 1
-        self._diff_lipschitz = 1
+        self.lipschitz = 1
+        self.diff_lipschitz = 1
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):

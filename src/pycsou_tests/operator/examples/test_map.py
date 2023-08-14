@@ -14,7 +14,7 @@ class ReLU(pyca.Map):
     #      x     -> max(x, 0)
     def __init__(self, M: int):
         super().__init__(shape=(M, M))
-        self._lipschitz = np.inf
+        self.lipschitz = np.inf
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):

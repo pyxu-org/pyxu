@@ -60,26 +60,18 @@ class ArgShiftRuleMixin:
     )
     def spec(self, op_orig, op_shift, request) -> tuple[pyct.OpT, pycd.NDArrayInfo, pycrt.Width]:
         ndi, width = request.param
-        if (xp := ndi.module()) is not None:
-            if isinstance(op_shift, pyct.Real):
-                shift = op_shift
-            else:
-                shift = xp.array(op_shift, dtype=width.value)
-            op = op_orig.argshift(shift)
+        self._skip_if_unsupported(ndi)
+        if isinstance(op_shift, pyct.Real):
+            shift = op_shift
         else:
-            # Some test functions run without needing `xp`, hence it is required to add extra
-            # skip-logic in `spec` as well.
-            pytest.skip(f"{ndi} unsupported on this machine.")
+            xp = ndi.module()
+            shift = xp.array(op_shift, dtype=width.value)
+        op = op_orig.argshift(shift)
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_orig, op_shift) -> pyct.OpShape:
-        # Safe implementation in case `op_orig` is domain-agnostic.
-        if isinstance(op_shift, pyct.Real):
-            sh = op_orig.shape
-        else:
-            sh = (op_orig.shape[0], op_shift.size)
-        return sh
+    def data_shape(self, op_orig) -> pyct.OpShape:
+        return op_orig.shape
 
     @pytest.fixture
     def data_apply(self, op_orig, op_shift) -> conftest.DataLike:

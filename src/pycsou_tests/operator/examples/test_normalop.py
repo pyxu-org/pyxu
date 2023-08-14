@@ -17,7 +17,7 @@ class CircularConvolution(pyca.NormalOp):
     def __init__(self, h: pyct.NDArray):
         N = h.size
         super().__init__(shape=(N, N))
-        self._lipschitz = N * (h**2).sum()  # Frobenius norm
+        self.lipschitz = N * (h**2).sum()  # Frobenius norm
 
         self._h_fw = h.reshape(-1)
         self._h_bw = self._h_fw[[0, *np.arange(1, N)[::-1]]]

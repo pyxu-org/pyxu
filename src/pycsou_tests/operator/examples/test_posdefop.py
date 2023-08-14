@@ -21,7 +21,7 @@ class PSDConvolution(pyca.PosDefOp):
     def __init__(self, N: int):
         assert N % 2 == 1, "Even-length filters are unsupported."
         super().__init__(shape=(N, N))
-        self._lipschitz = np.inf
+        self.lipschitz = np.inf
         self._hF = filterF(N)
 
     @pycrt.enforce_precision(i="arr")

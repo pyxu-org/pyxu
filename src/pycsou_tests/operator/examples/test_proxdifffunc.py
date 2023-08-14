@@ -16,8 +16,8 @@ class SquaredL2Norm(pyca.ProxDiffFunc):
     #      x     -> \norm{x}{2}^{2}
     def __init__(self, M: int):
         super().__init__(shape=(1, M))
-        self._lipschitz = np.inf
-        self._diff_lipschitz = 2
+        self.lipschitz = np.inf
+        self.diff_lipschitz = 2
 
     @pycrt.enforce_precision(i="arr")
     def apply(self, arr):

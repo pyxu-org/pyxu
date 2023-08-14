@@ -14,7 +14,6 @@ import itertools
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 import pytest
 
 import pycsou.info.deps as pycd
@@ -82,7 +81,7 @@ class JaxMixin:
 
     @pytest.fixture
     def kwargs(self) -> dict:
-        # JAX functions + arithmetic attributes which define the operator.
+        # JAX functions which define the operator.
         # Arithmetic methods are assumed to work w/ stacking dimensions.
         #
         # This fixture should be overriden by sub-classes.
@@ -160,11 +159,7 @@ class TestJaxSin(JaxMixin, test_diffmap.TestSin):
             out = jnp.sin(arr)
             return out
 
-        return dict(
-            _lipschitz=1,
-            _diff_lipschitz=1,
-            apply=j_apply,
-        )
+        return dict(apply=j_apply)
 
 
 class TestJaxSquaredL2Norm(JaxMixin, test_difffunc.TestSquaredL2Norm):
@@ -182,10 +177,7 @@ class TestJaxSquaredL2Norm(JaxMixin, test_difffunc.TestSquaredL2Norm):
             out = 2 * arr
             return out
 
-        data = dict(
-            _diff_lipschitz=2,
-            apply=j_apply,
-        )
+        data = dict(apply=j_apply)
         if define_secondary:
             data.update(
                 grad=j_grad,
@@ -209,7 +201,6 @@ class TestJaxL1Norm(JaxMixin, test_proxfunc.TestL1Norm):
         data = dict(
             apply=j_apply,
             prox=j_prox,
-            _lipschitz=np.sqrt(dim),
         )
         return data
 
@@ -234,7 +225,6 @@ class TestJaxSquaredL2Norm2(JaxMixin, test_proxdifffunc.TestSquaredL2Norm):
             return out
 
         data = dict(
-            _diff_lipschitz=2,
             apply=j_apply,
             prox=j_prox,
         )
@@ -262,10 +252,7 @@ class TestJaxTile(JaxMixin, test_linop.TestTile):
             out = arr.reshape((-1, M, dim)).sum(axis=-2).reshape(sh)
             return out
 
-        data = dict(
-            _lipschitz=np.sqrt(M),
-            apply=j_apply,
-        )
+        data = dict(apply=j_apply)
         if define_secondary:
             data.update(
                 adjoint=j_adjoint,
@@ -294,10 +281,7 @@ class TestJaxScaledSum(JaxMixin, test_linfunc.TestScaledSum):
             out = scale * arr
             return out
 
-        data = dict(
-            _lipschitz=np.sqrt(dim * (dim + 1) * (2 * dim + 1) / 6),
-            apply=j_apply,
-        )
+        data = dict(apply=j_apply)
         if define_secondary:
             data.update(
                 grad=j_grad,
@@ -321,10 +305,7 @@ class TestJaxCumSum(JaxMixin, test_squareop.TestCumSum):
             out = arr[..., ::-1].cumsum(axis=-1)[..., ::-1]
             return out
 
-        data = dict(
-            _lipschitz=np.sqrt(dim * (dim + 1) / 2),  # Frobenius norm
-            apply=j_apply,
-        )
+        data = dict(apply=j_apply)
         if define_secondary:
             data.update(
                 adjoint=j_adjoint,
@@ -357,10 +338,7 @@ class TestJaxCircularConvolution(JaxMixin, test_normalop.TestCircularConvolution
             out = _circ_convolve(h_BW, arr)
             return out
 
-        data = dict(
-            _lipschitz=dim * (h_FW**2).sum(),  # Frobenius norm
-            apply=j_apply,
-        )
+        data = dict(apply=j_apply)
         if define_secondary:
             data.update(
                 adjoint=j_adjoint,
