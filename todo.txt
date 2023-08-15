@@ -80,7 +80,7 @@ Thomas
 
 
 
-[HTML Documentation] Towards Pycsou v2 Public Release
+[HTML Documentation] Towards Pyxu v2 Public Release
   [Matthieu] Introduction/Landing Page
     Summary: what is Pyxu
     Statement of need + comparison with other frameworks

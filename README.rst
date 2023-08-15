@@ -7,11 +7,11 @@
 .. image:: https://zenodo.org/badge/277582581.svg
    :target: https://zenodo.org/badge/latestdoi/277582581
 
-*Pycsou* is a Python 3 package for solving linear inverse problems with state-of-the-art proximal
+*Pyxu* is a Python 3 package for solving linear inverse problems with state-of-the-art proximal
 algorithms. The software implements the main building blocks -cost functionals, penalty terms and
 linear operators- of generic penalised convex optimisation problems.
 
-Pycsou's documentation is available at https://matthieumeo.github.io/pycsou/html/index
+Pyxu's documentation is available at https://matthieumeo.github.io/pycsou/html/index
 
 This Python library is inspired by the MATLAB `GlobalBioIm
 <https://github.com/Biomedical-Imaging-Group/GlobalBioIm>`_ project.
@@ -19,7 +19,7 @@ This Python library is inspired by the MATLAB `GlobalBioIm
 Features
 ========
 
-Pycsou makes it easy to construct and solve penalised optimisation problems:
+Pyxu makes it easy to construct and solve penalised optimisation problems:
 
 1. It offers a rich collection of operators and functionals commonly used in practice.
 2. It implements *operator arithmetic*: *add/scale/compose/stack* operators together to quickly
@@ -37,8 +37,8 @@ Developper Install
 .. code-block:: bash
 
    $ my_env=<CONDA ENVIRONMENT NAME>
-   $ my_branch=<PYCSOU BRANCH NAME>
-   $ git clone https://github.com/matthieumeo/pycsou && cd pycsou/
+   $ my_branch=<PYXU BRANCH NAME>
+   $ git clone https://github.com/matthieumeo/pycsou pyxu && cd pyxu/
    $ git checkout "${my_branch}"
    $ conda create --name "${my_env}"
    $ conda activate "${my_env}"
