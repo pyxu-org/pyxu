@@ -1,61 +1,61 @@
-pycsou.util package
+pyxu.util package
 ===================
 
 Submodules
 ----------
 
-pycsou.util.deps module
+pyxu.util.deps module
 -----------------------
 
-.. automodule:: pycsou.util.deps
+.. automodule:: pyxu.util.deps
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.util.ptype module
+pyxu.util.ptype module
 ------------------------
 
-.. automodule:: pycsou.util.ptype
+.. automodule:: pyxu.util.ptype
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.util.array_module module
+pyxu.util.array_module module
 -------------------------------
 
-.. automodule:: pycsou.util.array_module
+.. automodule:: pyxu.util.array_module
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.util.inspect module
+pyxu.util.inspect module
 --------------------------
 
-.. automodule:: pycsou.util.inspect
+.. automodule:: pyxu.util.inspect
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.util.operator module
+pyxu.util.operator module
 ---------------------------
 
-.. automodule:: pycsou.util.operator
+.. automodule:: pyxu.util.operator
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.util.complex module
+pyxu.util.complex module
 --------------------------
 
-.. automodule:: pycsou.util.complex
+.. automodule:: pyxu.util.complex
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.util.misc module
+pyxu.util.misc module
 -----------------------
 
-.. automodule:: pycsou.util.misc
+.. automodule:: pyxu.util.misc
    :members:
    :undoc-members:
    :show-inheritance:
@@ -63,7 +63,7 @@ pycsou.util.misc module
 Module contents
 ---------------
 
-.. automodule:: pycsou.util
+.. automodule:: pyxu.util
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,4 +1,4 @@
-pycsou.opt package
+pyxu.opt package
 ==================
 
 Subpackages
@@ -7,15 +7,15 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   pycsou.opt.solver
+   pyxu.opt.solver
 
 Submodules
 ----------
 
-pycsou.opt.stop module
+pyxu.opt.stop module
 ----------------------
 
-.. automodule:: pycsou.opt.stop
+.. automodule:: pyxu.opt.stop
    :members:
    :undoc-members:
    :show-inheritance:
@@ -23,7 +23,7 @@ pycsou.opt.stop module
 Module contents
 ---------------
 
-.. automodule:: pycsou.opt
+.. automodule:: pyxu.opt
    :members:
    :undoc-members:
    :show-inheritance:

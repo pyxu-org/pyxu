@@ -1,45 +1,45 @@
-pycsou.opt.solver package
+pyxu.opt.solver package
 =========================
 
 Submodules
 ----------
 
-pycsou.opt.solver.pgd module
+pyxu.opt.solver.pgd module
 ----------------------------
 
-.. automodule:: pycsou.opt.solver.pgd
+.. automodule:: pyxu.opt.solver.pgd
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.opt.solver.prox_adam module
+pyxu.opt.solver.prox_adam module
 ----------------------------------
 
-.. automodule:: pycsou.opt.solver.prox_adam
+.. automodule:: pyxu.opt.solver.prox_adam
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.opt.solver.cg module
+pyxu.opt.solver.cg module
 ---------------------------
 
-.. automodule:: pycsou.opt.solver.cg
+.. automodule:: pyxu.opt.solver.cg
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.opt.solver.nlcg module
+pyxu.opt.solver.nlcg module
 -----------------------------
 
-.. automodule:: pycsou.opt.solver.nlcg
+.. automodule:: pyxu.opt.solver.nlcg
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.opt.solver.pds module
+pyxu.opt.solver.pds module
 ----------------------------
 
-.. automodule:: pycsou.opt.solver.pds
+.. automodule:: pyxu.opt.solver.pds
    :members:
    :undoc-members:
    :show-inheritance:
@@ -47,7 +47,7 @@ pycsou.opt.solver.pds module
 Module contents
 ---------------
 
-.. automodule:: pycsou.opt.solver
+.. automodule:: pyxu.opt.solver
    :members:
    :undoc-members:
    :show-inheritance:

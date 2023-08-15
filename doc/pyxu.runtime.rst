@@ -1,10 +1,10 @@
-pycsou.runtime package
+pyxu.runtime package
 ======================
 
 Module contents
 ---------------
 
-.. automodule:: pycsou.runtime
+.. automodule:: pyxu.runtime
    :members:
    :undoc-members:
    :show-inheritance:

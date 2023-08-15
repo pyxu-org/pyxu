@@ -7,10 +7,10 @@ API Rules
 ---------
 
 To implement novel operators or algorithms, the user should subclass one of the abstract classes in
-Pycsou's class hierarchy. Doing so requires defining the fundamental methods attached to the chosen
-subclass (e.g. :py:meth:`~pycsou.abc.operator.Apply.apply`,
-:py:meth:`~pycsou.abc.operator.Gradient.grad`, :py:meth:`~pycsou.abc.operator.Proximal.prox` or
-:py:meth:`~pycsou.abc.operator.Adjoint.adjoint`...). When marked as such in the documentation, such
+Pyxu's class hierarchy. Doing so requires defining the fundamental methods attached to the chosen
+subclass (e.g. :py:meth:`~pyxu.abc.operator.Apply.apply`,
+:py:meth:`~pyxu.abc.operator.Gradient.grad`, :py:meth:`~pyxu.abc.operator.Proximal.prox` or
+:py:meth:`~pyxu.abc.operator.Adjoint.adjoint`...). When marked as such in the documentation, such
 a user-defined method should abide by the following set of rules:
 
 - It must handle properly the case where the input array is a 1-D or N-D array. In the latter case,
@@ -19,16 +19,16 @@ a user-defined method should abide by the following set of rules:
 
 - In the case of N-D inputs, the output should have the same number of dimensions as the input.
 
-- It should be decorated with  :py:func:`~pycsou.runtime.enforce_precision`, which (together with
-  the context manager :py:class:`~pycsou.runtime.Precision`) controls the numerical precision (e.g.
+- It should be decorated with  :py:func:`~pyxu.runtime.enforce_precision`, which (together with
+  the context manager :py:class:`~pyxu.runtime.Precision`) controls the numerical precision (e.g.
   *half*, *single*, *double*, *quad*) of the inputs/outputs. If possible, the computation performed
   by the method itself should also be carried out at the user-specified precision, accessible via
-  the function :py:func:`~pycsou.runtime.getPrecision`. If preserving the precision is not
+  the function :py:func:`~pyxu.runtime.getPrecision`. If preserving the precision is not
   possible, a warning should be raised.
 
-- Whenever possible, it should be compatible with the array modules supported by Pycsou (use
-  :py:func:`~pycsou.util.deps.supported_array_modules` for an up-to-date list). This can be
-  achieved via the function :py:func:`~pycsou.util.get_array_module` which allows to write
+- Whenever possible, it should be compatible with the array modules supported by Pyxu (use
+  :py:func:`~pyxu.util.deps.supported_array_modules` for an up-to-date list). This can be
+  achieved via the function :py:func:`~pyxu.util.get_array_module` which allows to write
   `module-agnostic
   <https://docs.cupy.dev/en/stable/user_guide/basic.html#how-to-write-cpu-gpu-agnostic-code>`_ code
   easily.
@@ -41,9 +41,9 @@ As an example, consider the following code snippet, defining the median operator
 
 .. code-block:: python3
 
-    import pycsou.abc as pyca
-    import pycsou.runtime as pycrt
-    import pycsou.util as pycu
+    import pyxu.abc as pyca
+    import pyxu.runtime as pycrt
+    import pyxu.util as pycu
 
     class Median(pyca.Map):
         def __init__(self):
@@ -57,12 +57,12 @@ As an example, consider the following code snippet, defining the median operator
 
 This operator can then be fed various arrays as inputs:
 
->>> import pycsou.util.deps as pycd
+>>> import pyxu.util.deps as pycd
 >>> m = Median()
 >>> for xp in pycd.supported_array_modules():
 ...     out = m.apply(xp.arange(26).reshape(2, 13))  # Applies the operator in turn on a various array types.
 
-If called from within the context manager :py:class:`~pycsou.runtime.Precision`, the decorated
+If called from within the context manager :py:class:`~pyxu.runtime.Precision`, the decorated
 apply method will automatically coerce the input/output to the user-specified precision:
 
 >>> with pycu.Precision(pycu.Width.SINGLE):
@@ -74,7 +74,7 @@ Common pitfalls and performance issues
 
 In the previous example, the :py:func:`~numpy.median` function works at the precision of the input
 array. Therefore, the argument ``o=True`` in the decorator
-:py:func:`~pycsou.runtime.enforce_precision` is not needed since the output is already guaranteed
+:py:func:`~pyxu.runtime.enforce_precision` is not needed since the output is already guaranteed
 to be at the user-specified precision. This is however, not always the case, as illustrated by the
 following example:
 
@@ -84,7 +84,7 @@ following example:
     def f(self, arr: NDArray) -> NDArray:
         return np.random.poisson(arr)
 
-Without the argument ``o=True`` in the decorator :py:func:`~pycsou.runtime.enforce_precision`, the
+Without the argument ``o=True`` in the decorator :py:func:`~pyxu.runtime.enforce_precision`, the
 :py:func:`f` function above would output an array with dtype ``int32`` or ``int64`` (which are the
 default dtypes for the function :py:func:`~numpy.random.poisson`). Thanks to the decorator however,
 the output array is coerced as a float with prescribed precision.
@@ -115,7 +115,7 @@ dtype ``np.float64`` and the precision was set by the user to single precision (
 ``np.float32``), then the computation would not be performed at the correct precision. Indeed, the
 :py:func:`~numpy.matmul` function invoked on the last line would automatically recast ``arr`` to
 ``np.float64`` before performing the matrix product. Thanks to the
-:py:func:`~pycsou.runtime.enforce_precision` decorator, the output to the :py:meth:`apply` method
+:py:func:`~pyxu.runtime.enforce_precision` decorator, the output to the :py:meth:`apply` method
 would still have single precision but the computation itself would not have been performed at such
 precision (and would hence be slower than expected).
 

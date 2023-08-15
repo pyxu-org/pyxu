@@ -1,37 +1,37 @@
-pycsou.operator.func package
+pyxu.operator.func package
 ============================
 
 Submodules
 ----------
 
-pycsou.operator.func module
+pyxu.operator.func module
 ---------------------------
 
-.. automodule:: pycsou.operator.func
+.. automodule:: pyxu.operator.func
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.func.loss module
+pyxu.operator.func.loss module
 --------------------------------
 
-.. automodule:: pycsou.operator.func.loss
+.. automodule:: pyxu.operator.func.loss
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.func.norm module
+pyxu.operator.func.norm module
 --------------------------------
 
-.. automodule:: pycsou.operator.func.norm
+.. automodule:: pyxu.operator.func.norm
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.func.indicator module
+pyxu.operator.func.indicator module
 -------------------------------------
 
-.. automodule:: pycsou.operator.func.indicator
+.. automodule:: pyxu.operator.func.indicator
    :members:
    :undoc-members:
    :show-inheritance:

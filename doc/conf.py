@@ -24,7 +24,7 @@ def pkg_info() -> cabc.Mapping:
     Load information contained in `PKG-INFO`.
     """
     sphinx_src_dir = plib.Path(__file__).parent
-    info_path = sphinx_src_dir / ".." / "src" / "pycsou.egg-info" / "PKG-INFO"
+    info_path = sphinx_src_dir / ".." / "src" / "pyxu.egg-info" / "PKG-INFO"
     info_path = info_path.resolve(strict=True)
 
     # Pattern definitions
@@ -70,7 +70,7 @@ html_theme = "sphinx_rtd_theme"
 html_theme_options = {"navigation_depth": -1, "titles_only": False}
 
 # -- Options for HTMLHelp output ---------------------------------------------
-htmlhelp_basename = "Pycsou"
+htmlhelp_basename = "Pyxu"
 html_context = {
     "menu_links_name": "Repository",
     "menu_links": [

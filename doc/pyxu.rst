@@ -1,4 +1,4 @@
-pycsou package
+pyxu package
 ==============
 
 Subpackages
@@ -7,18 +7,18 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   pycsou.abc
-   pycsou.operator
-   pycsou.math
-   pycsou.opt
-   pycsou.runtime
-   pycsou.sampler
-   pycsou.util
+   pyxu.abc
+   pyxu.operator
+   pyxu.math
+   pyxu.opt
+   pyxu.runtime
+   pyxu.sampler
+   pyxu.util
 
 Module contents
 ---------------
 
-.. automodule:: pycsou
+.. automodule:: pyxu
    :members:
    :undoc-members:
    :show-inheritance:

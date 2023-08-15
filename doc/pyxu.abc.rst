@@ -1,21 +1,21 @@
-pycsou.abc package
+pyxu.abc package
 ==================
 
 Submodules
 ----------
 
-pycsou.abc.operator module
+pyxu.abc.operator module
 --------------------------
 
-.. automodule:: pycsou.abc.operator
+.. automodule:: pyxu.abc.operator
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.abc.solver module
+pyxu.abc.solver module
 ------------------------
 
-.. automodule:: pycsou.abc.solver
+.. automodule:: pyxu.abc.solver
    :members:
    :undoc-members:
    :show-inheritance:
@@ -23,7 +23,7 @@ pycsou.abc.solver module
 Module contents
 ---------------
 
-.. automodule:: pycsou.abc
+.. automodule:: pyxu.abc
    :members:
    :undoc-members:
    :show-inheritance:

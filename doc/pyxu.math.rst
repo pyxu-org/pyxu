@@ -1,21 +1,21 @@
-pycsou.math package
+pyxu.math package
 ====================
 
 Submodules
 ----------
 
-pycsou.math.linalg module
+pyxu.math.linalg module
 -------------------------
 
-.. automodule:: pycsou.math.linalg
+.. automodule:: pyxu.math.linalg
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.math.linesearch module
+pyxu.math.linesearch module
 -----------------------------
 
-.. automodule:: pycsou.math.linesearch
+.. automodule:: pyxu.math.linesearch
    :members:
    :undoc-members:
    :show-inheritance:
@@ -23,7 +23,7 @@ pycsou.math.linesearch module
 Module contents
 ---------------
 
-.. automodule:: pycsou.math
+.. automodule:: pyxu.math
    :members:
    :undoc-members:
    :show-inheritance:

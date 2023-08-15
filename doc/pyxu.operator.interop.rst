@@ -1,37 +1,37 @@
-pycsou.operator.interop package
+pyxu.operator.interop package
 ===============================
 
 Submodules
 ----------
 
-pycsou.operator.interop.source module
+pyxu.operator.interop.source module
 -------------------------------------
 
-.. automodule:: pycsou.operator.interop.source
+.. automodule:: pyxu.operator.interop.source
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.interop.sciop module
+pyxu.operator.interop.sciop module
 ------------------------------------
 
-.. automodule:: pycsou.operator.interop.sciop
+.. automodule:: pyxu.operator.interop.sciop
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.interop.jax module
+pyxu.operator.interop.jax module
 ----------------------------------
 
-.. automodule:: pycsou.operator.interop.jax
+.. automodule:: pyxu.operator.interop.jax
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.interop.torch module
+pyxu.operator.interop.torch module
 ------------------------------------
 
-.. automodule:: pycsou.operator.interop.torch
+.. automodule:: pyxu.operator.interop.torch
    :members:
    :undoc-members:
    :show-inheritance:

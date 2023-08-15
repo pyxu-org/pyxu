@@ -1,4 +1,4 @@
-pycsou.sampler package
+pyxu.sampler package
 ==================
 
 Subpackages
@@ -7,24 +7,24 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   pycsou.sampler.sampler
+   pyxu.sampler.sampler
    pycous.sampler.statistics
 
 Submodules
 ----------
 
-pycsou.sampler.sampler module
+pyxu.sampler.sampler module
 --------------------------
 
-.. automodule:: pycsou.sampler.sampler
+.. automodule:: pyxu.sampler.sampler
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.sampler.statistics module
+pyxu.sampler.statistics module
 ------------------------
 
-.. automodule:: pycsou.sampler.statistics
+.. automodule:: pyxu.sampler.statistics
    :members:
    :undoc-members:
    :show-inheritance:
@@ -32,7 +32,7 @@ pycsou.sampler.statistics module
 Module contents
 ---------------
 
-.. automodule:: pycsou.sampler
+.. automodule:: pyxu.sampler
    :members:
    :undoc-members:
    :show-inheritance:

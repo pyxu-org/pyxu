@@ -1,10 +1,10 @@
-pycsou.operator.blocks package
+pyxu.operator.blocks package
 ==============================
 
 Module contents
 ---------------
 
-.. automodule:: pycsou.operator.blocks
+.. automodule:: pyxu.operator.blocks
    :members:
    :undoc-members:
    :show-inheritance:

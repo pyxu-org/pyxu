@@ -1,95 +1,95 @@
-pycsou.operator.linop package
+pyxu.operator.linop package
 =============================
 
 Submodules
 ----------
 
-pycsou.operator.linop module
+pyxu.operator.linop module
 ----------------------------
 
-.. automodule:: pycsou.operator.linop
+.. automodule:: pyxu.operator.linop
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.linop.base module
+pyxu.operator.linop.base module
 ---------------------------------
 
-.. automodule:: pycsou.operator.linop.base
+.. automodule:: pyxu.operator.linop.base
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.linop.kron module
+pyxu.operator.linop.kron module
 ---------------------------------
 
-.. automodule:: pycsou.operator.linop.kron
+.. automodule:: pyxu.operator.linop.kron
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.linop.fft module
+pyxu.operator.linop.fft module
 --------------------------------
 
-.. automodule:: pycsou.operator.linop.fft.fft
+.. automodule:: pyxu.operator.linop.fft.fft
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: pycsou.operator.linop.fft.nufft
+.. automodule:: pyxu.operator.linop.fft.nufft
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.linop.select module
+pyxu.operator.linop.select module
 -----------------------------------
 
-.. automodule:: pycsou.operator.linop.select
+.. automodule:: pyxu.operator.linop.select
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.linop.reduce module
+pyxu.operator.linop.reduce module
 -----------------------------------
 
-.. automodule:: pycsou.operator.linop.reduce
+.. automodule:: pyxu.operator.linop.reduce
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.linop.pad module
+pyxu.operator.linop.pad module
 --------------------------------
 
-.. automodule:: pycsou.operator.linop.pad
+.. automodule:: pyxu.operator.linop.pad
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.linop.stencil module
+pyxu.operator.linop.stencil module
 ------------------------------------
 
-.. automodule:: pycsou.operator.linop.stencil.stencil
+.. automodule:: pyxu.operator.linop.stencil.stencil
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: pycsou.operator.linop.stencil._stencil._Stencil
+.. autoclass:: pyxu.operator.linop.stencil._stencil._Stencil
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.linop.diff module
+pyxu.operator.linop.diff module
 ------------------------------------
 
-.. automodule:: pycsou.operator.linop.diff
+.. automodule:: pyxu.operator.linop.diff
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.linop.filter module
+pyxu.operator.linop.filter module
 ------------------------------------
 
-.. automodule:: pycsou.operator.linop.filter
+.. automodule:: pyxu.operator.linop.filter
    :members:
    :undoc-members:
    :show-inheritance:

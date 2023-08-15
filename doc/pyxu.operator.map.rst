@@ -1,30 +1,30 @@
-pycsou.operator.map package
+pyxu.operator.map package
 ===========================
 
 Module contents
 ---------------
 
-.. automodule:: pycsou.operator.map
+.. automodule:: pyxu.operator.map
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.map.base module
+pyxu.operator.map.base module
 -------------------------------
 
-.. automodule:: pycsou.operator.map.base
+.. automodule:: pyxu.operator.map.base
    :members:
    :undoc-members:
    :show-inheritance:
 
-pycsou.operator.map.ufunc module
+pyxu.operator.map.ufunc module
 ---------------------------------
 
-.. automodule:: pycsou.operator.map.ufunc
+.. automodule:: pyxu.operator.map.ufunc
    :members:
    :undoc-members:
    :show-inheritance:
-   
+
    Universal functions are divided into the following categories:
 
    .. rubric:: Trigonometric Functions
@@ -97,4 +97,3 @@ pycsou.operator.map.ufunc module
         silu
         SoftMax
         softmax
-        
