@@ -23,13 +23,6 @@ Sepand
         and A (or B) is IdentityOp.
         Reason: corner case where kr(A, B) is IdentityOp(dim=1).
         Not a problem in practice.
-    * Khatri-Rao
-      * test_math_cogram() fails if kr(A, B) == LinFunc
-        Reason: the cogram in this case has size (1, 1), and apply/adjoint don't work in this degenerate case.
-        Obtaining a LinFunc from kr(A, B) is so corner-case that error is acceptable.
-      * test_value1D_svdvals() fails if kr(A, B) == LinFunc
-        Reason: kr(A, B).svd() should always call LinFunc.lipschitz(), irrespective of the `tight` value. (Not done at the moment.)
-        Obtaining a LinFunc from kr(A, B) is so corner-case that error is acceptable.
     * NUFFT
       * test_value1D_svdvals() fails sometimes when k > 1.
         Reason unknown.
