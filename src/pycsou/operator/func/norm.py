@@ -208,7 +208,7 @@ class SquaredL1Norm(ShiftLossMixin, pyca.ProxFunc):
         z *= tau / (0.5 + tau * xp.arange(1, arr.size + 1, dtype=z.dtype))
         tau2 = z[max(xp.flatnonzero(y > z), default=0)]
 
-        out = L1Norm().prox(arr, tau2)
+        out = L1Norm(dim=self.dim).prox(arr, tau2)
         return out
 
     @pycrt.enforce_precision(i=("arr", "tau"))

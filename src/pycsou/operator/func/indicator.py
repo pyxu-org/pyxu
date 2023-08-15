@@ -62,7 +62,7 @@ class _NormBall(_IndicatorFunction):
             2: pycofn.L2Norm,
             np.inf: pycofn.L1Norm,
         }[self._ord]
-        op = klass()
+        op = klass(dim=self.dim)
 
         out = arr.copy()
         out -= op.prox(arr, tau=self._radius)
