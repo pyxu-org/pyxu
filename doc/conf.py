@@ -62,6 +62,7 @@ templates_path = ["_templates"]
 master_doc = "index"
 exclude_patterns = []
 pygments_style = "sphinx"
+nitpicky = True
 add_module_names = False
 plot_include_source = True
 
