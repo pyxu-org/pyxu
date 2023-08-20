@@ -12,8 +12,10 @@ __all__ = [
 
 
 def norm(x: pxt.NDArray, **kwargs):
-    # This function is identical to :py:func:`numpy.linalg.norm`.
-    # It exists to correct bugs in Dask's implementation.
+    """
+    This function is identical to :py:func:`numpy.linalg.norm`.
+    It exists to correct bugs in Dask's implementation.
+    """
     xp = pxu.get_array_module(x)
     nrm = xp.linalg.norm(x, **kwargs)
     nrm = nrm.astype(x.dtype, copy=False)  # dask bug: linalg.norm() always returns float64
@@ -30,15 +32,15 @@ def trace(
 
     Parameters
     ----------
-    op: pxa.SquareOp
-    xp: pxt.ArrayModule
+    op: ~pyxu.abc.operator.SquareOp
+    xp: ArrayModule
         Array module used for internal computations. (Default: NumPy.)
-    dtype: pxt.DType
+    dtype: DType
         Precision to use for internal computations. (Default: current runtime precision.)
 
     Returns
     -------
-    tr: pxt.Real
+    tr: Real
         Exact value of tr(op).
     """
     if xp is None:
@@ -70,22 +72,22 @@ def hutchpp(
 
     Parameters
     ----------
-    op: pxa.SquareOp
-    m: pxt.Integer
+    op: ~pyxu.abc.operator.SquareOp
+    m: Integer
         Number of queries used to estimate the trace of the linear operator.
 
-        ``m`` is set to 4002 by default based on the analysis of the variance described in theorem 10.
+        `m` is set to 4002 by default based on the analysis of the variance described in theorem 10.
         This default corresponds to having an estimation error smaller than 0.01 with probability 0.9.
-    xp: pxt.ArrayModule
+    xp: ArrayModule
         Array module used for internal computations. (Default: NumPy.)
-    dtype: pxt.DType
+    dtype: DType
         Precision to use for internal computations. (Default: current runtime precision.)
-    seed: pxt.Integer
+    seed: Integer
         Seed for the random number generator.
 
     Returns
     -------
-    tr: pxt.Real
+    tr: Real
         Stochastic estimate of tr(op).
     """
     if xp is None:

@@ -31,30 +31,30 @@ def backtracking_linesearch(
 
     Parameters
     ----------
-    f: pxa.DiffFunc
+    f: ~pyxu.abc.operator.DiffFunc
         Differentiable functional.
-    x: pxt.NDArray
+    x: NDArray
         (..., N) initial search point(s).
-    direction: pxt.NDArray
+    direction: NDArray
         (..., N) search direction(s) corresponding to initial point(s).
-    gradient: pxt.NDArray
+    gradient: NDArray
         (..., N) gradient of `f` at initial search point(s).
 
         Specifying `gradient` when known is an optimization:
-        it will be autocomputed via :py:meth:`~pyxu.abc.DiffFunc.grad` if unspecified.
-    a0: pxt.Real
+        it will be autocomputed via :py:meth:`~pyxu.abc.operator.DiffFunc.grad` if unspecified.
+    a0: Real
         Initial step size.
 
         If unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a0` is
         auto-chosen as :math:`\frac{1}{\beta}`.
-    r: pxt.Real
+    r: Real
         Step reduction factor.
-    c: pxt.Real
+    c: Real
         Bound reduction factor.
 
     Returns
     -------
-    a: pxt.NDArray
+    a: NDArray
         (..., 1) step sizes.
     """
     assert 0 < r < 1
@@ -76,12 +76,12 @@ def backtracking_linesearch(
         #
         # Parameters
         # ----------
-        # a : pxt.NDArray
+        # a : NDArray
         #     (..., 1) current step size(s)
         #
         # Returns
         # -------
-        # mask : pxt.NDArray[bool]
+        # mask : NDArray[bool]
         #     (..., 1) refinement points
         lhs = f.apply(x + a * direction)
         rhs = f_x + a * d_f
