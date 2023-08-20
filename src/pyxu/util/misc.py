@@ -50,15 +50,15 @@ def peaks(x: pxt.NDArray, y: pxt.NDArray) -> pxt.NDArray:
 
     Parameters
     ----------
-    x: pxt.NDArray
+    x: NDArray
         X coordinates.
-    y: pxt.NDArray
+    y: NDArray
         Y coordinates.
 
     Returns
     -------
-    z: pxt.NDArray
-        Values of the 2D function ``peaks`` at the points specified by the entries of ``x`` and ``y``.
+    z: NDArray
+        Values of the 2D function ``peaks`` at the points specified by the entries of `x` and `y`.
 
     Examples
     --------
@@ -103,22 +103,22 @@ def star_like_sample(
 
     Parameters
     ----------
-    N: pxt.Integer
+    N: Integer
         Size of the image (must be an even number).
-    w: pxt.Integer
+    w: Integer
         The number of branches of the sample will be 4*w.
-    s: pxt.Real
+    s: Real
         Slope of the sigmoid function :math:`\frac1{1+\exp[s (x-x_{0})]}` attenuating the boundaries.
-    po: pxt.Integer
+    po: Integer
         Power-raising factor for the final image (to have smoother edges).
-    x0: pxt.Real
+    x0: Real
         Radial shift of the sigmoid function :math:`\frac1{1+\exp[s (x-x_{0})]}`.
-    ndi: pxd.NDArrayInfo
+    ndi: NDArrayInfo
         Desired array module for the output.
 
     Returns
     -------
-    image: pxt.NDArray
+    image: NDArray
         (N, N) image of star-like sample.
 
     Examples

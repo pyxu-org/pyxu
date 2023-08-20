@@ -56,7 +56,7 @@ def vectorize(
           This is useful if the function being vectorized has a shared resource, i.e. is not
           thread-safe.
           It effectively gives a DASK-unaware function the ability to work with DASK inputs.
-    codim: pxt.Integer
+    codim: Integer
         Size of the function's core dimension output.
 
         This parameter is only required in "parallel" and "scan_dask" modes.
@@ -74,10 +74,6 @@ def vectorize(
        x = np.arange(10).reshape((2, 5))
        f(x[0]), f(x[1])  #  [10], [35]
        f(x)              #  [10, 35] -> would have retured [45] if not decorated.
-
-    Notes
-    -----
-    See :ref:`developer-notes`
     """
     method = method.strip().lower()
     assert method in ("scan", "scan_dask", "parallel"), f"Unknown vectorization method '{method}'."
@@ -135,72 +131,73 @@ def _dask_zip(
     out_dtype: list[pxt.DType],
     parallel: bool,
 ) -> list[pxt.NDArray]:
-    # (This is a Low-Level function.)
-    #
-    # Computes the equivalent of ``out = [f(x) for (f, x) in zip(func, data)]``, with the following semantics:
-    #
-    # * If `data` contains only NUMPY/CUPY arrays, then ``out`` is computed as above.
-    # * If `data` contains only DASK arrays, then entries of ``out`` are computed:
-    #
-    #   * if `parallel` enabled  -> dask-delay each `func`, then evaluate in parallel.
-    #   * if `parallel` disabled -> dask-delay each `func`, then evaluate in sequence.
-    #     (This is useful if `func`s share a common resource, thus not thread-safe.)
-    #
-    # For Dask-array inputs, this amounts to creating a task graph with virtual dependencies
-    # between successive `func` calls. In other words, the task graph looks like:
-    #
-    #        _dask_zip(func, data, parallel=True) -> out
-    #
-    #                    +----+              +----+
-    #          data[0]-->|func|-->blk[0]-+-->|list|-->out
-    #             .      +----+          |   +----+
-    #             .                      |
-    #             .      +----+          |
-    #          data[n]-->|func|-->blk[n]-+
-    #                    +----+
-    #
-    # ==========================================================================================================
-    #        _dask_zip(func, data, parallel=False) -> out
-    #                                                                                             +----+
-    #                              +-------------------+----------------+--------------------+----+list|-->out
-    #                              |                   |                |                    |    +----+
-    #                              |                   |                |                    |
-    #                    +----+    |        +----+     |      +---+     |         +----+     |
-    #          data[0]-->|func|-->out[0]-+->|func|-->out[1]-->|...|-->out[n-1]-+->|func|-->out[n]
-    #                    +----+          |  +----+            +---+            |  +----+
-    #                                    |                                     |
-    #          data[1]-------------------+                                     |
-    #             .                                                            |
-    #             .                                                            |
-    #             .                                                            |
-    #          data[n]---------------------------------------------------------+
-    #
-    #
-    # Parameters
-    # ----------
-    # func: list(callable)
-    #     Functions to apply to each element of `data`.
-    #
-    #     Function signatures are ``Callable[[pxt.NDArray], pxt.NDArray]``.
-    # data: list[pxt.NDArray]
-    #     (N_data,) arrays to act on.
-    # out_shape: list[pxt.NDArrayShape]
-    #     Shapes of ``func[i](data[i])``.
-    #
-    #     This parameter is only used if inputs are DASK arrays.
-    #     Its goal is to transform Delayed objects back to array form.
-    # out_dtype: list[pxt.DType]
-    #     Dtypes of ``func[i](data[i])``.
-    #
-    #     This parameter is only used if inputs are DASK arrays.
-    #     Its goal is to transform Delayed objects back to array form.
-    #
-    # Returns
-    # -------
-    # out: list[pxt.NDArray]
-    #     (N_data,) objects acted upon.
-    #
-    #     Outputs have the same backend/dtype as inputs, or as specified by `out_[shape,dtype]`.
+    """
+    (This is a Low-Level function.)
+
+    Computes the equivalent of ``out = [f(x) for (f, x) in zip(func, data)]``, with the following semantics:
+
+    * If `data` contains only NUMPY/CUPY arrays, then ``out`` is computed as above.
+    * If `data` contains only DASK arrays, then entries of ``out`` are computed:
+
+      * if `parallel` enabled  -> dask-delay each `func`, then evaluate in parallel.
+      * if `parallel` disabled -> dask-delay each `func`, then evaluate in sequence.
+        (This is useful if `func` s share a common resource, thus not thread-safe.)
+
+    For Dask-array inputs, this amounts to creating a task graph with virtual dependencies
+    between successive `func` calls. In other words, the task graph looks like::
+
+        _dask_zip(func, data, parallel=True) -> out
+
+                      +----+              +----+
+            data[0]-->|func|-->blk[0]-+-->|list|-->out
+                .     +----+          |   +----+
+                .                     |
+                .     +----+          |
+            data[n]-->|func|-->blk[n]-+
+                      +----+
+
+        ==========================================================================================================
+        _dask_zip(func, data, parallel=False) -> out
+                                                                                               +----+
+                                +-------------------+----------------+--------------------+----+list|-->out
+                                |                   |                |                    |    +----+
+                                |                   |                |                    |
+                      +----+    |        +----+     |      +---+     |         +----+     |
+            data[0]-->|func|-->out[0]-+->|func|-->out[1]-->|...|-->out[n-1]-+->|func|-->out[n]
+                      +----+          |  +----+            +---+            |  +----+
+                                      |                                     |
+            data[1]-------------------+                                     |
+                .                                                           |
+                .                                                           |
+                .                                                           |
+            data[n]---------------------------------------------------------+
+
+    Parameters
+    ----------
+    func: list
+        Functions to apply to each element of `data`.
+
+        Function signatures are ``Callable[[NDArray], NDArray]``.
+    data: list
+        (N_data,) arrays to act on.
+    out_shape: list
+        Shapes of ``func[i](data[i])``.
+
+        This parameter is only used if inputs are DASK arrays.
+        Its goal is to transform :py:class:`~dask.delayed.Delayed` objects back to array form.
+    out_dtype: list
+        Dtypes of ``func[i](data[i])``.
+
+        This parameter is only used if inputs are DASK arrays.
+        Its goal is to transform :py:class:`~dask.delayed.Delayed` objects back to array form.
+
+    Returns
+    -------
+    out: list
+        (N_data,) objects acted upon.
+
+        Outputs have the same backend/dtype as inputs, or as specified by `out_[shape,dtype]`.
+    """
     assert all(len(_) == len(func) for _ in [data, out_shape, out_dtype])
 
     NDI = pxd.NDArrayInfo
@@ -232,30 +229,32 @@ def _array_ize(
     shape: pxt.NDArrayShape,
     dtype: pxt.DType,
 ) -> pxt.NDArray:
-    # (This is a Low-Level function.)
-    #
-    # Transform a Dask-delayed object into its Dask-array counterpart.
-    # This function is a no-op if `data` is not a Dask-delayed object.
-    #
-    # Parameters
-    # ----------
-    # data: pxt.NDArray | dask.Delayed
-    #     Array/Delayed object to act upon.
-    # shape: pxt.NDArrayShape
-    #     Shape of `data`.
-    #
-    #     This parameter is only used if `data` is a Delayed object.
-    #     Its goal is to transform the Delayed object back to array form.
-    # dtype: pxt.DType
-    #     Dtype of `data`.
-    #
-    #     This parameter is only used if `data` is a Delayed object.
-    #     Its goal is to transform the Delayed object back to array form.
-    #
-    # Returns
-    # -------
-    # arr: pxt.NDArray
-    #     Dask-backed NDArray if `data` was a Delayed object; no-op otherwise.
+    """
+    (This is a Low-Level function.)
+
+    Transform a Dask-delayed object into its Dask-array counterpart.
+    This function is a no-op if `data` is not a :py:class:`~dask.delayed.Delayed` object.
+
+    Parameters
+    ----------
+    data: NDArray, :py:class:`~dask.delayed.Delayed`
+        Object to act upon.
+    shape: NDArrayShape
+        Shape of `data`.
+
+        This parameter is only used if `data` is a :py:class:`~dask.delayed.Delayed` object.
+        Its goal is to transform the former back to array form.
+    dtype: DType
+        Dtype of `data`.
+
+        This parameter is only used if `data` is a :py:class:`~dask.delayed.Delayed` object.
+        Its goal is to transform the former back to array form.
+
+    Returns
+    -------
+    arr: NDArray
+        Dask-backed NDArray if `data` was a :py:class:`~dask.delayed.Delayed` object; no-op otherwise.
+    """
     from dask.delayed import Delayed
 
     if isinstance(data, Delayed):

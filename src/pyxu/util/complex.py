@@ -17,12 +17,12 @@ def view_as_complex(x: pxt.NDArray) -> pxt.NDArray:
 
     Parameters
     ----------
-    x: pxt.NDArray
+    x: NDArray
         (..., 2N) real-valued array.
 
     Returns
     -------
-    y: pxt.NDArray
+    y: NDArray
         (..., N) complex-valued array.
 
     Examples
@@ -73,12 +73,12 @@ def view_as_real(x: pxt.NDArray) -> pxt.NDArray:
 
     Parameters
     ----------
-    x: pxt.NDArray
+    x: NDArray
         (..., N) complex-valued array.
 
     Returns
     -------
-    y: pxt.NDArray
+    y: NDArray
         (..., 2N) real-valued array.
 
     Examples
@@ -153,15 +153,13 @@ def view_as_real_mat(
 
     Parameters
     ----------
-    cmat: pxt.NDArray
+    cmat: NDArray
         (M, N) complex-valued matrix.
 
     Returns
     -------
-    rmat: pxt.NDArray
-        The output shape depends on the values of ``real_input`` and ``real_output``:
-
-        .. code-block::
+    rmat: NDArray
+        The output shape depends on the values of `real_input` and `real_output`::
 
            | real_input | real_output | rmat.shape |
            |------------|-------------|------------|
@@ -246,11 +244,9 @@ def view_as_complex_mat(
 
     Parameters
     ----------
-    rmat: pxt.NDArray
+    rmat: NDArray
         Real-valued matrix.
-        Accepted dimensions depend on the values of ``real_input`` and ``real_output``:
-
-        .. code-block::
+        Accepted dimensions depend on the values of `real_input` and `real_output`::
 
            | real_input | real_output | rmat.shape |
            |------------|-------------|------------|
@@ -261,7 +257,7 @@ def view_as_complex_mat(
 
     Returns
     -------
-    cmat: pxt.NDArray
+    cmat: NDArray
         (M, N) complex-valued matrix.
 
     Examples

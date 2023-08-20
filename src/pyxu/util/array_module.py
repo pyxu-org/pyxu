@@ -25,13 +25,13 @@ def get_array_module(x, fallback: pxt.ArrayModule = None) -> pxt.ArrayModule:
     ----------
     x: object
         Any object compatible with the interface of NumPy arrays.
-    fallback: pxt.ArrayModule
+    fallback: ArrayModule
         Fallback module if `x` is not a NumPy-like array.
         Default behaviour: raise error if fallback used.
 
     Returns
     -------
-    namespace: pxt.ArrayModule
+    namespace: ArrayModule
         The namespace to use to manipulate `x`, or `fallback` if provided.
     """
 
@@ -50,25 +50,25 @@ def get_array_module(x, fallback: pxt.ArrayModule = None) -> pxt.ArrayModule:
 
 
 def compute(*args, mode: str = "compute", **kwargs):
-    """
+    r"""
     Force computation of Dask collections.
 
     Parameters
     ----------
-    *args: object | sequence(object)
+    \*args: object, list
         Any number of objects.
         If it is a dask object, it is evaluated and the result is returned.
         Non-dask arguments are passed through unchanged.
         Python collections are traversed to find/evaluate dask objects within.
-        (Use traverse=False to disable this behavior.)
+        (Use `traverse` =False to disable this behavior.)
     mode: str
         Dask evaluation strategy: compute or persist.
-    kwargs: dict
-        Extra keyword parameters forwarded to `dask.[compute, persist]`.
+    \*\*kwargs: dict
+        Extra keyword parameters forwarded to :py:func:`dask.compute` or :py:func:`dask.persist`.
 
     Returns
     -------
-    *cargs: object | sequence(object)
+    \*cargs: object, list
         Evaluated objects. Non-dask arguments are passed through unchanged.
     """
     try:
@@ -88,12 +88,12 @@ def to_NUMPY(x: pxt.NDArray) -> pxt.NDArray:
 
     Parameters
     ----------
-    x: pxt.NDArray
+    x: NDArray
         Array to be converted.
 
     Returns
     -------
-    y: pxt.NDArray
+    y: NDArray
         Array with NumPy backend.
 
     Notes
@@ -131,13 +131,12 @@ def redirect(
 
     Parameters
     ----------
-    i: str
+    i: VarName
         name of the array-like variable in `f` to base dispatch on.
-    kwargs: dict[str, callable]
+    kwargs: ~collections.abc.Mapping
 
-        key: array backend short-name as defined in :py:class:`~pyxu.info.deps.NDArrayInfo`.
-
-        value: function/method to dispatch to.
+        * key[:py:class:`str`]: array backend short-name as defined in :py:class:`~pyxu.info.deps.NDArrayInfo`.
+        * value[:py:class:`collections.abc.Callable`]: function/method to dispatch to.
 
     Notes
     -----
@@ -201,11 +200,11 @@ def copy_if_unsafe(x: pxt.NDArray) -> pxt.NDArray:
 
     Parameters
     ----------
-    x: pxt.NDArray
+    x: NDArray
 
     Returns
     -------
-    y: pxt.NDArray
+    y: NDArray
     """
     N = pxd.NDArrayInfo
     ndi = N.from_obj(x)
@@ -232,11 +231,11 @@ def read_only(x: pxt.NDArray) -> pxt.NDArray:
 
     Parameters
     ----------
-    x: pxt.NDArray
+    x: NDArray
 
     Returns
     -------
-    y: pxt.NDArray
+    y: NDArray
     """
     N = pxd.NDArrayInfo
     ndi = N.from_obj(x)
