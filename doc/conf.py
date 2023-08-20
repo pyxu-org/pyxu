@@ -48,87 +48,84 @@ version = release = info["version"]
 # -- General configuration ---------------------------------------------------
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx.ext.autosummary",
-    "sphinx.ext.doctest",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
-    "sphinx.ext.todo",
     "sphinx.ext.viewcode",
     "matplotlib.sphinxext.plot_directive",
 ]
 
-templates_path = ["_templates"]
-master_doc = "index"
+root_doc = "index"
 exclude_patterns = []
-pygments_style = "sphinx"
+templates_path = []
 nitpicky = True
 add_module_names = False
-plot_include_source = True
+maximum_signature_line_length = 72
 
 # -- Options for HTML output -------------------------------------------------
-html_theme = "sphinx_rtd_theme"
-html_theme_options = {"navigation_depth": -1, "titles_only": False}
+html_theme = "classic"  # temporary
 
-# -- Options for HTMLHelp output ---------------------------------------------
-htmlhelp_basename = "Pyxu"
-html_context = {
-    "menu_links_name": "Repository",
-    "menu_links": [
-        ('<i class="fa fa-github fa-fw"></i> Source Code', "https://github.com/matthieumeo/pycsou"),
-    ],
-    "doc_path": "docs/source",
-    "github_project": "matthieumeo",
-    "github_repo": "pycsou",
-    "github_version": "master",
-}
+# -- Options for Python domain -----------------------------------------------
+python_display_short_literal_types = True
 
 # -- Extension configuration -------------------------------------------------
-# -- Options for autosummary extension ---------------------------------------
-autosummary_generate = True
 
 # -- Options for autodoc extension -------------------------------------------
-autodoc_member_order = "bysource"
-autodoc_default_flags = [
-    "members",
-    # 'inherited-members',
-    "show-inheritance",
-]
-autodoc_inherit_docstrings = False
+autodoc_default_options = {
+    "members": None,
+    "member-order": "bysource",
+    "undoc-members": None,
+    # "private-members": None,
+    # "special-members": None,
+    # "inherited-members": None,
+    "show-inheritance": None,
+    "imported-members": None,
+    # "exclude-members": "__module__,",
+    # "class-doc-from": None,
+    # "no-value": None,
+}
+autodoc_typehints = "description"
+autodoc_type_aliases = {}  # works only if `__futures__.annotations` imported
+autodoc_typehints_format = "short"
+autodoc_inherit_docstrings = True
 
 # -- Options for intersphinx extension ---------------------------------------
-intersphinx_mapping = {
+intersphinx_mapping = {  # We only include most useful doc-sets.
     "python": ("https://docs.python.org/3", None),
-    "NumPy [latest]": ("https://docs.scipy.org/doc/numpy", None),
-    "SciPy [latest]": ("https://docs.scipy.org/doc/scipy/reference", None),
-    "dask [latest]": ("https://docs.dask.org/en/latest", None),
+    "NumPy [stable]": ("https://numpy.org/doc/stable/", None),
+    "SciPy [latest]": ("https://docs.scipy.org/doc/scipy/", None),
+    "Dask [stable]": ("https://docs.dask.org/en/stable/", None),
+    "Sparse [latest]": ("https://sparse.pydata.org/en/latest/", None),
+    "Pytest [latest]": ("https://docs.pytest.org/en/latest/", None),
+    "Matplotlib [stable]": ("https://matplotlib.org/stable/", None),
 }
+
+# -- Options for mathjax extension -------------------------------------------
 
 # -- Options for napoleon extension ------------------------------------------
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = True
+napoleon_preprocess_types = True
+napoleon_type_aliases = {
+    # Docstrings reference annotations from pyxu.info via short-hands to improve legibility.
+    # All shorthands here must be kept in sync manually with pyxu.info sub-modules.
+    "NDArrayInfo": "~pyxu.info.deps.NDArrayInfo",
+    "NDArrayShape": "~pyxu.info.ptype.NDArrayShape",
+    "NDArray": "~pyxu.info.ptype.NDArray",
+    "ArrayModule": "~pyxu.info.ptype.ArrayModule",
+    "OpShape": "~pyxu.info.ptype.OpShape",
+    "OpT": "~pyxu.info.ptype.OpT",
+    "OpC": "~pyxu.info.ptype.OpC",
+    "Integer": "~pyxu.info.ptype.Integer",
+    "Real": "~pyxu.info.ptype.Real",
+    "DType": "~pyxu.info.ptype.DType",
+    "Path": "~pyxu.info.ptype.Path",
+    "VarName": "~pyxu.info.ptype.VarName",
+}
 
-# -- Options for todo extension ----------------------------------------------
-todo_include_todos = True
+# -- Options for viewcode extension ------------------------------------------
+# viewcode_line_numbers = True  # sphinx 7.2+
 
-# Aliases (only works with from __future__ import annotations)
-autodoc_type_aliases = {"ArrayLike": "NDArray"}
-
-
-def skip(app, what, name, obj, would_skip, options):
-    if name in {
-        "__init__",
-        "__add__",
-        "__mul__",
-        "__rmul__",
-        "__pow__",
-        "__truediv__",
-        "__sub__",
-        "__neg__",
-    }:
-        return False
-    return would_skip
-
-
-def setup(app):
-    app.connect("autodoc-skip-member", skip)
+# -- Options for plot_directive extension ------------------------------------
+plot_html_show_source_link = True
