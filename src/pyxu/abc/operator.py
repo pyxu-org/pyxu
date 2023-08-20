@@ -97,7 +97,6 @@ class Operator:
         ----------
         shape: pxt.OpShape
             (N, M) operator shape.
-            Shapes of the form (N, None) denote domain-agnostic maps.
         """
         shape = pxu.as_canonical_shape(shape)
         assert len(shape) == 2, f"shape: expected {pxt.OpShape}, got {shape}."
@@ -334,7 +333,6 @@ class Operator:
         Notes
         -----
         Exponentiation is only allowed for endomorphisms, i.e. square operators.
-        Chaining domain-agnostic operators is not supported.
 
         See Also
         --------
