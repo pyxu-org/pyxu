@@ -39,7 +39,7 @@ class DenseWarning(PyxuWarning):
 
 class NonTransparentWarning(PyxuWarning):
     """
-    [Dev-team only] Inform test suite runner of (safe) non-transparent function call.
+    Inform test suite runner of (safe) non-transparent function call.
     """
 
 

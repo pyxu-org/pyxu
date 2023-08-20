@@ -15,22 +15,26 @@ if typ.TYPE_CHECKING:
     import pyxu.abc.operator as pxo
     import pyxu.abc.solver as pxs
 
-# supported dense arrays/modules
+#: Supported dense array types.
 NDArray = typ.TypeVar("NDArray", *pxd.supported_array_types())
+
+#: Supported dense array modules.
 ArrayModule = typ.TypeVar(
     "ArrayModule",
     *[typ.Literal[_] for _ in pxd.supported_array_modules()],
 )
 
-# supported sparse arrays/modules
+#: Supported sparse array types.
 SparseArray = typ.TypeVar("SparseArray", *pxd.supported_sparse_types())
+
+#: Supported sparse array modules.
 SparseModule = typ.TypeVar(
     "SparseModule",
     *[typ.Literal[_] for _ in pxd.supported_sparse_modules()],
 )
 
+#: Top-level abstract :py:class:`~pyxu.abc.operator.Operator` interface exposed to users.
 OpT = typ.TypeVar(
-    # Top-level operator exposed to users.
     # This list should be kept in sync with all user-facing operators in `pxo`.
     "OpT",
     "pxo.Operator",
@@ -51,20 +55,27 @@ OpT = typ.TypeVar(
     "pxo.SelfAdjointOp",
     "pxo.LinOp",
 )
+
+#: :py:class:`~pyxu.abc.operator.Operator` hierarchy class type.
 OpC = typ.Type[OpT]  # Operator classes
+
+#: Mathematical properties attached to :py:class:`~pyxu.abc.operator.Operator` objects.
 Property = "pxo.Property"
 
-# Top-level solver exposed to users
-SolverT = typ.TypeVar("SolverT", bound="pxs.Solver")  # Solver instances
-SolverC = typ.Type[SolverT]  # Solver classes
+#: Top-level abstract :py:class:`~pyxu.abc.solver.Solver` interface exposed to users.
+SolverT = typ.TypeVar("SolverT", bound="pxs.Solver")
+
+#: :py:class:`~pyxu.abc.solver.Solver` hierarchy class type.
+SolverC = typ.Type[SolverT]
+
+#: Solver run-modes.
 SolverM = typ.TypeVar("SolverM", bound="pxs.Mode")
 
-# Other
-Integer = int  # [Sepand] `nb.Integral` seems to not work will with PyCharm...
+Integer = nb.Integral
 Real = nb.Real
-DType = npt.DTypeLike
-OpShape = tuple[Integer, Integer]
-NDArrayAxis = typ.Union[Integer, tuple[Integer, ...]]
-NDArrayShape = typ.Union[Integer, tuple[Integer, ...]]
-Path = typ.Union[str, plib.Path]
-VarName = typ.Union[str, cabc.Collection[str]]
+DType = npt.DTypeLike  #: NDArray dtype specifier.
+OpShape = tuple[Integer, Integer]  #: Operator shape specifier.
+NDArrayAxis = typ.Union[Integer, tuple[Integer, ...]]  #: Axis/Axes specifier.
+NDArrayShape = typ.Union[Integer, tuple[Integer, ...]]  #: NDArray shape specifier.
+Path = typ.Union[str, plib.Path]  #: Path-like object.
+VarName = typ.Union[str, cabc.Collection[str]]  #: Variable name(s).

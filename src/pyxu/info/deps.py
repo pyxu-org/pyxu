@@ -1,3 +1,4 @@
+import collections.abc as cabc
 import enum
 import importlib.util
 import types
@@ -8,6 +9,7 @@ import packaging.version as pkgv
 import scipy.sparse
 import sparse
 
+#: Show if CuPy-based backends are available.
 CUPY_ENABLED: bool = importlib.util.find_spec("cupy") is not None
 if CUPY_ENABLED:
     try:
@@ -22,7 +24,7 @@ if CUPY_ENABLED:
 @enum.unique
 class NDArrayInfo(enum.Enum):
     """
-    Supported dense array APIs.
+    Supported dense array backends.
     """
 
     NUMPY = enum.auto()
@@ -31,9 +33,11 @@ class NDArrayInfo(enum.Enum):
 
     @classmethod
     def default(cls) -> "NDArrayInfo":
+        """Default array backend to use."""
         return cls.NUMPY
 
     def type(self) -> type:
+        """Array type associated to a backend."""
         if self.name == "NUMPY":
             return numpy.ndarray
         elif self.name == "DASK":
@@ -45,6 +49,7 @@ class NDArrayInfo(enum.Enum):
 
     @classmethod
     def from_obj(cls, obj) -> "NDArrayInfo":
+        """Find array backend associated to `obj`."""
         if obj is not None:
             for ndi in cls:
                 if isinstance(obj, ndi.type()):
@@ -53,12 +58,21 @@ class NDArrayInfo(enum.Enum):
 
     @classmethod
     def from_flag(cls, gpu: bool) -> "NDArrayInfo":
+        """Find array backend suitable for in-memory CPU/GPU computing."""
         if gpu:
             return cls.CUPY
         else:
             return cls.NUMPY
 
     def module(self, linalg: bool = False) -> types.ModuleType:
+        """
+        Python module associated to an array backend.
+
+        Parameters
+        ----------
+        linalg: bool
+            Return the linear-algebra submodule with identical API to :py:mod:`numpy.linalg`.
+        """
         if self.name == "NUMPY":
             xp = numpy
             xpl = xp.linalg
@@ -76,7 +90,7 @@ class NDArrayInfo(enum.Enum):
 @enum.unique
 class SparseArrayInfo(enum.Enum):
     """
-    Supported sparse array APIs.
+    Supported sparse array backends.
     """
 
     SCIPY_SPARSE = enum.auto()
@@ -85,9 +99,11 @@ class SparseArrayInfo(enum.Enum):
 
     @classmethod
     def default(cls) -> "SparseArrayInfo":
+        """Default array backend to use."""
         return cls.PYDATA_SPARSE
 
     def type(self) -> type:
+        """Array type associated to a backend."""
         if self.name == "SCIPY_SPARSE":
             # All `*matrix` classes descend from `spmatrix`.
             return scipy.sparse.spmatrix
@@ -100,6 +116,7 @@ class SparseArrayInfo(enum.Enum):
 
     @classmethod
     def from_obj(cls, obj) -> "SparseArrayInfo":
+        """Find array backend associated to `obj`."""
         if obj is not None:
             for sai in cls:
                 if isinstance(obj, sai.type()):
@@ -107,6 +124,14 @@ class SparseArrayInfo(enum.Enum):
         raise ValueError(f"No known array type to match {sai}.")
 
     def module(self, linalg: bool = False) -> types.ModuleType:
+        """
+        Python module associated to an array backend.
+
+        Parameters
+        ----------
+        linalg: bool
+            Return the linear-algebra submodule with identical API to :py:mod:`scipy.sparse.linalg`.
+        """
         if self.name == "SCIPY_SPARSE":
             xp = scipy.sparse
             xpl = xp.linalg
@@ -121,7 +146,8 @@ class SparseArrayInfo(enum.Enum):
         return xpl if linalg else xp
 
 
-def supported_array_types():
+def supported_array_types() -> cabc.Collection[type]:
+    """List of all supported dense array types in current Pyxu install."""
     data = set()
     for ndi in NDArrayInfo:
         if (ndi != NDArrayInfo.CUPY) or CUPY_ENABLED:
@@ -129,7 +155,8 @@ def supported_array_types():
     return tuple(data)
 
 
-def supported_array_modules():
+def supported_array_modules() -> cabc.Collection[types.ModuleType]:
+    """List of all supported dense array modules in current Pyxu install."""
     data = set()
     for ndi in NDArrayInfo:
         if (ndi != NDArrayInfo.CUPY) or CUPY_ENABLED:
@@ -137,7 +164,8 @@ def supported_array_modules():
     return tuple(data)
 
 
-def supported_sparse_types():
+def supported_sparse_types() -> cabc.Collection[type]:
+    """List of all supported sparse array types in current Pyxu install."""
     data = set()
     for sai in SparseArrayInfo:
         if (sai != SparseArrayInfo.CUPY_SPARSE) or CUPY_ENABLED:
@@ -145,7 +173,8 @@ def supported_sparse_types():
     return tuple(data)
 
 
-def supported_sparse_modules():
+def supported_sparse_modules() -> cabc.Collection[types.ModuleType]:
+    """List of all supported sparse array modules in current Pyxu install."""
     data = set()
     for sai in SparseArrayInfo:
         if (sai != SparseArrayInfo.CUPY_SPARSE) or CUPY_ENABLED:
