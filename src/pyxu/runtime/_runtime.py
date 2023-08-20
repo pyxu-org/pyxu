@@ -101,7 +101,9 @@ class Precision(contextlib.AbstractContextManager):
 
 class EnforcePrecision(contextlib.AbstractContextManager):
     """
-    Context Manager to locally disable effect of `enforce_precision()`. [Default: enabled.]
+    Context Manager to locally disable effect of
+    :py:func:`~pyxu.runtime.enforce_precision`.
+    [Default: enabled.]
 
     Use this object via a with-block.
 
@@ -214,17 +216,17 @@ def coerce(x):
 
     Parameters
     ----------
-    x: pxt.Real | pxt.NDArray
+    x: Real, NDArray
 
     Returns
     -------
-    y: pxt.Real | pxt.NDArray
+    y: Real, NDArray
         Input cast to the runtime FP-precision.
         Fails if operation is impossible or unsafe. (I.e. casting complex-valued data.)
 
     Note
     ----
-    This method is a NO-OP if `getCoerceState()` returns False.
+    This method is a NO-OP if :py:func:`~pyxu.runtime.getCoerceState()` returns ``False``.
     """
     if getCoerceState() is False:
         return x
