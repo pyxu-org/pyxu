@@ -172,8 +172,11 @@ class _PrimalDualSplitting(pxa.Solver):
         return pxrt.coerce(self._beta) if tuning_strategy != 2 else pxrt.coerce(self._beta / 1.9)
 
     def _set_step_sizes(
-        self, tau: typ.Optional[pxt.Real], sigma: typ.Optional[pxt.Real], gamma: pxt.Real
-    ) -> typ.Tuple[pxt.Real, pxt.Real, pxt.Real]:
+        self,
+        tau: typ.Optional[pxt.Real],
+        sigma: typ.Optional[pxt.Real],
+        gamma: pxt.Real,
+    ) -> tuple[pxt.Real, pxt.Real, pxt.Real]:
         raise NotImplementedError
 
     def _set_momentum_term(self, rho: typ.Optional[pxt.Real], delta: pxt.Real) -> pxt.Real:
@@ -414,8 +417,11 @@ class CondatVu(_PrimalDualSplitting):
         mst["x"] = mst["rho"] * x_temp + (1 - mst["rho"]) * mst["x"]
 
     def _set_step_sizes(
-        self, tau: typ.Optional[pxt.Real], sigma: typ.Optional[pxt.Real], gamma: typ.Optional[pxt.Real]
-    ) -> typ.Tuple[pxt.Real, pxt.Real, pxt.Real]:
+        self,
+        tau: typ.Optional[pxt.Real],
+        sigma: typ.Optional[pxt.Real],
+        gamma: typ.Optional[pxt.Real],
+    ) -> tuple[pxt.Real, pxt.Real, pxt.Real]:
         r"""
         Set the primal/dual step sizes.
 
@@ -691,9 +697,8 @@ class PD3O(_PrimalDualSplitting):
         else:
             self._mstate["u"] = x0.copy()
 
-    def m_step(
-        self,
-    ):  # Slightly more efficient rewriting of iterations (216) of [PSA] with M=1. Faster than (185) since only one call to the adjoint and the gradient per iteration.
+    def m_step(self):
+        # Slightly more efficient rewriting of iterations (216) of [PSA] with M=1. Faster than (185) since only one call to the adjoint and the gradient per iteration.
         mst = self._mstate
         mst["x"] = self._g.prox(mst["u"] - mst["tau"] * self._K.jacobian(mst["u"]).adjoint(mst["z"]), tau=mst["tau"])
         u_temp = mst["x"] - mst["tau"] * self._f.grad(mst["x"])
@@ -705,8 +710,11 @@ class PD3O(_PrimalDualSplitting):
         mst["u"] = (1 - mst["rho"]) * mst["u"] + mst["rho"] * u_temp
 
     def _set_step_sizes(
-        self, tau: typ.Optional[pxt.Real], sigma: typ.Optional[pxt.Real], gamma: pxt.Real
-    ) -> typ.Tuple[pxt.Real, pxt.Real, pxt.Real]:
+        self,
+        tau: typ.Optional[pxt.Real],
+        sigma: typ.Optional[pxt.Real],
+        gamma: pxt.Real,
+    ) -> tuple[pxt.Real, pxt.Real, pxt.Real]:
         r"""
         Set the primal/dual step sizes.
 
@@ -989,8 +997,11 @@ class LorisVerhoeven(PD3O):
         )
 
     def _set_step_sizes(
-        self, tau: typ.Optional[pxt.Real], sigma: typ.Optional[pxt.Real], gamma: typ.Optional[pxt.Real]
-    ) -> typ.Tuple[pxt.Real, pxt.Real, pxt.Real]:
+        self,
+        tau: typ.Optional[pxt.Real],
+        sigma: typ.Optional[pxt.Real],
+        gamma: typ.Optional[pxt.Real],
+    ) -> tuple[pxt.Real, pxt.Real, pxt.Real]:
         r"""
         Set the primal/dual step sizes.
 
@@ -1089,8 +1100,11 @@ class DavisYin(PD3O):
         )
 
     def _set_step_sizes(
-        self, tau: typ.Optional[pxt.Real], sigma: typ.Optional[pxt.Real], gamma: pxt.Real
-    ) -> typ.Tuple[pxt.Real, pxt.Real, pxt.Real]:
+        self,
+        tau: typ.Optional[pxt.Real],
+        sigma: typ.Optional[pxt.Real],
+        gamma: pxt.Real,
+    ) -> tuple[pxt.Real, pxt.Real, pxt.Real]:
         r"""
         Set the primal/dual step sizes.
 
@@ -1176,7 +1190,7 @@ def DouglasRachford(
         tau: typ.Optional[pxt.Real],
         sigma: typ.Optional[pxt.Real],
         gamma: pxt.Real,
-    ) -> typ.Tuple[pxt.Real, pxt.Real, pxt.Real]:
+    ) -> tuple[pxt.Real, pxt.Real, pxt.Real]:
         tau = 1.0 if tau is None else tau
         delta = 2.0
         return pxrt.coerce(tau), pxrt.coerce(1 / tau), pxrt.coerce(delta)
@@ -1473,9 +1487,8 @@ class ADMM(_PDS):
             solver_kwargs = dict()
         self._fit_kwargs = solver_kwargs
 
-    def m_step(
-        self,
-    ):  # Algorithm (145) in [PSA]. Paper -> code correspondence: L -> K, K -> -Id, c -> 0, y -> u, v -> z, g -> h
+    def m_step(self):
+        # Algorithm (145) in [PSA]. Paper -> code correspondence: L -> K, K -> -Id, c -> 0, y -> u, v -> z, g -> h
         mst = self._mstate
         mst["x"] = self._x_update(mst["u"] - mst["z"], tau=mst["tau"])
         z_temp = mst["z"] + self._K(mst["x"]) - mst["u"]
@@ -1520,8 +1533,11 @@ class ADMM(_PDS):
             raise ValueError(f"Parameter which must be one of ['primal', 'primal_h', 'dual'] got: {which}.")
 
     def _set_step_sizes(
-        self, tau: typ.Optional[pxt.Real], sigma: typ.Optional[pxt.Real], gamma: pxt.Real
-    ) -> typ.Tuple[pxt.Real, pxt.Real, pxt.Real]:
+        self,
+        tau: typ.Optional[pxt.Real],
+        sigma: typ.Optional[pxt.Real],
+        gamma: pxt.Real,
+    ) -> tuple[pxt.Real, pxt.Real, pxt.Real]:
         if tau is not None:
             assert tau > 0, f"Parameter tau must be positive, got {tau}."
         else:
