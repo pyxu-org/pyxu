@@ -21,8 +21,8 @@ class Rule:
         """
         Returns
         -------
-        op: pxt.OpT
-            Synthesized operator given inputs to :py:meth:`~pyxu.abc.arithmetic.Rule.__init__`.
+        op: OpT
+            Synthesize operator.
         """
         raise NotImplementedError
 
@@ -64,10 +64,13 @@ class Rule:
 
 class ScaleRule(Rule):
     r"""
-    Special Cases:
+    Special Cases::
+
         \alpha = 0  => NullOp/NullFunc
         \alpha = 1  => self
-    Else:
+
+    Else::
+
         |--------------------------|-------------|--------------------------------------------------------------------|
         |         Property         |  Preserved? |                     Arithmetic Update Rule(s)                      |
         |--------------------------|-------------|--------------------------------------------------------------------|
@@ -257,10 +260,13 @@ class ScaleRule(Rule):
 
 class ArgScaleRule(Rule):
     r"""
-    Special Cases:
+    Special Cases::
+
         \alpha = 0  => ConstantValued (w/ potential vector-valued output)
         \alpha = 1  => self
-    Else:
+
+    Else::
+
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         |         Property         |  Preserved? |                          Arithmetic Update Rule(s)                          |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
@@ -472,9 +478,12 @@ class ArgScaleRule(Rule):
 
 class ArgShiftRule(Rule):
     r"""
-    Special Cases:
+    Special Cases::
+
         \shift = 0  => self
-    Else:
+
+    Else::
+
         |--------------------------|------------|-----------------------------------------------------------------|
         |         Property         | Preserved? |                    Arithmetic Update Rule(s)                    |
         |--------------------------|------------|-----------------------------------------------------------------|
@@ -657,8 +666,8 @@ class ArgShiftRule(Rule):
 
 class AddRule(Rule):
     r"""
-    The output type of AddRule(A.squeeze(), B.squeeze()) is summarized in the table below (LHS/RHS
-    commute):
+    The output type of ``AddRule(A.squeeze(), B.squeeze())`` is summarized in the table below (LHS/RHS
+    commute)::
 
         |---------------|-----|------|---------|----------|----------|--------------|-----------|---------|--------------|------------|------------|------------|---------------|---------------|------------|---------------|
         |   LHS / RHS   | Map | Func | DiffMap | DiffFunc | ProxFunc | ProxDiffFunc | Quadratic |  LinOp  |   LinFunc    |  SquareOp  |  NormalOp  |   UnitOp   | SelfAdjointOp |    PosDefOp   |   ProjOp   |   OrthProjOp  |
@@ -681,52 +690,51 @@ class AddRule(Rule):
         | OrthProjOp    |     |      |         |          |          |              |           |         |              |            |            |            |               |               |            | SelfAdjointOp |
         |---------------|-----|------|---------|----------|----------|--------------|-----------|---------|--------------|------------|------------|------------|---------------|---------------|------------|---------------|
 
+    Arithmetic Update Rule(s)::
 
-    Arithmetic Update Rule(s)
-    -------------------------
-    * CAN_EVAL
-        op.apply(arr) = _lhs.apply(arr) + _rhs.apply(arr)
-        op.lipschitz = _lhs.lipschitz + _rhs.lipschitz
-        IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
-                   operand's Lipschitz constant must be magnified by \sqrt{M}.
+        * CAN_EVAL
+            op.apply(arr) = _lhs.apply(arr) + _rhs.apply(arr)
+            op.lipschitz = _lhs.lipschitz + _rhs.lipschitz
+            IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
+                       operand's Lipschitz constant must be magnified by \sqrt{M}.
 
-    * FUNCTIONAL
-        op.asloss(\beta) = _lhs.asloss(\beta) + _rhs.asloss(\beta)
-                           may be ambiguous -> warning
+        * FUNCTIONAL
+            op.asloss(\beta) = _lhs.asloss(\beta) + _rhs.asloss(\beta)
+                               may be ambiguous -> warning
 
-    * PROXIMABLE
-        op.prox(arr, tau) = _lhs.prox(arr - tau * _rhs.grad(arr), tau)
-                      OR  = _rhs.prox(arr - tau * _lhs.grad(arr), tau)
-            IMPORTANT: the one calling .grad() should be either (lhs, rhs) which has LINEAR property
+        * PROXIMABLE
+            op.prox(arr, tau) = _lhs.prox(arr - tau * _rhs.grad(arr), tau)
+                          OR  = _rhs.prox(arr - tau * _lhs.grad(arr), tau)
+                IMPORTANT: the one calling .grad() should be either (lhs, rhs) which has LINEAR property
 
-    * DIFFERENTIABLE
-        op.jacobian(arr) = _lhs.jacobian(arr) + _rhs.jacobian(arr)
-        op.diff_lipschitz = _lhs.diff_lipschitz + _rhs.diff_lipschitz
-        IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
-                   operand's diff-Lipschitz constant must be magnified by \sqrt{M}.
+        * DIFFERENTIABLE
+            op.jacobian(arr) = _lhs.jacobian(arr) + _rhs.jacobian(arr)
+            op.diff_lipschitz = _lhs.diff_lipschitz + _rhs.diff_lipschitz
+            IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
+                       operand's diff-Lipschitz constant must be magnified by \sqrt{M}.
 
-    * DIFFERENTIABLE_FUNCTION
-        op.grad(arr) = _lhs.grad(arr) + _rhs.grad(arr)
+        * DIFFERENTIABLE_FUNCTION
+            op.grad(arr) = _lhs.grad(arr) + _rhs.grad(arr)
 
-    * LINEAR
-        op.adjoint(arr) = _lhs.adjoint(arr) + _rhs.adjoint(arr)
-        IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
-                   operand's adjoint-input must be averaged.
-        op.asarray() = _lhs.asarray() + _rhs.asarray()
-        op.gram() = _lhs.gram() + _rhs.gram() + (_lhs.T * _rhs) + (_rhs.T * _lhs)
-        op.cogram() = _lhs.cogram() + _rhs.cogram() + (_lhs * _rhs.T) + (_rhs * _lhs.T)
+        * LINEAR
+            op.adjoint(arr) = _lhs.adjoint(arr) + _rhs.adjoint(arr)
+            IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
+                       operand's adjoint-input must be averaged.
+            op.asarray() = _lhs.asarray() + _rhs.asarray()
+            op.gram() = _lhs.gram() + _rhs.gram() + (_lhs.T * _rhs) + (_rhs.T * _lhs)
+            op.cogram() = _lhs.cogram() + _rhs.cogram() + (_lhs * _rhs.T) + (_rhs * _lhs.T)
 
-    * LINEAR_SQUARE
-        op.trace() = _lhs.trace() + _rhs.trace()
+        * LINEAR_SQUARE
+            op.trace() = _lhs.trace() + _rhs.trace()
 
-    * QUADRATIC
-        lhs = rhs = quadratic
-          Q_l, c_l, t_l = lhs._quad_spec()
-          Q_r, c_r, t_r = rhs._quad_spec()
-          op._quad_spec() = (Q_l + Q_r, c_l + c_r, t_l + t_r)
-        lhs, rhs = quadratic, linear
-          Q, c, t = lhs._quad_spec()
-          op._quad_spec() = (Q, c + rhs, t)
+        * QUADRATIC
+            lhs = rhs = quadratic
+              Q_l, c_l, t_l = lhs._quad_spec()
+              Q_r, c_r, t_r = rhs._quad_spec()
+              op._quad_spec() = (Q_l + Q_r, c_l + c_r, t_l + t_r)
+            lhs, rhs = quadratic, linear
+              Q, c, t = lhs._quad_spec()
+              op._quad_spec() = (Q, c + rhs, t)
     """
 
     def __init__(self, lhs: pxt.OpT, rhs: pxt.OpT):
@@ -1025,7 +1033,7 @@ class AddRule(Rule):
 
 class ChainRule(Rule):
     r"""
-    The output type of ChainRule(A.squeeze(), B.squeeze()) is summarized in the table below:
+    The output type of ``ChainRule(A.squeeze(), B.squeeze())`` is summarized in the table below::
 
         |---------------|------|------------|----------|------------|------------|----------------|----------------------|------------------|------------|-----------|-----------|--------------|---------------|-----------|-----------|------------|
         |   LHS / RHS   | Map  |    Func    | DiffMap  |  DiffFunc  |  ProxFunc  |  ProxDiffFunc  |      Quadratic       |      LinOp       |  LinFunc   |  SquareOp |  NormalOp |    UnitOp    | SelfAdjointOp |  PosDefOp |   ProjOp  | OrthProjOp |
@@ -1048,40 +1056,39 @@ class ChainRule(Rule):
         | OrthProjOp    | Map  | IMPOSSIBLE | DiffMap  | IMPOSSIBLE | IMPOSSIBLE | IMPOSSIBLE     | IMPOSSIBLE           | LinOp            | IMPOSSIBLE | SquareOp  | SquareOp  | SquareOp     | SquareOp      | SquareOp  | SquareOp  | SquareOp   |
         |---------------|------|------------|----------|------------|------------|----------------|----------------------|------------------|------------|-----------|-----------|--------------|---------------|-----------|-----------|------------|
 
+    Arithmetic Update Rule(s)::
 
-    Arithmetic Update Rule(s)
-    -------------------------
-    * CAN_EVAL
-        op.apply(arr) = _lhs.apply(_rhs.apply(arr))
-        op.lipschitz = _lhs.lipschitz * _rhs.lipschitz
+        * CAN_EVAL
+            op.apply(arr) = _lhs.apply(_rhs.apply(arr))
+            op.lipschitz = _lhs.lipschitz * _rhs.lipschitz
 
-    * FUNCTIONAL
-        op.asloss(\beta) = ambiguous -> disabled
+        * FUNCTIONAL
+            op.asloss(\beta) = ambiguous -> disabled
 
-    * PROXIMABLE (RHS Unitary only)
-        op.prox(arr, tau) = _rhs.adjoint(_lhs.prox(_rhs.apply(arr), tau))
+        * PROXIMABLE (RHS Unitary only)
+            op.prox(arr, tau) = _rhs.adjoint(_lhs.prox(_rhs.apply(arr), tau))
 
-    * DIFFERENTIABLE
-        op.jacobian(arr) = _lhs.jacobian(_rhs.apply(arr)) * _rhs.jacobian(arr)
-        op.diff_lipschitz =
-            quadratic            => _quad_spec().Q.lipschitz
-            linear \comp linear  => 0
-            linear \comp diff    => _lhs.lipschitz * _rhs.diff_lipschitz
-            diff   \comp linear  => _lhs.diff_lipschitz * (_rhs.lipschitz ** 2)
-            diff   \comp diff    => \infty
+        * DIFFERENTIABLE
+            op.jacobian(arr) = _lhs.jacobian(_rhs.apply(arr)) * _rhs.jacobian(arr)
+            op.diff_lipschitz =
+                quadratic            => _quad_spec().Q.lipschitz
+                linear \comp linear  => 0
+                linear \comp diff    => _lhs.lipschitz * _rhs.diff_lipschitz
+                diff   \comp linear  => _lhs.diff_lipschitz * (_rhs.lipschitz ** 2)
+                diff   \comp diff    => \infty
 
-    * DIFFERENTIABLE_FUNCTION (1D input)
-        op.grad(arr) = _lhs.grad(_rhs.apply(arr)) @ _rhs.jacobian(arr).asarray()
+        * DIFFERENTIABLE_FUNCTION (1D input)
+            op.grad(arr) = _lhs.grad(_rhs.apply(arr)) @ _rhs.jacobian(arr).asarray()
 
-    * LINEAR
-        op.adjoint(arr) = _rhs.adjoint(_lhs.adjoint(arr))
-        op.asarray() = _lhs.asarray() @ _rhs.asarray()
-        op.gram() = _rhs.T @ _lhs.gram() @ _rhs
-        op.cogram() = _lhs @ _rhs.cogram() @ _lhs.T
+        * LINEAR
+            op.adjoint(arr) = _rhs.adjoint(_lhs.adjoint(arr))
+            op.asarray() = _lhs.asarray() @ _rhs.asarray()
+            op.gram() = _rhs.T @ _lhs.gram() @ _rhs
+            op.cogram() = _lhs @ _rhs.cogram() @ _lhs.T
 
-    * QUADRATIC
-        Q, c, t = _lhs._quad_spec()
-        op._quad_spec() = (_rhs.T * Q * _rhs, _rhs.T * c, t)
+        * QUADRATIC
+            Q, c, t = _lhs._quad_spec()
+            op._quad_spec() = (_rhs.T * Q * _rhs, _rhs.T * c, t)
     """
 
     def __init__(self, lhs: pxt.OpT, rhs: pxt.OpT):
@@ -1339,9 +1346,12 @@ class ChainRule(Rule):
 
 class PowerRule(Rule):
     r"""
-    Special Cases:
+    Special Cases::
+
         k = 0  => IdentityOp
-    Else:
+
+    Else::
+
         B = A \circ ... \circ A  (k-1 compositions)
     """
 
@@ -1379,34 +1389,34 @@ class TransposeRule(Rule):
     # operators is identical to arithmetic methods.
     # LinOp.T() rules are hence summarized here.
     r"""
-    Arithmetic Update Rule(s)
-    -------------------------
-    * CAN_EVAL
-        opT.apply(arr) = op.adjoint(arr)
-        opT.lipschitz = op.lipschitz
+    Arithmetic Update Rule(s)::
 
-    * FUNCTIONAL
-        opT.asloss(\beta) = UNDEFINED
+        * CAN_EVAL
+            opT.apply(arr) = op.adjoint(arr)
+            opT.lipschitz = op.lipschitz
 
-    * PROXIMABLE
-        opT.prox(arr, tau) = LinFunc.prox(arr, tau)
+        * FUNCTIONAL
+            opT.asloss(\beta) = UNDEFINED
 
-    * DIFFERENTIABLE
-        opT.jacobian(arr) = opT
-        opT.diff_lipschitz = 0
+        * PROXIMABLE
+            opT.prox(arr, tau) = LinFunc.prox(arr, tau)
 
-    * DIFFERENTIABLE_FUNCTION
-        opT.grad(arr) = LinFunc.grad(arr)
+        * DIFFERENTIABLE
+            opT.jacobian(arr) = opT
+            opT.diff_lipschitz = 0
 
-    * LINEAR
-        opT.adjoint(arr) = op.apply(arr)
-        opT.asarray() = op.asarray().T
-        opT.gram() = op.cogram()
-        opT.cogram() = op.gram()
-        opT.svdvals() = op.svdvals()
+        * DIFFERENTIABLE_FUNCTION
+            opT.grad(arr) = LinFunc.grad(arr)
 
-    * LINEAR_SQUARE
-        opT.trace() = op.trace()
+        * LINEAR
+            opT.adjoint(arr) = op.apply(arr)
+            opT.asarray() = op.asarray().T
+            opT.gram() = op.cogram()
+            opT.cogram() = op.gram()
+            opT.svdvals() = op.svdvals()
+
+        * LINEAR_SQUARE
+            opT.trace() = op.trace()
     """
 
     def __init__(self, op: pxt.OpT):

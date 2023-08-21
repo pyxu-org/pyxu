@@ -8,6 +8,7 @@ import shutil
 import sys
 import tempfile
 import threading
+import typing as typ
 
 import numpy as np
 
@@ -43,17 +44,18 @@ class StoppingCriterion:
     :py:meth:`~pyxu.abc.solver.StoppingCriterion.info`
     to provide diagnostic information to users.
 
-    Composite stopping criteria can be implemented via the overloaded and[&]/or[|] operators.
+    Composite stopping criteria can be implemented via the overloaded (and[``&``], or[``|``]) operators.
     """
 
-    def stop(self, state: cabc.Mapping) -> bool:
+    def stop(self, state: cabc.Mapping[str]) -> bool:
         """
         Compute a stop signal based on the current mathematical state.
 
         Parameters
         ----------
-        state: Mapping[str]
-            Full mathematical state of solver at some iteration, i.e. ``Solver._mstate``.
+        state: ~collections.abc.Mapping
+            Full mathematical state of solver at some iteration, i.e. :py:attr:`~pyxu.abc.solver.Solver._mstate`.
+
             Values from `state` may be cached inside the instance to form complex stopping
             conditions.
 
@@ -70,7 +72,7 @@ class StoppingCriterion:
 
         Returns
         -------
-        data: Mapping[str, float]
+        data: ~collections.abc.Mapping
         """
         raise NotImplementedError
 
@@ -180,6 +182,9 @@ class Solver:
        >>> data, hist = slvr.stats()  # final output of solver.
     """
 
+    _mstate: dict[str, typ.Any]  #: Mathematical state.
+    _astate: dict[str, typ.Any]  #: Book-keeping (non-math) state.
+
     def __init__(
         self,
         *,
@@ -194,29 +199,30 @@ class Solver:
         """
         Parameters
         ----------
-        folder: pxt.Path
+        folder: Path
             Directory on disk where instance data should be stored.
             A location will be automatically chosen if unspecified. (Default: OS-dependent tempdir.)
         exist_ok: bool
             If `folder` is specified and `exist_ok` is false (default),
             :py:class:`FileExistsError`
             is raised if the target directory already exists.
-        stop_rate: pxt.Integer
+        stop_rate: Integer
             Rate at which solver evaluates stopping criteria.
-        writeback_rate: pxt.Integer
+        writeback_rate: Integer
             Rate at which solver checkpoints are written to disk.
             No checkpointing is done if unspecified: only the final solver output will be written
             back to disk.
             Must be a multiple of `stop_rate` if specified.
-        verbosity: pxt.Integer
+        verbosity: Integer
             Rate at which stopping criteria statistics are logged.
             Must be a multiple of `stop_rate`.
             Defaults to `stop_rate` if unspecified.
         show_progress: bool
-            If True (default) and :py:meth:`~pyxu.abc.solver.Solver.fit` is run with mode=BLOCK, then statistics are also
-            logged to stdout.
-        log_var: pxt.VarName
-            Variables from the solver's math-state (slvr._mstate) to be logged per iteration.
+            If True (default) and :py:meth:`~pyxu.abc.solver.Solver.fit` is run with mode=BLOCK,
+            then statistics are also logged to stdout.
+        log_var: VarName
+            Variables from the solver's math-state (:py:attr:`~pyxu.abc.solver.Solver._mstate`)
+            to be logged per iteration.
             These are the variables made available when calling
             :py:meth:`~pyxu.abc.solver.Solver.stats`.
 
@@ -228,8 +234,8 @@ class Solver:
           Increasing `writeback_rate` is advised to reduce the effect of such transfers when
           applicable.
         """
-        self._mstate = dict()  # mathematical state
-        self._astate = dict(  # book-keeping (non-math) state
+        self._mstate = dict()
+        self._astate = dict(
             history=None,  # stopping criteria values per iteration
             idx=0,  # iteration index
             log_rate=None,
@@ -326,7 +332,7 @@ class Solver:
         """
         Set solver's initial mathematical state based on kwargs provided to :py:meth:`~pyxu.abc.solver.Solver.fit`.
 
-        This method must only manipulate ``Solver._mstate``.
+        This method must only manipulate :py:attr:`~pyxu.abc.solver.Solver._mstate`.
 
         After calling this method, the solver must be able to complete its 1st iteration via a call
         to :py:meth:`~pyxu.abc.solver.Solver.m_step`.
@@ -337,7 +343,7 @@ class Solver:
         """
         Perform one (mathematical) step.
 
-        This method must only manipulate ``Solver._mstate``.
+        This method must only manipulate :py:attr:`~pyxu.abc.solver.Solver._mstate`.
         """
         raise NotImplementedError
 
@@ -358,7 +364,7 @@ class Solver:
 
         Parameters
         ----------
-        n: int
+        n: Integer
             Maximum number of :py:func:`next` calls allowed before exhausting the generator.
             Defaults to infinity if unspecified.
 
@@ -377,15 +383,18 @@ class Solver:
                 self._cleanup_logger()
                 return
 
-    def stats(self):
+    _stats_data_spec = dict[str, typ.Union[pxt.Real, pxt.NDArray, None]]
+    _stats_history_spec = typ.Union[np.ndarray, None]
+
+    def stats(self) -> tuple[_stats_data_spec, _stats_history_spec]:
         """
         Query solver state.
 
         Returns
         -------
-        data: dict[str, Real | NDArray | None]
+        data: ~collections.abc.Mapping
             Value(s) of ``log_var`` (s) after last iteration.
-        history: np.ndarray | None
+        history: numpy.ndarray, :py:obj:`None`
             (N_iter,) records of stopping-criteria values per iteration.
 
         Notes
@@ -407,7 +416,7 @@ class Solver:
         """
         Returns
         -------
-        wd: pxt.Path
+        wd: Path
             Absolute path to the directory on disk where instance data is stored.
         """
         return self._astate["workdir"]
@@ -417,7 +426,7 @@ class Solver:
         """
         Returns
         -------
-        lf: pxt.Path
+        lf: Path
             Absolute path to the log file on disk where stopping criteria statistics are logged.
         """
         return self.workdir / "solver.log"
@@ -427,7 +436,7 @@ class Solver:
         """
         Returns
         -------
-        df: pxt.Path
+        df: Path
             Absolute path to the file on disk where ``log_var`` (s) are stored during checkpointing
             or after solver has stopped.
         """

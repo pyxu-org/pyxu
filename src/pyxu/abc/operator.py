@@ -81,9 +81,8 @@ class Operator:
 
     * enable operator arithmetic.
     * cast operators to specialized forms.
-    * attach tags encoding certain mathematical properties.
-      Each core sub-class MUST have a unique set of :py:class:`~pyxu.abc.operator.Property`-ies to
-      be distinguishable from its peers.
+    * attach :py:class:`~pyxu.abc.operator.Property` tags encoding certain mathematical properties.
+      Each core sub-class **must** have a unique set of properties to be distinguishable from its peers.
     """
 
     # For `(size-1 ndarray) * OpT` to work, we need to force NumPy's hand and call OpT.__rmul__() in
@@ -95,7 +94,7 @@ class Operator:
         r"""
         Parameters
         ----------
-        shape: pxt.OpShape
+        shape: OpShape
             (N, M) operator shape.
         """
         shape = pxu.as_canonical_shape(shape)
@@ -127,12 +126,12 @@ class Operator:
         return self.shape[0]
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         "Mathematical properties of the operator."
         return frozenset()
 
     @classmethod
-    def has(cls, prop: typ.Union[pxt.Property, cabc.Collection[pxt.Property]]) -> bool:
+    def has(cls, prop: typ.Union[Property, cabc.Collection[Property]]) -> bool:
         """
         Verify if operator possesses supplied properties.
         """
@@ -151,19 +150,21 @@ class Operator:
 
         Parameters
         ----------
-        cast_to: pxt.OpC
+        cast_to: OpC
             Target type for the recast.
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             Operator with the new interface.
-            Fails when cast is forbidden. (Ex: Map -> Func if codim > 1)
+
+            Fails when cast is forbidden.
+            (Ex: :py:class:`~pyxu.abc.operator.Map` -> :py:class:`~pyxu.abc.operator.Func` if codim > 1)
 
         Notes
         -----
         * The interface of `cast_to` is provided via encapsulation + forwarding.
-        * If ``self`` does not implement all methods from ``cast_to``, then unimplemented methods
+        * If ``self`` does not implement all methods from `cast_to`, then unimplemented methods
           will raise :py:class:`NotImplementedError` when called.
         """
         if cast_to not in _core_operators():
@@ -196,14 +197,14 @@ class Operator:
 
         Parameters
         ----------
-        self: pxt.OpT
+        self: OpT
             (A, B) Left operand.
-        other: pxt.OpT
+        other: OpT
             (C, D) Right operand.
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             Composite operator ``self + other``
 
         Notes
@@ -211,7 +212,6 @@ class Operator:
         Operand shapes must be `consistent`, i.e.:
 
             * have `identical shape`, or
-            * be domain-agnostic, or
             * be `range-broadcastable`, i.e. functional + map works.
 
         See Also
@@ -231,14 +231,14 @@ class Operator:
 
         Parameters
         ----------
-        self: pxt.OpT
+        self: OpT
             (A, B) Left operand.
-        other: pxt.OpT
+        other: OpT
             (C, D) Right operand.
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             Composite operator ``self - other``
         """
         import pyxu.abc.arithmetic as arithmetic
@@ -254,7 +254,7 @@ class Operator:
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             Composite operator ``-1 * self``.
         """
         import pyxu.abc.arithmetic as arithmetic
@@ -267,24 +267,21 @@ class Operator:
 
         Parameters
         ----------
-        self: pxt.OpT
+        self: OpT
             (A, B) Left operand.
-        other: pxt.Real | pxt.OpT
+        other: Real, OpT
             (1,) scalar, or
             (C, D) Right operand.
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             (A, B) scaled operator, or
             (A, D) composed operator ``self * other``.
 
         Notes
         -----
-        If called with two operators, their shapes must be `consistent`, i.e.:
-
-            * B == C, or
-            * B == None.
+        If called with two operators, their shapes must be `consistent`, i.e. B == C.
 
         See Also
         --------
@@ -322,12 +319,12 @@ class Operator:
 
         Parameters
         ----------
-        k: pxt.Integer
+        k: Integer
             Number of times the operator is composed with itself.
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             Exponentiated operator.
 
         Notes
@@ -359,11 +356,11 @@ class Operator:
 
         Parameters
         ----------
-        scalar: pxt.Real
+        scalar: Real
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             (N, M) domain-scaled operator.
 
         See Also
@@ -381,12 +378,12 @@ class Operator:
 
         Parameters
         ----------
-        shift: pxt.Real | pxt.NDArray
+        shift: Real, NDArray
             (M,) shift value
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             (N, M) domain-shifted operator.
 
         See Also
@@ -401,7 +398,7 @@ class Operator:
 
     # Internal Helpers --------------------------------------------------------
     @staticmethod
-    def _infer_operator_type(prop: cabc.Collection[pxt.Property]) -> pxt.OpC:
+    def _infer_operator_type(prop: cabc.Collection[Property]) -> pxt.OpC:
         prop = frozenset(prop)
         for op in _core_operators():
             if op.properties() == prop:
@@ -435,14 +432,14 @@ class Operator:
         return f"{klass}{self.shape}"
 
     def _expr(self) -> tuple:
-        """
+        r"""
         Show the expression-representation of the operator.
 
         If overridden, must return a tuple of the form
 
-            (head, *tail),
+            (head, \*tail),
 
-        where `head` is the operator (ex: +/*), and `tail` denotes all the expression's terms.
+        where `head` is the operator (ex: +/\*), and `tail` denotes all the expression's terms.
         If an operator cannot be expanded further, then this method should return (self,).
         """
         return (self,)
@@ -516,7 +513,7 @@ class Map(Operator):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set(super().properties())
         p.add(Property.CAN_EVAL)
         return frozenset(p)
@@ -531,18 +528,13 @@ class Map(Operator):
 
         Parameters
         ----------
-        arr: pxt.NDArray
+        arr: NDArray
             (..., M) input points.
 
         Returns
         -------
-        out: pxt.NDArray
+        out: NDArray
             (..., N) output points.
-
-
-        .. Important::
-
-           This method should abide by the rules described in :ref:`developer-notes`.
         """
         raise NotImplementedError
 
@@ -586,7 +578,7 @@ class Map(Operator):
              op.lipschitz = 2  # post-init specification
              op.lipschitz  # => 2
 
-        * :py:meth:`~pyxu.abc.operator.Map.lipschitz` **NEVER** computes anything:
+        * :py:meth:`~pyxu.abc.operator.Map.lipschitz` **never** computes anything:
           call :py:meth:`~pyxu.abc.operator.Map.estimate_lipschitz` manually to *compute* a new Lipschitz estimate:
 
           .. code-block:: python3
@@ -617,7 +609,7 @@ class Map(Operator):
 
         Parameters
         ----------
-        kwargs: cabc.Mapping
+        kwargs: ~collections.abc.Mapping
             Class-specific kwargs to configure Lipschitz estimation.
 
         Notes
@@ -657,7 +649,7 @@ class Func(Map):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set(super().properties())
         p.add(Property.FUNCTIONAL)
         return frozenset(p)
@@ -678,14 +670,14 @@ class Func(Map):
 
         Parameters
         ----------
-        data: pxt.NDArray
+        data: NDArray
             (M,) input.
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             (1, M) loss function.
-            If `data` is unspecified, returns `self`.
+            If `data` is unspecified, returns ``self``.
         """
         raise NotImplementedError
 
@@ -706,7 +698,7 @@ class DiffMap(Map):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set(super().properties())
         p.add(Property.DIFFERENTIABLE)
         return frozenset(p)
@@ -721,13 +713,13 @@ class DiffMap(Map):
 
         Parameters
         ----------
-        arr: pxt.NDArray
+        arr: NDArray
             (M,) evaluation point.
 
         Returns
         -------
-        op: pxt.OpT
-            (N, M) Jacobian operator at point ``arr``.
+        op: OpT
+            (N, M) Jacobian operator at point `arr`.
 
         Notes
         -----
@@ -793,7 +785,7 @@ class DiffMap(Map):
              op.diff_lipschitz = 2  # post-init specification
              op.diff_lipschitz  # => 2
 
-        * :py:meth:`~pyxu.abc.operator.DiffMap.diff_lipschitz` **NEVER** computes anything:
+        * :py:meth:`~pyxu.abc.operator.DiffMap.diff_lipschitz` **never** computes anything:
           call :py:meth:`~pyxu.abc.operator.DiffMap.estimate_diff_lipschitz` manually to *compute* a new diff-Lipschitz estimate:
 
           .. code-block:: python3
@@ -824,7 +816,7 @@ class DiffMap(Map):
 
         Parameters
         ----------
-        kwargs: cabc.Mapping
+        kwargs: ~collections.abc.Mapping
             Class-specific kwargs to configure diff-Lipschitz estimation.
 
         Notes
@@ -871,7 +863,7 @@ class ProxFunc(Func):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set(super().properties())
         p.add(Property.PROXIMABLE)
         return frozenset(p)
@@ -885,14 +877,14 @@ class ProxFunc(Func):
 
         Parameters
         ----------
-        arr: pxt.NDArray
+        arr: NDArray
             (..., M) input points.
-        tau: pxt.Real
+        tau: Real
             Positive scale factor.
 
         Returns
         -------
-        out: pxt.NDArray
+        out: NDArray
             (..., M) proximal evaluations.
 
         Notes
@@ -907,10 +899,6 @@ class ProxFunc(Func):
            \arg\min_{\mathbf{x}\in\mathbb{R}^{M}} f(x)+\frac{1}{2\tau} \|\mathbf{x}-\mathbf{z}\|_{2}^{2},
            \quad
            \forall \mathbf{z} \in \mathbb{R}^{M}.
-
-        .. Important::
-
-           This method should abide by the rules described in :ref:`developer-notes`.
         """
         raise NotImplementedError
 
@@ -921,9 +909,9 @@ class ProxFunc(Func):
 
         Parameters
         ----------
-        arr: pxt.NDArray
+        arr: NDArray
             (..., M) input points.
-        sigma: pxt.Real
+        sigma: Real
             Positive scale factor.
 
         Returns
@@ -941,7 +929,7 @@ class ProxFunc(Func):
            :=
            \max_{\mathbf{x}\in\mathbb{R}^{M}} \langle \mathbf{x},\mathbf{z} \rangle - f(\mathbf{x}).
 
-        From **Moreau's identity**, its proximal operator is given by:
+        From *Moreau's identity*, its proximal operator is given by:
 
         .. math::
 
@@ -961,12 +949,12 @@ class ProxFunc(Func):
 
         Parameters
         ----------
-        mu: pxt.Real
+        mu: Real
             Positive regularization parameter.
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             Differential Moreau envelope.
 
         Notes
@@ -1011,7 +999,7 @@ class ProxFunc(Func):
 
         Example
         -------
-        In the example below we construct and plot the Moreau envelope of the :math:`\ell_{1}`-norm:
+        Construct and plot the Moreau envelope of the :math:`\ell_{1}`-norm:
 
         .. plot::
 
@@ -1101,7 +1089,7 @@ class DiffFunc(DiffMap, Func):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set()
         for klass in cls.__bases__:
             p |= klass.properties()
@@ -1122,12 +1110,12 @@ class DiffFunc(DiffMap, Func):
 
         Parameters
         ----------
-        arr: pxt.NDArray
+        arr: NDArray
             (..., M) input points.
 
         Returns
         -------
-        out: pxt.NDArray
+        out: NDArray
             (..., M) gradients.
 
         Notes
@@ -1144,10 +1132,6 @@ class DiffFunc(DiffMap, Func):
            \vdots \\
            \frac{\partial f}{\partial x_{M}}(\mathbf{x})
            \end{array}\right].
-
-        .. Important::
-
-           This method should abide by the rules described in :ref:`developer-notes`.
         """
         raise NotImplementedError
 
@@ -1171,7 +1155,7 @@ class ProxDiffFunc(ProxFunc, DiffFunc):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set()
         for klass in cls.__bases__:
             p |= klass.properties()
@@ -1209,7 +1193,7 @@ class QuadraticFunc(ProxDiffFunc):
 
     .. math::
 
-       \nabla f(\mathbf{x}) = \mathbf{Q}\mathbf{x} + \mathbf{c}
+       \nabla f(\mathbf{x}) = \mathbf{Q}\mathbf{x} + \mathbf{c}.
 
     Its proximity operator by:
 
@@ -1231,7 +1215,7 @@ class QuadraticFunc(ProxDiffFunc):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set(super().properties())
         p.add(Property.QUADRATIC)
         return frozenset(p)
@@ -1247,11 +1231,11 @@ class QuadraticFunc(ProxDiffFunc):
         r"""
         Parameters
         ----------
-        Q: pxa.PosDefOp
+        Q: ~pyxu.abc.operator.PosDefOp
             (N, N) positive-definite operator. (Default: Identity)
-        c: pxa.LinFunc
+        c: ~pyxu.abc.operator.LinFunc
             (1, N) linear functional. (Default: NullFunc)
-        t: pxt.Real
+        t: Real
             offset. (Default: 0)
         """
         from pyxu.operator.linop import IdentityOp, NullFunc
@@ -1313,8 +1297,11 @@ class QuadraticFunc(ProxDiffFunc):
         return dL
 
     def _quad_spec(self):
-        # canonical quadratic parameterization.
-        # useful for some internal methods, and overloaded during operator arithmetic.
+        """
+        Canonical quadratic parameterization.
+
+        Useful for some internal methods, and overloaded during operator arithmetic.
+        """
         return (self._Q, self._c, self._t)
 
 
@@ -1347,7 +1334,7 @@ class LinOp(DiffMap):
     # -----------------------------------------------------
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set(super().properties())
         p.add(Property.LINEAR)
         return frozenset(p)
@@ -1362,12 +1349,12 @@ class LinOp(DiffMap):
 
         Parameters
         ----------
-        arr: pxt.NDArray
+        arr: NDArray
             (..., N) input points.
 
         Returns
         -------
-        out: pxt.NDArray
+        out: NDArray
             (..., M) adjoint evaluations.
 
         Notes
@@ -1382,10 +1369,6 @@ class LinOp(DiffMap):
            \langle \mathbf{A}\mathbf{x}, \mathbf{y}\rangle_{\mathbb{R}^{N}},
            \qquad
            \forall (\mathbf{x},\mathbf{y})\in \mathbb{R}^{M} \times \mathbb{R}^{N}.
-
-        .. Important::
-
-           This method should abide by the rules described in :ref:`developer-notes`.
         """
         raise NotImplementedError
 
@@ -1407,20 +1390,20 @@ class LinOp(DiffMap):
         gpu: bool = False,
     ) -> spsl.LinearOperator:
         r"""
-        Cast a :py:class:`~pyxu.abc.operator.LinOp` to a
-        :py:class:`scipy.sparse.linalg.LinearOperator`, compatible with the matrix-free linear
-        algebra routines of `scipy.sparse.linalg <https://docs.scipy.org/doc/scipy/reference/sparse.linalg.html>`_.
+        Cast a :py:class:`~pyxu.abc.operator.LinOp` to a CPU/GPU
+        :py:class:`~scipy.sparse.linalg.LinearOperator`, compatible with the matrix-free linear
+        algebra routines of :py:mod:`scipy.sparse.linalg`.
 
         Parameters
         ----------
-        dtype: pxt.DType
+        dtype: DType
             Working precision of the linear operator.
         gpu: bool
             Operate on CuPy inputs (True) vs. NumPy inputs (False).
 
         Returns
         -------
-        op: [cupyx.]scipy.sparse.linalg.LinearOperator
+        op: ~scipy.sparse.linalg.LinearOperator
             Linear operator object compliant with SciPy's interface.
         """
 
@@ -1455,9 +1438,11 @@ class LinOp(DiffMap):
 
         Parameters
         ----------
-        method: svd | trace
-            If `svd`, compute the optimal Lipschitz constant.
-            If `trace`, compute an upper bound. (Default)
+        method: "svd" | "trace"
+
+            * If `svd`, compute the optimal Lipschitz constant.
+            * If `trace`, compute an upper bound. (Default)
+
         kwargs:
             Optional kwargs passed on to:
 
@@ -1529,21 +1514,21 @@ class LinOp(DiffMap):
 
         Parameters
         ----------
-        k: pxt.Integer
+        k: Integer
             Number of singular values to compute.
-        which: LM | SM
+        which: "LM" | "SM"
             Which `k` singular values to find:
 
                 * `LM`: largest magnitude
                 * `SM`: smallest magnitude
         gpu: bool
             If ``True`` the singular value decomposition is performed on the GPU.
-        kwargs: cabc.Mapping
-            Additional kwargs accepted by :py:func:`scipy.sparse.linalg.svds`.
+        kwargs: ~collections.abc.Mapping
+            Additional kwargs accepted by :py:func:`~scipy.sparse.linalg.svds`.
 
         Returns
         -------
-        D: pxt.NDArray
+        D: NDArray
             (k,) singular values in ascending order.
         """
         which = which.upper().strip()
@@ -1598,9 +1583,9 @@ class LinOp(DiffMap):
 
         Parameters
         ----------
-        xp: pxt.ArrayModule
+        xp: ArrayModule
             Which array module to use to represent the output. (Default: NumPy.)
-        dtype: pxt.DType
+        dtype: DType
             Precision of the array. (Default: current runtime precision.)
 
         Returns
@@ -1631,11 +1616,11 @@ class LinOp(DiffMap):
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             (M, M) Gram operator.
 
-        Notes
-        -----
+        Note
+        ----
         By default the Gram is computed by the composition ``self.T * self``.
         This may not be the fastest way to compute the Gram operator.
         If the Gram can be computed more efficiently (e.g. with a convolution), the user should re-define this method.
@@ -1654,11 +1639,11 @@ class LinOp(DiffMap):
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             (N, N) Co-Gram operator.
 
-        Notes
-        -----
+        Note
+        ----
         By default the co-Gram is computed by the composition ``self * self.T``.
         This may not be the fastest way to compute the co-Gram operator.
         If the co-Gram can be computed more efficiently (e.g. with a convolution), the user should re-define this method.
@@ -1684,18 +1669,18 @@ class LinOp(DiffMap):
 
         Parameters
         ----------
-        arr: pxt.NDArray
+        arr: NDArray
             (..., N) input points.
-        damp: pxt.Real
+        damp: Real
             Positive dampening factor regularizing the pseudo-inverse.
-        kwargs_init: cabc.Mapping
-            Optional kwargs to be passed to :py:meth:`pyxu.opt.solver.cg.CG.__init__`.
-        kwargs_fit: cabc.Mapping
-            Optional kwargs to be passed to :py:meth:`pyxu.opt.solver.cg.CG.fit`.
+        kwargs_init: ~collections.abc.Mapping
+            Optional kwargs to be passed to :py:meth:`~pyxu.opt.solver.cg.CG`'s ``__init__()`` method.
+        kwargs_fit: ~collections.abc.Mapping
+            Optional kwargs to be passed to :py:meth:`~pyxu.opt.solver.cg.CG`'s ``fit()`` method.
 
         Returns
         -------
-        out: pxt.NDArray
+        out: NDArray
             (..., M) pseudo-inverse(s).
 
         Notes
@@ -1766,16 +1751,16 @@ class LinOp(DiffMap):
 
         Parameters
         ----------
-        damp: pxt.Real
+        damp: Real
             Positive dampening factor regularizing the pseudo-inverse.
-        kwargs_init: cabc.Mapping
-            Optional kwargs to be passed to :py:meth:`pyxu.opt.solver.cg.CG.__init__`.
-        kwargs_fit: cabc.Mapping
-            Optional kwargs to be passed to :py:meth:`pyxu.opt.solver.cg.CG.fit`.
+        kwargs_init: ~collections.abc.Mapping
+            Optional kwargs to be passed to :py:meth:`~pyxu.opt.solver.cg.CG`'s ``__init__()`` method.
+        kwargs_fit: ~collections.abc.Mapping
+            Optional kwargs to be passed to :py:meth:`~pyxu.opt.solver.cg.CG`'s ``fit()`` method.
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             (M, N) Moore-Penrose pseudo-inverse operator.
         """
         from pyxu.operator.interop.source import from_source
@@ -1825,14 +1810,14 @@ class LinOp(DiffMap):
 
         Parameters
         ----------
-        A: pxt.NDArray
+        A: NDArray
             (N, M) array
         enable_warnings: bool
             If ``True``, emit a warning in case of precision mis-match issues.
 
         Returns
         -------
-        op: pxt.OpT
+        op: OpT
             (N, M) linear operator
         """
         from pyxu.operator.linop.base import _ExplicitLinOp
@@ -1846,7 +1831,7 @@ class SquareOp(LinOp):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set(super().properties())
         p.add(Property.LINEAR_SQUARE)
         return frozenset(p)
@@ -1862,10 +1847,12 @@ class SquareOp(LinOp):
 
         Parameters
         ----------
-        method: explicit | hutchpp
-            If `explicit`, compute the exact trace.
-            If `hutchpp`, compute an approximation.
-        kwargs: cabc.Mapping
+        method: "explicit" | "hutchpp"
+
+            * If `explicit`, compute the exact trace.
+            * If `hutchpp`, compute an approximation.
+
+        kwargs: ~collections.abc.Mapping
             Optional kwargs passed to:
 
             * `explicit`: :py:func:`~pyxu.math.linalg.trace`
@@ -1873,7 +1860,7 @@ class SquareOp(LinOp):
 
         Returns
         -------
-        tr: pxt.Real
+        tr: Real
             Trace estimate.
         """
         from pyxu.math.linalg import hutchpp, trace
@@ -1906,11 +1893,12 @@ class NormalOp(SquareOp):
     Normal operators commute with their adjoint, i.e.
     :math:`\mathbf{A} \mathbf{A}^{\ast} = \mathbf{A}^{\ast} \mathbf{A}`.
     It is `possible to show <https://www.wikiwand.com/en/Spectral_theorem#/Normal_matrices>`_ that
-    an operator is normal iff it is *unitarily diagonalizable*, i.e. :math:`\mathbf{A} = U D U^{\ast}`.
+    an operator is normal iff it is *unitarily diagonalizable*, i.e.
+    :math:`\mathbf{A} = \mathbf{U} \mathbf{D} \mathbf{U}^{\ast}`.
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set(super().properties())
         p.add(Property.LINEAR_NORMAL)
         return frozenset(p)
@@ -1926,7 +1914,7 @@ class SelfAdjointOp(NormalOp):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set(super().properties())
         p.add(Property.LINEAR_SELF_ADJOINT)
         return frozenset(p)
@@ -1942,7 +1930,7 @@ class UnitOp(NormalOp):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set(super().properties())
         p.add(Property.LINEAR_UNITARY)
         return frozenset(p)
@@ -1989,7 +1977,7 @@ class ProjOp(SquareOp):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set(super().properties())
         p.add(Property.LINEAR_IDEMPOTENT)
         return frozenset(p)
@@ -2004,7 +1992,7 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set()
         for klass in cls.__bases__:
             p |= klass.properties()
@@ -2042,7 +2030,7 @@ class PosDefOp(SelfAdjointOp):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set(super().properties())
         p.add(Property.LINEAR_POSITIVE_DEFINITE)
         return frozenset(p)
@@ -2061,7 +2049,7 @@ class LinFunc(ProxDiffFunc, LinOp):
     """
 
     @classmethod
-    def properties(cls) -> cabc.Set[pxt.Property]:
+    def properties(cls) -> cabc.Set[Property]:
         p = set()
         for klass in cls.__bases__:
             p |= klass.properties()
