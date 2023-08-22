@@ -426,6 +426,11 @@ def _ExplicitLinOp(
     def op_adjoint(_, arr: pxt.NDArray) -> pxt.NDArray:
         return _matmat(_.mat.T, arr, warn=_._enable_warnings)
 
+    def op_estimate_lipscthitz(_, **kwargs) -> pxt.Real:
+        xp = pxu.get_array_module(_.mat)
+        kwargs.update(xp=xp)
+        return _.estimate_lipschitz(**kwargs)
+
     def op_asarray(_, **kwargs) -> pxt.NDArray:
         N = pxd.NDArrayInfo
         S = pxd.SparseArrayInfo
@@ -490,5 +495,6 @@ def _ExplicitLinOp(
         adjoint=op_adjoint,
         asarray=op_asarray,
         trace=op_trace,
+        estimate_lipschitz=op_estimate_lipscthitz,
     )
     return op
