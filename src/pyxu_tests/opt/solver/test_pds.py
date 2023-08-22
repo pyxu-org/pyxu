@@ -32,14 +32,14 @@ def generate_funcs_K(descr, N_term) -> cabc.Sequence[tuple[pxt.OpT]]:
 
     def chain(x, y):
         comp = x * y
-        comp.diff_lipschitz()
+        comp.diff_lipschitz = comp.estimate_diff_lipschitz()
         return comp
 
     stream = []
     for d in itertools.permutations(descr, N_term - 1):
         to_sum = list(set(descr) - set(d))
         p = functools.reduce(operator.add, [chain(*dd) for dd in to_sum])
-        p.diff_lipschitz()
+        p.diff_lipschitz = p.estimate_diff_lipschitz()
         stream.append([*d, p])  # The last subset is a func while the others are (func, op) tuples
 
     stream_K = []
@@ -236,7 +236,7 @@ class TestADMM(MixinPDS):
 
         def chain(x, y):
             comp = x * y
-            comp.diff_lipschitz()
+            comp.diff_lipschitz = comp.estimate_diff_lipschitz()
             return comp
 
         f = chain(*funcs.pop(2))  # f is a LinFunc (and not a QuadraticFunc) -> avoids CG scenario

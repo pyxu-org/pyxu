@@ -138,7 +138,7 @@ class _PrimalDualSplitting(pxa.Solver):
             Lipschitz constant.
         """
         if beta is None:
-            if math.isfinite(dl := self._f.diff_lipschitz()):
+            if math.isfinite(dl := self._f.diff_lipschitz):
                 return pxrt.coerce(dl)
             else:
                 msg = "beta: automatic inference not supported for operators with unbounded Lipschitz gradients."
@@ -373,7 +373,7 @@ class CondatVu(_PrimalDualSplitting):
        >>> D = FirstDerivative(size=x.size, kind="forward")
        >>> D.lipschitz(tol=1e-3)
        >>> downsampling = DownSampling(size=x.size, downsampling_factor=3)
-       >>> downsampling.lipschitz()
+       >>> downsampling.estimate_lipschitz()
        >>> y = downsampling(x)
        >>> l22_loss = (1 / 2) * SquaredL2Norm(y.size).argshift(-y)
        >>> fidelity = l22_loss * downsampling
@@ -446,20 +446,20 @@ class CondatVu(_PrimalDualSplitting):
                 assert tau <= 1 / gamma, f"Parameter tau must be smaller than 1/gamma: {tau} > {1 / gamma}."
                 sigma = 0
             else:
-                if math.isfinite(self._K._lipschitz):
-                    sigma = ((1 / tau) - gamma) * (1 / self._K._lipschitz**2)
+                if math.isfinite(self._K.lipschitz):
+                    sigma = ((1 / tau) - gamma) * (1 / self._K.lipschitz**2)
                 else:
-                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
+                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
                     raise ValueError(msg)
         elif (tau is None) and (sigma is not None):
             assert sigma > 0
             if self._h._name == "NullFunc":
                 tau = 1 / gamma
             else:
-                if math.isfinite(self._K._lipschitz):
-                    tau = 1 / (gamma + (sigma * self._K._lipschitz**2))
+                if math.isfinite(self._K.lipschitz):
+                    tau = 1 / (gamma + (sigma * self._K.lipschitz**2))
                 else:
-                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
+                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
                     raise ValueError(msg)
         elif (tau is None) and (sigma is None):
             if self._beta > 0:
@@ -467,22 +467,22 @@ class CondatVu(_PrimalDualSplitting):
                     tau = 1 / gamma
                     sigma = 0
                 else:
-                    if math.isfinite(self._K._lipschitz):
-                        tau = sigma = (1 / (self._K._lipschitz) ** 2) * (
-                            (-gamma / 2) + math.sqrt((gamma**2 / 4) + self._K._lipschitz**2)
+                    if math.isfinite(self._K.lipschitz):
+                        tau = sigma = (1 / (self._K.lipschitz) ** 2) * (
+                            (-gamma / 2) + math.sqrt((gamma**2 / 4) + self._K.lipschitz**2)
                         )
                     else:
-                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
+                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
                         raise ValueError(msg)
             else:
                 if self._h._name == "NullFunc":
                     tau = 1
                     sigma = 0
                 else:
-                    if math.isfinite(self._K._lipschitz):
-                        tau = sigma = 1 / self._K._lipschitz
+                    if math.isfinite(self._K.lipschitz):
+                        tau = sigma = 1 / self._K.lipschitz
                     else:
-                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
+                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
                         raise ValueError(msg)
         delta = (
             2
@@ -653,9 +653,9 @@ class PD3O(_PrimalDualSplitting):
 
        >>> x = np.repeat(np.asarray([0, 2, 1, 3, 0, 2, 0]), 10)
        >>> D = FirstDerivative(size=x.size, kind="forward")
-       >>> D.lipschitz(tol=1e-3)
+       >>> D.estimate_lipschitz(tol=1e-3)
        >>> downsampling = DownSampling(size=x.size, downsampling_factor=3)
-       >>> downsampling.lipschitz()
+       >>> downsampling.estimate_lipschitz()
        >>> y = downsampling(x)
        >>> l22_loss = (1 / 2) * SquaredL2Norm(dim=y.size).argshift(-y)
        >>> fidelity = l22_loss * downsampling
@@ -738,20 +738,20 @@ class PD3O(_PrimalDualSplitting):
             if self._h._name == "NullFunc":
                 sigma = 0
             else:
-                if math.isfinite(self._K._lipschitz):
-                    sigma = 1 / (tau * self._K._lipschitz**2)
+                if math.isfinite(self._K.lipschitz):
+                    sigma = 1 / (tau * self._K.lipschitz**2)
                 else:
-                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
+                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
                     raise ValueError(msg)
         elif (tau is None) and (sigma is not None):
             assert sigma > 0, f"sigma must be positive, got {sigma}."
             if self._h._name == "NullFunc":
                 tau = 1 / gamma
             else:
-                if math.isfinite(self._K._lipschitz):
-                    tau = min(1 / (sigma * self._K._lipschitz**2), 1 / gamma)
+                if math.isfinite(self._K.lipschitz):
+                    tau = min(1 / (sigma * self._K.lipschitz**2), 1 / gamma)
                 else:
-                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
+                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
                     raise ValueError(msg)
         elif (tau is None) and (sigma is None):
             if self._beta > 0:
@@ -759,20 +759,20 @@ class PD3O(_PrimalDualSplitting):
                     tau = 1 / gamma
                     sigma = 0
                 else:
-                    if math.isfinite(self._K._lipschitz):
+                    if math.isfinite(self._K.lipschitz):
                         tau, sigma = self._optimize_step_sizes(gamma)
                     else:
-                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
+                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
                         raise ValueError(msg)
             else:
                 if self._h._name == "NullFunc":
                     tau = 1
                     sigma = 0
                 else:
-                    if math.isfinite(self._K._lipschitz):
-                        tau = sigma = 1 / self._K._lipschitz
+                    if math.isfinite(self._K.lipschitz):
+                        tau = sigma = 1 / self._K.lipschitz
                     else:
-                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'lipschitz()'"
+                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
                         raise ValueError(msg)
         delta = 2 if self._beta == 0 else 2 - self._beta * tau / 2
         return pxrt.coerce(tau), pxrt.coerce(sigma), pxrt.coerce(delta)
@@ -797,7 +797,7 @@ class PD3O(_PrimalDualSplitting):
 
         c = np.array([-1, -1])
         A_ub = np.array([[1, 1], [1, 0]])
-        b_ub = np.array([np.log(0.99) - 2 * np.log(self._K._lipschitz), np.log(1 / gamma)])
+        b_ub = np.array([np.log(0.99) - 2 * np.log(self._K.lipschitz), np.log(1 / gamma)])
         A_eq = np.array([[1, -1]])
         b_eq = np.array([0])
         result = linprog(c=c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=(None, None))
@@ -1365,7 +1365,7 @@ class ADMM(_PDS):
             subsamp_mat[i, x_samp[i]] = 1
         G = pxa.LinOp.from_array(subsamp_mat)
         f = 1 / 2 * pxo.SquaredL2Norm(dim=y.size).argshift(-y) * G
-        f.diff_lipschitz()
+        f.estimate_diff_lipschitz()
 
         # Regularization term (promotes sparse second derivatives)
         deriv_mat = sp.sparse.diags(diagonals=[1, -2, 1], offsets=[0, 1, 2], shape=(N - 2, N))
