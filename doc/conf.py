@@ -107,6 +107,11 @@ extensions = [
     # "notfound.extension",
 ]
 
+nitpicky = False
+add_module_names = False
+maximum_signature_line_length = 72
+
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
@@ -114,6 +119,9 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
+
+# -- Options for Python domain -----------------------------------------------
+python_display_short_literal_types = True
 
 # -- autosummary -------------------------------------------------------------
 
@@ -146,14 +154,36 @@ codeautolink_concat_default = True
 
 # Plot options
 plot_include_source = True
+plot_html_show_source_link = True
 # plot_formats = [("png", 90)]
 
 # copybutton config: strip console characters
 copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
 copybutton_prompt_is_regexp = True
 
+
+# -- Options for autodoc extension -------------------------------------------
+autodoc_default_options = {
+    "members": None,
+    "member-order": "bysource",
+    "undoc-members": None,
+    # "private-members": None,
+    # "special-members": None,
+    # "inherited-members": None,
+    "show-inheritance": None,
+    "imported-members": None,
+    # "exclude-members": "__module__,",
+    # "class-doc-from": None,
+    # "no-value": None,
+}
+autodoc_typehints = "description"
+autodoc_type_aliases = {}  # works only if `__futures__.annotations` imported
+autodoc_typehints_format = "short"
+autodoc_inherit_docstrings = True
+
+
 # numpydoc configuration
-autodoc_typehints = "none"
+
 numpydoc_xref_param_type = True
 numpydoc_xref_ignore = {
     "of",
@@ -176,6 +206,24 @@ numpydoc_xref_aliases = {
 # -- Options for napoleon extension ------------------------------------------
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = True
+napoleon_preprocess_types = True
+napoleon_type_aliases = {
+    # Docstrings reference annotations from pyxu.info via short-hands to improve legibility.
+    # All shorthands here must be kept in sync manually with pyxu.info sub-modules.
+    "NDArrayInfo": "~pyxu.info.deps.NDArrayInfo",
+    "NDArrayShape": "~pyxu.info.ptype.NDArrayShape",
+    "NDArray": "~pyxu.info.ptype.NDArray",
+    "ArrayModule": "~pyxu.info.ptype.ArrayModule",
+    "OpShape": "~pyxu.info.ptype.OpShape",
+    "OpT": "~pyxu.info.ptype.OpT",
+    "OpC": "~pyxu.info.ptype.OpC",
+    "Integer": "~pyxu.info.ptype.Integer",
+    "Real": "~pyxu.info.ptype.Real",
+    "DType": "~pyxu.info.ptype.DType",
+    "Path": "~pyxu.info.ptype.Path",
+    "VarName": "~pyxu.info.ptype.VarName",
+}
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -299,21 +347,21 @@ html_css_files = ["css/custom.css"]
 
 # Example configuration for intersphinx
 intersphinx_mapping = {
-    "xarray": ("https://docs.xarray.dev/en/stable/", None),
-    "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
     "mpl": ("https://matplotlib.org/stable", None),
-    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     "zarr": ("https://zarr.readthedocs.io/en/stable/", None),
-    "numpy": ("https://numpy.org/doc/stable/", None),
-    "dask": ("https://docs.dask.org/en/latest/", None),
     "cupy": ("https://docs.cupy.dev/en/latest/", None),
     "numba": ("https://numba.readthedocs.io/en/latest/", None),
-    "sparse": ("https://sparse.pydata.org/en/latest/", None),
     "torch": ("https://pytorch.org/docs/stable/", None),
     "jax": ("https://jax.readthedocs.io/en/latest/", None),
     "skimage": ("https://scikit-image.org/docs/stable/", None),
     "finufft": ("https://finufft.readthedocs.io/en/latest/", None),
     "sphinx-primer": ("https://sphinx-primer.readthedocs.io/en/latest/", None),
     "sphinx": ("https://www.sphinx-doc.org/en/master/", None),
-    "python": ("https://docs.python.org/3/", None),
+    "python": ("https://docs.python.org/3", None),
+    "NumPy [stable]": ("https://numpy.org/doc/stable/", None),
+    "SciPy [latest]": ("https://docs.scipy.org/doc/scipy/", None),
+    "Dask [stable]": ("https://docs.dask.org/en/stable/", None),
+    "Sparse [latest]": ("https://sparse.pydata.org/en/latest/", None),
+    "Pytest [latest]": ("https://docs.pytest.org/en/latest/", None),
+    "Matplotlib [stable]": ("https://matplotlib.org/stable/", None),
 }
