@@ -1181,7 +1181,7 @@ class DavisYin(PD3O):
 
     def __init__(
         self,
-        f: typ.Optional[pxa.DiffFunc] = None,
+        f: typ.Optional[pxa.DiffFunc],
         g: typ.Optional[pxa.ProxFunc] = None,
         h: typ.Optional[pxa.ProxFunc] = None,
         beta: typ.Optional[pxt.Real] = None,
