@@ -1282,7 +1282,12 @@ class QuadraticFunc(ProxDiffFunc):
         b -= c.grad(arr)
 
         slvr = CG(A=A, show_progress=False)
-        slvr.fit(b=b)
+
+        from pyxu.opt.stop import MaxIter
+        sentinel = MaxIter(n=2 * A.dim)
+        stop_crit = slvr.default_stop_crit() | sentinel
+
+        slvr.fit(b=b, stop_crit=stop_crit)
         return slvr.solution()
 
     def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
