@@ -107,18 +107,14 @@ def asarray(tensor: TorchTensor) -> pxt.NDArray:
 
 
 class _FromTorch(pxsrc._FromSource):
-    # supported attributes/methods in __init__(**kwargs)
-    _attr = frozenset({"_lipschitz", "_diff_lipschitz"})
+    # supported methods in __init__(**kwargs)
     _meth = frozenset({"apply", "grad", "prox", "pinv", "adjoint"})
 
-    @pxrt.enforce_precision(i=["lipschitz", "diff_lipschitz"], o=False)
     def __init__(  # See from_torch() for a detailed description.
         self,
         apply: typ.Callable,
         shape: pxt.OpShape,
         cls: pxt.OpC = pxo.Map,
-        lipschitz: pxt.Real = np.inf,
-        diff_lipschitz: pxt.Real = np.inf,
         vectorize: frozenset[str] = frozenset(),
         batch_size: typ.Optional[int] = None,
         jit: bool = False,  # Unused for now
@@ -135,8 +131,6 @@ class _FromTorch(pxsrc._FromSource):
             vectorize=vectorize,
             vmethod=None,  # pyxu.util.vectorize() not used for torch-funcs
             apply=apply,
-            _lipschitz=lipschitz,
-            _diff_lipschitz=diff_lipschitz,
             enforce_precision=frozenset(),  # will be applied manually
             **kwargs,
         )
@@ -148,10 +142,10 @@ class _FromTorch(pxsrc._FromSource):
         self._name = name
         self._meta = meta
 
-        # Only a subset of arithmetic attributes/methods allowed from from_torch().
-        if not (set(self._kwargs) <= self._attr | self._meth):
-            msg_head = "Unsupported arithmetic attributes/methods:"
-            unsupported = set(self._kwargs) - (self._attr | self._meth)
+        # Only a subset of arithmetic methods allowed from from_torch().
+        if not (set(self._kwargs) <= self._meth):
+            msg_head = "Unsupported arithmetic methods:"
+            unsupported = set(self._kwargs) - self._meth
             msg_tail = ", ".join([f"{name}()" for name in unsupported])
             raise ValueError(f"{msg_head} {msg_tail}")
 
@@ -292,11 +286,8 @@ class _FromTorch(pxsrc._FromSource):
 
         kwargs = dict()
         for name, obj in self._kwargs.items():
-            if name in self._attr:
-                kwargs[name] = obj
-            else:
-                func = getattr(self.__class__, name)
-                kwargs[name] = func  # necessarily a pyxu_func
+            func = getattr(self.__class__, name)
+            kwargs[name] = func  # necessarily a pyxu_func
 
         # Special cases.
         # (Reason: not in `_kwargs` [c.f. from_torch() docstring], but need to be inferred.)
@@ -381,7 +372,6 @@ class _FromTorch(pxsrc._FromSource):
                 apply=jf_apply,
                 shape=self.shape,
                 cls=klass,
-                lipschitz=self._diff_lipschitz,
                 vectorize=("apply", "adjoint"),
                 batch_size=self._batch_size,
                 jit=self._jit,
@@ -415,7 +405,6 @@ class _FromTorch(pxsrc._FromSource):
                 apply=Q_apply,
                 shape=(self.dim, self.dim),
                 cls=pxo.PosDefOp,
-                lipschitz=self._diff_lipschitz,
                 vectorize="apply",
                 batch_size=self._batch_size,
                 jit=self._jit,
@@ -491,8 +480,6 @@ def from_torch(
     apply: typ.Callable,
     shape: pxt.OpShape,
     cls: pxt.OpC = pxo.Map,
-    lipschitz: pxt.Real = np.inf,
-    diff_lipschitz: pxt.Real = np.inf,
     vectorize: pxt.VarName = frozenset(),
     batch_size: typ.Optional[int] = None,
     jit: bool = False,
@@ -514,10 +501,6 @@ def from_torch(
         (N,M) shape of the operator, where N and M are the sizes of the output and input Tensors of ``apply`` respectively.
     cls: pxt.OpT
         Pyxu abstract base class to instantiate from.
-    lipschitz: float
-        Lipschitz constant of the operator (if known).
-    diff_lipschitz: float
-        Diff-Lipschitz constant of the operator (if known).
     vectorize: pxt.VarName
         Arithmetic methods to vectorize.
 
@@ -548,7 +531,7 @@ def from_torch(
 
           grad(), prox(), pinv(), adjoint()  # methods
 
-        Omitted arithmetic attributes/methods default to those provided by `cls`, or are
+        Omitted arithmetic methods default to those provided by `cls`, or are
         auto-inferred via auto-diff rules.
 
     Returns
@@ -612,8 +595,6 @@ def from_torch(
         apply=apply,
         shape=shape,
         cls=cls,
-        lipschitz=lipschitz,
-        diff_lipschitz=diff_lipschitz,
         vectorize=vectorize,
         batch_size=batch_size,
         jit=jit,
