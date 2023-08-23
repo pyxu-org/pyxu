@@ -11,3 +11,4 @@ Welcome to Pyxu's documentation!
    :caption: Contents:
 
    api-reference
+   references
