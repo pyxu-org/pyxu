@@ -1440,6 +1440,10 @@ class ADMM(_PDS):
       --
       Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
 
+    Warning
+    -------
+    ``tuning_strategy`` docstring says to look at base class for details, but nothing mentioned there!
+
     Example
     -------
     Consider the following optimization problem:
