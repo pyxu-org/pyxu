@@ -27,6 +27,7 @@ class _PrimalDualSplitting(pxa.Solver):
     r"""
     Base class for Primal-Dual Splitting (PDS) solvers.
     """
+    TuningSpec = typ.Literal[1, 2, 3]  #: valid tuning_parameter values
 
     def __init__(
         self,
@@ -76,7 +77,7 @@ class _PrimalDualSplitting(pxa.Solver):
                 raise ValueError("Optional argument ``h`` mut be specified if ``K`` is not None.")
         self._objective_func = self._f + self._g + (self._h * self._K)
 
-    @pxrt.enforce_precision(i=["x0", "z0", "tau", "sigma", "rho"], allow_None=True)
+    @pxrt.enforce_precision(i=("x0", "z0", "tau", "sigma", "rho"), allow_None=True)
     def m_init(
         self,
         x0: pxt.NDArray,
@@ -84,12 +85,12 @@ class _PrimalDualSplitting(pxa.Solver):
         tau: typ.Optional[pxt.Real] = None,
         sigma: typ.Optional[pxt.Real] = None,
         rho: typ.Optional[pxt.Real] = None,
-        tuning_strategy: typ.Literal[1, 2, 3] = 1,
+        tuning_strategy: TuningSpec = 1,
     ):
         mst = self._mstate  # shorthand
         mst["x"] = x0
         mst["z"] = self._set_dual_variable(z0)
-        self._tuning_strategy = tuning_strategy
+        self._tuning_strategy = int(tuning_strategy)
         gamma = self._set_gamma(tuning_strategy)
         mst["tau"], mst["sigma"], delta = self._set_step_sizes(tau, sigma, gamma)
         mst["rho"] = self._set_momentum_term(rho, delta)
@@ -127,7 +128,7 @@ class _PrimalDualSplitting(pxa.Solver):
     def objective_func(self) -> pxt.NDArray:
         return self._objective_func(self._mstate["x"])
 
-    @pxrt.enforce_precision(i=["beta"], allow_None=True)
+    @pxrt.enforce_precision(i="beta", allow_None=True)
     def _set_beta(self, beta: typ.Optional[pxt.Real]) -> pxt.Real:
         r"""
         Sets the Lipschitz constant.
@@ -179,7 +180,11 @@ class _PrimalDualSplitting(pxa.Solver):
     ) -> tuple[pxt.Real, pxt.Real, pxt.Real]:
         raise NotImplementedError
 
-    def _set_momentum_term(self, rho: typ.Optional[pxt.Real], delta: pxt.Real) -> pxt.Real:
+    def _set_momentum_term(
+        self,
+        rho: typ.Optional[pxt.Real],
+        delta: pxt.Real,
+    ) -> pxt.Real:
         r"""
         Sets the momentum term according to Theorem 8.2 in [PSA]_.
 
@@ -190,7 +195,7 @@ class _PrimalDualSplitting(pxa.Solver):
 
         Notes
         -----
-        The :math:`O(1/\sqrt(k))` objective functional convergence rate of (Theorem 1 of [dPSA]_) is  for `\rho=1`.
+        The :math:`O(1/\sqrt(k))` objective functional convergence rate of (Theorem 1 of [dPSA]_) is for `\rho=1`.
         """
         if rho is None:
             rho = 1.0 if self._tuning_strategy != 3 else delta - 0.1
@@ -199,7 +204,7 @@ class _PrimalDualSplitting(pxa.Solver):
         return pxrt.coerce(rho)
 
 
-_PDS = _PrimalDualSplitting
+_PDS = _PrimalDualSplitting  #: shorthand
 
 
 class CondatVu(_PrimalDualSplitting):
@@ -429,7 +434,10 @@ class CondatVu(_PrimalDualSplitting):
         )
         if not self._h._name == "NullFunc":
             u = 2 * x_temp - mst["x"]
-            z_temp = self._h.fenchel_prox(mst["z"] + mst["sigma"] * self._K(u), sigma=mst["sigma"])
+            z_temp = self._h.fenchel_prox(
+                mst["z"] + mst["sigma"] * self._K(u),
+                sigma=mst["sigma"],
+            )
             mst["z"] = mst["rho"] * z_temp + (1 - mst["rho"]) * mst["z"]
         mst["x"] = mst["rho"] * x_temp + (1 - mst["rho"]) * mst["x"]
 
@@ -709,7 +717,7 @@ class PD3O(_PrimalDualSplitting):
        plt.show()
     """
 
-    @pxrt.enforce_precision(i=["x0", "z0", "tau", "sigma", "rho"], allow_None=True)
+    @pxrt.enforce_precision(i=("x0", "z0", "tau", "sigma", "rho"), allow_None=True)
     def m_init(
         self,
         x0: pxt.NDArray,
@@ -717,9 +725,16 @@ class PD3O(_PrimalDualSplitting):
         tau: typ.Optional[pxt.Real] = None,
         sigma: typ.Optional[pxt.Real] = None,
         rho: typ.Optional[pxt.Real] = None,
-        tuning_strategy: typ.Literal[1, 2, 3] = 1,
+        tuning_strategy: _PDS.TuningSpec = 1,
     ):
-        super().m_init(x0=x0, z0=z0, tau=tau, sigma=sigma, rho=rho, tuning_strategy=tuning_strategy)
+        super().m_init(
+            x0=x0,
+            z0=z0,
+            tau=tau,
+            sigma=sigma,
+            rho=rho,
+            tuning_strategy=tuning_strategy,
+        )
 
         # if x0 == u0 the first step wouldn't change x and the solver would stop at the first iteration
         if self._g._name == self._h._name == "NullFunc":
@@ -730,11 +745,15 @@ class PD3O(_PrimalDualSplitting):
     def m_step(self):
         # Slightly more efficient rewriting of iterations (216) of [PSA] with M=1. Faster than (185) since only one call to the adjoint and the gradient per iteration.
         mst = self._mstate
-        mst["x"] = self._g.prox(mst["u"] - mst["tau"] * self._K.jacobian(mst["u"]).adjoint(mst["z"]), tau=mst["tau"])
+        mst["x"] = self._g.prox(
+            mst["u"] - mst["tau"] * self._K.jacobian(mst["u"]).adjoint(mst["z"]),
+            tau=mst["tau"],
+        )
         u_temp = mst["x"] - mst["tau"] * self._f.grad(mst["x"])
         if not self._h._name == "NullFunc":
             z_temp = self._h.fenchel_prox(
-                mst["z"] + mst["sigma"] * self._K(mst["x"] + u_temp - mst["u"]), sigma=mst["sigma"]
+                mst["z"] + mst["sigma"] * self._K(mst["x"] + u_temp - mst["u"]),
+                sigma=mst["sigma"],
             )
             mst["z"] = (1 - mst["rho"]) * mst["z"] + mst["rho"] * z_temp
         mst["u"] = (1 - mst["rho"]) * mst["u"] + mst["rho"] * u_temp
@@ -830,7 +849,14 @@ class PD3O(_PrimalDualSplitting):
         b_ub = np.array([np.log(0.99) - 2 * np.log(self._K.lipschitz), np.log(1 / gamma)])
         A_eq = np.array([[1, -1]])
         b_eq = np.array([0])
-        result = linprog(c=c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=(None, None))
+        result = linprog(
+            c=c,
+            A_ub=A_ub,
+            b_ub=b_ub,
+            A_eq=A_eq,
+            b_eq=b_eq,
+            bounds=(None, None),
+        )
         if not result.success:
             warnings.warn("Automatic parameter selection has not converged.", UserWarning)
         return np.exp(result.x)
@@ -1569,18 +1595,25 @@ class ADMM(_PDS):
             **kwargs,
         )
 
-    @pxrt.enforce_precision(i=["x0", "z0", "tau", "rho"], allow_None=True)
+    @pxrt.enforce_precision(i=("x0", "z0", "tau", "rho"), allow_None=True)
     def m_init(
         self,
         x0: pxt.NDArray,
         z0: typ.Optional[pxt.NDArray] = None,
         tau: typ.Optional[pxt.Real] = None,
         rho: typ.Optional[pxt.Real] = None,
-        tuning_strategy: typ.Literal[1, 2, 3] = 1,
+        tuning_strategy: _PDS.TuningSpec = 1,
         solver_kwargs: typ.Optional[dict] = None,
         **kwargs,
     ):
-        super().m_init(x0=x0, z0=z0, tau=tau, sigma=None, rho=rho, tuning_strategy=tuning_strategy)
+        super().m_init(
+            x0=x0,
+            z0=z0,
+            tau=tau,
+            sigma=None,
+            rho=rho,
+            tuning_strategy=tuning_strategy,
+        )
         mst = self._mstate  # shorthand
         mst["u"] = self._K(x0)
 
