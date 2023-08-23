@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import math
 import types
 import typing as typ
@@ -36,12 +34,12 @@ class _OnlineStat:
 
         Parameters
         ----------
-        x: ndarray
+        x: NDArray
             New sample.
 
         Returns
         -------
-        stat: ndarray
+        stat: NDArray
             Updated statistic.
         """
         raise NotImplementedError
@@ -50,19 +48,19 @@ class _OnlineStat:
         """Get current online statistic estimate."""
         return self._stat
 
-    def __add__(self, other: _OnlineStat):
+    def __add__(self, other: "_OnlineStat"):
         stat = _OnlineStat()
         stat_update = lambda _, x: self.update(x) + other.update(x)
         stat.update = types.MethodType(stat_update, stat)
         return stat
 
-    def __sub__(self, other: _OnlineStat):
+    def __sub__(self, other: "_OnlineStat"):
         stat = _OnlineStat()
         stat_update = lambda _, x: self.update(x) - other.update(x)
         stat.update = types.MethodType(stat_update, stat)
         return stat
 
-    def __mul__(self, other: typ.Union[pxt.Real, pxt.Integer, _OnlineStat]):
+    def __mul__(self, other: typ.Union[pxt.Real, pxt.Integer, "_OnlineStat"]):
         stat = _OnlineStat()
         if isinstance(other, _OnlineStat):
             stat_update = lambda _, x: self.update(x) * other.update(x)
@@ -76,7 +74,7 @@ class _OnlineStat:
     def __rmul__(self, other: typ.Union[pxt.Real, pxt.Integer]):
         return self.__mul__(other)
 
-    def __truediv__(self, other: typ.Union[pxt.Real, pxt.Integer, _OnlineStat]):
+    def __truediv__(self, other: typ.Union[pxt.Real, pxt.Integer, "_OnlineStat"]):
         stat = _OnlineStat()
         if isinstance(other, _OnlineStat):
 
