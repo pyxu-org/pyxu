@@ -58,8 +58,8 @@ class _PrimalDualSplitting(pxa.Solver):
 
         if h is not None:
             dual_dim = h.dim
-        elif K is not None:
-            dual_dim = K.shape[0]
+        elif K is not None:  # todo: isn't this elif-clause useless? For which solver is it triggered?
+            dual_dim = K.shape[0]  # todo: K.codim?
         else:
             dual_dim = primal_dim
 
@@ -454,7 +454,9 @@ class CondatVu(_PrimalDualSplitting):
         -------
         Sensible primal/dual step sizes and value of the parameter :math:`delta`.
         """
+        # todo: this method in general is quite dirty.
         if not issubclass(self._K.__class__, pxa.LinOp):
+            # todo: wrong! Must raise only if tau/sigma = None
             msg = (
                 f"Automatic selection of parameters is only supported in the case in which K is a linear operator. "
                 f"Got operator of type {self._K.__class__}."
