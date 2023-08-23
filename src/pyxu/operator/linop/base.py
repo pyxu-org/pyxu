@@ -427,9 +427,21 @@ def _ExplicitLinOp(
         return _matmat(_.mat.T, arr, warn=_._enable_warnings)
 
     def op_estimate_lipscthitz(_, **kwargs) -> pxt.Real:
-        xp = pxu.get_array_module(_.mat)
-        kwargs.update(xp=xp)
-        return _.estimate_lipschitz(**kwargs)
+        N = pxd.NDArrayInfo
+        S = pxd.SparseArrayInfo
+
+        try:  # Sparse arrays
+            sdi = S.from_obj(_.mat)
+            if sdi in (S.SCIPY_SPARSE, S.PYDATA_SPARSE):
+                ndi = N.NUMPY
+            else:  # S.CUPY_SPARSE
+                ndi = N.CUPY
+        except Exception:  # Dense arrays
+            ndi = N.from_obj(_.mat)
+
+        kwargs.update(xp=ndi.module())
+        klass = _.__class__
+        return klass.estimate_lipschitz(_, **kwargs)
 
     def op_asarray(_, **kwargs) -> pxt.NDArray:
         N = pxd.NDArrayInfo
