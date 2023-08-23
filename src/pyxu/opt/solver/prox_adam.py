@@ -33,7 +33,7 @@ class ProxAdam(pxa.Solver):
       semicontinuous* and *convex function* with a *simple proximal operator*.
 
     ProxAdam is a suitable alternative to Proximal Gradient Descent
-    (:py:class:`~pyxu.opt.solvel.pgd.PGD`) when:
+    (:py:class:`~pyxu.opt.solver.pgd.PGD`) when:
 
     * computing :math:`\beta` to optimally choose the step size is infeasible, and
     * line-search methods to estimate step sizes are too expensive.
@@ -45,53 +45,54 @@ class ProxAdam(pxa.Solver):
       \mathbb{E}[\nabla\mathcal{F}^{2}]` respectively;
     * uses a modified proximity operator at each iteration to update coordinates at varying scales:
 
-    .. math::
+      .. math::
 
-       \text{prox}_{\alpha\mathcal{G}}(\mathbf{x}_{t})
-       =
-       \min_{\mathbf{z}\in\mathbb{R}^N} \;\mathcal{G}(\mathbf{z})\;\;+\;\;\frac{1}{2\alpha}||\mathbf{z}-\mathbf{x}_t||_H^2,
+         \text{prox}_{\alpha\mathcal{G}}(\mathbf{x}_{t})
+         =
+         \min_{\mathbf{z}\in\mathbb{R}^N} \;\mathcal{G}(\mathbf{z})\;\;+\;\;\frac{1}{2\alpha}||\mathbf{z}-\mathbf{x}_t||_H^2,
 
-    where :math:`H=\text{diag}(\psi_t)`.
-    The modified proximity operator is computed by solving a PGD sub-problem.
+      where :math:`H=\text{diag}(\psi_t)`.
+      The modified proximity operator is computed by solving a PGD sub-problem.
+
     ProxAdam has many named variants for particular choices of :math:`\phi` and :math:`\psi`:
 
     * Adam:
 
-    .. math::
+      .. math::
 
-       \phi_t
-       =
-       \frac{
-         \mathbf{m}_t
-       }{
-         1-\beta_1^t
-       }
-       \qquad
-       \psi_t
-       =
-       \sqrt{
+         \phi_t
+         =
          \frac{
-           \mathbf{v}_t
+           \mathbf{m}_t
          }{
-           1-\beta_2^t
+           1-\beta_1^t
          }
-       } + \epsilon
+         \qquad
+         \psi_t
+         =
+         \sqrt{
+           \frac{
+             \mathbf{v}_t
+           }{
+             1-\beta_2^t
+           }
+         } + \epsilon,
 
     * AMSGrad:
 
-    .. math::
+      .. math::
 
-       \phi_t = \mathbf{m}_t
-       \qquad
-       \psi_t = \sqrt{\hat{\mathbf{v}}_t}
+         \phi_t = \mathbf{m}_t
+         \qquad
+         \psi_t = \sqrt{\hat{\mathbf{v}}_t},
 
     * PAdam:
 
-    .. math::
+      .. math::
 
-       \phi_t = \mathbf{m}_t
-       \qquad
-       \psi_t = \hat{\mathbf{v}}_t^p,
+         \phi_t = \mathbf{m}_t
+         \qquad
+         \psi_t = \hat{\mathbf{v}}_t^p,
 
     where in all cases:
 
@@ -113,62 +114,91 @@ class ProxAdam(pxa.Solver):
 
     with :math:`\mathbf{m}_0 = \mathbf{v}_0 = \mathbf{0}`.
 
-    **Remark 1:**
-    The algorithm is still valid if :math:`\mathcal{G}` is zero.
+    Remarks
+    -------
+    * The algorithm is still valid if :math:`\mathcal{G}` is zero.
 
-    **Remark 2:**
-    The convergence is guaranteed for step sizes :math:`\alpha\leq 2/\beta`.
+    * The convergence is guaranteed for step sizes :math:`\alpha\leq 2/\beta`.
 
-    **Remark 3:**
-    The default stopping criterion is the relative norm change of the primal variable.
-    By default, the algorithm stops when the norm of the difference between two consecutive iterates
-    :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4.
-    Different stopping criteria can be used. (see :py:mod:`~pyxu.opt.solver.stop`.) It is recommended
-    to change the stopping criterion when using the PAdam and AMSGrad variants to avoid premature stops.
-    By default, the same stopping criterion is used for the proximal sub-problem.
+    * The default stopping criterion is the relative norm change of the primal variable.
+      By default, the algorithm stops when the norm of the difference between two consecutive iterates
+      :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4.
+      Different stopping criteria can be used.
+      It is recommended to change the stopping criterion when using the PAdam and AMSGrad variants to
+      avoid premature stops.
+      By default, the same stopping criterion is used for the proximal sub-problem.
 
-    ``ProxAdam.fit()`` **Parameterization**
+    Parameters (``__init__()``)
+    ---------------------------
+    * **f** (:py:class:`~pyxu.abc.operator.DiffFunc`)
+      --
+      Differentiable function :math:`\mathcal{F}`.
+    * **g** (:py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`)
+      --
+      Proximable function :math:`\mathcal{G}`.
+    * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
+      --
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
 
-    x0: pxt.NDArray
-        (..., N) initial point(s).
-    variant: "adam", "amsgrad", "padam"
-        Name of the ProxAdam variant to use.
-        Defaults to "adam"
-    a: pxt.Real
-        Max normalized gradient step size.
-        Defaults to :math:`1 / \beta` if unspecified.
-    b1: pxt.Real
-        1st-order gradient exponential decay :math:`\beta_{1} \in [0, 1)`.
-    b2: pxt.Real
-        2nd-order gradient exponential decay :math:`\beta_{2} \in [0, 1)`.
-    m0: pxt.NDArray
-        (..., N) initial 1st-order gradient estimate corresponding to each initial point.
-        Defaults to the null vector if unspecified.
-    v0: pxt.NDArray
-        (..., N) initial 2nd-order gradient estimate corresponding to each initial point.
-        Defaults to the null vector if unspecified.
-    kwargs_sub: dict[str]
-        Keyword parameters used to initialize :py:meth:`~pyxu.opt.solver.pgd.PGD.__init__` in
-        sub-problems. This is an advanced option: use it with care.
-    stop_crit_sub: pxa.solver.StoppingCriterion
-        Sub-problem stopping criterion.
-        Default: use same stopping criterion as main problem.
-    p: pxt.Real
-        PAdam power parameter :math:`p \in (0, 0.5]`.
-        Must be specified for PAdam, unused otherwise.
-    eps_adam: pxt.Real
-        Adam noise parameter :math:`\epsilon`.
-        This term is used exclusively if `variant="adam"`.
-        Defaults to 1e-6.
-    eps_var: pxt.Real
-        Avoids division by zero if estimated gradient variance is too small.
-        Defaults to 1e-6.
+    Parameters (``fit()``)
+    ----------------------
+    * **x0** (:py:attr:`~pyxu.info.ptype.NDArray`)
+      --
+      (..., N) initial point(s).
+    * **variant** ("adam", "amsgrad", "padam")
+      --
+      Name of the ProxAdam variant to use.
+      Defaults to "adam".
+    * **a** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
+      --
+      Max normalized gradient step size.
+      Defaults to :math:`1 / \beta` if unspecified.
+    * **b1** (:py:attr:`~pyxu.info.ptype.Real`)
+      --
+      1st-order gradient exponential decay :math:`\beta_{1} \in [0, 1)`.
+    * **b2** (:py:attr:`~pyxu.info.ptype.Real`)
+      --
+      2nd-order gradient exponential decay :math:`\beta_{2} \in [0, 1)`.
+    * **m0** (:py:attr:`~pyxu.info.ptype.NDArray`, :py:obj:`None`)
+      --
+      (..., N) initial 1st-order gradient estimate corresponding to each initial point.
+      Defaults to the null vector if unspecified.
+    * **v0** (:py:attr:`~pyxu.info.ptype.NDArray`, :py:obj:`None`)
+      --
+      (..., N) initial 2nd-order gradient estimate corresponding to each initial point.
+      Defaults to the null vector if unspecified.
+    * **kwargs_sub** (:py:class:`~collections.abc.Mapping`, :py:obj:`None`)
+      --
+      Keyword parameters used to initialize :py:meth:`~pyxu.opt.solver.pgd.PGD`'s ``__init__()`` in
+      sub-problems.
+      This is an advanced option: use it with care.
+    * **stop_crit_sub** (:py:class:`~pyxu.abc.solver.StoppingCriterion`, :py:obj:`None`)
+      --
+      Sub-problem stopping criterion.
+      Default: use same stopping criterion as main problem.
+    * **p** (:py:attr:`~pyxu.info.ptype.Real`)
+      --
+      PAdam power parameter :math:`p \in (0, 0.5]`.
+      Must be specified for PAdam, unused otherwise.
+    * **eps_adam** (:py:attr:`~pyxu.info.ptype.Real`)
+      --
+      Adam noise parameter :math:`\epsilon`.
+      This term is used exclusively if `variant="adam"`.
+      Defaults to 1e-6.
+    * **eps_var** (:py:attr:`~pyxu.info.ptype.Real`)
+      --
+      Avoids division by zero if estimated gradient variance is too small.
+      Defaults to 1e-6.
+    * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
+      --
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
 
-    **Remark 4:**
-    If provided, 'm0' and 'v0' must be broadcastable with 'x0'.
+    Note
+    ----
+    If provided, `m0` and `v0` must be broadcastable with `x0`.
 
     Example
-    --------
+    -------
     Consider the following optimization problem:
 
     .. math::
@@ -411,7 +441,7 @@ class ProxAdam(pxa.Solver):
         """
         Returns
         -------
-        x: pxt.NDArray
+        x: NDArray
             (..., N) solution.
         """
         data, _ = self.stats()

@@ -30,25 +30,24 @@ class MaxIter(pxa.StoppingCriterion):
     """
     Stop iterative solver after a fixed number of iterations.
 
-    Tip
-    ---
-    If you want to add a grace period to a solver, i.e. for it to do *at least* N iterations before
-    stopping based on the value of another criteria, you can AND `MaxIter` with the other criteria.
+    .. note::
 
-    Example
-    -------
-    .. code-block:: python3
+        If you want to add a grace period to a solver, i.e. for it to do *at least* N iterations before
+        stopping based on the value of another criteria, you can AND :py:class:`~pyxu.opt.stop.MaxIter`
+        with the other criteria.
 
-       sc = MaxIter(n=5) & AbsError(eps=0.1)
-       # If N_iter < 5  -> never stop.
-       # If N_iter >= 5 -> stop if AbsError() decides to.
+        .. code-block:: python3
+
+           sc = MaxIter(n=5) & AbsError(eps=0.1)
+           # If N_iter < 5  -> never stop.
+           # If N_iter >= 5 -> stop if AbsError() decides to.
     """
 
     def __init__(self, n: pxt.Integer):
         """
         Parameters
         ----------
-        n: pxt.Integer
+        n: Integer
             Max number of iterations allowed.
         """
         try:
@@ -77,7 +76,7 @@ class ManualStop(pxa.StoppingCriterion):
     :py:meth:`~pyxu.abc.solver.Solver.fit`
     with mode=MANUAL/ASYNC to defer the stopping decision to an explicit call by the user, i.e.:
 
-    * mode=MANUAL: user must stop calling `next(solver.steps())`;
+    * mode=MANUAL: user must stop calling ``next(solver.steps())``;
     * mode=ASYNC: user must call :py:meth:`~pyxu.abc.solver.Solver.stop`.
     """
 
@@ -100,7 +99,7 @@ class MaxDuration(pxa.StoppingCriterion):
         """
         Parameters
         ----------
-        t: dt.timedelta
+        t: ~datetime.timedelta
             Max runtime allowed.
         """
         try:
@@ -129,11 +128,12 @@ class MaxCarbon(pxa.StoppingCriterion):
     Stop iterative solver after a threshold amount of carbon dioxide (CO2) was produced by computing
     resources used to execute the optimization.
 
-    .. warning::
+    .. note::
 
        Codecarbon is not a core dependency of Pyxu and must be installed separately.
 
-       On Windows and MacOS, `codecarbon` tracks power consumption of Intel processors using the
+       On Windows and MacOS, `codecarbon <https://pypi.org/project/codecarbon/>`_ tracks power consumption of
+       Intel processors using the
        `Intel Power Gadget (IPG) <https://www.intel.com/content/www/us/en/developer/articles/tool/power-gadget.html>`_.
        IPG must be installed independently.
        (MacOS-specific: IPG must also have correct security permissions.)
@@ -143,7 +143,7 @@ class MaxCarbon(pxa.StoppingCriterion):
         """
         Parameters
         ----------
-        co2: pxt.Real
+        co2: Real
             Max allowed CO2 emissions [Kg].
         """
         try:
@@ -181,15 +181,16 @@ class MaxCarbon(pxa.StoppingCriterion):
 class Memorize(pxa.StoppingCriterion):
     """
     Memorize a variable.
-    (Special StoppingCriterion mostly useful for tracking objective functions in Solver.)
+    (Special :py:class:`~pyxu.abc.solver.StoppingCriterion` mostly useful for tracking objective functions in
+    :py:class:`~pyxu.abc.solver.Solver`.)
     """
 
     def __init__(self, var: pxt.VarName):
         """
         Parameters
         ----------
-        var: pxt.VarName
-            Variable in `Solver._mstate` to query.
+        var: VarName
+            Variable in :py:attr:`pyxu.abc.solver.Solver._mstate` to query.
             Must be a scalar or NDArray (1D).
         """
         self._var = var
@@ -234,21 +235,21 @@ class AbsError(pxa.StoppingCriterion):
         """
         Parameters
         ----------
-        eps: pxt.Real
+        eps: Real
             Positive threshold.
-        var: pxt.VarName
-            Variable in `Solver._mstate` to query.
-        f: Callable
-            Optional function to pre-apply to `Solver._mstate[var]` before applying the norm.
+        var: VarName
+            Variable in :py:attr:`pyxu.abc.solver.Solver._mstate` to query.
+        f: ~collections.abc.Callable
+            Optional function to pre-apply to ``_mstate[var]`` before applying the norm.
             Defaults to the identity function. The callable should either:
 
             * accept a scalar input -> output a scalar, or
             * accept an NDArray input -> output an NDArray, i.e same semantics as
               :py:meth:`~pyxu.abc.operator.Map.apply`.
-        norm: pxt.Integer | pxt.Real
+        norm: Integer, Real
             Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool
-            If True (default) and `Solver._mstate[var]` is multi-dimensional, stop if all evaluation
+            If True (default) and ``_mstate[var]`` is multi-dimensional, stop if all evaluation
             points lie below threshold.
         """
         try:
@@ -313,21 +314,21 @@ class RelError(pxa.StoppingCriterion):
         """
         Parameters
         ----------
-        eps: pxt.Real
+        eps: Real
             Positive threshold.
-        var: pxt.VarName
-            Variable in `Solver._mstate` to query.
-        f: Callable
-            Optional function to pre-apply to `Solver._mstate[var]` before applying the norm.
+        var: VarName
+            Variable in :py:attr:`pyxu.abc.solver.Solver._mstate` to query.
+        f: ~collections.abc.Callable
+            Optional function to pre-apply to ``_mstate[var]`` before applying the norm.
             Defaults to the identity function. The callable should either:
 
             * accept a scalar input -> output a scalar, or
             * accept an NDArray input -> output an NDArray, i.e same semantics as
               :py:meth:`~pyxu.abc.operator.Map.apply`.
-        norm: pxt.Integer | pxt.Real
+        norm: Integer, Real
             Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool
-            If True (default) and `Solver._mstate[var]` is multi-dimensional, stop if all evaluation
+            If True (default) and ``_mstate[var]`` is multi-dimensional, stop if all evaluation
             points lie below threshold.
         """
         try:

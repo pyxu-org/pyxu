@@ -11,43 +11,53 @@ __all__ = [
 
 class CG(pxa.Solver):
     r"""
-     Conjugate Gradient Method.
+    Conjugate Gradient Method.
 
-     The Conjugate Gradient method solves the minimization problem
+    The Conjugate Gradient method solves the minimization problem
 
-     .. math::
+    .. math::
 
-        \min_{x\in\mathbb{R}^{N}} \frac{1}{2} \mathbf{x}^{T} \mathbf{A} \mathbf{x} - \mathbf{x}^{T} \mathbf{b},
+       \min_{x\in\mathbb{R}^{N}} \frac{1}{2} \mathbf{x}^{T} \mathbf{A} \mathbf{x} - \mathbf{x}^{T} \mathbf{b},
 
-     where :math:`\mathbf{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}` is a *symmetric* *positive definite*
-     operator, and :math:`\mathbf{b} \in \mathbb{R}^{N}`.
+    where :math:`\mathbf{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}` is a *symmetric* *positive definite*
+    operator, and :math:`\mathbf{b} \in \mathbb{R}^{N}`.
 
-     The norm of the `explicit residual <https://www.wikiwand.com/en/Conjugate_gradient_method>`_
-     :math:`\mathbf {r}_{k+1}:=\mathbf{b}-\mathbf{Ax}_{k+1}` is used as the default stopping criterion.
-     This provides a guaranteed level of accuracy both in exact arithmetic and in the presence of
-     round-off errors.
-     By default, the iterations stop when the norm of the explicit residual is smaller than 1e-4.
+    The norm of the `explicit residual <https://www.wikiwand.com/en/Conjugate_gradient_method>`_
+    :math:`\mathbf {r}_{k+1}:=\mathbf{b}-\mathbf{Ax}_{k+1}` is used as the default stopping criterion.
+    This provides a guaranteed level of accuracy both in exact arithmetic and in the presence of
+    round-off errors.
+    By default, the iterations stop when the norm of the explicit residual is smaller than 1e-4.
 
+    Parameters (``__init__()``)
+    ---------------------------
+    * **A** (:py:class:`~pyxu.abc.operator.PosDefOp`)
+      --
+      Positive-definite operator :math:`\mathbf{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}`.
+    * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
+      --
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
 
-     ``CG.fit()`` **Parameterization**
+    Parameters (``fit()``)
+    ----------------------
+    * **b** (:py:attr:`~pyxu.info.ptype.NDArray`)
+      --
+      (..., N) :math:`\mathbf{b}` terms in the CG cost function.
 
-     b: pxt.NDArray
-         (..., N) 'b' terms in the CG cost function.
-         All problems are solved in parallel.
-     x0: pxt.NDArray
-        (..., N) initial point(s). Defaults to 0 if unspecified.
-     restart_rate: pxt.Integer
-        Number of iterations after which restart is applied.
-        By default, restart is done after 'n' iterations, where 'n' corresponds to the dimension of
-        the linear operator :math:`\mathbf{A}`.
+      All problems are solved in parallel.
+    * **x0** (:py:attr:`~pyxu.info.ptype.NDArray`, :py:obj:`None`)
+      --
+      (..., N) initial point(s).
 
-    **Remark 1:**
-    If provided, 'x0' must be broadcastable with 'b'.
+      Must be broadcastable with `b` if provided.
+      Defaults to 0.
+    * **restart_rate** (:py:attr:`~pyxu.info.ptype.Integer`)
+      --
+      Number of iterations after which restart is applied.
 
-    **Remark 2:**
-    `Restarts <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ may slow down convergence,
-    but improve stability due to round-off error or ill-conditioning of the linear operator.
-    If these issues are suspected, adjust 'restart_rate' accordingly.
+      By default, a restart is done after 'n' iterations, where 'n' corresponds to the dimension of :math:`\mathbf{A}`.
+    * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
+      --
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
     """
 
     def __init__(self, A: pxa.PosDefOp, **kwargs):
@@ -65,6 +75,28 @@ class CG(pxa.Solver):
         x0: pxt.NDArray = None,
         restart_rate: pxt.Integer = None,
     ):
+        r"""
+        Parameters
+        ----------
+        b: NDArray
+            (..., N) :math:`\mathbf{b}` terms in the CG cost function.
+            All problems are solved in parallel.
+        x0: NDArray
+            (..., N) initial point(s).
+
+            Must be broadcastable with `b` if specified.
+            Defaults to 0.
+        restart_rate: Integer
+            Number of iterations after which restart is applied.
+            By default, a restart is done after 'n' iterations, where 'n' corresponds to the dimension of
+            the linear operator :math:`\mathbf{A}`.
+
+        Note
+        ----
+        `Restarts <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ may slow down convergence,
+        but improve stability due to round-off error or ill-conditioning of the linear operator.
+        If these issues are suspected, adjust `restart_rate` accordingly.
+        """
         mst = self._mstate  # shorthand
 
         if restart_rate is not None:
@@ -148,7 +180,7 @@ class CG(pxa.Solver):
         """
         Returns
         -------
-        x: pxt.NDArray
+        x: NDArray
             (..., N) solution.
         """
         data, _ = self.stats()

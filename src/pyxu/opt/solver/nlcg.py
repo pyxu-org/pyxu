@@ -36,54 +36,68 @@ class NLCG(pxa.Solver):
 
     * The Fletcher-Reeves variant:
 
-    .. math::
+      .. math::
 
-       \beta_k^\text{FR}
-       =
-       \frac{
-         \Vert{\nabla f_{k+1}}\Vert_2^2
-       }{
-         \Vert{\nabla f_{k}}\Vert_2^2
-       }
+         \beta_k^\text{FR}
+         =
+         \frac{
+           \Vert{\nabla f_{k+1}}\Vert_{2}^{2}
+         }{
+           \Vert{\nabla f_{k}}\Vert_{2}^{2}
+         }.
 
     * The Polak-Ribière+ method:
 
-    .. math::
+      .. math::
 
-       \beta_k^\text{PR}
-       =
-       \frac{
-         \nabla f_{k+1}^T\left(\nabla f_{k+1} - \nabla f_k\right)
-       }{
-         \Vert{\nabla f_{k}}\Vert_2^2
-       } \\
-       \beta_k^\text{PR+}
-       =
-       \max\left(0, \beta_k^\text{PR}\right)
+         \beta_k^\text{PR}
+         =
+         \frac{
+           \nabla f_{k+1}^T\left(\nabla f_{k+1} - \nabla f_k\right)
+         }{
+           \Vert{\nabla f_{k}}\Vert_{2}^{2}
+         } \\
+         \beta_k^\text{PR+}
+         =
+         \max\left(0, \beta_k^\text{PR}\right).
 
-    ``NLCG.fit()`` **Parameterization**
+    Parameters (``__init__()``)
+    ---------------------------
+    * **f** (:py:class:`~pyxu.abc.operator.DiffFunc`)
+      --
+      Differentiable function :math:`\mathcal{F}`.
+    * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
+      --
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
 
-    x0: pxt.NDArray
-        (..., N) initial point(s).
-    variant: str
-        Name of the NLCG variant to use:
+    Parameters (``fit()``)
+    ----------------------
+    * **x0** (:py:attr:`~pyxu.info.ptype.NDArray`)
+      --
+      (..., N) initial point(s).
+    * **variant** ("PR", "FR")
+      --
+      Name of the NLCG variant to use:
 
-        * "PR" for the Polak-Ribière+ variant (default).
-        * "FR" for the Fletcher-Reeves variant.
-    restart_rate: pxt.Integer
-        Number of iterations after which restart is applied.
+      * "PR": Polak-Ribière+ variant (default).
+      * "FR": Fletcher-Reeves variant.
+    * **restart_rate** (:py:attr:`~pyxu.info.ptype.Integer`, :py:obj:`None`)
+      --
+      Number of iterations after which restart is applied.
 
-        By default, restart is done after :math:`N` iterations.
-    **kwargs
-        Optional parameters forwarded to :py:func:`~pyxu.math.linesearch.backtracking_linesearch`.
-        (See: :py:mod:`~pyxu.math.linesearch`.)
+      By default, restart is done after :math:`N` iterations.
+    * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
+      --
+      Optional parameters forwarded to :py:func:`~pyxu.math.linesearch.backtracking_linesearch`.
 
-        If `a0` is unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a0`
-        is auto-chosen as :math:`\beta^{-1}`.
-        Users are expected to set `a0` if its value cannot be auto-inferred.
+      If `a0` is unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a0`
+      is auto-chosen as :math:`\beta^{-1}`.
+      Users are expected to set `a0` if its value cannot be auto-inferred.
+
+      Other keyword parameters are passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
 
     Example
-    --------
+    -------
     Consider the following quadratic optimization problem:
 
     .. math:
@@ -128,6 +142,28 @@ class NLCG(pxa.Solver):
         restart_rate: pxt.Integer = None,
         **kwargs,
     ):
+        r"""
+        Parameters
+        ----------
+        x0: NDArray
+            (..., N) initial point(s).
+        variant: "PR", "FR"
+            Name of the NLCG variant to use:
+
+            * "PR": Polak-Ribière+ variant (default).
+            * "FR": Fletcher-Reeves variant.
+        restart_rate: Integer
+            Number of iterations after which restart is applied.
+
+            By default, restart is done after :math:`N` iterations.
+        \*\*kwargs
+            Optional parameters forwarded to :py:func:`~pyxu.math.linesearch.backtracking_linesearch`.
+            (See: :py:mod:`~pyxu.math.linesearch`.)
+
+            If `a0` is unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a0`
+            is auto-chosen as :math:`\beta^{-1}`.
+            Users are expected to set `a0` if its value cannot be auto-inferred.
+        """
         mst = self._mstate  # shorthand
 
         if (a0 := kwargs.get("a0")) is None:
@@ -209,7 +245,7 @@ class NLCG(pxa.Solver):
         """
         Returns
         -------
-        x: pxt.NDArray
+        x: NDArray
             (..., N) solution.
         """
         data, _ = self.stats()
