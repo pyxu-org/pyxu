@@ -389,7 +389,7 @@ class CondatVu(_PrimalDualSplitting):
        import matplotlib.pyplot as plt
        import numpy as np
        import pyxu.operator as pxo
-       from pyxu._dev import DownSampling, FirstDerivative
+       from pyxu.experimental._dev import DownSampling, FirstDerivative
        from pyxu.opt.solver import CV
 
        x = np.repeat(np.asarray([0, 2, 1, 3, 0, 2, 0]), 10)
@@ -689,7 +689,7 @@ class PD3O(_PrimalDualSplitting):
        import matplotlib.pyplot as plt
        import numpy as np
        import pyxu.operator as pxo
-       from pyxu._dev import DownSampling, FirstDerivative
+       from pyxu.experimental._dev import DownSampling, FirstDerivative
        from pyxu.opt.solver import PD3O
 
        x = np.repeat(np.asarray([0, 2, 1, 3, 0, 2, 0]), 10)
