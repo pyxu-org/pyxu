@@ -299,7 +299,7 @@ class CondatVu(_PrimalDualSplitting):
       (..., N) initial point(s) for the primal variable.
     * **z0** (:py:attr:`~pyxu.info.ptype.NDArray`, :py:obj:`None`)
       --
-      (..., N) initial point(s) for the dual variable.
+      (..., M) initial point(s) for the dual variable.
       If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     * **tau** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
       --
@@ -604,7 +604,7 @@ class PD3O(_PrimalDualSplitting):
       (..., N) initial point(s) for the primal variable.
     * **z0** (:py:attr:`~pyxu.info.ptype.NDArray`, :py:obj:`None`)
       --
-      (..., N) initial point(s) for the dual variable.
+      (..., M) initial point(s) for the dual variable.
       If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     * **tau** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
       --
@@ -923,7 +923,7 @@ def ChambollePock(
       (..., N) initial point(s) for the primal variable.
     * **z0** (:py:attr:`~pyxu.info.ptype.NDArray`, :py:obj:`None`)
       --
-      (..., N) initial point(s) for the dual variable.
+      (..., M) initial point(s) for the dual variable.
       If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     * **tau** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
       --
@@ -1029,7 +1029,7 @@ class LorisVerhoeven(PD3O):
       (..., N) initial point(s) for the primal variable.
     * **z0** (:py:attr:`~pyxu.info.ptype.NDArray`, :py:obj:`None`)
       --
-      (..., N) initial point(s) for the dual variable.
+      (..., M) initial point(s) for the dual variable.
       If ``None`` (default), then use ``K(x0)`` as the initial point for the dual variable.
     * **tau** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
       --
@@ -1114,7 +1114,7 @@ class DavisYin(PD3O):
     * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
       for some :math:`\beta\in[0,+\infty[`.
 
-    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` are *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
 
     Remarks
     -------
@@ -1252,7 +1252,7 @@ def DouglasRachford(
 
        {\min_{\mathbf{x}\in\mathbb{R}^N} \mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{x}),}
 
-    where :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+    where :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` are *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
 
     Remarks
     -------
