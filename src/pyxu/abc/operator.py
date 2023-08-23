@@ -1274,6 +1274,7 @@ class QuadraticFunc(ProxDiffFunc):
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         from pyxu.operator.linop import HomothetyOp
         from pyxu.opt.solver import CG
+        from pyxu.opt.stop import MaxIter
 
         Q, c, _ = self._quad_spec()
         A = Q + HomothetyOp(cst=1 / tau, dim=Q.dim)
@@ -1283,7 +1284,6 @@ class QuadraticFunc(ProxDiffFunc):
 
         slvr = CG(A=A, show_progress=False)
 
-        from pyxu.opt.stop import MaxIter
         sentinel = MaxIter(n=2 * A.dim)
         stop_crit = slvr.default_stop_crit() | sentinel
 
