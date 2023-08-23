@@ -4,13 +4,13 @@ import warnings
 import numpy as np
 import pytest
 
+import pyxu.experimental.sampler as pxs
 import pyxu.info.deps as pxd
 import pyxu.info.warning as pxw
 import pyxu.operator as pxo
 import pyxu.runtime as pxrt
-import pyxu.sampler.sampler as pxs
 import pyxu.util as pxu
-import pyxu_tests.sampler.sampler.conftest as ct
+import pyxu_tests.experimental.sampler.conftest as ct
 
 
 class TestULA(ct.SamplerT):

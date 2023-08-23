@@ -97,6 +97,12 @@ import pyxu.operator.func as pxf
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
+__all__ = [
+    "_Sampler",
+    "ULA",
+    "MYULA",
+]
+
 
 class _Sampler:
     """Abstract base class for samplers."""
@@ -303,7 +309,7 @@ class ULA(_Sampler):
             Euler-Maruyama discretization step of the Langevin equation (see `Notes`).
         """
         self._f = f
-        self._beta = f.diff_lipschitz()
+        self._beta = f.diff_lipschitz
         self._gamma = self._set_gamma(gamma)
         self._rng = None
         self.x = None
@@ -444,14 +450,14 @@ class MYULA(ULA):
 
         self._lambda = self._set_lambda(lamb)
         f = self._f_diff + self._g.moreau_envelope(self._lambda)
-        f.diff_lipschitz()
+        f.diff_lipschitz = f.estimate_diff_lipschitz()
         super().__init__(f, gamma)
 
     def _set_lambda(self, lamb: pxt.Real = None) -> pxt.Real:
         if lamb is None:
             if self._g._name == "NullFunc":
                 return pxrt.coerce(1)  # Lambda is irrelevant if g is a NullFunc, but it must be positive
-            elif math.isfinite(dl := self._f_diff.diff_lipschitz()):
+            elif math.isfinite(dl := self._f_diff.diff_lipschitz):
                 return pxrt.coerce(2) if dl == 0 else pxrt.coerce(min(2, 1 / dl))
             else:
                 msg = "If f has unbounded Lipschitz gradient, the lambda parameter must be provided."

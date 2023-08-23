@@ -3,10 +3,10 @@ import typing as typ
 
 import pytest
 
+import pyxu.experimental.sampler as pxs
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
-import pyxu.sampler.sampler as pxs
 import pyxu_tests.conftest as ct
 
 
