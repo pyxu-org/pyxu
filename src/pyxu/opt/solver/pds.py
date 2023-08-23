@@ -1811,7 +1811,7 @@ def ProximalPoint(
     -------
     * The problem is *feasible*, i.e. there exists at least one solution.
 
-    * The *Proximal-point* algorithm can be obtained by choosing :math:`\mathcal{F}=0` and :math:`\mathcal{G}=0` in :py:class:`~pyxu.opt.solver.pds.CondatVu` or :py:class:`~pyxu.opt.solver.pds.PD3O`.
+    * The *Proximal-point* algorithm can be obtained by choosing :math:`\mathcal{F}=0` and :math:`\mathcal{H}=0` in :py:class:`~pyxu.opt.solver.pds.CondatVu` or :py:class:`~pyxu.opt.solver.pds.PD3O`.
       The original version of the algorithm was introduced without relaxation (:math:`\rho=1`) [PP]_.
       Relaxed versions have been proposed afterwards [PSA]_.
 
