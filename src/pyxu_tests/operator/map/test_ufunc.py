@@ -48,15 +48,12 @@ class MixinDiffMapUFunc(MixinUFunc, conftest.DiffMapT):
     pass
 
 
-class MixinSquareOpUFunc(MixinDiffMapUFunc, conftest.SquareOpT):
-    pass
-
-
 # Trigonometric Functions =====================================================
 class TestSin(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.Sin(dim), _spec[0], _spec[1]
+        op = pxo.sin(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -71,7 +68,8 @@ class TestSin(MixinDiffMapUFunc):
 class TestCos(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.Cos(dim), _spec[0], _spec[1]
+        op = pxo.cos(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -86,10 +84,11 @@ class TestCos(MixinDiffMapUFunc):
 class TestTan(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.Tan(dim), _spec[0], _spec[1]
+        op = pxo.tan(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
-    @pytest.fixture(params=["subdomain-1", "subdomain-2", "subdomain-3"])
-    def data_apply(self, request, dim):
+    @pytest.fixture
+    def data_apply(self, dim):
         A = np.linspace(-np.pi, np.pi, dim)
         B = np.tan(A)
         return dict(
@@ -101,7 +100,8 @@ class TestTan(MixinDiffMapUFunc):
 class TestArcSin(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.ArcSin(dim), _spec[0], _spec[1]
+        op = pxo.arcsin(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -124,7 +124,8 @@ class TestArcSin(MixinDiffMapUFunc):
 class TestArcCos(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.ArcCos(dim), _spec[0], _spec[1]
+        op = pxo.arccos(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -147,7 +148,8 @@ class TestArcCos(MixinDiffMapUFunc):
 class TestArcTan(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.ArcTan(dim), _spec[0], _spec[1]
+        op = pxo.arctan(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -163,7 +165,8 @@ class TestArcTan(MixinDiffMapUFunc):
 class TestSinh(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.Sinh(dim), _spec[0], _spec[1]
+        op = pxo.sinh(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -178,7 +181,8 @@ class TestSinh(MixinDiffMapUFunc):
 class TestCosh(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.Cosh(dim), _spec[0], _spec[1]
+        op = pxo.cosh(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -193,7 +197,8 @@ class TestCosh(MixinDiffMapUFunc):
 class TestTanh(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.Tanh(dim), _spec[0], _spec[1]
+        op = pxo.tanh(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -208,7 +213,8 @@ class TestTanh(MixinDiffMapUFunc):
 class TestArcSinh(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.ArcSinh(dim), _spec[0], _spec[1]
+        op = pxo.arcsinh(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -223,7 +229,8 @@ class TestArcSinh(MixinDiffMapUFunc):
 class TestArcCosh(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.ArcCosh(dim), _spec[0], _spec[1]
+        op = pxo.arccosh(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -246,7 +253,8 @@ class TestArcCosh(MixinDiffMapUFunc):
 class TestArcTanh(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.ArcTanh(dim), _spec[0], _spec[1]
+        op = pxo.arctanh(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -274,7 +282,8 @@ class TestExp(MixinDiffMapUFunc):
 
     @pytest.fixture
     def spec(self, dim, base, _spec):
-        return pxo.Exp(dim, base), _spec[0], _spec[1]
+        op = pxo.exp(pxo.IdentityOp(dim), base)
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim, base):
@@ -296,7 +305,8 @@ class TestLog(MixinDiffMapUFunc):
 
     @pytest.fixture
     def spec(self, dim, base, _spec):
-        return pxo.Log(dim, base), _spec[0], _spec[1]
+        op = pxo.log(pxo.IdentityOp(dim), base)
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim, base):
@@ -326,7 +336,8 @@ class TestClip(MixinMapUFunc):
 
     @pytest.fixture
     def spec(self, dim, lims, _spec):
-        return pxo.Clip(dim, a_min=lims[0], a_max=lims[1]), _spec[0], _spec[1]
+        op = pxo.clip(pxo.IdentityOp(dim), a_min=lims[0], a_max=lims[1])
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim, lims):
@@ -341,7 +352,8 @@ class TestClip(MixinMapUFunc):
 class TestSqrt(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.Sqrt(dim), _spec[0], _spec[1]
+        op = pxo.sqrt(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -364,7 +376,8 @@ class TestSqrt(MixinDiffMapUFunc):
 class TestCbrt(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.Cbrt(dim), _spec[0], _spec[1]
+        op = pxo.cbrt(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -379,7 +392,8 @@ class TestCbrt(MixinDiffMapUFunc):
 class TestSquare(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.Square(dim), _spec[0], _spec[1]
+        op = pxo.square(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -394,7 +408,8 @@ class TestSquare(MixinDiffMapUFunc):
 class TestAbs(MixinMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.Abs(dim), _spec[0], _spec[1]
+        op = pxo.abs(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -409,7 +424,8 @@ class TestAbs(MixinMapUFunc):
 class TestSign(MixinMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.Sign(dim), _spec[0], _spec[1]
+        op = pxo.sign(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -421,26 +437,12 @@ class TestSign(MixinMapUFunc):
         )
 
 
-class TestCumSum(MixinSquareOpUFunc):
-    @pytest.fixture
-    def spec(self, dim, _spec):
-        return pxo.CumSum(dim), _spec[0], _spec[1]
-
-    @pytest.fixture
-    def data_apply(self, dim):
-        A = np.linspace(-25.0, 125.0, dim)
-        B = np.cumsum(A, axis=-1)
-        return dict(
-            in_=dict(arr=A),
-            out=B,
-        )
-
-
 # Activation Functions ========================================================
 class TestGaussian(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.Gaussian(dim), _spec[0], _spec[1]
+        op = pxo.gaussian(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -455,7 +457,8 @@ class TestGaussian(MixinDiffMapUFunc):
 class TestSigmoid(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.Sigmoid(dim), _spec[0], _spec[1]
+        op = pxo.sigmoid(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -470,7 +473,8 @@ class TestSigmoid(MixinDiffMapUFunc):
 class TestSoftPlus(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.SoftPlus(dim), _spec[0], _spec[1]
+        op = pxo.softplus(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -485,7 +489,8 @@ class TestSoftPlus(MixinDiffMapUFunc):
 class TestLeakyReLU(MixinMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.LeakyReLU(dim, alpha=0.01), _spec[0], _spec[1]
+        op = pxo.leakyrelu(pxo.IdentityOp(dim), alpha=0.01)
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -500,7 +505,8 @@ class TestLeakyReLU(MixinMapUFunc):
 class TestReLU(MixinMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.ReLU(dim), _spec[0], _spec[1]
+        op = pxo.relu(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -515,7 +521,8 @@ class TestReLU(MixinMapUFunc):
 class TestSiLU(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.SiLU(dim), _spec[0], _spec[1]
+        op = pxo.silu(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
@@ -530,7 +537,8 @@ class TestSiLU(MixinDiffMapUFunc):
 class TestSoftMax(MixinDiffMapUFunc):
     @pytest.fixture
     def spec(self, dim, _spec):
-        return pxo.SoftMax(dim), _spec[0], _spec[1]
+        op = pxo.softmax(pxo.IdentityOp(dim))
+        return op, _spec[0], _spec[1]
 
     @pytest.fixture
     def data_apply(self, dim):
