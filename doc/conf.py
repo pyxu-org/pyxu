@@ -32,7 +32,7 @@ def pkg_info() -> cabc.Mapping:
     Load information contained in `PKG-INFO`.
     """
     sphinx_src_dir = plib.Path(__file__).parent
-    info_path = sphinx_src_dir / ".." / "src" / "pycsou.egg-info" / "PKG-INFO"
+    info_path = sphinx_src_dir / ".." / "src" / "pyxu.egg-info" / "PKG-INFO"
     info_path = info_path.resolve(strict=True)
 
     # Pattern definitions
@@ -109,7 +109,7 @@ extensions = [
 
 nitpicky = False
 add_module_names = False
-maximum_signature_line_length = 72
+maximum_signature_line_length = 140
 
 
 # Add any paths that contain templates here, relative to this directory.
@@ -281,7 +281,7 @@ html_theme_options = {
     #    "json_url": json_url,
     #    "version_match": version_match,
     # },
-    "pygment_light_style": "monokai",
+    "pygment_light_style": "tango",
 }
 
 # html_sidebars = {
