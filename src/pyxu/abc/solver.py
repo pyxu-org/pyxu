@@ -126,29 +126,29 @@ class Solver:
 
     where the form of :math:`\mathcal{F}` is solver-dependent.
 
-    Solver provides a versatile API for solving inverse problems, with the following features:
+    Solver provides a versatile API for solving optimisation problems, with the following features:
 
-        * manual/automatic/background execution of solver iterations via parameters provided to
-          :py:meth:`~pyxu.abc.solver.Solver.fit`. (See below.)
-        * automatic checkpointing of solver progress, providing a safe restore point in case of
-          faulty numerical code.
-          Each solver instance backs its state and final output to a folder on disk for
-          post-analysis.
-          In particular :py:meth:`~pyxu.abc.solver.Solver.fit` will never crash: detailed exception information will always
-          be available in a logfile for post-analysis.
-        * arbitrary specification of complex stopping criteria via the
-          :py:class:`~pyxu.abc.solver.StoppingCriterion` class.
-        * solve for multiple initial points in parallel.
+    * manual/automatic/background execution of solver iterations via parameters provided to
+      :py:meth:`~pyxu.abc.solver.Solver.fit`. (See below.)
+    * automatic checkpointing of solver progress, providing a safe restore point in case of
+      faulty numerical code.
+      Each solver instance backs its state and final output to a folder on disk for
+      post-analysis.
+      In particular :py:meth:`~pyxu.abc.solver.Solver.fit` will never crash: detailed exception information will always
+      be available in a logfile for post-analysis.
+    * arbitrary specification of complex stopping criteria via the
+      :py:class:`~pyxu.abc.solver.StoppingCriterion` class.
+    * solve for multiple initial points in parallel.
 
     To implement a new iterative solver, users need to sub-class
     :py:class:`~pyxu.abc.solver.Solver`
     and overwrite the methods below:
 
-        * :py:meth:`~pyxu.abc.solver.Solver.__init__`
-        * :py:meth:`~pyxu.abc.solver.Solver.m_init`  [i.e. math-init()]
-        * :py:meth:`~pyxu.abc.solver.Solver.m_step`  [i.e. math-step()]
-        * :py:meth:`~pyxu.abc.solver.Solver.default_stop_crit`  [optional; see method definition for details]
-        * :py:meth:`~pyxu.abc.solver.Solver.objective_func`  [optional; see method definition for details]
+    * :py:meth:`~pyxu.abc.solver.Solver.__init__`
+    * :py:meth:`~pyxu.abc.solver.Solver.m_init`  [i.e. math-init()]
+    * :py:meth:`~pyxu.abc.solver.Solver.m_step`  [i.e. math-step()]
+    * :py:meth:`~pyxu.abc.solver.Solver.default_stop_crit`  [optional; see method definition for details]
+    * :py:meth:`~pyxu.abc.solver.Solver.objective_func`  [optional; see method definition for details]
 
     Advanced functionalities of
     :py:class:`~pyxu.abc.solver.Solver`
