@@ -22,7 +22,7 @@ __all__ = [
 ]
 
 
-class ShiftLossMixin:
+class _ShiftLossMixin:
     def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
         from pyxu.operator.func.loss import shift_loss
 
@@ -30,7 +30,7 @@ class ShiftLossMixin:
         return op
 
 
-class L1Norm(ShiftLossMixin, pxa.ProxFunc):
+class L1Norm(_ShiftLossMixin, pxa.ProxFunc):
     r"""
     :math:`\ell_{1}`-norm, :math:`\Vert\mathbf{x}\Vert_{1} := \sum_{i=1}^{N} |x_{i}|`.
     """
@@ -52,7 +52,7 @@ class L1Norm(ShiftLossMixin, pxa.ProxFunc):
         return y
 
 
-class L2Norm(ShiftLossMixin, pxa.ProxFunc):
+class L2Norm(_ShiftLossMixin, pxa.ProxFunc):
     r"""
     :math:`\ell_{2}`-norm, :math:`\Vert\mathbf{x}\Vert_{2} := \sqrt{\sum_{i=1}^{N} |x_{i}|^{2}}`.
     """
@@ -112,7 +112,7 @@ class SquaredL2Norm(pxa.QuadraticFunc):
         return (Q, c, t)
 
 
-class SquaredL1Norm(ShiftLossMixin, pxa.ProxFunc):
+class SquaredL1Norm(_ShiftLossMixin, pxa.ProxFunc):
     r"""
     :math:`\ell^{2}_{1}`-norm, :math:`\Vert\mathbf{x}\Vert^{2}_{1} := (\sum_{i=1}^{N} |x_{i}|)^{2}`.
     """
@@ -121,8 +121,8 @@ class SquaredL1Norm(ShiftLossMixin, pxa.ProxFunc):
         r"""
         Parameters
         ----------
-        dim: pxt.Integer
-        prox_algo: str
+        dim: Integer
+        prox_algo: "root", "sort"
             Algorithm used for computing the proximal operator:
 
             * 'root' uses [FirstOrd]_ Lemma 6.70,
@@ -238,7 +238,7 @@ class SquaredL1Norm(ShiftLossMixin, pxa.ProxFunc):
         return out
 
 
-class LInfinityNorm(ShiftLossMixin, pxa.ProxFunc):
+class LInfinityNorm(_ShiftLossMixin, pxa.ProxFunc):
     r"""
     :math:`\ell_{\infty}`-norm, :math:`\Vert\mathbf{x}\Vert_{\infty} := \max_{i=1,\ldots,N} |x_{i}|`.
     """
@@ -293,14 +293,14 @@ class LInfinityNorm(ShiftLossMixin, pxa.ProxFunc):
         return y
 
 
-class L21Norm(ShiftLossMixin, pxa.ProxFunc):
+class L21Norm(_ShiftLossMixin, pxa.ProxFunc):
     r"""
     Mixed :math:`\ell_{2}-\ell_{1}` norm,
     :math:`\Vert\mathbf{x}\Vert_{2, 1} := \sum_{i=1}^{N} \sqrt{\sum_{j=1}^{M} x_{i, j}^{2}}`,
     for arrays of dimension :math:`\geq 2`.
 
-    Notes
-    -----
+    Note
+    ----
     The input array need not be 2-dimensional:
     the :math:`\ell_{2}` norm is applied along a predefined subset of dimensions, and the
     :math:`\ell_{1}` norm on the remaining ones.
@@ -314,9 +314,9 @@ class L21Norm(ShiftLossMixin, pxa.ProxFunc):
         r"""
         Parameters
         ----------
-        arg_shape: pxt.NDArrayShape
+        arg_shape: NDArrayShape
             Shape of the input array.
-        l2_axis: pxt.NDArrayAxis
+        l2_axis: NDArrayAxis
             Axis (or axes) along which the :math:`\ell_{2}` norm is applied.
         """
         arg_shape = pxu.as_canonical_shape(arg_shape)
@@ -364,7 +364,7 @@ class L21Norm(ShiftLossMixin, pxa.ProxFunc):
         return out.reshape(*sh, -1)
 
 
-class PositiveL1Norm(ShiftLossMixin, pxa.ProxFunc):
+class PositiveL1Norm(_ShiftLossMixin, pxa.ProxFunc):
     r"""
     :math:`\ell_{1}`-norm, with a positivity constraint.
 

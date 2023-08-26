@@ -23,7 +23,7 @@ __all__ = [
 ]
 
 
-class _IndicatorFunction(pxf.ShiftLossMixin, pxa.ProxFunc):
+class _IndicatorFunction(pxf._ShiftLossMixin, pxa.ProxFunc):
     def __init__(self, dim: pxt.Integer):
         super().__init__(shape=(1, dim))
         self.lipschitz = np.inf
@@ -90,13 +90,13 @@ def L1Ball(dim: pxt.Integer, radius: pxt.Real = 1) -> pxt.OpT:
 
     Parameters
     ----------
-    dim: pxt.Integer
-    radius: pxt.Real
+    dim: Integer
+    radius: Real
         Ball radius. (Default: unit ball.)
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
     """
     op = _NormBall(dim=dim, ord=1, radius=radius)
     op._name = "L1Ball"
@@ -124,13 +124,13 @@ def L2Ball(dim: pxt.Integer, radius: pxt.Real = 1) -> pxt.OpT:
 
     Parameters
     ----------
-    dim: pxt.Integer
-    radius: pxt.Real
+    dim: Integer
+    radius: Real
         Ball radius. (Default: unit ball.)
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
     """
     op = _NormBall(dim=dim, ord=2, radius=radius)
     op._name = "L2Ball"
@@ -158,13 +158,13 @@ def LInfinityBall(dim: pxt.Integer, radius: pxt.Real = 1) -> pxt.OpT:
 
     Parameters
     ----------
-    dim: pxt.Integer
-    radius: pxt.Real
+    dim: Integer
+    radius: Real
         Ball radius. (Default: unit ball.)
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
     """
     op = _NormBall(dim=dim, ord=np.inf, radius=radius)
     op._name = "LInfinityBall"
@@ -235,11 +235,11 @@ class HyperSlab(_IndicatorFunction):
         """
         Parameters
         ----------
-        A: pxa.LinFunc
+        A: ~pyxu.abc.operator.LinFunc
             (N,) operator
-        lb: pxt.Real
+        lb: Real
             Lower bound
-        ub: pxt.Real
+        ub: Real
             Upper bound
         """
         assert lb < ub
@@ -301,7 +301,7 @@ class RangeSet(_IndicatorFunction):
         """
         Parameters
         ----------
-        A: pxa.LinOp
+        A: ~pyxu.abc.operator.LinOp
             (M, N) operator
         """
         super().__init__(dim=A.codim)
@@ -360,7 +360,7 @@ class AffineSet(_IndicatorFunction):
       * :math:`\mathbf{A}` has full row-rank, i.e. :math:`\mathbf{A}` is square or fat.
 
     * :py:class:`~pyxu.operator.func.indicator.AffineSet` instances are **not arraymodule-agnostic**:
-      they will only work with NDArrays belonging to the same array module as ``A`` and ``b``.
+      they will only work with NDArrays belonging to the same array module as `A` and `b`.
     """
 
     @pxrt.enforce_precision(i="b")
@@ -368,9 +368,9 @@ class AffineSet(_IndicatorFunction):
         """
         Parameters
         ----------
-        A: pxa.LinOp
+        A: ~pyxu.abc.operator.LinOp
             (M, N) operator
-        b: pxt.NDArray
+        b: NDArray
             (M,)
         """
         assert A.codim <= A.dim, f"`A` must have full row-rank, but A.shape = {A.shape}."
@@ -422,11 +422,11 @@ class ConvexSetIntersection(_IndicatorFunction):
     .. code-block:: python3
 
        import numpy as np
-       import pyxu.operator.func as pxf
+       import pyxu.operator as pxo
 
-       op = pxf.ConvexSetIntersection(             # intersection of
-           pxf.LInfinityBall(),                    #   L-\infty ball centered at (0,0)
-           pxf.L2Ball().asloss(np.array([1, 0])),  #   L2 ball centered at (1,0)
+       op = pxo.ConvexSetIntersection(             # intersection of
+           pxo.LInfinityBall(),                    #   L-\infty ball centered at (0,0)
+           pxo.L2Ball().asloss(np.array([1, 0])),  #   L2 ball centered at (1,0)
        )
 
        x = np.array([
@@ -444,7 +444,7 @@ class ConvexSetIntersection(_IndicatorFunction):
         """
         Parameters
         ----------
-        args: list[pxa.ProxFunc]
+        args: :py:class:`list` ( :py:class:`~pyxu.abc.operator.ProxFunc` )
             Sequence of indicator functions encoding convex domains.
         """
         # Create `op` to auto-compute best shape behind the scenes.
