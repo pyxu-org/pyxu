@@ -27,9 +27,9 @@ class SubSample(pxa.LinOp):
     .. code-block:: python3
 
        ### Extract even samples of a 1D signal.
-       import pyxu.operator.linop as pxl
+       import pyxu.operator as pxo
        x = np.arange(10)
-       S = pxl.SubSample(
+       S = pxo.SubSample(
              x.shape,
              slice(0, None, 2),
        )
@@ -39,9 +39,9 @@ class SubSample(pxa.LinOp):
     .. code-block:: python3
 
        ### Extract columns[1, 3, -1] from a 2D matrix
-       import pyxu.operator.linop as pxl
+       import pyxu.operator as pxo
        x = np.arange(3 * 40).reshape(3, 40)  # the input
-       S = pxl.SubSample(
+       S = pxo.SubSample(
              x.shape,
              slice(None),  # take all rows
              [1, 3, -1],   # and these columns
@@ -53,10 +53,10 @@ class SubSample(pxa.LinOp):
     .. code-block:: python3
 
        ### Extract all red rows of an (D,H,W) RGB image matching a boolean mask.
-       import pyxu.operator.linop as pxl
+       import pyxu.operator as pxo
        x = np.arange(3 * 5 * 4).reshape(3, 5, 4)
        mask = np.r_[True, False, False, True, False]
-       S = pxl.SubSample(
+       S = pxo.SubSample(
              x.shape,
              0,            # red channel
              mask,         # row selector
@@ -86,9 +86,9 @@ class SubSample(pxa.LinOp):
         """
         Parameters
         ----------
-        arg_shape: pxt.NDArrayShape
+        arg_shape: NDArrayShape
             Shape of the data to be sub-sampled.
-        indices: IndexSpec
+        indices: ~pyxu.operator.linop.select.SubSample.IndexSpec
             Sub-sample specifier per dimension. (See examples.)
 
             Valid specifiers are:
@@ -123,12 +123,12 @@ class SubSample(pxa.LinOp):
 
         Parameters
         ----------
-        arr: pxt.NDArray
+        arr: NDArray
             (..., arg_shape.prod()) data
 
         Returns
         -------
-        out: pxt.NDArray
+        out: NDArray
             (..., sub_shape.prod()) sub-sampled data points.
         """
         sh = arr.shape[:-1]
@@ -147,12 +147,12 @@ class SubSample(pxa.LinOp):
 
         Parameters
         ----------
-        arr: pxt.NDArray
+        arr: NDArray
             (..., sub_shape.prod()) data points.
 
         Returns
         -------
-        out: pxt.NDArray
+        out: NDArray
             (..., arg_shape.prod()) up-sampled data points. (Zero-filled.)
         """
         sh = arr.shape[:-1]
@@ -213,20 +213,20 @@ def Trim(
 
     Parameters
     ----------
-    arg_shape: pxt.NDArrayShape
+    arg_shape: NDArrayShape
         Shape of the input array.
-    trim_width: TrimSpec
+    trim_width: ~pyxu.operator.linop.select.SubSample.TrimSpec
         Number of values trimmed from the edges of each axis.
         Multiple forms are accepted:
 
-        * int: trim each dimension's head/tail by `trim_width`.
-        * tuple[int, ...]: trim dimension[k]'s head/tail by `trim_width[k]`.
-        * tuple[tuple[int, int], ...]: trim dimension[k]'s head/tail by `trim_width[k][0]` /
+        * ``int``: trim each dimension's head/tail by `trim_width`.
+        * ``tuple[int, ...]``: trim dimension[k]'s head/tail by `trim_width[k]`.
+        * ``tuple[tuple[int, int], ...]``: trim dimension[k]'s head/tail by `trim_width[k][0]` /
           `trim_width[k][1]` respectively.
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
     """
     arg_shape = tuple(arg_shape)
     N_dim = len(arg_shape)
