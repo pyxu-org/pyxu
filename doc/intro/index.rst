@@ -52,5 +52,5 @@ Dive into Pyxu today and make computational imaging more powerful, efficient, an
    :hidden: 
 
    installation
-   tutorial
+   tutorial.ipynb
    comparison
