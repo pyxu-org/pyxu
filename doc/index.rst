@@ -32,6 +32,15 @@
     text-align: justify;
     }
 
+    a:visited {
+    color: var(--pst-color-primary);
+    }
+
+    .homepage-button.primary-button:visited {
+    color: var(--pst-color-background);
+    }
+
+
     .sponsors-list-item {
     display: inline-flex;
     justify-content: center;
@@ -67,7 +76,7 @@ Pyxu
     
     <div class="homepage-button-container">
     <div class="homepage-button-container-row">
-        <a href="./getting_started/index.html" class="homepage-button primary-button">Get Started</a>
+        <a href="./intro/index.html" class="homepage-button primary-button">Get Started</a>
         <a href="./examples/index.html" class="homepage-button secondary-button">See Examples</a>
     </div>
     <div class="homepage-button-container-row">

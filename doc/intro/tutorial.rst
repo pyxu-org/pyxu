@@ -46,10 +46,3 @@ So come be a part of the community that's setting the pace for computational ima
 
 Let's accelerate the transition from research prototypes to production-ready solutions. 
 Dive into Pyxu today and make computational imaging more powerful, efficient, and accessible for everyone! 🎉
-
-.. toctree::
-   :maxdepth: 1
-   :hidden: 
-
-   installation
-   tutorial
