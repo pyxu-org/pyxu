@@ -49,59 +49,59 @@ The feature set is robust and mature, positioning it as a leader in the computat
 
     * - PyLops
       - 🔴 Linear ops
-      - 💛 Partial
+      - 🟡 Partial
       - 🔴 Least-squares & sparse rec.
-      - 💛 Wave-processing, geophysics
+      - 🟡 Wave-processing, geophysics
       - 🔴 Linear ops. based on old NumPy's matrix interface
 
     * - PyProximal
       - 🔴 Prox. funcs
       - 🔴 None
       - 🔴 Non-smooth cvx opt.
-      - 💚 None
+      - 🟢 None
       - 🔴 Under early development, unstable API
 
     * - Operator Discretization Library (ODL)
-      - 💛 Linear ops, diff./prox. funcs
-      - 💚 Full
-      - 💛 Smooth & non-smooth cvx opt.
-      - 💛 Tomography
+      - 🟡 Linear ops, diff./prox. funcs
+      - 🟢 Full
+      - 🟡 Smooth & non-smooth cvx opt.
+      - 🟡 Tomography
       - 🔴 Domain-specific language for mathematicians
 
     * - GlobalBioIm
-      - 💚 (Non)linear ops, diff./prox. funcs
-      - 💚 Full
-      - 💚 Smooth, non-smooth & hybrid cvx opt.
-      - 💚 None
+      - 🟢 (Non)linear ops, diff./prox. funcs
+      - 🟢 Full
+      - 🟢 Smooth, non-smooth & hybrid cvx opt.
+      - 🟢 None
       - 🔴 MATLAB-based, unlike most DL fmwks
 
     * - SigPy
-      - 💛 Linear ops, prox. funcs
-      - 💛 Partial
-      - 💛 Smooth & non-smooth cvx opt.
+      - 🟡 Linear ops, prox. funcs
+      - 🟡 Partial
+      - 🟡 Smooth & non-smooth cvx opt.
       - 🔴 MRI
       - 🔴 Very limited suite of ops, funcs, algs
 
     * - SCICO
-      - 💚 (Non)linear ops, diff./prox. funcs
-      - 💚 Full
-      - 💚 Smooth, non-smooth & hybrid (non)cvx opt.
-      - 💚 None
-      - 💛 JAX-based (pure functions only, no mutation, etc)
+      - 🟢 (Non)linear ops, diff./prox. funcs
+      - 🟢 Full
+      - 🟢 Smooth, non-smooth & hybrid (non)cvx opt.
+      - 🟢 None
+      - 🟡 JAX-based (pure functions only, no mutation, etc)
 
     * - DeepInv
-      - 💚 (Non)linear ops, diff./prox. funcs
-      - 💛 Partial
-      - 💚 Smooth, non-smooth & hybrid (non)cvx opt.
-      - 💛 Deep Learning
-      - 💛 PyTorch-based (lots of dependencies)
+      - 🟢 (Non)linear ops, diff./prox. funcs
+      - 🟡 Partial
+      - 🟢 Smooth, non-smooth & hybrid (non)cvx opt.
+      - 🟡 Deep Learning
+      - 🟡 PyTorch-based (lots of dependencies)
 
     * - Pyxu
-      - 💚 (Non)linear ops, diff./prox. funcs
-      - 💚 Full
-      - 💚 Smooth, non-smooth, hybrid & stochastic (non)cvx opt.
-      - 💚 None
-      - 💚 Very rich suite of ops, funcs, algs & HPC features
+      - 🟢 (Non)linear ops, diff./prox. funcs
+      - 🟢 Full
+      - 🟢 Smooth, non-smooth, hybrid & stochastic (non)cvx opt.
+      - 🟢 None
+      - 🟢 Very rich suite of ops, funcs, algs & HPC features
 
 Ease-of-Use
 +++++++++++
@@ -128,9 +128,9 @@ via Numba and CuPy, respectively. Most contenders either offer partial support o
 
     * - PyLops
       - 🔴 No
-      - 💚 Yes (CuPy)
+      - 🟢 Yes (CuPy)
       - 🔴 No
-      - 💛 Partial (LLVM via Numba)
+      - 🟡 Partial (LLVM via Numba)
 
     * - PyProximal
       - 🔴 No
@@ -139,40 +139,40 @@ via Numba and CuPy, respectively. Most contenders either offer partial support o
       - 🔴 No
 
     * - Operator Discretization Library (ODL)
-      - 💚 Yes
-      - 💛 Very limited (CUDA)
+      - 🟢 Yes
+      - 🟡 Very limited (CUDA)
       - 🔴 No
       - 🔴 No
 
     * - GlobalBioIm
-      - 💚 Yes
-      - 💚 Yes (MATLAB)
+      - 🟢 Yes
+      - 🟢 Yes (MATLAB)
       - 🔴 No
       - 🔴 No
 
     * - SigPy
       - 🔴 No
-      - 💚 Yes (CuPy)
-      - 💛 Manual (MPI)
+      - 🟢 Yes (CuPy)
+      - 🟡 Manual (MPI)
       - 🔴 No
 
     * - SCICO
-      - 💚 Yes
-      - 💚 Yes (JAX) (GPU/TPU)
+      - 🟢 Yes
+      - 🟢 Yes (JAX) (GPU/TPU)
       - 🔴 No
-      - 💚 Yes (XLA via JAX)
+      - 🟢 Yes (XLA via JAX)
 
     * - DeepInv
-      - 💚 Autodiff support
-      - 💚 Yes (PyTorch)
+      - 🟢 Autodiff support
+      - 🟢 Yes (PyTorch)
       - 🔴 No
-      - 💛 Partial(XLA via torch.compile)
+      - 🟡 Partial(XLA via torch.compile)
 
     * - Pyxu
-      - 💚 Yes
-      - 💚 Yes (CuPy)
-      - 💚 Yes(Dask)
-      - 💚 Yes (LLVM and CUDA via Numba)
+      - 🟢 Yes
+      - 🟢 Yes (CuPy)
+      - 🟢 Yes(Dask)
+      - 🟢 Yes (LLVM and CUDA via Numba)
 
 SCICO: A Closer Look
 --------------------
