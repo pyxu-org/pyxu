@@ -35,17 +35,17 @@ def stack(
     r"""
     Construct a stacked operator.
 
-    A stacked-operator :math:`V: \mathbb{R}^{d} \to \mathbb{R}^{c}` is an operator containing
-    (vertically or horizontally) blocks of smaller operators :math:`\{O_{1}, \ldots, O_{N}\}`.
+    A stacked-operator :math:`V: \mathbb{R}^{d} \to \mathbb{R}^{c}` is an operator containing (vertically or
+    horizontally) blocks of smaller operators :math:`\{O_{1}, \ldots, O_{N}\}`.
 
-    This is a convenience function around :py:func:`~pyxu.operator.block.hstack` and
-    :py:func:`~pyxu.operator.block.vstack`.
+    This is a convenience function around :py:func:`~pyxu.operator.blocks.hstack` and
+    :py:func:`~pyxu.operator.blocks.vstack`.
 
     Parameters
     ----------
-    ops: cabc.Sequence[pxt.OpT]
+    ops: :py:class:`~collections.abc.Sequence` ( :py:attr:`~pyxu.info.ptype.OpT` )
         [op1(c1, d1), ..., opN(cN, dN)] operators to join.
-    axis: pxt.Integer
+    axis: Integer
         The axis along which operators will be joined, i.e.
 
         * 0: stack vertically (row-wise)
@@ -55,13 +55,13 @@ def stack(
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         Stacked operator.
 
     See Also
     --------
-    :py:func:`~pyxu.operator.block.hstack`,
-    :py:func:`~pyxu.operator.block.vstack`.
+    :py:func:`~pyxu.operator.blocks.hstack`,
+    :py:func:`~pyxu.operator.blocks.vstack`.
     """
     axis = int(axis)
     assert axis in {0, 1}, f"axis: out-of-bounds axis '{axis}'."
@@ -78,9 +78,9 @@ def vstack(
     r"""
     Construct a vertically-stacked operator.
 
-    A vstacked-operator :math:`V: \mathbb{R}^{d} \to \mathbb{R}^{c_{1} + \cdots + c_{N}}` is an
-    operator containing (vertically) blocks of smaller operators :math:`\{O_{1}: \mathbb{R}^{d} \to
-    \mathbb{R}^{c_{1}}, \ldots, O_{N}: \mathbb{R}^{d} \to \mathbb{R}^{c_{N}}\}`, i.e.
+    A vstacked-operator :math:`V: \mathbb{R}^{d} \to \mathbb{R}^{c_{1} + \cdots + c_{N}}` is an operator containing
+    (vertically) blocks of smaller operators :math:`\{O_{1}: \mathbb{R}^{d} \to \mathbb{R}^{c_{1}}, \ldots, O_{N}:
+    \mathbb{R}^{d} \to \mathbb{R}^{c_{N}}\}`, i.e.
 
     .. math::
 
@@ -96,14 +96,14 @@ def vstack(
 
     Parameters
     ----------
-    ops: cabc.Sequence[pxt.OpT]
+    ops: :py:class:`~collections.abc.Sequence` ( :py:attr:`~pyxu.info.ptype.OpT` )
         [op1(c1, d), ..., opN(cN, d)] operators to concatenate.
     kwargs
         Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         Vertically-stacked (c1+...+cN, d) operator.
 
     Notes
@@ -112,8 +112,8 @@ def vstack(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.block.hstack`,
-    :py:func:`~pyxu.operator.block.stack`.
+    :py:func:`~pyxu.operator.blocks.hstack`,
+    :py:func:`~pyxu.operator.blocks.stack`.
     """
 
     def op_expr(_) -> tuple:
@@ -144,9 +144,9 @@ def hstack(
     r"""
     Construct a horizontally-stacked operator.
 
-    A hstacked-operator :math:`H: \mathbb{R}^{d_{1} + \cdots + d_{N}} \to \mathbb{R}^{c}` is an
-    operator containing (horizontally) blocks of smaller operators :math:`\{O_{1}: \mathbb{R}^{d_{1}} \to
-    \mathbb{R}^{c}, \ldots, O_{N}: \mathbb{R}^{d_{N}} \to \mathbb{R}^{c}\}`, i.e.
+    A hstacked-operator :math:`H: \mathbb{R}^{d_{1} + \cdots + d_{N}} \to \mathbb{R}^{c}` is an operator containing
+    (horizontally) blocks of smaller operators :math:`\{O_{1}: \mathbb{R}^{d_{1}} \to \mathbb{R}^{c}, \ldots, O_{N}:
+    \mathbb{R}^{d_{N}} \to \mathbb{R}^{c}\}`, i.e.
 
     .. math::
 
@@ -160,14 +160,14 @@ def hstack(
 
     Parameters
     ----------
-    ops: cabc.Sequence[pxt.OpT]
+    ops: :py:class:`~collections.abc.Sequence` ( :py:attr:`~pyxu.info.ptype.OpT` )
         [op1(c, d1), ..., opN(c, dN)] operators to concatenate.
     kwargs
         Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         Horizontally-stacked (c, d1+....+dN) operator.
 
     Notes
@@ -176,8 +176,8 @@ def hstack(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.block.vstack`,
-    :py:func:`~pyxu.operator.block.stack`.
+    :py:func:`~pyxu.operator.blocks.vstack`,
+    :py:func:`~pyxu.operator.blocks.stack`.
     """
 
     def op_expr(_) -> tuple:
@@ -208,10 +208,9 @@ def block_diag(
     r"""
     Construct a block-diagonal operator.
 
-    A block-diagonal operator :math:`D: \mathbb{R}^{d_{1} + \cdots + d_{N}} \to \mathbb{R}^{c_{1} +
-    \cdots + c_{N}}` is an operator containing (diagonally) blocks of smaller operators
-    :math:`\{O_{1}: \mathbb{R}^{d_{1}} \to \mathbb{R}^{c_{1}}, \ldots, O_{N}: \mathbb{R}^{d_{N}}
-    \to \mathbb{R}^{c_{N}}\}`, i.e.
+    A block-diagonal operator :math:`D: \mathbb{R}^{d_{1} + \cdots + d_{N}} \to \mathbb{R}^{c_{1} + \cdots + c_{N}}` is
+    an operator containing (diagonally) blocks of smaller operators :math:`\{O_{1}: \mathbb{R}^{d_{1}} \to
+    \mathbb{R}^{c_{1}}, \ldots, O_{N}: \mathbb{R}^{d_{N}} \to \mathbb{R}^{c_{N}}\}`, i.e.
 
     .. math::
 
@@ -227,20 +226,20 @@ def block_diag(
 
     Parameters
     ----------
-    ops: cabc.Sequence[pxt.OpT]
+    ops: :py:class:`~collections.abc.Sequence` ( :py:attr:`~pyxu.info.ptype.OpT` )
         [op1(c1, d1), ..., opN(cN, dN)] operators to concatenate.
     kwargs
         Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         Block-diagonal (c1+...+cN, d1+...+dN) operator.
 
     See Also
     --------
-    :py:func:`~pyxu.operator.block.block`,
-    :py:func:`~pyxu.operator.block.coo_block`.
+    :py:func:`~pyxu.operator.blocks.block`,
+    :py:func:`~pyxu.operator.blocks.coo_block`.
     """
 
     def op_svdvals(_, **kwargs) -> pxt.NDArray:
@@ -327,19 +326,19 @@ def block(
 
     Parameters
     ----------
-    ops: cabc.Sequence[cabc.Sequence[pxt.OpT]]
+    ops: :py:class:`~collections.abc.Sequence` ( :py:class:`~collections.abc.Sequence` ( :py:attr:`~pyxu.info.ptype.OpT` ) )
         2D nested sequence of (ck, dk)-shaped operators.
-    order: 0 | 1
+    order: 0, 1
         Order in which the nested operators are specified/concatenated:
 
-        * 0: concatenate inner-most blocks via ``vstack()``, then ``hstack()``.
-        * 1: concatenate inner-most blocks via ``hstack()``, then ``vstack()``.
+        * 0: concatenate inner-most blocks via :py:func:`~pyxu.operator.blocks.vstack`, then :py:func:`~pyxu.operator.blocks.hstack`.
+        * 1: concatenate inner-most blocks via :py:func:`~pyxu.operator.blocks.hstack`, then :py:func:`~pyxu.operator.blocks.vstack`.
     kwargs
         Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         Block-defined operator. (See below for examples.)
 
     Notes
@@ -372,8 +371,8 @@ def block(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.block.block_diag`,
-    :py:func:`~pyxu.operator.block.coo_block`.
+    :py:func:`~pyxu.operator.blocks.block_diag`,
+    :py:func:`~pyxu.operator.blocks.coo_block`.
     """
     order = int(order)
     assert order in {0, 1}, f"order: out-of-bounds order '{order}'."
@@ -405,14 +404,14 @@ def coo_block(
 
     Parameters
     ----------
-    ops: ([OpT], ([int], [int]))
+    ops
         (data, (i, j)) sequences defining block placement, i.e.
 
-        * `data[:]` are the blocks, in any order.
+        * `data[:]` are :py:attr:`~pyxu.info.ptype.OpT` instances, in any order.
         * `i[:]` are the row indices of the block entries on the coarse grid.
         * `j[:]` are the column indices of the block entries on the coarse grid.
 
-    grid_shape: pxt.OpShape
+    grid_shape: OpShape
         (M, N) shape of the coarse grid.
 
     parallel: bool
@@ -426,7 +425,7 @@ def coo_block(
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         Block-defined operator. (See below for examples.)
 
     Notes
@@ -437,12 +436,12 @@ def coo_block(
 
     .. Warning::
 
-       When processing Dask inputs, or when ``parallel=True``, operators which are not thread-safe
-       may produce incorrect results.
-       There is no easy way to ensure thread-safety at the level of
-       :py:mod:`~pyxu.operator.blocks` without impacting performance of all operators involved.
-       Users are thus responsible for executing block-defined operators correctly, i.e., if
-       thread-unsafe operators are involved, stick to NumPy/CuPy inputs.
+       When processing Dask inputs, or when ``parallel=True``, operators which are not thread-safe may produce incorrect
+       results.
+       There is no easy way to ensure thread-safety at the level of :py:mod:`~pyxu.operator.blocks` without impacting
+       performance of all operators involved.
+       Users are thus responsible for executing block-defined operators correctly, i.e., if thread-unsafe operators are
+       involved, stick to NumPy/CuPy inputs.
 
     Examples
     --------
