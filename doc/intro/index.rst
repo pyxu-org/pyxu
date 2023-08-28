@@ -53,3 +53,4 @@ Dive into Pyxu today and make computational imaging more powerful, efficient, an
 
    installation
    tutorial
+   comparison

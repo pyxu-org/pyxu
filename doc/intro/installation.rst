@@ -36,7 +36,7 @@ Installation with Optional Dependencies
 For extended features, you can install optional dependencies:
 
 - ``dev``: For development tools like Sphinx, pre-commit, etc.
-- ``fft``: For fast Fourier transforms.
+- ``fft``: For faster Fourier transforms.
 
 Additionally, you can use aggregate targets based on your platform's GPU capabilities:
 
