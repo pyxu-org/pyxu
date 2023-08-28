@@ -1,7 +1,7 @@
 Getting Started
 ###############
 
-In the fast-paced landscape of `computational imaging <https://en.wikipedia.org/w/index.php?title=Image_restoration_by_artificial_intelligence>`_, where digital image restoration and enhancement techniques are cornerstone methodologies, you need a tool that's not only efficient but also incredibly adaptable. 
+In the fast-paced landscape of `computational imaging <https://www.wikiwand.com/en/Computational_imaging>`_, where digital image restoration and enhancement techniques are cornerstone methodologies, you need a tool that's not only efficient but also incredibly adaptable. 
 That's where Pyxu comes in! Whether you're in computer vision, biomedical imaging, or radio-interferometry, Pyxu is here to turbocharge your imaging projects across the board.
 
 What Makes Pyxu Special?
@@ -10,7 +10,7 @@ What Makes Pyxu Special?
 * **Universal & Modular 🌐:** Unlike other platforms that are specialized for particular imaging types, Pyxu is a general-purpose computational imaging tool. No more wrestling with one-size-fits-all solutions that don't quite fit!
 * **Plug-and-Play Functionality 🎮:** Craft bespoke imaging pipelines effortlessly with advanced operator algebra logic. Pyxu automates the tedious bits, like computing gradients, proximal operators, and hyperparameters.
 * **High-Performance Computing 🚀:** Whether you're working with CPUs or GPUs, Pyxu is optimized for both. It employs `Duck arrays <https://numpy.org/neps/nep-0022-ndarray-duck-typing-overview.html>`_ and just-in-time compiling with `Numba <https://numba.pydata.org/>`_, supporting frameworks like `CuPy <https://cupy.dev/>`_ for GPU and `Dask <https://dask.org/>`_ for distributed computing.
-* **Flexible & Adaptable 🛠️:** Combat the common woes of software rigidity with Pyxu's ultra-flexible framework. Bayseian techniques requiring extensive software flexibility are a breeze here.
+* **Flexible & Adaptable 🛠️:** Combat the common woes of software rigidity with Pyxu's ultra-flexible framework. Bayesian techniques requiring extensive software flexibility are a breeze here.
 * **Hardware Acceleration 🖥️:** Leverage built-in support for hardware acceleration to ramp up your computational speed, all thanks to our module-agnostic codebase.
 * **Distributed Computing 🔗:** Got a lot of data? No worries! Pyxu is built for scaling, easily deployable on institutional clusters using industry-standard technologies like `Kubernetes <https://kubernetes.io/>`_ and `Docker <https://www.docker.com/>`_.
 * **Deep Learning Interoperability 🤖:**  Integrate with major deep learning frameworks like `PyTorch <https://pytorch.org/>`_ and `JAX <https://jax.readthedocs.io/en/latest/jax.html>`_ for state-of-the-art computational imaging techniques.

@@ -67,7 +67,7 @@ If you're interested in contributing to Pyxu or experimenting with its codebase,
 
     git clone https://github.com/matthieumeo/pycsou.git
     cd pycsou
-    pip install -e .
+    pip install -e ".[dev,complete_gpu]" # complete_no_gpu also available
 
 To run tests, you can execute:
 
@@ -83,8 +83,8 @@ For building documentation and running pre-commit hooks:
 
 .. code-block:: bash
 
-    tox run -e doc
-    tox run -e pre-commit
+    tox run -e doc # Builds documentation with Sphinx
+    tox run -e pre-commit # Run pre-commit hooks
 
 Interoperation with Deep Learning Frameworks
 --------------------------------------------
