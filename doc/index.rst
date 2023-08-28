@@ -297,7 +297,7 @@ Key Features & Capabilities
 
                 <p style="text-align: center;">
                 <strong> Extensible </strong> <br/> 
-                Powerful plugin mechanism and community marketplace (<a href="./plugins/index.html">Pyxu FAIR</a>) for discovering and sharing custom operators.
+                Powerful plugin mechanism and community marketplace (<a href="./fair/index.html">Pyxu FAIR</a>) for discovering and sharing custom operators.
                 </p>             
                
 Ecosystem
@@ -783,4 +783,4 @@ Partners & Sponsors
    guide/index
    examples/index
    api/index
-   plugins/index
+   fair/index

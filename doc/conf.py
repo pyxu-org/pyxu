@@ -88,6 +88,8 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
+    "sphinx_gallery.gen_gallery",
+    "nbsphinx",
     # "sphinxext.rediraffe",
     "sphinx_design",
     "sphinx_copybutton",
@@ -106,6 +108,15 @@ extensions = [
     # "sphinx_favicon",
     # "notfound.extension",
 ]
+
+sphinx_gallery_conf = {
+
+    'examples_dirs': ['examples'],   # Path to your Jupyter notebooks
+    'gallery_dirs': ['examples'], # Path where the gallery should be placed
+}
+# If the notebooks take a long time to run, pre-run them and save the outputs. The following line tells nbsphinx not to
+# re-run them during the build process.
+nbsphinx_execute = 'never'
 
 nitpicky = False
 add_module_names = False

@@ -1,10 +1,13 @@
-Contributing to Pyxu-FAIR
-=========================
+Contributing to the Pyxu-FAIR
+=============================
 
-If you are interested in creating your own Pyxu-based plugin and making it available in the `Pyxu FAIR <../plugins/index.html>`_, we recommend using the `Pyxu cookiecutter <https://github.com/matthieumeo/cookiecutter-pyxu-plugin>`_.
+**Want to contribute** your own Pyxu-based plugin and making it available in the `Pyxu FAIR <../plugins/index.html>`_,
+we recommend using the `Pyxu cookiecutter <https://github.com/matthieumeo/cookiecutter-pyxu-plugin>`_.
+
 This tutorial will guide you through the process of creating a new plugin using the cookiecutter.
 
-1) Create your plugin package
+Create your plugin package
+--------------------------
 
 Install `Cookiecutter <https://pypi.org/project/cookiecutter/>`_ if not installed:
 
@@ -122,7 +125,8 @@ For more detailed information on each prompt see the `prompts reference <https:/
     │                 └── test_solver.py
     └── tox.ini
 
-2) Initialize a git repository in your package
+Initialize a git repository in your package
+-------------------------------------------
 
 This is important for version management.
 
@@ -134,11 +138,12 @@ This is important for version management.
     git commit -m 'initial commit'
 
 
-3)  Upload it to GitHub
+Upload it to GitHub
+-------------------
 
-3.1.) Create a [new github repository] with the name ``github_repository_url`` you indicated.
+* Create a [new github repository] with the name ``github_repository_url`` you indicated.
 
-3.2.) Add your newly created GitHub repo as a remote and push:
+* Add your newly created GitHub repo as a remote and push:
 
 .. code-block:: bash
 
@@ -146,7 +151,8 @@ This is important for version management.
    git push -u origin main
 
 
-4) Setup a local environment
+Setup a local environment
+-------------------------
 
 It is recommended to set up a local Python environment to develop and test your plugin. With `Conda <https://docs.conda.io/>`_, you can use:
 
@@ -169,17 +175,20 @@ simply add the other required dependencies in the ``setup.cfg`` file and run the
 The ``-e . `` arguments install the package in editable mode, meaning that any changes you make to the source code, will
 be reflected in the installed package.
 
-5) Develop new features
+Develop new features
+--------------------
 
 The cookiecutter offers a predefined hierarchy of classes and functions to aid novice Pyxu developers in creating
 novel features. At this point, the developer can create new functionalities following the `Pyxu developer notes <https://github.com/matthieumeo/pycsou/blob/v2-dev/doc/dev_notes.rst>`_ and
 structure predefined by the cookiecutter.
 
-6) Continuous Integration
+Continuous Integration
+----------------------
 
 This Pyxu-plugin generator repository provides you with already-parametrized continuous integration tools.
 
-6.1) Pre-commit
+Pre-commit
+~~~~~~~~~~
 
 This template includes a default yaml configuration for `pre-commit <https://pre-commit.com/>`_.
 
@@ -199,7 +208,8 @@ You can also have these checks run automatically for you when you push to GitHub
 by installing `pre-commit ci <https://pre-commit.ci/>`_ on your repository.
 
 
-6.2) Running tests locally
+Running tests locally
+~~~~~~~~~~~~~~~~~~~~~
 
 You can run your tests locally with `pytest <https://docs.pytest.org/en/7.1.x/>`_.
 You'll need to make sure that your package is installed in your environment,
@@ -210,7 +220,8 @@ along with testing requirements (specified in the setup.cfg `extras_require` sec
    pip install -e ".[testing]"
    pytest
 
-6.3)  Monitor testing and coverage
+Monitor testing and coverage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The repository is already setup to run your tests automatically each time you push an
 update (configuration is in `.github/workflows/test_and_deploy.yml`). You can
@@ -221,7 +232,8 @@ When the tests are done, test coverage will be viewable at
 `codecov.io <https://codecov.io/>`_) (assuming your repository is public):
 `https://codecov.io/gh/<your-github-username>/<your-package-name>`
 
-6.4) Set up automatic deployments
+Set up automatic deployments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Your new package is also nearly ready to automatically deploy to `PyPI <https://pypi.org/>`_.
 (whenever you create a tagged release), so that your users can simply ``pip install`` your package. To do so, you just
@@ -240,7 +252,8 @@ repository:
 
 You are now setup for automatic deployment!
 
-6.5) Automatic deployment and version management
+Automatic deployment and version management
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Each time you want to deploy a new version, you just need to create a tagged
 commit, and push it to your main branch on GitHub. Your package is set up to
@@ -272,7 +285,8 @@ and available for pip install with:
 
     pip install pyxu-gradient-descent
 
-7) Create your documentation
+Create your documentation
+-------------------------
 
 Documentation generation is not included in this template.
 We recommend following the getting started guides for https://www.sphinx-doc.org/.
