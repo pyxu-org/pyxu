@@ -84,35 +84,39 @@ def MovingAverage(
 
     Notes
     -----
-    This operator performs a convolution between the input :math:`D`-dimensional NDArray
-    :math:`\mathbf{x} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` and a uniform
-    :math:`D`-dimensional filter :math:`\mathbf{h} \in \mathbb{R}^{\text{size} \times \cdots \times \text{size}}` that
-    computes the `size`-point local mean values using separable kernels for improved performance.
+    This operator performs a convolution between the input :math:`D`-dimensional NDArray :math:`\mathbf{x} \in
+    \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` and a uniform :math:`D`-dimensional filter :math:`\mathbf{h} \in
+    \mathbb{R}^{\text{size} \times \cdots \times \text{size}}` that computes the `size`-point local mean values using
+    separable kernels for improved performance.
 
     .. math::
 
-        y_{i} = \frac{1}{|\mathcal{N}_{i}|}\sum_{j \in \mathcal{N}_{i}} x_{j}
+       y_{i} = \frac{1}{|\mathcal{N}_{i}|}\sum_{j \in \mathcal{N}_{i}} x_{j}
 
     Where :math:`\mathcal{N}_{i}` is the set of elements neighbouring the :math:`i`-th element of the input array, and
-    :math:`\mathcal{N}_{i}|` denotes its cardinality, i.e. the total number of neighbors.
+    :math:`\mathcal{N}_{i}` denotes its cardinality, i.e. the total number of neighbors.
 
 
     Parameters
     ----------
-    arg_shape: tuple
+    arg_shape: NDArrayShape
         Shape of the input array.
-    size: int | tuple
-        Size of the moving average kernel. If a single integer value is provided, then the moving average filter will
-        have as many dimensions as the input array. If a tuple is provided, it should contain as many elements as
-        ``arg_shape``. For example, the ``size=(1, 3)`` will convolve the input image with the filter
-        ``[[1, 1, 1]] / 3``.
+    size: int, tuple
+        Size of the moving average kernel.
+
+        If a single integer value is provided, then the moving average filter will have as many dimensions as the input
+        array.
+        If a tuple is provided, it should contain as many elements as `arg_shape`.
+        For example, the ``size=(1, 3)`` will convolve the input image with the filter ``[[1, 1, 1]] / 3``.
 
     center: IndexSpec
-        (i_1, ..., i_D) index of the kernel's center. ``center`` defines how a kernel is overlaid on inputs to produce
-        outputs. For odd `size`s, it defaults to the central element (``center=size//2``). For even ``size``s the desired
-        center indices must be provided.
+        (i_1, ..., i_D) index of the kernel's center.
 
-    mode: str | list(str)
+        `center` defines how a kernel is overlaid on inputs to produce outputs.
+        For odd `size`, it defaults to the central element (``center=size//2``).
+        For even `size` the desired center indices must be provided.
+
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -129,12 +133,12 @@ def MovingAverage(
         (See :py:func:`numpy.pad` for details.)
     gpu: bool
         Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-    dtype: pxt.DType
+    dtype: DType
         Working precision of the linear operator.
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
+    op: OpT
         MovingAverage
 
     Example
@@ -194,35 +198,38 @@ def Gaussian(
 
     Notes
     -----
-    This operator performs a convolution between the input :math:`D`-dimensional NDArray
-    :math:`\mathbf{x} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` and a Gaussian
-    :math:`D`-dimensional filter :math:`\mathbf{h} \in \mathbb{R}^{\text{size} \times \cdots \times \text{size}}`
-    using separable kernels for improved performance.
+    This operator performs a convolution between the input :math:`D`-dimensional NDArray :math:`\mathbf{x} \in
+    \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` and a Gaussian :math:`D`-dimensional filter :math:`\mathbf{h} \in
+    \mathbb{R}^{\text{size} \times \cdots \times \text{size}}` using separable kernels for improved performance.
 
     .. math::
 
-        y_{i} = \sum_{j \in \mathcal{N}_{i}} a_{j} x_{j} \exp(\frac{d_{ij}^{2}}{\sigma^{2}})
+       y_{i} = \sum_{j \in \mathcal{N}_{i}} a_{j} x_{j} \exp(\frac{d_{ij}^{2}}{\sigma^{2}})
 
     Where :math:`\mathcal{N}_{i}` is the set of elements neighbouring the :math:`i`-th element of the input array, and
-    :math:`a_{j} = \sum_{j \in \mathcal{N}_{i}} a_{j} \exp(\frac{d_{ij}^{2}}{\sigma^{2}})` normalizes the kernel to
-    sum to one.
+    :math:`a_{j} = \sum_{j \in \mathcal{N}_{i}} a_{j} \exp(\frac{d_{ij}^{2}}{\sigma^{2}})` normalizes the kernel to sum
+    to one.
 
 
     Parameters
     ----------
-    arg_shape: tuple
+    arg_shape: NDArrayShape
         Shape of the input array.
-    sigma: float | tuple
-        Standard deviation of the Gaussian kernel.  If a scalar value is provided, then the Gaussian filter will
-        have as many dimensions as the input array. If a tuple is provided, it should contain as many elements as
-        ``arg_shape``. Use ``0`` to prevent filtering in a given dimension. For example, the ``sigma=(0, 3)`` will
-        convolve the input image in its last dimension.
-    truncate: float | tuple
+    sigma: float, tuple
+        Standard deviation of the Gaussian kernel.
+
+        If a scalar value is provided, then the Gaussian filter will have as many dimensions as the input array.
+        If a tuple is provided, it should contain as many elements as `arg_shape`.
+        Use ``0`` to prevent filtering in a given dimension.
+        For example, the ``sigma=(0, 3)`` will convolve the input image in its last dimension.
+    truncate: float, tuple
         Truncate the filter at this many standard deviations.
         Defaults to 3.0.
-    order: int | tuple
-        Gaussian derivative order. Use ``0`` for the standard Gaussian kernel.
-    mode: str | list(str)
+    order: int, tuple
+        Gaussian derivative order.
+
+        Use ``0`` for the standard Gaussian kernel.
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -237,17 +244,18 @@ def Gaussian(
         * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
-    sampling: pxt.Real | (pxt.Real, ..., pxt.Real)
-            Sampling step (i.e. distance between two consecutive elements of an array).
-            Defaults to 1.
+    sampling: Real, list[Real]
+        Sampling step (i.e. distance between two consecutive elements of an array).
+        Defaults to 1.
     gpu: bool
-        Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-    dtype: pxt.DType
+        Input NDArray type (`True` for GPU, `False` for CPU).
+        Defaults to `False`.
+    dtype: DType
         Working precision of the linear operator.
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
+    op: OpT
         Gaussian
 
     Example
@@ -318,31 +326,34 @@ def DifferenceOfGaussians(
     Notes
     -----
 
-    This operator uses the Difference of Gaussians (DoG) method to a :math:`D`-dimensional NDArray
-    :math:`\mathbf{x} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` using separable kernels for improved
-    performance. The DoG method blurs the input image with two Gaussian kernels with different sigma, and
-    subtracts the more-blurred signal from the less-blurred image. This creates an output signal containing only the
-    information from the original signal at the spatial scale indicated by the two sigmas.
+    This operator uses the Difference of Gaussians (DoG) method to a :math:`D`-dimensional NDArray :math:`\mathbf{x} \in
+    \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` using separable kernels for improved performance.
+    The DoG method blurs the input image with two Gaussian kernels with different sigma, and subtracts the more-blurred
+    signal from the less-blurred image.
+    This creates an output signal containing only the information from the original signal at the spatial scale
+    indicated by the two sigmas.
 
     Parameters
     ----------
-    arg_shape: tuple
+    arg_shape: NDArrayShape
         Shape of the input array.
-    low_sigma: float | tuple
-        Standard deviation of the Gaussian kernel with smaller sigmas across all axes. If a scalar value is provided,
-        then the Gaussian filter will have as many dimensions as the input array. If a tuple is provided, it should
-        contain as many elements as ``arg_shape``. Use ``0`` to prevent filtering in a given dimension. For example, the
-        ``low_sigma=(0, 3)`` will convolve the input image in its last dimension.
-    high_sigma: float | tuple | None
-        Standard deviation of the Gaussian kernel with larger sigmas across all axes. If ``None`` is given (default),
-        sigmas for all axes are calculated as ``1.6 * low_sigma``.
-    low_truncate: float | tuple
+    low_sigma: float, tuple
+        Standard deviation of the Gaussian kernel with smaller sigmas across all axes.
+
+        If a scalar value is provided, then the Gaussian filter will have as many dimensions as the input array.
+        If a tuple is provided, it should contain as many elements as `arg_shape`.
+        Use ``0`` to prevent filtering in a given dimension.
+        For example, the ``low_sigma=(0, 3)`` will convolve the input image in its last dimension.
+    high_sigma: float, tuple, None
+        Standard deviation of the Gaussian kernel with larger sigmas across all axes.
+        If ``None`` is given (default), sigmas for all axes are calculated as ``1.6 * low_sigma``.
+    low_truncate: float, tuple
         Truncate the filter at this many standard deviations.
         Defaults to 3.0.
-    high_truncate: float | tuple
+    high_truncate: float, tuple
         Truncate the filter at this many standard deviations.
         Defaults to 3.0.
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -357,17 +368,17 @@ def DifferenceOfGaussians(
         * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
-    sampling: pxt.Real | (pxt.Real, ..., pxt.Real)
-            Sampling step (i.e. distance between two consecutive elements of an array).
-            Defaults to 1.
+    sampling: Real, list[Real]
+        Sampling step (i.e. distance between two consecutive elements of an array).
+        Defaults to 1.
     gpu: bool
         Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-    dtype: pxt.DType
+    dtype: DType
         Working precision of the linear operator.
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
+    op: OpT
         DifferenceOfGaussians
 
     Example
@@ -393,8 +404,10 @@ def DifferenceOfGaussians(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.filter.Gaussian`, :py:class:`~pyxu.operator.linop.filter.Sobel`,
-    :py:class:`~pyxu.operator.linop.filter.Prewitt`, :py:class:`~pyxu.operator.linop.filter.Scharr`,
+    :py:class:`~pyxu.operator.linop.filter.Gaussian`,
+    :py:class:`~pyxu.operator.linop.filter.Sobel`,
+    :py:class:`~pyxu.operator.linop.filter.Prewitt`,
+    :py:class:`~pyxu.operator.linop.filter.Scharr`,
     :py:class:`~pyxu.operator.linop.filter.StructureTensor`
     """
 
@@ -437,16 +450,17 @@ def Laplace(
     Notes
     -----
 
-    This operator uses the applies the Laplace kernel :math:`[1 -2 1]`
-    to a :math:`D`-dimensional NDArray :math:`\mathbf{x} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` using
-    separable kernels for improved performance. The Laplace filter is commonly used to find high-frequency components in
-    the signal, such as for example, the edges in an image.
+    This operator uses the applies the Laplace kernel :math:`[1 -2 1]` to a :math:`D`-dimensional NDArray
+    :math:`\mathbf{x} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` using separable kernels for improved
+    performance.
+    The Laplace filter is commonly used to find high-frequency components in the signal, such as for example, the edges
+    in an image.
 
     Parameters
     ----------
-    arg_shape: tuple
+    arg_shape: NDArrayShape
         Shape of the input array.
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -461,17 +475,17 @@ def Laplace(
         * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
-    sampling: pxt.Real | (pxt.Real, ..., pxt.Real)
+    sampling: Real, list[Real]
             Sampling step (i.e. distance between two consecutive elements of an array).
             Defaults to 1.
     gpu: bool
         Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-    dtype: pxt.DType
+    dtype: DType
         Working precision of the linear operator.
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
+    op: OpT
         DifferenceOfGaussians
 
     Example
@@ -498,7 +512,8 @@ def Laplace(
     See Also
     --------
     :py:class:`~pyxu.operator.linop.filter.Sobel`,
-    :py:class:`~pyxu.operator.linop.filter.Prewitt`, :py:class:`~pyxu.operator.linop.filter.Scharr`,
+    :py:class:`~pyxu.operator.linop.filter.Prewitt`,
+    :py:class:`~pyxu.operator.linop.filter.Scharr`,
     """
 
     ndim, dtype, xp = _sanitize_inputs(arg_shape, dtype, gpu)
@@ -530,24 +545,23 @@ def Sobel(
 
     This operator uses the applies the multi-dimensional Sobel filter to a :math:`D`-dimensional NDArray
     :math:`\mathbf{x} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` using separable kernels for improved
-    performance.  The Sobel filter applies the following edge filter in the dimensions of interest:
-        ``[1, 0, -1]``,
-    and the smoothing filter on the rest of dimensions:
-        ``[1, 2, 1] / 4``.
-    The Sobel filter is commonly used to find high-frequency components in the signal, such as
-    for example, the edges in an image.
+    performance.  The Sobel filter applies the following edge filter in the dimensions of interest: ``[1, 0, -1]``
+    and the smoothing filter on the rest of dimensions: ``[1, 2, 1] / 4``.
+    The Sobel filter is commonly used to find high-frequency components in the signal, such as for example, the edges in
+    an image.
 
     Parameters
     ----------
-    arg_shape: tuple
+    arg_shape: NDArrayShape
         Shape of the input array.
-    axis: int | tuple
-        Compute the edge filter along this axis. If not provided, the edge magnitude is computed. This is defined as:
+    axis: int, tuple
+        Compute the edge filter along this axis. If not provided, the edge magnitude is computed.
 
+        This is defined as:
         ``np.sqrt(sum([sobel(array, axis=i)**2 for i in range(array.ndim)]) / array.ndim)``
         The magnitude is also computed if axis is a sequence.
 
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -562,17 +576,17 @@ def Sobel(
         * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
-    sampling: pxt.Real | (pxt.Real, ..., pxt.Real)
+    sampling: Real, list[Real]
             Sampling step (i.e. distance between two consecutive elements of an array).
             Defaults to 1.
     gpu: bool
         Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-    dtype: pxt.DType
+    dtype: DType
         Working precision of the linear operator.
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
+    op: OpT
         Sobel
 
     Example
@@ -598,7 +612,8 @@ def Sobel(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.filter.Prewitt`, :py:class:`~pyxu.operator.linop.filter.Scharr`,
+    :py:class:`~pyxu.operator.linop.filter.Prewitt`,
+    :py:class:`~pyxu.operator.linop.filter.Scharr`,
     """
     smooth_kernel = np.array([1, 2, 1]) / 4
     return _EdgeFilter(
@@ -630,23 +645,21 @@ def Prewitt(
     This operator uses the applies the multi-dimensional Prewitt filter to a :math:`D`-dimensional NDArray
     :math:`\mathbf{x} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` using separable kernels for improved
     performance.  The Prewitt filter applies the following edge filter in the dimensions of interest:
-        ``[1, 0, -1]``,
-    and the smoothing filter on the rest of dimensions:
-        ``[1, 1, 1] / 3``.
-    The Prewitt filter is commonly used to find high-frequency components in the signal, such as
-    for example, the edges in an image.
+    ``[1, 0, -1]``, and the smoothing filter on the rest of dimensions: ``[1, 1, 1] / 3``.
+    The Prewitt filter is commonly used to find high-frequency components in the signal, such as for example, the edges
+    in an image.
 
     Parameters
     ----------
-    arg_shape: tuple
+    arg_shape: NDArrayShape
         Shape of the input array.
-    axis: int | tuple
+    axis: int, tuple
         Compute the edge filter along this axis. If not provided, the edge magnitude is computed. This is defined as:
 
         ``np.sqrt(sum([prewitt(array, axis=i)**2 for i in range(array.ndim)]) / array.ndim)``
         The magnitude is also computed if axis is a sequence.
 
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -661,17 +674,17 @@ def Prewitt(
         * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
-    sampling: pxt.Real | (pxt.Real, ..., pxt.Real)
+    sampling: Real, list[Real]
             Sampling step (i.e. distance between two consecutive elements of an array).
             Defaults to 1.
     gpu: bool
         Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-    dtype: pxt.DType
+    dtype: DType
         Working precision of the linear operator.
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
+    op: OpT
         Prewitt
 
     Example
@@ -697,7 +710,8 @@ def Prewitt(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.filter.Sobel`, :py:class:`~pyxu.operator.linop.filter.Scharr`,
+    :py:class:`~pyxu.operator.linop.filter.Sobel`,
+    :py:class:`~pyxu.operator.linop.filter.Scharr`,
     """
     smooth_kernel = np.full((3,), 1 / 3)
     return _EdgeFilter(
@@ -728,23 +742,21 @@ def Scharr(
 
     This operator uses the applies the multi-dimensional Scharr filter to a :math:`D`-dimensional NDArray
     :math:`\mathbf{x} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` using separable kernels for improved
-    performance.  The Scharr filter applies the following edge filter in the dimensions of interest:
-        ``[1, 0, -1]``,
-    and the smoothing filter on the rest of dimensions:
-        ``[3, 10, 3] / 16``.
-    The Scharr filter is commonly used to find high-frequency components in the signal, such as
-    for example, the edges in an image.
+    performance.  The Scharr filter applies the following edge filter in the dimensions of interest: ``[1, 0, -1]``, and
+    the smoothing filter on the rest of dimensions: ``[3, 10, 3] / 16``.
+    The Scharr filter is commonly used to find high-frequency components in the signal, such as for example, the edges
+    in an image.
 
     Parameters
     ----------
-    arg_shape: tuple
+    arg_shape: NDArrayShape
         Shape of the input array.
-    axis: int | tuple
+    axis: int, tuple
         Compute the edge filter along this axis. If not provided, the edge magnitude is computed. This is defined as:
 
         ``np.sqrt(sum([scharr(array, axis=i)**2 for i in range(array.ndim)]) / array.ndim)``
         The magnitude is also computed if axis is a sequence.
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -759,17 +771,17 @@ def Scharr(
         * tuple[str, ...]: the `d`-th dimension uses `mode[d]` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
-    sampling: pxt.Real | (pxt.Real, ..., pxt.Real)
+    sampling: Real, list[Real]
             Sampling step (i.e. distance between two consecutive elements of an array).
             Defaults to 1.
     gpu: bool
         Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-    dtype: pxt.DType
+    dtype: DType
         Working precision of the linear operator.
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
+    op: OpT
         Scharr
 
     Example
@@ -795,7 +807,8 @@ def Scharr(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.filter.Sobel`, :py:class:`~pyxu.operator.linop.filter.Prewitt`,
+    :py:class:`~pyxu.operator.linop.filter.Sobel`,
+    :py:class:`~pyxu.operator.linop.filter.Prewitt`,
     """
     smooth_kernel = np.array([3, 10, 3]) / 16
     return _EdgeFilter(
