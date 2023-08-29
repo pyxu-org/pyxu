@@ -52,5 +52,6 @@ Dive into Pyxu today and make computational imaging more powerful, efficient, an
    :hidden: 
 
    installation
-   tutorial.ipynb
+   primer.ipynb
+   tomo.ipynb
    comparison

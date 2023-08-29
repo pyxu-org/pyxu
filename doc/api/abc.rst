@@ -34,6 +34,7 @@ pyxu.abc
 
 .. autoclass:: pyxu.abc.operator.Map
    :special-members: __call__
+   :no-members:
    :members: apply, lipschitz, estimate_lipschitz
 
 .. autoclass:: pyxu.abc.operator.Func

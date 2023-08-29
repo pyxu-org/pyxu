@@ -103,20 +103,19 @@ extensions = [
     # "myst_nb",
     # "sphinxcontrib.youtube",
     # "nbsphinx",  # Uncomment and comment-out MyST-NB for local testing purposes.
-    "numpydoc",
+    # "numpydoc",
     # "jupyterlite_sphinx",
     # "sphinx_favicon",
     # "notfound.extension",
 ]
 
 sphinx_gallery_conf = {
-
-    'examples_dirs': ['examples'],   # Path to your Jupyter notebooks
-    'gallery_dirs': ['examples'], # Path where the gallery should be placed
+    "examples_dirs": ["examples"],  # Path to your Jupyter notebooks
+    "gallery_dirs": ["examples"],  # Path where the gallery should be placed
 }
 # If the notebooks take a long time to run, pre-run them and save the outputs. The following line tells nbsphinx not to
 # re-run them during the build process.
-nbsphinx_execute = 'never'
+nbsphinx_execute = "never"
 
 nitpicky = False
 add_module_names = False
@@ -136,7 +135,7 @@ python_display_short_literal_types = True
 
 # -- autosummary -------------------------------------------------------------
 
-autosummary_generate = True
+autosummary_generate = False
 
 # -- Internationalization ----------------------------------------------------
 
