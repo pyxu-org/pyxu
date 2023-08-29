@@ -178,27 +178,27 @@ def _FiniteDifference(
 
     Parameters
     ----------
-    order: pxt.Integer | (pxt.Integer, ..., pxt.Integer)
+    order: Integer, list[Integer]
         Derivative order. If a single integer value is provided, then `axes` should be provided to
         indicate which dimension should be differentiated.
         If a tuple is provided, it should contain as many elements as `arg_shape`.
     arg_shape: pxt.NDArrayShape
         Shape of the input array.
-    scheme: str | (str, ..., str)
+    scheme: str, list[str]
         Type of finite differences: ["forward", "backward", "central"].
         Defaults to "forward".
-    axes: pxt.NDArrayAxis
+    axes: NDArrayAxis
         Axes to which apply the derivative.
         It maps the argument `order` to the specified dimensions of the input array.
         Defaults to None, assuming that the `order` argument has as many elements as dimensions of
         the input.
-    accuracy: pxt.Integer | (pxt.Integer, ..., pxt.Integer)
+    accuracy: Integer, list[Integer]
         Determines the number of points used to approximate the derivative with finite differences
         (see `Notes`).
         Defaults to 1.
         If an int is provided, the same `accuracy` is assumed for all dimensions.
         If a tuple is provided, it should have as many elements as `arg_shape`.
-    sampling: pxt.Real | (pxt.Real, ..., pxt.Real)
+    sampling: pxt.Real, list[Real]
         Sampling step (i.e. distance between two consecutive elements of an array).
         Defaults to 1.
     """
@@ -286,7 +286,7 @@ def _GaussianDerivative(
 
     Parameters
     ----------
-    order: pxt.Integer | (pxt.Integer, ..., pxt.Integer)
+    order: Integer, list[Integer]
         Derivative order.
         If a single integer value is provided, then `axes` should be provided to indicate which
         dimension should be used for differentiation.
@@ -294,17 +294,17 @@ def _GaussianDerivative(
         `axes`.
     arg_shape: pxt.NDArrayShape
         Shape of the input array.
-    sigma: pxt.Real | (pxt.Real, ..., pxt.Real)
+    sigma: Real, list[Real]
         Standard deviation of the Gaussian kernel.
     axes: pxt.NDArrayAxis
         Axes to which apply the derivative.
         It maps the argument `order` to the specified dimensions of the input array.
         Defaults to None, assuming that the `order` argument has as many elements as dimensions of
         the input.
-    truncate: pxt.Real | (pxt.Real, ..., pxt.Real)
+    truncate: Real, list[Real]
         Truncate the filter at this many standard deviations (at each side from the origin).
         Defaults to 3.0.
-    sampling: pxt.Real | (pxt.Real, ..., pxt.Real)
+    sampling: Real, list[Real]
         Sampling step (i.e., the distance between two consecutive elements of an array).
         Defaults to 1.
     """
@@ -393,7 +393,7 @@ def _PartialDerivative(
            k[q_{1},\ldots,q_{D}]
     arg_shape: pxt.NDArrayShape
         Shape of the input array.
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -410,7 +410,7 @@ def _PartialDerivative(
         (See :py:func:`numpy.pad` for details.)
     gpu: bool
         Input NDArray type (`True` for GPU, `False` for CPU). Defaults to `False`.
-    dtype: pxt.DType
+    dtype: DType
         Working precision of the linear operator.
     meta: typ.NamedTuple
         Partial derivative metadata describing:
@@ -450,51 +450,46 @@ class PartialDerivative:
 
     Notes
     -----
-    This operator approximates the partial derivative of a :math:`D`-dimensional signal
-    :math:`\mathbf{f} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}`
+    * This operator approximates the partial derivative of a :math:`D`-dimensional signal :math:`\mathbf{f} \in
+      \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}`
 
-    .. math::
+      .. math::
 
-       \frac{\partial^{n} \mathbf{f}}{\partial x_0^{n_0} \cdots \partial x_{D-1}^{n_{D-1}}} \in
-       \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}
+         \frac{\partial^{n} \mathbf{f}}{\partial x_0^{n_0} \cdots \partial x_{D-1}^{n_{D-1}}} \in
+         \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}
 
-    where :math:`\frac{\partial^{n_i}}{\partial x_i^{n_i}}` is the :math:`n_i`-th order partial
-    derivative along dimension :math:`i` and :math:`n = \prod_{i=0}^{D-1} n_{i}` is the total
-    derivative order.
+      where :math:`\frac{\partial^{n_i}}{\partial x_i^{n_i}}` is the :math:`n_i`-th order partial derivative along
+      dimension :math:`i` and :math:`n = \prod_{i=0}^{D-1} n_{i}` is the total derivative order.
 
-    Partial derivatives can be implemented with `finite differences
-    <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor, or with
-    the `Gaussian derivative <https://www.crisluengo.net/archives/22/>`_ via the
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
+      Partial derivatives can be implemented with `finite differences
+      <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
+      :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor, or with the `Gaussian
+      derivative <https://www.crisluengo.net/archives/22/>`_ via the
+      :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
 
-    **Adjoint**
+    * When using the :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor, the adjoint
+      of the resulting linear operator will vary depending on the type of finite differences:
 
-    When using the :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference`
-    constructor, the adjoint of the resulting linear operator will vary depending on the type of
-    finite differences:
-
-    * For ``forward`` type, the adjoint corresponds to:
+      * For ``forward`` type, the adjoint corresponds to:
 
         :math:`(\frac{\partial^{\text{fwd}}}{\partial x})^{\ast} = -\frac{\partial^{\text{bwd}}}{\partial x}`
 
-    * For ``backward`` type, the adjoint corresponds to:
+      * For ``backward`` type, the adjoint corresponds to:
 
         :math:`(\frac{\partial^{\text{bwd}}}{\partial x})^{\ast} = -\frac{\partial^{\text{fwd}}}{\partial x}`
 
-    * For ``central`` type, and for the
-      :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor, the
-      adjoint corresponds to:
+      * For ``central`` type, and for the :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative`
+        constructor, the adjoint corresponds to:
 
         :math:`(\frac{\partial}{\partial x})^{\ast} = -\frac{\partial}{\partial x}`
 
 
     .. warning::
 
-       When dealing with high-order partial derivatives, the stencils required to compute them can
-       become large, resulting in computationally expensive evaluations.
-       In such scenarios, it can be more efficient to construct the partial derivative through a
-       composition of lower-order partial derivatives.
+       When dealing with high-order partial derivatives, the stencils required to compute them can become large,
+       resulting in computationally expensive evaluations.
+       In such scenarios, it can be more efficient to construct the partial derivative through a composition of
+       lower-order partial derivatives.
 
     See Also
     --------
@@ -519,24 +514,23 @@ class PartialDerivative:
 
         Parameters
         ----------
-        arg_shape: pxt.NDArrayShape
+        arg_shape: NDArrayShape
             Shape of the input array.
-        order: (pxt.Integer, ..., pxt.Integer)
+        order: list[Integer]
             Derivative order for each dimension.
             The total order of the partial derivative is the sum of the elements of the tuple.
             Use zeros to indicate dimensions in which the derivative should not be computed.
-        scheme: str | (str, ..., str)
+        scheme: str, list[str]
             Type of finite differences: ['forward, 'backward, 'central'].
             Defaults to 'forward'.
             If a string is provided, the same `scheme` is assumed for all dimensions.
             If a tuple is provided, it should have as many elements as `order`.
-        accuracy: pxt.Integer | (pxt.Integer, ..., pxt.Integer)
-            Determines the number of points used to approximate the derivative with finite
-            differences (see `Notes`).
+        accuracy: Integer, list[Integer]
+            Determines the number of points used to approximate the derivative with finite differences (see `Notes`).
             Defaults to 1.
             If an int is provided, the same `accuracy` is assumed for all dimensions.
             If a tuple is provided, it should have as many elements as `arg_shape`.
-        mode: str | list(str)
+        mode: str, list[str]
             Boundary conditions.
             Multiple forms are accepted:
 
@@ -554,125 +548,110 @@ class PartialDerivative:
         gpu: bool
             Input NDArray type (`True` for GPU, `False` for CPU).
             Defaults to `False`.
-        dtype: pxt.DType
+        dtype: DType
             Working precision of the linear operator.
-        sampling: pxt.Real | (pxt.Real, ..., pxt.Real)
+        sampling: Real, list[Real]
             Sampling step (i.e. distance between two consecutive elements of an array).
             Defaults to 1.
 
         Returns
         -------
-        op: :py:class:`~pyxu.abc.operator.LinOp`
+        op: OpT
             Partial derivative
 
         Notes
         -----
-
-        We explain here finite differences for one-dimensional signals; this operator performs
-        finite differences for multi-dimensional signals along dimensions specified by ``order``.
+        We explain here finite differences for one-dimensional signals; this operator performs finite differences for
+        multi-dimensional signals along dimensions specified by `order`.
 
         This operator approximates derivatives with `finite differences
         <https://en.wikipedia.org/wiki/Finite_difference>`_.
         It is inspired by the `Finite Difference Coefficients Calculator
-        <https://web.media.mit.edu/~crtaylor/calculator.html>`_ to construct finite-difference
-        approximations for the desired *(i)* derivative order, *(ii)* approximation accuracy, and
-        *(iii)* finite difference type.
-        Three basic types of finite differences are supported, which lead to the following
-        first-order (``order = 1``) operators with ``accuracy = 1`` and sampling step ``sampling =
-        h`` for one-dimensional signals:
+        <https://web.media.mit.edu/~crtaylor/calculator.html>`_ to construct finite-difference approximations for the
+        desired *(i)* derivative order, *(ii)* approximation accuracy, and *(iii)* finite difference type.
+        Three basic types of finite differences are supported, which lead to the following first-order (``order = 1``)
+        operators with ``accuracy = 1`` and sampling step ``sampling = h`` for one-dimensional signals:
 
         - **Forward difference**:
-            Approximates the continuous operator :math:`D_{F}f(x) = \frac{f(x+h) - f(x)}{h}` with
-            the discrete operator
+          Approximates the continuous operator :math:`D_{F}f(x) = \frac{f(x+h) - f(x)}{h}` with the discrete operator
 
-            .. math::
+          .. math::
 
-               \mathbf{D}_{F} f [n] = \frac{f[n+1] - f[n]}{h},
+             \mathbf{D}_{F} f [n] = \frac{f[n+1] - f[n]}{h},
 
-            whose kernel is :math:`d = \frac{1}{h}[-1, 1]` and center is (0, ).
+          whose kernel is :math:`d = \frac{1}{h}[-1, 1]` and center is (0, ).
 
         - **Backward difference**:
-            Approximates the continuous operator :math:`D_{B}f(x) = \frac{f(x) - f(x-h)}{h}` with
-            the discrete operator
+          Approximates the continuous operator :math:`D_{B}f(x) = \frac{f(x) - f(x-h)}{h}` with the discrete operator
 
-            .. math::
+          .. math::
 
-               \mathbf{D}_{B} f [n] = \frac{f[n] - f[n-1]}{h},
+             \mathbf{D}_{B} f [n] = \frac{f[n] - f[n-1]}{h},
 
-            whose kernel is :math:`d = \frac{1}{h}[-1, 1]` and center is (1, ).
+          whose kernel is :math:`d = \frac{1}{h}[-1, 1]` and center is (1, ).
 
         - **Central difference**:
-            Approximates the continuous operator :math:`D_{C}f(x) = \frac{f(x+h) - f(x-h)}{2h}` with
-            the discrete operator
+          Approximates the continuous operator :math:`D_{C}f(x) = \frac{f(x+h) - f(x-h)}{2h}` with the discrete operator
 
-            .. math::
+          .. math::
 
-               \mathbf{D}_{C} f [n] = \frac{f[n+1] - f[n-1]}{2h},
+             \mathbf{D}_{C} f [n] = \frac{f[n+1] - f[n-1]}{2h},
 
-            whose kernel is :math:`d = \frac{1}{h}[-\frac12, 0, \frac12]` and center is (1, ).
+          whose kernel is :math:`d = \frac{1}{h}[-\frac12, 0, \frac12]` and center is (1, ).
 
         .. warning::
 
-           For forward and backward differences, higher-order operators correspond to the
-           composition of first-order operators.
-           This is not the case for central differences: the second-order continuous operator is
-           given by :math:`D^2_{C}f(x) = \frac{f(x+h) - 2 f(x) + f(x-h)}{h}`, hence :math:`D^2_{C}
-           \neq D_{C} \circ D_{C}`.
-           The corresponding discrete operator is given by :math:`\mathbf{D}^2_{C} f [n] =
-           \frac{f[n+1] - 2 f[n] + f[n-1]}{h}`, whose kernel is :math:`d = \frac{1}{h}[1, -2, 1]`
-           and center is (1, ).
+           For forward and backward differences, higher-order operators correspond to the composition of first-order
+           operators.
+           This is not the case for central differences: the second-order continuous operator is given by
+           :math:`D^2_{C}f(x) = \frac{f(x+h) - 2 f(x) + f(x-h)}{h}`, hence :math:`D^2_{C} \neq D_{C} \circ D_{C}`.
+           The corresponding discrete operator is given by :math:`\mathbf{D}^2_{C} f [n] = \frac{f[n+1] - 2 f[n] +
+           f[n-1]}{h}`, whose kernel is :math:`d = \frac{1}{h}[1, -2, 1]` and center is (1, ).
            We refer to `this paper
-           <https://www.ams.org/journals/mcom/1988-51-184/S0025-5718-1988-0935077-0/S0025-5718-1988-0935077-0.pdf>`_
-           for more details.
+           <https://www.ams.org/journals/mcom/1988-51-184/S0025-5718-1988-0935077-0/S0025-5718-1988-0935077-0.pdf>`_ for
+           more details.
 
         For a given derivative order :math:`N\in\mathbb{Z}^{+}` and accuracy :math:`a\in\mathbb{Z}^{+}`, the size
         :math:`N_s` of the stencil kernel :math:`d` used for finite differences is given by:
 
-        - For central differences:
+        - For central differences: :math:`N_s = 2 \lfloor\frac{N + 1}{2}\rfloor - 1 + a`
 
-            :math:`N_s = 2 \lfloor\frac{N + 1}{2}\rfloor - 1 + a`
+        - For forward and backward differences: :math:`N_s = N + a`
 
-        - For forward and backward differences:
+        For :math:`N_s` given support indices :math:`\{s_1, \ldots , s_{N_s} \} \subset \mathbb{Z}` and a derivative
+        order :math:`N<N_s`, the stencil kernel :math:`d = [d_1, \ldots, d_{N_s}]` of the finite-difference
+        approximation of the derivative is obtained by solving the following system of linear equations (see the `Finite
+        Difference Coefficients Calculator <https://web.media.mit.edu/~crtaylor/calculator.html>`_ documentation):
 
-            :math:`N_s = N + a`
+        .. admonition:: Remark
 
-        For :math:`N_s` given support indices :math:`\{s_1, \ldots , s_{N_s} \} \subset \mathbb{Z}`
-        and a derivative order :math:`N<N_s`, the stencil kernel :math:`d = [d_1, \ldots, d_{N_s}]`
-        of the finite-difference approximation of the derivative is obtained by solving the
-        following system of linear equations (see the `Finite Difference Coefficients Calculator
-        <https://web.media.mit.edu/~crtaylor/calculator.html>`_ documentation):
+           The number of coefficients of the finite-difference kernel is chosen to guarantee the requested accuracy, but
+           might be larger than requested accuracy.
+           For example, if choosing `scheme='central'` with `accuracy=1`, it will create a kernel corresponding to
+           `accuracy=2`, as it is the minimum accuracy possible for such scheme (see the `finite difference coefficient
+           table <https://en.wikipedia.org/wiki/Finite_difference_coefficient>`_).
 
-        **Remark 1:**
+           .. math::
 
-        The number of coefficients of the finite-difference kernel is chosen to guarantee the
-        requested accuracy, but might be larger than requested accuracy.
-        For example, if choosing `scheme='central'` with `accuracy=1`, it will create a kernel
-        corresponding to `accuracy=2`, as it is the minimum accuracy possible for such scheme (see
-        the `finite difference coefficient table
-        <https://en.wikipedia.org/wiki/Finite_difference_coefficient>`_).
+              \left(\begin{array}{ccc}
+              s_{1}^{0} & \cdots & s_{N_s}^{0} \\
+              \vdots & \ddots & \vdots \\
+              s_{1}^{N_s-1} & \cdots & s_{N_s}^{N_s-1}
+              \end{array}\right)\left(\begin{array}{c}
+              d_{1} \\
+              \vdots \\
+              d_{N_s}
+              \end{array}\right)= \frac{1}{h^{N}}\left(\begin{array}{c}
+              \delta_{0, N} \\
+              \vdots \\
+              \delta_{i, N} \\
+              \vdots \\
+              \delta_{N_s-1, N}
+              \end{array}\right),
 
-        .. math::
+           where :math:`\delta_{i, j}` is the Kronecker delta.
 
-           \left(\begin{array}{ccc}
-           s_{1}^{0} & \cdots & s_{N_s}^{0} \\
-           \vdots & \ddots & \vdots \\
-           s_{1}^{N_s-1} & \cdots & s_{N_s}^{N_s-1}
-           \end{array}\right)\left(\begin{array}{c}
-           d_{1} \\
-           \vdots \\
-           d_{N_s}
-           \end{array}\right)= \frac{1}{h^{N}}\left(\begin{array}{c}
-           \delta_{0, N} \\
-           \vdots \\
-           \delta_{i, N} \\
-           \vdots \\
-           \delta_{N_s-1, N}
-           \end{array}\right),
-
-        where :math:`\delta_{i, j}` is the Kronecker delta.
-
-        This class inherits its methods from
-        :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil`.
+        This class inherits its methods from :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil`.
 
         Example
         -------
@@ -681,7 +660,7 @@ class PartialDerivative:
 
            import numpy as np
            import matplotlib.pyplot as plt
-           from pyxu.operator.linop.diff import PartialDerivative
+           from pyxu.operator import PartialDerivative
            from pyxu.util.misc import peaks
 
            x = np.linspace(-2.5, 2.5, 25)
@@ -776,23 +755,23 @@ class PartialDerivative:
 
         Parameters
         ----------
-        arg_shape: pxt.NDArrayShape
+        arg_shape: NDArrayShape
             Shape of the input array.
-        order: (pxt.Integer, ..., pxt.Integer)
+        order: list[Integer]
             Derivative order for each dimension.
             The total order of the partial derivative is the sum of the elements of the tuple.
             Use zeros to indicate dimensions in which the derivative should not be computed.
-        sigma: pxt.Real | (pxt.Real, ..., pxt.Real)
+        sigma: Real, list[Real]
             Standard deviation for the Gaussian kernel.
             Defaults to 1.0.
             If a float is provided, the same `sigma` is assumed for all dimensions.
             If a tuple is provided, it should have as many elements as `order`.
-        truncate: pxt.Real | (pxt.Real, ..., pxt.Real)
+        truncate: Real, list[Real]
             Truncate the filter at this many standard deviations (at each side from the origin).
             Defaults to 3.0.
             If a float is provided, the same `truncate` is assumed for all dimensions.
             If a tuple is provided, it should have as many elements as `order`.
-        mode: str | list(str)
+        mode: str, list[str]
             Boundary conditions.
             Multiple forms are accepted:
 
@@ -810,27 +789,26 @@ class PartialDerivative:
         gpu: bool
             Input NDArray type (`True` for GPU, `False` for CPU).
             Defaults to `False`.
-        dtype: pxt.DType
+        dtype: DType
             Working precision of the linear operator.
-        sampling: pxt.Real | (pxt.Real, ..., pxt.Real)
+        sampling: Real, list[Real]
             Sampling step (i.e., the distance between two consecutive elements of an array).
             Defaults to 1.
 
         Returns
         -------
-        op: :py:class:`~pyxu.abc.operator.LinOp`
+        op: OpT
             Partial derivative.
 
         Notes
         -----
-        We explain here Gaussian derivatives for one-dimensional signals; this operator performs
-        partial Gaussian derivatives for multi-dimensional signals along dimensions specified by
-        ``order``.
+        We explain here Gaussian derivatives for one-dimensional signals; this operator performs partial Gaussian
+        derivatives for multi-dimensional signals along dimensions specified by ``order``.
 
-        A Gaussian derivative is an approximation of a derivative that consists in convolving the
-        input function with a Gaussian function :math:`g` before applying a derivative.
-        In the continuous domain, the :math:`N`-th order Gaussian derivative :math:`D^N_G` amounts
-        to a convolution with the :math:`N`-th order derivative of :math:`g`:
+        A Gaussian derivative is an approximation of a derivative that consists in convolving the input function with a
+        Gaussian function :math:`g` before applying a derivative.
+        In the continuous domain, the :math:`N`-th order Gaussian derivative :math:`D^N_G` amounts to a convolution with
+        the :math:`N`-th order derivative of :math:`g`:
 
         .. math::
 
@@ -848,24 +826,20 @@ class PartialDerivative:
            =
            f[n] *\frac{\mathrm{d}^N g}{\mathrm{d} x^N} \left(\frac{n}{h}\right),
 
-        where :math:`h` is the spacing between samples and the operator :math:`*` is now a discrete
-        convolution.
+        where :math:`h` is the spacing between samples and the operator :math:`*` is now a discrete convolution.
 
         .. warning::
 
            The operator :math:`\mathbf{D}_{G} \circ \mathbf{D}_{G}` is not directly related to
-           :math:`\mathbf{D}_{G}^{2}`:
-           Gaussian smoothing is performed twice in the case of the former, whereas it is performed
-           only once in the case of the latter.
+           :math:`\mathbf{D}_{G}^{2}`: Gaussian smoothing is performed twice in the case of the former, whereas it is
+           performed only once in the case of the latter.
 
         Note that in contrast with finite differences (see
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference`), Gaussian
-        derivatives compute exact derivatives in the continuous domain, since Gaussians can be
-        differentiated analytically.
+        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference`), Gaussian derivatives compute exact
+        derivatives in the continuous domain, since Gaussians can be differentiated analytically.
         This derivative is then sampled in order to perform a discrete convolution.
 
-        This class inherits its methods from
-        :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil`.
+        This class inherits its methods from :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil`.
 
         Example
         -------
@@ -874,7 +848,7 @@ class PartialDerivative:
 
            import numpy as np
            import matplotlib.pyplot as plt
-           from pyxu.operator.linop.diff import PartialDerivative
+           from pyxu.operator import PartialDerivative
            from pyxu.util.misc import peaks
            x = np.linspace(-2.5, 2.5, 25)
            xx, yy = np.meshgrid(x, x)
@@ -1154,8 +1128,8 @@ def Gradient(
     Notes
     -----
 
-    This operator stacks the first-order partial derivatives of a :math:`D`-dimensional signal
-    :math:`\mathbf{f} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}}` along each dimension:
+    This operator stacks the first-order partial derivatives of a :math:`D`-dimensional signal :math:`\mathbf{f} \in
+    \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}}` along each dimension:
 
     .. math::
 
@@ -1167,30 +1141,29 @@ def Gradient(
 
     The partial derivatives can be approximated by `finite differences
     <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the
-    `Gaussian derivative <https://www.crisluengo.net/archives/22/>`_ via
+    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
+    <https://www.crisluengo.net/archives/22/>`_ via
     :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
-    The parametrization of the partial derivatives can be done via the keyword arguments
-    `**diff_kwargs`, which will default to the same values as the
-    :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor.
+    The parametrization of the partial derivatives can be done via the keyword arguments `\*\*diff_kwargs`, which will
+    default to the same values as the :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor.
 
-    The gradient operator's method :py:meth:`~pyxu.operator.linop.diff.Gradient.unravel` allows
-    reshaping the vectorized output gradient to ``[n_dirs, N0, ..., ND]`` (see the example below).
+    The gradient operator's method :py:meth:`~pyxu.operator.linop.diff.Gradient.unravel` allows reshaping the vectorized
+    output gradient to ``[n_dirs, N0, ..., ND]`` (see the example below).
 
     Parameters
     ----------
-    arg_shape: pxt.NDArrayShape
+    arg_shape: NDArrayShape
         Shape of the input array.
-    directions: pxt.Integer | (pxt.Integer, ..., pxt.Integer) | None
+    directions: Integer, list[Integer], None
         Gradient directions.
         Defaults to `None`, which computes the gradient for all directions.
-    diff_method: str ['gd', 'fd']
+    diff_method: 'gd', 'fd'
         Method used to approximate the derivative.
         Must be one of:
 
         * 'fd' (default): finite differences
         * 'gd': Gaussian derivative
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -1208,7 +1181,7 @@ def Gradient(
     gpu: bool
         Input NDArray type (`True` for GPU, `False` for CPU).
         Defaults to `False`.
-    dtype: pxt.DType
+    dtype: DType
         Working precision of the linear operator.
     parallel: bool
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
@@ -1219,7 +1192,7 @@ def Gradient(
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
+    op: OpT
         Gradient
 
     Example
@@ -1229,7 +1202,7 @@ def Gradient(
 
        import numpy as np
        import matplotlib.pyplot as plt
-       from pyxu.operator.linop.diff import Gradient
+       from pyxu.operator import Gradient
        from pyxu.util.misc import peaks
 
        # Define input image
@@ -1311,10 +1284,9 @@ def Jacobian(
     Notes
     -----
 
-    This operator computes the first-order partial derivatives of a :math:`D`-dimensional
-    vector-valued signal of :math:`C` variables or channels :math:`\mathbf{f} = [\mathbf{f}_{0},
-    \ldots, \mathbf{f}_{C-1}]` with :math:`\mathbf{f}_{c} \in \mathbb{R}^{N_{0} \times \cdots \times
-    N_{D-1}}`.
+    This operator computes the first-order partial derivatives of a :math:`D`-dimensional vector-valued signal of
+    :math:`C` variables or channels :math:`\mathbf{f} = [\mathbf{f}_{0}, \ldots, \mathbf{f}_{C-1}]` with
+    :math:`\mathbf{f}_{c} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}}`.
 
     The Jacobian of :math:`\mathbf{f}` is computed via the gradient as follows:
 
@@ -1328,41 +1300,39 @@ def Jacobian(
 
     The partial derivatives can be approximated by `finite differences
     <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the
-    `Gaussian derivative <https://www.crisluengo.net/archives/22/>`_ via
+    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
+    <https://www.crisluengo.net/archives/22/>`_ via
     :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
-    The parametrization of the partial derivatives can be done via the keyword arguments
-    `**diff_kwargs`, which will default to the same values as the
-    :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor.
+    The parametrization of the partial derivatives can be done via the keyword arguments `\*\*diff_kwargs`, which will
+    default to the same values as the :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor.
 
-    The Jacobian operator's method :py:meth:`~pyxu.operator.linop.diff.Jacobian.unravel` allows
-    reshaping the vectorized output Jacobian to ``[..., n_channels, n_dirs, N0, ..., ND]`` (see the example below).
+    The Jacobian operator's method :py:meth:`~pyxu.operator.linop.diff.Jacobian.unravel` allows reshaping the vectorized
+    output Jacobian to ``[..., n_channels, n_dirs, N0, ..., ND]`` (see the example below).
 
     **Remark**
 
-    Pyxu's convention when it comes to field-vectors, is to work with vectorized arrays.
-    However, the memory order of these arrays before raveling should be `[S_0, ..., S_D, C, N]`
-    shape, with `S_0, ..., S_D` being stacking dimensions, `C` being the number of variables or
-    channels, and `N` being the size of the domain (for example, `N = npixels_x * npixels_y` for a
-    2D image).
+    Pyxu's convention when it comes to field-vectors, is to work with vectorized arrays.  However, the memory order of
+    these arrays before raveling should be `[S_0, ..., S_D, C, N]` shape, with `S_0, ..., S_D` being stacking
+    dimensions, `C` being the number of variables or channels, and `N` being the size of the domain (for example, `N =
+    npixels_x * npixels_y` for a 2D image).
 
     Parameters
     ----------
-    arg_shape: pxt.NDArrayShape
+    arg_shape: NDArrayShape
         Shape of the input array.
-    n_channels: pxt.Integer
+    n_channels: Integer
         Number of channels or variables of the input vector-valued signal.
         The Jacobian with `n_channels==1` yields the gradient.
-    directions: pxt.Integer | (pxt.Integer, ..., pxt.Integer) | None
+    directions: Integer, list[Integer], None
         Gradient directions.
         Defaults to `None`, which computes the gradient for all directions.
-    diff_method: str ['gd', 'fd']
+    diff_method: "gd", "fd"
         Method used to approximate the derivative.
         Must be one of:
 
         * 'fd' (default): finite differences
         * 'gd': Gaussian derivative
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -1380,7 +1350,7 @@ def Jacobian(
     gpu: bool
         Input NDArray type (`True` for GPU, `False` for CPU).
         Defaults to `False`.
-    dtype: pxt.DType
+    dtype: DType
         Working precision of the linear operator.
     parallel: bool
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
@@ -1391,7 +1361,7 @@ def Jacobian(
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
+    op: OpT
         Jacobian
 
     Example
@@ -1401,7 +1371,7 @@ def Jacobian(
 
        import numpy as np
        import matplotlib.pyplot as plt
-       from pyxu.operator.linop.diff import Jacobian
+       from pyxu.operator import Jacobian
        from pyxu.util.misc import peaks
        x = np.linspace(-2.5, 2.5, 25)
        xx, yy = np.meshgrid(x, x)
@@ -1461,9 +1431,9 @@ def Divergence(
     Notes
     -----
 
-    This operator computes the expansion or outgoingness of a :math:`D`-dimensional vector-valued
-    signal of :math:`C` variables :math:`\mathbf{f} = [\mathbf{f}_{0}, \ldots, \mathbf{f}_{C-1}]`
-    with :math:`\mathbf{f}_{c} \in \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}}`.
+    This operator computes the expansion or outgoingness of a :math:`D`-dimensional vector-valued signal of :math:`C`
+    variables :math:`\mathbf{f} = [\mathbf{f}_{0}, \ldots, \mathbf{f}_{C-1}]` with :math:`\mathbf{f}_{c} \in
+    \mathbb{R}^{N_{0} \times \cdots \times N_{D-1}}`.
 
     The Divergence of :math:`\mathbf{f}` is computed via the adjoint of the gradient as follows:
 
@@ -1476,41 +1446,40 @@ def Divergence(
 
     The partial derivatives can be approximated by `finite differences
     <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the
-    `Gaussian derivative <https://www.crisluengo.net/archives/22/>`_ via
+    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
+    <https://www.crisluengo.net/archives/22/>`_ via
     :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
-    The parametrization of the partial derivatives can be done via the keyword arguments
-    `**diff_kwargs`, which will default to the same values as the
-    :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor.
+    The parametrization of the partial derivatives can be done via the keyword arguments `\*\*diff_kwargs`, which will
+    default to the same values as the :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor.
 
 
-    When using finite differences to compute the Divergence (i.e., ``diff_method = "fd"``), the
-    divergence returns the adjoint of the gradient in reversed order:
+    When using finite differences to compute the Divergence (i.e., ``diff_method = "fd"``), the divergence returns the
+    adjoint of the gradient in reversed order:
 
     * For ``forward`` type divergence, the adjoint of the gradient of "backward" type is used.
     * For ``backward`` type divergence, the adjoint of the gradient of "forward" type is used.
 
-    For ``central`` type divergence, and for the Gaussian derivative method (i.e., ``diff_method =
-    "gd"``), the adjoint of the gradient of "central" type is used (no reversed order).
+    For ``central`` type divergence, and for the Gaussian derivative method (i.e., ``diff_method = "gd"``), the adjoint
+    of the gradient of "central" type is used (no reversed order).
 
-    The divergence operator's method :py:meth:`~pyxu.operator.linop.diff.Divergence.unravel` allows
-    reshaping the vectorized output divergence to ``[..., N0, ..., ND]``.
+    The divergence operator's method :py:meth:`~pyxu.operator.linop.diff.Divergence.unravel` allows reshaping the
+    vectorized output divergence to ``[..., N0, ..., ND]``.
 
 
     Parameters
     ----------
-    arg_shape: pxt.NDArrayShape
+    arg_shape: NDArrayShape
         Shape of the input array.
-    directions: pxt.Integer | (pxt.Integer, ..., pxt.Integer) | None
+    directions: Integer, list[Integer], None
         Divergence directions.
         Defaults to `None`, which computes the divergence for all directions.
-    diff_method: str ['gd', 'fd']
+    diff_method: "gd", "fd"
         Method used to approximate the derivative.
         Must be one of:
 
         * 'fd' (default): finite differences
         * 'gd': Gaussian derivative
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -1528,7 +1497,7 @@ def Divergence(
     gpu: bool
         Input NDArray type (`True` for GPU, `False` for CPU).
         Defaults to `False`.
-    dtype: pxt.DType
+    dtype: DType
         Working precision of the linear operator.
     parallel: bool
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
@@ -1539,7 +1508,7 @@ def Divergence(
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
+    op: OpT
         Divergence
 
     Example
@@ -1549,7 +1518,7 @@ def Divergence(
 
        import numpy as np
        import matplotlib.pyplot as plt
-       from pyxu.operator.linop.diff import Divergence, Jacobian, Laplacian
+       from pyxu.operator import Divergence, Jacobian, Laplacian
        from pyxu.util.misc import peaks
 
        n = 100
@@ -1639,8 +1608,8 @@ def Hessian(
     Notes
     -----
 
-    The Hessian matrix or Hessian of a :math:`D`-dimensional signal :math:`\mathbf{f} \in
-    \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` is the square matrix of second-order partial derivatives:
+    The Hessian matrix or Hessian of a :math:`D`-dimensional signal :math:`\mathbf{f} \in \mathbb{R}^{N_0 \times \cdots
+    \times N_{D-1}}` is the square matrix of second-order partial derivatives:
 
     .. math::
 
@@ -1653,63 +1622,62 @@ def Hessian(
 
     The partial derivatives can be approximated by `finite differences
     <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the
-    `Gaussian derivative <https://www.crisluengo.net/archives/22/>`_ via
+    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
+    <https://www.crisluengo.net/archives/22/>`_ via
     :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
-    The parametrization of the partial derivatives can be done via the keyword arguments
-    `**diff_kwargs`, which will default to the same values as the
-    :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor.
+    The parametrization of the partial derivatives can be done via the keyword arguments `\*\*diff_kwargs`, which will
+    default to the same values as the :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor.
 
     The Hessian being symmetric, only the upper triangular part at most needs to be computed.
     Due to the (possibly) large size of the full Hessian, 4 different options are handled:
 
     * [mode 0] ``directions`` is an integer, e.g.: ``directions=0``
 
-    .. math::
+      .. math::
 
-       \partial^{2}\mathbf{f}/\partial x_{0}^{2}.
+         \partial^{2}\mathbf{f}/\partial x_{0}^{2}.
 
     * [mode 1] ``directions`` is a tuple of length 2, e.g.: ``directions=(0,1)``
 
-    .. math::
+      .. math::
 
-       \partial^{2}\mathbf{f}/\partial x_{0}\partial x_{1}.
+         \partial^{2}\mathbf{f}/\partial x_{0}\partial x_{1}.
 
     * [mode 2] ``directions`` is a tuple of tuples, e.g.: ``directions=((0,0), (0,1))``
 
-    .. math::
+      .. math::
 
-       \left(\frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} }, \frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}\partial x_{1} }\right).
+         \left(\frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} }, \frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}\partial x_{1} }\right).
 
     * [mode 3] ``directions = 'all'`` (default), computes the Hessian for all directions (only the
       upper triangular part of the Hessian matrix), in row order, i.e.:
 
-    .. math::
+      .. math::
 
-       \left(\frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} }, \frac{ \partial^{2}\mathbf{f} }
-       { \partial x_{0}\partial x_{1} }, \, \ldots , \, \frac{ \partial^{2}\mathbf{f} }{ \partial x_{D-1}^{2} }\right).
+         \left(\frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} }, \frac{ \partial^{2}\mathbf{f} }
+         { \partial x_{0}\partial x_{1} }, \, \ldots , \, \frac{ \partial^{2}\mathbf{f} }{ \partial x_{D-1}^{2} }\right).
 
-    The shape of the output :py:class:`~pyxu.abc.operator.LinOp` depends on the number of computed
-    directions; by default (all directions), we have :math:`\mathbf{H} \mathbf{f} \in
-    \mathbb{R}^{\frac{D(D-1)}{2} \times N_0 \times \cdots \times N_{D-1}}`.
+    The shape of the output :py:class:`~pyxu.abc.operator.LinOp` depends on the number of computed directions; by
+    default (all directions), we have :math:`\mathbf{H} \mathbf{f} \in \mathbb{R}^{\frac{D(D-1)}{2} \times N_0 \times
+    \cdots \times N_{D-1}}`.
 
-    The Hessian operator's :py:meth:`~pyxu.operator.linop.diff.Hessian.unravel` method allows
-    reshaping the vectorized output Hessian to `[n_dirs, N0, ..., ND]` (see the example below).
+    The Hessian operator's :py:meth:`~pyxu.operator.linop.diff.Hessian.unravel` method allows reshaping the vectorized
+    output Hessian to `[n_dirs, N0, ..., ND]` (see the example below).
 
     Parameters
     ----------
-    arg_shape: pxt.NDArrayShape
+    arg_shape: NDArrayShape
         Shape of the input array.
-    directions: pxt.Integer | (pxt.Integer, pxt.Integer) | ((pxt.Integer, pxt.Integer), ..., (pxt.Integer, pxt.Integer)) | 'all'
+    directions: Integer, (Integer, Integer), ((Integer, Integer), ..., (Integer, Integer)), 'all'
         Hessian directions.
         Defaults to `all`, which computes the Hessian for all directions. (See ``Notes``.)
-    diff_method: str ['gd', 'fd']
+    diff_method: "gd", "fd"
         Method used to approximate the derivative.
         Must be one of:
 
         * 'fd' (default): finite differences
         * 'gd': Gaussian derivative
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -1727,7 +1695,7 @@ def Hessian(
     gpu: bool
         Input NDArray type (`True` for GPU, `False` for CPU).
         Defaults to `False`.
-    dtype: pxt.DType
+    dtype: DType
         Working precision of the linear operator.
     parallel: bool
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
@@ -1738,7 +1706,7 @@ def Hessian(
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
+    op: OpT
         Hessian
 
     Example
@@ -1748,7 +1716,7 @@ def Hessian(
 
        import numpy as np
        import matplotlib.pyplot as plt
-       from pyxu.operator.linop.diff import Hessian, PartialDerivative
+       from pyxu.operator import Hessian, PartialDerivative
        from pyxu.util.misc import peaks
 
        n = 100
@@ -1844,8 +1812,8 @@ def Laplacian(
     Notes
     -----
 
-    The Laplacian of a :math:`D`-dimensional signal :math:`\mathbf{f} \in \mathbb{R}^{N_0 \times \cdots
-    \times N_{D-1}}` is the sum of second-order partial derivatives across all input directions:
+    The Laplacian of a :math:`D`-dimensional signal :math:`\mathbf{f} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}`
+    is the sum of second-order partial derivatives across all input directions:
 
     .. math::
 
@@ -1853,31 +1821,30 @@ def Laplacian(
 
     The partial derivatives can be approximated by `finite differences
     <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the
-    `Gaussian derivative <https://www.crisluengo.net/archives/22/>`_ via
+    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
+    <https://www.crisluengo.net/archives/22/>`_ via
     :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
-    The parametrization of the partial derivatives can be done via the keyword arguments
-    `**diff_kwargs`, which will default to `scheme='central'` and `accuracy=2` for
-    `diff_method='fd'` (finite difference), and the same values as the
-    :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor for `diff_method='gd'`
-    (gaussian derivative).
+    The parametrization of the partial derivatives can be done via the keyword arguments `\*\*diff_kwargs`, which will
+    default to `scheme='central'` and `accuracy=2` for `diff_method='fd'` (finite difference), and the same values as
+    the :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor for `diff_method='gd'` (gaussian
+    derivative).
 
-    The Laplacian operator's method :py:meth:`~pyxu.operator.linop.diff.Laplacian.unravel` allows
-    reshaping the vectorized output Laplacian to ``[..., N0, ..., ND]`` (see the example below).
+    The Laplacian operator's method :py:meth:`~pyxu.operator.linop.diff.Laplacian.unravel` allows reshaping the
+    vectorized output Laplacian to ``[..., N0, ..., ND]`` (see the example below).
 
     Parameters
     ----------
-    arg_shape: pxt.NDArrayShape
+    arg_shape: NDArrayShape
         Shape of the input array.
-    directions: pxt.Integer | (pxt.Integer, ..., pxt.Integer) | None
+    directions: Integer, list[Integer], None
         Laplacian directions. Defaults to `None`, which computes the Laplacian with all directions.
-    diff_method: str ['gd', 'fd']
+    diff_method: "gd", "fd"
         Method used to approximate the derivative.
         Must be one of:
 
         * 'fd' (default): finite differences
         * 'gd': Gaussian derivative
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -1895,7 +1862,7 @@ def Laplacian(
     gpu: bool
         Input NDArray type (`True` for GPU, `False` for CPU).
         Defaults to `False`.
-    dtype: pxt.DType
+    dtype: DType
         Working precision of the linear operator.
     parallel: bool
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
@@ -1906,7 +1873,7 @@ def Laplacian(
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
+    op: OpT
         Laplacian
 
     Example
@@ -1916,7 +1883,7 @@ def Laplacian(
 
        import numpy as np
        import matplotlib.pyplot as plt
-       from pyxu.operator.linop.diff import Laplacian
+       from pyxu.operator import Laplacian
        from pyxu.util.misc import peaks
 
        # Define input image
@@ -1988,17 +1955,18 @@ def DirectionalDerivative(
 
     .. math::
 
-        \boldsymbol{\nabla}_\mathbf{v} \mathbf{f} = \sum_{i=0}^{D-1} v_i \frac{\partial \mathbf{f}}{\partial x_i} \in
-        \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}
+       \boldsymbol{\nabla}_\mathbf{v} \mathbf{f} = \sum_{i=0}^{D-1} v_i \frac{\partial \mathbf{f}}{\partial x_i} \in
+       \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}
 
     or along spatially-varying directions :math:`\mathbf{v} = [\mathbf{v}_0, \ldots , \mathbf{v}_{D-1}]^\top \in
     \mathbb{R}^{D \times N_0 \times \cdots \times N_{D-1} }` where each direction :math:`\mathbf{v}_{\cdot, i_0, \ldots
-    , i_{D-1}} \in \mathbb{R}^D` for any :math:`0 \leq i_d \leq N_d-1` with :math:`0 \leq d \leq D-1` is a unitary vector:
+    , i_{D-1}} \in \mathbb{R}^D` for any :math:`0 \leq i_d \leq N_d-1` with :math:`0 \leq d \leq D-1` is a unitary
+    vector:
 
     .. math::
 
-        \boldsymbol{\nabla}_\mathbf{v} \mathbf{f} = \sum_{i=0}^{D-1} \mathbf{v}_i \odot
-        \frac{\partial \mathbf{f}}{\partial x_i} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}},
+       \boldsymbol{\nabla}_\mathbf{v} \mathbf{f} = \sum_{i=0}^{D-1} \mathbf{v}_i \odot
+       \frac{\partial \mathbf{f}}{\partial x_i} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}},
 
     where :math:`\odot` denotes the Hadamard (elementwise) product.
 
@@ -2006,17 +1974,17 @@ def DirectionalDerivative(
     amounts to the first-order :py:func:`~pyxu.operator.linop.diff.PartialDerivative` operator applied along axis
     :math:`d`.
 
-    The **second-order** ``DirectionalDerivative`` :math:`\boldsymbol{\nabla}^2_{\mathbf{v}_{1, 2}}` is obtained by composing the
-    first-order directional derivatives :math:`\boldsymbol{\nabla}_{\mathbf{v}_{1}}` and
+    The **second-order** ``DirectionalDerivative`` :math:`\boldsymbol{\nabla}^2_{\mathbf{v}_{1, 2}}` is obtained by
+    composing the first-order directional derivatives :math:`\boldsymbol{\nabla}_{\mathbf{v}_{1}}` and
     :math:`\boldsymbol{\nabla}_{\mathbf{v}_{2}}`:
 
     .. math::
 
-        \boldsymbol{\nabla}_{\mathbf{v}_{1}} (\boldsymbol{\nabla}_{\mathbf{v}_{2}} \mathbf{f}) =
-        \boldsymbol{\nabla}_{\mathbf{v}_{1}} (\sum_{i=0}^{D-1} {v_{2}}_{i} \frac{\partial \mathbf{f}}{\partial x_i}) =
-        \sum_{j=0}^{D-1} {v_{1}}_{j} \frac{\partial}{\partial x_j} (\sum_{i=0}^{D-1} {v_{2}}_{i} \frac{\partial \mathbf{f}}{\partial x_i}) =
-        \sum_{i, j=0}^{D-1} {v_{1}}_{j} {v_{2}}_{i} \frac{\partial}{\partial x_j} \frac{\partial}{\partial x_i}\mathbf{f} =
-        \mathbf{v}_{1}^{\top}\mathbf{H}\mathbf{f}\mathbf{v}_{2},
+       \boldsymbol{\nabla}_{\mathbf{v}_{1}} (\boldsymbol{\nabla}_{\mathbf{v}_{2}} \mathbf{f}) =
+       \boldsymbol{\nabla}_{\mathbf{v}_{1}} (\sum_{i=0}^{D-1} {v_{2}}_{i} \frac{\partial \mathbf{f}}{\partial x_i}) =
+       \sum_{j=0}^{D-1} {v_{1}}_{j} \frac{\partial}{\partial x_j} (\sum_{i=0}^{D-1} {v_{2}}_{i} \frac{\partial \mathbf{f}}{\partial x_i}) =
+       \sum_{i, j=0}^{D-1} {v_{1}}_{j} {v_{2}}_{i} \frac{\partial}{\partial x_j} \frac{\partial}{\partial x_i}\mathbf{f} =
+       \mathbf{v}_{1}^{\top}\mathbf{H}\mathbf{f}\mathbf{v}_{2},
 
     where :math:`\mathbf{H}` is the discrete Hessian operator, implemented via
     :py:class:`~pyxu.operator.linop.diff.Hessian`.
@@ -2028,38 +1996,40 @@ def DirectionalDerivative(
     allows reshaping the vectorized output directional derivative to ``[..., N0, ..., ND]`` (see the example below).
 
     .. warning::
-        - :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative` instances are **not array module-agnostic**: they
-          will only work with NDArrays belonging to the same array module as ``directions``. Inner
-          computations may recast input arrays when the precision of ``directions`` does not match the user-requested
-          precision.
-        - ``directions`` are always normalized to be unit vectors.
+
+       - :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative` instances are **not array module-agnostic**: they
+         will only work with NDArrays belonging to the same array module as ``directions``. Inner
+         computations may recast input arrays when the precision of ``directions`` does not match the user-requested
+         precision.
+       - ``directions`` are always normalized to be unit vectors.
 
     Parameters
     ----------
-    arg_shape: pxt.NDArrayShape
+    arg_shape: NDArrayShape
         Shape of the input array.
-    order: pxt.Integer
+    order: Integer
         Which directional derivative (restricted to 1: First or 2: Second, see ``Notes``).
-    directions: NDArray | tuple/list
-        For ``order=1``, it can be a single direction (array of size :math:`(D,)`, where :math:`D` is the number of axes)
-        or spatially-varying directions:
+    directions: NDArray, list
+        For ``order=1``, it can be a single direction (array of size :math:`(D,)`, where :math:`D` is the number of
+        axes) or spatially-varying directions:
 
         * array of size :math:`(D, N_0 \times \ldots \times N_{D-1})` for ``order=1``, i.e., one direction per element
-        in the gradient, and,
+          in the gradient, and,
 
         * array of size :math:`(D * (D + 1) / 2, N_0 \times \ldots \times N_{D-1})` for ``order=2``, i.e., one direction
-        per element in the Hessian.
+          per element in the Hessian.
 
         For ``order=2``, it can be a tuple/list of two single directions or spatially-varying dimensions of the same
-        shape, which will compute :math:`\mathbf{v}_{1}^{\top}\mathbf{H}\mathbf{f}\mathbf{v}_{2}` or a single direction, as for
-        ``order=1``, which will compute :math:`\mathbf{v}_{1}^{\top}\mathbf{H}\mathbf{f}\mathbf{v}_{1}`. Note that for
-        ``order=2``, even though directions are spatially-varying, no differentiation is performed for this parameter.
-    diff_method: str ['gd', 'fd']
+        shape, which will compute :math:`\mathbf{v}_{1}^{\top}\mathbf{H}\mathbf{f}\mathbf{v}_{2}` or a single direction,
+        as for ``order=1``, which will compute :math:`\mathbf{v}_{1}^{\top}\mathbf{H}\mathbf{f}\mathbf{v}_{1}`. Note
+        that for ``order=2``, even though directions are spatially-varying, no differentiation is performed for this
+        parameter.
+    diff_method: "gd", "fd"
         Method used to approximate the derivative. Must be one of:
 
         * 'fd' (default): finite differences
         * 'gd': Gaussian derivative
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -2083,8 +2053,8 @@ def DirectionalDerivative(
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
-            Directional derivative
+    op: OpT
+        Directional derivative
 
     Example
     -------
@@ -2093,7 +2063,7 @@ def DirectionalDerivative(
 
        import numpy as np
        import matplotlib.pyplot as plt
-       from pyxu.operator.linop.diff import DirectionalDerivative
+       from pyxu.operator import DirectionalDerivative
        from pyxu.util.misc import peaks
 
        x = np.linspace(-2.5, 2.5, 25)
@@ -2123,7 +2093,8 @@ def DirectionalDerivative(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.linop.diff.Gradient`, :py:func:`~pyxu.operator.linop.diff.DirectionalGradient`
+    :py:func:`~pyxu.operator.linop.diff.Gradient`,
+    :py:func:`~pyxu.operator.linop.diff.DirectionalGradient`
     """
 
     ndim = len(arg_shape)
@@ -2225,42 +2196,42 @@ def DirectionalGradient(
 
     Notes
     -----
-    The ``DirectionalGradient`` of a :math:`D`-dimensional signal :math:`\mathbf{f} \in
-    \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` stacks the directional derivatives of :math:`\mathbf{f}` along a list
-    of :math:`m` directions :math:`\mathbf{v}_i` for :math:`1 \leq i \leq m`:
+    The ``DirectionalGradient`` of a :math:`D`-dimensional signal :math:`\mathbf{f} \in \mathbb{R}^{N_0 \times \cdots
+    \times N_{D-1}}` stacks the directional derivatives of :math:`\mathbf{f}` along a list of :math:`m` directions
+    :math:`\mathbf{v}_i` for :math:`1 \leq i \leq m`:
 
     .. math::
 
-        \boldsymbol{\nabla}_{\mathbf{v}_1, \ldots ,\mathbf{v}_m} \mathbf{f} = \begin{bmatrix}
-             \boldsymbol{\nabla}_{\mathbf{v}_1} \\
-             \vdots\\
-             \boldsymbol{\nabla}_{\mathbf{v}_m}\\
-            \end{bmatrix} \mathbf{f} \in \mathbb{R}^{m \times N_0 \times \cdots \times N_{D-1}},
+       \boldsymbol{\nabla}_{\mathbf{v}_1, \ldots ,\mathbf{v}_m} \mathbf{f} = \begin{bmatrix}
+            \boldsymbol{\nabla}_{\mathbf{v}_1} \\
+            \vdots\\
+            \boldsymbol{\nabla}_{\mathbf{v}_m}\\
+           \end{bmatrix} \mathbf{f} \in \mathbb{R}^{m \times N_0 \times \cdots \times N_{D-1}},
 
-    where :math:`\boldsymbol{\nabla}_{\mathbf{v}_i}` is the first-order directional derivative along :math:`\mathbf{v}_i`
-    implemented with :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`, with :math:`\mathbf{v}_i \in
-    \mathbb{R}^D` or :math:`\mathbf{v}_i \in \mathbb{R}^{D \times N_0 \times \cdots \times N_{D-1}}`.
+    where :math:`\boldsymbol{\nabla}_{\mathbf{v}_i}` is the first-order directional derivative along
+    :math:`\mathbf{v}_i` implemented with :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`, with
+    :math:`\mathbf{v}_i \in \mathbb{R}^D` or :math:`\mathbf{v}_i \in \mathbb{R}^{D \times N_0 \times \cdots \times
+    N_{D-1}}`.
 
-    Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th
-    canonical basis vector) amounts to the :py:func:`~pyxu.operator.linop.diff.Gradient` operator.
+    Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th canonical
+    basis vector) amounts to the :py:func:`~pyxu.operator.linop.diff.Gradient` operator.
 
-    The directional gradient operator's method :py:meth:`~pyxu.operator.linop.diff.DirectionalGradient.unravel`
-    allows reshaping the vectorized output directional derivative to ``[..., n_dirs, N0, ..., ND]`` (see the example
-    below).
+    The directional gradient operator's method :py:meth:`~pyxu.operator.linop.diff.DirectionalGradient.unravel` allows
+    reshaping the vectorized output directional derivative to ``[..., n_dirs, N0, ..., ND]`` (see the example below).
 
     Parameters
     ----------
-    arg_shape: pxt.NDArrayShape
+    arg_shape: NDArrayShape
         Shape of the input array.
-    directions: (pxt.NDArray, ..., pxt.NDArray)
-        List of directions, either constant (array of size :math:`(D,)`) or spatially-varying (array of size
-        :math:`(D, N_0, \ldots, N_{D-1})`)
-    diff_method: str ['gd', 'fd']
+    directions: list[NDArray]
+        List of directions, either constant (array of size :math:`(D,)`) or spatially-varying (array of size :math:`(D,
+        N_0, \ldots, N_{D-1})`)
+    diff_method: "gd", "fd"
         Method used to approximate the derivative. Must be one of:
 
         * 'fd' (default): finite differences
         * 'gd': Gaussian derivative
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -2284,8 +2255,8 @@ def DirectionalGradient(
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
-            Directional gradient
+    op: OpT
+        Directional gradient
 
 
     Example
@@ -2295,7 +2266,7 @@ def DirectionalGradient(
 
        import numpy as np
        import matplotlib.pyplot as plt
-       from pyxu.operator.linop.diff import DirectionalGradient
+       from pyxu.operator import DirectionalGradient
        from pyxu.util.misc import peaks
 
        x = np.linspace(-2.5, 2.5, 25)
@@ -2327,7 +2298,8 @@ def DirectionalGradient(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.linop.diff.Gradient`, :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`
+    :py:func:`~pyxu.operator.linop.diff.Gradient`,
+    :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`
     """
 
     diag_ops = []
@@ -2395,46 +2367,45 @@ def DirectionalLaplacian(
     r"""
     Directional Laplacian operator.
 
-    Sum of the second directional derivatives of a multi-dimensional array (at least two dimensions are required)
-    along multiple ``directions`` for each entry of the array.
+    Sum of the second directional derivatives of a multi-dimensional array (at least two dimensions are required) along
+    multiple ``directions`` for each entry of the array.
 
     Notes
     -----
 
-    The ``DirectionalLaplacian`` of a :math:`D`-dimensional signal :math:`\mathbf{f} \in
-    \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` sums the second-order directional derivatives of :math:`\mathbf{f}`
-    along a list of :math:`m` directions :math:`\mathbf{v}_i` for :math:`1 \leq i \leq m`:
+    The ``DirectionalLaplacian`` of a :math:`D`-dimensional signal :math:`\mathbf{f} \in \mathbb{R}^{N_0 \times \cdots
+    \times N_{D-1}}` sums the second-order directional derivatives of :math:`\mathbf{f}` along a list of :math:`m`
+    directions :math:`\mathbf{v}_i` for :math:`1 \leq i \leq m`:
 
     .. math::
 
-        \boldsymbol{\Delta}_{\mathbf{v}_1, \ldots ,\mathbf{v}_m} \mathbf{f} = \sum_{i=1}^m
-        \boldsymbol{\nabla}^2_{\mathbf{v}_i} \mathbf{f} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}},
+       \boldsymbol{\Delta}_{\mathbf{v}_1, \ldots ,\mathbf{v}_m} \mathbf{f} = \sum_{i=1}^m
+       \boldsymbol{\nabla}^2_{\mathbf{v}_i} \mathbf{f} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}},
 
     where :math:`\boldsymbol{\nabla}^2_{\mathbf{v}_i}` is the second-order directional derivative along
     :math:`\mathbf{v}_i` implemented with :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`.
 
-    Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th
-    canonical basis vector) amounts to the :py:func:`~pyxu.operator.linop.diff.Laplacian` operator.
+    Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th canonical
+    basis vector) amounts to the :py:func:`~pyxu.operator.linop.diff.Laplacian` operator.
 
-    The directional Laplacian operator's method :py:meth:`~pyxu.operator.linop.diff.DirectionalLaplacian.unravel`
-    allows reshaping the vectorized output directional Laplacian to ``[..., N0, ..., ND]`` (see the example
-    below).
+    The directional Laplacian operator's method :py:meth:`~pyxu.operator.linop.diff.DirectionalLaplacian.unravel` allows
+    reshaping the vectorized output directional Laplacian to ``[..., N0, ..., ND]`` (see the example below).
 
     Parameters
     ----------
-    arg_shape: pxt.NDArrayShape
+    arg_shape: NDArrayShape
         Shape of the input array.
-    directions: (pxt.NDArray, ..., pxt.NDArray)
+    directions: list[NDArray]
         List of directions, either constant (array of size :math:`(D,)`) or spatially-varying (array of size
         :math:`(D, N_0, \ldots, N_{D-1})`)
-    weights: (pxt.Real, ..., pxt.Real) | None
+    weights: list[Real], None
         List of optional positive weights with which each second directional derivative operator is multiplied.
-    diff_method: str ['gd', 'fd']
+    diff_method: "gd", "fd"
         Method used to approximate the derivative. Must be one of:
 
         * 'fd' (default): finite differences
         * 'gd': Gaussian derivative
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -2458,7 +2429,7 @@ def DirectionalLaplacian(
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
+    op: OpT
         Directional Laplacian
 
     Example
@@ -2468,7 +2439,7 @@ def DirectionalLaplacian(
 
        import numpy as np
        import matplotlib.pyplot as plt
-       from pyxu.operator.linop.diff import DirectionalLaplacian
+       from pyxu.operator import DirectionalLaplacian
        from pyxu.util.misc import peaks
 
        x = np.linspace(-2.5, 2.5, 25)
@@ -2496,7 +2467,8 @@ def DirectionalLaplacian(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.linop.diff.Laplacian`, :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`
+    :py:func:`~pyxu.operator.linop.diff.Laplacian`,
+    :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`
     """
     assert isinstance(directions, cabc.Sequence)
 
@@ -2585,14 +2557,14 @@ def DirectionalHessian(
     Notes
     -----
 
-    The ``DirectionalHessian`` of a :math:`D`-dimensional signal :math:`\mathbf{f} \in
-    \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` stacks the second-order directional derivatives of :math:`\mathbf{f}`
-    along a list of :math:`m` directions :math:`\mathbf{v}_i` for :math:`1 \leq i \leq m`:
+    The ``DirectionalHessian`` of a :math:`D`-dimensional signal :math:`\mathbf{f} \in \mathbb{R}^{N_0 \times \cdots
+    \times N_{D-1}}` stacks the second-order directional derivatives of :math:`\mathbf{f}` along a list of :math:`m`
+    directions :math:`\mathbf{v}_i` for :math:`1 \leq i \leq m`:
 
     .. math::
 
         \mathbf{H}_{\mathbf{v}_1, \ldots ,\mathbf{v}_m} \mathbf{f} = \begin{bmatrix}
-         \boldsymbol{\nabla}^2_{\mathbf{v}_0} & \cdots & \boldsymbol{\nabla}_{\mathbf{v}_0} \boldsymbol{\nabla}_{\mathbf{v}_{m-1}} \\
+        \boldsymbol{\nabla}^2_{\mathbf{v}_0} & \cdots & \boldsymbol{\nabla}_{\mathbf{v}_0} \boldsymbol{\nabla}_{\mathbf{v}_{m-1}} \\
         \vdots & \ddots & \vdots \\
         \boldsymbol{\nabla}_{\mathbf{v}_{m-1}} \boldsymbol{\nabla}_{\mathbf{v}_0} & \cdots & \boldsymbol{\nabla}^2_{\mathbf{v}_{m-1}}
         \end{bmatrix} \mathbf{f},
@@ -2604,33 +2576,32 @@ def DirectionalHessian(
 
     .. math::
 
-        \mathbf{H}_{\mathbf{v}_1, \ldots ,\mathbf{v}_m} \mathbf{f} = \begin{bmatrix}
-        \boldsymbol{\nabla}^2_{\mathbf{v}_0}\\
-        \boldsymbol{\nabla}_{\mathbf{v}_0} \boldsymbol{\nabla}_{\mathbf{v}_{1}} \\
-        \vdots \\
-        \boldsymbol{\nabla}^2_{\mathbf{v}_{m-1}}
-        \end{bmatrix} \mathbf{f} \in \mathbb{R}^{\frac{m (m-1)}{2} \times N_0 \times \cdots \times N_{D-1}}
+       \mathbf{H}_{\mathbf{v}_1, \ldots ,\mathbf{v}_m} \mathbf{f} = \begin{bmatrix}
+       \boldsymbol{\nabla}^2_{\mathbf{v}_0}\\
+       \boldsymbol{\nabla}_{\mathbf{v}_0} \boldsymbol{\nabla}_{\mathbf{v}_{1}} \\
+       \vdots \\
+       \boldsymbol{\nabla}^2_{\mathbf{v}_{m-1}}
+       \end{bmatrix} \mathbf{f} \in \mathbb{R}^{\frac{m (m-1)}{2} \times N_0 \times \cdots \times N_{D-1}}
 
-    Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th
-    canonical basis vector) amounts to the :py:func:`~pyxu.operator.linop.diff.Hessian` operator.
+    Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th canonical
+    basis vector) amounts to the :py:func:`~pyxu.operator.linop.diff.Hessian` operator.
 
-    The directional Hessian operator's method :py:meth:`~pyxu.operator.linop.diff.DirectionalHessian.unravel`
-    allows reshaping the vectorized output directional Hessian to ``[..., n_dirs, N0, ..., ND]`` (see the example
-    below).
+    The directional Hessian operator's method :py:meth:`~pyxu.operator.linop.diff.DirectionalHessian.unravel` allows
+    reshaping the vectorized output directional Hessian to ``[..., n_dirs, N0, ..., ND]`` (see the example below).
 
     Parameters
     ----------
-    arg_shape: pxt.NDArrayShape
+    arg_shape: NDArrayShape
         Shape of the input array.
-    directions: (pxt.NDArray, ..., pxt.NDArray)
-        List of directions, either constant (array of size :math:`(D,)`) or spatially-varying (array of size
-        :math:`(D, N_0, \ldots, N_{D-1})`)
-    diff_method: str ['gd', 'fd']
+    directions: list[NDArray]
+        List of directions, either constant (array of size :math:`(D,)`) or spatially-varying (array of size :math:`(D,
+        N_0, \ldots, N_{D-1})`)
+    diff_method: "gd", "fd"
         Method used to approximate the derivative. Must be one of:
 
         * 'fd' (default): finite differences
         * 'gd': Gaussian derivative
-    mode: str | list(str)
+    mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
 
@@ -2654,8 +2625,8 @@ def DirectionalHessian(
 
     Returns
     -------
-    op: :py:class:`~pyxu.abc.operator.LinOp`
-            Directional Hessian
+    op: OpT
+        Directional Hessian
 
     Example
     -------
@@ -2664,7 +2635,7 @@ def DirectionalHessian(
 
        import numpy as np
        import matplotlib.pyplot as plt
-       from pyxu.operator.linop.diff import DirectionalHessian
+       from pyxu.operator import DirectionalHessian
        from pyxu.util.misc import peaks
 
        x = np.linspace(-2.5, 2.5, 25)
@@ -2700,7 +2671,8 @@ def DirectionalHessian(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.linop.diff.Hessian`, :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`
+    :py:func:`~pyxu.operator.linop.diff.Hessian`,
+    :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`
     """
 
     # dir_deriv = []
