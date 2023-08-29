@@ -21,10 +21,8 @@ class Pad(pxa.LinOp):
 
     Notes
     -----
-    * If inputs are D-dimensional, then some of the padding of later axes are calculated from
-      padding of previous axes.
-    * The *adjoint* of the padding operator performs a cumulative summation over the original
-      positions used to pad.
+    * If inputs are D-dimensional, then some of the padding of later axes are calculated from padding of previous axes.
+    * The *adjoint* of the padding operator performs a cumulative summation over the original positions used to pad.
       Its effect is clear from its matrix form.
       For example the matrix-form of ``Pad(arg_shape=(3,), mode="wrap", pad_width=(1, 1))`` is:
 
@@ -56,8 +54,7 @@ class Pad(pxa.LinOp):
              \end{array}
          \right].
 
-      This operation can be seen as a trimming (:math:`\mathbf{T}`) plus a cumulative summation
-      (:math:`\mathbf{S}`):
+      This operation can be seen as a trimming (:math:`\mathbf{T}`) plus a cumulative summation (:math:`\mathbf{S}`):
 
       .. math::
 
@@ -81,12 +78,11 @@ class Pad(pxa.LinOp):
             \end{array}
          \right],
 
-      where both :math:`\mathbf{T}` and :math:`\mathbf{S}` are efficiently implemented in
-      matrix-free form.
+      where both :math:`\mathbf{T}` and :math:`\mathbf{S}` are efficiently implemented in matrix-free form.
 
 
-    * The Lipschitz constant of the multi-dimensional padding operator is upper-bounded by the
-      product of Lipschitz constants of the uni-dimensional paddings applied per dimension, i.e.:
+    * The Lipschitz constant of the multi-dimensional padding operator is upper-bounded by the product of Lipschitz
+      constants of the uni-dimensional paddings applied per dimension, i.e.:
 
       .. math::
 
@@ -149,17 +145,17 @@ class Pad(pxa.LinOp):
         r"""
         Parameters
         ----------
-        arg_shape: pxt.NDArrayShape
+        arg_shape: NDArrayShape
             Shape of the input array.
-        pad_width: WidthSpec
+        pad_width: ~pyxu.operator.linop.pad.Pad.WidthSpec
             Number of values padded to the edges of each axis.
             Multiple forms are accepted:
 
-            * int: pad each dimension's head/tail by `pad_width`.
-            * tuple[int, ...]: pad dimension[k]'s head/tail by `pad_width[k]`.
-            * tuple[tuple[int, int], ...]: pad dimension[k]'s head/tail by `pad_width[k][0]` /
+            * ``int``: pad each dimension's head/tail by `pad_width`.
+            * ``tuple[int, ...]``: pad dimension[k]'s head/tail by `pad_width[k]`.
+            * ``tuple[tuple[int, int], ...]``: pad dimension[k]'s head/tail by `pad_width[k][0]` /
               `pad_width[k][1]` respectively.
-        mode: str | list(str)
+        mode: str, :py:class:`list` ( str )
             Padding mode.
             Multiple forms are accepted:
 
