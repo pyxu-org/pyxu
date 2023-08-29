@@ -840,18 +840,14 @@ def _EdgeFilter(
     gpu: bool = False,
     dtype: typ.Optional[pxt.DType] = None,
 ):
+    from pyxu.operator.map.ufunc import sqrt, square
+
     ndim, dtype, xp = _sanitize_inputs(arg_shape, dtype, gpu)
     sampling = _to_canonical_form(sampling, arg_shape)
 
     axes = _get_axes(axis, ndim)
 
     return_magnitude = len(axes) > 1
-    if return_magnitude:
-        import pyxu.operator.map.ufunc as pxf
-
-        size = np.prod(arg_shape).item()
-        square = pxf.Square(size)
-        sqrt = pxf.Sqrt(size)
 
     op_list = []
     for edge_dim in axes:
@@ -864,13 +860,13 @@ def _EdgeFilter(
             kernel[smooth_dim] = xp.asarray(smooth_kernel, dtype=dtype) / sampling[smooth_dim]
 
         if return_magnitude:
-            op_list.append(square * pxls.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode))
+            op_list.append(square(pxls.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode)))
         else:
             op_list.append(pxls.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode))
 
     op = functools.reduce(lambda x, y: x + y, op_list)
     if return_magnitude:
-        op = (1 / np.sqrt(ndim)) * (sqrt * op)
+        op = (1 / np.sqrt(ndim)) * sqrt(op)
 
     op._name = filter_name
     return op
