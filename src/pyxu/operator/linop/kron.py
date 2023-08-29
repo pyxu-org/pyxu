@@ -31,27 +31,26 @@ def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
            \end{array}
        \right],
 
-    where :math:`A : \mathbb{R}^{N_{A}} \to \mathbb{R}^{M_{A}}`,
-    and :math:`B : \mathbb{R}^{N_{B}} \to \mathbb{R}^{M_{B}}`.
+    where :math:`A : \mathbb{R}^{N_{A}} \to \mathbb{R}^{M_{A}}`, and :math:`B : \mathbb{R}^{N_{B}} \to
+    \mathbb{R}^{M_{B}}`.
 
     Parameters
     ----------
-    A: pxt.OpT
+    A: OpT
         (mA, nA) linear operator
-    B: pxt.OpT
+    B: OpT
         (mB, nB) linear operator
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         (mA*mB, nA*nB) linear operator.
 
     Notes
     -----
-    This implementation is **matrix-free** by leveraging properties of the Kronecker product, i.e.
-    :math:`A` and :math:`B` need not be known explicitly.
-    In particular :math:`(A \otimes B) x` and :math:`(A \otimes B)^{*} x` are computed implicitly
-    via the relation:
+    This implementation is **matrix-free** by leveraging properties of the Kronecker product, i.e.  :math:`A` and
+    :math:`B` need not be known explicitly.
+    In particular :math:`(A \otimes B) x` and :math:`(A \otimes B)^{*} x` are computed implicitly via the relation:
 
     .. math::
 
@@ -253,29 +252,27 @@ def khatri_rao(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
            \end{array}
        \right],
 
-    where :math:`A : \mathbb{R}^{N} \to \mathbb{R}^{M_{A}}`,
-    :math:`B : \mathbb{R}^{N} \to \mathbb{R}^{M_{B}}`,
-    and :math:`\mathbf{a}_{k}` (repectively :math:`\mathbf{b}_{k}`) denotes the :math:`k`-th column of :math:`A`
+    where :math:`A : \mathbb{R}^{N} \to \mathbb{R}^{M_{A}}`, :math:`B : \mathbb{R}^{N} \to \mathbb{R}^{M_{B}}`, and
+    :math:`\mathbf{a}_{k}` (repectively :math:`\mathbf{b}_{k}`) denotes the :math:`k`-th column of :math:`A`
     (respectively :math:`B`).
 
     Parameters
     ----------
-    A: pxt.OpT
+    A: OpT
         (mA, n) linear operator
-    B: pxt.OpT
+    B: OpT
         (mB, n) linear operator
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         (mA*mB, n) linear operator.
 
     Notes
     -----
-    This implementation is **matrix-free** by leveraging properties of the Khatri-Rao product, i.e.
-    :math:`A` and :math:`B` need not be known explicitly.
-    In particular :math:`(A \circ B) x` and :math:`(A \circ B)^{*} x` are computed implicitly via
-    the relation:
+    This implementation is **matrix-free** by leveraging properties of the Khatri-Rao product, i.e.  :math:`A` and
+    :math:`B` need not be known explicitly.
+    In particular :math:`(A \circ B) x` and :math:`(A \circ B)^{*} x` are computed implicitly via the relation:
 
     .. math::
 
@@ -285,8 +282,8 @@ def khatri_rao(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
 
     where :math:`\mathbf{A}`, :math:`\mathbf{C}` are matrices, and :math:`\mathbf{b}` is a vector.
 
-    Note however that a matrix-free implementation of the Khatri-Rao product does not permit the
-    same optimizations as a matrix-based implementation.
+    Note however that a matrix-free implementation of the Khatri-Rao product does not permit the same optimizations as a
+    matrix-based implementation.
     Thus the Khatri-Rao product as implemented here is only marginally more efficient than applying
     :py:func:`~pyxu.operator.linop.kron.kron` and pruning its output.
     """
