@@ -130,20 +130,20 @@ def HomothetyOp(dim: pxt.Integer, cst: pxt.Real) -> pxt.OpT:
 
     Parameters
     ----------
-    dim: pxt.Integer
+    dim: Integer
         Dimension of the domain.
-    cst: pxt.Real
+    cst: Real
         Scaling factor.
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         (dim, dim) scaling operator.
 
-    Notes
-    -----
-    This operator is not defined in terms of :py:func:`~pyxu.operator.linop.DiagonalOp` since it
-    is array-backend-agnostic.
+    Note
+    ----
+    This operator is not defined in terms of :py:func:`~pyxu.operator.linop.base.DiagonalOp` since it is
+    array-backend-agnostic.
     """
     assert isinstance(cst, pxt.Real), f"cst: expected real, got {cst}."
 
@@ -217,17 +217,17 @@ def DiagonalOp(
     r"""
     Diagonal linear operator :math:`\mathbf{D}: \mathbf{x} \to \text{diag}(\mathbf{v}) \mathbf{x}`.
 
-    Notes
-    -----
+    Note
+    ----
     :py:func:`~pyxu.operator.linop.base.DiagonalOp` instances are **not arraymodule-agnostic**:
     they will only work with NDArrays belonging to the same array module as `vec`.
-    Moreover, inner computations may cast input arrays when the precision of `vec` does not match
-    the user-requested precision.
+    Moreover, inner computations may cast input arrays when the precision of `vec` does not match the user-requested
+    precision.
     If such a situation occurs, a warning is raised.
 
     Parameters
     ----------
-    vec: pxt.NDArray
+    vec: NDArray
         (N,) diagonal scale factors.
     enable_warnings: bool
         If ``True``, emit a warning in case of precision mis-match issues.
@@ -339,8 +339,8 @@ def _ExplicitLinOp(
     r"""
     Build a linear operator from its matrix representation.
 
-    Given a matrix :math:`\mathbf{A} \in \mathbb{R}^{N \times M}`, the *explicit linear operator*
-    associated to :math:`\mathbf{A}` is defined as
+    Given a matrix :math:`\mathbf{A} \in \mathbb{R}^{N \times M}`, the *explicit linear operator* associated to
+    :math:`\mathbf{A}` is defined as
 
     .. math::
 
@@ -362,9 +362,9 @@ def _ExplicitLinOp(
 
     Parameters
     ----------
-    cls: pxt.OpC
+    cls: OpC
         LinOp sub-class to instantiate.
-    mat: pxt.NDArray | pxt.SparseArray
+    mat: NDArray, SparseArray
         (M, N) matrix generator.
         The input array can be *dense* or *sparse*.
         Accepted sparse arrays are:
@@ -378,12 +378,12 @@ def _ExplicitLinOp(
     -----
     * :py:class:`~pyxu.operator.linop.base._ExplicitLinOp` instances are **not arraymodule-agnostic**:
       they will only work with NDArrays belonging to the same (dense) array module as `mat`.
-      Moreover, inner computations may cast input arrays when the precision of `mat` does not
-      match the user-requested precision.
+      Moreover, inner computations may cast input arrays when the precision of `mat` does not match the user-requested
+      precision.
       If such a situation occurs, a warning is raised.
 
-    * The matrix provided to :py:func:`~pyxu.operator.linop.base._ExplicitLinOp` is used as-is
-      and can be accessed via ``.mat``.
+    * The matrix provided to :py:func:`~pyxu.operator.linop.base._ExplicitLinOp` is used as-is and can be accessed via
+      ``.mat``.
     """
 
     def _standard_form(A):
