@@ -20,11 +20,11 @@ def Sum(
     r"""
     Multi-dimensional sum reduction.
 
-    This operator re-arranges the input array to a multidimensional array of shape ``arg_shape``,
-    then reduces it via summation across one or more ``axis``.
+    This operator re-arranges the input array to a multidimensional array of shape ``arg_shape``, then reduces it via
+    summation across one or more ``axis``.
 
-    For example, assuming the input array :math:`\mathbf{x} \in \mathbb{R}^{N_1 \times N_2 \times
-    N_3}` and ``axis=-1``, then
+    For example, assuming the input array :math:`\mathbf{x} \in \mathbb{R}^{N_1 \times N_2 \times N_3}` and ``axis=-1``,
+    then
 
     .. math::
 
@@ -32,17 +32,16 @@ def Sum(
 
     Parameters
     ----------
-    arg_shape: pxt.NDArrayShape
+    arg_shape: NDArrayShape
         Shape of the data to be reduced.
-    axis: pxt.NDArrayAxis
+    axis: NDArrayAxis
         Axis or axes along which a sum is performed.
         The default, axis=None, will sum all the elements of the input array.
         If axis is negative it counts from the last to the first axis.
 
     Notes
     -----
-    The matrix operator of a 1D reduction applied to :math:`\mathbf{x} \in \mathbb{R}^{N}` is given
-    by
+    The matrix operator of a 1D reduction applied to :math:`\mathbf{x} \in \mathbb{R}^{N}` is given by
 
     .. math::
 
@@ -50,8 +49,8 @@ def Sum(
 
     where :math:`\sigma_{\max}(\mathbf{A}) = \sqrt{N}`.
     An ND reduction is a chain of 1D reductions in orthogonal dimensions.
-    Hence the Lipschitz constant of an ND reduction is the product of Lipschitz constants of all
-    1D reductions involved, i.e.:
+    Hence the Lipschitz constant of an ND reduction is the product of Lipschitz constants of all 1D reductions involved,
+    i.e.:
 
     .. math::
 
