@@ -93,11 +93,14 @@ autodoc_inherit_docstrings = True
 intersphinx_mapping = {  # We only include most useful doc-sets.
     "python": ("https://docs.python.org/3", None),
     "NumPy [stable]": ("https://numpy.org/doc/stable/", None),
+    "CuPy [latest]": ("https://docs.cupy.dev/en/latest/", None),
     "SciPy [latest]": ("https://docs.scipy.org/doc/scipy/", None),
     "Dask [stable]": ("https://docs.dask.org/en/stable/", None),
     "Sparse [latest]": ("https://sparse.pydata.org/en/latest/", None),
     "Pytest [latest]": ("https://docs.pytest.org/en/latest/", None),
     "Matplotlib [stable]": ("https://matplotlib.org/stable/", None),
+    "JAX [latest]": ("https://jax.readthedocs.io/en/latest/", None),
+    "PyTorch [stable]": ("https://pytorch.org/docs/stable/", None),
 }
 
 # -- Options for mathjax extension -------------------------------------------
@@ -112,7 +115,9 @@ napoleon_type_aliases = {
     # All shorthands here must be kept in sync manually with pyxu.info sub-modules.
     "NDArrayInfo": "~pyxu.info.deps.NDArrayInfo",
     "NDArrayShape": "~pyxu.info.ptype.NDArrayShape",
+    "NDArrayAxis": "~pyxu.info.ptype.NDArrayAxis",
     "NDArray": "~pyxu.info.ptype.NDArray",
+    "SparseArray": "~pyxu.info.ptype.SparseArray",
     "ArrayModule": "~pyxu.info.ptype.ArrayModule",
     "OpShape": "~pyxu.info.ptype.OpShape",
     "OpT": "~pyxu.info.ptype.OpT",
