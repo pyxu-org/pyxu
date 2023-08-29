@@ -68,7 +68,7 @@ def hutchpp(
 ) -> pxt.Real:
     r"""
     Stochastic trace estimation of a linear operator based on the Hutch++ algorithm.
-    (Specifically algorithm 3 from `this paper <https://arxiv.org/abs/2010.09649>`_.)
+    (Specifically `algorithm 3 from this paper <https://arxiv.org/abs/2010.09649>`_.)
 
     Parameters
     ----------
