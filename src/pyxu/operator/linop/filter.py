@@ -416,7 +416,7 @@ def DifferenceOfGaussians(
 
     low_sigma = _to_canonical_form(low_sigma, arg_shape)
     if high_sigma is None:
-        high_sigma = (s * 1.6 for s in low_sigma)
+        high_sigma = tuple(s * 1.6 for s in low_sigma)
 
     high_sigma = _to_canonical_form(high_sigma, arg_shape)
     low_truncate = _to_canonical_form(low_truncate, arg_shape)
