@@ -147,6 +147,7 @@ def MovingAverage(
     .. plot::
 
        import matplotlib.pyplot as plt
+       from pyxu.operator import MovingAverage
 
        arg_shape = (11, 11)
        image = np.zeros(arg_shape)
@@ -264,6 +265,7 @@ def Gaussian(
     .. plot::
 
        import matplotlib.pyplot as plt
+       from pyxu.operator import Gaussian
 
        arg_shape = (11, 11)
        image = np.zeros(arg_shape)
@@ -387,6 +389,7 @@ def DifferenceOfGaussians(
     .. plot::
 
        import matplotlib.pyplot as plt
+       from pyxu.operator import DoG
 
        arg_shape = (11, 11)
        image = np.zeros(arg_shape)
@@ -494,6 +497,7 @@ def Laplace(
     .. plot::
 
        import matplotlib.pyplot as plt
+       from pyxu.operator import Laplace
 
        arg_shape = (11, 11)
        image = np.zeros(arg_shape)
@@ -595,6 +599,7 @@ def Sobel(
     .. plot::
 
        import matplotlib.pyplot as plt
+       from pyxu.operator import Sobel
 
        arg_shape = (11, 11)
        image = np.zeros(arg_shape)
@@ -693,6 +698,7 @@ def Prewitt(
     .. plot::
 
        import matplotlib.pyplot as plt
+       from pyxu.operator import Prewitt
 
        arg_shape = (11, 11)
        image = np.zeros(arg_shape)
@@ -790,6 +796,7 @@ def Scharr(
     .. plot::
 
        import matplotlib.pyplot as plt
+       from pyxu.operator import Scharr
 
        arg_shape = (11, 11)
        image = np.zeros(arg_shape)
