@@ -63,10 +63,9 @@ class _Stencil:
     """
     Multi-dimensional JIT-compiled stencil.
 
-    This low-level class creates a gu-vectorized stencil applicable on multiple inputs
-    simultaneously.
+    This low-level class creates a gu-vectorized stencil applicable on multiple inputs simultaneously.
 
-    Create instances via factory method `_Stencil.init()`.
+    Create instances via factory method :py:meth:`~pyxu.operator.linop.stencil._stencil._Stencil.init`.
 
     Example
     -------
@@ -105,16 +104,16 @@ class _Stencil:
         """
         Parameters
         ----------
-        kernel: pxt.NDArray
+        kernel: NDArray
             (k_1, ..., k_D) kernel coefficients.
 
             Only float32/64 kernels are supported.
-        center: IndexSpec
+        center: ~pyxu.operator.linop.stencil._stencil._Stencil.IndexSpec
             (D,) index of the kernel's center.
 
         Returns
         -------
-        st: _Stencil
+        st: ~pyxu.operator.linop.stencil._stencil._Stencil
             Rank-D stencil.
         """
         dtype = kernel.dtype
@@ -143,43 +142,43 @@ class _Stencil:
         out: pxt.NDArray,
         **kwargs,
     ) -> pxt.NDArray:
-        """
+        r"""
         Evaluate stencil on multiple inputs.
 
         Parameters
         ----------
-        arr: pxt.NDArray
+        arr: NDArray
             (..., N_1, ..., N_D) data to process.
-        out: pxt.NDArray
+        out: NDArray
             (..., N_1, ..., N_D) array to which outputs are written.
         kwargs: dict
             Extra kwargs to configure `f_jit()`, the Dispatcher instance created by Numba.
 
             Only relevant for GPU stencils, with values:
 
-                * blockspergrid: int
-                * threadsperblock: int
+            * blockspergrid: int
+            * threadsperblock: int
 
             Default values are chosen if unspecified.
 
         Returns
         -------
-        out: pxt.NDArray
+        out: NDArray
             (..., N_1, ..., N_D) outputs.
 
         Notes
         -----
         * `arr` and `out` must have the same type/dtype as the kernel used during instantiation.
         * Index regions in `out` where the stencil is not fully supported are set to 0.
-        * .apply() may raise CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES when the number of GPU registers
-          required exceeds resource limits.
+        * :py:meth:`~pyxu.operator.linop.stencil._stencil._Stencil.apply` may raise
+          ``CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES`` when the number of GPU registers required exceeds resource limits.
           There are 2 solutions to this problem:
 
             (1) Pass the `max_registers` kwarg to f_jit()'s decorator; or
-            (2) Limit the number of threads per block. (https://stackoverflow.com/a/68659008)
+            (2) `Limit the number of threads per block <https://stackoverflow.com/a/68659008>`_.
 
           (1) must be set at compile time; it is thus left unbounded.
-          (2) is accessible through .apply(**kwargs).
+          (2) is accessible through .apply(\*\*kwargs).
         """
         assert arr.dtype == out.dtype == self._kernel.dtype
         assert arr.shape == out.shape
