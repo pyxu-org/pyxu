@@ -22,12 +22,12 @@ def from_sciop(cls: pxt.OpC, sp_op: spsl.LinearOperator) -> pxt.OpT:
 
     Parameters
     ----------
-    sp_op: [scipy|cupyx].sparse.linalg.LinearOperator
-        (N, M) Linear operator compliant with SciPy's interface.
+    sp_op: ~scipy.sparse.linalg.LinearOperator
+        (N, M) Linear CPU/GPU operator compliant with SciPy's interface.
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         (N, M) Pyxu-compliant linear operator.
     """
     assert cls.has(pxo.Property.LINEAR)

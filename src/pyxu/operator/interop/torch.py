@@ -4,6 +4,7 @@ r"""
    This package requires the optional dependency `PyTorch <https://pytorch.org/>`_. See installation instructions.
 """
 
+import collections.abc as cabc
 import typing as typ
 import warnings
 from functools import wraps
@@ -56,14 +57,14 @@ def astensor(arr: pxt.NDArray, requires_grad: bool = False) -> TorchTensor:
 
     Parameters
     ----------
-    arr: pxt.NDArray
+    arr: NDArray
         Input array.
     requires_grad: bool
         If autograd should record operations on the returned tensor.
 
     Returns
     -------
-    tensor: pxt.NDArray
+    tensor: torch.Tensor
         Output tensor.
 
     Notes
@@ -85,12 +86,12 @@ def asarray(tensor: TorchTensor) -> pxt.NDArray:
 
     Parameters
     ----------
-    tensor: TorchTensor
+    tensor: torch.Tensor
         Input tensor.
 
     Returns
     -------
-    arr: pxt.NDArray
+    arr: NDArray
         Output array.
 
     Notes
@@ -112,7 +113,7 @@ class _FromTorch(pxsrc._FromSource):
 
     def __init__(  # See from_torch() for a detailed description.
         self,
-        apply: typ.Callable,
+        apply: cabc.Callable,
         shape: pxt.OpShape,
         cls: pxt.OpC = pxo.Map,
         vectorize: frozenset[str] = frozenset(),
@@ -121,7 +122,7 @@ class _FromTorch(pxsrc._FromSource):
         dtype: typ.Optional[pxt.DType] = None,
         enable_warnings: bool = True,
         name: str = "TorchOp",
-        meta: typ.Any = None,
+        meta=None,
         **kwargs,
     ):
         super().__init__(
@@ -445,30 +446,6 @@ class _FromTorch(pxsrc._FromSource):
         else:
             raise NotImplementedError
 
-    # def asarray(self, **kwargs) -> pxt.NDArray:
-    #     if self.has(pxo.Property.LINEAR):
-    #         # If the operator is backend-specific (i.e. only works with CUPY), then we have no
-    #         # way to determine which `xp` value use in the generic LinOp.asarray()
-    #         # implementation without a potential fail.
-    #         #
-    #         # Consequence:
-    #         # We must try different `xp` values until one works.
-    #         N = pxd.NDArrayInfo  # shorthand
-    #         dtype_orig = kwargs.get("dtype", pxrt.getPrecision().value)
-    #         xp_orig = kwargs.get("xp", N.NUMPY.module())
-    #
-    #         klass = self.__class__
-    #         try:
-    #             A = klass.asarray(self, dtype=dtype_orig, xp=N.NUMPY.module())
-    #         except:
-    #             A = klass.asarray(self, dtype=dtype_orig, xp=N.CUPY.module())
-    #
-    #         # Not the most efficient method, but fail-proof
-    #         A = xp_orig.array(pxu.to_NUMPY(A), dtype=dtype_orig)
-    #         return A
-    #     else:
-    #         raise NotImplementedError
-
     def _expr(self):
         torch_funcs = list(self._torch.keys())
         if self._meta is not None:
@@ -477,7 +454,7 @@ class _FromTorch(pxsrc._FromSource):
 
 
 def from_torch(
-    apply: typ.Callable,
+    apply: cabc.Callable,
     shape: pxt.OpShape,
     cls: pxt.OpC = pxo.Map,
     vectorize: pxt.VarName = frozenset(),
@@ -486,7 +463,7 @@ def from_torch(
     dtype: typ.Optional[pxt.DType] = None,
     enable_warnings: bool = True,
     name: str = "TorchOp",
-    meta: typ.Any = None,
+    meta=None,
     **kwargs,
 ) -> pxt.OpT:
     r"""
@@ -494,19 +471,19 @@ def from_torch(
 
     Parameters
     ----------
-    apply: Callable
+    apply: ~collections.abc.Callable
         A Python function with single-element Tensor input/output. Defines the :py:meth:`~pyxu.abc.operator.Map.apply`
         method of the operator: ``apply(x)==op.apply(x)``.
-    shape: pxt.OpShape
+    shape: OpShape
         (N,M) shape of the operator, where N and M are the sizes of the output and input Tensors of ``apply`` respectively.
-    cls: pxt.OpT
+    cls: OpT
         Pyxu abstract base class to instantiate from.
     vectorize: pxt.VarName
         Arithmetic methods to vectorize.
 
         `vectorize` is useful if an arithmetic method provided to `kwargs` does not support stacking
         dimensions.
-    batch_size: int | None
+    batch_size: int
         If None (default), vectorized methods are applied as a single map over all inputs.
         If not None, then compute the vectorized methods `batch_size` samples at a time.
         Note that ``batch_size=1`` is equivalent to computing the vectorization with a for-loop.
@@ -514,7 +491,7 @@ def from_torch(
     jit: bool
         Currently has no effect (for future-compatibility only). In the future, if ``True``, then Torch-backed arithmetic methods
         will be JIT-compiled for better performance.
-    dtype: pxt.DType | None
+    dtype: DType
         Assumed `dtype` of the Torch-defined arithmetic methods. If `None` the arithmetic methods are assumed precision-agnostic.
     enable_warnings: bool
         If ``True``, emit warnings in case of precision/zero-copy issues.
@@ -529,14 +506,14 @@ def from_torch(
 
         .. code-block:: python3
 
-          grad(), prox(), pinv(), adjoint()  # methods
+           grad(), prox(), pinv(), adjoint()  # methods
 
         Omitted arithmetic methods default to those provided by `cls`, or are
         auto-inferred via auto-diff rules.
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         (N, M) Pyxu-compliant operator.
 
     Notes
@@ -551,41 +528,41 @@ def from_torch(
          def prox(tensor: torch.Tensor, tau: pxt.Real) -> torch.Tensor
          def pinv(tensor: torch.Tensor, damp: pxt.Real) -> torch.Tensor
 
-      The arithmetic methods `apply`, `grad`, `prox` MUST accept ``(-1, M)``-shaped inputs for ``tensor``, that is
-      a core dimension of size `M` and an optional stacking/batching dimension of arbitrary size.
-      The arithmetic methods `adjoint`, `pinv` MUST accept ``(-1, N)``-shaped inputs for ``tensor``, that is
-      a core dimension of size `N` and an optional stacking/batching dimension of arbitrary size.
+      The arithmetic methods `apply`, `grad`, `prox` **must** accept ``(-1, M)``-shaped inputs for ``tensor``, that is a
+      core dimension of size `M` and an optional stacking/batching dimension of arbitrary size.
+      The arithmetic methods `adjoint`, `pinv` **must** accept ``(-1, N)``-shaped inputs for ``tensor``, that is a core
+      dimension of size `N` and an optional stacking/batching dimension of arbitrary size.
       If stacking/batching dimensions are not supported for some methods, consider populating `vectorize` accordingly.
 
-    * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
-      :py:func:`torch.vmap`. See the `PyTorch documentation <https://pytorch.org/docs/stable/func.ux_limitations.html#vmap-limitations>`_
-      for known limitations.
+    * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with :py:func:`torch.vmap`.
+      See the `PyTorch documentation <https://pytorch.org/docs/stable/func.ux_limitations.html#vmap-limitations>`_ for
+      known limitations.
 
-    * All arithmetic methods provided in `kwargs` are decorated using
-      :py:func:`~pyxu.runtime.enforce_precision` to abide by Pyxu's FP-runtime semantics.
-      Note however that Torch does not allow mixed-precision computation, so this wrapper will coerce the input if its precision
-      does not comply with the specified `dtype`. This triggers a warning by default, which can be silenced via the `enable_warnings`
-      argument.
+    * All arithmetic methods provided in `kwargs` are decorated using :py:func:`~pyxu.runtime.enforce_precision` to
+      abide by Pyxu's FP-runtime semantics.
+      Note however that Torch does not allow mixed-precision computation, so this wrapper will coerce the input if its
+      precision does not comply with the specified `dtype`.
+      This triggers a warning by default, which can be silenced via the `enable_warnings`.
 
-    * Arithmetic methods are **not currently JIT-ed** and that even if `jit` is set to ``True``.
-      This is because of the undocumented and currently poor interaction between :py:mod:`torch.func` transforms
-      and :py:func:`torch.compile`. See `this issue <https://github.com/pytorch/pytorch/issues/98822>`_ for additional details.
+    * Arithmetic methods are **not currently JIT-ed** even if `jit` is set to ``True``.
+      This is because of the undocumented and currently poor interaction between :py:mod:`torch.func` transforms and
+      :py:func:`torch.compile`.
+      See `this issue <https://github.com/pytorch/pytorch/issues/98822>`_ for additional details.
 
-    * For :py:class:`~pyxu.abc.operator.DiffMap` (or subclasses thereof) the methods :py:meth:`~pyxu.abc.operator.DiffMap.jacobian`,
-      :py:meth:`~pyxu.abc.operator.DiffFunc.grad` and :py:meth:`~pyxu.abc.operator.DiffFunc.adjoint` [*]_ are defined implicitly
-      if not provided using the auto-differentiation transforms from the module `torch.func <https://pytorch.org/docs/stable/func.html>`_
-      of PyTorch. As detailed `on this page <https://pytorch.org/docs/stable/func.ux_limitations.html>`_, such transforms work
-      well on pure functions (that is, functions where the output is completely determined by the input and that do not
-      involve side effects like mutation), but may fail on more complex functions. Moreover, the ``torch.func`` module does not
-      yet have full coverage over PyTorch operations. For functions that calls a ``torch.nn.Module``
-      `see here for some utilities <https://pytorch.org/docs/stable/func.api.html#utilities-for-working-with-torch-nn-modules>`_.
-
-    .. [*] For a linear operator ``L`` we have ``L.jacobian(arr)==L`` for any input ``arr``. Given its apply method, the
-           adjoint of ``L`` can hence be computed via automatic-differentiation as ``L.adjoint(arr) = L.jacobian(arr).adjoint(arr)``.
+    * For :py:class:`~pyxu.abc.operator.DiffMap` (or subclasses thereof), the methods
+      :py:meth:`~pyxu.abc.operator.DiffMap.jacobian`, :py:meth:`~pyxu.abc.operator.DiffFunc.grad` and
+      :py:meth:`~pyxu.abc.operator.LinOp.adjoint` are defined implicitly if not provided using the
+      auto-differentiation transforms from :py:mod:`torch.func`.
+      As detailed `on this page <https://pytorch.org/docs/stable/func.ux_limitations.html>`_, such transforms work well
+      on pure functions (that is, functions where the output is completely determined by the input and that do not
+      involve side effects like mutation), but may fail on more complex functions.
+      Moreover, :py:mod:`torch.func` does not yet have full coverage over PyTorch operations.
+      For functions that call a :py:class:`torch.nn.Module`, see `here
+      <https://pytorch.org/docs/stable/func.api.html#utilities-for-working-with-torch-nn-modules>`_ for some utilities.
 
     .. Warning::
 
-        Operators created with this wrapper do not support Dask inputs for now.
+       Operators created with this wrapper do not support Dask inputs for now.
     """
     if isinstance(vectorize, str):
         vectorize = (vectorize,)
@@ -606,60 +583,3 @@ def from_torch(
     )
     op = src.op()
     return op
-
-
-# if __name__ == "__main__":
-#
-#     import time as t
-#
-#     import cupy as cp
-#     import numpy as np
-#     import torch
-#
-#     import pyxu.abc.operator as pxo
-#     import pyxu.runtime as pxrt
-#     from pyxu.operator.interop.torch import *
-#
-#     xp = cp
-#     batch_size, in_size, out_size = 200, 400, 300
-#     m = torch.nn.Linear(in_size, out_size)
-#     device = {cp: "cuda", np: "cpu"}
-#     if xp == cp:
-#         m = m.cuda()
-#
-#     op = from_torch(
-#         apply=lambda x: m(x),
-#         shape=(out_size, in_size),
-#         cls=pxo.DiffMap,
-#         jit=False,
-#         dtype=pxrt.Width.SINGLE.value,
-#         # vectorize="apply",
-#         batch_size=1,
-#         name="TorchOp",
-#         meta=m,
-#     )
-#     arr = xp.ones((batch_size, in_size), dtype=np.float32)
-#     arr_t = torch.ones((batch_size, in_size), dtype=torch.float32, device=device[xp])
-#     with pxrt.Precision(pxrt.Width.SINGLE):
-#         t1 = t.time()
-#         y1 = op(arr)
-#         print(f"{t.time()-t1} seconds ellapsed (Pyxu wrapper)")
-#     t1 = t.time()
-#     y2 = m(arr_t)
-#     print(f"{t.time() - t1} seconds ellapsed (Pytorch)")
-#     assert xp.allclose(y1, asarray(y2), atol=1e-4)
-#
-#     with pxrt.Precision(pxrt.Width.SINGLE):
-#         jac = op.jacobian(arr[0])
-#
-#     tangents = xp.eye(in_size, dtype=np.float32)
-#     cotangents = xp.eye(out_size, dtype=np.float32)
-#
-#     with pxrt.Precision(pxrt.Width.SINGLE):
-#         jac_mat = jac.asarray(xp=xp, dtype=np.float32)
-#         jac_batch = jac.apply(arr)
-#     assert xp.allclose(jac_mat, asarray(m.weight), atol=1e-4)
-#
-#     with pxrt.Precision(pxrt.Width.SINGLE):
-#         jac_matT = jac.adjoint(cotangents)
-#     assert xp.allclose(jac_matT, asarray(m.weight), atol=1e-4)

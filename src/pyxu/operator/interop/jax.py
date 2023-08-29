@@ -33,27 +33,36 @@ __all__ = [
 
 def _from_jax(
     x: JaxArray,
-    xp: pxt.ArrayModule = pxd.NDArrayInfo.NUMPY.module(),
+    xp: pxt.ArrayModule = None,
 ) -> pxt.NDArray:
-    # JAX -> NUMPY/CUPY conversion.
-    #
-    # The transform is always zero-copy, but it is not easy to check this condition for all array
-    # types (contiguous, views, etc.) and backends (NUMPY, CUPY).
-    #
-    # [More info] https://github.com/google/jax/issues/1961#issuecomment-875773326
-    if xp == pxd.NDArrayInfo.DASK.module():
-        raise pxw.BackendWarning("DASK inputs are unsupported.")
+    """
+    JAX -> NUMPY/CUPY conversion.
+
+    The transform is always zero-copy, but it is not easy to check this condition for all array
+    types (contiguous, views, etc.) and backends (NUMPY, CUPY).
+
+    [More info] https://github.com/google/jax/issues/1961#issuecomment-875773326
+    """
+    N = pxd.NDArrayInfo  # shorthand
+
+    if xp is None:
+        xp = N.default().module()
+
+    if xp not in (N.NUMPY.module(), N.CUPY.module()):
+        raise pxw.BackendWarning("Only NUMPY/CUPY inputs are supported.")
 
     y = xp.asarray(x)
     return y
 
 
 def _to_jax(x: pxt.NDArray, enable_warnings: bool = True) -> JaxArray:
-    # NUMPY/CUPY -> JAX conversion.
-    #
-    # Conversion is zero-copy when possible, i.e. 16-byte alignment, on the right device, etc.
-    #
-    # [More info] https://github.com/google/jax/issues/4486#issuecomment-735842976
+    """
+    NUMPY/CUPY -> JAX conversion.
+
+    Conversion is zero-copy when possible, i.e. 16-byte alignment, on the right device, etc.
+
+    [More info] https://github.com/google/jax/issues/4486#issuecomment-735842976
+    """
     N = pxd.NDArrayInfo  # shorthand
     W, cW = pxrt.Width, pxrt.CWidth  # shorthand
 
@@ -107,9 +116,9 @@ def from_jax(
 
     Parameters
     ----------
-    cls: pxt.OpC
+    cls: OpC
         Operator sub-class to instantiate.
-    shape: pxt.OpShape
+    shape: OpShape
         (N, M) operator shape.
     kwargs: dict
         (k[str], v[callable]) pairs to use as arithmetic methods.
@@ -122,7 +131,7 @@ def from_jax(
 
         Omitted arithmetic methods default to those provided by `cls`, or are
         auto-inferred via auto-diff rules.
-    vectorize: pxt.VarName
+    vectorize: VarName
         Arithmetic methods to vectorize.
 
         `vectorize` is useful if an arithmetic method provided to `kwargs` does not support stacking
@@ -134,7 +143,7 @@ def from_jax(
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         (N, M) Pyxu-compliant operator.
 
     Notes
@@ -149,7 +158,7 @@ def from_jax(
          def prox(arr: jax.Array, tau: pxt.Real) -> jax.Array
          def pinv(arr: jax.Array, damp: pxt.Real) -> jax.Array
 
-      Moreover, the methods above MUST accept ``(..., M)``-shaped inputs for ``arr``.
+      Moreover, the methods above **must** accept ``(..., M)``-shaped inputs for ``arr``.
       If this does not hold, consider populating `vectorize`.
 
     * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
@@ -157,9 +166,8 @@ def from_jax(
 
     * All arithmetic methods provided in `kwargs` are decorated using
       :py:func:`~pyxu.runtime.enforce_precision` to abide by Pyxu's FP-runtime semantics.
-      Note however that JAX enforces 32-bit arithmetic by default, and this constraint cannot be
-      changed at runtime.
-      (See https://jax.readthedocs.io/en/latest/notebooks/Common_Gotchas_in_JAX.html#double-64bit-precision .)
+      Note however that JAX enforces `32-bit arithmetic <https://jax.readthedocs.io/en/latest/notebooks/Common_Gotchas_in_JAX.html#double-64bit-precision>`_
+      by default, and this constraint cannot be changed at runtime.
       As such, to allow zero-copy transfers between JAX and NUMPY/CUPY arrays, it is advised to
       perform computations in single-precision mode.
       This can be achieved locally using the :py:class:`~pyxu.runtime.Precision` context manager.
@@ -170,7 +178,7 @@ def from_jax(
     * Inferred arithmetic methods are not JIT-ed by default since the operation is error-prone
       depending on how :py:meth:`~pyxu.abc.operator.Map.apply` is defined.
       If :py:meth:`~pyxu.abc.operator.Map.apply` supplied to
-      :py:func:`~pyxu.operator.interop.from_jax` is JIT-friendly, then consider enabling `jit`.
+      :py:func:`~pyxu.operator.interop.jax.from_jax` is JIT-friendly, then consider enabling `jit`.
 
     Examples
     --------
@@ -189,7 +197,7 @@ def from_jax(
 
        import pyxu.abc as pxa
        import pyxu.runtime as pxrt
-       import pyxu.operator.interop.jax as pxj
+       import pyxu.operator.interop as pxi
        import jax, jax.numpy as jnp
        import numpy as np
 
@@ -202,7 +210,7 @@ def from_jax(
            out = jnp.r_[o1, o2, o3]
            return out
 
-       op = pxj.from_jax(
+       op = pxi.from_jax(
            cls=pxa.DiffMap,
            shape=(3, 2),
            vectorize="apply",  # j_apply() does not work on stacked inputs

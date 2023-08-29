@@ -26,9 +26,9 @@ def from_source(
 
     Parameters
     ----------
-    cls: pxt.OpC
+    cls: OpC
         Operator sub-class to instantiate.
-    shape: pxt.OpShape
+    shape: OpShape
         (N, M) operator shape.
     embed: dict
         (k[str], v[value]) pairs to embed into the created operator.
@@ -41,7 +41,7 @@ def from_source(
         Keys must be entries from :py:meth:`~pyxu.abc.operator.Property.arithmetic_methods`.
 
         Omitted arithmetic attributes/methods default to those provided by `cls`.
-    vectorize: pxt.VarName
+    vectorize: VarName
         Arithmetic methods to vectorize.
 
         `vectorize` is useful if an arithmetic method provided to `kwargs` (ex:
@@ -49,26 +49,26 @@ def from_source(
 
         * does not support stacking dimensions; OR
         * does not support DASK inputs.
-    vmethod: str | dict
+    vmethod: str, dict
         Vectorization strategy. (See :py:class:`~pyxu.util.operator.vectorize`.)
 
         Different strategies can be applied per arithmetic method via a dictionary.
-    enforce_precision: pxt.VarName
+    enforce_precision: VarName
         Arithmetic methods to make compliant with Pyxu's runtime FP-precision.
 
         `enforce_precision` is useful if an arithmetic method provided to `kwargs` (ex:
-        :py:meth:`~pyxu.abc.Map.apply`) is unaware of Pyxu's runtime FP context.
+        :py:meth:`~pyxu.abc.operator.Map.apply`) is unaware of Pyxu's runtime FP context.
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         (N, M) Pyxu-compliant operator.
 
     Notes
     -----
     * If provided, arithmetic methods must abide exactly to the Pyxu interface.
-      In particular, the following arithmetic methods, if supplied, MUST have the following
-      interface:
+      In particular, the following arithmetic methods, if supplied, **must** have
+      the following interface:
 
       .. code-block:: python3
 
@@ -76,9 +76,9 @@ def from_source(
          def grad(self, arr: pxt.NDArray) -> pxt.NDArray
          def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray
          def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray
-         def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray
+         def pinv(self, arr: pxt.NDArray, damp: pxt.Real) -> pxt.NDArray
 
-      Moreover, the methods above MUST accept ``(..., M)``-shaped inputs for ``arr``.
+      Moreover, the methods above **must** accept ``(..., M)``-shaped inputs for ``arr``.
       If this does not hold, consider populating `vectorize`.
 
     * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
