@@ -3,7 +3,7 @@ API Reference
 
 .. toctree::
    :maxdepth: 2
-   :hidden: 
+   :hidden:
 
    info
    abc
@@ -11,3 +11,5 @@ API Reference
    runtime
    util
    opt
+   experimental
+   operator

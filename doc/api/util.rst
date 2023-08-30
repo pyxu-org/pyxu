@@ -1,23 +1,11 @@
 pyxu.util
 =========
 
-pyxu.util.array_module
-----------------------
-
 .. automodule:: pyxu.util.array_module
-
-pyxu.util.complex
------------------
 
 .. automodule:: pyxu.util.complex
 
-pyxu.util.inspect
------------------
-
 .. automodule:: pyxu.util.inspect
-
-pyxu.util.misc
---------------
 
 .. automodule:: pyxu.util.misc
 
@@ -26,9 +14,6 @@ pyxu.util.misc
    .. autofunction:: peaks
 
    .. autofunction:: star_like_sample
-
-pyxu.util.operator
-------------------
 
 .. automodule:: pyxu.util.operator
 

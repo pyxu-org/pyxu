@@ -1,21 +1,12 @@
 pyxu.info
 =========
 
-.. autosummary::
-
-   pyxu.info.deps
-   pyxu.info.warning
-
-pyxu.info.deps
---------------
+.. automodule:: pyxu.info.ptype
 
 .. automodule:: pyxu.info.deps
    :members:
    :undoc-members:
    :show-inheritance:
-
-pyxu.info.warning
------------------
 
 .. automodule:: pyxu.info.warning
    :no-special-members:

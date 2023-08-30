@@ -1,8 +1,5 @@
-pycu.opt
+pyxu.opt
 ========
-
-pyxu.opt.stop
--------------
 
 .. autoclass:: pyxu.opt.stop.MaxIter
    :no-members:
@@ -32,11 +29,8 @@ pyxu.opt.stop
    :no-members:
    :special-members: __init__
 
-pyxu.opt.solver
----------------
-
 .. autoclass:: pyxu.opt.solver.pgd.PGD
-   :no-members: 
+   :no-members:
 
 .. autoclass:: pyxu.opt.solver.cg.CG
    :no-members:
@@ -45,4 +39,46 @@ pyxu.opt.solver
    :no-members:
 
 .. autoclass:: pyxu.opt.solver.prox_adam.ProxAdam
+   :no-members:
+
+.. autoclass:: pyxu.opt.solver.pds.CondatVu
+   :no-members:
+
+.. autoclass:: pyxu.opt.solver.pds.CV
+   :no-members:
+
+.. autoclass:: pyxu.opt.solver.pds.PD3O
+   :no-members:
+
+.. autofunction:: pyxu.opt.solver.pds.ChambollePock
+
+.. autofunction:: pyxu.opt.solver.pds.CP
+
+.. autoclass:: pyxu.opt.solver.pds.LorisVerhoeven
+   :no-members:
+
+.. autoclass:: pyxu.opt.solver.pds.LV
+   :no-members:
+
+.. autoclass:: pyxu.opt.solver.pds.DavisYin
+   :no-members:
+
+.. autoclass:: pyxu.opt.solver.pds.DY
+   :no-members:
+
+.. autofunction:: pyxu.opt.solver.pds.DouglasRachford
+
+.. autofunction:: pyxu.opt.solver.pds.DR
+
+.. autoclass:: pyxu.opt.solver.pds.ForwardBackward
+   :no-members:
+
+.. autoclass:: pyxu.opt.solver.pds.FB
+   :no-members:
+
+.. autofunction:: pyxu.opt.solver.pds.ProximalPoint
+
+.. autofunction:: pyxu.opt.solver.pds.PP
+
+.. autoclass:: pyxu.opt.solver.pds.ADMM
    :no-members:
