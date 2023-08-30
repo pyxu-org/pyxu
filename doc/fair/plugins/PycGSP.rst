@@ -188,7 +188,7 @@ General information
 
     <p class="currentstate">
         
-        <img class="svg-badge" src="../_static/plugins/status/status-stable-4cc61e.svg" title="Production/Stable: Ready for production calculations. Bug reports welcome!"></p>
+        <img class="svg-badge" src="../../_static/plugins/status/status-stable-4cc61e.svg" title="Production/Stable: Ready for production calculations. Bug reports welcome!"></p>
     
 
     <p>

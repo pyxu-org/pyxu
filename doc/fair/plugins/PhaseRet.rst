@@ -182,7 +182,7 @@ General information
 
     <p class="currentstate">
         
-        <img class="svg-badge" src="../_static/plugins/status/status-inactive-bbbbbb.svg" title="Inactive: No longer maintained."></p>
+        <img class="svg-badge" src="../../_static/plugins/status/status-inactive-bbbbbb.svg" title="Inactive: No longer maintained."></p>
     
 
     <p>

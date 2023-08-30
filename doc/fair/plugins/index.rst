@@ -226,7 +226,8 @@ Catalogue
         </div>
     </div>
 
-**Plugins in alphabetical order:**
+** Plugin in alphabetical order:**
+
 
 .. grid:: 2 2 3 3
     :gutter: 3
@@ -236,7 +237,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/CSEEG.html">CSEEG</a></h2>
+            <h2 style="font-size: 30px;"><a href="CSEEG.html">CSEEG</a></h2>
 
             <p class="currentstate">
                 
@@ -277,7 +278,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/DSP-Notebooks.html">DSP-Notebooks</a></h2>
+            <h2 style="font-size: 30px;"><a href="DSP-Notebooks.html">DSP-Notebooks</a></h2>
 
             <p class="currentstate">
                 
@@ -333,7 +334,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/EnvironTracker.html">EnvironTracker</a></h2>
+            <h2 style="font-size: 30px;"><a href="EnvironTracker.html">EnvironTracker</a></h2>
 
             <p class="currentstate">
                 
@@ -374,7 +375,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/HoughDetector.html">HoughDetector</a></h2>
+            <h2 style="font-size: 30px;"><a href="HoughDetector.html">HoughDetector</a></h2>
 
             <p class="currentstate">
                 
@@ -425,7 +426,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/HVOX.html">HVOX</a></h2>
+            <h2 style="font-size: 30px;"><a href="HVOX.html">HVOX</a></h2>
 
             <p class="currentstate">
                 
@@ -476,7 +477,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/OrientationPy.html">OrientationPy</a></h2>
+            <h2 style="font-size: 30px;"><a href="OrientationPy.html">OrientationPy</a></h2>
 
             <p class="currentstate">
                 
@@ -527,7 +528,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/Palentologist.html">Palentologist</a></h2>
+            <h2 style="font-size: 30px;"><a href="Palentologist.html">Palentologist</a></h2>
 
             <p class="currentstate">
                 
@@ -573,7 +574,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/PhaseRet.html">PhaseRet</a></h2>
+            <h2 style="font-size: 30px;"><a href="PhaseRet.html">PhaseRet</a></h2>
 
             <p class="currentstate">
                 
@@ -620,7 +621,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/PycGSP.html">PycGSP</a></h2>
+            <h2 style="font-size: 30px;"><a href="PycGSP.html">PycGSP</a></h2>
 
             <p class="currentstate">
                 
@@ -676,7 +677,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/pycNUFFT.html">pycNUFFT</a></h2>
+            <h2 style="font-size: 30px;"><a href="pycNUFFT.html">pycNUFFT</a></h2>
 
             <p class="currentstate">
                 
@@ -727,7 +728,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/PycSphere.html">PycSphere</a></h2>
+            <h2 style="font-size: 30px;"><a href="PycSphere.html">PycSphere</a></h2>
 
             <p class="currentstate">
                 
@@ -778,7 +779,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/pycWavelet.html">pycWavelet</a></h2>
+            <h2 style="font-size: 30px;"><a href="pycWavelet.html">pycWavelet</a></h2>
 
             <p class="currentstate">
                 
@@ -834,7 +835,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/PYFW.html">PYFW</a></h2>
+            <h2 style="font-size: 30px;"><a href="PYFW.html">PYFW</a></h2>
 
             <p class="currentstate">
                 
@@ -890,7 +891,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/TokemakRec.html">TokemakRec</a></h2>
+            <h2 style="font-size: 30px;"><a href="TokemakRec.html">TokemakRec</a></h2>
 
             <p class="currentstate">
                 
@@ -951,7 +952,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/TVDenoiser.html">TVDenoiser</a></h2>
+            <h2 style="font-size: 30px;"><a href="TVDenoiser.html">TVDenoiser</a></h2>
 
             <p class="currentstate">
                 
@@ -1008,7 +1009,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/UncertaintyQuant.html">UncertaintyQuant</a></h2>
+            <h2 style="font-size: 30px;"><a href="UncertaintyQuant.html">UncertaintyQuant</a></h2>
 
             <p class="currentstate">
                 
@@ -1054,7 +1055,7 @@ Catalogue
 
         .. raw:: html
 
-            <h2 style="font-size: 30px;"><a href="plugins/WaveProp.html">WaveProp</a></h2>
+            <h2 style="font-size: 30px;"><a href="WaveProp.html">WaveProp</a></h2>
 
             <p class="currentstate">
                 

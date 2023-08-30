@@ -184,7 +184,7 @@ General information
 
     <p class="currentstate">
         
-        <img class="svg-badge" src="../_static/plugins/status/status-alpha-d6af23.svg" title="Alpha: Adds new functionality, not yet ready for production. Testing welcome!"></p>
+        <img class="svg-badge" src="../../_static/plugins/status/status-alpha-d6af23.svg" title="Alpha: Adds new functionality, not yet ready for production. Testing welcome!"></p>
     
 
     <p>

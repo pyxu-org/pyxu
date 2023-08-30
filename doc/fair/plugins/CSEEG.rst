@@ -182,7 +182,7 @@ General information
 
     <p class="currentstate">
         
-        <img class="svg-badge" src="../_static/plugins/status/status-planning-d9644d.svg" title="Planning: Not yet ready to use. Developers welcome!"></p>
+        <img class="svg-badge" src="../../_static/plugins/status/status-planning-d9644d.svg" title="Planning: Not yet ready to use. Developers welcome!"></p>
     
 
     <p>
