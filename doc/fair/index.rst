@@ -201,7 +201,7 @@ In simple terms, the Pyxu-FAIR is designed to supercharge your Pyxu experience:
 📚 Catalogue Website
 ~~~~~~~~~~~~~~~~~~~~
 
-A `one-stop shop <./catalogue.html>`_ to discover exciting Pyxu plugins right from your browser. Imagine a shopping mall, but just for Pyxu plugins! 🛍️
+A `one-stop shop <./plugins/index.html>`_ to discover exciting Pyxu plugins right from your browser. Imagine a shopping mall, but just for Pyxu plugins! 🛍️
 Auto-discovery of plugins from the Python Package Index (PyPI). No more manual hunting! 🕵️
 Relevant metadata display and a fuzzy-searchable index. Dive deeper into plugins, explore their features, and find the best fit for your needs. 🔎
 Excitingly, you can even rank plugins based on their `Pyxu score <./score.html>`_. The higher the score, the better they gel with Pyxu's quality standards. 🏆

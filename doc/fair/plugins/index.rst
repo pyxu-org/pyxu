@@ -226,7 +226,7 @@ Catalogue
         </div>
     </div>
 
-** Plugin in alphabetical order:**
+**Plugin in alphabetical order:**
 
 
 .. grid:: 2 2 3 3
