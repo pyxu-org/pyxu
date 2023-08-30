@@ -9,7 +9,6 @@ import typing as typ
 import warnings
 from functools import wraps
 
-import numpy as np
 import packaging.version as pkgv
 
 import pyxu.abc.operator as pxo
