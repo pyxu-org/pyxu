@@ -172,7 +172,7 @@ simply add the other required dependencies in the ``setup.cfg`` file and run the
    cd <your-repo-name>
    python -m pip install -e .
 
-The ``-e . `` arguments install the package in editable mode, meaning that any changes you make to the source code, will
+The ``-e .`` arguments install the package in editable mode, meaning that any changes you make to the source code, will
 be reflected in the installed package.
 
 Develop new features
