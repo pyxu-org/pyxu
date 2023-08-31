@@ -132,6 +132,7 @@ html_theme_options = {
     "navbar_start": ["navbar-logo"],
     "navbar_end": ["navbar-version", "navbar-icon-links"],
     "secondary_sidebar_items": ["page-toc", "searchbox", "edit-this-page", "sourcelink"],
+    "footer_start": ["copyright", "sphinx-version", "theme-version"],
     "pygment_light_style": "tango",
 }
 

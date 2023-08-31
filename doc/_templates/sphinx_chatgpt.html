@@ -1,0 +1,6 @@
+{% if show_sphinx %}
+  <p class="sphinx-version">
+    {% trans sphinx_version=sphinx_version|e %}Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> {{ sphinx_version }}, with some help from <a href="https://chat.openai.com/"> ChatGPT</a> (GPT 4).{% endtrans %}
+    <br/>
+  </p>
+{% endif %}

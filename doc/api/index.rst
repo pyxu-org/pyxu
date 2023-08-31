@@ -139,3 +139,4 @@ pyxu.math
    math
    info
    experimental
+   ../references
