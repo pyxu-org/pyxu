@@ -14,15 +14,18 @@
 .. image:: https://img.shields.io/badge/Python-3.9%20|%203.10%20|%203.11-blue
    :target: https://www.python.org/downloads/
    :alt: Python 3.9 | 3.10 | 3.11
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
-   :target: https://github.com/psf/black
-   :alt: Code style: black
 .. image:: https://img.shields.io/badge/License-MIT-yellow.svg
    :target: https://opensource.org/licenses/MIT
    :alt: License: MIT
 .. image:: https://img.shields.io/badge/Maturity-Production%2FStable-green.svg
    :target: https://www.python.org/dev/peps/pep-0008/
    :alt: Maturity Level: Production/Stable
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+   :target: https://github.com/psf/black
+   :alt: Code style: black
+.. image:: https://img.shields.io/badge/pre--commit-enabled-brightgreen?style=flat&logo=pre-commit&logoColor=white
+   :target: https://pre-commit.com/
+   :alt: pre-commit enabled
 .. image:: https://img.shields.io/github/languages/code-size/matthieumeo/pyxu
    :alt: GitHub code size in bytes
    :target: https://github.com/matthieumeo/pyxu
