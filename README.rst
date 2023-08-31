@@ -13,7 +13,7 @@ Pyxu supports a wide range of imaging applications, scales, and computation arch
 .. raw:: html
 
    <p align="center"> 
-   <img align="center" src="doc/_static/gallery.jpg" alt="Gallery" width=45%>
+   <img align="center" src="doc/_static/banner.jpg" alt="Banner" width=80%>
    </p> 
 
 What Makes Pyxu Special?
