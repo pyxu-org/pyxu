@@ -29,9 +29,6 @@
 .. image:: https://img.shields.io/github/languages/code-size/matthieumeo/pyxu
    :alt: GitHub code size in bytes
    :target: https://github.com/matthieumeo/pyxu
-.. image:: https://img.shields.io/badge/PRs-welcome-brightgreen.svg
-   :target: https://github.com/matthieumeo/pyxu/pulls
-   :alt: PRs Welcome
 .. image:: https://img.shields.io/github/commit-activity/y/matthieumeo/pyxu
    :target: https://github.com/matthieumeo/pyxu/commits/main
    :alt: Number of Commits
@@ -41,6 +38,9 @@
 .. image:: https://img.shields.io/github/contributors/matthieumeo/pyxu
    :target: https://github.com/matthieumeo/pyxu/graphs/contributors
    :alt: Number of Contributors
+.. image:: https://img.shields.io/badge/PRs-welcome-brightgreen.svg
+   :target: https://github.com/matthieumeo/pyxu/pulls
+   :alt: PRs Welcome
 
 **Pyxu** (pronounced [piksu], formerly known as Pycsou) is an open-source Python framework allowing scientists at any
 level to quickly prototype/deploy *hardware accelerated and out-of-core* computational imaging pipelines at scale.
@@ -50,7 +50,7 @@ of imaging applications, scales, and computation architectures.
 .. raw:: html
 
    <p align="center">
-   <img align="center" src="doc/_static/gallery.jpg" alt="Gallery" width=45%>
+   <img align="center" src="doc/_static/banner.jpg" alt="Banner" width=95%>
    </p>
 
 What Makes Pyxu Special?
@@ -142,7 +142,7 @@ optimization.  The feature set is robust and mature, positioning it as a leader 
       - 🟡 Partial
       - 🔴 Least-squares & sparse rec.
       - 🟡 Wave-processing, geophysics
-      - 🔴 Linear ops. based on old NumPy's matrix interface
+      - 🔴 Linear ops. based on NumPy's old matrix interface
 
     * - PyProximal
       - 🔴 Prox. funcs
