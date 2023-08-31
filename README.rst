@@ -2,8 +2,12 @@
 .. raw:: html
 
    <p align="center"> 
-   <img align="center" src="doc/_static/logo.png" alt="Pyxu logo" width=25%>
+   <img align="center" src="doc/_static/logo.png" alt="Pyxu logo" width=35%>
    </p> 
+
+Pyxu: Modular and Scalable Computational Imaging
+================================================
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 
 **Pyxu** (pronounced [piksu], formerly known as Pycsou) is an open-source Python framework 
 allowing scientists at any level to quickly prototype/deploy *hardware accelerated and out-of-core* computational imaging pipelines at scale.
@@ -13,7 +17,7 @@ Pyxu supports a wide range of imaging applications, scales, and computation arch
 .. raw:: html
 
    <p align="center"> 
-   <img align="center" src="doc/_static/banner.jpg" alt="Banner" width=80%>
+   <img align="center" src="doc/_static/banner.jpg" alt="Banner" width=95%>
    </p> 
 
 What Makes Pyxu Special?
