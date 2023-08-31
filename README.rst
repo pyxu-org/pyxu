@@ -278,3 +278,19 @@ come be a part of the community that's setting the pace for computational imagin
 
 Let's accelerate the transition from research prototypes to production-ready solutions.  Dive into Pyxu today and make
 computational imaging more powerful, efficient, and accessible for everyone! 🎉
+
+Cite us
+-------
+
+::
+
+   @software{pyxu-framework,
+     author       = {Matthieu Simeoni and
+                     Sepand Kashani and
+                     Joan Rué-Queralt and
+                     Pyxu Developers},
+     title        = {matthieumeo/pyxu: pyxu},
+     publisher    = {Zenodo},
+     doi          = {10.5281/zenodo.8305249},
+     url          = {https://doi.org/10.5281/zenodo.8305249}
+   }
