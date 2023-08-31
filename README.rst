@@ -1,13 +1,43 @@
-
 .. raw:: html
 
    <p align="center"> 
    <img align="center" src="doc/_static/logo.png" alt="Pyxu logo" width=35%>
-   </p> 
+   </p>
+   <h1> Pyxu: Modular and Scalable Computational Imaging </h1>
 
-Pyxu: Modular and Scalable Computational Imaging
-================================================
-[![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
+.. image:: https://img.shields.io/badge/Documentation-View-blue
+   :target: https://pyxu-org.github.io/
+   :alt: Documentation
+.. image:: https://badge.fury.io/py/pyxu.svg
+   :target: https://pypi.org/project/pyxu/
+   :alt: PyPI Version
+.. image:: https://img.shields.io/badge/Python-3.9%20|%203.10%20|%203.11-blue
+   :target: https://www.python.org/downloads/
+   :alt: Python 3.9 | 3.10 | 3.11
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+   :target: https://github.com/psf/black
+   :alt: Code style: black
+.. image:: https://img.shields.io/badge/License-MIT-yellow.svg
+   :target: https://opensource.org/licenses/MIT
+   :alt: License: MIT
+.. image:: https://img.shields.io/badge/Maturity-Production%2FStable-green.svg
+   :target: https://www.python.org/dev/peps/pep-0008/
+   :alt: Maturity Level: Production/Stable
+.. image:: https://img.shields.io/github/languages/code-size/matthieumeo/pyxu
+   :alt: GitHub code size in bytes
+   :target: https://github.com/matthieumeo/pyxu
+.. image:: https://img.shields.io/badge/PRs-welcome-brightgreen.svg
+   :target: https://github.com/matthieumeo/pyxu/pulls
+   :alt: PRs Welcome
+.. image:: https://img.shields.io/github/commit-activity/y/matthieumeo/pyxu
+   :target: https://github.com/matthieumeo/pyxu/commits/main
+   :alt: Number of Commits
+.. image:: https://img.shields.io/github/last-commit/matthieumeo/pyxu
+   :target: https://github.com/matthieumeo/pyxu/commits
+   :alt: Last Commit
+.. image:: https://img.shields.io/github/contributors/matthieumeo/pyxu
+   :target: https://github.com/matthieumeo/pyxu/graphs/contributors
+   :alt: Number of Contributors
 
 **Pyxu** (pronounced [piksu], formerly known as Pycsou) is an open-source Python framework 
 allowing scientists at any level to quickly prototype/deploy *hardware accelerated and out-of-core* computational imaging pipelines at scale.
