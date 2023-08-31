@@ -216,7 +216,6 @@ autodoc_typehints_format = "short"
 autodoc_inherit_docstrings = True
 
 # -- Options for autosummary extension ---------------------------------------
-
 autosummary_context = {}  # for template engine
 autosummary_generate = False
 autosummary_generate_overwrite = True
