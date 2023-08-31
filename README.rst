@@ -44,8 +44,8 @@
 .. image:: https://img.shields.io/badge/PRs-welcome-brightgreen.svg
    :target: https://github.com/matthieumeo/pyxu/pulls
    :alt: PRs Welcome
-.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.8304964.svg
-   :target: https://doi.org/10.5281/zenodo.8304964
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.8305249.svg
+   :target: https://doi.org/10.5281/zenodo.8305249
 
 
 **Pyxu** (pronounced [piksu], formerly known as Pycsou) is an open-source Python framework allowing scientists at any
