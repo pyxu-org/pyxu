@@ -1,15 +1,20 @@
 
 .. raw:: html
 
-   <center> 
-   <img align="center" src="doc/_static/logo.png" alt="Pyxu logo" width=60%>
-   </center>
-
+   <p align="center"> 
+   <img align="center" src="doc/_static/logo.png" alt="Pyxu logo" width=25%>
+   </p> 
 
 **Pyxu** (pronounced [piksu], formerly known as Pycsou) is an open-source Python framework 
 allowing scientists at any level to quickly prototype/deploy *hardware accelerated and out-of-core* computational imaging pipelines at scale.
 Thanks to its hardware-agnostic **microservice architecture** and its tight integration with the PyData ecosystem, 
 Pyxu supports a wide range of imaging applications, scales, and computation architectures.
+
+.. raw:: html
+
+   <p align="center"> 
+   <img align="center" src="doc/_static/gallery.jpg" alt="Gallery" width=45%>
+   </p> 
 
 What Makes Pyxu Special?
 ------------------------
