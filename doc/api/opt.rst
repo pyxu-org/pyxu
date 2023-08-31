@@ -1,6 +1,13 @@
 pyxu.opt
 ========
 
+.. contents:: Table of Contents
+   :local:
+   :depth: 1
+
+pyxu.opt.stop
+-------------
+
 .. autoclass:: pyxu.opt.stop.MaxIter
    :no-members:
    :special-members: __init__
@@ -28,6 +35,9 @@ pyxu.opt
 .. autoclass:: pyxu.opt.stop.RelError
    :no-members:
    :special-members: __init__
+
+pyxu.opt.solver
+---------------
 
 .. autoclass:: pyxu.opt.solver.pgd.PGD
    :no-members:

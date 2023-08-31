@@ -4,6 +4,13 @@ pyxu.abc
 .. The ABC module contains too many corner cases for autodocs' automodule construct.
 .. We therefore choose explicitly what to show.
 
+.. contents:: Table of Contents
+   :local:
+   :depth: 2
+
+pyxu.abc.operator
+-----------------
+
 .. autoclass:: pyxu.abc.operator.Property
 
 .. autoclass:: pyxu.abc.operator.Operator
@@ -66,6 +73,9 @@ pyxu.abc
 .. autoclass:: pyxu.abc.operator.LinFunc
    :no-members:
 
+pyxu.abc.arithmetic
+-------------------
+
 .. autoclass:: pyxu.abc.arithmetic.Rule
    :members: op
    :no-members:
@@ -90,6 +100,9 @@ pyxu.abc
 
 .. autoclass:: pyxu.abc.arithmetic.TransposeRule
    :no-members:
+
+pyxu.abc.solver
+---------------
 
 .. automodule:: pyxu.abc.solver
 

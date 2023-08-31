@@ -1,77 +1,12 @@
-pyxu.operator
-=============
+pyxu.operator.linop
+===================
 
-.. autofunction:: pyxu.operator.map.base.ConstantValued
+.. contents:: Table of Contents
+   :local:
+   :depth: 1
 
-.. automodule:: pyxu.operator.map.ufunc
-
-.. autoclass:: pyxu.operator.func.norm.L1Norm
-   :no-members:
-
-.. autoclass:: pyxu.operator.func.norm.L2Norm
-   :no-members:
-
-.. autoclass:: pyxu.operator.func.norm.SquaredL2Norm
-   :no-members:
-
-.. autoclass:: pyxu.operator.func.norm.SquaredL1Norm
-   :no-members:
-   :members: prox
-   :special-members: __init__
-
-.. autoclass:: pyxu.operator.func.norm.LInfinityNorm
-   :no-members:
-
-.. autoclass:: pyxu.operator.func.norm.L21Norm
-   :no-members:
-   :special-members: __init__
-
-.. autoclass:: pyxu.operator.func.norm.PositiveL1Norm
-   :no-members:
-
-.. autofunction:: pyxu.operator.func.indicator.L1Ball
-
-.. autofunction:: pyxu.operator.func.indicator.L2Ball
-
-.. autofunction:: pyxu.operator.func.indicator.LInfinityBall
-
-.. autoclass:: pyxu.operator.func.indicator.PositiveOrthant
-   :no-members:
-
-.. autoclass:: pyxu.operator.func.indicator.HyperSlab
-   :no-members:
-   :special-members: __init__
-
-.. autoclass:: pyxu.operator.func.indicator.RangeSet
-   :no-members:
-   :special-members: __init__
-
-.. autoclass:: pyxu.operator.func.indicator.AffineSet
-   :no-members:
-   :special-members: __init__
-
-.. autoclass:: pyxu.operator.func.indicator.ConvexSetIntersection
-   :no-members:
-   :members: prox
-   :special-members: __init__
-
-.. autofunction:: pyxu.operator.interop.source.from_source
-
-.. autofunction:: pyxu.operator.interop.sciop.from_sciop
-
-.. autofunction:: pyxu.operator.interop.jax.from_jax
-
-.. autofunction:: pyxu.operator.interop.jax._from_jax
-
-.. autofunction:: pyxu.operator.interop.jax._to_jax
-
-.. autofunction:: pyxu.operator.interop.torch.astensor
-
-.. autofunction:: pyxu.operator.interop.torch.asarray
-
-.. autofunction:: pyxu.operator.interop.torch.from_torch
-
-.. automodule:: pyxu.operator.blocks
+Basic operators
+---------------
 
 .. autoclass:: pyxu.operator.linop.select.SubSample
    :no-members:
@@ -105,6 +40,10 @@ pyxu.operator
    :members: WidthSpec, ModeSpec
    :special-members: __init__
 
+
+Stencils and Convolutions
+-------------------------
+
 .. autoclass:: pyxu.operator.linop.stencil._stencil._Stencil
    :no-members:
    :members: init, apply, IndexSpec
@@ -118,6 +57,9 @@ pyxu.operator
 
 .. autofunction:: pyxu.operator.linop.stencil.stencil.Convolve
 
+Transforms
+----------
+
 .. autoclass:: pyxu.operator.linop.fft.fft.FFT
    :no-members:
    :members: apply, adjoint
@@ -126,6 +68,9 @@ pyxu.operator
 .. autoclass:: pyxu.operator.linop.fft.nufft.NUFFT
    :no-members:
    :members: type1, type2, type3, apply, adjoint, ascomplexarray, mesh, plot_kernel, params, auto_chunk, allocate, diagnostic_plot, stats
+
+Derivatives
+-----------
 
 .. autoclass:: pyxu.operator.linop.diff.PartialDerivative
    :members: finite_difference, gaussian_derivative
@@ -147,6 +92,9 @@ pyxu.operator
 .. autofunction:: pyxu.operator.linop.diff.DirectionalLaplacian
 
 .. autofunction:: pyxu.operator.linop.diff.DirectionalHessian
+
+Filters
+-------
 
 .. autofunction:: pyxu.operator.linop.filter.MovingAverage
 
