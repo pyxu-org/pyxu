@@ -65,8 +65,8 @@ If you're interested in contributing to Pyxu or experimenting with its codebase,
 
 .. code-block:: bash
 
-    git clone https://github.com/matthieumeo/pycsou.git
-    cd pycsou
+    git clone https://github.com/matthieumeo/pyxu.git
+    cd pyxu
     pip install -e ".[dev,complete_gpu]" # complete_no_gpu also available
 
 To run tests, you can execute:

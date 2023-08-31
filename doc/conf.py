@@ -105,12 +105,12 @@ html_theme_options = {
     "icon_links": [
         {
             "name": "GitHub",
-            "url": "https://github.com/matthieumeo/pycsou",
+            "url": "https://github.com/matthieumeo/pyxu",
             "icon": "fa-brands fa-github",
         },
         {
             "name": "PyPI",
-            "url": "https://pypi.org/project/pycsou/",
+            "url": "https://pypi.org/project/pyxu/",
             "icon": "fa-brands fa-python",
         },
         {
@@ -138,7 +138,7 @@ html_theme_options = {
 
 html_context = {
     "github_user": "matthieumeo",
-    "github_repo": "pycsou",
+    "github_repo": "pyxu",
     "github_version": "main",
     "doc_path": "doc",
     "default_mode": "light",
