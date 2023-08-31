@@ -181,9 +181,9 @@
     }
     </style>
 
-****************
-Plugin Catalogue
-****************
+**************
+Plugin Catalog
+**************
 
 
 .. raw:: html
