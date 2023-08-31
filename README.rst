@@ -14,6 +14,9 @@
 .. image:: https://img.shields.io/badge/Python-3.9%20|%203.10%20|%203.11-blue
    :target: https://www.python.org/downloads/
    :alt: Python 3.9 | 3.10 | 3.11
+.. image:: https://img.shields.io/badge/Part%20of-PyData-orange
+   :target: https://pydata.org/
+   :alt: Part of PyData
 .. image:: https://img.shields.io/badge/License-MIT-yellow.svg
    :target: https://opensource.org/licenses/MIT
    :alt: License: MIT
@@ -41,6 +44,9 @@
 .. image:: https://img.shields.io/badge/PRs-welcome-brightgreen.svg
    :target: https://github.com/matthieumeo/pyxu/pulls
    :alt: PRs Welcome
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.8304964.svg
+   :target: https://doi.org/10.5281/zenodo.8304964
+
 
 **Pyxu** (pronounced [piksu], formerly known as Pycsou) is an open-source Python framework allowing scientists at any
 level to quickly prototype/deploy *hardware accelerated and out-of-core* computational imaging pipelines at scale.
