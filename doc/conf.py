@@ -158,6 +158,7 @@ extensions = [
     "sphinx_gallery.gen_gallery",
     "sphinx_togglebutton",
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
@@ -213,6 +214,15 @@ autodoc_typehints = "description"
 autodoc_type_aliases = {}  # works only if `__futures__.annotations` imported
 autodoc_typehints_format = "short"
 autodoc_inherit_docstrings = True
+
+# -- Options for autosummary extension ---------------------------------------
+
+autosummary_context = {}  # for template engine
+autosummary_generate = False
+autosummary_generate_overwrite = True
+autosummary_mock_imports = []
+autosummary_imported_members = True
+autosummary_ignore_module_all = False
 
 # -- Options for intersphinx extension ---------------------------------------
 intersphinx_mapping = {  # We only include most useful doc-sets.
