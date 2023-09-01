@@ -4,57 +4,40 @@ import warnings
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.info.warning as pxw
-import pyxu.operator.func as pxf
-import pyxu.operator.linop as pxl
-import pyxu.opt.solver as pxs
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
-    "ProxAdam",
+    "Adam",
 ]
 
 
-class ProxAdam(pxa.Solver):
+class Adam(pxa.Solver):
     r"""
-    Proximal Adam solver [ProxAdam]_.
+    Adam solver [ProxAdam]_.
 
-    ProxAdam minimizes
+    Adam minimizes
 
     .. math::
 
-       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})},
+       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})},
 
     where:
 
     * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with
       :math:`\beta`-*Lipschitz continuous* gradient, for some :math:`\beta\in[0,+\infty[`.
-    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is a *proper*, *lower
-      semicontinuous* and *convex function* with a *simple proximal operator*.
 
-    ProxAdam is a suitable alternative to Proximal Gradient Descent
+    Adam is a suitable alternative to Gradient Descent
     (:py:class:`~pyxu.opt.solver.pgd.PGD`) when:
 
     * computing :math:`\beta` to optimally choose the step size is infeasible, and
     * line-search methods to estimate step sizes are too expensive.
 
-    Compared to PGD, ProxAdam:
+    Compared to PGD, Adam auto-tunes gradient updates based on stochastic estimates of
+    :math:`\phi_{t} = \mathbb{E}[\nabla\mathcal{F}]` and :math:`\psi_{t} =
+    \mathbb{E}[\nabla\mathcal{F}^{2}]` respectively.
 
-    * auto-tunes gradient updates based on stochastic estimates of
-      :math:`\phi_{t} = \mathbb{E}[\nabla\mathcal{F}]` and :math:`\psi_{t} =
-      \mathbb{E}[\nabla\mathcal{F}^{2}]` respectively;
-    * uses a modified proximity operator at each iteration to update coordinates at varying scales:
-
-      .. math::
-
-         \text{prox}_{\alpha\mathcal{G}}(\mathbf{x}_{t})
-         =
-         \min_{\mathbf{z}\in\mathbb{R}^N} \;\mathcal{G}(\mathbf{z})\;\;+\;\;\frac{1}{2\alpha}||\mathbf{z}-\mathbf{x}_t||_H^2,
-
-      where :math:`H=\text{diag}(\psi_t)`.
-      The modified proximity operator is computed by solving a PGD sub-problem.
-
-    ProxAdam has many named variants for particular choices of :math:`\phi` and :math:`\psi`:
+    Adam has many named variants for particular choices of :math:`\phi` and :math:`\psi`:
 
     * Adam:
 
@@ -116,26 +99,20 @@ class ProxAdam(pxa.Solver):
 
     Remarks
     -------
-    * The algorithm is still valid if :math:`\mathcal{G}` is zero.
-
     * The convergence is guaranteed for step sizes :math:`\alpha\leq 2/\beta`.
 
     * The default stopping criterion is the relative norm change of the primal variable.
       By default, the algorithm stops when the norm of the difference between two consecutive iterates
-      :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4.
+      :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-6.
       Different stopping criteria can be used.
       It is recommended to change the stopping criterion when using the PAdam and AMSGrad variants to
       avoid premature stops.
-      By default, the same stopping criterion is used for the proximal sub-problem.
 
     Parameters (``__init__()``)
     ---------------------------
     * **f** (:py:class:`~pyxu.abc.operator.DiffFunc`)
       --
       Differentiable function :math:`\mathcal{F}`.
-    * **g** (:py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`)
-      --
-      Proximable function :math:`\mathcal{G}`.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
       Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
@@ -172,10 +149,6 @@ class ProxAdam(pxa.Solver):
       Keyword parameters used to initialize :py:meth:`~pyxu.opt.solver.pgd.PGD`'s ``__init__()`` in
       sub-problems.
       This is an advanced option: use it with care.
-    * **stop_crit_sub** (:py:class:`~pyxu.abc.solver.StoppingCriterion`, :py:obj:`None`)
-      --
-      Sub-problem stopping criterion.
-      Default: use same stopping criterion as main problem.
     * **p** (:py:attr:`~pyxu.info.ptype.Real`)
       --
       PAdam power parameter :math:`p \in (0, 0.5]`.
@@ -203,33 +176,31 @@ class ProxAdam(pxa.Solver):
 
     .. math::
 
-       \min_{\mathbf{x}\in\mathbb{R}^N} \Vert{\mathbf{x}-\mathbf{1}}\Vert_2^2 + \Vert{\mathbf{x}-\mathbf{1}}\Vert_1
+       \min_{\mathbf{x}\in\mathbb{R}^N} \Vert{\mathbf{x}-\mathbf{1}}\Vert_2^2
 
     .. code-block:: python3
 
        import numpy as np
 
-       from pyxu.operator.func import L1Norm, SquaredL2Norm
-       from pyxu.opt.solver import ProxAdam
+       from pyxu.operator.func import SquaredL2Norm
+       from pyxu.opt.solver import Adam
 
        N = 3
        f = SquaredL2Norm(dim=N).asloss(1)
-       g = L1Norm(dim=N).asloss(1)
 
-       prox_adam = ProxAdam(f, g)
-       prox_adam.fit(
+       adam = Adam(f)
+       adam.fit(
            x0=np.zeros((N,)),
            variant="padam",
            p=0.25,
        )
-       x_opt = prox_adam.solution()
-       np.allclose(x_opt, 1)  # True
+       x_opt = adam.solution()
+       np.allclose(x_opt, 1, rtol=1e-4)  # True
     """
 
     def __init__(
         self,
         f: pxa.DiffFunc,
-        g: pxa.ProxFunc = None,
         **kwargs,
     ):
         kwargs.update(
@@ -238,10 +209,6 @@ class ProxAdam(pxa.Solver):
         super().__init__(**kwargs)
 
         self._f = f
-        # If f is domain-agnostic and g is unspecified, cannot auto-infer NullFunc dimension.
-        # Solution: delay initialization of g to m_init(), where x0's shape can be used.
-        self._prox_required = g is not None
-        self._g = g
 
     @pxrt.enforce_precision(i=("x0", "a", "b1", "b2", "m0", "v0", "p", "eps_adam", "eps_var"))
     def m_init(  # default values from https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.py
@@ -254,16 +221,12 @@ class ProxAdam(pxa.Solver):
         m0: pxt.NDArray = None,
         v0: pxt.NDArray = None,
         kwargs_sub: dict = None,
-        stop_crit_sub: pxa.solver.StoppingCriterion = None,
         p: pxt.Real = 0.5,
         eps_adam: pxt.Real = 1e-6,
         eps_var: pxt.Real = 1e-6,
     ):
         mst = self._mstate  # shorthand
         mst["x"] = x0
-
-        if self._g is None:
-            self._g = pxf.NullFunc(dim=x0.shape[-1])
 
         if a is None:
             mst["a"] = pxrt.coerce(1 / self._f.diff_lipschitz)
@@ -316,9 +279,6 @@ class ProxAdam(pxa.Solver):
         if kwargs_sub is None:
             kwargs_sub = dict()
         mst["subproblem_init_kwargs"] = kwargs_sub
-        if stop_crit_sub is None:
-            stop_crit_sub = self.default_stop_crit()
-        mst["subproblem_stop_crit"] = stop_crit_sub
 
         assert 0 <= b1 < 1, f"b1: expected value in [0, 1), got {b1}."
         mst["b1"] = b1
@@ -370,52 +330,6 @@ class ProxAdam(pxa.Solver):
         x -= phi
         ## =====================================================
 
-        ## Part 3: eval PGD sub-problems =======================
-        if self._prox_required:
-            # Assume N initial points were provided in fit().
-            # We need to solve a PGD sub-problem for each of them.
-            #
-            # Option 1: solve one large PGD(f, g) sub-problem, with
-            #    f = hstack(f1, ..., fN)
-            #    g = hstack(g, ..., g)
-            # Option 2: solve N small PGD(f, g) sub-problems, with
-            #    f = fn
-            #    g = g
-            #
-            # The former (1) is more convenient since all sub-problems are solved in parallel, but:
-            # * convergence will be slower since diff-Lipschitz constant of hstack(f1, ..., fN) is
-            #   larger than those of fn. (Moreover the diff-Lipschitz constants of the fn may be
-            #   spread out.)
-            # * in the event `stop_crit_sub` is provided, we cannot always intercept/adapt it to
-            #   apply block-wise on `_mstate`.
-            #
-            # Each sub-problem in the latter (2) converges fast, but sub-problems may execute in
-            # sequence depending on the array backend used.
-            #
-            # In light of the above, we opt for Option 2.
-            *x_sh, N = x.shape
-            x_sub = []  # sub-problem solutions
-            scale = pxrt.coerce(0.5 / a)
-            for _x, _psi in zip(x.reshape(-1, N), psi.reshape(-1, N)):
-                gamma = pxrt.coerce(a / xp.max(_psi))
-                h_half = pxl.DiagonalOp(xp.sqrt(_psi))
-
-                f1 = pxf.SquaredL2Norm(dim=N).asloss(h_half.apply(_x)) * h_half
-                f = f1 * scale
-
-                kwargs = mst["subproblem_init_kwargs"].copy()
-                kwargs.update(show_progress=False)
-                slvr = pxs.PGD(f=f, g=self._g, **kwargs)
-
-                slvr.fit(
-                    x0=_x,
-                    tau=gamma,
-                    stop_crit=mst["subproblem_stop_crit"],
-                )
-                x_sub.append(slvr.solution())
-            x = xp.stack(x_sub, axis=0).reshape(*x_sh, N)  # (..., N) original shape
-        ## =====================================================
-
         mst["x"] = x
 
     def default_stop_crit(self) -> pxa.StoppingCriterion:
@@ -424,7 +338,7 @@ class ProxAdam(pxa.Solver):
         # Described in [ProxAdam]_ and used in their implementation:
         # https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.py
         rel_error = RelError(
-            eps=1e-4,
+            eps=1e-6,
             var="x",
             f=None,
             norm=2,
@@ -433,7 +347,7 @@ class ProxAdam(pxa.Solver):
         return rel_error
 
     def objective_func(self) -> pxt.NDArray:
-        func = lambda x: self._f.apply(x) + self._g.apply(x)
+        func = lambda x: self._f.apply(x)
         y = func(self._mstate["x"])
         return y
 

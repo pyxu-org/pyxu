@@ -8,20 +8,18 @@ import pyxu.opt.solver as pxs
 import pyxu_tests.opt.solver.conftest as conftest
 
 
-class TestProxAdam(conftest.SolverT):
+class TestAdam(conftest.SolverT):
     @staticmethod
     def spec_data(N: int) -> list[tuple[pxt.SolverC, dict, dict]]:
         klass = [
-            pxs.ProxAdam,
+            pxs.Adam,
         ]
 
         funcs = conftest.funcs(N, seed=5)
         stream1 = conftest.generate_funcs(funcs, N_term=1)
-        stream2 = conftest.generate_funcs(funcs, N_term=2)
         kwargs_init = [
-            *[dict(f=f, g=None) for (f, *_) in stream1],
-            # We do not test f=None case since unsupported by ProxAdam().
-            *[dict(f=f, g=g) for (f, g) in stream2],
+            *[dict(f=f) for (f, *_) in stream1],
+            # We do not test f=None case since unsupported by Adam().
         ]
 
         kwargs_fit = []
@@ -47,10 +45,4 @@ class TestProxAdam(conftest.SolverT):
 
     @pytest.fixture
     def cost_function(self, kwargs_init) -> dict[str, pxt.OpT]:
-        func = [kwargs_init[k] for k in ("f", "g")]
-        func = [f for f in func if f is not None]
-        if len(func) == 1:  # f or g
-            func = func[0]
-        else:  # f and g
-            func = func[0] + func[1]
-        return dict(x=func)
+        return dict(x=kwargs_init["f"])
