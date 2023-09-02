@@ -1198,8 +1198,10 @@ class ChainRule(Rule):
         else:
             L_lhs = self._lhs.estimate_lipschitz(**kwargs)
             L_rhs = self._rhs.estimate_lipschitz(**kwargs)
-
-        L = L_lhs * L_rhs
+        if L_lhs == 0 or L_rhs == 0:
+            L = 0.
+        else:
+            L = L_lhs * L_rhs
         return L
 
     @pxrt.enforce_precision(i=("arr", "tau"))
