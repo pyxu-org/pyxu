@@ -339,7 +339,7 @@ class Adam(pxa.Solver):
         # Described in [ProxAdam]_ and used in their implementation:
         # https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.py
         rel_error = RelError(
-            eps=1e-6,
+            eps=1e-4,
             var="x",
             f=None,
             norm=2,
