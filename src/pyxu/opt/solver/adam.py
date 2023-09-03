@@ -27,10 +27,11 @@ class Adam(pxa.Solver):
     * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with
       :math:`\beta`-*Lipschitz continuous* gradient, for some :math:`\beta\in[0,+\infty[`.
 
-    Adam is a suitable alternative to Gradient Descent
+    Adam is a suitable alternative to Proximal Gradient Descent
     (:py:class:`~pyxu.opt.solver.pgd.PGD`) when:
 
-    * computing :math:`\beta` to optimally choose the step size is infeasible, and
+    * the cost function is differentiable,
+    * computing :math:`\beta` to optimally choose the step size is infeasible,
     * line-search methods to estimate step sizes are too expensive.
 
     Compared to PGD, Adam auto-tunes gradient updates based on stochastic estimates of
@@ -124,7 +125,7 @@ class Adam(pxa.Solver):
       (..., N) initial point(s).
     * **variant** ("adam", "amsgrad", "padam")
       --
-      Name of the ProxAdam variant to use.
+      Name of the Adam variant to use.
       Defaults to "adam".
     * **a** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
       --
