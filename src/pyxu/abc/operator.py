@@ -188,6 +188,14 @@ class Operator:
                 for m in p.arithmetic_methods():
                     m_core = getattr(self, m)
                     setattr(op, m, m_core)
+
+            # [diff_]lipschitz are not arithmetic methods, hence are not propagated.
+            # We propagate them manually to avoid un-warranted re-evaluations.
+            if cast_to.has(Property.CAN_EVAL):
+                op.lipschitz = self.lipschitz
+            if cast_to.has(Property.DIFFERENTIABLE):
+                op.diff_lipschitz = self.diff_lipschitz
+
             return op
 
     # Operator Arithmetic -----------------------------------------------------
