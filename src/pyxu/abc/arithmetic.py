@@ -1198,8 +1198,10 @@ class ChainRule(Rule):
         else:
             L_lhs = self._lhs.estimate_lipschitz(**kwargs)
             L_rhs = self._rhs.estimate_lipschitz(**kwargs)
-        if L_lhs == 0 or L_rhs == 0:
-            L = 0.
+
+        zeroQ = lambda _: np.isclose(_, 0)
+        if zeroQ(L_lhs) or zeroQ(L_rhs):
+            L = 0
         else:
             L = L_lhs * L_rhs
         return L
