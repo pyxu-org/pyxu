@@ -295,7 +295,7 @@ class SolverT(ct.DisableTestMixin):
         #
         # NOTE: f(x_N) < f(x_0) implies initial_points specified in kwargs_fit() should be chosen
         # `far` from the ground-truth.
-        # Test writes are responsible of setting x_0 such that this condition holds.
+        # Test writers are responsible of setting x_0 such that this condition holds.
         var_crit = [
             pxs.RelError(
                 eps=eps_threshold,
