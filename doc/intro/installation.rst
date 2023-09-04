@@ -3,30 +3,33 @@
 Installation
 ============
 
-Welcome to the installation guide for Pyxu! If you're interested in solving inverse problems with state-of-the-art proximal algorithms, you're in the right place. This guide will walk you through the three levels of installation to meet your specific needs:
+This guide will walk you through the three levels of installation to meet your specific needs:
 
 1. **Basic Installation** - For users who just want to get started.
 2. **Installation with Optional Dependencies** - For those looking for extended functionality.
 3. **Developer Installation** - For contributors or users who need to dive deep into the codebase.
 
-Pyxu is designed to be accessible and is compatible with Linux, macOS, and Windows, although it has not been extensively tested on the latter.
+Pyxu is designed to be accessible and is compatible with Linux, macOS, and Windows, although it has not been extensively
+tested on the latter.
 
 Basic Installation
 ------------------
 
-The core of **Pyxu** is lightweight and straightforward to install. You'll need Python (>= 3.9, < 3.12) and a few mandatory dependencies. While these dependencies will be automatically installed via ``pip``, we highly recommend installing NumPy and SciPy via ``conda`` to benefit from Intel MKL bindings and speed optimizations.
+The core of **Pyxu** is lightweight and straightforward to install. You'll need Python (>= 3.9, < 3.12) and a few
+mandatory dependencies. While these dependencies will be automatically installed via ``pip``, we highly recommend
+installing NumPy and SciPy via ``conda`` to benefit from optimized math libraries.
 
-First, to install NumPy and SciPy from the conda-forge channel:
+First, to install NumPy and SciPy from conda-forge:
 
 .. code-block:: bash
 
-    conda install -c conda-forge numpy scipy
+   conda install -c conda-forge numpy scipy
 
 And then install Pyxu:
 
 .. code-block:: bash
 
-    pip install pyxu
+   pip install pyxu
 
 That's it for the basic installation; you're ready to go!
 
@@ -35,61 +38,57 @@ Installation with Optional Dependencies
 
 For extended features, you can install optional dependencies:
 
-- ``dev``: For development tools like Sphinx, pre-commit, etc.
-- ``fft``: For faster Fourier transforms.
+- ``dev``: development tools like `Sphinx <https://www.sphinx-doc.org/en/master/contents.html>`_, `pre-commit
+  <https://pre-commit.com/>`_, etc.
+- ``_gpu``: GPU support.
 
 Additionally, you can use aggregate targets based on your platform's GPU capabilities:
 
-- ``complete_no_gpu``: For platforms without GPU support.
-- ``complete_gpu``: For platforms with GPU support (CUDA 12.0 and above).
+- ``complete_no_gpu``: Pyxu install, without GPU support.
+- ``complete_gpu``: Pyxu install, with GPU support. (CUDA 12.* required.)
 
-To install with a specific optional dependency, you can use:
+Optional dependencies are specified between square brackets:
 
 .. code-block:: bash
 
-    pip install pyxu[dev]   # for development tools
-    pip install pyxu[fft]   # for FFT support
-
-.. note::
-
-    You can combine different targets by separating them with commas. For example, to install all GPU dependencies alongside the development tools, use:
-
-    .. code-block:: bash
-
-        pip install pyxu[dev,complete_gpu]
+   pip install pyxu[dev,complete_gpu]
 
 Developer Installation
 ----------------------
 
-If you're interested in contributing to Pyxu or experimenting with its codebase, you can clone the repository and install it manually.
+If you're interested in contributing to Pyxu or experimenting with its codebase, you can clone the repository and
+install it manually.
 
 .. code-block:: bash
 
-    git clone https://github.com/matthieumeo/pyxu.git
-    cd pyxu
-    pip install -e ".[dev,complete_gpu]" # complete_no_gpu also available
+   git clone https://github.com/matthieumeo/pyxu.git
+   cd pyxu
+   pip install -e ".[dev,complete_gpu]"  # complete_no_gpu also available
 
 To run tests, you can execute:
 
 .. code-block:: bash
 
-    tox run
+   tox run  # optional, see below.
 
 .. warning::
 
-    Running the tests may take a significant amount of time. Please be patient.
+   Running the full test suite will take several hours.
+   This step can be skipped.
 
 For building documentation and running pre-commit hooks:
 
 .. code-block:: bash
 
-    tox run -e doc # Builds documentation with Sphinx
-    tox run -e pre-commit # Run pre-commit hooks
+   tox run -e doc-fast  # build HTML docs
+   tox run -e pre-commit  # run pre-commit hooks
 
 Interoperation with Deep Learning Frameworks
 --------------------------------------------
 
-If you wish to use Pyxu in combination with major deep learning frameworks like JAX and PyTorch, you'll need to install them separately. For more information, consult the installation guides for `JAX <https://github.com/google/jax#installation>`_ and `PyTorch <https://pytorch.org/get-started/locally/>`_.
+If you wish to use Pyxu in combination with deep learning frameworks like JAX and PyTorch, you'll need to install them
+separately. For more information, consult the installation guides for `JAX
+<https://github.com/google/jax#installation>`_ and `PyTorch <https://pytorch.org/get-started/locally/>`_.
 
 You're All Set!
 ---------------
