@@ -1,8 +1,10 @@
 Getting Started
 ###############
 
-In the fast-paced landscape of `computational imaging <https://www.wikiwand.com/en/Computational_imaging>`_, where digital image restoration and enhancement techniques are cornerstone methodologies, you need a tool that's not only efficient but also incredibly adaptable.
-That's where Pyxu comes in! Whether you're in computer vision, biomedical imaging, or radio-interferometry, Pyxu is here to turbocharge your imaging projects across the board.
+In the fast-paced landscape of `computational imaging <https://www.wikiwand.com/en/Computational_imaging>`_, where
+digital image restoration and enhancement techniques are cornerstone methodologies, you need a tool that's not only
+efficient but also incredibly adaptable.  That's where Pyxu comes in! Whether you're in computer vision, biomedical
+imaging, or radio-interferometry, Pyxu is here to turbocharge your imaging projects across the board.
 
 What Makes Pyxu Special?
 ------------------------
@@ -52,19 +54,19 @@ Python enthusiasts 🐍.
 Get Started Now!
 ----------------
 
-Ready to dive in? 🏊‍♀️ Our tutorial kicks off with an introductory overview of computational imaging and Bayesian reconstruction.
-It then provides an in-depth tour of Pyxu's multitude of features through concrete examples.
+Ready to dive in? 🏊‍♀️ Our tutorial kicks off with an introductory overview of computational imaging and Bayesian
+reconstruction.  It then provides an in-depth tour of Pyxu's features through concrete examples.
 
-So, gear up to embark on a transformative journey in computational imaging.
+So gear up to embark on a transformative journey in computational imaging.
 
 Join Our Community
 ------------------
 
-Pyxu is open-source and ever-evolving 🚀. Your contributions, whether big or small, can make a significant impact.
-So come be part of the community that's setting the pace for computational imaging 🌱.
+Pyxu is open-source and ever-evolving 🚀. Your contributions, whether big or small, can make a significant impact.  So
+come be part of the community that's setting the pace for computational imaging 🌱.
 
-Let's accelerate the transition from research prototypes to production-ready solutions.
-Dive into Pyxu today and make computational imaging more powerful, efficient, and accessible for everyone! 🎉
+Let's accelerate the transition from research prototypes to production-ready solutions.  Dive into Pyxu today and make
+computational imaging more powerful, efficient, and accessible for everyone! 🎉
 
 .. toctree::
    :maxdepth: 1
