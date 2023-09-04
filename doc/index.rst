@@ -331,7 +331,7 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
             .. raw:: html
 
                 <p style="text-align: center;">
-                NumPy is the fundamental package for array computing with Python.
+                Foundational package for array computing in Python.
                 </p>
 
     .. grid-item-card::
@@ -365,7 +365,7 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
             .. raw:: html
 
                 <p style="text-align: center;">
-                NumPy-compatible array library for GPU-accelerated computing with Python.
+                NumPy-compatible array library for GPU-accelerated computing.
                 </p>
 
     .. grid-item-card::
@@ -399,7 +399,7 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
         .. raw:: html
 
             <p style="text-align: center;">
-            Fundamental algorithms for scientific computing in Python.
+            Fundamental algorithms for scientific computing.
             </p>
 
     .. grid-item-card::
@@ -416,7 +416,7 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
         .. raw:: html
 
             <p style="text-align: center;">
-            NumPy-aware dynamic Python compiler using <a href="https://llvm.org/">LLVM</a>.
+            NumPy-aware dynamic compiler using <a href="https://llvm.org/">LLVM</a>.
             </p>
 
     .. grid-item-card::
@@ -433,7 +433,7 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
             .. raw:: html
 
                 <p style="text-align: center;">
-                Tensors and dynamic neural networks in Python with strong GPU acceleration.
+                Tensors and dynamic neural networks with strong GPU acceleration.
                 </p>
 
     .. grid-item-card::
