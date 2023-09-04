@@ -303,13 +303,13 @@ Key Features & Capabilities
 Ecosystem
 =========
 
-Pyxu is part of, looks and feels like, and is highly interoperable with the wider scientific Python ecosystem. It is indeed built on a minimal set of foundational and robust scientific computing 
+Pyxu is highly interoperable with the wider scientific Python ecosystem. It is indeed built on a minimal set of foundational and robust scientific computing 
 librairies from the PyData stack. Pyxu notably supports multiple array backends --`NumPy <https://numpy.org/>`_, `Dask <https://www.dask.org/>`_, `Sparse <https://sparse.pydata.org/en/stable/>`_ and 
 optionally `CuPy <https://cupy.dev/>`_--, allowing users to choose array backends that work best for their application/computation.
 Aside from `SciPy <https://scipy.org/>`_ and  `Numba <https://numba.pydata.org/>`_ -- which we use for scientific computing and `JIT-compilation <https://numba.readthedocs.io/en/stable/user/5minguide.html#how-does-numba-work>`_ respectively--
 these are Pyxu's **only** dependencies, making the software very easy to ship, install, deploy in production, and sustain in the long term.
 
-Pyxu is also interoperable with (but does not depend on) the major deep learning frameworks `JAX <https://jax.readthedocs.io/en/latest/>`_ and `PyTorch <https://pytorch.org/>`_,
+Pyxu is also interoperable with (but does not depend on) major deep learning frameworks `JAX <https://jax.readthedocs.io/en/latest/>`_ and `PyTorch <https://pytorch.org/>`_,
 allowing users to benefit from the latest incursions of deep learning in the field of computational imaging (e.g., PnP methods, unrolled neural networks, deep generative priors). 
 Our wrappers can moreover leverage the autograd engine to auto-infer gradients or adjoints operations. 
 
@@ -461,7 +461,7 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
 Governance and Team
 ===================
 Pyxu is an **open-source project** developed and maintained primarily by members of the `EPFL Center for Imaging <https://imaging.epfl.ch/>`_, 
-but the repository itself is public and we welcome external contributions. We are committed to keeping the project public and owned by the community through 
+but the repository itself is public and external contributions are welcome. We are committed to keeping the project public and owned by the community through 
 a meritocratic and consensus-based governance. Anyone with an interest in the project can join the community, contribute to the project design, 
 and participate in the decision-making process.
 
