@@ -1,6 +1,6 @@
 .. raw:: html
 
-   <p align="center"> 
+   <p align="center">
    <img align="center" src="doc/_static/logo.png" alt="Pyxu logo" width=35%>
    </p>
    <h1> Pyxu: Modular and Scalable Computational Imaging </h1>
@@ -109,9 +109,9 @@ Basic Installation
 
 The core of **Pyxu** is lightweight and straightforward to install. You'll need Python (>= 3.9, < 3.12) and a few
 mandatory dependencies. While these dependencies will be automatically installed via ``pip``, we highly recommend
-installing NumPy and SciPy via ``conda`` to benefit from Intel MKL bindings and speed optimizations.
+installing NumPy and SciPy via ``conda`` to benefit from optimized math libraries.
 
-First, to install NumPy and SciPy from the conda-forge channel:
+First, to install NumPy and SciPy from conda-forge:
 
 .. code-block:: bash
 
