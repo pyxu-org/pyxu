@@ -52,7 +52,7 @@ The feature set is robust and mature, positioning it as a leader in the computat
       - 🟡 Partial
       - 🔴 Least-squares & sparse rec.
       - 🟡 Wave-processing, geophysics
-      - 🔴 Linear ops. based on old NumPy's matrix interface
+      - 🔴 Linear ops. based on NumPy's old matrix interface
 
     * - PyProximal
       - 🔴 Prox. funcs
@@ -112,7 +112,7 @@ Most of its contenders either lack comprehensive documentation or have steeper l
 Support for HPC Computing
 +++++++++++++++++++++++++
 
-Pyxu is unique in supporting both out-of-core and distributed computing. Additionally, it offers robust support for JIT compilation abd GPU computing
+Pyxu is unique in supporting both out-of-core and distributed computing. Additionally, it offers robust support for JIT compilation and GPU computing
 via Numba and CuPy, respectively. Most contenders either offer partial support or lack these features altogether.
 
 .. list-table:: HPC Features Comparison
