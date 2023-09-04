@@ -30,11 +30,11 @@ Sepand
         Some tests fail only with DASK inputs.
         Reason unknown.
       * test_math(\d*)_lipschitz() fails when calling hutchpp(): non-contiguous axis.
-    * ProxAdam [total test time: ~42min]
-      * test_transparent_fit() fails for some initializations.
-        Did not investigate yet.
-      * test_value_fit() fails for some initializations.
-        Did not investigate yet.
+    * Adam
+      * test_value_fit() fails.
+        This is expected since stochastic gradient estimate not guaranteed to always decrease the cost function.
+        If running the solver until convergence, we notice the cost function increases, then decreases.
+        Need to disable test_value_fit(), or xfail with error message?
     * JAX interop
       * The following tests fail with CuPy inputs (f32/f64), with mentioned errors. [Reason unknown.]
         - TestJaxScaledSum::test_math_adjoint()
