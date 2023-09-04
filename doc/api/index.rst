@@ -156,7 +156,7 @@ pyxu.opt.solver
    ~pyxu.opt.solver.pgd.PGD
    ~pyxu.opt.solver.cg.CG
    ~pyxu.opt.solver.nlcg.NLCG
-   ~pyxu.opt.solver.prox_adam.ProxAdam
+   ~pyxu.opt.solver.adam.Adam
    ~pyxu.opt.solver.pds.CondatVu
    ~pyxu.opt.solver.pds.CV
    ~pyxu.opt.solver.pds.PD3O

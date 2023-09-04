@@ -48,7 +48,7 @@ pyxu.opt.solver
 .. autoclass:: pyxu.opt.solver.nlcg.NLCG
    :no-members:
 
-.. autoclass:: pyxu.opt.solver.prox_adam.ProxAdam
+.. autoclass:: pyxu.opt.solver.adam.Adam
    :no-members:
 
 .. autoclass:: pyxu.opt.solver.pds.CondatVu
