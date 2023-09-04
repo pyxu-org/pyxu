@@ -1,5 +1,4 @@
 import math
-import warnings
 
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
@@ -219,36 +218,27 @@ class Adam(pxa.Solver):
         eps_var: pxt.Real = 1e-6,
     ):
         mst = self._mstate  # shorthand
+        xp = pxu.get_array_module(x0)
         mst["x"] = x0
-
-        if a is None:
-            mst["a"] = pxrt.coerce(1 / self._f.diff_lipschitz)
-            if math.isinf(mst["a"]):
-                # _f is constant-valued: a is a free parameter.
-                mst["a"] = pxrt.coerce(1)
-                msg = "\n".join(
-                    [
-                        rf"The gradient step size `a` is auto-set to {mst['a']}.",
-                        r"Choosing a manually may lead to faster convergence.",
-                    ]
-                )
-                warnings.warn(msg, pxw.AutoInferenceWarning)
-        else:
-            try:
-                assert a > 0
-                mst["a"] = a
-            except Exception:
-                raise ValueError(f"`a` must be positive, got {a}.")
 
         mst["variant"] = self.__parse_variant(variant)
 
-        assert 0 < p <= 0.5, f"p: expected value in (0, 0.5], got {p}."
-        mst["padam_p"] = p
+        if a is None:
+            g = lambda _: math.isclose(self._f.diff_lipschitz, _)
+            if g(0) or g(math.inf):
+                error_msg = "Cannot auto-infer step size: choose it manually."
+                raise pxw.AutoInferenceWarning(error_msg)
+            else:
+                mst["a"] = pxrt.coerce(1 / self._f.diff_lipschitz)
+        else:
+            assert a > 0, f"Parameter[a] must be positive, got {a}."
+            mst["a"] = a
 
-        assert eps_adam > 0, f"eps_adam: expected positive value, got {eps_adam}."
-        mst["eps_adam"] = eps_adam
+        assert 0 <= b1 < 1, f"Parameter[b1]: expected value in [0, 1), got {b1}."
+        mst["b1"] = b1
 
-        xp = pxu.get_array_module(x0)
+        assert 0 <= b2 < 1, f"Parameter[b2]: expected value in [0, 1), got {b2}."
+        mst["b2"] = b2
 
         if m0 is None:
             mst["mean"] = xp.zeros_like(x0)
@@ -269,13 +259,13 @@ class Adam(pxa.Solver):
             mst["variance"] = v0.copy()
         mst["variance_hat"] = mst["variance"]
 
-        assert 0 <= b1 < 1, f"b1: expected value in [0, 1), got {b1}."
-        mst["b1"] = b1
+        assert 0 < p <= 0.5, f"Parameter[p]: expected value in (0, 0.5], got {p}."
+        mst["padam_p"] = p
 
-        assert 0 <= b2 < 1, f"b2: expected value in [0, 1), got {b2}."
-        mst["b2"] = b2
+        assert eps_adam > 0, f"Parameter[eps_adam]: expected positive value, got {eps_adam}."
+        mst["eps_adam"] = eps_adam
 
-        assert eps_var > 0, f"eps_var: expected positive value, got {eps_var}."
+        assert eps_var > 0, f"Parameter[eps_var]: expected positive value, got {eps_var}."
         mst["eps_variance"] = eps_var
 
     def m_step(self):
