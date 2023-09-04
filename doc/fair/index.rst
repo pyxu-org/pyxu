@@ -227,5 +227,6 @@ Excitingly, with our new and improved loading technique, interacting with user-c
 
    howto
    contribute
+   dev_notes
    score
    plugins/index

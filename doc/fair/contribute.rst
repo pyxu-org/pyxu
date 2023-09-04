@@ -179,7 +179,7 @@ Develop new features
 --------------------
 
 The cookiecutter offers a predefined hierarchy of classes and functions to aid novice Pyxu developers in creating
-novel features. At this point, the developer can create new functionalities following the `Pyxu developer notes <https://github.com/matthieumeo/pycsou/blob/v2-dev/doc/dev_notes.rst>`_ and
+novel features. At this point, the developer can create new functionalities following the `Pyxu developer notes <./dev_notes.html>`_ and
 structure predefined by the cookiecutter.
 
 Continuous Integration
