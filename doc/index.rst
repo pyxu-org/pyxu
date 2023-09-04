@@ -68,10 +68,11 @@ Pyxu
     <h2 style="font-size: 60px; font-weight: bold; display: inline"><span>Pyxu</span></h2>
     <h3 style="margin-top: 0; font-weight: bold; text-align: left; ">Modular & Scalable Computational Imaging</h3>
     <p>
-    <strong> Pyxu </strong> (pronounced [piksu], formerly known as Pycsou) is an open-source Python framework 
-    allowing scientists at any level to quickly prototype/deploy <em> hardware accelerated and out-of-core </em> computational imaging pipelines at scale.
-    Thanks to its hardware-agnostic <strong>microservice architecture </strong> and its tight integration with the PyData ecosystem, 
-    Pyxu supports a wide range of imaging applications, scales, and computation architectures.
+    <strong> Pyxu </strong> (pronounced [piksu], formerly known as Pycsou) is an open-source Python framework allowing
+    scientists at any level to quickly prototype/deploy <em> hardware accelerated and out-of-core </em> computational
+    imaging pipelines at scale.
+    Thanks to its hardware-agnostic <strong>microservice architecture </strong> and its tight integration with the
+    PyData ecosystem, Pyxu supports a wide range of imaging applications, scales, and computation architectures.
     </p>
 
     <div class="homepage-button-container">
@@ -217,7 +218,8 @@ Key Features & Capabilities
 
                 <p style="text-align: center;">
                 <strong> Flexible computation backends </strong> <br/>
-                The same code executes for multiple array backends, including CPU and GPU, with a unified, easily maintainable codebase.
+                The same code executes for multiple array backends, including CPU and GPU, with a unified, easily
+                maintainable codebase.
                 </p>
 
 
@@ -233,8 +235,8 @@ Key Features & Capabilities
 
                 <p style="text-align: center;">
                 <strong> High-performance computing </strong> <br/>
-                Just-in-time compilation, batch processing, automatic parallelization, out-of-core computing,
-                and controllable computation precision.
+                Just-in-time compilation, batch processing, automatic parallelization, out-of-core computing, and
+                controllable computation precision.
                 </p>
 
 
@@ -250,8 +252,9 @@ Key Features & Capabilities
 
                 <p style="text-align: center;">
                 <strong> Interoperability </strong> <br/>
-                Pyxu is highly interoperable with the <em>PyData stack</em>, including full-fledged zero-copy wrappers for 
-                <a href="https://jax.readthedocs.io/en/latest/">JAX</a> and <a href="https://pytorch.org/">PyTorch</a> operators.
+                Pyxu is highly interoperable with the <em>PyData stack</em>, including full-fledged zero-copy wrappers
+                for <a href="https://jax.readthedocs.io/en/latest/">JAX</a> and <a
+                href="https://pytorch.org/">PyTorch</a> operators.
                 </p>
 
     .. grid-item-card::
@@ -266,7 +269,8 @@ Key Features & Capabilities
 
                 <p style="text-align: center;">
                 <strong> Quality controlled </strong> <br/>
-                Extensive logical and functional unit testing of software components. Templated test classes for custom operators.
+                Extensive logical and functional unit testing of software components.
+                Templated test classes for custom operators.
                 </p>
 
     .. grid-item-card::
@@ -281,8 +285,9 @@ Key Features & Capabilities
 
                 <p style="text-align: center;">
                 <strong> Community driven </strong> <br/>
-                Pyxu is open source, version controlled, and is available to all on 
-                <a href="https://pypi.org/project/pyxu/">PyPI</a> and <a href="https://github.com/matthieumeo/pyxu">GitHub</a>.
+                Pyxu is open source, version controlled, and is available to all on <a
+                href="https://pypi.org/project/pyxu/">PyPI</a> and <a
+                href="https://github.com/matthieumeo/pyxu">GitHub</a>.
                 </p>
 
     .. grid-item-card::
@@ -297,21 +302,28 @@ Key Features & Capabilities
 
                 <p style="text-align: center;">
                 <strong> Extensible </strong> <br/>
-                Powerful plugin mechanism and community marketplace (<a href="./fair/index.html">Pyxu FAIR</a>) for discovering and sharing custom operators.
+                Powerful plugin mechanism and community marketplace (<a href="./fair/index.html">Pyxu FAIR</a>) for
+                discovering and sharing custom operators.
                 </p>
 
 Ecosystem
 =========
 
-Pyxu is highly interoperable with the wider scientific Python ecosystem. It is indeed built on a minimal set of foundational and robust scientific computing 
-librairies from the PyData stack. Pyxu notably supports multiple array backends --`NumPy <https://numpy.org/>`_, `Dask <https://www.dask.org/>`_, `Sparse <https://sparse.pydata.org/en/stable/>`_ and 
-optionally `CuPy <https://cupy.dev/>`_--, allowing users to choose array backends that work best for their application/computation.
-Aside from `SciPy <https://scipy.org/>`_ and  `Numba <https://numba.pydata.org/>`_ -- which we use for scientific computing and `JIT-compilation <https://numba.readthedocs.io/en/stable/user/5minguide.html#how-does-numba-work>`_ respectively--
-these are Pyxu's **only** dependencies, making the software very easy to ship, install, deploy in production, and sustain in the long term.
+Pyxu is highly interoperable with the wider scientific Python ecosystem.
+It is built on a minimal set of foundational and robust scientific computing librairies from the PyData stack.
+Pyxu notably supports multiple array backends --`NumPy <https://numpy.org/>`_, `Dask <https://www.dask.org/>`_, `Sparse
+<https://sparse.pydata.org/en/stable/>`_ and optionally `CuPy <https://cupy.dev/>`_--, allowing users to choose array
+backends that work best for their application/computation.
+Aside from `SciPy <https://scipy.org/>`_ and  `Numba <https://numba.pydata.org/>`_ -- which we use for scientific
+computing and `JIT-compilation <https://numba.readthedocs.io/en/stable/user/5minguide.html#how-does-numba-work>`_
+respectively-- these are Pyxu's **only** dependencies, making the software very easy to ship, install, deploy in
+production, and sustain in the long term.
 
-Pyxu is also interoperable with (but does not depend on) major deep learning frameworks `JAX <https://jax.readthedocs.io/en/latest/>`_ and `PyTorch <https://pytorch.org/>`_,
-allowing users to benefit from the latest incursions of deep learning in the field of computational imaging (e.g., PnP methods, unrolled neural networks, deep generative priors). 
-Our wrappers can moreover leverage the autograd engine to auto-infer gradients or adjoints operations. 
+Pyxu is also interoperable with (but does not depend on) major deep learning frameworks such as `JAX
+<https://jax.readthedocs.io/en/latest/>`_ and `PyTorch <https://pytorch.org/>`_, allowing users to benefit from the
+latest incursions of deep learning in the field of computational imaging (e.g., PnP methods, unrolled neural networks,
+deep generative priors).
+Our wrappers can moreover leverage the autograd engine to auto-infer gradients or adjoint operations.
 
 
 .. grid:: 2 2 4 4
@@ -348,7 +360,8 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
             .. raw:: html
 
                 <p style="text-align: center;">
-                NumPy-compatible distributed arrays and advanced parallelism for both in and out-of-core computing, enabling performance at scale.
+                NumPy-compatible distributed arrays and advanced parallelism for both in and out-of-core computing,
+                enabling performance at scale.
                 </p>
 
     .. grid-item-card::
@@ -460,10 +473,12 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
 
 Governance and Team
 ===================
-Pyxu is an **open-source project** developed and maintained primarily by members of the `EPFL Center for Imaging <https://imaging.epfl.ch/>`_, 
-but the repository itself is public and external contributions are welcome. We are committed to keeping the project public and owned by the community through 
-a meritocratic and consensus-based governance. Anyone with an interest in the project can join the community, contribute to the project design, 
-and participate in the decision-making process.
+Pyxu is an **open-source project** developed and maintained primarily by members of the `EPFL Center for Imaging
+<https://imaging.epfl.ch/>`_, but the repository itself is public and external contributions are welcome.
+We are committed to keeping the project public and owned by the community through a meritocratic and consensus-based
+governance.
+Anyone with an interest in the project can join the community, contribute to the project design, and participate in the
+decision-making process.
 
 .. grid:: 1 2 3 3
     :gutter: 3
@@ -497,8 +512,9 @@ and participate in the decision-making process.
 Steering Council
 ----------------
 
-The role of Pyxu's Steering Council is to ensure the long-term sustainability of the project, both technically and as a community. 
-Pyxu's Steering Council meets regularly (every two weeks or so) and currently consists of the following members:
+The role of Pyxu's Steering Council is to ensure the long-term sustainability of the project, both technically and as a
+community.  Pyxu's Steering Council meets regularly (every two weeks or so) and currently consists of the following
+members:
 
 .. grid:: 2 2 3 3
     :gutter: 3
@@ -557,8 +573,8 @@ Pyxu's Steering Council meets regularly (every two weeks or so) and currently co
 
 Contributors
 ------------
-In addition to the steering council, the following people are currently (or have been in the past) 
-core contributors to Pyxu's development and/or maintenance (alphabetical order, full list available on GitHub):
+In addition to the steering council, the following people are currently (or have been in the past) core contributors to
+Pyxu's development and/or maintenance (alphabetical order, full list available on GitHub):
 
 .. grid:: 2 2 3 3
     :gutter: 3
