@@ -27,16 +27,14 @@ class Adam(pxa.Solver):
     * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with
       :math:`\beta`-*Lipschitz continuous* gradient, for some :math:`\beta\in[0,+\infty[`.
 
-    Adam is a suitable alternative to Proximal Gradient Descent
-    (:py:class:`~pyxu.opt.solver.pgd.PGD`) when:
+    Adam is a suitable alternative to Proximal Gradient Descent (:py:class:`~pyxu.opt.solver.pgd.PGD`) when:
 
     * the cost function is differentiable,
     * computing :math:`\beta` to optimally choose the step size is infeasible,
     * line-search methods to estimate step sizes are too expensive.
 
-    Compared to PGD, Adam auto-tunes gradient updates based on stochastic estimates of
-    :math:`\phi_{t} = \mathbb{E}[\nabla\mathcal{F}]` and :math:`\psi_{t} =
-    \mathbb{E}[\nabla\mathcal{F}^{2}]` respectively.
+    Compared to PGD, Adam auto-tunes gradient updates based on stochastic estimates of :math:`\phi_{t} =
+    \mathbb{E}[\nabla\mathcal{F}]` and :math:`\psi_{t} = \mathbb{E}[\nabla\mathcal{F}^{2}]` respectively.
 
     Adam has many named variants for particular choices of :math:`\phi` and :math:`\psi`:
 
@@ -104,10 +102,10 @@ class Adam(pxa.Solver):
 
     * The default stopping criterion is the relative norm change of the primal variable.
       By default, the algorithm stops when the norm of the difference between two consecutive iterates
-      :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-6.
+      :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4.
       Different stopping criteria can be used.
-      It is recommended to change the stopping criterion when using the PAdam and AMSGrad variants to
-      avoid premature stops.
+      It is recommended to change the stopping criterion when using the PAdam and AMSGrad variants to avoid premature
+      stops.
 
     Parameters (``__init__()``)
     ---------------------------
@@ -178,19 +176,19 @@ class Adam(pxa.Solver):
 
        import numpy as np
 
-       from pyxu.operator.func import SquaredL2Norm
+       from pyxu.operator import SquaredL2Norm
        from pyxu.opt.solver import Adam
 
        N = 3
        f = SquaredL2Norm(dim=N).asloss(1)
 
-       adam = Adam(f)
-       adam.fit(
+       slvr = Adam(f)
+       slvr.fit(
            x0=np.zeros((N,)),
            variant="padam",
            p=0.25,
        )
-       x_opt = adam.solution()
+       x_opt = slvr.solution()
        np.allclose(x_opt, 1, rtol=1e-4)  # True
     """
 
