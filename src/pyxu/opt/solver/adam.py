@@ -145,11 +145,6 @@ class Adam(pxa.Solver):
       --
       (..., N) initial 2nd-order gradient estimate corresponding to each initial point.
       Defaults to the null vector if unspecified.
-    * **kwargs_sub** (:py:class:`~collections.abc.Mapping`, :py:obj:`None`)
-      --
-      Keyword parameters used to initialize :py:meth:`~pyxu.opt.solver.pgd.PGD`'s ``__init__()`` in
-      sub-problems.
-      This is an advanced option: use it with care.
     * **p** (:py:attr:`~pyxu.info.ptype.Real`)
       --
       PAdam power parameter :math:`p \in (0, 0.5]`.
@@ -221,7 +216,6 @@ class Adam(pxa.Solver):
         b2: pxt.Real = 0.999,
         m0: pxt.NDArray = None,
         v0: pxt.NDArray = None,
-        kwargs_sub: dict = None,
         p: pxt.Real = 0.5,
         eps_adam: pxt.Real = 1e-6,
         eps_var: pxt.Real = 1e-6,
@@ -276,10 +270,6 @@ class Adam(pxa.Solver):
             x0, v0 = xp.broadcast_arrays(x0, v0)
             mst["variance"] = v0.copy()
         mst["variance_hat"] = mst["variance"]
-
-        if kwargs_sub is None:
-            kwargs_sub = dict()
-        mst["subproblem_init_kwargs"] = kwargs_sub
 
         assert 0 <= b1 < 1, f"b1: expected value in [0, 1), got {b1}."
         mst["b1"] = b1
