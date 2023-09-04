@@ -11,13 +11,13 @@ Create your plugin package
 
 Install `Cookiecutter <https://pypi.org/project/cookiecutter/>`_ if not installed:
 
-.. code-block:: bash 
+.. code-block:: bash
 
     python -m pip install cookiecutter
 
 Generate a new Pyxu plugin project (a new folder will be created in your current working directory):
 
-.. code-block:: bash 
+.. code-block:: bash
 
 
     cookiecutter https://github.com/matthieumeo/cookiecutter-pyxu-plugin
@@ -31,10 +31,10 @@ The Cookiecutter prompts you for information regarding your plugin. Defaults are
     email [yourname@example.com]: inewton@trinity.uk
     github_username_or_organization [githubuser]: sirisaac
 
-Note that for packages whose primary purpose is to be a Pyxu plugin, we recommend using the 'pyxu-' prefix in the 
+Note that for packages whose primary purpose is to be a Pyxu plugin, we recommend using the 'pyxu-' prefix in the
 package name. If your package provides functionality outside of Pyxu, you may choose to leave Pyxu out of the name.
-    
-.. code-block:: bash 
+
+.. code-block:: bash
 
     plugin_name [pyxu-foobar]: pyxu-gradient-descent
 

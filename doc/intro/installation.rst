@@ -9,7 +9,7 @@ Welcome to the installation guide for Pyxu! If you're interested in solving inve
 2. **Installation with Optional Dependencies** - For those looking for extended functionality.
 3. **Developer Installation** - For contributors or users who need to dive deep into the codebase.
 
-Pyxu is designed to be accessible and is compatible with Linux, macOS, and Windows, although it has not been extensively tested on the latter. 
+Pyxu is designed to be accessible and is compatible with Linux, macOS, and Windows, although it has not been extensively tested on the latter.
 
 Basic Installation
 ------------------
@@ -51,7 +51,7 @@ To install with a specific optional dependency, you can use:
     pip install pyxu[fft]   # for FFT support
 
 .. note::
-    
+
     You can combine different targets by separating them with commas. For example, to install all GPU dependencies alongside the development tools, use:
 
     .. code-block:: bash
@@ -76,7 +76,7 @@ To run tests, you can execute:
     tox run
 
 .. warning::
-    
+
     Running the tests may take a significant amount of time. Please be patient.
 
 For building documentation and running pre-commit hooks:
@@ -94,4 +94,5 @@ If you wish to use Pyxu in combination with major deep learning frameworks like 
 You're All Set!
 ---------------
 
-You are now ready to harness the capabilities of Pyxu for your projects and research. If you have any questions or contributions, we would be happy to hear from you!
+You are now ready to harness the capabilities of Pyxu for your projects and research. If you have any questions or
+contributions, we would be happy to hear from you!

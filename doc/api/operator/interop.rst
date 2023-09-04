@@ -4,7 +4,7 @@ pyxu.operator.interop
 .. contents:: Table of Contents
    :local:
    :depth: 1
-   
+
 Generic Constructor
 -------------------
 

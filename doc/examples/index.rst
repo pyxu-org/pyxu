@@ -13,4 +13,3 @@ Example Gallery
 
    Stencils
    DifferentialOperators
-

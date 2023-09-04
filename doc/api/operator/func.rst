@@ -4,8 +4,8 @@ pyxu.operator.func
 .. contents:: Table of Contents
    :local:
    :depth: 1
-   
-Norms 
+
+Norms
 -----
 
 .. autoclass:: pyxu.operator.func.norm.L1Norm

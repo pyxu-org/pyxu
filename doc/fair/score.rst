@@ -34,4 +34,3 @@ Your insights matter! If you're a developer with ideas on how we can further ref
 We invite you to **open an issue** suggesting novel metrics or criteria that, in your opinion, would better represent the value and quality of Pyxu plugins. By contributing your thoughts, you play an integral role in refining and shaping the Pyxu community's standards.
 
 Together, let's make the Pyxu Score the best reflection of plugin excellence! 🌟
-

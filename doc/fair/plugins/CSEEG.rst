@@ -174,43 +174,43 @@ General information
 
 .. raw:: html
 
-    
+
     <p>
         <strong>Short description</strong>: Compressed Sensing for EEG reconstruction
     </p>
-    
+
 
     <p class="currentstate">
-        
+
         <img class="svg-badge" src="../../_static/plugins/status/status-planning-d9644d.svg" title="Planning: Not yet ready to use. Developers welcome!"></p>
-    
+
 
     <p>
         <strong>Source code</strong>: <a href="https://github.com/lbrooks/CSEEG" target="_blank">Go to the source code repository</a>
     </p>
 
-    
+
     <p>
         <strong>Documentation</strong>: <a href="https://lbrooks.github.io/CSEEG/html/index" target="_blank">Go to plugin documentation</a>
     <p>
-    
+
 
 
 Detailed information
 ====================
 
 .. raw:: html
-    
+
     <p>
         <strong>Author(s)</strong>: Leon Brooks
     </p>
-    
-    
+
+
     <p>
         <strong>Contact</strong>: <a href="mailto:leon.brooks@pyxu_user.org">leon.brooks@pyxu_user.org</a>
     </p>
-    
-    
+
+
     <p>
         <strong>Most recent version</strong>: 0.1.0
     </p>
@@ -218,7 +218,7 @@ Detailed information
         <strong>Compatibility</strong>:
         <img class="svg-badge" title="Compatible with Pyxu 2.0.0" src="https://img.shields.io/badge/Pyxu-2.0.0-007ec6.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAARCAYAAADQWvz5AAAACXBIWXMAAA7DAAAOwwHHb6hkAAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAAfFJREFUOI2Vkl9IU1Ecxz933TVdFlHOt9pfg1AcBS0MCSUIIRa2XjLowbegiKAggujFN80gevWhHuzdsH8UpJkQ+JKyheRyW1Qyc2xG3Nrudn896C7Ti237vJ3fOedzvr9zjiIiQgVi6PB9CCMd5a9yHJpase8PsCb7cLlcbItskH/3UrSh27J0uVNkxiky4xR9/ICsvrkr3oNuSWuGpDVDus70ysjwPdmKrSzUHz3EWJinkG2sPAaAucUEK/EYJw77mJ54wfinWUsgG8DU5KRZaNhhulEa8gDs3qnQFw4D0BcOk135SeexkFWkaRqnYxkctwZpbvuCnnRuzCoARM6f4kJ/PwCPx8YIdLSTyWU3iZStl12m8H6Q0sdR5I+Nb4bK9eVuvi4scuhoEID5J0+JJxPVRZUEPF46Lp41x78zWZZeTXMuEmH4/kh9IgBf70kQIfX2A6WCDmCmUqtJypQ3iAitXp9l3mapVEFRFOLJBEW9WJvowbVL/xWq9s3NWForFYuM3rnKcuIzA8EWvO1HmHj+jJ7uHq7cvIG/SWU29YPQrjUcqspAsGU9aS2XLQhzU6+xNzppC3XRvGcvAKu/chWL6iQWjYrf7RG/2yOpVMqs15SokvJXyOfzOBwO8zXrfjWzE8MAIJdbb6/uRNvxD+osJR0a6bPBAAAAAElFTkSuQmCC">
     </p>
-    
+
 
 
 Components contributed
@@ -226,22 +226,20 @@ Components contributed
 
 .. raw:: html
     <p class="summaryinfo">
-        
+
         <span class="badge">
             <span class="badge-left brown">Solver</span>
             <span class="badge-right">1</span>
         </span>
-        
+
     </p>
-    
-    
-    
+
+
+
       Solver <span class="entrypointraw">(pyxu.solver)</span>
-    
+
     <ul>
-    
+
     <li><code>black_solver</code>
-    
+
     </ul>
-    
-    

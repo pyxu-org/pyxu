@@ -5,6 +5,6 @@ If you're looking to delve deeper into the Pyxu ecosystem, you've come to the ri
 
 .. toctree::
    :maxdepth: 1
-   :hidden: 
+   :hidden:
 
    fwdops.ipynb

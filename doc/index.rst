@@ -2,7 +2,7 @@
 :sd_hide_title: true
 
 .. |br| raw:: html
-   
+
    </br>
 
 .. raw:: html
@@ -63,7 +63,7 @@
 Pyxu
 ====
 
-.. raw:: html 
+.. raw:: html
 
     <h2 style="font-size: 60px; font-weight: bold; display: inline"><span>Pyxu</span></h2>
     <h3 style="margin-top: 0; font-weight: bold; text-align: left; ">Modular & Scalable Computational Imaging</h3>
@@ -73,7 +73,7 @@ Pyxu
     Thanks to its hardware-agnostic <strong>microservice architecture </strong> and its tight integration with the PyData ecosystem, 
     Pyxu supports a wide range of imaging applications, scales, and computation architectures.
     </p>
-    
+
     <div class="homepage-button-container">
     <div class="homepage-button-container-row">
         <a href="./intro/index.html" class="homepage-button primary-button">Get Started</a>
@@ -85,7 +85,7 @@ Pyxu
     </div>
     </div>  <!-- End Hero Left -->
 
-.. raw:: html 
+.. raw:: html
 
     <div id="hero-right">  <!-- Start Hero Right -->
 
@@ -105,12 +105,12 @@ Pyxu
         :shadow: none
         :class-card: sd-border-0
         :img-background: ./_static/grid_denoising.png
-    
+
     .. grid-item-card::
         :shadow: none
-        :class-card: sd-border-0    
+        :class-card: sd-border-0
         :img-background: ./_static/grid_deblurring.png
-    
+
     .. grid-item-card::
         :shadow: none
         :class-card: sd-border-0
@@ -119,33 +119,33 @@ Pyxu
     .. grid-item-card::
         :shadow: none
         :class-card: sd-border-0
-        :img-background: ./_static/grid_superresolution.png    
+        :img-background: ./_static/grid_superresolution.png
 
     .. grid-item-card::
         :shadow: none
         :class-card: sd-border-0
-        :img-background: ./_static/grid_demultiplexing.png    
-    
+        :img-background: ./_static/grid_demultiplexing.png
+
     .. grid-item-card::
         :shadow: none
         :class-card: sd-border-0
-        :img-background: ./_static/grid_interferometry.png    
-    
+        :img-background: ./_static/grid_interferometry.png
+
     .. grid-item-card::
         :shadow: none
         :class-card: sd-border-0
-        :img-background: ./_static/grid_fusion.png    
-    
+        :img-background: ./_static/grid_fusion.png
+
     .. grid-item-card::
         :shadow: none
         :class-card: sd-border-0
-        :img-background: ./_static/grid_tomography.png    
-    
+        :img-background: ./_static/grid_tomography.png
+
 
 
 .. raw:: html
 
-    </div> 
+    </div>
 
 
 
@@ -155,21 +155,21 @@ Key Features & Capabilities
 .. grid:: 2 2 2 3
     :gutter: 3
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
             .. figure:: ./_static/microservice.png
                :scale: 5%
                :class: no-scaled-link
-            
+
             .. raw:: html
 
                 <p style="text-align: center;">
-                <strong> Microservice architecture </strong> <br/> 
+                <strong> Microservice architecture </strong> <br/>
                 Loosely coupled software components that are composable via an advanced <em> operator algebra</em>.
                 </p>
-               
+
 
 
     .. grid-item-card::
@@ -179,11 +179,11 @@ Key Features & Capabilities
             .. figure:: ./_static/pnp.png
                :scale: 5%
                :class: no-scaled-link
-               
+
             .. raw:: html
 
                 <p style="text-align: center;">
-                <strong> Plug-and-play API </strong> <br/> 
+                <strong> Plug-and-play API </strong> <br/>
                 Simple interface for beginners with theory-informed automatic hyperparameter selection.
                 Experts may still fine-tune parameters via a <em> guru </em> interface.
                 </p>
@@ -200,11 +200,11 @@ Key Features & Capabilities
             .. raw:: html
 
                 <p style="text-align: center;">
-                <strong> Application agnostic </strong> <br/> 
+                <strong> Application agnostic </strong> <br/>
                 Generic software components with wide applicability across imaging modalities.
-                </p>             
-                    
-    
+                </p>
+
+
     .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
@@ -216,10 +216,10 @@ Key Features & Capabilities
             .. raw:: html
 
                 <p style="text-align: center;">
-                <strong> Flexible computation backends </strong> <br/> 
+                <strong> Flexible computation backends </strong> <br/>
                 The same code executes for multiple array backends, including CPU and GPU, with a unified, easily maintainable codebase.
-                </p>             
-                    
+                </p>
+
 
     .. grid-item-card::
             :shadow: none
@@ -228,15 +228,15 @@ Key Features & Capabilities
             .. figure:: ./_static/hpc.png
                :scale: 5%
                :class: no-scaled-link
-               
+
             .. raw:: html
 
                 <p style="text-align: center;">
-                <strong> High-performance computing </strong> <br/> 
+                <strong> High-performance computing </strong> <br/>
                 Just-in-time compilation, batch processing, automatic parallelization, out-of-core computing,
                 and controllable computation precision.
-                </p>             
-                                   
+                </p>
+
 
     .. grid-item-card::
             :shadow: none
@@ -249,10 +249,10 @@ Key Features & Capabilities
             .. raw:: html
 
                 <p style="text-align: center;">
-                <strong> Interoperability </strong> <br/> 
+                <strong> Interoperability </strong> <br/>
                 Pyxu is highly interoperable with the <em>PyData stack</em>, including full-fledged zero-copy wrappers for 
                 <a href="https://jax.readthedocs.io/en/latest/">JAX</a> and <a href="https://pytorch.org/">PyTorch</a> operators.
-                </p>             
+                </p>
 
     .. grid-item-card::
             :shadow: none
@@ -265,9 +265,9 @@ Key Features & Capabilities
             .. raw:: html
 
                 <p style="text-align: center;">
-                <strong> Quality controlled </strong> <br/> 
+                <strong> Quality controlled </strong> <br/>
                 Extensive logical and functional unit testing of software components. Templated test classes for custom operators.
-                </p>             
+                </p>
 
     .. grid-item-card::
             :shadow: none
@@ -280,10 +280,10 @@ Key Features & Capabilities
             .. raw:: html
 
                 <p style="text-align: center;">
-                <strong> Community driven </strong> <br/> 
+                <strong> Community driven </strong> <br/>
                 Pyxu is open source, version controlled, and is available to all on 
                 <a href="https://pypi.org/project/pyxu/">PyPI</a> and <a href="https://github.com/matthieumeo/pyxu">GitHub</a>.
-                </p>             
+                </p>
 
     .. grid-item-card::
             :shadow: none
@@ -296,10 +296,10 @@ Key Features & Capabilities
             .. raw:: html
 
                 <p style="text-align: center;">
-                <strong> Extensible </strong> <br/> 
+                <strong> Extensible </strong> <br/>
                 Powerful plugin mechanism and community marketplace (<a href="./fair/index.html">Pyxu FAIR</a>) for discovering and sharing custom operators.
-                </p>             
-               
+                </p>
+
 Ecosystem
 =========
 
@@ -317,7 +317,7 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
 .. grid:: 2 2 4 4
     :gutter: 3
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -328,13 +328,13 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
                :target: https://numpy.org/
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
                 NumPy is the fundamental package for array computing with Python.
                 </p>
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -345,13 +345,13 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
                :target: https://www.dask.org/
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
                 NumPy-compatible distributed arrays and advanced parallelism for both in and out-of-core computing, enabling performance at scale.
                 </p>
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -362,13 +362,13 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
                :target: https://cupy.dev/
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
                 NumPy-compatible array library for GPU-accelerated computing with Python.
                 </p>
-    
-    .. grid-item-card:: 
+
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -379,13 +379,13 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
                :target: https://sparse.pydata.org/en/stable/
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
                 Sparse multi-dimensional arrays for the PyData ecosystem.
                 </p>
-    
-    .. grid-item-card:: 
+
+    .. grid-item-card::
         :shadow: none
         :class-card: sd-border-0
 
@@ -396,13 +396,13 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
             :target: https://scipy.org/
 
 
-        .. raw:: html 
-            
+        .. raw:: html
+
             <p style="text-align: center;">
             Fundamental algorithms for scientific computing in Python.
             </p>
 
-    .. grid-item-card:: 
+    .. grid-item-card::
         :shadow: none
         :class-card: sd-border-0
 
@@ -413,13 +413,13 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
             :target: https://numba.pydata.org/
 
 
-        .. raw:: html 
-            
+        .. raw:: html
+
             <p style="text-align: center;">
             NumPy-aware dynamic Python compiler using <a href="https://llvm.org/">LLVM</a>.
             </p>
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -430,13 +430,13 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
                :target: https://pytorch.org/
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
                 Tensors and dynamic neural networks in Python with strong GPU acceleration.
                 </p>
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -447,8 +447,8 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
                :target: https://jax.readthedocs.io/en/latest/
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
                 Composable transformations of Python+NumPy programs: differentiate, vectorize, JIT to GPU/TPU, and more.
                 </p>
@@ -468,7 +468,7 @@ and participate in the decision-making process.
 .. grid:: 1 2 3 3
     :gutter: 3
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -477,7 +477,7 @@ and participate in the decision-making process.
                :align: center
                :target: https://www.epfl.ch/en/
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -485,8 +485,8 @@ and participate in the decision-making process.
                :width: 60%
                :align: center
                :target: https://imaging.epfl.ch/
-    
-    .. grid-item-card:: 
+
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -503,7 +503,7 @@ Pyxu's Steering Council meets regularly (every two weeks or so) and currently co
 .. grid:: 2 2 3 3
     :gutter: 3
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -513,15 +513,15 @@ Pyxu's Steering Council meets regularly (every two weeks or so) and currently co
                :target: https://github.com/matthieumeo
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
-                <strong> Matthieu Simeoni </strong> <br/> 
+                <strong> Matthieu Simeoni </strong> <br/>
                 Pyxu's creator/architect, project manager & team lead
                 </p>
 
-    
-    .. grid-item-card:: 
+
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -531,14 +531,14 @@ Pyxu's Steering Council meets regularly (every two weeks or so) and currently co
                :target: https://github.com/SepandKashani
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
-                <strong> Sepand Kashani </strong> <br/> 
+                <strong> Sepand Kashani </strong> <br/>
                 Technical lead, software architect & tests
                 </p>
-    
-    .. grid-item-card:: 
+
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -548,13 +548,13 @@ Pyxu's Steering Council meets regularly (every two weeks or so) and currently co
                :target: https://github.com/joanrue
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
-                <strong> Joan Rué-Queralt </strong> <br/> 
+                <strong> Joan Rué-Queralt </strong> <br/>
                 Technical lead, solution architect & plugins
                 </p>
-        
+
 Contributors
 ------------
 In addition to the steering council, the following people are currently (or have been in the past) 
@@ -563,7 +563,7 @@ core contributors to Pyxu's development and/or maintenance (alphabetical order, 
 .. grid:: 2 2 3 3
     :gutter: 3
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -573,14 +573,14 @@ core contributors to Pyxu's development and/or maintenance (alphabetical order, 
                :target: https://github.com/ThomasDeb
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
                 <strong> Thomas Debarre </strong> <br>
                 Core contributor (Emeritus)
                 </p>
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -590,14 +590,14 @@ core contributors to Pyxu's development and/or maintenance (alphabetical order, 
                :target: https://github.com/alec-flowers
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
-                <strong> Alec Flowers </strong> <br/> 
+                <strong> Alec Flowers </strong> <br/>
                 Contributor (Emeritus)
                 </p>
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -607,14 +607,14 @@ core contributors to Pyxu's development and/or maintenance (alphabetical order, 
                :target: https://github.com/dhamm97
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
-                <strong> Daniele Hamm </strong> <br/> 
+                <strong> Daniele Hamm </strong> <br/>
                 Contributor
                 </p>
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -624,14 +624,14 @@ core contributors to Pyxu's development and/or maintenance (alphabetical order, 
                :target: https://github.com/AdriaJ
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
-                <strong> Adrian Jarret </strong><br/> 
+                <strong> Adrian Jarret </strong><br/>
                 Contributor
                 </p>
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -641,14 +641,14 @@ core contributors to Pyxu's development and/or maintenance (alphabetical order, 
                :target: https://github.com/Dicedead
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
-                <strong> Salim Najib </strong><br/> 
+                <strong> Salim Najib </strong><br/>
                 Contributor
                 </p>
 
-    .. grid-item-card:: 
+    .. grid-item-card::
             :shadow: none
             :class-card: sd-border-0
 
@@ -658,18 +658,18 @@ core contributors to Pyxu's development and/or maintenance (alphabetical order, 
                :target: https://github.com/okumuskaan
 
 
-            .. raw:: html 
-              
+            .. raw:: html
+
                 <p style="text-align: center;">
-                <strong> Kaan Okumus </strong> <br/> 
+                <strong> Kaan Okumus </strong> <br/>
                 Contributor (Emeritus)
                 </p>
 
 Partners & Sponsors
 ===================
 
-.. raw:: html 
-   
+.. raw:: html
+
 
     <div class="sponsors-inner" style="color: #fff;
     text-align: left;
@@ -692,7 +692,7 @@ Partners & Sponsors
     animation: platformsSlideshow 60s linear 0s infinite;
     padding: 0 40px;
     box-sizing: border-box;">
-    
+
     <div class="sponsors-list-item">
 
     <img width="100" alt="EPFL Slider" src="_static/EPFL_Logo_Digital_BLACK_PROD.png">
@@ -777,7 +777,7 @@ Partners & Sponsors
 
 .. toctree::
    :maxdepth: 1
-   :hidden: 
+   :hidden:
 
    intro/index
    guide/index
