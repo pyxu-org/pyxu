@@ -1,0 +1,8 @@
+# Guidelines -- https://packaging.python.org/en/latest/guides/using-manifest-in/
+
+# Pyxu's documentation contains many large images & notebooks.
+# If included in a source distribution, its total size surpasses PyPI limits.
+# These files are thus excluded to place source distributions on PyPI.
+# Users wanting these files should pull the repo from GitHub instead.
+recursive-exclude doc/ *
+recursive-exclude misc/old_notebooks/ *
