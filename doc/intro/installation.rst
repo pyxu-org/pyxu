@@ -40,12 +40,11 @@ For extended features, you can install optional dependencies:
 
 - ``dev``: development tools like `Sphinx <https://www.sphinx-doc.org/en/master/contents.html>`_, `pre-commit
   <https://pre-commit.com/>`_, etc.
-- ``_gpu``: GPU support.
 
 Additionally, you can use aggregate targets based on your platform's GPU capabilities:
 
-- ``complete_no_gpu``: Pyxu install, without GPU support.
-- ``complete_gpu``: Pyxu install, with GPU support. (CUDA 12.* required.)
+- ``complete_no_gpu``: full Pyxu install, without GPU support.
+- ``complete_gpu``: full Pyxu install, with GPU support. (CUDA 12.* required.)
 
 Optional dependencies are specified between square brackets:
 
