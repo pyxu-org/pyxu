@@ -47,12 +47,14 @@ class KLDivergence(pxa.ProxFunc):
         r"""
         Parameters
         ----------
-        dim: pxt.Integer
-            Dimension size.
-        data: pxt.NDArray
+        dim: Integer
+        data: NDArray
             (M,) strictly positive input data.
+
         Examples
         --------
+        .. code-block:: python3
+
            import numpy as np
            from pyxu.operator.func.loss import KLDivergence
            y = np.arange(10)
@@ -62,6 +64,7 @@ class KLDivergence(pxa.ProxFunc):
            # 13.80837687480246
            np.round(loss.prox(x, tau=1))
            # array([ 0.,  2.,  4.,  6.,  8., 10., 12., 14., 16., 18.])
+
         Notes
         -----
         In information theory, and in the case where :math:`\mathbf{y}` and :math:`\mathbf{x}`  sum to one  --and hence
