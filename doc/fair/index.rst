@@ -188,36 +188,40 @@ Extending Pyxu
 
 .. raw:: html
 
-    <h2 style="font-size: 60px; font-weight: bold; display: inline"><span>Pyxu FAIR</span></h2>
-    <h3 style="margin-top: 0; font-weight: bold; text-align: left; ">A marketplace for Pyxu-based plugins</h3>
-    <p>While Pyxu offers flexibility and portability across various imaging domains, its general-purpose design might
-    not cater to the specific needs of certain imaging communities. The <strong>Pyxu FAIR</strong> addresses this by
-    offering a platform that allows for the development, sharing, and integration of specialized plugins to enhance the
-    framework.
-    </p>
+   <h2 style="font-size: 60px; font-weight: bold; display: inline"><span>Pyxu FAIR</span></h2>
+   <h3 style="margin-top: 0; font-weight: bold; text-align: left; ">A marketplace for Pyxu-based plugins</h3>
+   <p>
+   While Pyxu offers flexibility and portability across various imaging domains, its general-purpose design might not
+   cater to the specific needs of certain imaging communities. The <strong>Pyxu FAIR</strong> addresses this by offering
+   a platform that allows for the development, sharing, and integration of specialized plugins to enhance the framework.
+   </p>
 
 In simple terms, the Pyxu FAIR is designed to supercharge your Pyxu experience:
 
 Catalogue Website
 ~~~~~~~~~~~~~~~~~
 
-A `one-stop shop <./plugins/index.html>`_ to discover exciting Pyxu plugins right from your browser. Imagine a shopping mall, but just for Pyxu plugins! 🛍️
-Auto-discovery of plugins from the Python Package Index (PyPI). No more manual hunting! 🕵️
-Relevant metadata display and a fuzzy-searchable index. Dive deeper into plugins, explore their features, and find the best fit for your needs. 🔎
-Excitingly, you can even rank plugins based on their `Pyxu score <./score.html>`_. The higher the score, the better they gel with Pyxu's quality standards. 🏆
+A `one-stop shop <./plugins/index.html>`_ to discover exciting Pyxu plugins right from your browser. Imagine a shopping
+mall, but just for Pyxu plugins! 🛍️ Auto-discovery of plugins from the Python Package Index (PyPI). No more manual
+hunting! 🕵️ Relevant metadata display and a fuzzy-searchable index. Dive deeper into plugins, explore their features,
+and find the best fit for your needs. 🔎 Excitingly, you can even rank plugins based on their `Pyxu score
+<./score.html>`_. The higher the score, the better they gel with Pyxu's quality standards. 🏆
 
 Meta-programming Framework
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Kickstart your plugin development with the `Pyxu cookie-cutter <https://github.com/matthieumeo/cookiecutter-pycsou-plugin/>`_ 🖥. Want to share your Pyxu-based tools without the DevOps hassle? We've got you covered! 🛠️
-This plugin-template generator ensures your plugins are easy to install, discoverable by Pyxu FAIR, and sync well with Pyxu's quality controls. 🌟
+Kickstart your plugin development with the `Pyxu cookie-cutter
+<https://github.com/matthieumeo/cookiecutter-pycsou-plugin/>`_ 🖥. Want to share your Pyxu-based tools without the
+DevOps hassle? We've got you covered! 🛠️ This plugin-template generator ensures your plugins are easy to install,
+discoverable by Pyxu FAIR, and sync well with Pyxu's quality controls. 🌟
 
 Interoperability Protocol
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Not just a directory, Pyxu FAIR ensures your plugins gel seamlessly with Pyxu's core framework. 🤝
-Via Python's `entry points <https://setuptools.pypa.io/en/latest/userguide/entry_point.html>`_, Pyxu FAIR sets guidelines on how plugins communicate with the main framework.
-Excitingly, with our new and improved loading technique, interacting with user-contributed plugins feels like chatting with old friends. 🤖
+Not just a directory, Pyxu FAIR ensures your plugins gel seamlessly with Pyxu's core framework. 🤝 Via Python's `entry
+points <https://setuptools.pypa.io/en/latest/userguide/entry_point.html>`_, Pyxu FAIR sets guidelines on how plugins
+communicate with the main framework.  Excitingly, with our new and improved loading technique, interacting with
+user-contributed plugins feels like chatting with old friends. 🤖
 
 
 
