@@ -191,10 +191,11 @@ class Operator:
 
             # [diff_]lipschitz are not arithmetic methods, hence are not propagated.
             # We propagate them manually to avoid un-warranted re-evaluations.
-            if cast_to.has(Property.CAN_EVAL):
-                op.lipschitz = self.lipschitz
-            if cast_to.has(Property.DIFFERENTIABLE):
-                op.diff_lipschitz = self.diff_lipschitz
+            # Important: we write to _[diff_]lipschitz to not overwrite estimate_[diff_]lipschitz() methods.
+            if cast_to.has(Property.CAN_EVAL) and self.has(Property.CAN_EVAL):
+                op._lipschitz = self.lipschitz
+            if cast_to.has(Property.DIFFERENTIABLE) and self.has(Property.DIFFERENTIABLE):
+                op._diff_lipschitz = self.diff_lipschitz
 
             return op
 
