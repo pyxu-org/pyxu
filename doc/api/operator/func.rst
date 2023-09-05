@@ -60,3 +60,10 @@ Indicator functions
    :no-members:
    :members: prox
    :special-members: __init__
+
+Loss functions
+--------------
+.. autoclass:: pyxu.operator.func.loss.KLDivergence
+   :no-members:
+   :members: prox
+   :special-members: __init__
