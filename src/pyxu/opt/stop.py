@@ -8,6 +8,7 @@ import numpy as np
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.util as pxu
+from pyxu.info.plugin import _load_entry_points
 
 __all__ = [
     "AbsError",
@@ -19,6 +20,7 @@ __all__ = [
     "RelError",
 ]
 
+__all__ = _load_entry_points(globals(), group="pyxu.stop", names=__all__)
 
 SVFunction = typ.Union[
     cabc.Callable[[pxt.Real], pxt.Real],

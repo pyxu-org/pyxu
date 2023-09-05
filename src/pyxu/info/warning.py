@@ -47,3 +47,9 @@ class BackendWarning(PyxuWarning):
     """
     Inform user of a backend-specific problem to be aware of.
     """
+
+
+class ContributionWarning(PyxuWarning):
+    """
+    Use for warnings related to Pyxu plugins.
+    """
