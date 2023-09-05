@@ -1,8 +1,8 @@
 Contributing to the Pyxu-FAIR
 =============================
 
-**Want to contribute** your own Pyxu-based plugin and making it available in the `Pyxu FAIR <../plugins/index.html>`_,
-we recommend using the `Pyxu cookiecutter <https://github.com/matthieumeo/cookiecutter-pyxu-plugin>`_.
+**Want to contribute** your own Pyxu-based plugin and making it available in the `Pyxu FAIR <../plugins/index.html>`_?
+We recommend using the `Pyxu cookiecutter <https://github.com/matthieumeo/cookiecutter-pyxu-plugin>`_.
 
 This tutorial will guide you through the process of creating a new plugin using the cookiecutter.
 
@@ -18,7 +18,6 @@ Install `Cookiecutter <https://pypi.org/project/cookiecutter/>`_ if not installe
 Generate a new Pyxu plugin project (a new folder will be created in your current working directory):
 
 .. code-block:: bash
-
 
    cookiecutter https://github.com/matthieumeo/cookiecutter-pyxu-plugin
 
@@ -87,7 +86,7 @@ Finally, you'll be prompted to select a license for your plugin. The default is 
    6 - GNU GPL v3.0
    Choose from 1, 2, 3, 4, 5, 6 [1]:
 
-You just created the necessary structure for a funcitonal Pyxu plugin, completed with tests and ready for automatic
+You just created the necessary structure for a funcitonal Pyxu plugin, complete with tests and ready for automatic
 deployment!
 
 For more detailed information on each prompt see the `prompts reference
@@ -174,13 +173,13 @@ simply add the other required dependencies in the ``setup.cfg`` file and run the
    cd <your-repo-name>
    python -m pip install -e .
 
-The ``-e .`` arguments install the package in editable mode, meaning that any changes you make to the source code, will
+The ``-e .`` argument installs the package in editable mode, meaning that any changes you make to the source code will
 be reflected in the installed package.
 
 Develop new features
 --------------------
 
-The cookiecutter offers a predefined hierarchy of classes and functions to aid novice Pyxu developers in creating novel
+The cookiecutter offers a pre-defined hierarchy of classes and functions to aid novice Pyxu developers in creating novel
 features. At this point, the developer can create new functionalities following the `Pyxu developer notes
 <./dev_notes.html>`_ and structure predefined by the cookiecutter.
 
@@ -192,7 +191,7 @@ This Pyxu-plugin generator repository provides you with already-parametrized con
 Pre-commit
 ~~~~~~~~~~
 
-This template includes a default yaml configuration for `pre-commit <https://pre-commit.com/>`_.
+This template includes a default YAML configuration for `pre-commit <https://pre-commit.com/>`_.
 
 Among other things, it includes checks for best practices in Pyxu plugins.
 
@@ -225,7 +224,7 @@ section):
 Monitor testing and coverage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The repository is already setup to run your tests automatically each time you push an update (configuration is in
+The repository is already set to run your tests automatically each time you push an update (configuration is in
 `.github/workflows/test_and_deploy.yml`). You can monitor them in the "Actions" tab of your GitHub repository. If you're
 following along, go have a look... they should be running right now!
 
@@ -235,7 +234,7 @@ repository is public): `https://codecov.io/gh/<your-github-username>/<your-packa
 Set up automatic deployments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Your new package is also nearly ready to automatically deploy to `PyPI <https://pypi.org/>`_.  (whenever you create a
+Your new package is also nearly ready to automatically deploy to `PyPI <https://pypi.org/>`_ (whenever you create a
 tagged release), so that your users can simply ``pip install`` your package. To do so, you just need to create an `API
 token to authenticate with PyPi <https://pypi.org/help/#apitoken>`_, and then add it to your GitHub repository:
 

@@ -7,7 +7,7 @@ multiple criteria, ensuring you get a holistic understanding of a plugin's stand
 The Pyxu Score is calculated using the following criteria:
 
 1. **Version Matching**: If a plugin's version matches the latest Pyxu version, it gets a point.
-2. **Pyxu Principles Adherence**: Plugins abiding by key Pyxu principles – namely:
+2. **Pyxu Principles Adherence**: Plugins abiding by key Pyxu principles, namely:
 
    * Input shape agnosticity (i.e., support for NDArrays),
    * Complete backend-agnosticity (i.e., support for Numpy, Cupy and Dask arrays),
