@@ -4,27 +4,26 @@ Developer Notes
 API Rules
 ---------
 
-To implement novel operators or algorithms, the user should subclass one of the abstract classes in Pyxu's class
-hierarchy. Doing so requires defining the fundamental methods attached to the chosen subclass (e.g.
-:py:meth:`~pyxu.abc.operator.Map.apply`, :py:meth:`~pyxu.abc.operator.DiffFunc.grad`,
-:py:meth:`~pyxu.abc.operator.ProxFunc.prox` or :py:meth:`~pyxu.abc.operator.LinOp.adjoint`...). When marked as such in
+To implement novel operators or algorithms, users must subclass an abstract base class from Pyxu's
+:py:class:`~pyxu.abc.operator.Operator` hierarchy. Doing so requires defining the fundamental methods attached to the
+subclass (e.g. :py:meth:`~pyxu.abc.operator.Map.apply`, :py:meth:`~pyxu.abc.operator.DiffFunc.grad`,
+:py:meth:`~pyxu.abc.operator.ProxFunc.prox`, :py:meth:`~pyxu.abc.operator.LinOp.adjoint`, ...). When marked as such in
 the documentation, such a user-defined method should abide by the following set of rules:
 
 - It must handle properly the case where the input array is a 1-D or N-D array. In the latter case, the  first N-1
-  dimensions of the input array should be considered as stacking dimensions, i.e.  the method is applied along the last
+  dimensions of the input array should be considered as stacking dimensions, i.e. the method is applied along the last
   axis.
 
 - In the case of N-D inputs, the output should have the same number of dimensions as the input.
 
-- It should be decorated with  :py:func:`~pyxu.runtime.enforce_precision`, which (together with the context manager
-  :py:class:`~pyxu.runtime.Precision`) controls the numerical precision (e.g.  *half*, *single*, *double*, *quad*) of
-  the inputs/outputs. If possible, the computation performed by the method itself should also be carried out at the
-  user-specified precision, accessible via the function :py:func:`~pyxu.runtime.getPrecision`. If preserving the
-  precision is not possible, a warning should be raised.
+- It should be decorated with :py:func:`~pyxu.runtime.enforce_precision`. Together with the
+  :py:class:`~pyxu.runtime.Precision` context manager, the former controls the numerical precision (e.g. *single*,
+  *double*) of the inputs/outputs. If possible, the computation performed by the method itself should also be carried
+  out at the user-specified precision, accessible via :py:func:`~pyxu.runtime.getPrecision`.
 
-- Whenever possible, it should be compatible with the array modules supported by Pyxu (use
-  :py:func:`~pyxu.info.deps.supported_array_modules` for an up-to-date list). This can be achieved via the function
-  :py:func:`~pyxu.util.array_module.get_array_module` which allows to write `module-agnostic
+- Whenever possible, it should be compatible with the array modules supported by Pyxu. (Use
+  :py:func:`~pyxu.info.deps.supported_array_modules` for an up-to-date list).
+  :py:func:`~pyxu.util.array_module.get_array_module` can be used to write `module-agnostic
   <https://docs.cupy.dev/en/stable/user_guide/basic.html#how-to-write-cpu-gpu-agnostic-code>`_ code easily.
 
 
@@ -40,27 +39,32 @@ As an example, consider the following code snippet, defining the median operator
    import pyxu.util as pxu
 
    class Median(pxa.Map):
-       def __init__(self):
-           super(Median, self).__init__(shape=(1, None))  # The Median operator is domain-agnostic.
+       def __init__(self, dim: int):
+           super().__init__(shape=(1, dim))
 
-       @pxrt.enforce_precision(i='arr', o=True)  # Enforce input/output precision.
-       def apply(self, arr: NDArray) -> NDArray:
-           xp = pxu.get_array_module(arr)  # Find the array module for the provided input.
-           return xp.median(arr, axis=-1, keepdims=True)  # The median function is applied to the last axis.
-                                                          # The returned array has the same dimensions as the input thanks to the keyword keepdims=True.
+       @pxrt.enforce_precision(i="arr")  # enforce input/output precision.
+       def apply(self, arr):
+           xp = pxu.get_array_module(arr)  # find array module of `arr`.
+           return xp.median(arr, axis=-1, keepdims=True)  # median() is applied to the last axis.
 
 This operator can then be fed various arrays as inputs:
 
->>> import pyxu.util.deps as pxd
->>> m = Median()
->>> for xp in pxd.supported_array_modules():
-...     out = m.apply(xp.arange(26).reshape(2, 13))  # Applies the operator in turn on a various array types.
+.. code-block:: python3
 
-If called from within the context manager :py:class:`~pyxu.runtime.Precision`, the decorated apply method will
-automatically coerce the input/output to the user-specified precision:
+   import pyxu.info.deps as pxd
 
->>> with pxu.Precision(pxu.Width.SINGLE):
-...     out = m.apply(np.arange(26).reshape(2, 13))  # Single precision is used for the computation
+   N = 5
+   op = Median(N)
+   for xp in pxd.supported_array_modules():
+       out = op.apply(xp.arange(2*N).reshape(2, N))  # apply the operator to various array types.
+
+If called from within the :py:class:`~pyxu.runtime.Precision` context manager, the decorated ``apply()`` method will
+automatically *coerce* the input/output to the user-specified precision:
+
+.. code-block:: python3
+
+   with pxrt.Precision(pxrt.Width.SINGLE):
+       out = op.apply(np.arange(N))  # float32 computation
 
 
 Common pitfalls and performance issues
