@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import pyxu.abc as pxa
-import pyxu.opt.stop as stop
+import pyxu.opt.stop as pxst
 
 # We do not test MaxIter(), ManualStop() and MaxDuration() since they are trivial.
 
@@ -23,7 +23,7 @@ class TestAbsError:
         ],
     )
     def test_scalar_in(self, eps, f, state, stop_val):
-        sc = stop.AbsError(eps=eps, f=f)
+        sc = pxst.AbsError(eps=eps, f=f)
         state = dict(x=state)
         assert sc.stop(state) == stop_val
         sc.info()  # just to make sure it doesn't crash
@@ -42,7 +42,7 @@ class TestAbsError:
         ],
     )
     def test_array_in(self, eps, f, satisfy_all, state, stop_val, xp):
-        sc = stop.AbsError(eps=eps, f=f, satisfy_all=satisfy_all)
+        sc = pxst.AbsError(eps=eps, f=f, satisfy_all=satisfy_all)
         state = dict(x=xp.array(state))  # test all possible array backends.
         assert sc.stop(state) == stop_val
         sc.info()  # just to make sure it doesn't crash
@@ -61,7 +61,7 @@ class TestRelError:
         ],
     )
     def test_scalar_in(self, eps, f, state, stop_val):
-        sc = stop.RelError(eps=eps, f=f)
+        sc = pxst.RelError(eps=eps, f=f)
         state0 = dict(x=state[0])
         assert sc.stop(state0) is False
         state1 = dict(x=state[1])
@@ -118,7 +118,7 @@ class TestRelError:
         ],
     )
     def test_array_in(self, eps, f, satisfy_all, state, stop_val, xp):
-        sc = stop.RelError(eps=eps, f=f, satisfy_all=satisfy_all)
+        sc = pxst.RelError(eps=eps, f=f, satisfy_all=satisfy_all)
         state0 = dict(x=xp.array(state[0]))  # test all possible array backends.
         assert sc.stop(state0) is False
         state1 = dict(x=xp.array(state[1]))  # test all possible array backends.
@@ -129,11 +129,11 @@ class TestRelError:
 @pytest.mark.parametrize(
     ["sc", "state_stream"],
     [
-        [stop.MaxIter(n=10), [{}] * 12],  # state meaningless
-        [stop.ManualStop(), [{}] * 12],  # state meaningless
-        # [stop.MaxDuration(), [{}] * 10],  # MaxDuration is never 100% reproducible
-        [stop.AbsError(eps=3), [dict(x=_) for _ in np.arange(10, 0, -1)]],
-        [stop.RelError(eps=1 / 6), [dict(x=_) for _ in np.arange(10)]],
+        [pxst.MaxIter(n=10), [{}] * 12],  # state meaningless
+        [pxst.ManualStop(), [{}] * 12],  # state meaningless
+        # [pxst.MaxDuration(), [{}] * 10],  # MaxDuration is never 100% reproducible
+        [pxst.AbsError(eps=3), [dict(x=_) for _ in np.arange(10, 0, -1)]],
+        [pxst.RelError(eps=1 / 6), [dict(x=_) for _ in np.arange(10)]],
     ],
 )
 def test_clear(

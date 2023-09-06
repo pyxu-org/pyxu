@@ -4,7 +4,7 @@ import warnings
 import numpy as np
 import pytest
 
-import pyxu.experimental.sampler as pxs
+import pyxu.experimental.sampler as pxe_sampler
 import pyxu.info.deps as pxd
 import pyxu.info.warning as pxw
 import pyxu.operator as pxo
@@ -80,7 +80,7 @@ class TestULA(ct.SamplerT):
 
     @pytest.fixture
     def sampler(self, func):
-        return pxs.ULA(f=func)
+        return pxe_sampler.ULA(f=func)
 
     @pytest.fixture(
         params=itertools.product(
@@ -102,7 +102,7 @@ class TestULA(ct.SamplerT):
         rng_1 = xp.random.default_rng(seed=seed)
         rng_2 = xp.random.default_rng(seed=seed)
         sampler._rng = rng_1  # Reset rng object of sampler
-        sampler_copy = pxs.ULA(f=func)  # Create copy of sampler
+        sampler_copy = pxe_sampler.ULA(f=func)  # Create copy of sampler
         samples_copy = sampler_copy.samples(rng=rng_2, x0=xp.array(x0_np, dtype=width.value))
         return samples_copy
 
@@ -118,12 +118,12 @@ class TestMYULA(TestULA):
 
     @pytest.fixture
     def sampler(self, func, prox_func):
-        return pxs.MYULA(f=func, g=prox_func)
+        return pxe_sampler.MYULA(f=func, g=prox_func)
 
     @pytest.fixture
     def samples_copy(self, func, prox_func, sampler, seed, x0_np, xp, width):
         rng_1 = xp.random.default_rng(seed=seed)
         rng_2 = xp.random.default_rng(seed=seed)
         sampler._rng = rng_1  # Reset rng object of sampler
-        sampler_copy = pxs.MYULA(f=func, g=prox_func)  # Create copy of sampler
+        sampler_copy = pxe_sampler.MYULA(f=func, g=prox_func)  # Create copy of sampler
         return sampler_copy.samples(rng=rng_2, x0=xp.array(x0_np, dtype=width.value))

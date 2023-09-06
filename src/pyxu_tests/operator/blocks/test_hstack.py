@@ -13,10 +13,10 @@ import itertools
 import numpy as np
 import pytest
 
-import pyxu.abc.operator as pxo
+import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.blocks as pxb
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -85,12 +85,12 @@ def spec_op_map(klass: pxt.OpC, N: int = 2) -> list[list[pxt.OpT]]:
 
         codim = ops[0].codim
         dim = sum(op.dim for op in ops)
-        if (pxo.Property.LINEAR in properties) and (codim == dim):
-            properties = pxo.SquareOp.properties()
+        if (pxa.Property.LINEAR in properties) and (codim == dim):
+            properties = pxa.SquareOp.properties()
         else:
-            properties = properties & pxo.LinOp.properties()
+            properties = properties & pxa.LinOp.properties()
 
-        _klass = pxo.Operator._infer_operator_type(properties)
+        _klass = pxa.Operator._infer_operator_type(properties)
         return _klass == klass
 
     ops = []
@@ -136,7 +136,7 @@ def spec_op_func(klass: pxt.OpC, N: int = 2) -> list[list[pxt.OpT]]:
         from pyxu_tests.operator.examples.test_linfunc import ScaledSum
         from pyxu_tests.operator.examples.test_posdefop import PSDConvolution
 
-        return pxo.QuadraticFunc(
+        return pxa.QuadraticFunc(
             shape=(1, dim),
             Q=PSDConvolution(N=dim),
             c=ScaledSum(N=dim),
@@ -154,7 +154,7 @@ def spec_op_func(klass: pxt.OpC, N: int = 2) -> list[list[pxt.OpT]]:
         op_sum = ops[0]  # hack to get the output type (modulo square-ness)
         for op in ops[1:]:
             op_sum = op_sum + op
-        _klass = pxo.Operator._infer_operator_type(op_sum.properties())
+        _klass = pxa.Operator._infer_operator_type(op_sum.properties())
         return _klass == klass
 
     ops = []
@@ -189,7 +189,7 @@ class HStackMixin:
     )
     def spec(self, op_all, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
-        op = pxb.hstack(op_all)
+        op = pxo.hstack(op_all)
         return op, ndi, width
 
     @pytest.fixture
@@ -286,61 +286,61 @@ class HStackFuncMixin(HStackMixin):
 
 # Test classes (Maps) ---------------------------------------------------------
 class TestHStackMap(HStackMixin, conftest.MapT):
-    @pytest.fixture(params=spec_op_map(pxo.Map))
+    @pytest.fixture(params=spec_op_map(pxa.Map))
     def op_all(self, request):
         return request.param
 
 
 class TestHStackDiffMap(HStackMixin, conftest.DiffMapT):
-    @pytest.fixture(params=spec_op_map(pxo.DiffMap))
+    @pytest.fixture(params=spec_op_map(pxa.DiffMap))
     def op_all(self, request):
         return request.param
 
 
 class TestHStackLinOp(HStackMixin, conftest.LinOpT):
-    @pytest.fixture(params=spec_op_map(pxo.LinOp))
+    @pytest.fixture(params=spec_op_map(pxa.LinOp))
     def op_all(self, request):
         return request.param
 
 
 class TestHStackSquareOp(HStackMixin, conftest.SquareOpT):
-    @pytest.fixture(params=spec_op_map(pxo.SquareOp))
+    @pytest.fixture(params=spec_op_map(pxa.SquareOp))
     def op_all(self, request):
         return request.param
 
 
 # Test classes (Funcs) --------------------------------------------------------
 class TestHStackFunc(HStackFuncMixin, conftest.FuncT):
-    @pytest.fixture(params=spec_op_func(pxo.Func))
+    @pytest.fixture(params=spec_op_func(pxa.Func))
     def op_all(self, request):
         return request.param
 
 
 class TestHStackProxFunc(HStackFuncMixin, conftest.ProxFuncT):
-    @pytest.fixture(params=spec_op_func(pxo.ProxFunc))
+    @pytest.fixture(params=spec_op_func(pxa.ProxFunc))
     def op_all(self, request):
         return request.param
 
 
 class TestHStackDiffFunc(HStackFuncMixin, conftest.DiffFuncT):
-    @pytest.fixture(params=spec_op_func(pxo.DiffFunc))
+    @pytest.fixture(params=spec_op_func(pxa.DiffFunc))
     def op_all(self, request):
         return request.param
 
 
 class TestHStackProxDiffFunc(HStackFuncMixin, conftest.ProxDiffFuncT):
-    @pytest.fixture(params=spec_op_func(pxo.ProxDiffFunc))
+    @pytest.fixture(params=spec_op_func(pxa.ProxDiffFunc))
     def op_all(self, request):
         return request.param
 
 
 class TestHStackQuadraticFunc(HStackFuncMixin, conftest.QuadraticFuncT):
-    @pytest.fixture(params=spec_op_func(pxo.QuadraticFunc))
+    @pytest.fixture(params=spec_op_func(pxa.QuadraticFunc))
     def op_all(self, request):
         return request.param
 
 
 class TestHStackLinFunc(HStackFuncMixin, conftest.LinFuncT):
-    @pytest.fixture(params=spec_op_func(pxo.LinFunc))
+    @pytest.fixture(params=spec_op_func(pxa.LinFunc))
     def op_all(self, request):
         return request.param

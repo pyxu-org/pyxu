@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import pyxu.info.deps as pxd
-import pyxu.operator.func as pxf
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -12,7 +12,7 @@ import pyxu_tests.operator.conftest as conftest
 class TestL1Norm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            ((5, pxf.L1Norm(dim=5)),),  # dim, op
+            ((5, pxo.L1Norm(dim=5)),),  # dim, op
             pxd.NDArrayInfo,
             pxrt.Width,
         )
@@ -77,7 +77,7 @@ class TestL1Norm(conftest.ProxFuncT):
 class TestL2Norm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            ((5, pxf.L2Norm(dim=5)),),  # dim, op
+            ((5, pxo.L2Norm(dim=5)),),  # dim, op
             pxd.NDArrayInfo,
             pxrt.Width,
         )
@@ -142,7 +142,7 @@ class TestL2Norm(conftest.ProxFuncT):
 class TestSquaredL2Norm(conftest.QuadraticFuncT):
     @pytest.fixture(
         params=itertools.product(
-            ((7, pxf.SquaredL2Norm(dim=7)),),  # dim, op
+            ((7, pxo.SquaredL2Norm(dim=7)),),  # dim, op
             pxd.NDArrayInfo,
             pxrt.Width,
         )
@@ -220,8 +220,8 @@ class TestSquaredL1Norm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
             (  # dim, op
-                (5, pxf.SquaredL1Norm(dim=5, prox_algo="sort")),
-                (5, pxf.SquaredL1Norm(dim=5, prox_algo="root")),
+                (5, pxo.SquaredL1Norm(dim=5, prox_algo="sort")),
+                (5, pxo.SquaredL1Norm(dim=5, prox_algo="root")),
             ),
             pxd.NDArrayInfo,
             pxrt.Width,
@@ -287,7 +287,7 @@ class TestSquaredL1Norm(conftest.ProxFuncT):
 class TestLInfinityNorm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            ((5, pxf.LInfinityNorm(dim=5)),),  # dim, op
+            ((5, pxo.LInfinityNorm(dim=5)),),  # dim, op
             pxd.NDArrayInfo,
             pxrt.Width,
         )
@@ -352,7 +352,7 @@ class TestLInfinityNorm(conftest.ProxFuncT):
 class TestL21Norm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            ((6, pxf.L21Norm(arg_shape=(2, 3))),),  # dim, op
+            ((6, pxo.L21Norm(arg_shape=(2, 3))),),  # dim, op
             pxd.NDArrayInfo,
             pxrt.Width,
         )
@@ -417,7 +417,7 @@ class TestL21Norm(conftest.ProxFuncT):
 class TestPositiveL1Norm(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            ((5, pxf.PositiveL1Norm(dim=5)),),  # dim, op
+            ((5, pxo.PositiveL1Norm(dim=5)),),  # dim, op
             pxd.NDArrayInfo,
             pxrt.Width,
         )

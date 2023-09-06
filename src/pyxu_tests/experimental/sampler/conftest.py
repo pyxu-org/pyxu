@@ -3,7 +3,7 @@ import typing as typ
 
 import pytest
 
-import pyxu.experimental.sampler as pxs
+import pyxu.experimental.sampler as pxe_sampler
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
@@ -69,7 +69,7 @@ class SamplerT(ct.DisableTestMixin):
         raise NotImplementedError
 
     @pytest.fixture
-    def sampler(self) -> pxs._Sampler:
+    def sampler(self) -> pxe_sampler._Sampler:
         # override in subclass to return the sampler object being tested.
         raise NotImplementedError
 

@@ -5,7 +5,7 @@ import scipy.sparse.linalg as spsl
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.interop.sciop as isp
+import pyxu.operator.interop as pxio
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -38,7 +38,7 @@ class FromSciOpMixin:
 
         A = op_orig.asarray(xp=ndi.module(), dtype=width.value)
         B = xpl.aslinearoperator(A)
-        op = isp.from_sciop(cls=self.base, sp_op=B)
+        op = pxio.from_sciop(cls=self.base, sp_op=B)
 
         return op, ndi, width
 

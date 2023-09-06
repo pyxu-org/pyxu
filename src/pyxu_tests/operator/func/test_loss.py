@@ -4,7 +4,7 @@ import numpy as np
 import numpy.random as npr
 import pytest
 
-import pyxu.operator.func as pxof
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 import pyxu.info.deps as pxd
@@ -31,7 +31,7 @@ class TestKLDivergence(conftest.ProxFuncT):
             op = None
         else:
             xp = ndi.module()
-            op = pxof.KLDivergence(dim, xp.array(data))
+            op = pxo.KLDivergence(dim, xp.array(data))
         return (dim, op), ndi, request.param[2], data
 
     @pytest.fixture

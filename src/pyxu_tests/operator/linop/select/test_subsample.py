@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import pyxu.info.deps as pxd
-import pyxu.operator.linop as pxl
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -68,7 +68,7 @@ class TestSubSample(SubSampleMixin, conftest.LinOpT):
     )
     def spec(self, arg_shape, indices, request):
         ndi, width = request.param
-        op = pxl.SubSample(arg_shape, *indices)
+        op = pxo.SubSample(arg_shape, *indices)
         return op, ndi, width
 
 
@@ -125,5 +125,5 @@ class TestTrim(SubSampleMixin, conftest.LinOpT):
     )
     def spec(self, arg_shape, trim_width, request):
         ndi, width = request.param
-        op = pxl.Trim(arg_shape, trim_width)
+        op = pxo.Trim(arg_shape, trim_width)
         return op, ndi, width

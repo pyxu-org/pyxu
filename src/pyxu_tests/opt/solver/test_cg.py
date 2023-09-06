@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import pyxu.info.ptype as pxt
-import pyxu.opt.solver as pxs
+import pyxu.opt.solver as pxsl
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 import pyxu_tests.conftest as ct
@@ -17,7 +17,7 @@ class TestCG(conftest.SolverT):
         from pyxu_tests.operator.examples.test_posdefop import PSDConvolution
 
         klass = [
-            pxs.CG,
+            pxsl.CG,
         ]
         kwargs_init = [
             dict(A=PSDConvolution(N=N)),
@@ -53,7 +53,7 @@ class TestCG(conftest.SolverT):
     @pytest.fixture
     def cost_function(self, kwargs_init, kwargs_fit) -> dict[str, pxt.OpT]:
         import pyxu.abc as pxa
-        import pyxu.operator.blocks as pxb
+        import pyxu.operator as pxo
 
         # The value of `b` determines the cost function.
         # Moreover several `b` may be provided.
@@ -65,7 +65,7 @@ class TestCG(conftest.SolverT):
         N_b = int(np.prod(b.shape[:-1]))
         func = pxa.QuadraticFunc(
             shape=(1, N_b * A.dim),
-            Q=pxb.block_diag((A,) * N_b),
+            Q=pxo.block_diag((A,) * N_b),
             c=pxa.LinFunc.from_array(-b.reshape(-1), enable_warnings=False),
         )
         return dict(x=func)

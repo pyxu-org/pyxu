@@ -6,7 +6,7 @@ import pytest
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.math.linalg as pxlg
+import pyxu.math as pxm
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -21,7 +21,7 @@ class SquaredL2Norm(pxa.DiffFunc):
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr):
-        y = pxlg.norm(arr, axis=-1, keepdims=True)
+        y = pxm.norm(arr, axis=-1, keepdims=True)
         y **= 2
         return y
 
@@ -30,7 +30,7 @@ class SquaredL2Norm(pxa.DiffFunc):
         return 2 * arr
 
     def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        from pyxu.operator.func.loss import shift_loss
+        from pyxu.operator import shift_loss
 
         op = shift_loss(op=self, data=data)
         return op

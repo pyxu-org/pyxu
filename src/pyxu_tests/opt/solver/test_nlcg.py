@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import pyxu.info.ptype as pxt
-import pyxu.opt.solver as pxs
+import pyxu.opt.solver as pxsl
 import pyxu_tests.opt.solver.conftest as conftest
 
 
@@ -12,7 +12,7 @@ class TestNLCG(conftest.SolverT):
     @staticmethod
     def spec_data(N: int) -> list[tuple[pxt.SolverC, dict, dict]]:
         klass = [
-            pxs.NLCG,
+            pxsl.NLCG,
         ]
 
         funcs = conftest.funcs(N, seed=4)

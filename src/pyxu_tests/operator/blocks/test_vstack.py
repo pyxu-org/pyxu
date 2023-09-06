@@ -13,10 +13,10 @@ import itertools
 import numpy as np
 import pytest
 
-import pyxu.abc.operator as pxo
+import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.blocks as pxb
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -53,7 +53,7 @@ def spec_op(klass: pxt.OpC, N: int = 2) -> list[list[pxt.OpT]]:
         from pyxu_tests.operator.examples.test_linfunc import ScaledSum
         from pyxu_tests.operator.examples.test_posdefop import PSDConvolution
 
-        return pxo.QuadraticFunc(
+        return pxa.QuadraticFunc(
             shape=(1, dim),
             Q=PSDConvolution(N=dim),
             c=ScaledSum(N=dim),
@@ -111,18 +111,18 @@ def spec_op(klass: pxt.OpC, N: int = 2) -> list[list[pxt.OpT]]:
     def condition(ops: list[pxt.OpT], klass: pxt.OpC) -> bool:
         # Return true if vstack(ops) forms a klass object. [Not a sub-type]
         properties = frozenset.intersection(*[op.properties() for op in ops]) & {
-            pxo.Property.CAN_EVAL,
-            pxo.Property.DIFFERENTIABLE,
-            pxo.Property.LINEAR,
+            pxa.Property.CAN_EVAL,
+            pxa.Property.DIFFERENTIABLE,
+            pxa.Property.LINEAR,
         }
         properties = set(properties)
 
         dim = ops[0].shape[1]
         codim = sum(op.shape[0] for op in ops)
         if dim == codim:
-            properties.add(pxo.Property.LINEAR_SQUARE)
+            properties.add(pxa.Property.LINEAR_SQUARE)
 
-        _klass = pxo.Operator._infer_operator_type(properties)
+        _klass = pxa.Operator._infer_operator_type(properties)
         return _klass == klass
 
     ops = []
@@ -167,7 +167,7 @@ class VStackMixin:
     )
     def spec(self, op_all, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
-        op = pxb.vstack(op_all)
+        op = pxo.vstack(op_all)
         return op, ndi, width
 
     @pytest.fixture
@@ -222,24 +222,24 @@ class VStackMixin:
 
 # Test classes (Maps) ---------------------------------------------------------
 class TestVStackMap(VStackMixin, conftest.MapT):
-    @pytest.fixture(params=spec_op(pxo.Map))
+    @pytest.fixture(params=spec_op(pxa.Map))
     def op_all(self, request):
         return request.param
 
 
 class TestVStackDiffMap(VStackMixin, conftest.DiffMapT):
-    @pytest.fixture(params=spec_op(pxo.DiffMap))
+    @pytest.fixture(params=spec_op(pxa.DiffMap))
     def op_all(self, request):
         return request.param
 
 
 class TestVStackLinOp(VStackMixin, conftest.LinOpT):
-    @pytest.fixture(params=spec_op(pxo.LinOp))
+    @pytest.fixture(params=spec_op(pxa.LinOp))
     def op_all(self, request):
         return request.param
 
 
 class TestVStackSquareOp(VStackMixin, conftest.SquareOpT):
-    @pytest.fixture(params=spec_op(pxo.SquareOp))
+    @pytest.fixture(params=spec_op(pxa.SquareOp))
     def op_all(self, request):
         return request.param

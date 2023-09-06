@@ -14,7 +14,7 @@ import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.info.warning as pxw
-import pyxu.math.linalg as pxlg
+import pyxu.math as pxm
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 import pyxu_tests.conftest as ct
@@ -460,13 +460,13 @@ class MapT(ct.DisableTestMixin):
             x = xp.stack([_[0] for _ in data], axis=0)
             y = xp.stack([_[1] for _ in data], axis=0)
 
-            lhs = pxlg.norm(op.apply(x) - op.apply(y), axis=-1)
+            lhs = pxm.norm(op.apply(x) - op.apply(y), axis=-1)
             # .apply() may return INFs, in which case `INF-INF=NaN` may arise above.
             # less_equal() is not able to handle NaNs, so the former are overwritten by a sensible
             # value in this context, i.e. 0.
             lhs[xp.isnan(lhs)] = 0
 
-            rhs = L * pxlg.norm(x - y, axis=-1)
+            rhs = L * pxm.norm(x - y, axis=-1)
             success = ct.less_equal(lhs, rhs, as_dtype=width.value)
             assert all(success)
 
@@ -622,8 +622,8 @@ class DiffMapT(MapT):
             stats = []  # (x, y, condition success)
             data = xp.array(data_math_diff_lipschitz, dtype=width.value)
             for x, y in itertools.combinations(data, 2):
-                lhs = pxlg.norm(J(x) - J(y))
-                rhs = dL * pxlg.norm(x - y)
+                lhs = pxm.norm(J(x) - J(y))
+                rhs = dL * pxm.norm(x - y)
                 if np.isnan(lhs):
                     # J() may return INFs, in which case `INF-INF=NaN` may arise above. less_equal()
                     # is not able to handle NaNs, so the former are overwritten by a sensible value
@@ -819,7 +819,7 @@ class ProxFuncT(FuncT):
 
         def g(x):
             a = 2 * in_["tau"] * op.apply(x)
-            b = pxlg.norm(in_["arr"] - x, axis=-1, keepdims=True) ** 2
+            b = pxm.norm(in_["arr"] - x, axis=-1, keepdims=True) ** 2
             return a + b
 
         assert np.all(ct.less_equal(g(y), g(x), as_dtype=y.dtype))
@@ -1699,9 +1699,9 @@ class UnitOpT(NormalOpT):
         N = 20
         x = self._random_array((N, op.dim), xp=xp, width=width)
 
-        lhs1 = pxlg.norm(op.apply(x), axis=-1)
-        lhs2 = pxlg.norm(op.adjoint(x), axis=-1)
-        rhs = pxlg.norm(x, axis=-1)
+        lhs1 = pxm.norm(op.apply(x), axis=-1)
+        lhs2 = pxm.norm(op.adjoint(x), axis=-1)
+        rhs = pxm.norm(x, axis=-1)
 
         assert self._metric(lhs1, lhs2, as_dtype=width.value)
         assert self._metric(lhs1, rhs, as_dtype=width.value)

@@ -5,7 +5,7 @@ import pytest
 
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
-import pyxu.operator.linop as pxl
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 import pyxu_tests.operator.conftest as conftest
@@ -28,7 +28,7 @@ class Sin(pxa.DiffMap):
     def jacobian(self, arr):
         xp = pxu.get_array_module(arr)
         J = xp.cos(arr)
-        return pxl.DiagonalOp(J)
+        return pxo.DiagonalOp(J)
 
 
 class TestSin(conftest.DiffMapT):

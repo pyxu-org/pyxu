@@ -5,7 +5,7 @@ import pytest
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.linop as pxl
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -99,7 +99,7 @@ class TestPad(conftest.LinOpT):
     def spec(self, _spec, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
         arg_shape, pad_width, mode = _spec[0]  # user-provided form
-        op = pxl.Pad(
+        op = pxo.Pad(
             arg_shape=arg_shape,
             pad_width=pad_width,
             mode=mode,

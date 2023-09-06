@@ -6,7 +6,7 @@ import pytest
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.linop as pxl
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 import pyxu_tests.operator.conftest as conftest
@@ -139,7 +139,7 @@ class TestFFT(conftest.LinOpT):
     def spec(self, _spec, transform_real) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width, (arg_shape, axes), _, kwargs = _spec  # user-provided (arg_shape, axes).
 
-        op = pxl.FFT(
+        op = pxo.FFT(
             arg_shape=arg_shape,
             axes=axes,
             real=transform_real,

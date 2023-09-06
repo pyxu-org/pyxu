@@ -15,7 +15,7 @@ import pytest
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.linop as pxl
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -115,7 +115,7 @@ class KhatriRaoMixin:
     )
     def spec(self, op_A, op_B, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
-        op = pxl.khatri_rao(op_A, op_B)
+        op = pxo.khatri_rao(op_A, op_B)
         return op, ndi, width
 
     @pytest.fixture

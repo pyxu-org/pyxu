@@ -6,7 +6,7 @@ import scipy.ndimage as snd
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.linop as pxl
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -128,7 +128,7 @@ class TestStencil(conftest.SquareOpT):
             kernel = [xp.array(k) for k in kernel]
 
         with pxrt.Precision(width):
-            op = pxl.Stencil(
+            op = pxo.Stencil(
                 arg_shape=arg_shape,
                 kernel=kernel,
                 center=center,
@@ -157,7 +157,7 @@ class TestStencil(conftest.SquareOpT):
             pad_width = [(w, w) for w in kernel[0].shape]
         else:  # seperable filter(s)
             pad_width = [(k.shape[i],) * 2 for (i, k) in enumerate(kernel)]
-        pad = pxl.Pad(
+        pad = pxo.Pad(
             arg_shape=arg_shape,
             pad_width=pad_width,
             mode=mode,
@@ -177,7 +177,7 @@ class TestStencil(conftest.SquareOpT):
             )
 
         # Trim fat off (using Trim(); assumed correct)
-        trim = pxl.Trim(
+        trim = pxo.Trim(
             arg_shape=corr_out.shape,
             trim_width=pad_width,
         )
@@ -217,7 +217,7 @@ class TestConvolve:
             out_gt = np.pad(arr, pad_width=(abs(shift), 0))[:N]
 
         # Compute Stencil-based solution
-        op = pxl.Convolve(
+        op = pxo.Convolve(
             arg_shape=arr.shape,
             kernel=kernel,
             center=center,

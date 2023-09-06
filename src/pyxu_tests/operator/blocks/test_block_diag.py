@@ -13,10 +13,10 @@ import itertools
 import numpy as np
 import pytest
 
-import pyxu.abc.operator as pxo
+import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.blocks as pxb
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -53,7 +53,7 @@ def spec_op(klass: pxt.OpC, N: int = 2) -> list[list[pxt.OpT]]:
         from pyxu_tests.operator.examples.test_linfunc import ScaledSum
         from pyxu_tests.operator.examples.test_posdefop import PSDConvolution
 
-        return pxo.QuadraticFunc(
+        return pxa.QuadraticFunc(
             shape=(1, dim),
             Q=PSDConvolution(N=dim),
             c=ScaledSum(N=dim),
@@ -112,13 +112,13 @@ def spec_op(klass: pxt.OpC, N: int = 2) -> list[list[pxt.OpT]]:
         # Return true if block_diag(ops) forms a klass object. [Not a sub-type]
         properties = set.intersection(*[set(op.properties()) for op in ops])
         for p in {
-            pxo.Property.FUNCTIONAL,
-            pxo.Property.PROXIMABLE,
-            pxo.Property.DIFFERENTIABLE_FUNCTION,
-            pxo.Property.QUADRATIC,
+            pxa.Property.FUNCTIONAL,
+            pxa.Property.PROXIMABLE,
+            pxa.Property.DIFFERENTIABLE_FUNCTION,
+            pxa.Property.QUADRATIC,
         }:
             properties.discard(p)
-        _klass = pxo.Operator._infer_operator_type(properties)
+        _klass = pxa.Operator._infer_operator_type(properties)
         return _klass == klass
 
     ops = []
@@ -179,7 +179,7 @@ class BlockDiagMixin:
     )
     def spec(self, op_all, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
-        op = pxb.block_diag(op_all)
+        op = pxo.block_diag(op_all)
         return op, ndi, width
 
     @pytest.fixture
@@ -238,60 +238,60 @@ class BlockDiagMixin:
 
 # Test classes (Maps) ---------------------------------------------------------
 class TestBlockDiagMap(BlockDiagMixin, conftest.MapT):
-    @pytest.fixture(params=spec_op(pxo.Map))
+    @pytest.fixture(params=spec_op(pxa.Map))
     def op_all(self, request):
         return request.param
 
 
 class TestBlockDiagDiffMap(BlockDiagMixin, conftest.DiffMapT):
-    @pytest.fixture(params=spec_op(pxo.DiffMap))
+    @pytest.fixture(params=spec_op(pxa.DiffMap))
     def op_all(self, request):
         return request.param
 
 
 class TestBlockDiagLinOp(BlockDiagMixin, conftest.LinOpT):
-    @pytest.fixture(params=spec_op(pxo.LinOp))
+    @pytest.fixture(params=spec_op(pxa.LinOp))
     def op_all(self, request):
         return request.param
 
 
 class TestBlockDiagSquareOp(BlockDiagMixin, conftest.SquareOpT):
-    @pytest.fixture(params=spec_op(pxo.SquareOp))
+    @pytest.fixture(params=spec_op(pxa.SquareOp))
     def op_all(self, request):
         return request.param
 
 
 class TestBlockDiagNormalOp(BlockDiagMixin, conftest.NormalOpT):
-    @pytest.fixture(params=spec_op(pxo.NormalOp))
+    @pytest.fixture(params=spec_op(pxa.NormalOp))
     def op_all(self, request):
         return request.param
 
 
 class TestBlockDiagUnitOp(BlockDiagMixin, conftest.UnitOpT):
-    @pytest.fixture(params=spec_op(pxo.UnitOp))
+    @pytest.fixture(params=spec_op(pxa.UnitOp))
     def op_all(self, request):
         return request.param
 
 
 class TestBlockDiagSelfAdjointOp(BlockDiagMixin, conftest.SelfAdjointOpT):
-    @pytest.fixture(params=spec_op(pxo.SelfAdjointOp))
+    @pytest.fixture(params=spec_op(pxa.SelfAdjointOp))
     def op_all(self, request):
         return request.param
 
 
 class TestBlockDiagPosDefOp(BlockDiagMixin, conftest.PosDefOpT):
-    @pytest.fixture(params=spec_op(pxo.PosDefOp))
+    @pytest.fixture(params=spec_op(pxa.PosDefOp))
     def op_all(self, request):
         return request.param
 
 
 class TestBlockDiagProjOp(BlockDiagMixin, conftest.ProjOpT):
-    @pytest.fixture(params=spec_op(pxo.ProjOp))
+    @pytest.fixture(params=spec_op(pxa.ProjOp))
     def op_all(self, request):
         return request.param
 
 
 class TestBlockDiagOrthProjOp(BlockDiagMixin, conftest.OrthProjOpT):
-    @pytest.fixture(params=spec_op(pxo.OrthProjOp))
+    @pytest.fixture(params=spec_op(pxa.OrthProjOp))
     def op_all(self, request):
         return request.param

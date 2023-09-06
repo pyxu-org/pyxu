@@ -6,7 +6,7 @@ import pytest
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.func as pxf
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -14,7 +14,7 @@ import pyxu_tests.operator.conftest as conftest
 class TestL1Ball(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            ((5, pxf.L1Ball(dim=5, radius=1)),),  # dim, op
+            ((5, pxo.L1Ball(dim=5, radius=1)),),  # dim, op
             pxd.NDArrayInfo,
             pxrt.Width,
         )
@@ -79,7 +79,7 @@ class TestL1Ball(conftest.ProxFuncT):
 class TestL2Ball(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            ((5, pxf.L2Ball(dim=5, radius=1)),),  # dim, op
+            ((5, pxo.L2Ball(dim=5, radius=1)),),  # dim, op
             pxd.NDArrayInfo,
             pxrt.Width,
         )
@@ -144,7 +144,7 @@ class TestL2Ball(conftest.ProxFuncT):
 class TestLInfinityBall(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            ((5, pxf.LInfinityBall(dim=5, radius=1)),),  # dim, op
+            ((5, pxo.LInfinityBall(dim=5, radius=1)),),  # dim, op
             pxd.NDArrayInfo,
             pxrt.Width,
         )
@@ -209,7 +209,7 @@ class TestLInfinityBall(conftest.ProxFuncT):
 class TestPositiveOrthant(conftest.ProxFuncT):
     @pytest.fixture(
         params=itertools.product(
-            ((5, pxf.PositiveOrthant(dim=5)),),  # dim, op
+            ((5, pxo.PositiveOrthant(dim=5)),),  # dim, op
             pxd.NDArrayInfo,
             pxrt.Width,
         )
@@ -285,7 +285,7 @@ class TestHyperSlab(conftest.ProxFuncT):
 
         v = xp.array([1, 1], dtype=width.value)
         a = pxa.LinFunc.from_array(v, enable_warnings=False)
-        op = pxf.HyperSlab(a, lb=-1, ub=2)
+        op = pxo.HyperSlab(a, lb=-1, ub=2)
 
         return op, ndi, width
 
@@ -372,7 +372,7 @@ class TestRangeSet(conftest.ProxFuncT):
         A = xp.array(A, dtype=width.value)
         A = pxa.LinOp.from_array(A, enable_warnings=False)
 
-        op = pxf.RangeSet(A)
+        op = pxo.RangeSet(A)
         return op, ndi, width
 
     @pytest.fixture
@@ -478,7 +478,7 @@ class TestAffineSet(conftest.ProxFuncT):
             A = xp.array(A, dtype=width.value)
             A = pxa.LinOp.from_array(A, enable_warnings=False)
             b = xp.array(b, dtype=width.value)
-            op = pxf.AffineSet(A, b)
+            op = pxo.AffineSet(A, b)
         return op, ndi, width
 
     @pytest.fixture

@@ -70,7 +70,7 @@ def op_quadraticfunc(dim: int = 7):
     # In this case we cannot use CD04 (examples/test_posdefop.py) due to minimal domain-size restrictions.
     # We therefore use HomothetyOp without loss of generality.
 
-    from pyxu.operator.linop import HomothetyOp
+    from pyxu.operator import HomothetyOp
     from pyxu_tests.operator.examples.test_linfunc import ScaledSum
 
     with warnings.catch_warnings():

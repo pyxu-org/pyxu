@@ -14,11 +14,10 @@ import itertools
 import numpy as np
 import pytest
 
-import pyxu.abc.operator as pxo
+import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.blocks as pxb
-import pyxu.operator.linop as pxl
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -108,7 +107,7 @@ def op_quadraticfunc(dim: int):
     from pyxu_tests.operator.examples.test_linfunc import ScaledSum
     from pyxu_tests.operator.examples.test_posdefop import PSDConvolution
 
-    return pxo.QuadraticFunc(
+    return pxa.QuadraticFunc(
         shape=(1, dim),
         Q=PSDConvolution(N=dim),
         c=ScaledSum(N=dim),
@@ -144,12 +143,12 @@ class COOBlockMixin:
             op_GT.append([])
             for _j, op in enumerate(row):
                 if (_i, _j) in op_hole:
-                    _op = pxl.NullOp(shape=op.shape)
+                    _op = pxo.NullOp(shape=op.shape)
                 else:
                     _op = op
                 op_GT[_i].append(_op)
 
-        op = pxb.block(op_GT, order=1)
+        op = pxo.block(op_GT, order=1)
         return op
 
     @pytest.fixture(
@@ -170,7 +169,7 @@ class COOBlockMixin:
                     i.append(_i)
                     j.append(_j)
         N_row, N_col = max(i) + 1, max(j) + 1
-        op = pxb.coo_block(
+        op = pxo.coo_block(
             (data, (i, j)),
             grid_shape=(N_row, N_col),
             parallel=parallel,

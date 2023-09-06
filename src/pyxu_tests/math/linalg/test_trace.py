@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 import pyxu.info.ptype as pxt
-import pyxu.math.linalg as pxlg
+import pyxu.math as pxm
 import pyxu.runtime as pxrt
 import pyxu_tests.conftest as ct
 
@@ -73,13 +73,13 @@ class TestTrace:
         return tr
 
     def test_value_explicit(self, op, _op_trace):
-        tr = pxlg.trace(op)
+        tr = pxm.trace(op)
         assert ct.allclose(tr, _op_trace, as_dtype=pxrt.getPrecision().value)
 
     def test_value_hutchpp(self, op, _op_trace):
         # Ensure computed trace (w/ default parameter values) satisfies statistical property stated
         # in hutchpp() docstring, i.e.: estimation error smaller than 1e-2 w/ probability 0.9
         N_trial = 100
-        tr = np.array([pxlg.hutchpp(op) for _ in range(N_trial)])
+        tr = np.array([pxm.hutchpp(op) for _ in range(N_trial)])
         N_pass = sum(np.abs(tr - _op_trace) <= 1e-2)
         assert N_pass >= 0.9 * N_trial

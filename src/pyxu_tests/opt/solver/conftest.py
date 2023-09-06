@@ -12,7 +12,7 @@ import scipy.optimize as sopt
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.opt.stop as pxs
+import pyxu.opt.stop as pxst
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 import pyxu_tests.conftest as ct
@@ -24,25 +24,24 @@ def funcs(N: int, seed: int = 0) -> cabc.Sequence[tuple[pxt.OpT, pxt.OpT]]:
     # Used to create strongly-convex functionals.
     #
     # These functions MUST be backend-agnostic.
-    import pyxu.operator.func as pxf
-    import pyxu.operator.linop as pxl
+    import pyxu.operator as pxo
     import pyxu_tests.operator.examples.test_unitop as unitop
 
-    L2 = pxf.SquaredL2Norm(dim=N)
-    Id = pxl.IdentityOp(dim=N)
+    L2 = pxo.SquaredL2Norm(dim=N)
+    Id = pxo.IdentityOp(dim=N)
 
     rng = np.random.default_rng(seed)
     f = [
         (  # f1(x) = \norm{A1 x}{2}^{2}
             L2,
-            pxl.HomothetyOp(cst=rng.uniform(1.1, 1.3), dim=N),
+            pxo.HomothetyOp(cst=rng.uniform(1.1, 1.3), dim=N),
         ),
         (  # f2(x) = \norm{A2 x - y2}
             L2.asloss(rng.uniform(1, 3)),
             unitop.Permutation(N=N),
         ),
         (  # f3(x) = sum(x)
-            pxl.Sum(arg_shape=N),
+            pxo.Sum(arg_shape=N),
             Id,
         ),
         (  # f4(x) = \norm{a x}{2}^{2}
@@ -133,8 +132,8 @@ class SolverT(ct.DisableTestMixin):
         # This function adds a max-iter constraint to the kwargs_fit() dictionary to drastically
         # curb test time.
         kwargs = kwargs.copy()
-        c1 = pxs.MaxIter(n=5)
-        c2 = pxs.MaxDuration(t=dt.timedelta(seconds=5))
+        c1 = pxst.MaxIter(n=5)
+        c2 = pxst.MaxDuration(t=dt.timedelta(seconds=5))
         kwargs["stop_crit"] = c1 | c2
         return kwargs
 
@@ -297,7 +296,7 @@ class SolverT(ct.DisableTestMixin):
         # `far` from the ground-truth.
         # Test writers are responsible of setting x_0 such that this condition holds.
         var_crit = [
-            pxs.RelError(
+            pxst.RelError(
                 eps=eps_threshold,
                 var=k,
                 f=None,
@@ -305,7 +304,7 @@ class SolverT(ct.DisableTestMixin):
             )
             for k in cost_function.keys()
         ]
-        time_crit = pxs.MaxDuration(t=time_threshold)
+        time_crit = pxst.MaxDuration(t=time_threshold)
 
         kwargs_fit = _kwargs_fit_xp.copy()
         kwargs_fit.update(
@@ -413,7 +412,7 @@ class SolverT(ct.DisableTestMixin):
         solver = solver_klass(**kwargs_init)
 
         kwargs_fit = kwargs_fit.copy()
-        kwargs_fit["stop_crit"] = pxs.MaxIter(n=10 * stop_rate)  # avoids infinite loop if solver does not converge.
+        kwargs_fit["stop_crit"] = pxst.MaxIter(n=10 * stop_rate)  # avoids infinite loop if solver does not converge.
         solver.fit(**kwargs_fit)
 
         _, history = solver.stats()

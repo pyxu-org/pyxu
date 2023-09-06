@@ -6,7 +6,7 @@ import pytest
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.linop as pxl
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -46,7 +46,7 @@ class SumMixin:
     ) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
         arg_shape, axis = _spec
-        op = pxl.Sum(arg_shape=arg_shape, axis=axis)
+        op = pxo.Sum(arg_shape=arg_shape, axis=axis)
         return op, ndi, width
 
     @pytest.fixture

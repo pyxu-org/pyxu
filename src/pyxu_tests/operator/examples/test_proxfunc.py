@@ -6,7 +6,7 @@ import pytest
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.math.linalg as pxlg
+import pyxu.math as pxm
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 import pyxu_tests.operator.conftest as conftest
@@ -21,7 +21,7 @@ class L1Norm(pxa.ProxFunc):
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr):
-        y = pxlg.norm(arr, ord=1, axis=-1, keepdims=True)
+        y = pxm.norm(arr, ord=1, axis=-1, keepdims=True)
         return y
 
     @pxrt.enforce_precision(i=("arr", "tau"))
@@ -32,7 +32,7 @@ class L1Norm(pxa.ProxFunc):
         return y
 
     def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        from pyxu.operator.func.loss import shift_loss
+        from pyxu.operator import shift_loss
 
         op = shift_loss(op=self, data=data)
         return op

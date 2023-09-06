@@ -28,7 +28,7 @@ def t() -> float:
 
 
 class TestQuadraticFunc(conftest.QuadraticFuncT):
-    from pyxu.operator.linop import IdentityOp, NullFunc
+    from pyxu.operator import IdentityOp, NullFunc
 
     @pytest.fixture(
         params=itertools.product(

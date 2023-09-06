@@ -9,8 +9,7 @@ import pytest
 import pyxu.abc.operator as pxa
 import pyxu.info.ptype as pxt
 import pyxu.operator as pxo
-import pyxu.operator.func as pxf
-import pyxu.opt.solver as pxs
+import pyxu.opt.solver as pxsl
 import pyxu_tests.opt.solver.conftest as conftest
 
 
@@ -117,7 +116,7 @@ class MixinPDS(conftest.SolverT):
 
     @pytest.fixture(params=["CV", "PD3O"])
     def base(self, request) -> pxt.SolverC:
-        bases = {"CV": pxs.CV, "PD3O": pxs.PD3O}
+        bases = {"CV": pxsl.CV, "PD3O": pxsl.PD3O}
         return bases[request.param]
 
     @pytest.fixture(params=["1d", "nd"])
@@ -143,7 +142,7 @@ class MixinPDS(conftest.SolverT):
 
     @pytest.fixture
     def cost_function(self, init_kwargs) -> dict[str, pxt.OpT]:
-        kwargs = [init_kwargs.get(k, pxf.NullFunc(dim=self.dim)) for k in ("f", "g")]
+        kwargs = [init_kwargs.get(k, pxo.NullFunc(dim=self.dim)) for k in ("f", "g")]
         func = kwargs[0] + kwargs[1]
         out = dict()
         if init_kwargs.get("h") is not None:
@@ -167,7 +166,7 @@ class MixinPDS(conftest.SolverT):
 class TestPD3O(MixinPDS):
     @pytest.fixture
     def klass(self) -> pxt.SolverC:
-        return pxs.PD3O
+        return pxsl.PD3O
 
     @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=True, has_g=True, has_h=True, has_K=True))
     def init_kwargs(self, request) -> dict:
@@ -177,7 +176,7 @@ class TestPD3O(MixinPDS):
 class TestCV(MixinPDS):
     @pytest.fixture
     def klass(self) -> pxt.SolverC:
-        return pxs.CV
+        return pxsl.CV
 
     @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=True, has_g=True, has_h=True, has_K=True))
     def init_kwargs(self, request) -> dict:
@@ -187,7 +186,7 @@ class TestCV(MixinPDS):
 class TestCP(MixinPDS):
     @pytest.fixture
     def klass(self) -> pxt.SolverC:
-        return pxs.CP
+        return pxsl.CP
 
     @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=False, has_g=True, has_h=True, has_K=True))
     def init_kwargs(self, request, base) -> dict:
@@ -199,7 +198,7 @@ class TestCP(MixinPDS):
 class TestLV(MixinPDS):
     @pytest.fixture
     def klass(self) -> pxt.SolverC:
-        return pxs.LV
+        return pxsl.LV
 
     @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=True, has_g=False, has_h=True, has_K=True))
     def init_kwargs(self, request) -> dict:
@@ -209,7 +208,7 @@ class TestLV(MixinPDS):
 class TestDY(MixinPDS):
     @pytest.fixture
     def klass(self) -> pxt.SolverC:
-        return pxs.DY
+        return pxsl.DY
 
     @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=True, has_g=True, has_h=True, has_K=False))
     def init_kwargs(self, request) -> dict:
@@ -219,7 +218,7 @@ class TestDY(MixinPDS):
 class TestDR(MixinPDS):
     @pytest.fixture
     def klass(self) -> pxt.SolverC:
-        return pxs.DR
+        return pxsl.DR
 
     @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=False, has_g=True, has_h=True, has_K=False))
     def init_kwargs(self, request, base) -> dict:
@@ -246,7 +245,7 @@ class TestADMM(MixinPDS):
 
     @pytest.fixture
     def klass(self) -> pxt.SolverC:
-        return pxs.ADMM
+        return pxsl.ADMM
 
     @pytest.fixture(
         params=[*MixinPDS.generate_init_kwargs(has_f=True, has_g=False, has_h=True, has_K=True), nlcg_init_kwargs()]
@@ -266,7 +265,7 @@ class TestADMM(MixinPDS):
 class TestFB(MixinPDS):
     @pytest.fixture
     def klass(self) -> pxt.SolverC:
-        return pxs.FB
+        return pxsl.FB
 
     @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=True, has_g=True, has_h=False, has_K=False))
     def init_kwargs(self, request) -> dict:
@@ -276,7 +275,7 @@ class TestFB(MixinPDS):
 class TestPP(MixinPDS):
     @pytest.fixture
     def klass(self) -> pxt.SolverC:
-        return pxs.PP
+        return pxsl.PP
 
     @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=False, has_g=True, has_h=False, has_K=False))
     def init_kwargs(self, request, base) -> dict:

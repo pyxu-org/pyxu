@@ -5,7 +5,7 @@ import pytest
 from test_diff import DiffOpMixin, apply_gradient, apply_hessian
 
 import pyxu.info.ptype as pxt
-import pyxu.operator.linop.diff as pxld
+import pyxu.operator as pxo
 import pyxu_tests.operator.conftest as conftest
 
 
@@ -82,7 +82,7 @@ class TestDirectionalDerivative(DirDerOpMixin):
 
     @pytest.fixture
     def diff_op(self):
-        return pxld.DirectionalDerivative
+        return pxo.DirectionalDerivative
 
     @pytest.fixture
     def data_apply(self, op, arg_shape, diff_method, gt_diffs, directions, order) -> conftest.DataLike:
@@ -147,7 +147,7 @@ class TestDirectionalGradient(DirDerOpMixin):
 
     @pytest.fixture
     def diff_op(self):
-        return pxld.DirectionalGradient
+        return pxo.DirectionalGradient
 
     @pytest.fixture
     def data_apply(self, op, arg_shape, diff_method, gt_diffs, directions) -> conftest.DataLike:
@@ -209,7 +209,7 @@ class TestDirectionalLaplacian(DirDerOpMixin):
 
     @pytest.fixture
     def diff_op(self):
-        return pxld.DirectionalLaplacian
+        return pxo.DirectionalLaplacian
 
     @pytest.fixture
     def data_apply(self, op, arg_shape, diff_method, gt_diffs, directions, weights) -> conftest.DataLike:
@@ -271,7 +271,7 @@ class TestDirectionalHessian(DirDerOpMixin):
 
     @pytest.fixture
     def diff_op(self):
-        return pxld.DirectionalHessian
+        return pxo.DirectionalHessian
 
     @pytest.fixture
     def data_apply(self, op, arg_shape, diff_method, gt_diffs, directions) -> conftest.DataLike:

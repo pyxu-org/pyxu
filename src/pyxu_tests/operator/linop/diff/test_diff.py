@@ -6,7 +6,7 @@ import scipy.ndimage as scimage
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.linop.diff as pxld
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
@@ -355,9 +355,9 @@ class TestPartialDerivative(DiffOpMixin):
     @pytest.fixture
     def diff_op(self, diff_method):
         if diff_method == "fd":
-            return pxld.PartialDerivative.finite_difference
+            return pxo.PartialDerivative.finite_difference
         elif diff_method == "gd":
-            return pxld.PartialDerivative.gaussian_derivative
+            return pxo.PartialDerivative.gaussian_derivative
 
 
 class TestGradient(DiffOpMixin):
@@ -403,7 +403,7 @@ class TestGradient(DiffOpMixin):
 
     @pytest.fixture
     def diff_op(self):
-        return pxld.Gradient
+        return pxo.Gradient
 
     @pytest.fixture()
     def diff_kwargs(self, arg_shape, directions, ndi, width, sampling, diff_method):
@@ -484,7 +484,7 @@ class TestHessian(DiffOpMixin):
 
     @pytest.fixture
     def diff_op(self):
-        return pxld.Hessian
+        return pxo.Hessian
 
     @pytest.fixture
     def diff_kwargs(self, arg_shape, directions, ndi, width, sampling, diff_method):
@@ -562,7 +562,7 @@ class TestJacobian(DiffOpMixin):
 
     @pytest.fixture
     def diff_op(self):
-        return pxld.Jacobian
+        return pxo.Jacobian
 
     @pytest.fixture
     def diff_kwargs(self, arg_shape, n_channels, directions, ndi, width, sampling, diff_method):
@@ -642,7 +642,7 @@ class TestDivergence(DiffOpMixin):
 
     @pytest.fixture
     def diff_op(self):
-        return pxld.Divergence
+        return pxo.Divergence
 
     @pytest.fixture
     def diff_kwargs(self, arg_shape, directions, ndi, width, sampling, diff_method):
@@ -690,7 +690,7 @@ class TestLaplacian(DiffOpMixin):
 
     @pytest.fixture
     def diff_op(self):
-        return pxld.Laplacian
+        return pxo.Laplacian
 
     @pytest.fixture
     def diff_kwargs(self, arg_shape, ndi, width, sampling, diff_method):

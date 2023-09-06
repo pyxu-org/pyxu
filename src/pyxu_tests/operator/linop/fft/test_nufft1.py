@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import pyxu.info.deps as pxd
-import pyxu.operator.linop as pxl
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 import pyxu_tests.operator.conftest as conftest
@@ -82,7 +82,7 @@ class TestNUFFT1(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
         ndi, width = request.param
         xp, dtype = ndi.module(), width.value
         with pxrt.Precision(width):
-            op = pxl.NUFFT.type1(
+            op = pxo.NUFFT.type1(
                 x=xp.array(transform_x, dtype=dtype),
                 N=transform_N,
                 isign=transform_sign,

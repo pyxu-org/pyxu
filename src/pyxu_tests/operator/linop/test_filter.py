@@ -7,7 +7,7 @@ import skimage
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.linop.filter as pxf
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 import pyxu_tests.operator.linop.diff.test_diff as test_diff
@@ -48,7 +48,7 @@ class FilterMixin(conftest.SquareOpT):
 class TestMovingAverage(FilterMixin):
     @pytest.fixture
     def filter_klass(self):
-        return pxf.MovingAverage
+        return pxo.MovingAverage
 
     @pytest.fixture(
         params=[
@@ -101,7 +101,7 @@ class TestMovingAverage(FilterMixin):
 class TestGaussian(FilterMixin):
     @pytest.fixture
     def filter_klass(self):
-        return pxf.Gaussian
+        return pxo.Gaussian
 
     @pytest.fixture(
         params=[
@@ -139,7 +139,7 @@ class TestGaussian(FilterMixin):
 class TestDoG(FilterMixin):
     @pytest.fixture
     def filter_klass(self):
-        return pxf.DifferenceOfGaussians
+        return pxo.DifferenceOfGaussians
 
     @pytest.fixture(
         params=[
@@ -184,7 +184,7 @@ class TestDoG(FilterMixin):
 class TestLaplace(FilterMixin):
     @pytest.fixture
     def filter_klass(self):
-        return pxf.Laplace
+        return pxo.Laplace
 
     @pytest.fixture(params=[(8,), (4, 4, 4)])
     def arg_shape(self, request):
@@ -281,7 +281,7 @@ class EdgeFilterMixin(conftest.DiffMapT):
 class TestSobel(EdgeFilterMixin):
     @pytest.fixture
     def filter_klass(self):
-        return pxf.Sobel
+        return pxo.Sobel
 
     @pytest.fixture
     def filter_skimage(self):
@@ -291,7 +291,7 @@ class TestSobel(EdgeFilterMixin):
 class TestPrewitt(EdgeFilterMixin):
     @pytest.fixture
     def filter_klass(self):
-        return pxf.Prewitt
+        return pxo.Prewitt
 
     @pytest.fixture
     def filter_skimage(self):
@@ -301,7 +301,7 @@ class TestPrewitt(EdgeFilterMixin):
 class TestScharr(EdgeFilterMixin):
     @pytest.fixture
     def filter_klass(self):
-        return pxf.Scharr
+        return pxo.Scharr
 
     @pytest.fixture
     def filter_skimage(self):
@@ -375,7 +375,7 @@ class TestStructureTensor(conftest.DiffMapT):
     @pytest.fixture
     def spec(self, arg_shape, filter_kwargs, ndi, width) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         with pxrt.Precision(width):
-            op = pxf.StructureTensor(
+            op = pxo.StructureTensor(
                 arg_shape=arg_shape,
                 gpu=ndi == pxd.NDArrayInfo.CUPY,
                 width=width,
