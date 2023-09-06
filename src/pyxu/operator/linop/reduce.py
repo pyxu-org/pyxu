@@ -4,7 +4,7 @@ import numpy as np
 
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
-import pyxu.operator.interop.source as pxsrc
+import pyxu.operator.interop.source as px_src
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -108,7 +108,7 @@ def Sum(
     dim = arg_shape.prod()
     codim = dim // arg_shape[axis].prod()
 
-    op = pxsrc.from_source(
+    op = px_src.from_source(
         cls=pxa.LinOp if codim > 1 else pxa.LinFunc,
         shape=(codim, dim),
         embed=dict(

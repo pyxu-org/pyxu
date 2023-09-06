@@ -7,7 +7,7 @@ import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.info.warning as pxw
-import pyxu.math.linalg as pxlg
+import pyxu.math as pxm
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -41,7 +41,7 @@ class L1Norm(_ShiftLossMixin, pxa.ProxFunc):
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        y = pxlg.norm(arr, ord=1, axis=-1, keepdims=True)
+        y = pxm.norm(arr, ord=1, axis=-1, keepdims=True)
         return y
 
     @pxrt.enforce_precision(i=("arr", "tau"))
@@ -64,7 +64,7 @@ class L2Norm(_ShiftLossMixin, pxa.ProxFunc):
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        y = pxlg.norm(arr, ord=2, axis=-1, keepdims=True)
+        y = pxm.norm(arr, ord=2, axis=-1, keepdims=True)
         return y
 
     @pxrt.enforce_precision(i=("arr", "tau"))
@@ -89,7 +89,7 @@ class SquaredL2Norm(pxa.QuadraticFunc):
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        y = pxlg.norm(arr, axis=-1, keepdims=True)
+        y = pxm.norm(arr, axis=-1, keepdims=True)
         y **= 2
         return y
 
@@ -104,7 +104,7 @@ class SquaredL2Norm(pxa.QuadraticFunc):
         return y
 
     def _quad_spec(self):
-        from pyxu.operator.linop import HomothetyOp, NullFunc
+        from pyxu.operator import HomothetyOp, NullFunc
 
         Q = HomothetyOp(dim=self.dim, cst=2)
         c = NullFunc(dim=self.dim)
@@ -143,7 +143,7 @@ class SquaredL1Norm(_ShiftLossMixin, pxa.ProxFunc):
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        y = pxlg.norm(arr, ord=1, axis=-1, keepdims=True)
+        y = pxm.norm(arr, ord=1, axis=-1, keepdims=True)
         y **= 2
         return y
 
@@ -249,7 +249,7 @@ class LInfinityNorm(_ShiftLossMixin, pxa.ProxFunc):
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        y = pxlg.norm(arr, ord=np.inf, axis=-1, keepdims=True)
+        y = pxm.norm(arr, ord=np.inf, axis=-1, keepdims=True)
         return y
 
     @pxrt.enforce_precision(i=("arr", "tau"))

@@ -1,13 +1,13 @@
 import collections.abc as cabc
 import itertools
 
-import pyxu.abc.operator as pxo
+import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.operator.linop.base as pxlb
 import pyxu.operator.linop.diff as pxld
 import pyxu.operator.linop.pad as pxlp
-import pyxu.operator.linop.stencil as pxls
+import pyxu.operator.linop.stencil.stencil as pxls
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -872,7 +872,7 @@ def _EdgeFilter(
     return op
 
 
-class StructureTensor(pxo.DiffMap):
+class StructureTensor(pxa.DiffMap):
     r"""
     Structure tensor operator.
 
@@ -920,7 +920,7 @@ class StructureTensor(pxo.DiffMap):
 
        import numpy as np
        import matplotlib.pyplot as plt
-       from pyxu.operator.linop.diff import StructureTensor
+       from pyxu.operator import StructureTensor
        from pyxu.util.misc import peaks
 
        # Define input image

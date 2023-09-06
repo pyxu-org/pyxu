@@ -5,7 +5,7 @@ import warnings
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.info.warning as pxw
-import pyxu.operator.func as pxf
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -138,9 +138,9 @@ class PGD(pxa.Solver):
         mst["x"] = mst["x_prev"] = x0
 
         if self._f is None:
-            self._f = pxf.NullFunc(dim=x0.shape[-1])
+            self._f = pxo.NullFunc(dim=x0.shape[-1])
         if self._g is None:
-            self._g = pxf.NullFunc(dim=x0.shape[-1])
+            self._g = pxo.NullFunc(dim=x0.shape[-1])
 
         if tau is None:
             mst["tau"] = pxrt.coerce(1 / self._f.diff_lipschitz)

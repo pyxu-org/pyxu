@@ -1046,13 +1046,13 @@ class ProxFunc(Func):
            plt.legend(labels)
            plt.title('Derivative of Moreau Envelope')
         """
-        from pyxu.operator.interop.source import from_source
+        from pyxu.operator.interop import from_source
 
         assert mu > 0, f"mu: expected positive, got {mu}"
 
         @pxrt.enforce_precision(i="arr")
         def op_apply(_, arr):
-            from pyxu.math.linalg import norm
+            from pyxu.math import norm
 
             x = self.prox(arr, tau=_._mu)
             out = pxu.copy_if_unsafe(self.apply(x))
@@ -1247,7 +1247,7 @@ class QuadraticFunc(ProxDiffFunc):
         t: Real
             offset. (Default: 0)
         """
-        from pyxu.operator.linop import IdentityOp, NullFunc
+        from pyxu.operator import IdentityOp, NullFunc
 
         super().__init__(shape=shape)
 
@@ -1281,7 +1281,7 @@ class QuadraticFunc(ProxDiffFunc):
 
     @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
-        from pyxu.operator.linop import HomothetyOp
+        from pyxu.operator import HomothetyOp
         from pyxu.opt.solver import CG
         from pyxu.opt.stop import MaxIter
 
@@ -1300,7 +1300,7 @@ class QuadraticFunc(ProxDiffFunc):
         return slvr.solution()
 
     def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        from pyxu.operator.func.loss import shift_loss
+        from pyxu.operator import shift_loss
 
         op = shift_loss(op=self, data=data)
         return op
@@ -1496,7 +1496,7 @@ class LinOp(DiffMap):
                 func = sig_func = LinFunc.estimate_lipschitz
                 estimate = lambda: func(self.squeeze(), **kwargs)
             else:
-                from pyxu.math.linalg import hutchpp as func
+                from pyxu.math import hutchpp as func
 
                 sig_func = func
 
@@ -1730,7 +1730,7 @@ class LinOp(DiffMap):
 
         where :math:`\tau > 0` corresponds to the `damp` parameter.
         """
-        from pyxu.operator.linop import HomothetyOp
+        from pyxu.operator import HomothetyOp
         from pyxu.opt.solver import CG
         from pyxu.opt.stop import MaxIter
 
@@ -1777,7 +1777,7 @@ class LinOp(DiffMap):
         op: OpT
             (M, N) Moore-Penrose pseudo-inverse operator.
         """
-        from pyxu.operator.interop.source import from_source
+        from pyxu.operator.interop import from_source
 
         def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
             return self.pinv(
@@ -1877,7 +1877,7 @@ class SquareOp(LinOp):
         tr: Real
             Trace estimate.
         """
-        from pyxu.math.linalg import hutchpp, trace
+        from pyxu.math import hutchpp, trace
 
         method = kwargs.get("method", "hutchpp").lower().strip()
 
@@ -1969,7 +1969,7 @@ class UnitOp(NormalOp):
         return op
 
     def gram(self) -> pxt.OpT:
-        from pyxu.operator.linop import IdentityOp
+        from pyxu.operator import IdentityOp
 
         return IdentityOp(dim=self.dim).squeeze()
 
@@ -2108,7 +2108,7 @@ class LinFunc(ProxDiffFunc, LinOp):
         return self.grad(arr)
 
     def cogram(self) -> pxt.OpT:
-        from pyxu.operator.linop import HomothetyOp
+        from pyxu.operator import HomothetyOp
 
         L = self.estimate_lipschitz()
         return HomothetyOp(cst=L**2, dim=1)

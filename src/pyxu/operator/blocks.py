@@ -6,7 +6,7 @@ import types
 
 import numpy as np
 
-import pyxu.abc.operator as pxo
+import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
@@ -244,7 +244,7 @@ def block_diag(
 
     def op_svdvals(_, **kwargs) -> pxt.NDArray:
         # op.svdvals(**kwargs) = [top|bottom-k]([op1.svdvals(**kwargs), ..., opN.svdvals(**kwargs)])
-        if not _.has(pxo.Property.LINEAR):
+        if not _.has(pxa.Property.LINEAR):
             raise NotImplementedError
 
         k = kwargs.get("k", 1)
@@ -260,7 +260,7 @@ def block_diag(
     @pxrt.enforce_precision(i=("arr", "damp"))
     def op_pinv(_, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         # op.pinv(y, damp) = concatenate([op1.pinv(y1, damp), ..., opN.pinv(yN, damp)], axis=-1)
-        if not _.has(pxo.Property.LINEAR):
+        if not _.has(pxa.Property.LINEAR):
             raise NotImplementedError
 
         parts = dict()
@@ -280,14 +280,14 @@ def block_diag(
         #                          sum([op1.trace(**kwargs), ..., opN.trace(**kwargs)])
         #                      else
         #                          SquareOp.trace(**kwargs)
-        if not _.has(pxo.Property.LINEAR_SQUARE):
+        if not _.has(pxa.Property.LINEAR_SQUARE):
             raise NotImplementedError
 
-        if all(op.has(pxo.Property.LINEAR_SQUARE) for op in _._block.values()):
+        if all(op.has(pxa.Property.LINEAR_SQUARE) for op in _._block.values()):
             parts = [op.trace(**kwargs) for op in _._block.values()]
             tr = sum(parts)
         else:  # default fallback
-            tr = pxo.SquareOp.trace(_, **kwargs)
+            tr = pxa.SquareOp.trace(_, **kwargs)
         return tr
 
     def op_expr(_) -> tuple:
@@ -619,7 +619,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         op_codim = sum(ops[0].codim for ops in row.values())
         op_dim = sum(ops[0].dim for ops in col.values())
 
-        P = pxo.Property
+        P = pxa.Property
         properties = set.intersection(*[set(op.properties()) for op in blk.values()])
         if op_codim > 1:
             properties -= {
@@ -653,7 +653,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
             if (op_codim == op_dim) and (P.LINEAR in properties):
                 properties.add(P.LINEAR_SQUARE)
 
-        klass = pxo.Operator._infer_operator_type(properties)
+        klass = pxa.Operator._infer_operator_type(properties)
         op = klass(shape=(op_codim, op_dim))
         return op
 
@@ -688,7 +688,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         if no_eval:
             for (r, c), op in self._block.items():
                 Ls_all[r, c] = op.lipschitz**2
-        elif self.has(pxo.Property.LINEAR):
+        elif self.has(pxa.Property.LINEAR):
             L = self.__class__.estimate_lipschitz(self, **kwargs)
             return L
         else:
@@ -708,7 +708,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         return L
 
     def _expr(self) -> tuple:
-        class _Block(pxo.Operator):
+        class _Block(pxa.Operator):
             def __init__(self, idx: tuple[int, int], op: pxt.OpT):
                 super().__init__(shape=op.shape)
                 self._name = op._name
@@ -729,7 +729,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
     @_parallelize
     @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
-        if not self.has(pxo.Property.PROXIMABLE):
+        if not self.has(pxa.Property.PROXIMABLE):
             raise NotImplementedError
 
         parts = dict()
@@ -744,17 +744,17 @@ class _COOBlock:  # See coo_block() for a detailed description.
         return out
 
     def _quad_spec(self):
-        if not self.has(pxo.Property.QUADRATIC):
+        if not self.has(pxa.Property.QUADRATIC):
             raise NotImplementedError
 
         parts = dict()
         for idx, op in self._block.items():
-            if op.has(pxo.Property.QUADRATIC):
+            if op.has(pxa.Property.QUADRATIC):
                 _Q, _c, _t = op._quad_spec()
             else:  # op is necessarily LINEAR
-                from pyxu.operator.linop import NullOp
+                from pyxu.operator import NullOp
 
-                _Q = NullOp(shape=(op.dim, op.dim)).asop(pxo.PosDefOp)
+                _Q = NullOp(shape=(op.dim, op.dim)).asop(pxa.PosDefOp)
                 _c = op
                 _t = 0
             parts[idx] = _Q, _c, _t
@@ -764,10 +764,10 @@ class _COOBlock:  # See coo_block() for a detailed description.
         return (block_diag(Q), hstack(c), sum(t))
 
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
-        if not self.has(pxo.Property.DIFFERENTIABLE):
+        if not self.has(pxa.Property.DIFFERENTIABLE):
             raise NotImplementedError
 
-        if self.has(pxo.Property.LINEAR):
+        if self.has(pxa.Property.LINEAR):
             out = self
         else:
             data, i, j = [], [], []
@@ -787,7 +787,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         return out
 
     def estimate_diff_lipschitz(self, **kwargs) -> pxt.Real:
-        if not self.has(pxo.Property.DIFFERENTIABLE):
+        if not self.has(pxa.Property.DIFFERENTIABLE):
             raise NotImplementedError
 
         dLs_all = np.zeros(self._grid_shape)  # squared diff-Lipschitz constant of each block.
@@ -796,10 +796,10 @@ class _COOBlock:  # See coo_block() for a detailed description.
         if no_eval:
             for (r, c), op in self._block.items():
                 dLs_all[r, c] = op.diff_lipschitz**2
-        elif self.has(pxo.Property.QUADRATIC):
-            dL = pxo.QuadraticFunc.estimate_diff_lipschitz(self, **kwargs)
+        elif self.has(pxa.Property.QUADRATIC):
+            dL = pxa.QuadraticFunc.estimate_diff_lipschitz(self, **kwargs)
             return dL
-        elif self.has(pxo.Property.LINEAR):
+        elif self.has(pxa.Property.LINEAR):
             dL = 0
             return dL
         else:
@@ -821,7 +821,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
     @_parallelize
     @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
-        if not self.has(pxo.Property.DIFFERENTIABLE_FUNCTION):
+        if not self.has(pxa.Property.DIFFERENTIABLE_FUNCTION):
             raise NotImplementedError
 
         parts = dict()
@@ -838,7 +838,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
     @_parallelize
     @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
-        if not self.has(pxo.Property.LINEAR):
+        if not self.has(pxa.Property.LINEAR):
             raise NotImplementedError
 
         # compute blocks
@@ -860,7 +860,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         return out
 
     def asarray(self, **kwargs) -> pxt.NDArray:
-        if not self.has(pxo.Property.LINEAR):
+        if not self.has(pxa.Property.LINEAR):
             raise NotImplementedError
 
         parts = dict()
@@ -887,7 +887,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         return out
 
     def gram(self) -> pxt.OpT:
-        if not self.has(pxo.Property.LINEAR):
+        if not self.has(pxa.Property.LINEAR):
             raise NotImplementedError
 
         blk = self._block  # shorthand
@@ -909,7 +909,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         # G.[apply,adjoint]() are thus redefined to improve performance.
         data, i, j = [], [], []
         for (r, c), _ops in ops.items():
-            klass = pxo.SelfAdjointOp if (r == c) else pxo.LinOp
+            klass = pxa.SelfAdjointOp if (r == c) else pxa.LinOp
             _op = klass(shape=_ops[0].shape)  # .[apply|adjoint]() overridden below.
             _op._ops = _ops  # embed for introspection
 
@@ -938,12 +938,12 @@ class _COOBlock:  # See coo_block() for a detailed description.
                 parallel=self._parallel,
             )
             .op()
-            .asop(pxo.SelfAdjointOp)
+            .asop(pxa.SelfAdjointOp)
         )
         return G.squeeze()
 
     def cogram(self) -> pxt.OpT:
-        if not self.has(pxo.Property.LINEAR):
+        if not self.has(pxa.Property.LINEAR):
             raise NotImplementedError
 
         blk = self._block  # shorthand
@@ -965,7 +965,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         # CG.[apply,adjoint]() are thus redefined to improve performance.
         data, i, j = [], [], []
         for (r, c), _ops in ops.items():
-            klass = pxo.SelfAdjointOp if (r == c) else pxo.LinOp
+            klass = pxa.SelfAdjointOp if (r == c) else pxa.LinOp
             _op = klass(shape=_ops[0].shape)  # .[apply|adjoint]() overridden below.
             _op._ops = _ops  # embed for introspection
 
@@ -994,7 +994,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
                 parallel=self._parallel,
             )
             .op()
-            .asop(pxo.SelfAdjointOp)
+            .asop(pxa.SelfAdjointOp)
         )
         return CG.squeeze()
 

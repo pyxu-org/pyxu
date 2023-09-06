@@ -21,9 +21,9 @@ in these regions.
 
    import matplotlib.pyplot as plt
    import numpy as np
-   import pyxu.experimental.sampler as pxes
+   import pyxu.experimental.sampler as pxe_sampler
    import pyxu.operator as pxo
-   import pyxu.opt.solver as pxs
+   import pyxu.opt.solver as pxsl
    import skimage as skim
 
    sh_im = (128,) * 2
@@ -41,7 +41,7 @@ in these regions.
    theta = 10  # Regularization parameter
 
    # Compute MAP estimator
-   pgd = pxs.PGD(f=f + theta * g)
+   pgd = pxsl.PGD(f=f + theta * g)
    pgd.fit(x0=y.ravel())
    im_MAP = pgd.solution().reshape(sh_im)
 
@@ -56,14 +56,14 @@ in these regions.
    ax[2].set_title("MAP reconstruction")
    ax[2].axis("off")
 
-   ula = pxes.ULA(f=f + theta * g)  # ULA sampler
+   ula = pxe_sampler.ULA(f=f + theta * g)  # ULA sampler
 
    n = int(1e4)  # Number of samples
    burn_in = int(1e3)  # Number of burn-in iterations
    gen = ula.samples(x0=np.zeros(N), rng=rng)  # Generator for ULA samples
    # Objects for computing online statistics based on samples
-   online_mean = pxes.OnlineMoment(order=1)
-   online_var = pxes.OnlineVariance()
+   online_mean = pxe_sampler.OnlineMoment(order=1)
+   online_var = pxe_sampler.OnlineVariance()
 
    i = 0  # Number of samples
    for sample in gen:  # Draw ULA sample
@@ -243,13 +243,13 @@ class ULA(_Sampler):
 
        import matplotlib.pyplot as plt
        import numpy as np
-       import pyxu.experimental.sampler as pxes
+       import pyxu.experimental.sampler as pxe_sampler
        import pyxu.operator as pxo
        import scipy as sp
 
        f = pxo.SquaredL2Norm(dim=1) / 2  # To sample 1D normal distribution (mean 0, variance 1)
-       ula = pxes.ULA(f=f)  # Sampler with maximum step size
-       ula_lb = pxes.ULA(f=f, gamma=1e-1)  # Sampler with small step size
+       ula = pxe_sampler.ULA(f=f)  # Sampler with maximum step size
+       ula_lb = pxe_sampler.ULA(f=f, gamma=1e-1)  # Sampler with small step size
 
        gen_ula = ula.samples(x0=np.zeros(1))
        gen_ula_lb = ula_lb.samples(x0=np.zeros(1))
@@ -259,10 +259,10 @@ class ULA(_Sampler):
            next(gen_ula_lb)
 
        # Online statistics objects
-       mean_ula = pxes.OnlineMoment(order=1)
-       mean_ula_lb = pxes.OnlineMoment(order=1)
-       var_ula = pxes.OnlineVariance()
-       var_ula_lb = pxes.OnlineVariance()
+       mean_ula = pxe_sampler.OnlineMoment(order=1)
+       mean_ula_lb = pxe_sampler.OnlineMoment(order=1)
+       var_ula = pxe_sampler.OnlineVariance()
+       var_ula_lb = pxe_sampler.OnlineVariance()
 
        n = int(1e4)  # Number of samples
        samples_ula = np.zeros(n)

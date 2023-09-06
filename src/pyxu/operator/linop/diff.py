@@ -13,7 +13,7 @@ import pyxu.operator.blocks as pxb
 import pyxu.operator.linop.base as pxlb
 import pyxu.operator.linop.pad as pxlp
 import pyxu.operator.linop.reduce as pxlr
-import pyxu.operator.linop.stencil as pxls
+import pyxu.operator.linop.stencil.stencil as pxls
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -850,6 +850,7 @@ class PartialDerivative:
            import matplotlib.pyplot as plt
            from pyxu.operator import PartialDerivative
            from pyxu.util.misc import peaks
+
            x = np.linspace(-2.5, 2.5, 25)
            xx, yy = np.meshgrid(x, x)
            image = peaks(xx, yy)
@@ -1015,7 +1016,7 @@ class _StackDiffHelper:
             -------
             .. code-block:: python3
 
-               from pyxu.operator.linop import Hessian
+               from pyxu.operator import Hessian
 
                H = hessian(
                     arg_shape=(5, 6),

@@ -1,6 +1,6 @@
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
-import pyxu.math.linalg as pxlg
+import pyxu.math as pxm
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -128,7 +128,7 @@ class CG(pxa.Solver):
         xp = pxu.get_array_module(x)
 
         Ap = self._A.apply(p)
-        rr = pxlg.norm(r, ord=2, axis=-1, keepdims=True) ** 2
+        rr = pxm.norm(r, ord=2, axis=-1, keepdims=True) ** 2
         alpha = rr / (p * Ap).sum(axis=-1, keepdims=True)
         x += alpha * p
 
@@ -145,7 +145,7 @@ class CG(pxa.Solver):
             r[:] = mst["b"]
             r -= self._A.apply(x)
         else:  # implicit eval
-            beta = pxlg.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
+            beta = pxm.norm(r, ord=2, axis=-1, keepdims=True) ** 2 / rr
         p *= beta
         p += r
 

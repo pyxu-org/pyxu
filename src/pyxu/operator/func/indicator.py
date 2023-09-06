@@ -6,7 +6,7 @@ import numpy as np
 
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
-import pyxu.math.linalg as pxlg
+import pyxu.math as pxm
 import pyxu.operator.func.norm as pxf
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
@@ -51,7 +51,7 @@ class _NormBall(_IndicatorFunction):
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        norm = pxlg.norm(arr, ord=self._ord, axis=-1, keepdims=True)
+        norm = pxm.norm(arr, ord=self._ord, axis=-1, keepdims=True)
         out = self._bool2indicator(norm <= self._radius, arr.dtype)
         return out
 

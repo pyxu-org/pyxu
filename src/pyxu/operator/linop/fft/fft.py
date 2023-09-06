@@ -55,7 +55,7 @@ class FFT(pxa.LinOp):  # Inherits from LinOp instead of NormalOp since operator 
 
       .. code-block:: python3
 
-         from pyxu.operator.linop import FFT
+         from pyxu.operator import FFT
          import pyxu.util as pxu
 
          N = 10
@@ -75,7 +75,7 @@ class FFT(pxa.LinOp):  # Inherits from LinOp instead of NormalOp since operator 
 
       .. code-block:: python3
 
-         from pyxu.operator.linop import FFT
+         from pyxu.operator import FFT
          import pyxu.util as pxu
 
          N = 10
@@ -105,7 +105,7 @@ class FFT(pxa.LinOp):  # Inherits from LinOp instead of NormalOp since operator 
 
       .. code-block:: python3
 
-         from pyxu.operator.linop import FFT
+         from pyxu.operator import FFT
          import pyxu.util as pxu
 
          N_h, N_w = 10, 8
@@ -130,7 +130,7 @@ class FFT(pxa.LinOp):  # Inherits from LinOp instead of NormalOp since operator 
 
       .. code-block:: python3
 
-         from pyxu.operator.linop import FFT
+         from pyxu.operator import FFT
          import pyxu.util as pxu
 
          N_h, N_w = 10, 8
@@ -221,7 +221,7 @@ class FFT(pxa.LinOp):  # Inherits from LinOp instead of NormalOp since operator 
         return L
 
     def gram(self) -> pxt.OpT:
-        from pyxu.operator.linop import HomothetyOp
+        from pyxu.operator import HomothetyOp
 
         op_g = HomothetyOp(dim=self.dim, cst=self.lipschitz**2)
         return op_g
@@ -232,7 +232,7 @@ class FFT(pxa.LinOp):  # Inherits from LinOp instead of NormalOp since operator 
             # There is no simple closed form to compute the co-gram in this case.
             op_cg = super().cogram()
         else:
-            from pyxu.operator.linop import HomothetyOp
+            from pyxu.operator import HomothetyOp
 
             op_cg = HomothetyOp(dim=self.codim, cst=self.lipschitz**2)
         return op_cg

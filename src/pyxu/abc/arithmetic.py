@@ -117,7 +117,7 @@ class ScaleRule(Rule):
 
     def op(self) -> pxt.OpT:
         if np.isclose(self._cst, 0):
-            from pyxu.operator.linop import NullOp
+            from pyxu.operator import NullOp
 
             op = NullOp(shape=self._op.shape).squeeze()
         elif np.isclose(self._cst, 1):
@@ -314,7 +314,7 @@ class ArgScaleRule(Rule):
     def op(self) -> pxt.OpT:
         if np.isclose(self._cst, 0):
             # ConstantVECTOR output: modify ConstantValued to work.
-            from pyxu.operator.map import ConstantValued
+            from pyxu.operator import ConstantValued
 
             @pxrt.enforce_precision(i="arr")
             def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
@@ -604,7 +604,7 @@ class ArgShiftRule(Rule):
         Q2 = Q1
 
         if isinstance(self._cst, pxt.Real):
-            from pyxu.operator.linop.reduce import Sum
+            from pyxu.operator import Sum
 
             # backend-agnostic `c2`-term
             c2 = c1 + (self._cst * (Sum(arg_shape=(Q1.dim,)) * Q1))
@@ -1368,7 +1368,7 @@ class PowerRule(Rule):
 
     def op(self) -> pxt.OpT:
         if self._k == 0:
-            from pyxu.operator.linop import IdentityOp
+            from pyxu.operator import IdentityOp
 
             op = IdentityOp(dim=self._op.codim)
         else:

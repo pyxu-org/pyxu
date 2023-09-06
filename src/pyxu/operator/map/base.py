@@ -2,7 +2,7 @@ import numpy as np
 
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
-import pyxu.operator.interop.source as pxsrc
+import pyxu.operator.interop.source as px_src
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -20,7 +20,7 @@ def ConstantValued(
     """
     cst = float(cst)
     if np.isclose(cst, 0):
-        from pyxu.operator.linop import NullOp
+        from pyxu.operator import NullOp
 
         op = NullOp(shape=shape)
     else:
@@ -33,7 +33,7 @@ def ConstantValued(
             return out
 
         def op_jacobian(_, arr: pxt.NDArray) -> pxt.OpT:
-            from pyxu.operator.linop import NullOp
+            from pyxu.operator import NullOp
 
             return NullOp(shape=_.shape).squeeze()
 
@@ -48,7 +48,7 @@ def ConstantValued(
         def op_prox(_, arr: pxt.NDArray, tau: pxt.NDArray) -> pxt.NDArray:
             return pxu.read_only(arr)
 
-        op = pxsrc.from_source(
+        op = px_src.from_source(
             cls=pxa.ProxDiffFunc if (shape[0] == 1) else pxa.DiffMap,
             shape=shape,
             embed=dict(

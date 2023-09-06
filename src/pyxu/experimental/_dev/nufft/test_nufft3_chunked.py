@@ -4,11 +4,11 @@ import time
 import dask.array as da
 import numpy as np
 
-import pyxu.operator.linop.nufft as nufft
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
-importlib.reload(nufft)
+importlib.reload(pxo)
 
 if __name__ == "__main__":
     rng = np.random.default_rng(0)
@@ -49,7 +49,7 @@ if __name__ == "__main__":
             nthreads=1,
         )
         # Chunked NUFFT ===================================
-        A = nufft.NUFFT.type3(**kwargs, chunked=True, parallel=False)
+        A = pxo.NUFFT.type3(**kwargs, chunked=True, parallel=False)
         t = time.time()
         x_chunks, z_chunks = A.auto_chunk(
             max_mem=100,
@@ -63,7 +63,7 @@ if __name__ == "__main__":
         print("t_alloc:", t_alloc)
         # Regular NUFFT ===================================
         kwargs.update(nthreads=0, eps=0)  # to avoid memory issues
-        B = nufft.NUFFT.type3(**kwargs)
+        B = pxo.NUFFT.type3(**kwargs)
 
         use_dask = True
         arr = rng.normal(size=(kwargs.get("n_trans") * 3, M))

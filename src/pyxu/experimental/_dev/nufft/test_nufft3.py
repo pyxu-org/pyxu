@@ -2,7 +2,7 @@ import dask.array as da
 import distributed  # noqa: F401
 import numpy as np
 
-import pyxu.operator.linop.nufft as nufft
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -21,7 +21,7 @@ z = rng.normal(size=(N, D))
 
 with pxrt.Precision(pxrt.Width.DOUBLE):
     N_trans, isign = 10, -1
-    A = nufft.NUFFT.type3(
+    A = pxo.NUFFT.type3(
         x=x,
         z=z,
         n_trans=N_trans,

@@ -1,9 +1,9 @@
 import numpy as np
 
-import pyxu.abc.operator as pxo
+import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.operator.interop.source as pxsrc
+import pyxu.operator.interop.source as px_src
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -77,11 +77,11 @@ def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
         properties = set(A.properties() & B.properties())
         sh = _infer_op_shape(A.shape, B.shape)
         if sh[0] == sh[1]:
-            properties.add(pxo.Property.LINEAR_SQUARE)
-        if pxo.Property.FUNCTIONAL in properties:
-            klass = pxo.LinFunc
+            properties.add(pxa.Property.LINEAR_SQUARE)
+        if pxa.Property.FUNCTIONAL in properties:
+            klass = pxa.LinFunc
         else:
-            klass = pxo.Operator._infer_operator_type(properties)
+            klass = pxa.Operator._infer_operator_type(properties)
         return klass
 
     @pxrt.enforce_precision(i="arr")
@@ -190,7 +190,7 @@ def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
     def op_trace(_, **kwargs) -> pxt.Real:
         # tr(A \kron B) = tr(A) * tr(B)
         # [if both square, else default algorithm]
-        P = pxo.Property.LINEAR_SQUARE
+        P = pxa.Property.LINEAR_SQUARE
         if not _.has(P):
             raise NotImplementedError
 
@@ -202,7 +202,7 @@ def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
 
     _A = A.squeeze()
     _B = B.squeeze()
-    assert (klass := _infer_op_klass(_A, _B)).has(pxo.Property.LINEAR)
+    assert (klass := _infer_op_klass(_A, _B)).has(pxa.Property.LINEAR)
     is_scalar = lambda _: _.shape == (1, 1)
     if is_scalar(_A) and is_scalar(_B):
         from pyxu.operator.linop.base import HomothetyOp
@@ -213,7 +213,7 @@ def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
     elif (not is_scalar(_A)) and is_scalar(B):
         return _A * _B.asarray().item()
     else:
-        op = pxsrc.from_source(
+        op = px_src.from_source(
             cls=klass,
             shape=_infer_op_shape(_A.shape, _B.shape),
             embed=dict(
@@ -299,12 +299,12 @@ def khatri_rao(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
         # square (if output square)
         sh = _infer_op_shape(A.shape, B.shape)
         if sh[0] == 1:
-            klass = pxo.LinFunc
+            klass = pxa.LinFunc
         else:
-            properties = set(pxo.LinOp.properties())
+            properties = set(pxa.LinOp.properties())
             if sh[0] == sh[1]:
-                properties.add(pxo.Property.LINEAR_SQUARE)
-            klass = pxo.Operator._infer_operator_type(properties)
+                properties.add(pxa.Property.LINEAR_SQUARE)
+            klass = pxa.Operator._infer_operator_type(properties)
         return klass
 
     @pxrt.enforce_precision(i="arr")
@@ -361,9 +361,9 @@ def khatri_rao(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
 
     _A = A.squeeze()
     _B = B.squeeze()
-    assert (klass := _infer_op_klass(_A, _B)).has(pxo.Property.LINEAR)
+    assert (klass := _infer_op_klass(_A, _B)).has(pxa.Property.LINEAR)
 
-    op = pxsrc.from_source(
+    op = px_src.from_source(
         cls=klass,
         shape=_infer_op_shape(_A.shape, _B.shape),
         embed=dict(

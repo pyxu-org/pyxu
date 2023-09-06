@@ -56,7 +56,8 @@ class KLDivergence(pxa.ProxFunc):
         .. code-block:: python3
 
            import numpy as np
-           from pyxu.operator.func.loss import KLDivergence
+           from pyxu.operator import KLDivergence
+
            y = np.arange(10)
            loss = KLDivergence(dim=y.size, data=y)
            x = 2 * np.arange(10)

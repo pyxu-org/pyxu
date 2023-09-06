@@ -2,7 +2,7 @@ import collections.abc as cabc
 import types
 import typing as typ
 
-import pyxu.abc.operator as pxo
+import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
@@ -159,11 +159,13 @@ class _FromSource:  # See from_source() for a detailed description.
         enforce_precision: frozenset[str],
         **kwargs,
     ):
-        assert cls in pxo._core_operators(), f"Unknown Operator type: {cls}."
+        from pyxu.abc.operator import _core_operators
+
+        assert cls in _core_operators(), f"Unknown Operator type: {cls}."
         self._op = cls(shape)  # ensure shape well-formed
 
         # Arithmetic methods to attach to `_op`.
-        meth = frozenset.union(*[p.arithmetic_methods() for p in pxo.Property])
+        meth = frozenset.union(*[p.arithmetic_methods() for p in pxa.Property])
         if not (set(kwargs) <= meth):
             msg_head = "Unknown arithmetic methods:"
             unknown = set(kwargs) - meth

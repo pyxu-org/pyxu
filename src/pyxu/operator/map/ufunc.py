@@ -8,8 +8,9 @@ Example
 -------
 .. code-block:: python3
 
-   from pyxu.operator.map import Sin, sin
    from pyxu.abc import LinOp
+   from pyxu.operator import sin
+   from pyxu.operator.map.ufunc import _Sin
 
    N = 10
    x = np.random.randn(N)

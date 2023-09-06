@@ -8,7 +8,7 @@ import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.info.warning as pxw
-import pyxu.operator.interop.source as pxsrc
+import pyxu.operator.interop.source as px_src
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -191,7 +191,7 @@ def HomothetyOp(dim: pxt.Integer, cst: pxt.Real) -> pxt.OpT:
             out = _._cst * _.codim
             return out
 
-        op = pxsrc.from_source(
+        op = px_src.from_source(
             cls=pxa.PosDefOp if (cst > 0) else pxa.SelfAdjointOp,
             shape=(dim, dim),
             embed=dict(
@@ -309,7 +309,7 @@ def DiagonalOp(
                 # We insead use the fact that _lipschitz is computed exactly at construction time.
                 return _._lipschitz
 
-            op = pxsrc.from_source(
+            op = px_src.from_source(
                 cls=pxa.PosDefOp if pxu.compute(xp.all(vec > 0)) else pxa.SelfAdjointOp,
                 shape=(dim, dim),
                 embed=dict(
@@ -495,7 +495,7 @@ def _ExplicitLinOp(
                     raise ValueError(f"Unknown sparse format {_.mat}.")
             return float(tr)
 
-    op = pxsrc.from_source(
+    op = px_src.from_source(
         cls=cls,
         shape=mat.shape,
         embed=dict(

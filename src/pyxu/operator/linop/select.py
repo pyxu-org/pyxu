@@ -5,7 +5,7 @@ import numpy as np
 
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
-import pyxu.operator.interop.source as pxsrc
+import pyxu.operator.interop.source as px_src
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -177,7 +177,7 @@ class SubSample(pxa.LinOp):
             out = _op.adjoint(_op.apply(arr))
             return out
 
-        op = pxsrc.from_source(
+        op = px_src.from_source(
             cls=pxa.OrthProjOp,
             shape=(self.dim, self.dim),
             embed=dict(_op=self),

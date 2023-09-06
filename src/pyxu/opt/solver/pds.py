@@ -5,9 +5,8 @@ import warnings
 
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
-import pyxu.operator.func as pxf
-import pyxu.operator.linop as pxl
-import pyxu.opt.stop as pxs
+import pyxu.operator as pxo
+import pyxu.opt.stop as pxst
 import pyxu.runtime as pxrt
 
 __all__ = [
@@ -63,16 +62,16 @@ class _PrimalDualSplitting(pxa.Solver):
         else:
             dual_dim = primal_dim
 
-        self._f = pxl.NullFunc(dim=primal_dim) if (f is None) else f
-        self._g = pxl.NullFunc(dim=primal_dim) if (g is None) else g
-        self._h = pxl.NullFunc(dim=dual_dim) if (h is None) else h
+        self._f = pxo.NullFunc(dim=primal_dim) if (f is None) else f
+        self._g = pxo.NullFunc(dim=primal_dim) if (g is None) else g
+        self._h = pxo.NullFunc(dim=dual_dim) if (h is None) else h
         self._beta = self._set_beta(beta)
         if h is not None:
-            self._K = pxl.IdentityOp(dim=h.dim) if (K is None) else K
+            self._K = pxo.IdentityOp(dim=h.dim) if (K is None) else K
         else:
             if K is None:
                 K_dim = f.dim if f is not None else g.dim
-                self._K = pxl.NullOp(shape=(K_dim, K_dim))
+                self._K = pxo.NullOp(shape=(K_dim, K_dim))
             else:
                 raise ValueError("Optional argument ``h`` mut be specified if ``K`` is not None.")
         self._objective_func = self._f + self._g + (self._h * self._K)
@@ -99,14 +98,14 @@ class _PrimalDualSplitting(pxa.Solver):
         raise NotImplementedError
 
     def default_stop_crit(self) -> pxa.StoppingCriterion:
-        stop_crit_x = pxs.RelError(
+        stop_crit_x = pxst.RelError(
             eps=1e-4,
             var="x",
             f=None,
             norm=2,
             satisfy_all=True,
         )
-        stop_crit_z = pxs.RelError(
+        stop_crit_z = pxst.RelError(
             eps=1e-4,
             var="z",
             f=None,
@@ -1558,10 +1557,10 @@ class ADMM(_PDS):
                     )
                     raise ValueError(msg)
                 if K is None:  # Prox scenario (classical ADMM)
-                    f = pxf.NullFunc(h.dim)
+                    f = pxo.NullFunc(h.dim)
                 else:  # Sub-iterative CG scenario
                     f = pxa.QuadraticFunc(
-                        shape=(1, h.dim), Q=pxl.NullOp(shape=(h.dim, h.dim)), c=pxf.NullFunc(dim=h.dim)
+                        shape=(1, h.dim), Q=pxo.NullOp(shape=(h.dim, h.dim)), c=pxo.NullFunc(dim=h.dim)
                     )
             if f.has(pxa.Property.PROXIMABLE) and K is None:
                 x_update_solver = "prox"

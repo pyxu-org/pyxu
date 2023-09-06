@@ -2,11 +2,11 @@ import warnings
 
 import scipy.sparse.linalg as spsl
 
-import pyxu.abc.operator as pxo
+import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.info.warning as pxw
-import pyxu.operator.interop.source as pxsrc
+import pyxu.operator.interop.source as px_src
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -30,7 +30,7 @@ def from_sciop(cls: pxt.OpC, sp_op: spsl.LinearOperator) -> pxt.OpT:
     op: OpT
         (N, M) Pyxu-compliant linear operator.
     """
-    assert cls.has(pxo.Property.LINEAR)
+    assert cls.has(pxa.Property.LINEAR)
 
     if sp_op.dtype not in [_.value for _ in pxrt.Width]:
         warnings.warn(
@@ -78,7 +78,7 @@ def from_sciop(cls: pxt.OpC, sp_op: spsl.LinearOperator) -> pxt.OpT:
     def op_expr(_) -> tuple:
         return ("from_sciop", _._sp_op)
 
-    op = pxsrc.from_source(
+    op = px_src.from_source(
         cls=cls,
         shape=sp_op.shape,
         apply=op_apply,

@@ -7,7 +7,7 @@ import numbers as nb
 import numpy as np
 
 import pyxu.info.ptype as pxt
-import pyxu.util.inspect as pxi
+import pyxu.util as pxu
 
 __all__ = [
     "Width",
@@ -178,7 +178,7 @@ def enforce_precision(
     def decorator(func: cabc.Callable) -> cabc.Callable:
         @functools.wraps(func)
         def wrapper(*ARGS, **KWARGS):
-            func_args = pxi.parse_params(func, *ARGS, **KWARGS)
+            func_args = pxu.parse_params(func, *ARGS, **KWARGS)
 
             for k in [i] if isinstance(i, str) else i:
                 if k not in func_args:

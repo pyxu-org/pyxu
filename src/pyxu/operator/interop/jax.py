@@ -4,11 +4,11 @@ import warnings
 
 import packaging.version as pkgv
 
-import pyxu.abc.operator as pxo
+import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.info.warning as pxw
-import pyxu.operator.interop.source as pxsrc
+import pyxu.operator.interop.source as px_src
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -246,7 +246,7 @@ def from_jax(
     return op
 
 
-class _FromJax(pxsrc._FromSource):
+class _FromJax(px_src._FromSource):
     # supported methods in __init__(**kwargs)
     _meth = frozenset({"apply", "grad", "prox", "pinv", "adjoint"})
 
@@ -289,7 +289,7 @@ class _FromJax(pxsrc._FromSource):
         self._auto_vectorize()
         j_state, kwargs = self._interface()
 
-        _op = pxsrc.from_source(
+        _op = px_src.from_source(
             cls=self._op.__class__,
             shape=self._op.shape,
             embed=dict(
@@ -321,8 +321,8 @@ class _FromJax(pxsrc._FromSource):
 
         nl_difffunc = all(  # non-linear diff-func
             [
-                self._op.has(pxo.Property.DIFFERENTIABLE_FUNCTION),
-                not self._op.has(pxo.Property.LINEAR),
+                self._op.has(pxa.Property.DIFFERENTIABLE_FUNCTION),
+                not self._op.has(pxa.Property.LINEAR),
             ]
         )
         if nl_difffunc and ("grad" not in self._kwargs):
@@ -339,8 +339,8 @@ class _FromJax(pxsrc._FromSource):
 
         non_selfadj = all(  # linear, but not self-adjoint
             [
-                self._op.has(pxo.Property.LINEAR),
-                not self._op.has(pxo.Property.LINEAR_SELF_ADJOINT),
+                self._op.has(pxa.Property.LINEAR),
+                not self._op.has(pxa.Property.LINEAR_SELF_ADJOINT),
             ]
         )
         if non_selfadj and ("adjoint" not in self._kwargs):
@@ -476,7 +476,7 @@ class _FromJax(pxsrc._FromSource):
             _adj = jax.linear_transpose(f_fwd, hint)
             f_adj = lambda arr: _adj(arr)[0]  # jax returns a tuple
 
-            klass = pxo.LinFunc if (self.codim == 1) else pxo.LinOp
+            klass = pxa.LinFunc if (self.codim == 1) else pxa.LinOp
             op = from_jax(
                 cls=klass,
                 shape=self.shape,
@@ -489,7 +489,7 @@ class _FromJax(pxsrc._FromSource):
         return op
 
     def _quad_spec(self):
-        if self.has(pxo.Property.QUADRATIC):
+        if self.has(pxa.Property.QUADRATIC):
             # auto-infer (Q, c, t)
             def _grad(arr: JaxArray) -> JaxArray:
                 # Just like jax.grad(f)(arr), but works with (1,)-valued functions.
@@ -519,7 +519,7 @@ class _FromJax(pxsrc._FromSource):
                 return out
 
             Q = from_jax(
-                cls=pxo.PosDefOp,
+                cls=pxa.PosDefOp,
                 shape=(self.dim, self.dim),
                 vectorize="apply",
                 jit=self._jit,
@@ -527,7 +527,7 @@ class _FromJax(pxsrc._FromSource):
                 apply=Q_apply,
             )
             c = from_jax(
-                cls=pxo.LinFunc,
+                cls=pxa.LinFunc,
                 shape=(1, self.dim),
                 vectorize="apply",
                 jit=self._jit,
@@ -550,7 +550,7 @@ class _FromJax(pxsrc._FromSource):
             raise NotImplementedError
 
     def asarray(self, **kwargs) -> pxt.NDArray:
-        if self.has(pxo.Property.LINEAR):
+        if self.has(pxa.Property.LINEAR):
             # (1) Lin[Op,Func].asarray() assumes the operator is precision-agnostic.
             #     This condition does not hold for JAX arrays. (See from_jax() notes.)
             #

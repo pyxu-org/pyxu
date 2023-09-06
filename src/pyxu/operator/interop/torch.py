@@ -11,13 +11,13 @@ from functools import wraps
 
 import packaging.version as pkgv
 
-import pyxu.abc.operator as pxo
+import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.info.warning as pxw
-import pyxu.operator.interop.source as pxsrc
+import pyxu.operator.interop.source as px_src
 import pyxu.runtime as pxrt
-from pyxu.util.inspect import import_module
+from pyxu.util import import_module
 
 torch = import_module("torch", fail_on_error=False)
 if torch is not None:
@@ -106,7 +106,7 @@ def asarray(tensor: TorchTensor) -> pxt.NDArray:
             return cp.asarray(tensor.detach())
 
 
-class _FromTorch(pxsrc._FromSource):
+class _FromTorch(px_src._FromSource):
     # supported methods in __init__(**kwargs)
     _meth = frozenset({"apply", "grad", "prox", "pinv", "adjoint"})
 
@@ -114,7 +114,7 @@ class _FromTorch(pxsrc._FromSource):
         self,
         apply: cabc.Callable,
         shape: pxt.OpShape,
-        cls: pxt.OpC = pxo.Map,
+        cls: pxt.OpC = pxa.Map,
         vectorize: frozenset[str] = frozenset(),
         batch_size: typ.Optional[int] = None,
         jit: bool = False,  # Unused for now
@@ -163,7 +163,7 @@ class _FromTorch(pxsrc._FromSource):
         self._auto_vectorize()
         t_state, kwargs = self._interface()
 
-        _op = pxsrc.from_source(
+        _op = px_src.from_source(
             cls=self._op.__class__,
             shape=self._op.shape,
             embed=dict(
@@ -199,8 +199,8 @@ class _FromTorch(pxsrc._FromSource):
 
         nl_difffunc = all(  # non-linear diff-func
             [
-                self._op.has(pxo.Property.DIFFERENTIABLE_FUNCTION),
-                not self._op.has(pxo.Property.LINEAR),
+                self._op.has(pxa.Property.DIFFERENTIABLE_FUNCTION),
+                not self._op.has(pxa.Property.LINEAR),
             ]
         )
         if nl_difffunc and ("grad" not in self._kwargs):
@@ -214,8 +214,8 @@ class _FromTorch(pxsrc._FromSource):
 
         non_selfadj = all(  # linear, but not self-adjoint
             [
-                self._op.has(pxo.Property.LINEAR),
-                not self._op.has(pxo.Property.LINEAR_SELF_ADJOINT),
+                self._op.has(pxa.Property.LINEAR),
+                not self._op.has(pxa.Property.LINEAR_SELF_ADJOINT),
             ]
         )
         if non_selfadj and ("adjoint" not in self._kwargs):
@@ -367,7 +367,7 @@ class _FromTorch(pxsrc._FromSource):
                 out = f_vjp(cotan)[0]  # f_vjp returns a tuple
                 return out
 
-            klass = pxo.LinFunc if (self.codim == 1) else pxo.LinOp
+            klass = pxa.LinFunc if (self.codim == 1) else pxa.LinOp
             op = from_torch(
                 apply=jf_apply,
                 shape=self.shape,
@@ -384,7 +384,7 @@ class _FromTorch(pxsrc._FromSource):
         return op
 
     def _quad_spec(self):
-        if self.has(pxo.Property.QUADRATIC):
+        if self.has(pxa.Property.QUADRATIC):
             # auto-infer (Q, c, t)
             _grad = self._torch["grad"]
 
@@ -404,7 +404,7 @@ class _FromTorch(pxsrc._FromSource):
             Q = from_torch(
                 apply=Q_apply,
                 shape=(self.dim, self.dim),
-                cls=pxo.PosDefOp,
+                cls=pxa.PosDefOp,
                 vectorize="apply",
                 batch_size=self._batch_size,
                 jit=self._jit,
@@ -417,7 +417,7 @@ class _FromTorch(pxsrc._FromSource):
             c = from_torch(
                 apply=c_apply,
                 shape=(1, self.dim),
-                cls=pxo.LinFunc,
+                cls=pxa.LinFunc,
                 vectorize="apply",
                 batch_size=self._batch_size,
                 jit=self._jit,
@@ -455,7 +455,7 @@ class _FromTorch(pxsrc._FromSource):
 def from_torch(
     apply: cabc.Callable,
     shape: pxt.OpShape,
-    cls: pxt.OpC = pxo.Map,
+    cls: pxt.OpC = pxa.Map,
     vectorize: pxt.VarName = frozenset(),
     batch_size: typ.Optional[int] = None,
     jit: bool = False,

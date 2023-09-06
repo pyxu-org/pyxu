@@ -2,8 +2,7 @@ import numpy as np
 
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
-import pyxu.math.linalg as pxlg
-import pyxu.math.linesearch as ls
+import pyxu.math as pxm
 import pyxu.runtime as pxrt
 
 __all__ = [
@@ -112,12 +111,12 @@ class NLCG(pxa.Solver):
        import numpy as np
 
        import pyxu.operator as pxo
-       import pyxu.opt.solver as pxs
+       import pyxu.opt.solver as pxsl
 
        N, a, b = 5, 3, 1
        f = pxo.SquaredL2Norm(N).asloss(b).argscale(a)  # \norm(Ax - b)**2
 
-       nlcg = pxs.NLCG(f)
+       nlcg = pxsl.NLCG(f)
        nlcg.fit(x0=np.zeros((N,)), variant="FR")
        x_opt = nlcg.solution()
        np.allclose(x_opt, 1/a)  # True
@@ -180,6 +179,8 @@ class NLCG(pxa.Solver):
         else:
             mst["restart_rate"] = x0.shape[-1]
 
+        import pyxu.math.linesearch as ls
+
         mst["x"] = x0
         mst["gradient"] = self._f.grad(x0)
         mst["conjugate_dir"] = -mst["gradient"].copy()
@@ -193,7 +194,7 @@ class NLCG(pxa.Solver):
         mst = self._mstate  # shorthand
         x_k, g_k, p_k = mst["x"], mst["gradient"], mst["conjugate_dir"]
 
-        a_k = ls.backtracking_linesearch(
+        a_k = pxm.backtracking_linesearch(
             f=self._f,
             x=x_k,
             gradient=g_k,
@@ -254,11 +255,11 @@ class NLCG(pxa.Solver):
     def __compute_beta(self, g_k: pxt.NDArray, g_kp1: pxt.NDArray) -> pxt.NDArray:
         v = self._mstate["variant"]
         if v == "fr":  # Fletcher-Reeves
-            gn_k = pxlg.norm(g_k, axis=-1, keepdims=True)
-            gn_kp1 = pxlg.norm(g_kp1, axis=-1, keepdims=True)
+            gn_k = pxm.norm(g_k, axis=-1, keepdims=True)
+            gn_kp1 = pxm.norm(g_kp1, axis=-1, keepdims=True)
             beta = (gn_kp1 / gn_k) ** 2
         elif v == "pr":  # Poliak-Ribière+
-            gn_k = pxlg.norm(g_k, axis=-1, keepdims=True)
+            gn_k = pxm.norm(g_k, axis=-1, keepdims=True)
             numerator = (g_kp1 * (g_kp1 - g_k)).sum(axis=-1, keepdims=True)
             beta = numerator / (gn_k**2)
             beta = beta.clip(min=0)
