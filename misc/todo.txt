@@ -18,6 +18,8 @@ Sepand
           Changing svds() seed gives different results.
           Hunch: obtaining one of the smallest singular values, but not the smallest.
         Values are not extravagant however: the failure is acceptable.
+    * KLDivergence()
+      * fails asloss() I think. Need to investigate.
     * Kron
       * test_interface_jacobian() fails if kron(A, B) == LinFunc
         and A (or B) is IdentityOp.
