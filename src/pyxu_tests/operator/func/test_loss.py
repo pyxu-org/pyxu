@@ -4,11 +4,11 @@ import numpy as np
 import numpy.random as npr
 import pytest
 
+import pyxu.info.deps as pxd
+import pyxu.info.ptype as pxt
 import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
-import pyxu.info.deps as pxd
-import pyxu.info.ptype as pxt
 import pyxu_tests.operator.conftest as conftest
 
 

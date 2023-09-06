@@ -1,8 +1,7 @@
 import pyxu.abc as pxa
-import pyxu.runtime as pxrt
 import pyxu.info.ptype as pxt
+import pyxu.runtime as pxrt
 import pyxu.util as pxu
-
 
 __all__ = [
     "shift_loss",
