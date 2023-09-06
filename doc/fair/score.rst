@@ -19,7 +19,7 @@ The Pyxu Score is calculated using the following criteria:
 
    * **Early stages** (Planning 📑, Pre-Alpha 🌒, Alpha 🌓) contribute 0.5 points.
    * **Advanced stages** (Beta 🌔, Production/Stable ✔️, Mature 🌟) contribute 1 point.
-   * **Inactive 🚫** plugins, however, aren't factored into the final score.  **WHAT DOES THIS MEAN?**
+   * **Inactive 🚫** plugins do not recieive a score.
 
 4. **Downloads ⬇️**: Plugins get points based on the number of downloads in the last month, up to a maximum of 1 point
    for 1000 downloads.
