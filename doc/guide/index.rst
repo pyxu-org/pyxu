@@ -11,3 +11,4 @@ essential aspects of the library, helping you harness its full power for your re
    :hidden:
 
    fwdops.ipynb
+   funcs.ipynb
