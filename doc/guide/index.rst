@@ -12,3 +12,4 @@ essential aspects of the library, helping you harness its full power for your re
 
    fwdops.ipynb
    funcs.ipynb
+   algebra.ipynb
