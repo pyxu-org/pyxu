@@ -14,3 +14,4 @@ essential aspects of the library, helping you harness its full power for your re
    funcs.ipynb
    algebra.ipynb
    algorithms.ipynb
+   lipschitz.ipynb
