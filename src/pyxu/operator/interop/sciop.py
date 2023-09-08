@@ -18,7 +18,7 @@ __all__ = [
 def from_sciop(cls: pxt.OpC, sp_op: spsl.LinearOperator) -> pxt.OpT:
     r"""
     Wrap a :py:class:`scipy.sparse.linalg.LinearOperator` as a
-    :py:class:`~pyxu.abc.operator.LinOp` (or sub-classes thereof).
+    :py:class:`~pyxu.abc.LinOp` (or sub-classes thereof).
 
     Parameters
     ----------

@@ -42,14 +42,14 @@ class Stencil(pxa.SquareOp):
     * Numba (and its ``@stencil`` decorator) is used behind the scenes to compile efficient machine code from a stencil
       kernel specification.  This has 2 consequences:
 
-      * :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil` instances are **not arraymodule-agnostic**: they will
+      * :py:class:`~pyxu.operator.Stencil` instances are **not arraymodule-agnostic**: they will
         only work with NDArrays belonging to the same array module as `kernel`.
       * Compiled stencils are not **precision-agnostic**: they will only work on NDArrays with the same dtype as
         `kernel`.
         A warning is emitted if inputs must be cast to the kernel dtype.
 
     * Stencil kernels can be specified in two forms:
-      (See :py:meth:`~pyxu.operator.linop.stencil.stencil.Stencil.__init__` for details.)
+      (See :py:meth:`~pyxu.operator.Stencil.__init__` for details.)
 
       * A single non-separable :math:`D`-dimensional kernel :math:`k[i_{1},\ldots,i_{D}]` of shape
         :math:`(K_{1},\ldots,K_{D})`.
@@ -74,12 +74,12 @@ class Stencil(pxa.SquareOp):
     This corresponds to a *correlation* with a shifted version of the kernel :math:`k`.
 
     Numba stencils assume summation terms involving out-of-bound indices of :math:`x` are set to zero.
-    :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil` lifts this constraint by extending the stencil to boundary
+    :py:class:`~pyxu.operator.Stencil` lifts this constraint by extending the stencil to boundary
     values via pre-padding and post-trimming.
     Concretely, any stencil operator :math:`S` instantiated with
-    :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil` can be written as the composition :math:`S = TS_0P`, where
+    :py:class:`~pyxu.operator.Stencil` can be written as the composition :math:`S = TS_0P`, where
     :math:`(T, S_0, P)` are trimming, stencil with zero-padding conditions, and padding operators respectively.
-    This construct allows :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil` to handle complex boundary conditions
+    This construct allows :py:class:`~pyxu.operator.Stencil` to handle complex boundary conditions
     under which :math:`S` *may not be a proper stencil* (i.e., varying kernel) but can still be implemented efficiently
     via a proper stencil upon appropriate trimming/padding.
 
@@ -142,7 +142,7 @@ class Stencil(pxa.SquareOp):
 
     which resembles a stencil with time-reversed kernel, but with weird (if not improper) boundary conditions.
     This can also be seen from the fact that :math:`S^\ast = P^\ast S_0^\ast T^\ast = P^\ast S_0^\ast P_0,` and
-    :math:`P^\ast` is in general not a trimming operator.  (See :py:class:`~pyxu.operator.linop.pad.Pad`.)
+    :math:`P^\ast` is in general not a trimming operator.  (See :py:class:`~pyxu.operator.Pad`.)
 
     The same holds for gram/cogram operators.
     Consider indeed the following order-1 backward finite-difference operator with zero-padding:
@@ -343,8 +343,8 @@ class Stencil(pxa.SquareOp):
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.stencil.stencil.Convolve`,
-    :py:class:`~pyxu.operator.linop.stencil._stencil._Stencil`
+    :py:class:`~pyxu.operator.Convolve`,
+    :py:class:`~pyxu.operator._Stencil`
 
     """
 
@@ -366,7 +366,7 @@ class Stencil(pxa.SquareOp):
         ----------
         arg_shape: NDArrayShape
             Shape of the rank-:math:`D` input array.
-        kernel: ~pyxu.operator.linop.stencil.stencil.Stencil.KernelSpec
+        kernel: ~pyxu.operator.Stencil.KernelSpec
             Stencil coefficients.
             Two forms are accepted:
 
@@ -380,7 +380,7 @@ class Stencil(pxa.SquareOp):
 
               or in Python: ``k = functools.reduce(numpy.multiply.outer, kernel)``.
 
-        center: ~pyxu.operator.linop.stencil._stencil._Stencil.IndexSpec
+        center: ~pyxu.operator._Stencil.IndexSpec
             (i_1, ..., i_D) index of the stencil's center.
 
             `center` defines how a kernel is overlaid on inputs to produce outputs.
@@ -466,7 +466,7 @@ class Stencil(pxa.SquareOp):
 
         Configure stencil Dispatcher.
 
-        See :py:meth:`~pyxu.operator.linop.stencil._stencil._Stencil.apply` for accepted options.
+        See :py:meth:`~pyxu.operator._Stencil.apply` for accepted options.
 
         Example
         -------
@@ -695,7 +695,7 @@ class Stencil(pxa.SquareOp):
 
         Returns
         -------
-        kern: ~pyxu.operator.linop.stencil.stencil.Stencil.KernelSpec
+        kern: ~pyxu.operator.Stencil.KernelSpec
             Stencil coefficients.
 
             If the kernel is non-seperable, a single array is returned.
@@ -714,7 +714,7 @@ class Stencil(pxa.SquareOp):
 
         Returns
         -------
-        ctr: ~pyxu.operator.linop.stencil._stencil._Stencil.IndexSpec
+        ctr: ~pyxu.operator._Stencil.IndexSpec
             Stencil central position.
         """
         if len(self._st_fw) == 1:
@@ -788,7 +788,7 @@ class Stencil(pxa.SquareOp):
         return kern
 
 
-Correlate = Stencil  #: Alias of :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil`.
+Correlate = Stencil  #: Alias of :py:class:`~pyxu.operator.Stencil`.
 
 
 class Convolve(Stencil):
@@ -812,7 +812,7 @@ class Convolve(Stencil):
        \,\cdot\,
        k[q_{1},\ldots,q_{D}].
 
-    The convolution is implemented via :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil`.
+    The convolution is implemented via :py:class:`~pyxu.operator.Stencil`.
     To do so, the convolution kernel is transformed to the equivalent correlation kernel:
 
     .. math::
@@ -861,7 +861,7 @@ class Convolve(Stencil):
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil`
+    :py:class:`~pyxu.operator.Stencil`
     """
 
     def __init__(
@@ -873,7 +873,7 @@ class Convolve(Stencil):
         enable_warnings: bool = True,
     ):
         r"""
-        See :py:meth:`~pyxu.operator.linop.stencil.stencil.Stencil.__init__` for a description of the arguments.
+        See :py:meth:`~pyxu.operator.Stencil.__init__` for a description of the arguments.
         """
         super().__init__(
             arg_shape=arg_shape,

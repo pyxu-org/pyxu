@@ -62,12 +62,12 @@ class NLCG(pxa.Solver):
 
     Parameters (``__init__()``)
     ---------------------------
-    * **f** (:py:class:`~pyxu.abc.operator.DiffFunc`)
+    * **f** (:py:class:`~pyxu.abc.DiffFunc`)
       --
       Differentiable function :math:`\mathcal{F}`.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
     Parameters (``fit()``)
     ----------------------
@@ -87,13 +87,13 @@ class NLCG(pxa.Solver):
       By default, restart is done after :math:`N` iterations.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Optional parameters forwarded to :py:func:`~pyxu.math.linesearch.backtracking_linesearch`.
+      Optional parameters forwarded to :py:func:`~pyxu.math.backtracking_linesearch`.
 
       If `a0` is unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a0`
       is auto-chosen as :math:`\beta^{-1}`.
       Users are expected to set `a0` if its value cannot be auto-inferred.
 
-      Other keyword parameters are passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
+      Other keyword parameters are passed on to :py:meth:`pyxu.abc.Solver.fit`.
 
     Example
     -------
@@ -156,8 +156,7 @@ class NLCG(pxa.Solver):
 
             By default, restart is done after :math:`N` iterations.
         \*\*kwargs
-            Optional parameters forwarded to :py:func:`~pyxu.math.linesearch.backtracking_linesearch`.
-            (See: :py:mod:`~pyxu.math.linesearch`.)
+            Optional parameters forwarded to :py:func:`~pyxu.math.backtracking_linesearch`.
 
             If `a0` is unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a0`
             is auto-chosen as :math:`\beta^{-1}`.

@@ -165,16 +165,16 @@ def _FiniteDifference(
     r"""
     Finite difference base operator along a single dimension.
 
-    This class is used by :py:class:`~pyxu.operator.linop.diff.PartialDerivative`,
-    :py:class:`~pyxu.operator.linop.diff.Gradient` and :py:class:`~pyxu.operator.linop.diff.Hessian`.
-    See :py:class:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` for documentation.
+    This class is used by :py:class:`~pyxu.operator.PartialDerivative`,
+    :py:class:`~pyxu.operator.Gradient` and :py:class:`~pyxu.operator.Hessian`.
+    See :py:class:`~pyxu.operator.PartialDerivative.finite_difference` for documentation.
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.diff._GaussianDerivative`,
-    :py:class:`~pyxu.operator.linop.diff.PartialDerivative`,
-    :py:class:`~pyxu.operator.linop.diff.Gradient`,
-    :py:class:`~pyxu.operator.linop.diff.Hessian`.
+    :py:class:`~pyxu.operator._GaussianDerivative`,
+    :py:class:`~pyxu.operator.PartialDerivative`,
+    :py:class:`~pyxu.operator.Gradient`,
+    :py:class:`~pyxu.operator.Hessian`.
 
     Parameters
     ----------
@@ -272,17 +272,17 @@ def _GaussianDerivative(
     r"""
     Gaussian derivative base operator along a single dimension.
 
-    This class is used by :py:class:`~pyxu.operator.linop.diff.PartialDerivative`,
-    :py:class:`~pyxu.operator.linop.diff.Gradient` and :py:class:`~pyxu.operator.linop.diff.Hessian`.
-    See :py:class:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` for documentation.
+    This class is used by :py:class:`~pyxu.operator.PartialDerivative`,
+    :py:class:`~pyxu.operator.Gradient` and :py:class:`~pyxu.operator.Hessian`.
+    See :py:class:`~pyxu.operator.PartialDerivative.gaussian_derivative` for documentation.
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.diff._BaseDifferential`,
-    :py:class:`~pyxu.operator.linop.diff._FiniteDifference`,
-    :py:class:`~pyxu.operator.linop.diff.PartialDerivative`,
-    :py:class:`~pyxu.operator.linop.diff.Gradient`,
-    :py:class:`~pyxu.operator.linop.diff.Hessian`.
+    :py:class:`~pyxu.operator._BaseDifferential`,
+    :py:class:`~pyxu.operator._FiniteDifference`,
+    :py:class:`~pyxu.operator.PartialDerivative`,
+    :py:class:`~pyxu.operator.Gradient`,
+    :py:class:`~pyxu.operator.Hessian`.
 
     Parameters
     ----------
@@ -363,11 +363,10 @@ def _PartialDerivative(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.diff.PartialDerivative`,
-    :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil`,
-    :py:func:`~pyxu.math.stencil.make_nd_stencil`,
-    :py:class:`~pyxu.operator.linop.diff._FiniteDifference`,
-    :py:class:`~pyxu.operator.linop.diff._GaussianDerivative`.
+    :py:class:`~pyxu.operator.PartialDerivative`,
+    :py:class:`~pyxu.operator.Stencil`,
+    :py:class:`~pyxu.operator._FiniteDifference`,
+    :py:class:`~pyxu.operator._GaussianDerivative`.
 
     Parameters
     ----------
@@ -463,11 +462,11 @@ class PartialDerivative:
 
       Partial derivatives can be implemented with `finite differences
       <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-      :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor, or with the `Gaussian
+      :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` constructor, or with the `Gaussian
       derivative <https://www.crisluengo.net/archives/22/>`_ via the
-      :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
+      :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative` constructor.
 
-    * When using the :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor, the adjoint
+    * When using the :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` constructor, the adjoint
       of the resulting linear operator will vary depending on the type of finite differences:
 
       * For ``forward`` type, the adjoint corresponds to:
@@ -478,7 +477,7 @@ class PartialDerivative:
 
         :math:`(\frac{\partial^{\text{bwd}}}{\partial x})^{\ast} = -\frac{\partial^{\text{fwd}}}{\partial x}`
 
-      * For ``central`` type, and for the :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative`
+      * For ``central`` type, and for the :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative`
         constructor, the adjoint corresponds to:
 
         :math:`(\frac{\partial}{\partial x})^{\ast} = -\frac{\partial}{\partial x}`
@@ -493,9 +492,9 @@ class PartialDerivative:
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.diff.Gradient`,
-    :py:class:`~pyxu.operator.linop.diff.Laplacian`,
-    :py:class:`~pyxu.operator.linop.diff.Hessian`.
+    :py:class:`~pyxu.operator.Gradient`,
+    :py:class:`~pyxu.operator.Laplacian`,
+    :py:class:`~pyxu.operator.Hessian`.
     """
 
     @staticmethod
@@ -651,7 +650,7 @@ class PartialDerivative:
 
            where :math:`\delta_{i, j}` is the Kronecker delta.
 
-        This class inherits its methods from :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil`.
+        This class inherits its methods from :py:class:`~pyxu.operator.Stencil`.
 
         Example
         -------
@@ -835,11 +834,11 @@ class PartialDerivative:
            performed only once in the case of the latter.
 
         Note that in contrast with finite differences (see
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference`), Gaussian derivatives compute exact
+        :py:meth:`~pyxu.operator.PartialDerivative.finite_difference`), Gaussian derivatives compute exact
         derivatives in the continuous domain, since Gaussians can be differentiated analytically.
         This derivative is then sampled in order to perform a discrete convolution.
 
-        This class inherits its methods from :py:class:`~pyxu.operator.linop.stencil.stencil.Stencil`.
+        This class inherits its methods from :py:class:`~pyxu.operator.Stencil`.
 
         Example
         -------
@@ -944,9 +943,9 @@ class _StackDiffHelper:
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.diff.Gradient`,
-    :py:class:`~pyxu.operator.linop.diff.Laplacian`,
-    :py:class:`~pyxu.operator.linop.diff.Hessian`.
+    :py:class:`~pyxu.operator.Gradient`,
+    :py:class:`~pyxu.operator.Laplacian`,
+    :py:class:`~pyxu.operator.Hessian`.
     """
 
     @staticmethod
@@ -1140,13 +1139,13 @@ def Gradient(
 
     The partial derivatives can be approximated by `finite differences
     <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
+    :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
     <https://www.crisluengo.net/archives/22/>`_ via
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
+    :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative` constructor.
     The parametrization of the partial derivatives can be done via the keyword arguments `\*\*diff_kwargs`, which will
-    default to the same values as the :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor.
+    default to the same values as the :py:class:`~pyxu.operator.PartialDerivative` constructor.
 
-    The gradient operator's method :py:meth:`~pyxu.operator.linop.diff.Gradient.unravel` allows reshaping the vectorized
+    The gradient operator's method :py:meth:`~pyxu.operator.Gradient.unravel` allows reshaping the vectorized
     output gradient to ``[n_dirs, N0, ..., ND]`` (see the example below).
 
     Parameters
@@ -1186,8 +1185,8 @@ def Gradient(
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` and
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+        :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
+        :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative`)
 
     Returns
     -------
@@ -1236,8 +1235,8 @@ def Gradient(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.linop.diff.PartialDerivative`,
-    :py:func:`~pyxu.operator.linop.diff.Jacobian`.
+    :py:func:`~pyxu.operator.PartialDerivative`,
+    :py:func:`~pyxu.operator.Jacobian`.
     """
     directions = tuple([i for i in range(len(arg_shape))]) if directions is None else directions
     axes = tuple([i for i in range(len(arg_shape)) if i in directions])
@@ -1299,13 +1298,13 @@ def Jacobian(
 
     The partial derivatives can be approximated by `finite differences
     <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
+    :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
     <https://www.crisluengo.net/archives/22/>`_ via
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
+    :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative` constructor.
     The parametrization of the partial derivatives can be done via the keyword arguments `\*\*diff_kwargs`, which will
-    default to the same values as the :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor.
+    default to the same values as the :py:class:`~pyxu.operator.PartialDerivative` constructor.
 
-    The Jacobian operator's method :py:meth:`~pyxu.operator.linop.diff.Jacobian.unravel` allows reshaping the vectorized
+    The Jacobian operator's method :py:meth:`~pyxu.operator.Jacobian.unravel` allows reshaping the vectorized
     output Jacobian to ``[..., n_channels, n_dirs, N0, ..., ND]`` (see the example below).
 
     **Remark**
@@ -1355,8 +1354,8 @@ def Jacobian(
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` and
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+        :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
+        :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative`)
 
     Returns
     -------
@@ -1388,8 +1387,8 @@ def Jacobian(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.linop.diff.Gradient`,
-    :py:func:`~pyxu.operator.linop.diff.PartialDerivative`.
+    :py:func:`~pyxu.operator.Gradient`,
+    :py:func:`~pyxu.operator.PartialDerivative`.
     """
     init_kwargs = dict(
         arg_shape=arg_shape,
@@ -1447,11 +1446,11 @@ def Divergence(
 
     The partial derivatives can be approximated by `finite differences
     <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
+    :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
     <https://www.crisluengo.net/archives/22/>`_ via
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
+    :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative` constructor.
     The parametrization of the partial derivatives can be done via the keyword arguments `\*\*diff_kwargs`, which will
-    default to the same values as the :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor.
+    default to the same values as the :py:class:`~pyxu.operator.PartialDerivative` constructor.
 
 
     When using finite differences to compute the Divergence (i.e., ``diff_method = "fd"``), the divergence returns the
@@ -1463,7 +1462,7 @@ def Divergence(
     For ``central`` type divergence, and for the Gaussian derivative method (i.e., ``diff_method = "gd"``), the adjoint
     of the gradient of "central" type is used (no reversed order).
 
-    The divergence operator's method :py:meth:`~pyxu.operator.linop.diff.Divergence.unravel` allows reshaping the
+    The divergence operator's method :py:meth:`~pyxu.operator.Divergence.unravel` allows reshaping the
     vectorized output divergence to ``[..., N0, ..., ND]``.
 
 
@@ -1504,8 +1503,8 @@ def Divergence(
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` and
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+        :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
+        :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative`)
 
     Returns
     -------
@@ -1546,8 +1545,8 @@ def Divergence(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.linop.diff.Gradient`,
-    :py:func:`~pyxu.operator.linop.diff.PartialDerivative`.
+    :py:func:`~pyxu.operator.Gradient`,
+    :py:func:`~pyxu.operator.PartialDerivative`.
     """
     if diff_method == "fd":
         change = {"central": "central", "forward": "backward", "backward": "forward"}
@@ -1623,11 +1622,11 @@ def Hessian(
 
     The partial derivatives can be approximated by `finite differences
     <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
+    :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
     <https://www.crisluengo.net/archives/22/>`_ via
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
+    :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative` constructor.
     The parametrization of the partial derivatives can be done via the keyword arguments `\*\*diff_kwargs`, which will
-    default to the same values as the :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor.
+    default to the same values as the :py:class:`~pyxu.operator.PartialDerivative` constructor.
 
     The Hessian being symmetric, only the upper triangular part at most needs to be computed.
     Due to the (possibly) large size of the full Hessian, 4 different options are handled:
@@ -1658,11 +1657,11 @@ def Hessian(
          \left(\frac{ \partial^{2}\mathbf{f} }{ \partial x_{0}^{2} }, \frac{ \partial^{2}\mathbf{f} }
          { \partial x_{0}\partial x_{1} }, \, \ldots , \, \frac{ \partial^{2}\mathbf{f} }{ \partial x_{D-1}^{2} }\right).
 
-    The shape of the output :py:class:`~pyxu.abc.operator.LinOp` depends on the number of computed directions; by
+    The shape of the output :py:class:`~pyxu.abc.LinOp` depends on the number of computed directions; by
     default (all directions), we have :math:`\mathbf{H} \mathbf{f} \in \mathbb{R}^{\frac{D(D-1)}{2} \times N_0 \times
     \cdots \times N_{D-1}}`.
 
-    The Hessian operator's :py:meth:`~pyxu.operator.linop.diff.Hessian.unravel` method allows reshaping the vectorized
+    The Hessian operator's :py:meth:`~pyxu.operator.Hessian.unravel` method allows reshaping the vectorized
     output Hessian to `[n_dirs, N0, ..., ND]` (see the example below).
 
     Parameters
@@ -1702,8 +1701,8 @@ def Hessian(
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` and
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+        :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
+        :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative`)
 
     Returns
     -------
@@ -1756,9 +1755,9 @@ def Hessian(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.diff.PartialDerivative`,
-    :py:class:`~pyxu.operator.linop.diff.Gradient`,
-    :py:class:`~pyxu.operator.linop.diff.Laplacian`.
+    :py:class:`~pyxu.operator.PartialDerivative`,
+    :py:class:`~pyxu.operator.Gradient`,
+    :py:class:`~pyxu.operator.Laplacian`.
     """
     # We assume Schwarz's theorem holds and thus the symmetry of second derivatives.
     # For this reason, when directions == `all`, only the upper triangular part of the Hessian is
@@ -1822,15 +1821,15 @@ def Laplacian(
 
     The partial derivatives can be approximated by `finite differences
     <https://en.wikipedia.org/wiki/Finite_difference>`_ via the
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
+    :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` constructor or by the `Gaussian derivative
     <https://www.crisluengo.net/archives/22/>`_ via
-    :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative` constructor.
+    :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative` constructor.
     The parametrization of the partial derivatives can be done via the keyword arguments `\*\*diff_kwargs`, which will
     default to `scheme='central'` and `accuracy=2` for `diff_method='fd'` (finite difference), and the same values as
-    the :py:class:`~pyxu.operator.linop.diff.PartialDerivative` constructor for `diff_method='gd'` (gaussian
+    the :py:class:`~pyxu.operator.PartialDerivative` constructor for `diff_method='gd'` (gaussian
     derivative).
 
-    The Laplacian operator's method :py:meth:`~pyxu.operator.linop.diff.Laplacian.unravel` allows reshaping the
+    The Laplacian operator's method :py:meth:`~pyxu.operator.Laplacian.unravel` allows reshaping the
     vectorized output Laplacian to ``[..., N0, ..., ND]`` (see the example below).
 
     Parameters
@@ -1869,8 +1868,8 @@ def Laplacian(
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` and
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+        :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
+        :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative`)
 
     Returns
     -------
@@ -1914,9 +1913,9 @@ def Laplacian(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.diff.PartialDerivative`,
-    :py:class:`~pyxu.operator.linop.diff.Gradient`,
-    :py:class:`~pyxu.operator.linop.diff.Hessian`.
+    :py:class:`~pyxu.operator.PartialDerivative`,
+    :py:class:`~pyxu.operator.Gradient`,
+    :py:class:`~pyxu.operator.Hessian`.
     """
     ndims = len(arg_shape)
     directions = tuple([i for i in range(len(arg_shape))]) if directions is None else directions
@@ -1972,7 +1971,7 @@ def DirectionalDerivative(
     where :math:`\odot` denotes the Hadamard (elementwise) product.
 
     Note that choosing :math:`\mathbf{v}= \mathbf{e}_d \in \mathbb{R}^D` (the :math:`d`-th canonical basis vector)
-    amounts to the first-order :py:func:`~pyxu.operator.linop.diff.PartialDerivative` operator applied along axis
+    amounts to the first-order :py:func:`~pyxu.operator.PartialDerivative` operator applied along axis
     :math:`d`.
 
     The **second-order** ``DirectionalDerivative`` :math:`\boldsymbol{\nabla}^2_{\mathbf{v}_{1, 2}}` is obtained by
@@ -1988,17 +1987,17 @@ def DirectionalDerivative(
        \mathbf{v}_{1}^{\top}\mathbf{H}\mathbf{f}\mathbf{v}_{2},
 
     where :math:`\mathbf{H}` is the discrete Hessian operator, implemented via
-    :py:class:`~pyxu.operator.linop.diff.Hessian`.
+    :py:class:`~pyxu.operator.Hessian`.
 
     Higher-order ``DirectionalDerivative`` :math:`\boldsymbol{\nabla}^{N}_\mathbf{v}` can be obtained by composing the
     first-order directional derivative :math:`\boldsymbol{\nabla}_\mathbf{v}` :math:`N` times.
 
-    The directional derivative operator's method :py:meth:`~pyxu.operator.linop.diff.DirectionalDerivative.unravel`
+    The directional derivative operator's method :py:meth:`~pyxu.operator.DirectionalDerivative.unravel`
     allows reshaping the vectorized output directional derivative to ``[..., N0, ..., ND]`` (see the example below).
 
     .. warning::
 
-       - :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative` instances are **not array module-agnostic**: they
+       - :py:func:`~pyxu.operator.DirectionalDerivative` instances are **not array module-agnostic**: they
          will only work with NDArrays belonging to the same array module as ``directions``. Inner
          computations may recast input arrays when the precision of ``directions`` does not match the user-requested
          precision.
@@ -2049,8 +2048,8 @@ def DirectionalDerivative(
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` and
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+        :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
+        :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative`)
 
     Returns
     -------
@@ -2094,8 +2093,8 @@ def DirectionalDerivative(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.linop.diff.Gradient`,
-    :py:func:`~pyxu.operator.linop.diff.DirectionalGradient`
+    :py:func:`~pyxu.operator.Gradient`,
+    :py:func:`~pyxu.operator.DirectionalGradient`
     """
 
     ndim = len(arg_shape)
@@ -2210,14 +2209,14 @@ def DirectionalGradient(
            \end{bmatrix} \mathbf{f} \in \mathbb{R}^{m \times N_0 \times \cdots \times N_{D-1}},
 
     where :math:`\boldsymbol{\nabla}_{\mathbf{v}_i}` is the first-order directional derivative along
-    :math:`\mathbf{v}_i` implemented with :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`, with
+    :math:`\mathbf{v}_i` implemented with :py:func:`~pyxu.operator.DirectionalDerivative`, with
     :math:`\mathbf{v}_i \in \mathbb{R}^D` or :math:`\mathbf{v}_i \in \mathbb{R}^{D \times N_0 \times \cdots \times
     N_{D-1}}`.
 
     Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th canonical
-    basis vector) amounts to the :py:func:`~pyxu.operator.linop.diff.Gradient` operator.
+    basis vector) amounts to the :py:func:`~pyxu.operator.Gradient` operator.
 
-    The directional gradient operator's method :py:meth:`~pyxu.operator.linop.diff.DirectionalGradient.unravel` allows
+    The directional gradient operator's method :py:meth:`~pyxu.operator.DirectionalGradient.unravel` allows
     reshaping the vectorized output directional derivative to ``[..., n_dirs, N0, ..., ND]`` (see the example below).
 
     Parameters
@@ -2251,8 +2250,8 @@ def DirectionalGradient(
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` and
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+        :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
+        :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative`)
 
     Returns
     -------
@@ -2299,8 +2298,8 @@ def DirectionalGradient(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.linop.diff.Gradient`,
-    :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`
+    :py:func:`~pyxu.operator.Gradient`,
+    :py:func:`~pyxu.operator.DirectionalDerivative`
     """
 
     diag_ops = []
@@ -2384,12 +2383,12 @@ def DirectionalLaplacian(
        \boldsymbol{\nabla}^2_{\mathbf{v}_i} \mathbf{f} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}},
 
     where :math:`\boldsymbol{\nabla}^2_{\mathbf{v}_i}` is the second-order directional derivative along
-    :math:`\mathbf{v}_i` implemented with :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`.
+    :math:`\mathbf{v}_i` implemented with :py:func:`~pyxu.operator.DirectionalDerivative`.
 
     Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th canonical
-    basis vector) amounts to the :py:func:`~pyxu.operator.linop.diff.Laplacian` operator.
+    basis vector) amounts to the :py:func:`~pyxu.operator.Laplacian` operator.
 
-    The directional Laplacian operator's method :py:meth:`~pyxu.operator.linop.diff.DirectionalLaplacian.unravel` allows
+    The directional Laplacian operator's method :py:meth:`~pyxu.operator.DirectionalLaplacian.unravel` allows
     reshaping the vectorized output directional Laplacian to ``[..., N0, ..., ND]`` (see the example below).
 
     Parameters
@@ -2425,8 +2424,8 @@ def DirectionalLaplacian(
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` and
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+        :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
+        :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative`)
 
     Returns
     -------
@@ -2468,8 +2467,8 @@ def DirectionalLaplacian(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.linop.diff.Laplacian`,
-    :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`
+    :py:func:`~pyxu.operator.Laplacian`,
+    :py:func:`~pyxu.operator.DirectionalDerivative`
     """
     assert isinstance(directions, cabc.Sequence)
 
@@ -2571,7 +2570,7 @@ def DirectionalHessian(
         \end{bmatrix} \mathbf{f},
 
     where :math:`\boldsymbol{\nabla}_{\mathbf{v}_i}` is the first-order directional derivative along
-    :math:`\mathbf{v}_i` implemented with :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`.
+    :math:`\mathbf{v}_i` implemented with :py:func:`~pyxu.operator.DirectionalDerivative`.
 
     However, due to the symmetry of the Hessian, only the upper triangular part is computed in practice:
 
@@ -2585,9 +2584,9 @@ def DirectionalHessian(
        \end{bmatrix} \mathbf{f} \in \mathbb{R}^{\frac{m (m-1)}{2} \times N_0 \times \cdots \times N_{D-1}}
 
     Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th canonical
-    basis vector) amounts to the :py:func:`~pyxu.operator.linop.diff.Hessian` operator.
+    basis vector) amounts to the :py:func:`~pyxu.operator.Hessian` operator.
 
-    The directional Hessian operator's method :py:meth:`~pyxu.operator.linop.diff.DirectionalHessian.unravel` allows
+    The directional Hessian operator's method :py:meth:`~pyxu.operator.DirectionalHessian.unravel` allows
     reshaping the vectorized output directional Hessian to ``[..., n_dirs, N0, ..., ND]`` (see the example below).
 
     Parameters
@@ -2621,8 +2620,8 @@ def DirectionalHessian(
         If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.finite_difference` and
-        :py:meth:`~pyxu.operator.linop.diff.PartialDerivative.gaussian_derivative`)
+        :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
+        :py:meth:`~pyxu.operator.PartialDerivative.gaussian_derivative`)
 
     Returns
     -------
@@ -2672,8 +2671,8 @@ def DirectionalHessian(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.linop.diff.Hessian`,
-    :py:func:`~pyxu.operator.linop.diff.DirectionalDerivative`
+    :py:func:`~pyxu.operator.Hessian`,
+    :py:func:`~pyxu.operator.DirectionalDerivative`
     """
 
     # dir_deriv = []

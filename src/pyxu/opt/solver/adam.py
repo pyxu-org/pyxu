@@ -26,7 +26,7 @@ class Adam(pxa.Solver):
     * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with
       :math:`\beta`-*Lipschitz continuous* gradient, for some :math:`\beta\in[0,+\infty[`.
 
-    Adam is a suitable alternative to Proximal Gradient Descent (:py:class:`~pyxu.opt.solver.pgd.PGD`) when:
+    Adam is a suitable alternative to Proximal Gradient Descent (:py:class:`~pyxu.opt.solver.PGD`) when:
 
     * the cost function is differentiable,
     * computing :math:`\beta` to optimally choose the step size is infeasible,
@@ -108,12 +108,12 @@ class Adam(pxa.Solver):
 
     Parameters (``__init__()``)
     ---------------------------
-    * **f** (:py:class:`~pyxu.abc.operator.DiffFunc`)
+    * **f** (:py:class:`~pyxu.abc.DiffFunc`)
       --
       Differentiable function :math:`\mathcal{F}`.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
     Parameters (``fit()``)
     ----------------------
@@ -157,7 +157,7 @@ class Adam(pxa.Solver):
       Defaults to 1e-6.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.
 
     Note
     ----

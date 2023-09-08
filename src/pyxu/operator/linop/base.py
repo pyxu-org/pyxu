@@ -142,7 +142,7 @@ def HomothetyOp(dim: pxt.Integer, cst: pxt.Real) -> pxt.OpT:
 
     Note
     ----
-    This operator is not defined in terms of :py:func:`~pyxu.operator.linop.base.DiagonalOp` since it is
+    This operator is not defined in terms of :py:func:`~pyxu.operator.DiagonalOp` since it is
     array-backend-agnostic.
     """
     assert isinstance(cst, pxt.Real), f"cst: expected real, got {cst}."
@@ -219,7 +219,7 @@ def DiagonalOp(
 
     Note
     ----
-    :py:func:`~pyxu.operator.linop.base.DiagonalOp` instances are **not arraymodule-agnostic**:
+    :py:func:`~pyxu.operator.DiagonalOp` instances are **not arraymodule-agnostic**:
     they will only work with NDArrays belonging to the same array module as `vec`.
     Moreover, inner computations may cast input arrays when the precision of `vec` does not match the user-requested
     precision.

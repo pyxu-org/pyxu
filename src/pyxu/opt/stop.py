@@ -75,11 +75,11 @@ class ManualStop(pxa.StoppingCriterion):
     Continue-forever criterion.
 
     This class is useful when calling
-    :py:meth:`~pyxu.abc.solver.Solver.fit`
+    :py:meth:`~pyxu.abc.Solver.fit`
     with mode=MANUAL/ASYNC to defer the stopping decision to an explicit call by the user, i.e.:
 
     * mode=MANUAL: user must stop calling ``next(solver.steps())``;
-    * mode=ASYNC: user must call :py:meth:`~pyxu.abc.solver.Solver.stop`.
+    * mode=ASYNC: user must call :py:meth:`~pyxu.abc.Solver.stop`.
     """
 
     def stop(self, state: cabc.Mapping) -> bool:
@@ -183,8 +183,8 @@ class MaxCarbon(pxa.StoppingCriterion):
 class Memorize(pxa.StoppingCriterion):
     """
     Memorize a variable.
-    (Special :py:class:`~pyxu.abc.solver.StoppingCriterion` mostly useful for tracking objective functions in
-    :py:class:`~pyxu.abc.solver.Solver`.)
+    (Special :py:class:`~pyxu.abc.StoppingCriterion` mostly useful for tracking objective functions in
+    :py:class:`~pyxu.abc.Solver`.)
     """
 
     def __init__(self, var: pxt.VarName):
@@ -192,7 +192,7 @@ class Memorize(pxa.StoppingCriterion):
         Parameters
         ----------
         var: VarName
-            Variable in :py:attr:`pyxu.abc.solver.Solver._mstate` to query.
+            Variable in :py:attr:`pyxu.abc.Solver._mstate` to query.
             Must be a scalar or NDArray (1D).
         """
         self._var = var
@@ -240,14 +240,14 @@ class AbsError(pxa.StoppingCriterion):
         eps: Real
             Positive threshold.
         var: VarName
-            Variable in :py:attr:`pyxu.abc.solver.Solver._mstate` to query.
+            Variable in :py:attr:`pyxu.abc.Solver._mstate` to query.
         f: ~collections.abc.Callable
             Optional function to pre-apply to ``_mstate[var]`` before applying the norm.
             Defaults to the identity function. The callable should either:
 
             * accept a scalar input -> output a scalar, or
             * accept an NDArray input -> output an NDArray, i.e same semantics as
-              :py:meth:`~pyxu.abc.operator.Map.apply`.
+              :py:meth:`~pyxu.abc.Map.apply`.
         norm: Integer, Real
             Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool
@@ -319,14 +319,14 @@ class RelError(pxa.StoppingCriterion):
         eps: Real
             Positive threshold.
         var: VarName
-            Variable in :py:attr:`pyxu.abc.solver.Solver._mstate` to query.
+            Variable in :py:attr:`pyxu.abc.Solver._mstate` to query.
         f: ~collections.abc.Callable
             Optional function to pre-apply to ``_mstate[var]`` before applying the norm.
             Defaults to the identity function. The callable should either:
 
             * accept a scalar input -> output a scalar, or
             * accept an NDArray input -> output an NDArray, i.e same semantics as
-              :py:meth:`~pyxu.abc.operator.Map.apply`.
+              :py:meth:`~pyxu.abc.Map.apply`.
         norm: Integer, Real
             Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool

@@ -285,7 +285,7 @@ def khatri_rao(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
     Note however that a matrix-free implementation of the Khatri-Rao product does not permit the same optimizations as a
     matrix-based implementation.
     Thus the Khatri-Rao product as implemented here is only marginally more efficient than applying
-    :py:func:`~pyxu.operator.linop.kron.kron` and pruning its output.
+    :py:func:`~pyxu.operator.kron` and pruning its output.
     """
 
     def _infer_op_shape(shA: pxt.OpShape, shB: pxt.OpShape) -> pxt.OpShape:

@@ -41,7 +41,7 @@ class StoppingCriterion:
 
     SM decisions are always accompanied by at least one numerical statistic. These stats may be
     queried by solvers via
-    :py:meth:`~pyxu.abc.solver.StoppingCriterion.info`
+    :py:meth:`~pyxu.abc.StoppingCriterion.info`
     to provide diagnostic information to users.
 
     Composite stopping criteria can be implemented via the overloaded (and[``&``], or[``|``]) operators.
@@ -54,7 +54,7 @@ class StoppingCriterion:
         Parameters
         ----------
         state: ~collections.abc.Mapping
-            Full mathematical state of solver at some iteration, i.e. :py:attr:`~pyxu.abc.solver.Solver._mstate`.
+            Full mathematical state of solver at some iteration, i.e. :py:attr:`~pyxu.abc.Solver._mstate`.
 
             Values from `state` may be cached inside the instance to form complex stopping
             conditions.
@@ -68,7 +68,7 @@ class StoppingCriterion:
 
     def info(self) -> cabc.Mapping[str, float]:
         """
-        Get statistics associated with the last call to :py:meth:`~pyxu.abc.solver.StoppingCriterion.stop`.
+        Get statistics associated with the last call to :py:meth:`~pyxu.abc.StoppingCriterion.stop`.
 
         Returns
         -------
@@ -81,9 +81,9 @@ class StoppingCriterion:
         Clear SM state (if any).
 
         This method is useful when a
-        :py:class:`~pyxu.abc.solver.StoppingCriterion`
+        :py:class:`~pyxu.abc.StoppingCriterion`
         instance must be reused in another call
-        to :py:meth:`~pyxu.abc.solver.Solver.fit`.
+        to :py:meth:`~pyxu.abc.Solver.fit`.
         """
         pass
 
@@ -129,29 +129,29 @@ class Solver:
     Solver provides a versatile API for solving optimisation problems, with the following features:
 
     * manual/automatic/background execution of solver iterations via parameters provided to
-      :py:meth:`~pyxu.abc.solver.Solver.fit`. (See below.)
+      :py:meth:`~pyxu.abc.Solver.fit`. (See below.)
     * automatic checkpointing of solver progress, providing a safe restore point in case of
       faulty numerical code.
       Each solver instance backs its state and final output to a folder on disk for
       post-analysis.
-      In particular :py:meth:`~pyxu.abc.solver.Solver.fit` will never crash: detailed exception information will always
+      In particular :py:meth:`~pyxu.abc.Solver.fit` will never crash: detailed exception information will always
       be available in a logfile for post-analysis.
     * arbitrary specification of complex stopping criteria via the
-      :py:class:`~pyxu.abc.solver.StoppingCriterion` class.
+      :py:class:`~pyxu.abc.StoppingCriterion` class.
     * solve for multiple initial points in parallel.
 
     To implement a new iterative solver, users need to sub-class
-    :py:class:`~pyxu.abc.solver.Solver`
+    :py:class:`~pyxu.abc.Solver`
     and overwrite the methods below:
 
-    * :py:meth:`~pyxu.abc.solver.Solver.__init__`
-    * :py:meth:`~pyxu.abc.solver.Solver.m_init`  [i.e. math-init()]
-    * :py:meth:`~pyxu.abc.solver.Solver.m_step`  [i.e. math-step()]
-    * :py:meth:`~pyxu.abc.solver.Solver.default_stop_crit`  [optional; see method definition for details]
-    * :py:meth:`~pyxu.abc.solver.Solver.objective_func`  [optional; see method definition for details]
+    * :py:meth:`~pyxu.abc.Solver.__init__`
+    * :py:meth:`~pyxu.abc.Solver.m_init`  [i.e. math-init()]
+    * :py:meth:`~pyxu.abc.Solver.m_step`  [i.e. math-step()]
+    * :py:meth:`~pyxu.abc.Solver.default_stop_crit`  [optional; see method definition for details]
+    * :py:meth:`~pyxu.abc.Solver.objective_func`  [optional; see method definition for details]
 
     Advanced functionalities of
-    :py:class:`~pyxu.abc.solver.Solver`
+    :py:class:`~pyxu.abc.Solver`
     are automatically inherited by sub-classes.
 
 
@@ -218,13 +218,13 @@ class Solver:
             Must be a multiple of `stop_rate`.
             Defaults to `stop_rate` if unspecified.
         show_progress: bool
-            If True (default) and :py:meth:`~pyxu.abc.solver.Solver.fit` is run with mode=BLOCK,
+            If True (default) and :py:meth:`~pyxu.abc.Solver.fit` is run with mode=BLOCK,
             then statistics are also logged to stdout.
         log_var: VarName
-            Variables from the solver's math-state (:py:attr:`~pyxu.abc.solver.Solver._mstate`)
+            Variables from the solver's math-state (:py:attr:`~pyxu.abc.Solver._mstate`)
             to be logged per iteration.
             These are the variables made available when calling
-            :py:meth:`~pyxu.abc.solver.Solver.stats`.
+            :py:meth:`~pyxu.abc.Solver.stats`.
 
         Notes
         -----
@@ -298,7 +298,7 @@ class Solver:
     def fit(self, **kwargs):
         r"""
         Solve minimization problem(s) defined in
-        :py:meth:`~pyxu.abc.solver.Solver.__init__`,
+        :py:meth:`~pyxu.abc.Solver.__init__`,
         with the provided run-specifc parameters.
 
         Parameters
@@ -307,16 +307,16 @@ class Solver:
             See class-level docstring for class-specific keyword parameters.
         stop_crit: StoppingCriterion
             Stopping criterion to end solver iterations.
-            If unspecified, defaults to :py:meth:`~pyxu.abc.solver.Solver.default_stop_crit`.
+            If unspecified, defaults to :py:meth:`~pyxu.abc.Solver.default_stop_crit`.
         mode: Mode
             Execution mode.
-            See :py:class:`~pyxu.abc.solver.Solver` for usage examples.
+            See :py:class:`~pyxu.abc.Solver` for usage examples.
 
             Useful method pairs depending on the execution mode:
 
-            * BLOCK: :py:meth:`~pyxu.abc.solver.Solver.fit`
-            * ASYNC: :py:meth:`~pyxu.abc.solver.Solver.fit`, :py:meth:`~pyxu.abc.solver.Solver.busy`, :py:meth:`~pyxu.abc.solver.Solver.stop`
-            * MANUAL: :py:meth:`~pyxu.abc.solver.Solver.fit`, :py:meth:`~pyxu.abc.solver.Solver.steps`
+            * BLOCK: :py:meth:`~pyxu.abc.Solver.fit`
+            * ASYNC: :py:meth:`~pyxu.abc.Solver.fit`, :py:meth:`~pyxu.abc.Solver.busy`, :py:meth:`~pyxu.abc.Solver.stop`
+            * MANUAL: :py:meth:`~pyxu.abc.Solver.fit`, :py:meth:`~pyxu.abc.Solver.steps`
         track_objective: bool
             Auto-compute objective function every time stopping criterion is evaluated.
         """
@@ -330,12 +330,12 @@ class Solver:
 
     def m_init(self, **kwargs):
         """
-        Set solver's initial mathematical state based on kwargs provided to :py:meth:`~pyxu.abc.solver.Solver.fit`.
+        Set solver's initial mathematical state based on kwargs provided to :py:meth:`~pyxu.abc.Solver.fit`.
 
-        This method must only manipulate :py:attr:`~pyxu.abc.solver.Solver._mstate`.
+        This method must only manipulate :py:attr:`~pyxu.abc.Solver._mstate`.
 
         After calling this method, the solver must be able to complete its 1st iteration via a call
-        to :py:meth:`~pyxu.abc.solver.Solver.m_step`.
+        to :py:meth:`~pyxu.abc.Solver.m_step`.
         """
         raise NotImplementedError
 
@@ -343,7 +343,7 @@ class Solver:
         """
         Perform one (mathematical) step.
 
-        This method must only manipulate :py:attr:`~pyxu.abc.solver.Solver._mstate`.
+        This method must only manipulate :py:attr:`~pyxu.abc.Solver._mstate`.
         """
         raise NotImplementedError
 
@@ -355,12 +355,12 @@ class Solver:
         :py:func:`next`
         on this object returns the logged variables after the i-th solver iteration.
 
-        This method is only usable after calling :py:meth:`~pyxu.abc.solver.Solver.fit` with mode=MANUAL.
-        See :py:class:`~pyxu.abc.solver.Solver` for usage examples.
+        This method is only usable after calling :py:meth:`~pyxu.abc.Solver.fit` with mode=MANUAL.
+        See :py:class:`~pyxu.abc.Solver` for usage examples.
 
         There is no guarantee that a checkpoint on disk exists when the generator is exhausted.
         (Reason: potential exceptions raised during solver's progress.)
-        Users should invoke :py:meth:`~pyxu.abc.solver.Solver.writeback` afterwards if needed.
+        Users should invoke :py:meth:`~pyxu.abc.Solver.writeback` afterwards if needed.
 
         Parameters
         ----------
@@ -446,8 +446,8 @@ class Solver:
         """
         Test if an async-running solver has stopped.
 
-        This method is only usable after calling :py:meth:`~pyxu.abc.solver.Solver.fit` with mode=ASYNC.
-        See :py:class:`~pyxu.abc.solver.Solver` for usage examples.
+        This method is only usable after calling :py:meth:`~pyxu.abc.Solver.fit` with mode=ASYNC.
+        See :py:class:`~pyxu.abc.Solver` for usage examples.
 
         Returns
         -------
@@ -463,7 +463,7 @@ class Solver:
 
         This is a helper method intended for novice users.
         The return type is sub-class dependent, so don't write an API using this:
-        use :py:meth:`~pyxu.abc.solver.Solver.stats` instead.
+        use :py:meth:`~pyxu.abc.Solver.stats` instead.
         """
         raise NotImplementedError
 
@@ -471,17 +471,17 @@ class Solver:
         """
         Stop an async-running solver.
 
-        This method is only usable after calling :py:meth:`~pyxu.abc.solver.Solver.fit` with mode=ASYNC.
-        See :py:class:`~pyxu.abc.solver.Solver` for usage examples.
+        This method is only usable after calling :py:meth:`~pyxu.abc.Solver.fit` with mode=ASYNC.
+        See :py:class:`~pyxu.abc.Solver` for usage examples.
 
         This method will block until the solver has stopped.
 
         There is no guarantee that a checkpoint on disk exists once halted.
         (Reason: potential exceptions raised during solver's progress.)
-        Users should invoke :py:meth:`~pyxu.abc.solver.Solver.writeback` afterwards if needed.
+        Users should invoke :py:meth:`~pyxu.abc.Solver.writeback` afterwards if needed.
 
         Users must call this method to terminate an async-solver, even if
-        :py:meth:`~pyxu.abc.solver.Solver.busy` is False.
+        :py:meth:`~pyxu.abc.Solver.busy` is False.
         """
         self._check_mode(Mode.ASYNC, Mode.BLOCK)
         self._astate["active"].clear()
@@ -681,12 +681,12 @@ class Solver:
     def default_stop_crit(self) -> StoppingCriterion:
         """
         Default stopping criterion for solver if unspecified in
-        :py:meth:`~pyxu.abc.solver.Solver.fit`
+        :py:meth:`~pyxu.abc.Solver.fit`
         calls.
 
         Sub-classes are expected to overwrite this method.
         If not overridden, then omitting the `stop_crit` parameter in
-        :py:meth:`~pyxu.abc.solver.Solver.fit`
+        :py:meth:`~pyxu.abc.Solver.fit`
         is forbidden.
         """
         raise NotImplementedError("No default stopping criterion defined.")
@@ -702,7 +702,7 @@ class Solver:
 
         Sub-classes are expected to overwrite this method.
         If not overridden, then enabling `track_objective` in
-        :py:meth:`~pyxu.abc.solver.Solver.fit`
+        :py:meth:`~pyxu.abc.Solver.fit`
         is forbidden.
         """
         raise NotImplementedError("No objective function defined.")

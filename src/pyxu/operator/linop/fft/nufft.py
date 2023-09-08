@@ -95,9 +95,9 @@ class NUFFT(pxa.LinOp):
     See the notes below, including [FINUFFT]_, for definitions of the various transforms and algorithmic details.
 
     The transforms should be instantiated via
-    :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.type1`,
-    :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.type2`, and
-    :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.type3` respectively.
+    :py:meth:`~pyxu.operator.NUFFT.type1`,
+    :py:meth:`~pyxu.operator.NUFFT.type2`, and
+    :py:meth:`~pyxu.operator.NUFFT.type3` respectively.
     (See each method for usage examples.)
 
     The dimension of each transform is inferred from the dimensions of the input arguments, with support for
@@ -156,7 +156,7 @@ class NUFFT(pxa.LinOp):
     * **Lipschitz Constants.**
       We bound the Lipschitz constant by the Frobenius norm of the operators, which yields :math:`L \leq \sqrt{NM}`.
       Note that these Lipschitz constants are cheap to compute but may be pessimistic.
-      Tighter Lipschitz constants can be computed by calling :py:meth:`~pyxu.abc.operator.Map.estimate_lipschitz`.
+      Tighter Lipschitz constants can be computed by calling :py:meth:`~pyxu.abc.Map.estimate_lipschitz`.
 
     * **Error Analysis.**
       Let :math:`\tilde{\mathbf{u}}\in\mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` and
@@ -224,8 +224,8 @@ class NUFFT(pxa.LinOp):
       NUFFT. (See note below however.)
 
       Chunking of the type-3 NUFFT is activated by passing ``chunked=True`` to
-      :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.type3` (together with ``parallel=True`` for parallel computations).
-      Finally, :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.auto_chunk` can be used to compute a good partition of the
+      :py:meth:`~pyxu.operator.NUFFT.type3` (together with ``parallel=True`` for parallel computations).
+      Finally, :py:meth:`~pyxu.operator.NUFFT.auto_chunk` can be used to compute a good partition of the
       X/Z-domains.
 
       .. admonition:: Hint
@@ -283,9 +283,9 @@ class NUFFT(pxa.LinOp):
       or provide debug/timing information.
       While the default options are sensible for most setups, advanced users may overwrite them via the ``kwargs``
       parameter of
-      :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.type1`,
-      :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.type2`, and
-      :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.type3`.
+      :py:meth:`~pyxu.operator.NUFFT.type1`,
+      :py:meth:`~pyxu.operator.NUFFT.type2`, and
+      :py:meth:`~pyxu.operator.NUFFT.type3`.
       See the `guru interface <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_ from FINUFFT and its
       `companion page <https://finufft.readthedocs.io/en/latest/opts.html#options-parameters>`_ for details.
 
@@ -293,7 +293,7 @@ class NUFFT(pxa.LinOp):
 
          FINUFFT exposes a ``dtype`` keyword to control the precision (single or double) at which transforms are
          performed.
-         This parameter is ignored by :py:class:`~pyxu.operator.linop.fft.nufft.NUFFT`: use the context manager
+         This parameter is ignored by :py:class:`~pyxu.operator.NUFFT`: use the context manager
          :py:class:`~pyxu.runtime.Precision` to control floating point precision.
 
       .. admonition:: Hint
@@ -325,7 +325,7 @@ class NUFFT(pxa.LinOp):
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.fft.fft.FFT`
+    :py:class:`~pyxu.operator.FFT`
     """
     # The goal of this wrapper class is to sanitize __init__() inputs.
 
@@ -364,15 +364,15 @@ class NUFFT(pxa.LinOp):
             If ``eps=0``, the transform is computed exactly via direct evaluation of the exponential sum using a Numba
             JIT-compiled kernel.
         real: bool
-            If ``True``, assumes :py:func:`~pyxu.operator.linop.fft.nufft.NUFFT.apply` takes (..., M) inputs in
+            If ``True``, assumes :py:func:`~pyxu.operator.NUFFT.apply` takes (..., M) inputs in
             :math:`\mathbb{R}^{M}`.
 
-            If ``False``, then :py:func:`~pyxu.operator.linop.fft.nufft.NUFFT.apply` takes (..., 2M) inputs, i.e.
+            If ``False``, then :py:func:`~pyxu.operator.NUFFT.apply` takes (..., 2M) inputs, i.e.
             :math:`\mathbb{C}^{M}` vectors viewed as bijections with :math:`\mathbb{R}^{2M}`.
         plan_fw/bw: bool
             If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw) transform.
             These are advanced options: use them with care.
-            Some public methods in the :py:class:`~pyxu.abc.operator.LinOp` interface may not work if fw/bw transforms
+            Some public methods in the :py:class:`~pyxu.abc.LinOp` interface may not work if fw/bw transforms
             are disabled.
             These options only take effect if ``eps > 0``.
         enable_warnings: bool
@@ -465,15 +465,15 @@ class NUFFT(pxa.LinOp):
             If ``eps=0``, the transform is computed exactly via direct evaluation of the exponential sum using a Numba
             JIT-compiled kernel.
         real: bool
-            If ``True``, assumes :py:func:`~pyxu.operator.linop.fft.nufft.NUFFT.apply` takes (..., N.prod()) inputs in
+            If ``True``, assumes :py:func:`~pyxu.operator.NUFFT.apply` takes (..., N.prod()) inputs in
             :math:`\mathbb{R}^{N}`.
 
-            If ``False``, then :py:func:`~pyxu.operator.linop.fft.nufft.NUFFT.apply` takes (..., 2N.prod()) inputs, i.e.
+            If ``False``, then :py:func:`~pyxu.operator.NUFFT.apply` takes (..., 2N.prod()) inputs, i.e.
             :math:`\mathbb{C}^{N}` vectors viewed as bijections with :math:`\mathbb{R}^{2N}`.
         plan_fw/bw: bool
             If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw) transform.
             These are advanced options: use them with care.
-            Some public methods in the :py:class:`~pyxu.abc.operator.LinOp` interface may not work if fw/bw transforms
+            Some public methods in the :py:class:`~pyxu.abc.LinOp` interface may not work if fw/bw transforms
             are disabled.
             These options only take effect if ``eps > 0``.
         enable_warnings: bool
@@ -577,15 +577,15 @@ class NUFFT(pxa.LinOp):
             If ``eps=0``, the transform is computed exactly via direct evaluation of the exponential
             sum using a Numba JIT-compiled kernel.
         real: bool
-            If ``True``, assumes :py:func:`~pyxu.operator.linop.fft.nufft.NUFFT.apply` takes (..., M) inputs in
+            If ``True``, assumes :py:func:`~pyxu.operator.NUFFT.apply` takes (..., M) inputs in
             :math:`\mathbb{R}^{M}`.
 
-            If ``False``, then :py:func:`~pyxu.operator.linop.fft.nufft.NUFFT.apply` takes (..., 2M) inputs, i.e.
+            If ``False``, then :py:func:`~pyxu.operator.NUFFT.apply` takes (..., 2M) inputs, i.e.
             :math:`\mathbb{C}^{M}` vectors viewed as bijections with :math:`\mathbb{R}^{2M}`.
         plan_fw/bw: bool
             If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw) transform.
             These are advanced options: use them with care.
-            Some public methods in the :py:class:`~pyxu.abc.operator.LinOp` interface may not work if fw/bw transforms
+            Some public methods in the :py:class:`~pyxu.abc.LinOp` interface may not work if fw/bw transforms
             are disabled.
             These options only take effect if ``eps > 0``.
         enable_warnings: bool
@@ -653,30 +653,30 @@ class NUFFT(pxa.LinOp):
              x_chunks, z_chunks = A.auto_chunk()  # auto-determine a good x/z chunking strategy
              A.allocate(x_chunks, z_chunks)  # apply the chunking strategy.
 
-          :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.auto_chunk` is a helper method to auto-determine a good
+          :py:meth:`~pyxu.operator.NUFFT.auto_chunk` is a helper method to auto-determine a good
           chunking strategy.
 
           Its runtime is significant when the number of sub-problems grows large. (1000+)
           In these contexts, assuming a good-enough x/z-split is known in advance, users can directly supply them to
-          :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.allocate`.
+          :py:meth:`~pyxu.operator.NUFFT.allocate`.
 
-        * :py:func:`~pyxu.operator.linop.fft.nufft.NUFFT.apply` /
-          :py:func:`~pyxu.operator.linop.fft.nufft.NUFFT.adjoint` runtime is minimized when x/z are well-ordered, i.e.
-          when sub-problems can sub-sample inputs to :py:func:`~pyxu.operator.linop.fft.nufft.NUFFT.apply` /
-          :py:func:`~pyxu.operator.linop.fft.nufft.NUFFT.adjoint` via slice operators.
+        * :py:func:`~pyxu.operator.NUFFT.apply` /
+          :py:func:`~pyxu.operator.NUFFT.adjoint` runtime is minimized when x/z are well-ordered, i.e.
+          when sub-problems can sub-sample inputs to :py:func:`~pyxu.operator.NUFFT.apply` /
+          :py:func:`~pyxu.operator.NUFFT.adjoint` via slice operators.
 
-          To reduce runtime of chunked transforms, :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.allocate`
+          To reduce runtime of chunked transforms, :py:meth:`~pyxu.operator.NUFFT.allocate`
           automatically re-orders x/z when appropriate.
 
           The side-effect is the cost of a permutation before/after calls to
-          :py:func:`~pyxu.operator.linop.fft.nufft.NUFFT.apply` /
-          :py:func:`~pyxu.operator.linop.fft.nufft.NUFFT.adjoint`.
+          :py:func:`~pyxu.operator.NUFFT.apply` /
+          :py:func:`~pyxu.operator.NUFFT.adjoint`.
           This cost becomes significant when the number of non-uniform points x/z is large. (> 1e6)
 
           To avoid paying the re-ordering cost at each transform, it is recommended to supply x/z and apply/adjoint
           inputs in the "correct" order from the start.
 
-          A good re-ordering is computed automatically by :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.allocate` and
+          A good re-ordering is computed automatically by :py:meth:`~pyxu.operator.NUFFT.allocate` and
           can be used to initialize a new chunked-transform with better runtime properties as such:
 
           .. code-block:: python3
@@ -705,10 +705,10 @@ class NUFFT(pxa.LinOp):
 
         See Also
         --------
-        :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.auto_chunk`,
-        :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.allocate`,
-        :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.diagnostic_plot`,
-        :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.stats`
+        :py:meth:`~pyxu.operator.NUFFT.auto_chunk`,
+        :py:meth:`~pyxu.operator.NUFFT.allocate`,
+        :py:meth:`~pyxu.operator.NUFFT.diagnostic_plot`,
+        :py:meth:`~pyxu.operator.NUFFT.stats`
         """
         init_kwargs = _NUFFT3._sanitize_init_kwargs(
             x=x,
@@ -744,13 +744,13 @@ class NUFFT(pxa.LinOp):
             - **Type 1 and 3:**
                 * (...,  M) input weights :math:`\mathbf{w} \in \mathbb{R}^{M}` (real transform).
                 * (..., 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
-                  (See :py:func:`~pyxu.util.complex.view_as_real`.)
+                  (See :py:func:`~pyxu.util.view_as_real`.)
             - **Type 2:**
                 * (...,  N.prod()) input weights :math:`\mathbf{u} \in
                   \mathbb{R}^{\mathcal{I}_{N_1, \ldots, N_d}}` (real transform).
                 * (..., 2N.prod()) input weights :math:`\mathbf{u} \in
                   \mathbb{C}^{\mathcal{I}_{N_1, \ldots, N_d}}` viewed as a real array.
-                  (See :py:func:`~pyxu.util.complex.view_as_real`.)
+                  (See :py:func:`~pyxu.util.view_as_real`.)
 
         Returns
         -------
@@ -758,13 +758,13 @@ class NUFFT(pxa.LinOp):
             - **Type 1:**
                 (..., 2N.prod()) output weights :math:`\mathbf{u} \in
                 \mathbb{C}^{\mathcal{I}_{N_1, \ldots, N_d}}` viewed as a real array.
-                (See :py:func:`~pyxu.util.complex.view_as_real`.)
+                (See :py:func:`~pyxu.util.view_as_real`.)
             - **Type 2:**
                 (..., 2M) output weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
-                (See :py:func:`~pyxu.util.complex.view_as_real`.)
+                (See :py:func:`~pyxu.util.view_as_real`.)
             - **Type 3:**
                 (..., 2N) output weights :math:`\mathbf{v} \in \mathbb{C}^{N}` viewed as a real array.
-                (See :py:func:`~pyxu.util.complex.view_as_real`.)
+                (See :py:func:`~pyxu.util.view_as_real`.)
         """
         raise NotImplementedError
 
@@ -776,13 +776,13 @@ class NUFFT(pxa.LinOp):
             - **Type 1:**
                 (..., 2N.prod()) output weights :math:`\mathbf{u} \in
                 \mathbb{C}^{\mathcal{I}_{N_1, \ldots, N_d}}` viewed as a real array.
-                (See :py:func:`~pyxu.util.complex.view_as_real`.)
+                (See :py:func:`~pyxu.util.view_as_real`.)
             - **Type 2:**
                 (..., 2M) output weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
-                (See :py:func:`~pyxu.util.complex.view_as_real`.)
+                (See :py:func:`~pyxu.util.view_as_real`.)
             - **Type 3:**
                 (..., 2N) output weights :math:`\mathbf{v} \in \mathbb{C}^{N}` viewed as a real array.
-                (See :py:func:`~pyxu.util.complex.view_as_real`.)
+                (See :py:func:`~pyxu.util.view_as_real`.)
 
         Returns
         -------
@@ -790,13 +790,13 @@ class NUFFT(pxa.LinOp):
             - **Type 1 and 3:**
                 * (...,  M) input weights :math:`\mathbf{w} \in \mathbb{R}^{M}` (real transform).
                 * (..., 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
-                  (See :py:func:`~pyxu.util.complex.view_as_real`.)
+                  (See :py:func:`~pyxu.util.view_as_real`.)
             - **Type 2:**
                 * (...,  N.prod()) input weights :math:`\mathbf{u} \in
                   \mathbb{R}^{\mathcal{I}_{N_1, \ldots, N_d}}` (real transform).
                 * (..., 2N.prod()) input weights :math:`\mathbf{u} \in
                   \mathbb{C}^{\mathcal{I}_{N_1, \ldots, N_d}}` viewed as a real array.
-                  (See :py:func:`~pyxu.util.complex.view_as_real`.)
+                  (See :py:func:`~pyxu.util.view_as_real`.)
         """
         raise NotImplementedError
 
@@ -1094,7 +1094,7 @@ class NUFFT(pxa.LinOp):
 
         Notes
         -----
-        When called from a chunked type-3 transform, :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.params` returns
+        When called from a chunked type-3 transform, :py:meth:`~pyxu.operator.NUFFT.params` returns
         parameters of the equivalent monolithic type-3 transform.
         The monolithic transform is seldom instantiable due to its large memory requirements.
         This method can hence be used to estimate the memory savings induced by chunking.
@@ -1227,9 +1227,9 @@ class NUFFT(pxa.LinOp):
 
         See Also
         --------
-        :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.allocate`,
-        :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.diagnostic_plot`,
-        :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.stats`
+        :py:meth:`~pyxu.operator.NUFFT.allocate`,
+        :py:meth:`~pyxu.operator.NUFFT.diagnostic_plot`,
+        :py:meth:`~pyxu.operator.NUFFT.stats`
         """
         raise NotImplementedError
 
@@ -1261,9 +1261,9 @@ class NUFFT(pxa.LinOp):
 
         See Also
         --------
-        :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.auto_chunk`,
-        :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.diagnostic_plot`,
-        :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.stats`
+        :py:meth:`~pyxu.operator.NUFFT.auto_chunk`,
+        :py:meth:`~pyxu.operator.NUFFT.diagnostic_plot`,
+        :py:meth:`~pyxu.operator.NUFFT.stats`
         """
         raise NotImplementedError
 
@@ -1285,7 +1285,7 @@ class NUFFT(pxa.LinOp):
 
         Notes
         -----
-        * This method can only be called after :py:meth:`~pyxu.operator.linop.fft.nufft.NUFFT.allocate`.
+        * This method can only be called after :py:meth:`~pyxu.operator.NUFFT.allocate`.
         * This method only works for 2D/3D domains.
 
         Examples

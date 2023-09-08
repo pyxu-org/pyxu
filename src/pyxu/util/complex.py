@@ -13,7 +13,7 @@ __all__ = [
 def view_as_complex(x: pxt.NDArray) -> pxt.NDArray:
     r"""
     View real-valued array as its complex-valued bijection.
-    (Inverse of :py:func:`~pyxu.util.complex.view_as_real`.)
+    (Inverse of :py:func:`~pyxu.util.view_as_real`.)
 
     Parameters
     ----------
@@ -46,9 +46,9 @@ def view_as_complex(x: pxt.NDArray) -> pxt.NDArray:
 
     See Also
     --------
-    :py:func:`~pyxu.util.complex.view_as_real`,
-    :py:func:`~pyxu.util.complex.view_as_real_mat`,
-    :py:func:`~pyxu.util.complex.view_as_complex_mat`
+    :py:func:`~pyxu.util.view_as_real`,
+    :py:func:`~pyxu.util.view_as_real_mat`,
+    :py:func:`~pyxu.util.view_as_complex_mat`
     """
     if _is_complex(x):
         return x
@@ -69,7 +69,7 @@ def view_as_complex(x: pxt.NDArray) -> pxt.NDArray:
 def view_as_real(x: pxt.NDArray) -> pxt.NDArray:
     r"""
     View complex-valued array as its real-valued bijection.
-    (Inverse of :py:func:`~pyxu.util.complex.view_as_complex`.)
+    (Inverse of :py:func:`~pyxu.util.view_as_complex`.)
 
     Parameters
     ----------
@@ -107,9 +107,9 @@ def view_as_real(x: pxt.NDArray) -> pxt.NDArray:
 
     See Also
     --------
-    :py:func:`~pyxu.util.complex.view_as_complex`,
-    :py:func:`~pyxu.util.complex.view_as_real_mat`,
-    :py:func:`~pyxu.util.complex.view_as_complex_mat`
+    :py:func:`~pyxu.util.view_as_complex`,
+    :py:func:`~pyxu.util.view_as_real_mat`,
+    :py:func:`~pyxu.util.view_as_complex_mat`
     """
     if _is_real(x):
         return x
@@ -147,7 +147,7 @@ def view_as_real_mat(
 ) -> pxt.NDArray:
     r"""
     View complex-valued matrix as its real-valued equivalent.
-    (Inverse of :py:func:`~pyxu.util.complex.view_as_complex_mat`.)
+    (Inverse of :py:func:`~pyxu.util.view_as_complex_mat`.)
 
     Useful to transform complex-valued matrix/vector products to their real-valued counterparts.
 
@@ -205,9 +205,9 @@ def view_as_real_mat(
 
     See Also
     --------
-    :py:func:`~pyxu.util.complex.view_as_real`,
-    :py:func:`~pyxu.util.complex.view_as_complex`,
-    :py:func:`~pyxu.util.complex.view_as_complex_mat`
+    :py:func:`~pyxu.util.view_as_real`,
+    :py:func:`~pyxu.util.view_as_complex`,
+    :py:func:`~pyxu.util.view_as_complex_mat`
     """
     assert cmat.ndim == 2, f"cmat: expected a 2D array, got {cmat.ndim}-D."
     if _is_real(cmat):
@@ -238,7 +238,7 @@ def view_as_complex_mat(
 ) -> pxt.NDArray:
     r"""
     View real-valued matrix as its complex-valued equivalent.
-    (Inverse of :py:func:`~pyxu.util.complex.view_as_real_mat`.)
+    (Inverse of :py:func:`~pyxu.util.view_as_real_mat`.)
 
     Useful to transform real-valued matrix/vector products to their complex-valued counterparts.
 
@@ -290,9 +290,9 @@ def view_as_complex_mat(
 
     See Also
     --------
-    :py:func:`~pyxu.util.complex.view_as_real`,
-    :py:func:`~pyxu.util.complex.view_as_complex`,
-    :py:func:`~pyxu.util.complex.view_as_real_mat`
+    :py:func:`~pyxu.util.view_as_real`,
+    :py:func:`~pyxu.util.view_as_complex`,
+    :py:func:`~pyxu.util.view_as_real_mat`
     """
     assert rmat.ndim == 2, f"rmat: expected a 2D array, got {rmat.ndim}-D."
     if _is_complex(rmat):

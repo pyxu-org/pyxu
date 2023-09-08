@@ -62,15 +62,15 @@ class PGD(pxa.Solver):
 
     Parameters (``__init__()``)
     ---------------------------
-    * **f** (:py:class:`~pyxu.abc.operator.DiffFunc`, :py:obj:`None`)
+    * **f** (:py:class:`~pyxu.abc.DiffFunc`, :py:obj:`None`)
       --
       Differentiable function :math:`\mathcal{F}`.
-    * **g** (:py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`)
+    * **g** (:py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`)
       --
       Proximable function :math:`\mathcal{G}`.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
     Parameters (``fit()``)
     ----------------------
@@ -92,7 +92,7 @@ class PGD(pxa.Solver):
       Defaults to 75 in unspecified.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.
     """
 
     def __init__(

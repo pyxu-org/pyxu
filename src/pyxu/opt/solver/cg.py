@@ -30,12 +30,12 @@ class CG(pxa.Solver):
 
     Parameters (``__init__()``)
     ---------------------------
-    * **A** (:py:class:`~pyxu.abc.operator.PosDefOp`)
+    * **A** (:py:class:`~pyxu.abc.PosDefOp`)
       --
       Positive-definite operator :math:`\mathbf{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}`.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
     Parameters (``fit()``)
     ----------------------
@@ -57,7 +57,7 @@ class CG(pxa.Solver):
       By default, a restart is done after 'n' iterations, where 'n' corresponds to the dimension of :math:`\mathbf{A}`.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.
     """
 
     def __init__(self, A: pxa.PosDefOp, **kwargs):

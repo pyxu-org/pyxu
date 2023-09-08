@@ -165,7 +165,7 @@ def MovingAverage(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.filter.Gaussian`
+    :py:class:`~pyxu.operator.Gaussian`
     """
     size = _to_canonical_form(size, arg_shape)
     if center is None:
@@ -283,8 +283,8 @@ def Gaussian(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.filter.MovingAverage`,
-    :py:class:`~pyxu.operator.linop.filter.DifferenceOfGaussians`
+    :py:class:`~pyxu.operator.MovingAverage`,
+    :py:class:`~pyxu.operator.DifferenceOfGaussians`
     """
 
     ndim, dtype, xp = _sanitize_inputs(arg_shape, dtype, gpu)
@@ -407,11 +407,11 @@ def DifferenceOfGaussians(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.filter.Gaussian`,
-    :py:class:`~pyxu.operator.linop.filter.Sobel`,
-    :py:class:`~pyxu.operator.linop.filter.Prewitt`,
-    :py:class:`~pyxu.operator.linop.filter.Scharr`,
-    :py:class:`~pyxu.operator.linop.filter.StructureTensor`
+    :py:class:`~pyxu.operator.Gaussian`,
+    :py:class:`~pyxu.operator.Sobel`,
+    :py:class:`~pyxu.operator.Prewitt`,
+    :py:class:`~pyxu.operator.Scharr`,
+    :py:class:`~pyxu.operator.StructureTensor`
     """
 
     low_sigma = _to_canonical_form(low_sigma, arg_shape)
@@ -515,9 +515,9 @@ def Laplace(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.filter.Sobel`,
-    :py:class:`~pyxu.operator.linop.filter.Prewitt`,
-    :py:class:`~pyxu.operator.linop.filter.Scharr`,
+    :py:class:`~pyxu.operator.Sobel`,
+    :py:class:`~pyxu.operator.Prewitt`,
+    :py:class:`~pyxu.operator.Scharr`,
     """
 
     ndim, dtype, xp = _sanitize_inputs(arg_shape, dtype, gpu)
@@ -617,8 +617,8 @@ def Sobel(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.filter.Prewitt`,
-    :py:class:`~pyxu.operator.linop.filter.Scharr`,
+    :py:class:`~pyxu.operator.Prewitt`,
+    :py:class:`~pyxu.operator.Scharr`,
     """
     smooth_kernel = np.array([1, 2, 1]) / 4
     return _EdgeFilter(
@@ -716,8 +716,8 @@ def Prewitt(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.filter.Sobel`,
-    :py:class:`~pyxu.operator.linop.filter.Scharr`,
+    :py:class:`~pyxu.operator.Sobel`,
+    :py:class:`~pyxu.operator.Scharr`,
     """
     smooth_kernel = np.full((3,), 1 / 3)
     return _EdgeFilter(
@@ -814,8 +814,8 @@ def Scharr(
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.filter.Sobel`,
-    :py:class:`~pyxu.operator.linop.filter.Prewitt`,
+    :py:class:`~pyxu.operator.Sobel`,
+    :py:class:`~pyxu.operator.Prewitt`,
     """
     smooth_kernel = np.array([3, 10, 3]) / 16
     return _EdgeFilter(
@@ -911,7 +911,7 @@ class StructureTensor(pxa.DiffMap):
     Remark
     ------
     In case of using the finite differences (`diff_type="fd"`), the finite difference scheme defaults to `central`
-    (see :py:class:`~pyxu.operator.linop.diff.PartialDerivative`).
+    (see :py:class:`~pyxu.operator.PartialDerivative`).
 
     Example
     -------
@@ -966,8 +966,9 @@ class StructureTensor(pxa.DiffMap):
 
     See Also
     --------
-    :py:class:`~pyxu.operator.linop.diff.PartialDerivative`, :py:class:`~pyxu.operator.linop.diff.Gradient`,
-    :py:class:`~pyxu.operator.linop.diff.Hessian`.
+    :py:class:`~pyxu.operator.PartialDerivative`,
+    :py:class:`~pyxu.operator.Gradient`,
+    :py:class:`~pyxu.operator.Hessian`
     """
 
     def __init__(

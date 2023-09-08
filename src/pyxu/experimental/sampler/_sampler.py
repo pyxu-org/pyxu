@@ -11,7 +11,7 @@ can be used for image reconstruction.
 Higher-order pixel-wise statistics (e.g., the variance) can also be computed in an online fashion
 (see :py:mod:`~pyxu.experimental.sampler.statistics`) and provide useful diagnostic tools for uncertainty quantification.
 
-In the following example, we showcase the unajusted Langevin algorithm (:py:class:`~pyxu.experimental.sampler._sampler.ULA`)
+In the following example, we showcase the unajusted Langevin algorithm (:py:class:`~pyxu.experimental.sampler.ULA`)
 applied to a total-variation denoising problem.
 We show the MMSE estimator as well as the pixelwise variance of the samples.
 As expected, the variance is higher around edges than in the smooth regions, indicating that there is higher uncertainty
@@ -317,7 +317,7 @@ class ULA(_Sampler):
         r"""
         Parameters
         ----------
-        f: :py:class:`~pyxu.abc.operator.DiffFunc`
+        f: :py:class:`~pyxu.abc.DiffFunc`
             Differentiable functional.
         gamma: Real
             Euler-Maruyama discretization step of the Langevin equation (see `Notes`).
@@ -395,7 +395,7 @@ class MYULA(ULA):
 
     Notes
     -----
-    MYULA is an extension of :py:class:`~pyxu.experimental.sampler._sampler.ULA` to sample from distributions whose
+    MYULA is an extension of :py:class:`~pyxu.experimental.sampler.ULA` to sample from distributions whose
     logarithm is nonsmooth.
     It consists in applying ULA to the differentiable functional :math:`\mathcal{U}^\lambda = \mathcal{F} + \mathcal{G}^\lambda`
     for some :math:`\lambda > 0`, where
@@ -422,7 +422,7 @@ class MYULA(ULA):
        p^\lambda(\mathbf{x}) \propto \exp(-\mathcal{F}(\mathbf{x})-\mathcal{G}^\lambda(\mathbf{x})),
 
     which introduces some additional bias on top of the bias of ULA related to the step size :math:`\gamma` (see `Notes`
-    of :py:class:`~pyxu.experimental.sampler._sampler.ULA` documentation).
+    of :py:class:`~pyxu.experimental.sampler.ULA` documentation).
     MYULA is guaranteed to converges when :math:`\gamma \leq \frac{1}{\beta + \frac{1}{\lambda}}`, in which case it converges
     toward the stationary distribution :math:`p^\lambda_\gamma(\mathbf{x})` that satisfies
 
@@ -446,13 +446,13 @@ class MYULA(ULA):
         r"""
         Parameters
         ----------
-        f: :py:class:`~pyxu.abc.operator.DiffFunc` | None
+        f: :py:class:`~pyxu.abc.DiffFunc` | None
             Differentiable functional.
-        g: :py:class:`~pyxu.abc.operator.ProxFunc` | None
+        g: :py:class:`~pyxu.abc.ProxFunc` | None
             Proximable functional.
         gamma: Real
             Euler-Maruyama discretization step of the Langevin equation (see `Notes` of
-            :py:class:`~pyxu.experimental.sampler._sampler.ULA` documentation).
+            :py:class:`~pyxu.experimental.sampler.ULA` documentation).
         lamb: Real
             Moreau-Yosida envelope parameter for `g`.
         """

@@ -466,12 +466,12 @@ def from_torch(
     **kwargs,
 ) -> pxt.OpT:
     r"""
-    Define an :py:class:`~pyxu.abc.operator.Operator` from Torch-based callables.
+    Define an :py:class:`~pyxu.abc.Operator` from Torch-based callables.
 
     Parameters
     ----------
     apply: ~collections.abc.Callable
-        A Python function with single-element Tensor input/output. Defines the :py:meth:`~pyxu.abc.operator.Map.apply`
+        A Python function with single-element Tensor input/output. Defines the :py:meth:`~pyxu.abc.Map.apply`
         method of the operator: ``apply(x)==op.apply(x)``.
     shape: OpShape
         (N,M) shape of the operator, where N and M are the sizes of the output and input Tensors of ``apply`` respectively.
@@ -497,7 +497,7 @@ def from_torch(
     name: str
         Name of the operator.
     meta: Any
-        Meta information to be provided as tail to :py:class:`~pyxu.abc.operator.Operator._expr`.
+        Meta information to be provided as tail to :py:class:`~pyxu.abc.Operator._expr`.
     kwargs: dict
         Optional   (k[str], v[value | callable]) pairs to use as arithmetic methods.
 
@@ -548,9 +548,9 @@ def from_torch(
       :py:func:`torch.compile`.
       See `this issue <https://github.com/pytorch/pytorch/issues/98822>`_ for additional details.
 
-    * For :py:class:`~pyxu.abc.operator.DiffMap` (or subclasses thereof), the methods
-      :py:meth:`~pyxu.abc.operator.DiffMap.jacobian`, :py:meth:`~pyxu.abc.operator.DiffFunc.grad` and
-      :py:meth:`~pyxu.abc.operator.LinOp.adjoint` are defined implicitly if not provided using the
+    * For :py:class:`~pyxu.abc.DiffMap` (or subclasses thereof), the methods
+      :py:meth:`~pyxu.abc.DiffMap.jacobian`, :py:meth:`~pyxu.abc.DiffFunc.grad` and
+      :py:meth:`~pyxu.abc.LinOp.adjoint` are defined implicitly if not provided using the
       auto-differentiation transforms from :py:mod:`torch.func`.
       As detailed `on this page <https://pytorch.org/docs/stable/func.ux_limitations.html>`_, such transforms work well
       on pure functions (that is, functions where the output is completely determined by the input and that do not

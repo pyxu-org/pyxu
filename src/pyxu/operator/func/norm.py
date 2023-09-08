@@ -130,7 +130,7 @@ class SquaredL1Norm(_ShiftLossMixin, pxa.ProxFunc):
 
         Notes
         -----
-        Calling :py:meth:`~pyxu.operator.func.norm.SquaredL1Norm.prox` with DASK inputs when
+        Calling :py:meth:`~pyxu.operator.SquaredL1Norm.prox` with DASK inputs when
         `algo="sort"` is inefficient at scale.
         Prefer `algo="root"` in this case.
         """
@@ -382,7 +382,7 @@ class PositiveL1Norm(_ShiftLossMixin, pxa.ProxFunc):
 
     See Also
     --------
-    :py:class:`~pyxu.operator.func.indicator.PositiveOrthant`
+    :py:class:`~pyxu.operator.PositiveOrthant`
     """
 
     def __init__(self, dim: pxt.Integer):

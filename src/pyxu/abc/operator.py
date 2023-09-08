@@ -81,7 +81,7 @@ class Operator:
 
     * enable operator arithmetic.
     * cast operators to specialized forms.
-    * attach :py:class:`~pyxu.abc.operator.Property` tags encoding certain mathematical properties.
+    * attach :py:class:`~pyxu.abc.Property` tags encoding certain mathematical properties.
       Each core sub-class **must** have a unique set of properties to be distinguishable from its peers.
     """
 
@@ -141,8 +141,8 @@ class Operator:
 
     def asop(self, cast_to: pxt.OpC) -> pxt.OpT:
         r"""
-        Recast an :py:class:`~pyxu.abc.operator.Operator` (or subclass thereof) to another
-        :py:class:`~pyxu.abc.operator.Operator`.
+        Recast an :py:class:`~pyxu.abc.Operator` (or subclass thereof) to another
+        :py:class:`~pyxu.abc.Operator`.
 
         Users may call this method if the arithmetic API yields sub-optimal return types.
 
@@ -159,7 +159,7 @@ class Operator:
             Operator with the new interface.
 
             Fails when cast is forbidden.
-            (Ex: :py:class:`~pyxu.abc.operator.Map` -> :py:class:`~pyxu.abc.operator.Func` if codim > 1)
+            (Ex: :py:class:`~pyxu.abc.Map` -> :py:class:`~pyxu.abc.Func` if codim > 1)
 
         Notes
         -----
@@ -417,7 +417,7 @@ class Operator:
 
     def squeeze(self) -> pxt.OpT:
         r"""
-        Cast an :py:class:`~pyxu.abc.operator.Operator` to the right core operator sub-type given
+        Cast an :py:class:`~pyxu.abc.Operator` to the right core operator sub-type given
         codomain dimension.
         """
         p = set(self.properties())
@@ -515,10 +515,10 @@ class Map(Operator):
     Base class for real-valued maps :math:`\mathbf{f}: \mathbb{R}^{M} \to \mathbb{R}^{N}`.
 
     Instances of this class must implement
-    :py:meth:`~pyxu.abc.operator.Map.apply`.
+    :py:meth:`~pyxu.abc.Map.apply`.
 
     If :math:`\mathbf{f}` is Lipschitz-continuous with known Lipschitz constant :math:`L`, the latter should be stored
-    in the :py:attr:`~pyxu.abc.operator.Map.lipschitz` property.
+    in the :py:attr:`~pyxu.abc.Map.lipschitz` property.
     """
 
     @classmethod
@@ -549,7 +549,7 @@ class Map(Operator):
 
     def __call__(self, arr: pxt.NDArray) -> pxt.NDArray:
         """
-        Alias for :py:meth:`~pyxu.abc.operator.Map.apply`.
+        Alias for :py:meth:`~pyxu.abc.Map.apply`.
         """
         return self.apply(arr)
 
@@ -587,8 +587,8 @@ class Map(Operator):
              op.lipschitz = 2  # post-init specification
              op.lipschitz  # => 2
 
-        * :py:meth:`~pyxu.abc.operator.Map.lipschitz` **never** computes anything:
-          call :py:meth:`~pyxu.abc.operator.Map.estimate_lipschitz` manually to *compute* a new Lipschitz estimate:
+        * :py:meth:`~pyxu.abc.Map.lipschitz` **never** computes anything:
+          call :py:meth:`~pyxu.abc.Map.estimate_lipschitz` manually to *compute* a new Lipschitz estimate:
 
           .. code-block:: python3
 
@@ -651,10 +651,10 @@ class Func(Map):
     Base class for real-valued functionals :math:`f: \mathbb{R}^{M} \to \mathbb{R}\cup\{+\infty\}`.
 
     Instances of this class must implement
-    :py:meth:`~pyxu.abc.operator.Map.apply`.
+    :py:meth:`~pyxu.abc.Map.apply`.
 
     If :math:`f` is Lipschitz-continuous with known Lipschitz constant :math:`L`, the latter should be stored in the
-    :py:attr:`~pyxu.abc.operator.Map.lipschitz` property.
+    :py:attr:`~pyxu.abc.Map.lipschitz` property.
     """
 
     @classmethod
@@ -672,9 +672,9 @@ class Func(Map):
         Transform a functional into a loss functional.
 
         The meaning of
-        :py:meth:`~pyxu.abc.operator.Func.asloss`
+        :py:meth:`~pyxu.abc.Func.asloss`
         is operator-dependent: always examine the output of
-        :py:meth:`~pyxu.abc.operator.Operator.expr`
+        :py:meth:`~pyxu.abc.Operator.expr`
         to determine the loss-notion involved.
 
         Parameters
@@ -696,14 +696,14 @@ class DiffMap(Map):
     Base class for real-valued differentiable maps :math:`\mathbf{f}: \mathbb{R}^{M} \to \mathbb{R}^{N}`.
 
     Instances of this class must implement
-    :py:meth:`~pyxu.abc.operator.Map.apply` and
-    :py:meth:`~pyxu.abc.operator.DiffMap.jacobian`.
+    :py:meth:`~pyxu.abc.Map.apply` and
+    :py:meth:`~pyxu.abc.DiffMap.jacobian`.
 
     If :math:`\mathbf{f}` is Lipschitz-continuous with known Lipschitz constant :math:`L`, the latter should be stored
-    in the :py:attr:`~pyxu.abc.operator.Map.lipschitz` property.
+    in the :py:attr:`~pyxu.abc.Map.lipschitz` property.
 
     If :math:`\mathbf{J}_{\mathbf{f}}` is Lipschitz-continuous with known Lipschitz constant :math:`\partial L`, the
-    latter should be stored in the :py:attr:`~pyxu.abc.operator.DiffMap.diff_lipschitz` property.
+    latter should be stored in the :py:attr:`~pyxu.abc.DiffMap.diff_lipschitz` property.
     """
 
     @classmethod
@@ -794,8 +794,8 @@ class DiffMap(Map):
              op.diff_lipschitz = 2  # post-init specification
              op.diff_lipschitz  # => 2
 
-        * :py:meth:`~pyxu.abc.operator.DiffMap.diff_lipschitz` **never** computes anything:
-          call :py:meth:`~pyxu.abc.operator.DiffMap.estimate_diff_lipschitz` manually to *compute* a new diff-Lipschitz estimate:
+        * :py:meth:`~pyxu.abc.DiffMap.diff_lipschitz` **never** computes anything:
+          call :py:meth:`~pyxu.abc.DiffMap.estimate_diff_lipschitz` manually to *compute* a new diff-Lipschitz estimate:
 
           .. code-block:: python3
 
@@ -821,7 +821,7 @@ class DiffMap(Map):
 
     def estimate_diff_lipschitz(self, **kwargs) -> pxt.Real:
         r"""
-        Compute a Lipschitz constant of :py:meth:`~pyxu.abc.operator.DiffMap.jacobian`.
+        Compute a Lipschitz constant of :py:meth:`~pyxu.abc.DiffMap.jacobian`.
 
         Parameters
         ----------
@@ -858,17 +858,17 @@ class ProxFunc(Func):
     Base class for real-valued proximable functionals :math:`f: \mathbb{R}^{M} \to \mathbb{R} \cup \{+\infty\}`.
 
     A functional :math:`f: \mathbb{R}^{M} \to \mathbb{R} \cup \{+\infty\}` is said *proximable* if its
-    **proximity operator** (see :py:meth:`~pyxu.abc.operator.ProxFunc.prox` for a definition) admits
+    **proximity operator** (see :py:meth:`~pyxu.abc.ProxFunc.prox` for a definition) admits
     a *simple closed-form expression*
     **or**
     can be evaluated *efficiently* and with *high accuracy*.
 
     Instances of this class must implement
-    :py:meth:`~pyxu.abc.operator.Map.apply` and
-    :py:meth:`~pyxu.abc.operator.ProxFunc.prox`.
+    :py:meth:`~pyxu.abc.Map.apply` and
+    :py:meth:`~pyxu.abc.ProxFunc.prox`.
 
     If :math:`f` is Lipschitz-continuous with known Lipschitz constant :math:`L`, the latter should be stored in the
-    :py:attr:`~pyxu.abc.operator.Map.lipschitz` property.
+    :py:attr:`~pyxu.abc.Map.lipschitz` property.
     """
 
     @classmethod
@@ -1086,14 +1086,14 @@ class DiffFunc(DiffMap, Func):
     Base class for real-valued differentiable functionals :math:`f: \mathbb{R}^{M} \to \mathbb{R}`.
 
     Instances of this class must implement
-    :py:meth:`~pyxu.abc.operator.Map.apply` and
-    :py:meth:`~pyxu.abc.operator.DiffFunc.grad`.
+    :py:meth:`~pyxu.abc.Map.apply` and
+    :py:meth:`~pyxu.abc.DiffFunc.grad`.
 
     If :math:`f` and/or its derivative :math:`f'` are Lipschitz-continuous with known Lipschitz constants :math:`L` and
     :math:`\partial L`, the latter should be stored in the
-    :py:attr:`~pyxu.abc.operator.Map.lipschitz`
+    :py:attr:`~pyxu.abc.Map.lipschitz`
     and
-    :py:attr:`~pyxu.abc.operator.DiffMap.diff_lipschitz`
+    :py:attr:`~pyxu.abc.DiffMap.diff_lipschitz`
     properties.
     """
 
@@ -1151,15 +1151,15 @@ class ProxDiffFunc(ProxFunc, DiffFunc):
     :math:`f:\mathbb{R}^{M} \to \mathbb{R}`.
 
     Instances of this class must implement
-    :py:meth:`~pyxu.abc.operator.Map.apply`,
-    :py:meth:`~pyxu.abc.operator.DiffFunc.grad`, and
-    :py:meth:`~pyxu.abc.operator.ProxFunc.prox`.
+    :py:meth:`~pyxu.abc.Map.apply`,
+    :py:meth:`~pyxu.abc.DiffFunc.grad`, and
+    :py:meth:`~pyxu.abc.ProxFunc.prox`.
 
     If :math:`f` and/or its derivative :math:`f'` are Lipschitz-continuous with known Lipschitz constants :math:`L` and
     :math:`\partial L`, the latter should be stored in the
-    :py:attr:`~pyxu.abc.operator.Map.lipschitz`
+    :py:attr:`~pyxu.abc.Map.lipschitz`
     and
-    :py:attr:`~pyxu.abc.operator.DiffMap.diff_lipschitz`
+    :py:attr:`~pyxu.abc.DiffMap.diff_lipschitz`
     properties.
     """
 
@@ -1217,7 +1217,7 @@ class QuadraticFunc(ProxDiffFunc):
            \tau^{-1}\mathbf{x} - \mathbf{c}
        \right).
 
-    In practice the proximity operator is evaluated via :py:class:`~pyxu.opt.solver.cg.CG`.
+    In practice the proximity operator is evaluated via :py:class:`~pyxu.opt.solver.CG`.
 
     The Lipschitz constant :math:`L` of a quadratic on an unbounded domain is unbounded.
     The Lipschitz constant :math:`\partial L` of :math:`\nabla f` is given by the spectral norm of :math:`\mathbf{Q}`.
@@ -1240,9 +1240,9 @@ class QuadraticFunc(ProxDiffFunc):
         r"""
         Parameters
         ----------
-        Q: ~pyxu.abc.operator.PosDefOp
+        Q: ~pyxu.abc.PosDefOp
             (N, N) positive-definite operator. (Default: Identity)
-        c: ~pyxu.abc.operator.LinFunc
+        c: ~pyxu.abc.LinFunc
             (1, N) linear functional. (Default: NullFunc)
         t: Real
             offset. (Default: 0)
@@ -1324,11 +1324,11 @@ class LinOp(DiffMap):
     Base class for real-valued linear operators :math:`\mathbf{A}: \mathbb{R}^{M} \to \mathbb{R}^{N}`.
 
     Instances of this class must implement
-    :py:meth:`~pyxu.abc.operator.Map.apply` and
-    :py:meth:`~pyxu.abc.operator.LinOp.adjoint`.
+    :py:meth:`~pyxu.abc.Map.apply` and
+    :py:meth:`~pyxu.abc.LinOp.adjoint`.
 
     If known, the Lipschitz constant :math:`L` should be stored in the
-    :py:attr:`~pyxu.abc.operator.Map.lipschitz` property.
+    :py:attr:`~pyxu.abc.Map.lipschitz` property.
 
     The Jacobian of a linear map :math:`\mathbf{A}` is constant.
     """
@@ -1404,7 +1404,7 @@ class LinOp(DiffMap):
         gpu: bool = False,
     ) -> spsl.LinearOperator:
         r"""
-        Cast a :py:class:`~pyxu.abc.operator.LinOp` to a CPU/GPU
+        Cast a :py:class:`~pyxu.abc.LinOp` to a CPU/GPU
         :py:class:`~scipy.sparse.linalg.LinearOperator`, compatible with the matrix-free linear
         algebra routines of :py:mod:`scipy.sparse.linalg`.
 
@@ -1460,8 +1460,8 @@ class LinOp(DiffMap):
         kwargs:
             Optional kwargs passed on to:
 
-            * `svd`: :py:func:`~pyxu.abc.operator.LinOp.svdvals`
-            * `trace`: :py:func:`~pyxu.math.linalg.hutchpp`
+            * `svd`: :py:func:`~pyxu.abc.LinOp.svdvals`
+            * `trace`: :py:func:`~pyxu.math.hutchpp`
 
         Notes
         -----
@@ -1611,7 +1611,7 @@ class LinOp(DiffMap):
         ----
         This generic implementation assumes the operator is backend-agnostic.
         Thus, when defining a new backend-specific operator,
-        :py:meth:`~pyxu.abc.operator.LinOp.asarray`
+        :py:meth:`~pyxu.abc.LinOp.asarray`
         may need to be overriden.
         """
         if xp is None:
@@ -1688,9 +1688,9 @@ class LinOp(DiffMap):
         damp: Real
             Positive dampening factor regularizing the pseudo-inverse.
         kwargs_init: ~collections.abc.Mapping
-            Optional kwargs to be passed to :py:meth:`~pyxu.opt.solver.cg.CG`'s ``__init__()`` method.
+            Optional kwargs to be passed to :py:meth:`~pyxu.opt.solver.CG`'s ``__init__()`` method.
         kwargs_fit: ~collections.abc.Mapping
-            Optional kwargs to be passed to :py:meth:`~pyxu.opt.solver.cg.CG`'s ``fit()`` method.
+            Optional kwargs to be passed to :py:meth:`~pyxu.opt.solver.CG`'s ``fit()`` method.
 
         Returns
         -------
@@ -1768,9 +1768,9 @@ class LinOp(DiffMap):
         damp: Real
             Positive dampening factor regularizing the pseudo-inverse.
         kwargs_init: ~collections.abc.Mapping
-            Optional kwargs to be passed to :py:meth:`~pyxu.opt.solver.cg.CG`'s ``__init__()`` method.
+            Optional kwargs to be passed to :py:meth:`~pyxu.opt.solver.CG`'s ``__init__()`` method.
         kwargs_fit: ~collections.abc.Mapping
-            Optional kwargs to be passed to :py:meth:`~pyxu.opt.solver.cg.CG`'s ``fit()`` method.
+            Optional kwargs to be passed to :py:meth:`~pyxu.opt.solver.CG`'s ``fit()`` method.
 
         Returns
         -------
@@ -1820,7 +1820,7 @@ class LinOp(DiffMap):
         enable_warnings: bool = True,
     ) -> pxt.OpT:
         r"""
-        Instantiate a :py:class:`~pyxu.abc.operator.LinOp` from its array representation.
+        Instantiate a :py:class:`~pyxu.abc.LinOp` from its array representation.
 
         Parameters
         ----------
@@ -1869,8 +1869,8 @@ class SquareOp(LinOp):
         kwargs: ~collections.abc.Mapping
             Optional kwargs passed to:
 
-            * `explicit`: :py:func:`~pyxu.math.linalg.trace`
-            * `hutchpp`: :py:func:`~pyxu.math.linalg.hutchpp`
+            * `explicit`: :py:func:`~pyxu.math.trace`
+            * `hutchpp`: :py:func:`~pyxu.math.hutchpp`
 
         Returns
         -------
@@ -2055,11 +2055,11 @@ class LinFunc(ProxDiffFunc, LinOp):
     Base class for real-valued linear functionals :math:`f: \mathbb{R}^{M} \to \mathbb{R}`.
 
     Instances of this class must implement
-    :py:meth:`~pyxu.abc.operator.Map.apply`, and
-    :py:meth:`~pyxu.abc.operator.LinOp.adjoint`.
+    :py:meth:`~pyxu.abc.Map.apply`, and
+    :py:meth:`~pyxu.abc.LinOp.adjoint`.
 
     If known, the Lipschitz constant :math:`L` should be stored in the
-    :py:attr:`~pyxu.abc.operator.Map.lipschitz` property.
+    :py:attr:`~pyxu.abc.Map.lipschitz` property.
     """
 
     @classmethod

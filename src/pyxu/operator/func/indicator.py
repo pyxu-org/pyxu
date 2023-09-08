@@ -359,7 +359,7 @@ class AffineSet(_IndicatorFunction):
       * :math:`\mathbf{b} \in \text{span}(\mathbf{A})`.
       * :math:`\mathbf{A}` has full row-rank, i.e. :math:`\mathbf{A}` is square or fat.
 
-    * :py:class:`~pyxu.operator.func.indicator.AffineSet` instances are **not arraymodule-agnostic**:
+    * :py:class:`~pyxu.operator.AffineSet` instances are **not arraymodule-agnostic**:
       they will only work with NDArrays belonging to the same array module as `A` and `b`.
     """
 
@@ -414,7 +414,7 @@ class ConvexSetIntersection(_IndicatorFunction):
     (Dykstra's variant [PoCS_Dykstra]_.)
 
     This function assumes :math:`\mathcal{C}_{1} \cap \cdots \cap \mathcal{C}_{K} \ne \emptyset`.
-    :py:meth:`~pyxu.operator.func.indicator.ConvexSetIntersection.prox` will loop indefinitely if
+    :py:meth:`~pyxu.operator.ConvexSetIntersection.prox` will loop indefinitely if
     this condition is violated.
 
     Examples
@@ -444,7 +444,7 @@ class ConvexSetIntersection(_IndicatorFunction):
         """
         Parameters
         ----------
-        args: :py:class:`list` ( :py:class:`~pyxu.abc.operator.ProxFunc` )
+        args: :py:class:`list` ( :py:class:`~pyxu.abc.ProxFunc` )
             Sequence of indicator functions encoding convex domains.
         """
         # Create `op` to auto-compute best shape behind the scenes.

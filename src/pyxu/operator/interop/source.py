@@ -22,7 +22,7 @@ def from_source(
     **kwargs,
 ) -> pxt.OpT:
     r"""
-    Define an :py:class:`~pyxu.abc.operator.Operator` from low-level constructs.
+    Define an :py:class:`~pyxu.abc.Operator` from low-level constructs.
 
     Parameters
     ----------
@@ -34,30 +34,30 @@ def from_source(
         (k[str], v[value]) pairs to embed into the created operator.
 
         `embed` is useful to attach extra information to synthesized
-        :py:class:`~pyxu.abc.operator.Operator` used by arithmetic methods.
+        :py:class:`~pyxu.abc.Operator` used by arithmetic methods.
     kwargs: dict
         (k[str], v[callable]) pairs to use as arithmetic methods.
 
-        Keys must be entries from :py:meth:`~pyxu.abc.operator.Property.arithmetic_methods`.
+        Keys must be entries from :py:meth:`~pyxu.abc.Property.arithmetic_methods`.
 
         Omitted arithmetic attributes/methods default to those provided by `cls`.
     vectorize: VarName
         Arithmetic methods to vectorize.
 
         `vectorize` is useful if an arithmetic method provided to `kwargs` (ex:
-        :py:meth:`~pyxu.abc.operator.Map.apply`):
+        :py:meth:`~pyxu.abc.Map.apply`):
 
         * does not support stacking dimensions; OR
         * does not support DASK inputs.
     vmethod: str, dict
-        Vectorization strategy. (See :py:class:`~pyxu.util.operator.vectorize`.)
+        Vectorization strategy. (See :py:class:`~pyxu.util.vectorize`.)
 
         Different strategies can be applied per arithmetic method via a dictionary.
     enforce_precision: VarName
         Arithmetic methods to make compliant with Pyxu's runtime FP-precision.
 
         `enforce_precision` is useful if an arithmetic method provided to `kwargs` (ex:
-        :py:meth:`~pyxu.abc.operator.Map.apply`) is unaware of Pyxu's runtime FP context.
+        :py:meth:`~pyxu.abc.Map.apply`) is unaware of Pyxu's runtime FP context.
 
     Returns
     -------
@@ -82,7 +82,7 @@ def from_source(
       If this does not hold, consider populating `vectorize`.
 
     * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
-      :py:func:`~pyxu.util.operator.vectorize`.
+      :py:func:`~pyxu.util.vectorize`.
       Auto-vectorization may be less efficient than explicitly providing a vectorized implementation.
 
     * Enforcing precision consists in decorating `kwargs`-specified arithmetic methods with

@@ -65,7 +65,7 @@ class _Stencil:
 
     This low-level class creates a gu-vectorized stencil applicable on multiple inputs simultaneously.
 
-    Create instances via factory method :py:meth:`~pyxu.operator.linop.stencil._stencil._Stencil.init`.
+    Create instances via factory method :py:meth:`~pyxu.operator._Stencil.init`.
 
     Example
     -------
@@ -108,7 +108,7 @@ class _Stencil:
             (k_1, ..., k_D) kernel coefficients.
 
             Only float32/64 kernels are supported.
-        center: ~pyxu.operator.linop.stencil._stencil._Stencil.IndexSpec
+        center: ~pyxu.operator._Stencil.IndexSpec
             (D,) index of the kernel's center.
 
         Returns
@@ -170,7 +170,7 @@ class _Stencil:
         -----
         * `arr` and `out` must have the same type/dtype as the kernel used during instantiation.
         * Index regions in `out` where the stencil is not fully supported are set to 0.
-        * :py:meth:`~pyxu.operator.linop.stencil._stencil._Stencil.apply` may raise
+        * :py:meth:`~pyxu.operator._Stencil.apply` may raise
           ``CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES`` when the number of GPU registers required exceeds resource limits.
           There are 2 solutions to this problem:
 

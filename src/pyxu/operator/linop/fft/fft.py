@@ -170,10 +170,10 @@ class FFT(pxa.LinOp):  # Inherits from LinOp instead of NormalOp since operator 
             Axis or axes along which the DFT is performed.
             The default, axes=None, will transform all dimensions of the input array.
         real: bool
-            If ``True``, assumes :py:func:`~pyxu.operator.linop.fft.fft.FFT.apply` takes (..., N.prod()) inputs in
+            If ``True``, assumes :py:func:`~pyxu.operator.FFT.apply` takes (..., N.prod()) inputs in
             :math:`\mathbb{R}^{N}`.
 
-            If ``False``, then :py:func:`~pyxu.operator.linop.fft.fft.FFT.apply` takes (..., 2N.prod()) inputs, i.e.
+            If ``False``, then :py:func:`~pyxu.operator.FFT.apply` takes (..., 2N.prod()) inputs, i.e.
             :math:`\mathbb{C}^{N}` vectors viewed as bijections with :math:`\mathbb{R}^{2N}`.
         kwargs: dict
             Extra kwargs passed to :py:func:`scipy.fft.fftn` or :py:func:`cupyx.scipy.fft.fftn`.
@@ -308,13 +308,13 @@ class FFT(pxa.LinOp):  # Inherits from LinOp instead of NormalOp since operator 
             * (...,  N.prod()) inputs :math:`\mathbf{x} \in \mathbb{R}^{N_{1} \times \cdots \times N_{D}}`
               (``real=True``.)
             * (..., 2N.prod()) inputs :math:`\mathbf{x} \in \mathbb{C}^{N_{1} \times \cdots \times N_{D}}` viewed as a
-              real array. (See :py:func:`~pyxu.util.complex.view_as_real`.)
+              real array. (See :py:func:`~pyxu.util.view_as_real`.)
 
         Returns
         -------
         out: NDArray
             (..., 2N.prod()) outputs :math:`\hat{\mathbf{x}} \in \mathbb{C}^{N_{1} \times \cdots \times N_{D}}` viewed
-            as a real array. (See :py:func:`~pyxu.util.complex.view_as_real`.)
+            as a real array. (See :py:func:`~pyxu.util.view_as_real`.)
         """
         if self._real:
             r_width = pxrt.Width(arr.dtype)
@@ -346,7 +346,7 @@ class FFT(pxa.LinOp):  # Inherits from LinOp instead of NormalOp since operator 
         ----------
         arr: NDArray
             (..., 2N.prod()) outputs :math:`\hat{\mathbf{x}} \in \mathbb{C}^{N_{1} \times \cdots \times N_{D}}` viewed
-            as a real array. (See :py:func:`~pyxu.util.complex.view_as_real`.)
+            as a real array. (See :py:func:`~pyxu.util.view_as_real`.)
 
         Returns
         -------
@@ -354,7 +354,7 @@ class FFT(pxa.LinOp):  # Inherits from LinOp instead of NormalOp since operator 
             * (...,  N.prod()) inputs :math:`\mathbf{x} \in \mathbb{R}^{N_{1} \times \cdots \times N_{D}}`
               (``real=True``.)
             * (..., 2N.prod()) inputs :math:`\mathbf{x} \in \mathbb{C}^{N_{1} \times \cdots \times N_{D}}` viewed as a
-              real array. (See :py:func:`~pyxu.util.complex.view_as_real`.)
+              real array. (See :py:func:`~pyxu.util.view_as_real`.)
         """
         arr = pxu.view_as_complex(arr)
         c_dtype = arr.dtype

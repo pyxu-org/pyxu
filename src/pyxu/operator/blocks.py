@@ -38,8 +38,8 @@ def stack(
     A stacked-operator :math:`V: \mathbb{R}^{d} \to \mathbb{R}^{c}` is an operator containing (vertically or
     horizontally) blocks of smaller operators :math:`\{O_{1}, \ldots, O_{N}\}`.
 
-    This is a convenience function around :py:func:`~pyxu.operator.blocks.hstack` and
-    :py:func:`~pyxu.operator.blocks.vstack`.
+    This is a convenience function around :py:func:`~pyxu.operator.hstack` and
+    :py:func:`~pyxu.operator.vstack`.
 
     Parameters
     ----------
@@ -51,7 +51,7 @@ def stack(
         * 0: stack vertically (row-wise)
         * 1: stack horizontally (column-wise)
     kwargs
-        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
+        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator._COOBlock`.
 
     Returns
     -------
@@ -60,8 +60,8 @@ def stack(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.blocks.hstack`,
-    :py:func:`~pyxu.operator.blocks.vstack`.
+    :py:func:`~pyxu.operator.hstack`,
+    :py:func:`~pyxu.operator.vstack`.
     """
     axis = int(axis)
     assert axis in {0, 1}, f"axis: out-of-bounds axis '{axis}'."
@@ -99,7 +99,7 @@ def vstack(
     ops: :py:class:`~collections.abc.Sequence` ( :py:attr:`~pyxu.info.ptype.OpT` )
         [op1(c1, d), ..., opN(cN, d)] operators to concatenate.
     kwargs
-        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
+        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator._COOBlock`.
 
     Returns
     -------
@@ -112,8 +112,8 @@ def vstack(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.blocks.hstack`,
-    :py:func:`~pyxu.operator.blocks.stack`.
+    :py:func:`~pyxu.operator.hstack`,
+    :py:func:`~pyxu.operator.stack`.
     """
 
     def op_expr(_) -> tuple:
@@ -163,7 +163,7 @@ def hstack(
     ops: :py:class:`~collections.abc.Sequence` ( :py:attr:`~pyxu.info.ptype.OpT` )
         [op1(c, d1), ..., opN(c, dN)] operators to concatenate.
     kwargs
-        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
+        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator._COOBlock`.
 
     Returns
     -------
@@ -176,8 +176,8 @@ def hstack(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.blocks.vstack`,
-    :py:func:`~pyxu.operator.blocks.stack`.
+    :py:func:`~pyxu.operator.vstack`,
+    :py:func:`~pyxu.operator.stack`.
     """
 
     def op_expr(_) -> tuple:
@@ -229,7 +229,7 @@ def block_diag(
     ops: :py:class:`~collections.abc.Sequence` ( :py:attr:`~pyxu.info.ptype.OpT` )
         [op1(c1, d1), ..., opN(cN, dN)] operators to concatenate.
     kwargs
-        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
+        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator._COOBlock`.
 
     Returns
     -------
@@ -238,8 +238,8 @@ def block_diag(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.blocks.block`,
-    :py:func:`~pyxu.operator.blocks.coo_block`.
+    :py:func:`~pyxu.operator.block`,
+    :py:func:`~pyxu.operator.coo_block`.
     """
 
     def op_svdvals(_, **kwargs) -> pxt.NDArray:
@@ -331,10 +331,10 @@ def block(
     order: 0, 1
         Order in which the nested operators are specified/concatenated:
 
-        * 0: concatenate inner-most blocks via :py:func:`~pyxu.operator.blocks.vstack`, then :py:func:`~pyxu.operator.blocks.hstack`.
-        * 1: concatenate inner-most blocks via :py:func:`~pyxu.operator.blocks.hstack`, then :py:func:`~pyxu.operator.blocks.vstack`.
+        * 0: concatenate inner-most blocks via :py:func:`~pyxu.operator.vstack`, then :py:func:`~pyxu.operator.hstack`.
+        * 1: concatenate inner-most blocks via :py:func:`~pyxu.operator.hstack`, then :py:func:`~pyxu.operator.vstack`.
     kwargs
-        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
+        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator._COOBlock`.
 
     Returns
     -------
@@ -371,8 +371,8 @@ def block(
 
     See Also
     --------
-    :py:func:`~pyxu.operator.blocks.block_diag`,
-    :py:func:`~pyxu.operator.blocks.coo_block`.
+    :py:func:`~pyxu.operator.block_diag`,
+    :py:func:`~pyxu.operator.coo_block`.
     """
     order = int(order)
     assert order in {0, 1}, f"order: out-of-bounds order '{order}'."
@@ -532,7 +532,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         -------
         op: pxt.OpT
             Synthesized operator given inputs to
-            :py:meth:`~pyxu.operator.blocks._COOBlock.__init__`.
+            :py:meth:`~pyxu.operator._COOBlock.__init__`.
         """
         blk = self._block
         if len(blk) == 1:

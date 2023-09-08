@@ -33,7 +33,7 @@ SparseModule = typ.TypeVar(
     *[typ.Literal[_] for _ in pxd.supported_sparse_modules()],
 )
 
-#: Top-level abstract :py:class:`~pyxu.abc.operator.Operator` interface exposed to users.
+#: Top-level abstract :py:class:`~pyxu.abc.Operator` interface exposed to users.
 OpT = typ.TypeVar(
     # This list should be kept in sync with all user-facing operators in `pxo`.
     "OpT",
@@ -56,16 +56,16 @@ OpT = typ.TypeVar(
     "pxo.LinOp",
 )
 
-#: :py:class:`~pyxu.abc.operator.Operator` hierarchy class type.
+#: :py:class:`~pyxu.abc.Operator` hierarchy class type.
 OpC = typ.Type[OpT]  # Operator classes
 
-#: Mathematical properties attached to :py:class:`~pyxu.abc.operator.Operator` objects.
+#: Mathematical properties attached to :py:class:`~pyxu.abc.Operator` objects.
 Property = "pxo.Property"
 
-#: Top-level abstract :py:class:`~pyxu.abc.solver.Solver` interface exposed to users.
+#: Top-level abstract :py:class:`~pyxu.abc.Solver` interface exposed to users.
 SolverT = typ.TypeVar("SolverT", bound="pxs.Solver")
 
-#: :py:class:`~pyxu.abc.solver.Solver` hierarchy class type.
+#: :py:class:`~pyxu.abc.Solver` hierarchy class type.
 SolverC = typ.Type[SolverT]
 
 #: Solver run-modes.

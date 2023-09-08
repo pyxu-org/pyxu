@@ -210,7 +210,7 @@ class CondatVu(_PrimalDualSplitting):
     r"""
     Condat-Vu (CV) primal-dual splitting algorithm.
 
-    This solver is also accessible via the alias :py:class:`~pyxu.opt.solver.pds.CV`.
+    This solver is also accessible via the alias :py:class:`~pyxu.opt.solver.CV`.
 
     The *Condat-Vu (CV)* primal-dual method is described in [CVS]_.
     (This particular implementation is based on the pseudo-code Algorithm 7.1 provided in [FuncSphere]_ Chapter 7, Section1.)
@@ -243,7 +243,7 @@ class CondatVu(_PrimalDualSplitting):
 
     * The algorithm has convergence guarantees when :math:`\mathcal{H}` is composed with a *linear operator* :math:`\mathbf{K}`.
       When :math:`\mathcal{F}=0`, convergence can be proven for *non-linear differentiable maps* :math:`\mathcal{K}` (see [NLCP]_).
-      Note that :py:class:`~pyxu.opt.solver.pds.CondatVu` does not yet support automatic selection of hyperparameters for the case of *non-linear differentiable maps* :math:`\mathcal{K}`.
+      Note that :py:class:`~pyxu.opt.solver.CondatVu` does not yet support automatic selection of hyperparameters for the case of *non-linear differentiable maps* :math:`\mathcal{K}`.
 
     * Assume that either of the following holds:
 
@@ -271,16 +271,16 @@ class CondatVu(_PrimalDualSplitting):
 
     Parameters (``__init__()``)
     ---------------------------
-    * **f** (:py:class:`~pyxu.abc.operator.DiffFunc`, :py:obj:`None`)
+    * **f** (:py:class:`~pyxu.abc.DiffFunc`, :py:obj:`None`)
       --
       Differentiable function :math:`\mathcal{F}`.
-    * **g** (:py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`)
+    * **g** (:py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`)
       --
       Proximable function :math:`\mathcal{G}`.
-    * **h** (:py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`)
+    * **h** (:py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`)
       --
       Proximable function :math:`\mathcal{H}`.
-    * **K** (:py:class:`~pyxu.abc.operator.DiffMap`, :py:class:`~pyxu.abc.operator.LinOp`, :py:obj:`None`)
+    * **K** (:py:class:`~pyxu.abc.DiffMap`, :py:class:`~pyxu.abc.LinOp`, :py:obj:`None`)
       --
       Differentiable map or linear operator :math:`\mathcal{K}`.
     * **beta** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
@@ -289,7 +289,7 @@ class CondatVu(_PrimalDualSplitting):
       If not provided, it will be automatically estimated.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
     Parameters (``fit()``)
     ----------------------
@@ -315,7 +315,7 @@ class CondatVu(_PrimalDualSplitting):
       See section below for more details.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.
 
     .. rubric:: Default hyperparameter values
 
@@ -419,10 +419,10 @@ class CondatVu(_PrimalDualSplitting):
 
     See Also
     --------
-    :py:class:`~pyxu.opt.solver.pds.CV`,
-    :py:class:`~pyxu.opt.solver.pds.PD3O`,
-    :py:class:`~pyxu.opt.solver.pds.ChambollePock`,
-    :py:class:`~pyxu.opt.solver.pds.DouglasRachford`
+    :py:class:`~pyxu.opt.solver.CV`,
+    :py:class:`~pyxu.opt.solver.PD3O`,
+    :py:class:`~pyxu.opt.solver.ChambollePock`,
+    :py:class:`~pyxu.opt.solver.DouglasRachford`
     """
 
     def m_step(self):
@@ -516,7 +516,7 @@ class CondatVu(_PrimalDualSplitting):
         return pxrt.coerce(tau), pxrt.coerce(sigma), pxrt.coerce(delta)
 
 
-CV = CondatVu  #: Alias of :py:class:`~pyxu.opt.solver.pds.CondatVu`.
+CV = CondatVu  #: Alias of :py:class:`~pyxu.opt.solver.CondatVu`.
 
 
 class PD3O(_PrimalDualSplitting):
@@ -578,16 +578,16 @@ class PD3O(_PrimalDualSplitting):
 
     Parameters (``__init__()``)
     ---------------------------
-    * **f** (:py:class:`~pyxu.abc.operator.DiffFunc`, :py:obj:`None`)
+    * **f** (:py:class:`~pyxu.abc.DiffFunc`, :py:obj:`None`)
       --
       Differentiable function :math:`\mathcal{F}`.
-    * **g** (:py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`)
+    * **g** (:py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`)
       --
       Proximable function :math:`\mathcal{G}`.
-    * **h** (:py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`)
+    * **h** (:py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`)
       --
       Proximable function :math:`\mathcal{H}`.
-    * **K** (:py:class:`~pyxu.abc.operator.DiffMap`, :py:class:`~pyxu.abc.operator.LinOp`, :py:obj:`None`)
+    * **K** (:py:class:`~pyxu.abc.DiffMap`, :py:class:`~pyxu.abc.LinOp`, :py:obj:`None`)
       --
       Differentiable map or linear operator :math:`\mathcal{K}`.
     * **beta** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
@@ -596,7 +596,7 @@ class PD3O(_PrimalDualSplitting):
       If not provided, it will be automatically estimated.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
     Parameters (``fit()``)
     ----------------------
@@ -622,7 +622,7 @@ class PD3O(_PrimalDualSplitting):
       See section below for more details.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.
 
     .. rubric:: Default hyperparameter values
 
@@ -875,17 +875,17 @@ def ChambollePock(
 
     Parameters
     ----------
-    g: :py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`
+    g: :py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`
         Proximable function :math:`\mathcal{G}`.
-    h: :py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`
+    h: :py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`
         Proximable function :math:`\mathcal{H}`.
-    K: :py:class:`~pyxu.abc.operator.DiffMap`, :py:class:`~pyxu.abc.operator.LinOp`, :py:obj:`None`
+    K: :py:class:`~pyxu.abc.DiffMap`, :py:class:`~pyxu.abc.LinOp`, :py:obj:`None`
         Differentiable map or linear operator :math:`\mathcal{K}`.
-    base: :py:class:`~pyxu.opt.solver.pds.CondatVu`, :py:class:`~pyxu.opt.solver.pds.PD3O`
+    base: :py:class:`~pyxu.opt.solver.CondatVu`, :py:class:`~pyxu.opt.solver.PD3O`
         Specifies the base primal-dual algorithm.
-        (Default = :py:class:`~pyxu.opt.solver.pds.CondatVu`)
+        (Default = :py:class:`~pyxu.opt.solver.CondatVu`)
     \*\*kwargs: :py:class:`~collections.abc.Mapping`
-        Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
+        Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
 
     The *Chambolle-Pock (CP) primal-dual splitting* method can be used to solve problems of the form:
@@ -911,7 +911,7 @@ def ChambollePock(
 
     * Automatic selection of parameters is not supported for *non-linear differentiable maps* :math:`\mathcal{K}`.
 
-    * The *Chambolle-Pock (CP) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{F}=0` in :py:class:`~pyxu.opt.solver.pds.CondatVu` or :py:class:`~pyxu.opt.solver.pds.PD3O`.
+    * The *Chambolle-Pock (CP) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{F}=0` in :py:class:`~pyxu.opt.solver.CondatVu` or :py:class:`~pyxu.opt.solver.PD3O`.
       Chambolle and Pock originally introduced the algorithm without relaxation (:math:`\rho=1`) [CPA]_.
       Relaxed versions have been proposed afterwards [PSA]_.
       Chambolle-Pock's algorithm is also known as the *Primal-Dual Hybrid Gradient (PDHG)* algorithm.
@@ -941,14 +941,14 @@ def ChambollePock(
       See `base` for more details.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.
 
     See Also
     --------
-    :py:func:`~pyxu.opt.solver.pds.CP`,
-    :py:class:`~pyxu.opt.solver.pds.CondatVu`,
-    :py:class:`~pyxu.opt.solver.pds.PD3O`,
-    :py:func:`~pyxu.opt.solver.pds.DouglasRachford`
+    :py:func:`~pyxu.opt.solver.CP`,
+    :py:class:`~pyxu.opt.solver.CondatVu`,
+    :py:class:`~pyxu.opt.solver.PD3O`,
+    :py:func:`~pyxu.opt.solver.DouglasRachford`
     """
     kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
     obj = base(
@@ -963,14 +963,14 @@ def ChambollePock(
     return obj
 
 
-CP = ChambollePock  #: Alias of :py:func:`~pyxu.opt.solver.pds.ChambollePock`.
+CP = ChambollePock  #: Alias of :py:func:`~pyxu.opt.solver.ChambollePock`.
 
 
 class LorisVerhoeven(PD3O):
     r"""
     Loris-Verhoeven splitting algorithm.
 
-    This solver is also accessible via the alias :py:class:`~pyxu.opt.solver.pds.LV`.
+    This solver is also accessible via the alias :py:class:`~pyxu.opt.solver.LV`.
 
     The *Loris-Verhoeven (LV) primal-dual splitting* can be used to solve problems of the form:
 
@@ -999,20 +999,20 @@ class LorisVerhoeven(PD3O):
 
     * Automatic selection of parameters is not supported for *non-linear differentiable maps* :math:`\mathcal{K}`.
 
-    * The *Loris-Verhoeven (CP) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{G}=0` in :py:class:`~pyxu.opt.solver.pds.PD3O`.
+    * The *Loris-Verhoeven (CP) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{G}=0` in :py:class:`~pyxu.opt.solver.PD3O`.
 
     * In the specific case where :math:`\mathcal{F}` is *quadratic*, then one can set :math:`\rho \in ]0,\delta[` with
       :math:`\delta=2`. (See Theorem 4.3 in [PSA]_.)
 
     Parameters (``__init__()``)
     ---------------------------
-    * **f** (:py:class:`~pyxu.abc.operator.DiffFunc`, :py:obj:`None`)
+    * **f** (:py:class:`~pyxu.abc.DiffFunc`, :py:obj:`None`)
       --
       Differentiable function :math:`\mathcal{F}`.
-    * **h** (:py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`)
+    * **h** (:py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`)
       --
       Proximable function :math:`\mathcal{H}`.
-    * **K** (:py:class:`~pyxu.abc.operator.DiffMap`, :py:class:`~pyxu.abc.operator.LinOp`, :py:obj:`None`)
+    * **K** (:py:class:`~pyxu.abc.DiffMap`, :py:class:`~pyxu.abc.LinOp`, :py:obj:`None`)
       --
       Differentiable map or linear operator :math:`\mathcal{K}`.
     * **beta** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
@@ -1021,7 +1021,7 @@ class LorisVerhoeven(PD3O):
       If not provided, it will be automatically estimated.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
     Parameters (``fit()``)
     ----------------------
@@ -1044,18 +1044,18 @@ class LorisVerhoeven(PD3O):
     * **tuning_strategy** (1, 2, 3)
       --
       Strategy to be employed when setting the hyperparameters (default to 1).
-      See :py:class:`~pyxu.opt.solver.pds.PD3O` for more details.
+      See :py:class:`~pyxu.opt.solver.PD3O` for more details.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.
 
     See Also
     --------
-    :py:class:`~pyxu.opt.solver.pds.PD3O`,
-    :py:class:`~pyxu.opt.solver.pds.DavisYin`,
-    :py:class:`~pyxu.opt.solver.pgd.PGD`,
-    :py:func:`~pyxu.opt.solver.pds.ChambollePock`,
-    :py:func:`~pyxu.opt.solver.pds.DouglasRachford`
+    :py:class:`~pyxu.opt.solver.PD3O`,
+    :py:class:`~pyxu.opt.solver.DavisYin`,
+    :py:class:`~pyxu.opt.solver.PGD`,
+    :py:func:`~pyxu.opt.solver.ChambollePock`,
+    :py:func:`~pyxu.opt.solver.DouglasRachford`
     """
 
     def __init__(
@@ -1095,14 +1095,14 @@ class LorisVerhoeven(PD3O):
         return pxrt.coerce(tau), pxrt.coerce(sigma), pxrt.coerce(delta)
 
 
-LV = LorisVerhoeven  #: Alias of :py:class:`~pyxu.opt.solver.pds.LorisVerhoeven`.
+LV = LorisVerhoeven  #: Alias of :py:class:`~pyxu.opt.solver.LorisVerhoeven`.
 
 
 class DavisYin(PD3O):
     r"""
     Davis-Yin primal-dual splitting method.
 
-    This solver is also accessible via the alias :py:class:`~pyxu.opt.solver.pds.DY`.
+    This solver is also accessible via the alias :py:class:`~pyxu.opt.solver.DY`.
 
     The *Davis-Yin (DY) primal-dual splitting* method can be used to solve problems of the form:
 
@@ -1124,17 +1124,17 @@ class DavisYin(PD3O):
     * The algorithm is still valid if one of the terms :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
 
     * The *Davis-Yin primal-dual splitting* method can be obtained by choosing :math:`\mathcal{K}=\mathbf{I}`
-      (identity) and :math:`\tau=1/\sigma` in :py:class:`~pyxu.opt.solver.pds.PD3O`, provided a suitable change of variable [PSA]_.
+      (identity) and :math:`\tau=1/\sigma` in :py:class:`~pyxu.opt.solver.PD3O`, provided a suitable change of variable [PSA]_.
 
     Parameters (``__init__()``)
     ---------------------------
-    * **f** (:py:class:`~pyxu.abc.operator.DiffFunc`)
+    * **f** (:py:class:`~pyxu.abc.DiffFunc`)
       --
       Differentiable function :math:`\mathcal{F}`.
-    * **g** (:py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`)
+    * **g** (:py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`)
       --
       Proximable function :math:`\mathcal{G}`.
-    * **h** (:py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`)
+    * **h** (:py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`)
       --
       Proximable function :math:`\mathcal{H}`.
     * **beta** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
@@ -1143,7 +1143,7 @@ class DavisYin(PD3O):
       If not provided, it will be automatically estimated.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
     Parameters (``fit()``)
     ----------------------
@@ -1166,18 +1166,18 @@ class DavisYin(PD3O):
     * **tuning_strategy** (1, 2, 3)
       --
       Strategy to be employed when setting the hyperparameters (default to 1).
-      See :py:class:`~pyxu.opt.solver.pds.PD3O` for more details.
+      See :py:class:`~pyxu.opt.solver.PD3O` for more details.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.
 
     See Also
     --------
-    :py:class:`~pyxu.opt.solver.pds.PD3O`,
-    :py:class:`~pyxu.opt.solver.pds.LorisVerhoeven`,
-    :py:class:`~pyxu.opt.solver.pgd.PGD`,
-    :py:func:`~pyxu.opt.solver.pds.ChambollePock`,
-    :py:func:`~pyxu.opt.solver.pds.DouglasRachford`
+    :py:class:`~pyxu.opt.solver.PD3O`,
+    :py:class:`~pyxu.opt.solver.LorisVerhoeven`,
+    :py:class:`~pyxu.opt.solver.PGD`,
+    :py:func:`~pyxu.opt.solver.ChambollePock`,
+    :py:func:`~pyxu.opt.solver.DouglasRachford`
     """
 
     def __init__(
@@ -1222,7 +1222,7 @@ class DavisYin(PD3O):
         return pxrt.coerce(tau), pxrt.coerce(1 / tau), pxrt.coerce(delta)
 
 
-DY = DavisYin  #: Alias of :py:class:`~pyxu.opt.solver.pds.DavisYin`.
+DY = DavisYin  #: Alias of :py:class:`~pyxu.opt.solver.DavisYin`.
 
 
 def DouglasRachford(
@@ -1236,15 +1236,15 @@ def DouglasRachford(
 
     Parameters
     ----------
-    g: :py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`
+    g: :py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`
         Proximable function :math:`\mathcal{G}`.
-    h: :py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`
+    h: :py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`
         Proximable function :math:`\mathcal{H}`.
-    base: :py:class:`~pyxu.opt.solver.pds.CondatVu`, :py:class:`~pyxu.opt.solver.pds.PD3O`
+    base: :py:class:`~pyxu.opt.solver.CondatVu`, :py:class:`~pyxu.opt.solver.PD3O`
         Specifies the base primal-dual algorithm.
-        (Default = :py:class:`~pyxu.opt.solver.pds.CondatVu`)
+        (Default = :py:class:`~pyxu.opt.solver.CondatVu`)
     \*\*kwargs: :py:class:`~collections.abc.Mapping`
-        Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
+        Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
 
     The *Douglas-Rachford (DR) primal-dual splitting* method can be used to solve problems of the form:
@@ -1261,7 +1261,7 @@ def DouglasRachford(
 
     * The algorithm is still valid if one of the terms :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
 
-    * The *Douglas-Rachford (DR) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{F}=0`, :math:`\mathbf{K}=\mathbf{Id}` and :math:`\tau=1/\sigma` in :py:class:`~pyxu.opt.solver.pds.CondatVu` or :py:class:`~pyxu.opt.solver.pds.PD3O`.
+    * The *Douglas-Rachford (DR) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{F}=0`, :math:`\mathbf{K}=\mathbf{Id}` and :math:`\tau=1/\sigma` in :py:class:`~pyxu.opt.solver.CondatVu` or :py:class:`~pyxu.opt.solver.PD3O`.
       Douglas and Rachford originally introduced the algorithm without relaxation (:math:`\rho=1`), but relaxed versions have been proposed afterwards [PSA]_.
       When :math:`\rho=1`, Douglas-Rachford's algorithm is *functionally equivalent* to ADMM (up to a change of variable, see [PSA]_ for a derivation).
 
@@ -1279,14 +1279,14 @@ def DouglasRachford(
       Primal step size. Defaults to 1.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.
 
     See Also
     --------
-    :py:class:`~pyxu.opt.solver.pds.CondatVu`,
-    :py:class:`~pyxu.opt.solver.pds.PD3O`,
-    :py:func:`~pyxu.opt.solver.pds.ChambollePock`,
-    :py:func:`~pyxu.opt.solver.pds.ForwardBackward`
+    :py:class:`~pyxu.opt.solver.CondatVu`,
+    :py:class:`~pyxu.opt.solver.PD3O`,
+    :py:func:`~pyxu.opt.solver.ChambollePock`,
+    :py:func:`~pyxu.opt.solver.ForwardBackward`
     """
     kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
     obj = base(f=None, g=g, h=h, K=None, beta=0, **kwargs)
@@ -1306,7 +1306,7 @@ def DouglasRachford(
     return obj
 
 
-DR = DouglasRachford  #: Alias of :py:func:`~pyxu.opt.solver.pds.DouglasRachford`.
+DR = DouglasRachford  #: Alias of :py:func:`~pyxu.opt.solver.DouglasRachford`.
 
 
 class ADMM(_PDS):
@@ -1334,7 +1334,7 @@ class ADMM(_PDS):
 
     * The algorithm is still valid if either :math:`\mathcal{F}` or :math:`\mathcal{H}` is zero.
 
-    * When :math:`\mathbf{K} = \mathbf{I}_{N}`, ADMM is equivalent to the :py:func:`~pyxu.opt.solver.pds.DouglasRachford`
+    * When :math:`\mathbf{K} = \mathbf{I}_{N}`, ADMM is equivalent to the :py:func:`~pyxu.opt.solver.DouglasRachford`
       method (up to a change of variable, see [PSA]_ for a derivation).
 
     * This is an implementation of the algorithm described in Section 5.4 of [PSA]_, which handles the non-smooth
@@ -1352,12 +1352,12 @@ class ADMM(_PDS):
 
       The following cases are covered in this implementation:
 
-      - :math:`\mathbf{K}` is ``None`` (i.e. the identity operator) and :math:`\mathcal{F}` is a :py:class:`~pyxu.abc.operator.ProxFunc`.
+      - :math:`\mathbf{K}` is ``None`` (i.e. the identity operator) and :math:`\mathcal{F}` is a :py:class:`~pyxu.abc.ProxFunc`.
         Then, :math:numref:`eq:x_minimization` has a single solution provided by
         :math:`\operatorname*{prox}_{\tau \mathcal{F}}(\mathbf{a})`.
         This yields the *classical ADMM algorithm* described in Section 5.3 of [PSA]_ (i.e. without the postcomposition trick).
 
-      - :math:`\mathcal{F}` is a :py:class:`~pyxu.abc.operator.QuadraticFunc`, i.e.
+      - :math:`\mathcal{F}` is a :py:class:`~pyxu.abc.QuadraticFunc`, i.e.
         :math:`\mathcal{F}(\mathbf{x})=\frac{1}{2} \langle\mathbf{x}, \mathbf{Q}\mathbf{x}\rangle + \mathbf{c}^T\mathbf{x} + t`.
         Then the unique solution to :math:numref:`eq:x_minimization` is obtained by solving a linear system of the form:
 
@@ -1367,12 +1367,12 @@ class ADMM(_PDS):
            \Big( \mathbf{Q} + \frac1\tau \mathbf{K}^* \mathbf{K} \Big) \mathbf{x} =
            \frac1\tau \mathbf{K}^\ast\mathbf{a}-\mathbf{c}, \qquad \mathbf{x} \in \mathbb{R}^N.
 
-        This linear system is solved via a sub-iterative :py:class:`~pyxu.opt.solver.cg.CG` algorithm involving the repeated
+        This linear system is solved via a sub-iterative :py:class:`~pyxu.opt.solver.CG` algorithm involving the repeated
         application of :math:`\mathbf{Q}` and :math:`\mathbf{K}^{*}\mathbf{K}`.
         This sub-iterative scheme may be computationally intensive if these operators do not admit fast matrix-free implementations.
 
-      - :math:`\mathcal{F}` is a :py:class:`~pyxu.abc.operator.DiffFunc`.
-        Then, :math:numref:`eq:x_minimization` is solved via a sub-iterative :py:class:`~pyxu.opt.solver.nlcg.NLCG` algorithm
+      - :math:`\mathcal{F}` is a :py:class:`~pyxu.abc.DiffFunc`.
+        Then, :math:numref:`eq:x_minimization` is solved via a sub-iterative :py:class:`~pyxu.opt.solver.NLCG` algorithm
         involving repeated evaluation of :math:`\nabla\mathcal{F}` and :math:`\mathbf{K}^{*}\mathbf{K}`.
         This sub-iterative scheme may be costly if these operators cannot be evaluated with fast algorithms.
         In this scenario, the use of multiple initial points in :py:meth:`~pyxu.abc.solver.Solver.fit` is not supported.
@@ -1380,20 +1380,20 @@ class ADMM(_PDS):
       The user may also provide a *custom* callable solver :math:`s: \mathbb{R}^M \times \mathbb{R} \to \mathbb{R}^N`,
       taking as input :math:`(\mathbf{a}, \tau)` and solving :math:numref:`eq:x_minimization`,
       i.e. :math:`s(\mathbf{a}, \tau) \in \mathcal{V}`. (See example below.)
-      If :py:class:`~pyxu.opt.solver.pds.ADMM` is initialized with such a solver, then the latter is used to solve
+      If :py:class:`~pyxu.opt.solver.ADMM` is initialized with such a solver, then the latter is used to solve
       :math:numref:`eq:x_minimization` regardless of whether one of the above-mentioned cases is met.
 
-    * Unlike traditional implementations of ADMM, :py:class:`~pyxu.opt.solver.pds.ADMM` supports relaxation, i.e. :math:`\rho\neq 1`.
+    * Unlike traditional implementations of ADMM, :py:class:`~pyxu.opt.solver.ADMM` supports relaxation, i.e. :math:`\rho\neq 1`.
 
     Parameters (``__init__()``)
     ---------------------------
-    * **f** (:py:class:`~pyxu.abc.operator.DiffFunc`, :py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`)
+    * **f** (:py:class:`~pyxu.abc.DiffFunc`, :py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`)
       --
       Differentiable or proximable function :math:`\mathcal{F}`.
-    * **h** (:py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`)
+    * **h** (:py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`)
       --
       Proximable function :math:`\mathcal{H}`.
-    * **K** (:py:class:`~pyxu.abc.operator.LinOp`, :py:obj:`None`)
+    * **K** (:py:class:`~pyxu.abc.LinOp`, :py:obj:`None`)
       --
       Linear operator :math:`\mathbf{K}`.
     * **solver** (:py:class:`~collections.abc.Callable`, :py:obj:`None`)
@@ -1405,12 +1405,12 @@ class ADMM(_PDS):
     * **solver_kwargs** (:py:class:`~collections.abc.Mapping`)
       --
       Keyword parameters passed to the ``__init__()`` method of sub-iterative
-      :py:class:`~pyxu.opt.solver.cg.CG` or :py:class:`~pyxu.opt.solver.nlcg.NLCG` solvers.
+      :py:class:`~pyxu.opt.solver.CG` or :py:class:`~pyxu.opt.solver.NLCG` solvers.
 
       `solver_kwargs` is ignored if `solver` provided.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
     Parameters (``fit()``)
     ----------------------
@@ -1434,12 +1434,12 @@ class ADMM(_PDS):
     * **solver_kwargs** (:py:class:`~collections.abc.Mapping`)
       --
       Keyword parameters passed to the ``fit()`` method of sub-iterative
-      :py:class:`~pyxu.opt.solver.cg.CG` or :py:class:`~pyxu.opt.solver.nlcg.NLCG` solvers.
+      :py:class:`~pyxu.opt.solver.CG` or :py:class:`~pyxu.opt.solver.NLCG` solvers.
 
       `solver_kwargs` is ignored if `solver` was provided in ``__init__()``.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.
 
     Warning
     -------
@@ -1460,7 +1460,7 @@ class ADMM(_PDS):
     The functional :math:`\mathcal{F}` being quadratic, the :math:`\mathbf{x}`-minimization step consists in solving a linear system of
     the form :math:numref:`eq:linear_system`.
     Here, we demonstrate how to provide a custom solver, which consists in applying a matrix inverse, for this step.
-    Otherwise, a sub-iterative :py:class:`~pyxu.opt.solver.cg.CG` algorithm would have been used automatically instead.
+    Otherwise, a sub-iterative :py:class:`~pyxu.opt.solver.CG` algorithm would have been used automatically instead.
 
     .. plot::
 
@@ -1526,11 +1526,11 @@ class ADMM(_PDS):
 
     See Also
     --------
-    :py:class:`~pyxu.opt.solver.pds.CondatVu`,
-    :py:class:`~pyxu.opt.solver.pds.PD3O`,
-    :py:class:`~pyxu.opt.solver.pgd.PGD`,
-    :py:func:`~pyxu.opt.solver.pds.ChambollePock`,
-    :py:func:`~pyxu.opt.solver.pds.DouglasRachford`
+    :py:class:`~pyxu.opt.solver.CondatVu`,
+    :py:class:`~pyxu.opt.solver.PD3O`,
+    :py:class:`~pyxu.opt.solver.PGD`,
+    :py:func:`~pyxu.opt.solver.ChambollePock`,
+    :py:func:`~pyxu.opt.solver.DouglasRachford`
     """
 
     def __init__(
@@ -1690,7 +1690,7 @@ class ForwardBackward(CondatVu):
     r"""
     Forward-backward splitting algorithm.
 
-    This solver is also accessible via the alias :py:class:`~pyxu.opt.solver.pds.FB`.
+    This solver is also accessible via the alias :py:class:`~pyxu.opt.solver.FB`.
 
     The *Forward-backward (FB) splitting* method can be used to solve problems of the form:
 
@@ -1710,18 +1710,18 @@ class ForwardBackward(CondatVu):
 
     * The algorithm is still valid if one of the terms :math:`\mathcal{F}` or :math:`\mathcal{G}` is zero.
 
-    * The *Forward-backward (FB) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{H}=0` in :py:class:`~pyxu.opt.solver.pds.CondatVu`.
+    * The *Forward-backward (FB) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{H}=0` in :py:class:`~pyxu.opt.solver.CondatVu`.
       Mercier originally introduced the algorithm without relaxation (:math:`\rho=1`) [FB]_.
       Relaxed versions have been proposed afterwards [PSA]_.
       The Forward-backward algorithm is also known as the *Proximal Gradient Descent (PGD)* algorithm.
-      For the accelerated version of PGD, use :py:class:`~pyxu.opt.solver.pgd.PGD`.
+      For the accelerated version of PGD, use :py:class:`~pyxu.opt.solver.PGD`.
 
     Parameters (``__init__()``)
     ---------------------------
-    * **f** (:py:class:`~pyxu.abc.operator.DiffFunc`, :py:obj:`None`)
+    * **f** (:py:class:`~pyxu.abc.DiffFunc`, :py:obj:`None`)
       --
       Differentiable function :math:`\mathcal{F}`.
-    * **g** (:py:class:`~pyxu.abc.operator.ProxFunc`, :py:obj:`None`)
+    * **g** (:py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`)
       --
       Proximable function :math:`\mathcal{G}`.
     * **beta** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
@@ -1730,7 +1730,7 @@ class ForwardBackward(CondatVu):
       If not provided, it will be automatically estimated.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
     Parameters (``fit()``)
     ----------------------
@@ -1750,18 +1750,18 @@ class ForwardBackward(CondatVu):
     * **tuning_strategy** (1, 2, 3)
       --
       Strategy to be employed when setting the hyperparameters (default to 1).
-      See :py:class:`~pyxu.opt.solver.pds.CondatVu` for more details.
+      See :py:class:`~pyxu.opt.solver.CondatVu` for more details.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.
 
     See Also
     --------
-    :py:class:`~pyxu.opt.solver.pds.CondatVu`,
-    :py:class:`~pyxu.opt.solver.pds.PD3O`,
-    :py:class:`~pyxu.opt.solver.pgd.PGD`,
-    :py:func:`~pyxu.opt.solver.pds.ChambollePock`,
-    :py:func:`~pyxu.opt.solver.pds.DouglasRachford`
+    :py:class:`~pyxu.opt.solver.CondatVu`,
+    :py:class:`~pyxu.opt.solver.PD3O`,
+    :py:class:`~pyxu.opt.solver.PGD`,
+    :py:func:`~pyxu.opt.solver.ChambollePock`,
+    :py:func:`~pyxu.opt.solver.DouglasRachford`
     """
 
     def __init__(
@@ -1782,7 +1782,7 @@ class ForwardBackward(CondatVu):
         )
 
 
-FB = ForwardBackward  #: Alias of :py:class:`~pyxu.opt.solver.pds.ForwardBackward`.
+FB = ForwardBackward  #: Alias of :py:class:`~pyxu.opt.solver.ForwardBackward`.
 
 
 def ProximalPoint(
@@ -1795,13 +1795,13 @@ def ProximalPoint(
 
     Parameters
     ----------
-    g: :py:class:`~pyxu.abc.operator.ProxFunc`
+    g: :py:class:`~pyxu.abc.ProxFunc`
         Proximable function :math:`\mathcal{G}`.
-    base: :py:class:`~pyxu.opt.solver.pds.CondatVu`, :py:class:`~pyxu.opt.solver.pds.PD3O`
+    base: :py:class:`~pyxu.opt.solver.CondatVu`, :py:class:`~pyxu.opt.solver.PD3O`
         Specifies the base primal-dual algorithm from which mathematical updates are inherited.
-        (Default = :py:class:`~pyxu.opt.solver.pds.CondatVu`)
+        (Default = :py:class:`~pyxu.opt.solver.CondatVu`)
     \*\*kwargs: :py:class:`~collections.abc.Mapping`
-        Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.__init__`.
+        Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
 
     The *Proximal-point (PP)* method can be used to solve problems of the form:
@@ -1816,7 +1816,7 @@ def ProximalPoint(
     -------
     * The problem is *feasible*, i.e. there exists at least one solution.
 
-    * The *Proximal-point* algorithm can be obtained by choosing :math:`\mathcal{F}=0` and :math:`\mathcal{H}=0` in :py:class:`~pyxu.opt.solver.pds.CondatVu` or :py:class:`~pyxu.opt.solver.pds.PD3O`.
+    * The *Proximal-point* algorithm can be obtained by choosing :math:`\mathcal{F}=0` and :math:`\mathcal{H}=0` in :py:class:`~pyxu.opt.solver.CondatVu` or :py:class:`~pyxu.opt.solver.PD3O`.
       The original version of the algorithm was introduced without relaxation (:math:`\rho=1`) [PP]_.
       Relaxed versions have been proposed afterwards [PSA]_.
 
@@ -1833,16 +1833,16 @@ def ProximalPoint(
       Momentum parameter.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Other keyword parameters passed on to :py:meth:`pyxu.abc.solver.Solver.fit`.
+      Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.
 
     See Also
     --------
-    :py:class:`~pyxu.opt.solver.pds.PP`,
-    :py:class:`~pyxu.opt.solver.pds.CondatVu`,
-    :py:class:`~pyxu.opt.solver.pds.PD3O`,
-    :py:class:`~pyxu.opt.solver.pgd.PGD`,
-    :py:func:`~pyxu.opt.solver.pds.ChambollePock`,
-    :py:func:`~pyxu.opt.solver.pds.DouglasRachford`
+    :py:class:`~pyxu.opt.solver.PP`,
+    :py:class:`~pyxu.opt.solver.CondatVu`,
+    :py:class:`~pyxu.opt.solver.PD3O`,
+    :py:class:`~pyxu.opt.solver.PGD`,
+    :py:func:`~pyxu.opt.solver.ChambollePock`,
+    :py:func:`~pyxu.opt.solver.DouglasRachford`
     """
     kwargs.update(log_var=kwargs.get("log_var", ("x",)))
     obj = base(
@@ -1858,4 +1858,4 @@ def ProximalPoint(
     return obj
 
 
-PP = ProximalPoint  #: Alias of :py:func:`~pyxu.opt.solver.pds.ProximalPoint`.
+PP = ProximalPoint  #: Alias of :py:func:`~pyxu.opt.solver.ProximalPoint`.

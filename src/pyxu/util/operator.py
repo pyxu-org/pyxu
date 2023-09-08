@@ -40,8 +40,7 @@ def vectorize(
     codim: pxt.Integer = None,
 ) -> cabc.Callable:
     """
-    Decorator to auto-vectorize an array function to abide by
-    :py:class:`~pyxu.abc.operator.Property` API rules.
+    Decorator to auto-vectorize an array function to abide by :py:class:`~pyxu.abc.Property` API rules.
 
     Parameters
     ----------

@@ -112,7 +112,7 @@ def from_jax(
     **kwargs,
 ) -> pxt.OpT:
     r"""
-    Define an :py:class:`~pyxu.abc.operator.Operator` from low-level constructs.
+    Define an :py:class:`~pyxu.abc.Operator` from low-level constructs.
 
     Parameters
     ----------
@@ -173,12 +173,12 @@ def from_jax(
       This can be achieved locally using the :py:class:`~pyxu.runtime.Precision` context manager.
       (See example.)
       Alternatively, precision/copy-related warnings can be silenced via the `enable_warnings`
-      option of :py:func:`~pyxu.operator.interop.jax.from_jax`.
+      option of :py:func:`~pyxu.operator.interop.from_jax`.
 
     * Inferred arithmetic methods are not JIT-ed by default since the operation is error-prone
-      depending on how :py:meth:`~pyxu.abc.operator.Map.apply` is defined.
-      If :py:meth:`~pyxu.abc.operator.Map.apply` supplied to
-      :py:func:`~pyxu.operator.interop.jax.from_jax` is JIT-friendly, then consider enabling `jit`.
+      depending on how :py:meth:`~pyxu.abc.Map.apply` is defined.
+      If :py:meth:`~pyxu.abc.Map.apply` supplied to
+      :py:func:`~pyxu.operator.interop.from_jax` is JIT-friendly, then consider enabling `jit`.
 
     Examples
     --------
