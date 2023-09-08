@@ -19,14 +19,13 @@ class CG(pxa.Solver):
 
        \min_{x\in\mathbb{R}^{N}} \frac{1}{2} \mathbf{x}^{T} \mathbf{A} \mathbf{x} - \mathbf{x}^{T} \mathbf{b},
 
-    where :math:`\mathbf{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}` is a *symmetric* *positive definite*
-    operator, and :math:`\mathbf{b} \in \mathbb{R}^{N}`.
+    where :math:`\mathbf{A}: \mathbb{R}^{N} \to \mathbb{R}^{N}` is a *symmetric* *positive definite* operator, and
+    :math:`\mathbf{b} \in \mathbb{R}^{N}`.
 
-    The norm of the `explicit residual <https://www.wikiwand.com/en/Conjugate_gradient_method>`_
-    :math:`\mathbf {r}_{k+1}:=\mathbf{b}-\mathbf{Ax}_{k+1}` is used as the default stopping criterion.
-    This provides a guaranteed level of accuracy both in exact arithmetic and in the presence of
-    round-off errors.
-    By default, the iterations stop when the norm of the explicit residual is smaller than 1e-4.
+    The norm of the `explicit residual <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ :math:`\mathbf
+    {r}_{k+1}:=\mathbf{b}-\mathbf{Ax}_{k+1}` is used as the default stopping criterion.  This provides a guaranteed
+    level of accuracy both in exact arithmetic and in the presence of round-off errors.  By default, the iterations stop
+    when the norm of the explicit residual is smaller than 1e-4.
 
     Parameters (``__init__()``)
     ---------------------------
@@ -48,8 +47,7 @@ class CG(pxa.Solver):
       --
       (..., N) initial point(s).
 
-      Must be broadcastable with `b` if provided.
-      Defaults to 0.
+      Must be broadcastable with `b` if provided.  Defaults to 0.
     * **restart_rate** (:py:attr:`~pyxu.info.ptype.Integer`)
       --
       Number of iterations after which restart is applied.
@@ -75,28 +73,6 @@ class CG(pxa.Solver):
         x0: pxt.NDArray = None,
         restart_rate: pxt.Integer = None,
     ):
-        r"""
-        Parameters
-        ----------
-        b: NDArray
-            (..., N) :math:`\mathbf{b}` terms in the CG cost function.
-            All problems are solved in parallel.
-        x0: NDArray
-            (..., N) initial point(s).
-
-            Must be broadcastable with `b` if specified.
-            Defaults to 0.
-        restart_rate: Integer
-            Number of iterations after which restart is applied.
-            By default, a restart is done after 'n' iterations, where 'n' corresponds to the dimension of
-            the linear operator :math:`\mathbf{A}`.
-
-        Note
-        ----
-        `Restarts <https://www.wikiwand.com/en/Conjugate_gradient_method>`_ may slow down convergence,
-        but improve stability due to round-off error or ill-conditioning of the linear operator.
-        If these issues are suspected, adjust `restart_rate` accordingly.
-        """
         mst = self._mstate  # shorthand
 
         if restart_rate is not None:

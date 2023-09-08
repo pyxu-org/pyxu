@@ -130,9 +130,8 @@ class SquaredL1Norm(_ShiftLossMixin, pxa.ProxFunc):
 
         Notes
         -----
-        Calling :py:meth:`~pyxu.operator.SquaredL1Norm.prox` with DASK inputs when
-        `algo="sort"` is inefficient at scale.
-        Prefer `algo="root"` in this case.
+        Calling :py:meth:`~pyxu.operator.SquaredL1Norm.prox` with DASK inputs when `algo="sort"` is inefficient at
+        scale.  Prefer `algo="root"` in this case.
         """
         super().__init__(shape=(1, dim))
         self.lipschitz = np.inf
@@ -295,15 +294,13 @@ class LInfinityNorm(_ShiftLossMixin, pxa.ProxFunc):
 
 class L21Norm(_ShiftLossMixin, pxa.ProxFunc):
     r"""
-    Mixed :math:`\ell_{2}-\ell_{1}` norm,
-    :math:`\Vert\mathbf{x}\Vert_{2, 1} := \sum_{i=1}^{N} \sqrt{\sum_{j=1}^{M} x_{i, j}^{2}}`,
-    for arrays of dimension :math:`\geq 2`.
+    Mixed :math:`\ell_{2}-\ell_{1}` norm, :math:`\Vert\mathbf{x}\Vert_{2, 1} := \sum_{i=1}^{N} \sqrt{\sum_{j=1}^{M}
+    x_{i, j}^{2}}`, for arrays of dimension :math:`\geq 2`.
 
     Note
     ----
-    The input array need not be 2-dimensional:
-    the :math:`\ell_{2}` norm is applied along a predefined subset of dimensions, and the
-    :math:`\ell_{1}` norm on the remaining ones.
+    The input array need not be 2-dimensional: the :math:`\ell_{2}` norm is applied along a predefined subset of
+    dimensions, and the :math:`\ell_{1}` norm on the remaining ones.
     """
 
     def __init__(

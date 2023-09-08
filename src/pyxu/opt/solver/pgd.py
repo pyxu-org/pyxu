@@ -28,8 +28,8 @@ class PGD(pxa.Solver):
 
     * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with
       :math:`\beta`-*Lipschitz continuous* gradient, for some :math:`\beta\in[0,+\infty[`.
-    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is a *proper*, *lower
-      semicontinuous* and *convex function* with a *simple proximal operator*.
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is a *proper*, *lower semicontinuous* and
+      *convex function* with a *simple proximal operator*.
 
     Remarks
     -------
@@ -39,9 +39,8 @@ class PGD(pxa.Solver):
 
     * The convergence is guaranteed for step sizes :math:`\tau\leq 1/\beta`.
 
-    * Various acceleration schemes are described in [APGD]_.
-      PGD achieves the following (optimal) *convergence rate* with the implemented acceleration scheme
-      from Chambolle & Dossal:
+    * Various acceleration schemes are described in [APGD]_.  PGD achieves the following (optimal) *convergence rate*
+      with the implemented acceleration scheme from Chambolle & Dossal:
 
       .. math::
 
@@ -49,16 +48,15 @@ class PGD(pxa.Solver):
          \qquad\&\qquad
          \lim\limits_{n\rightarrow \infty} n^2\Vert \mathbf{x}_n-\mathbf{x}_{n-1}\Vert^2_\mathcal{X}=0,
 
-      for *some minimiser* :math:`{\mathbf{x}^\star}\in\arg\min_{\mathbf{x}\in\mathbb{R}^N} \;\left\{\mathcal{J}(\mathbf{x}):=\mathcal{F}(\mathbf{x})+\mathcal{G}(\mathbf{x})\right\}`.
-      In other words, both the objective functional and the PGD iterates
-      :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` converge at a rate :math:`o(1/n^2)`.
-      Significant practical *speedup* can be achieved for values of :math:`d` in the range
+      for *some minimiser* :math:`{\mathbf{x}^\star}\in\arg\min_{\mathbf{x}\in\mathbb{R}^N}
+      \;\left\{\mathcal{J}(\mathbf{x}):=\mathcal{F}(\mathbf{x})+\mathcal{G}(\mathbf{x})\right\}`.  In other words, both
+      the objective functional and the PGD iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` converge at a rate
+      :math:`o(1/n^2)`.  Significant practical *speedup* can be achieved for values of :math:`d` in the range
       :math:`[50,100]` [APGD]_.
 
-    * The relative norm change of the primal variable is used as the default stopping criterion.
-      By default, the algorithm stops when the norm of the difference between two consecutive PGD
-      iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4.
-      Different stopping criteria can be used.
+    * The relative norm change of the primal variable is used as the default stopping criterion.  By default, the
+      algorithm stops when the norm of the difference between two consecutive PGD iterates
+      :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4.  Different stopping criteria can be used.
 
     Parameters (``__init__()``)
     ---------------------------
@@ -79,17 +77,14 @@ class PGD(pxa.Solver):
       (..., N) initial point(s).
     * **tau** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
       --
-      Gradient step size.
-      Defaults to :math:`1 / \beta` if unspecified.
+      Gradient step size.  Defaults to :math:`1 / \beta` if unspecified.
     * **acceleration** (:py:obj:`bool`)
       --
       If True (default), then use Chambolle & Dossal acceleration scheme.
     * **d** (:py:attr:`~pyxu.info.ptype.Real`)
       --
-      Chambolle & Dossal acceleration parameter :math:`d`.
-      Should be greater than 2.
-      Only meaningful if `acceleration` is True.
-      Defaults to 75 in unspecified.
+      Chambolle & Dossal acceleration parameter :math:`d`.  Should be greater than 2.  Only meaningful if `acceleration`
+      is True.  Defaults to 75 in unspecified.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
       Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.

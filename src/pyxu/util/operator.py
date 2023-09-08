@@ -52,9 +52,8 @@ def vectorize(
         * `scan` computes outputs using a for-loop.
         * `parallel` passes inputs to DASK and evaluates them in parallel.
         * `scan_dask` passes inputs to DASK but evaluates inputs in sequence.
-          This is useful if the function being vectorized has a shared resource, i.e. is not
-          thread-safe.
-          It effectively gives a DASK-unaware function the ability to work with DASK inputs.
+          This is useful if the function being vectorized has a shared resource, i.e. is not thread-safe.  It
+          effectively gives a DASK-unaware function the ability to work with DASK inputs.
     codim: Integer
         Size of the function's core dimension output.
 
@@ -142,8 +141,8 @@ def _dask_zip(
       * if `parallel` disabled -> dask-delay each `func`, then evaluate in sequence.
         (This is useful if `func` s share a common resource, thus not thread-safe.)
 
-    For Dask-array inputs, this amounts to creating a task graph with virtual dependencies
-    between successive `func` calls. In other words, the task graph looks like::
+    For Dask-array inputs, this amounts to creating a task graph with virtual dependencies between successive `func`
+    calls. In other words, the task graph looks like::
 
         _dask_zip(func, data, parallel=True) -> out
 
@@ -182,13 +181,13 @@ def _dask_zip(
     out_shape: list
         Shapes of ``func[i](data[i])``.
 
-        This parameter is only used if inputs are DASK arrays.
-        Its goal is to transform :py:class:`~dask.delayed.Delayed` objects back to array form.
+        This parameter is only used if inputs are DASK arrays.  Its goal is to transform
+        :py:class:`~dask.delayed.Delayed` objects back to array form.
     out_dtype: list
         Dtypes of ``func[i](data[i])``.
 
-        This parameter is only used if inputs are DASK arrays.
-        Its goal is to transform :py:class:`~dask.delayed.Delayed` objects back to array form.
+        This parameter is only used if inputs are DASK arrays.  Its goal is to transform
+        :py:class:`~dask.delayed.Delayed` objects back to array form.
 
     Returns
     -------
@@ -231,8 +230,8 @@ def _array_ize(
     """
     (This is a Low-Level function.)
 
-    Transform a Dask-delayed object into its Dask-array counterpart.
-    This function is a no-op if `data` is not a :py:class:`~dask.delayed.Delayed` object.
+    Transform a Dask-delayed object into its Dask-array counterpart.  This function is a no-op if `data` is not a
+    :py:class:`~dask.delayed.Delayed` object.
 
     Parameters
     ----------
@@ -241,13 +240,13 @@ def _array_ize(
     shape: NDArrayShape
         Shape of `data`.
 
-        This parameter is only used if `data` is a :py:class:`~dask.delayed.Delayed` object.
-        Its goal is to transform the former back to array form.
+        This parameter is only used if `data` is a :py:class:`~dask.delayed.Delayed` object.  Its goal is to transform
+        the former back to array form.
     dtype: DType
         Dtype of `data`.
 
-        This parameter is only used if `data` is a :py:class:`~dask.delayed.Delayed` object.
-        Its goal is to transform the former back to array form.
+        This parameter is only used if `data` is a :py:class:`~dask.delayed.Delayed` object.  Its goal is to transform
+        the former back to array form.
 
     Returns
     -------

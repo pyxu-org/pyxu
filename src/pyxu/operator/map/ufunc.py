@@ -91,11 +91,11 @@ def sin(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = k \pi, \, k \in \mathbb{Z}`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = 1`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = 1`.
 
-      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = (2k + 1)
-      \frac{\pi}{2}, \, k \in \mathbb{Z}`.)
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = (2k + 1) \frac{\pi}{2}, \, k
+      \in \mathbb{Z}`.)
     """
     return _Sin(op.dim) * op
 
@@ -127,13 +127,12 @@ def cos(op: pxt.OpT) -> pxt.OpT:
     * :math:`f'(x) = -\sin(x)`
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
 
-      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = (2k + 1)
-      \frac{\pi}{2}, \, k \in \mathbb{Z}`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = 1`.
+      (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = (2k + 1) \frac{\pi}{2}, \, k \in
+      \mathbb{Z}`.)
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = 1`.
 
-      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = k \pi, \, k
-      \in \mathbb{Z}`.)
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = k \pi, \, k \in \mathbb{Z}`.)
     """
     return _Cos(op.dim) * op
 
@@ -168,8 +167,8 @@ def tan(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [-\pi, \pi]`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = \infty`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = \infty`.
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [-\pi, \pi]`.)
     """
@@ -208,8 +207,8 @@ def arcsin(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = \infty`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = \infty`.
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
     """
@@ -246,8 +245,8 @@ def arccos(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = \infty`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = \infty`.
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
     """
@@ -286,8 +285,8 @@ def arctan(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = 0`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = 3 \sqrt{3} / 8`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = 3 \sqrt{3} / 8`.
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \pm \frac{1}{\sqrt{3}}`.)
     """
@@ -323,8 +322,8 @@ def sinh(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = \infty`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = \infty`.
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
     """
@@ -359,8 +358,8 @@ def cosh(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = \infty`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = \infty`.
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
     """
@@ -401,11 +400,11 @@ def tanh(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = 0`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = 4 / 3 \sqrt{3}`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = 4 / 3 \sqrt{3}`.
 
-      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \frac{1}{2}
-      \ln(2 \pm \sqrt{3})`.
+      (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \frac{1}{2} \ln(2 \pm
+      \sqrt{3})`.
     """
     return _Tanh(op.dim) * op
 
@@ -444,8 +443,8 @@ def arcsinh(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = 0`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = \frac{2}{3 \sqrt{3}}`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = \frac{2}{3 \sqrt{3}}`.
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \pm \frac{1}{\sqrt{2}}`.)
     """
@@ -483,8 +482,8 @@ def arccosh(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [1, \infty[`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = \infty`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = \infty`.
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [1, \infty[`.)
     """
@@ -521,8 +520,8 @@ def arctanh(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = \infty`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = \infty`.
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
     """
@@ -566,8 +565,8 @@ def exp(op: pxt.OpT, base: pxt.Real = None) -> pxt.OpT:
     * :math:`\vert f_{b}(x) - f_{b}(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f_{b}'(x)` is unbounded on :math:`\text{dom}(f_{b}) = \mathbb{R}`.)
-    * :math:`\vert f_{b}'(x) - f_{b}'(y) \vert \le \partial L \vert x - y \vert`, with
-      diff-Lipschitz constant :math:`\partial L = \infty`.
+    * :math:`\vert f_{b}'(x) - f_{b}'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant
+      :math:`\partial L = \infty`.
 
       (Reason: :math:`f_{b}''(x)` is unbounded on :math:`\text{dom}(f_{b}) = \mathbb{R}`.)
     """
@@ -608,8 +607,8 @@ def log(op: pxt.OpT, base: pxt.Real = None) -> pxt.OpT:
     * :math:`\vert f_{b}(x) - f_{b}(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f_{b}'(x)` is unbounded on :math:`\text{dom}(f_{b}) = \mathbb{R}_{+}`.)
-    * :math:`\vert f_{b}'(x) - f_{b}'(y) \vert \le \partial L \vert x - y \vert`, with
-      diff-Lipschitz constant :math:`\partial L = \infty`.
+    * :math:`\vert f_{b}'(x) - f_{b}'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant
+      :math:`\partial L = \infty`.
 
       (Reason: :math:`f_{b}''(x)` is unbounded on :math:`\text{dom}(f_{b}) = \mathbb{R}_{+}`.)
     """
@@ -687,8 +686,8 @@ def sqrt(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}_{+}`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = \infty`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = \infty`.
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}_{+}`.)
     """
@@ -725,8 +724,8 @@ def cbrt(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = \infty`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = \infty`.
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
     """
@@ -763,8 +762,8 @@ def square(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \infty`.
 
       (Reason: :math:`f'(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = 2`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = 2`.
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` everywhere.)
     """
@@ -852,8 +851,8 @@ def gaussian(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \sqrt{2 / e}`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = \pm 1 / \sqrt{2}`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = 2`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = 2`.
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = 0`.)
     """
@@ -894,8 +893,8 @@ def sigmoid(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1 / 4`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x = 0`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = 1 / 6 \sqrt{3}`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = 1 / 6 \sqrt{3}`.
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \ln(2 \pm \sqrt{3})`.)
     """
@@ -931,8 +930,8 @@ def softplus(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` on :math:`\text{dom}(f) = \mathbb{R}`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = 1 / 4`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = 1 / 4`.
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = 0`.)
     """
@@ -1017,8 +1016,8 @@ def silu(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1.1`.
 
       (Reason: :math:`\vert f'(x) \vert` is bounded by :math:`L` at :math:`x \approx 2.4`.)
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = 1 / 2`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = 1 / 2`.
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = 0`.)
     """
@@ -1056,7 +1055,7 @@ def softmax(op: pxt.OpT) -> pxt.OpT:
     * :math:`[f(x_{1},\ldots,x_{N})]_{i} = e^{x_{i}} / \sum_{k=1}^{N} e^{x_{k}}`
     * :math:`J_{f}(\mathbf{x}) = \text{diag}(f(\mathbf{x})) - f(\mathbf{x}) f(\mathbf{x})^{T}`
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
-    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz
-      constant :math:`\partial L = 1`.
+    * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
+      = 1`.
     """
     return _SoftMax(op.dim) * op

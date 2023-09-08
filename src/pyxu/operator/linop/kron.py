@@ -49,8 +49,8 @@ def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
     Notes
     -----
     This implementation is **matrix-free** by leveraging properties of the Kronecker product, i.e.  :math:`A` and
-    :math:`B` need not be known explicitly.
-    In particular :math:`(A \otimes B) x` and :math:`(A \otimes B)^{*} x` are computed implicitly via the relation:
+    :math:`B` need not be known explicitly.  In particular :math:`(A \otimes B) x` and :math:`(A \otimes B)^{*} x` are
+    computed implicitly via the relation:
 
     .. math::
 
@@ -271,8 +271,8 @@ def khatri_rao(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
     Notes
     -----
     This implementation is **matrix-free** by leveraging properties of the Khatri-Rao product, i.e.  :math:`A` and
-    :math:`B` need not be known explicitly.
-    In particular :math:`(A \circ B) x` and :math:`(A \circ B)^{*} x` are computed implicitly via the relation:
+    :math:`B` need not be known explicitly.  In particular :math:`(A \circ B) x` and :math:`(A \circ B)^{*} x` are
+    computed implicitly via the relation:
 
     .. math::
 
@@ -283,9 +283,8 @@ def khatri_rao(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
     where :math:`\mathbf{A}`, :math:`\mathbf{C}` are matrices, and :math:`\mathbf{b}` is a vector.
 
     Note however that a matrix-free implementation of the Khatri-Rao product does not permit the same optimizations as a
-    matrix-based implementation.
-    Thus the Khatri-Rao product as implemented here is only marginally more efficient than applying
-    :py:func:`~pyxu.operator.kron` and pruning its output.
+    matrix-based implementation.  Thus the Khatri-Rao product as implemented here is only marginally more efficient than
+    applying :py:func:`~pyxu.operator.kron` and pruning its output.
     """
 
     def _infer_op_shape(shA: pxt.OpShape, shB: pxt.OpShape) -> pxt.OpShape:

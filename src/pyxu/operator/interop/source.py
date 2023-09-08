@@ -33,8 +33,8 @@ def from_source(
     embed: dict
         (k[str], v[value]) pairs to embed into the created operator.
 
-        `embed` is useful to attach extra information to synthesized
-        :py:class:`~pyxu.abc.Operator` used by arithmetic methods.
+        `embed` is useful to attach extra information to synthesized :py:class:`~pyxu.abc.Operator` used by arithmetic
+        methods.
     kwargs: dict
         (k[str], v[callable]) pairs to use as arithmetic methods.
 
@@ -44,8 +44,7 @@ def from_source(
     vectorize: VarName
         Arithmetic methods to vectorize.
 
-        `vectorize` is useful if an arithmetic method provided to `kwargs` (ex:
-        :py:meth:`~pyxu.abc.Map.apply`):
+        `vectorize` is useful if an arithmetic method provided to `kwargs` (ex: :py:meth:`~pyxu.abc.Map.apply`):
 
         * does not support stacking dimensions; OR
         * does not support DASK inputs.
@@ -56,8 +55,8 @@ def from_source(
     enforce_precision: VarName
         Arithmetic methods to make compliant with Pyxu's runtime FP-precision.
 
-        `enforce_precision` is useful if an arithmetic method provided to `kwargs` (ex:
-        :py:meth:`~pyxu.abc.Map.apply`) is unaware of Pyxu's runtime FP context.
+        `enforce_precision` is useful if an arithmetic method provided to `kwargs` (ex: :py:meth:`~pyxu.abc.Map.apply`)
+        is unaware of Pyxu's runtime FP context.
 
     Returns
     -------
@@ -66,9 +65,8 @@ def from_source(
 
     Notes
     -----
-    * If provided, arithmetic methods must abide exactly to the Pyxu interface.
-      In particular, the following arithmetic methods, if supplied, **must** have
-      the following interface:
+    * If provided, arithmetic methods must abide exactly to the Pyxu interface.  In particular, the following arithmetic
+      methods, if supplied, **must** have the following interface:
 
       .. code-block:: python3
 
@@ -78,17 +76,16 @@ def from_source(
          def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray
          def pinv(self, arr: pxt.NDArray, damp: pxt.Real) -> pxt.NDArray
 
-      Moreover, the methods above **must** accept ``(..., M)``-shaped inputs for ``arr``.
-      If this does not hold, consider populating `vectorize`.
+      Moreover, the methods above **must** accept ``(..., M)``-shaped inputs for ``arr``.  If this does not hold,
+      consider populating `vectorize`.
 
     * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
-      :py:func:`~pyxu.util.vectorize`.
-      Auto-vectorization may be less efficient than explicitly providing a vectorized implementation.
+      :py:func:`~pyxu.util.vectorize`.  Auto-vectorization may be less efficient than explicitly providing a vectorized
+      implementation.
 
     * Enforcing precision consists in decorating `kwargs`-specified arithmetic methods with
-      :py:func:`~pyxu.runtime.enforce_precision`.
-      Not all arithmetic methods can be made runtime FP-precision compliant.
-      It is thus recommended to make arithmetic methods precision-compliant manually.
+      :py:func:`~pyxu.runtime.enforce_precision`.  Not all arithmetic methods can be made runtime FP-precision
+      compliant.  It is thus recommended to make arithmetic methods precision-compliant manually.
 
     Examples
     --------
@@ -106,8 +103,8 @@ def from_source(
        y = f(x)  # [0, 1, 4, 9, 16]
        dL = f.diff_lipschitz  # inf (default value provided by DiffMap class.)
 
-    In practice we know that :math:`f` has a finite-valued diff-Lipschitz constant.
-    It is thus recommended to set it too when instantiating via ``from_source``:
+    In practice we know that :math:`f` has a finite-valued diff-Lipschitz constant.  It is thus recommended to set it
+    too when instantiating via ``from_source``:
 
     .. code-block:: python3
 

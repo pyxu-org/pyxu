@@ -81,8 +81,8 @@ class Operator:
 
     * enable operator arithmetic.
     * cast operators to specialized forms.
-    * attach :py:class:`~pyxu.abc.Property` tags encoding certain mathematical properties.
-      Each core sub-class **must** have a unique set of properties to be distinguishable from its peers.
+    * attach :py:class:`~pyxu.abc.Property` tags encoding certain mathematical properties.  Each core sub-class **must**
+      have a unique set of properties to be distinguishable from its peers.
     """
 
     # For `(size-1 ndarray) * OpT` to work, we need to force NumPy's hand and call OpT.__rmul__() in
@@ -141,8 +141,7 @@ class Operator:
 
     def asop(self, cast_to: pxt.OpC) -> pxt.OpT:
         r"""
-        Recast an :py:class:`~pyxu.abc.Operator` (or subclass thereof) to another
-        :py:class:`~pyxu.abc.Operator`.
+        Recast an :py:class:`~pyxu.abc.Operator` (or subclass thereof) to another :py:class:`~pyxu.abc.Operator`.
 
         Users may call this method if the arithmetic API yields sub-optimal return types.
 
@@ -164,8 +163,8 @@ class Operator:
         Notes
         -----
         * The interface of `cast_to` is provided via encapsulation + forwarding.
-        * If ``self`` does not implement all methods from `cast_to`, then unimplemented methods
-          will raise :py:class:`NotImplementedError` when called.
+        * If ``self`` does not implement all methods from `cast_to`, then unimplemented methods will raise
+          :py:class:`NotImplementedError` when called.
         """
         if cast_to not in _core_operators():
             raise ValueError(f"cast_to: expected a core base-class, got {cast_to}.")
@@ -417,8 +416,7 @@ class Operator:
 
     def squeeze(self) -> pxt.OpT:
         r"""
-        Cast an :py:class:`~pyxu.abc.Operator` to the right core operator sub-type given
-        codomain dimension.
+        Cast an :py:class:`~pyxu.abc.Operator` to the right core operator sub-type given codomain dimension.
         """
         p = set(self.properties())
         if self.codim == 1:
@@ -448,8 +446,8 @@ class Operator:
 
             (head, \*tail),
 
-        where `head` is the operator (ex: +/\*), and `tail` denotes all the expression's terms.
-        If an operator cannot be expanded further, then this method should return (self,).
+        where `head` is the operator (ex: +/\*), and `tail` denotes all the expression's terms.  If an operator cannot
+        be expanded further, then this method should return (self,).
         """
         return (self,)
 
@@ -514,8 +512,7 @@ class Map(Operator):
     r"""
     Base class for real-valued maps :math:`\mathbf{f}: \mathbb{R}^{M} \to \mathbb{R}^{N}`.
 
-    Instances of this class must implement
-    :py:meth:`~pyxu.abc.Map.apply`.
+    Instances of this class must implement :py:meth:`~pyxu.abc.Map.apply`.
 
     If :math:`\mathbf{f}` is Lipschitz-continuous with known Lipschitz constant :math:`L`, the latter should be stored
     in the :py:attr:`~pyxu.abc.Map.lipschitz` property.
@@ -625,8 +622,8 @@ class Map(Operator):
         -----
         * This method should always be callable without specifying any kwargs.
 
-        * A constant :math:`L_{\mathbf{f}} > 0` is said to be a *Lipschitz constant* for a map
-          :math:`\mathbf{f}: \mathbb{R}^{M} \to \mathbb{R}^{N}` if:
+        * A constant :math:`L_{\mathbf{f}} > 0` is said to be a *Lipschitz constant* for a map :math:`\mathbf{f}:
+          \mathbb{R}^{M} \to \mathbb{R}^{N}` if:
 
           .. math::
 
@@ -636,10 +633,8 @@ class Map(Operator):
              \qquad
              \forall \mathbf{x}, \mathbf{y}\in \mathbb{R}^{M},
 
-          where
-          :math:`\|\cdot\|_{\mathbb{R}^{M}}` and
-          :math:`\|\cdot\|_{\mathbb{R}^{N}}`
-          are the canonical norms on their respective spaces.
+          where :math:`\|\cdot\|_{\mathbb{R}^{M}}` and :math:`\|\cdot\|_{\mathbb{R}^{N}}` are the canonical norms on
+          their respective spaces.
 
           The smallest Lipschitz constant of a map is called the *optimal Lipschitz constant*.
         """
@@ -650,8 +645,7 @@ class Func(Map):
     r"""
     Base class for real-valued functionals :math:`f: \mathbb{R}^{M} \to \mathbb{R}\cup\{+\infty\}`.
 
-    Instances of this class must implement
-    :py:meth:`~pyxu.abc.Map.apply`.
+    Instances of this class must implement :py:meth:`~pyxu.abc.Map.apply`.
 
     If :math:`f` is Lipschitz-continuous with known Lipschitz constant :math:`L`, the latter should be stored in the
     :py:attr:`~pyxu.abc.Map.lipschitz` property.
@@ -671,11 +665,8 @@ class Func(Map):
         """
         Transform a functional into a loss functional.
 
-        The meaning of
-        :py:meth:`~pyxu.abc.Func.asloss`
-        is operator-dependent: always examine the output of
-        :py:meth:`~pyxu.abc.Operator.expr`
-        to determine the loss-notion involved.
+        The meaning of :py:meth:`~pyxu.abc.Func.asloss` is operator-dependent: always examine the output of
+        :py:meth:`~pyxu.abc.Operator.expr` to determine the loss-notion involved.
 
         Parameters
         ----------
@@ -695,9 +686,7 @@ class DiffMap(Map):
     r"""
     Base class for real-valued differentiable maps :math:`\mathbf{f}: \mathbb{R}^{M} \to \mathbb{R}^{N}`.
 
-    Instances of this class must implement
-    :py:meth:`~pyxu.abc.Map.apply` and
-    :py:meth:`~pyxu.abc.DiffMap.jacobian`.
+    Instances of this class must implement :py:meth:`~pyxu.abc.Map.apply` and :py:meth:`~pyxu.abc.DiffMap.jacobian`.
 
     If :math:`\mathbf{f}` is Lipschitz-continuous with known Lipschitz constant :math:`L`, the latter should be stored
     in the :py:attr:`~pyxu.abc.Map.lipschitz` property.
@@ -733,10 +722,9 @@ class DiffMap(Map):
         Notes
         -----
         Let :math:`\mathbf{f}=[f_{1}, \ldots, f_{N}]: \mathbb{R}^{M} \to \mathbb{R}^{N}` be a differentiable
-        multi-dimensional map.
-        The *Jacobian* (or *differential*) of :math:`\mathbf{f}` at
-        :math:`\mathbf{z} \in \mathbb{R}^{M}` is defined as the best linear approximator of
-        :math:`\mathbf{f}` near :math:`\mathbf{z}`, in the following sense:
+        multi-dimensional map.  The *Jacobian* (or *differential*) of :math:`\mathbf{f}` at :math:`\mathbf{z} \in
+        \mathbb{R}^{M}` is defined as the best linear approximator of :math:`\mathbf{f}` near :math:`\mathbf{z}`, in the
+        following sense:
 
         .. math::
 
@@ -843,10 +831,8 @@ class DiffMap(Map):
              \qquad
              \forall \mathbf{x}, \mathbf{y} \in \mathbb{R}^{M},
 
-          where
-          :math:`\|\cdot\|_{\mathbb{R}^{N \times M}}` and
-          :math:`\|\cdot\|_{\mathbb{R}^{M}}`
-          are the canonical norms on their respective spaces.
+          where :math:`\|\cdot\|_{\mathbb{R}^{N \times M}}` and :math:`\|\cdot\|_{\mathbb{R}^{M}}` are the canonical
+          norms on their respective spaces.
 
           The smallest Lipschitz constant of the Jacobian is called the *optimal diff-Lipschitz constant*.
         """
@@ -857,15 +843,11 @@ class ProxFunc(Func):
     r"""
     Base class for real-valued proximable functionals :math:`f: \mathbb{R}^{M} \to \mathbb{R} \cup \{+\infty\}`.
 
-    A functional :math:`f: \mathbb{R}^{M} \to \mathbb{R} \cup \{+\infty\}` is said *proximable* if its
-    **proximity operator** (see :py:meth:`~pyxu.abc.ProxFunc.prox` for a definition) admits
-    a *simple closed-form expression*
-    **or**
+    A functional :math:`f: \mathbb{R}^{M} \to \mathbb{R} \cup \{+\infty\}` is said *proximable* if its **proximity
+    operator** (see :py:meth:`~pyxu.abc.ProxFunc.prox` for a definition) admits a *simple closed-form expression* **or**
     can be evaluated *efficiently* and with *high accuracy*.
 
-    Instances of this class must implement
-    :py:meth:`~pyxu.abc.Map.apply` and
-    :py:meth:`~pyxu.abc.ProxFunc.prox`.
+    Instances of this class must implement :py:meth:`~pyxu.abc.Map.apply` and :py:meth:`~pyxu.abc.ProxFunc.prox`.
 
     If :math:`f` is Lipschitz-continuous with known Lipschitz constant :math:`L`, the latter should be stored in the
     :py:attr:`~pyxu.abc.Map.lipschitz` property.
@@ -898,8 +880,8 @@ class ProxFunc(Func):
 
         Notes
         -----
-        For :math:`\tau >0`, the *proximity operator* of a scaled functional
-        :math:`f: \mathbb{R}^{M} \to \mathbb{R}` is defined as:
+        For :math:`\tau >0`, the *proximity operator* of a scaled functional :math:`f: \mathbb{R}^{M} \to \mathbb{R}` is
+        defined as:
 
         .. math::
 
@@ -914,7 +896,8 @@ class ProxFunc(Func):
     @pxrt.enforce_precision(i=("arr", "sigma"))
     def fenchel_prox(self, arr: pxt.NDArray, sigma: pxt.Real) -> pxt.NDArray:
         r"""
-        Evaluate proximity operator of :math:`\sigma f^{\ast}`, the scaled Fenchel conjugate of :math:`f`, at specified point(s).
+        Evaluate proximity operator of :math:`\sigma f^{\ast}`, the scaled Fenchel conjugate of :math:`f`, at specified
+        point(s).
 
         Parameters
         ----------
@@ -968,10 +951,9 @@ class ProxFunc(Func):
 
         Notes
         -----
-        Consider a convex non-smooth proximable functional
-        :math:`f: \mathbb{R}^{M} \to \mathbb{R} \cup \{+\infty\}`
-        and a regularization parameter :math:`\mu > 0`.
-        The :math:`\mu`-*Moreau envelope* (or *Moreau-Yoshida envelope*) of :math:`f` is given by
+        Consider a convex non-smooth proximable functional :math:`f: \mathbb{R}^{M} \to \mathbb{R} \cup \{+\infty\}` and
+        a regularization parameter :math:`\mu > 0`.  The :math:`\mu`-*Moreau envelope* (or *Moreau-Yoshida envelope*) of
+        :math:`f` is given by
 
         .. math::
 
@@ -982,12 +964,11 @@ class ProxFunc(Func):
            \quad + \quad
            \frac{1}{2\mu} \|\mathbf{x} - \mathbf{z}\|^{2}.
 
-        The parameter :math:`\mu` controls the trade-off between the regularity properties of :math:`f^{\mu}` and
-        the approximation error incurred by the Moreau-Yoshida regularization.
+        The parameter :math:`\mu` controls the trade-off between the regularity properties of :math:`f^{\mu}` and the
+        approximation error incurred by the Moreau-Yoshida regularization.
 
         The Moreau envelope inherits the convexity of :math:`f` and is gradient-Lipschitz (with Lipschitz constant
-        :math:`\mu^{-1}`), even if :math:`f` is non-smooth.
-        Its gradient is moreover given by:
+        :math:`\mu^{-1}`), even if :math:`f` is non-smooth.  Its gradient is moreover given by:
 
         .. math::
 
@@ -995,16 +976,15 @@ class ProxFunc(Func):
            =
            \mu^{-1} \left(\mathbf{x} - \text{prox}_{\mu f}(\mathbf{x})\right).
 
-        In addition, :math:`f^{\mu}` envelopes :math:`f` from below:
-        :math:`f^{\mu}(\mathbf{x}) \leq f(\mathbf{x})`.
+        In addition, :math:`f^{\mu}` envelopes :math:`f` from below: :math:`f^{\mu}(\mathbf{x}) \leq f(\mathbf{x})`.
         This envelope becomes tighter as :math:`\mu \to 0`:
 
         .. math::
 
            \lim_{\mu \to 0} f^{\mu}(\mathbf{x}) = f(\mathbf{x}).
 
-        Finally, it can be shown that the minimizers of :math:`f` and :math:`f^{\mu}` coincide, and
-        that the Fenchel conjugate of :math:`f^{\mu}` is strongly-convex.
+        Finally, it can be shown that the minimizers of :math:`f` and :math:`f^{\mu}` coincide, and that the Fenchel
+        conjugate of :math:`f^{\mu}` is strongly-convex.
 
         Example
         -------
@@ -1085,16 +1065,11 @@ class DiffFunc(DiffMap, Func):
     r"""
     Base class for real-valued differentiable functionals :math:`f: \mathbb{R}^{M} \to \mathbb{R}`.
 
-    Instances of this class must implement
-    :py:meth:`~pyxu.abc.Map.apply` and
-    :py:meth:`~pyxu.abc.DiffFunc.grad`.
+    Instances of this class must implement :py:meth:`~pyxu.abc.Map.apply` and :py:meth:`~pyxu.abc.DiffFunc.grad`.
 
     If :math:`f` and/or its derivative :math:`f'` are Lipschitz-continuous with known Lipschitz constants :math:`L` and
-    :math:`\partial L`, the latter should be stored in the
-    :py:attr:`~pyxu.abc.Map.lipschitz`
-    and
-    :py:attr:`~pyxu.abc.DiffMap.diff_lipschitz`
-    properties.
+    :math:`\partial L`, the latter should be stored in the :py:attr:`~pyxu.abc.Map.lipschitz` and
+    :py:attr:`~pyxu.abc.DiffMap.diff_lipschitz` properties.
     """
 
     @classmethod
@@ -1129,8 +1104,8 @@ class DiffFunc(DiffMap, Func):
 
         Notes
         -----
-        The gradient of a functional :math:`f: \mathbb{R}^{M} \to \mathbb{R}` is given, for every
-        :math:`\mathbf{x} \in \mathbb{R}^{M}`, by
+        The gradient of a functional :math:`f: \mathbb{R}^{M} \to \mathbb{R}` is given, for every :math:`\mathbf{x} \in
+        \mathbb{R}^{M}`, by
 
         .. math::
 
@@ -1147,20 +1122,14 @@ class DiffFunc(DiffMap, Func):
 
 class ProxDiffFunc(ProxFunc, DiffFunc):
     r"""
-    Base class for real-valued differentiable *and* proximable functionals
-    :math:`f:\mathbb{R}^{M} \to \mathbb{R}`.
+    Base class for real-valued differentiable *and* proximable functionals :math:`f:\mathbb{R}^{M} \to \mathbb{R}`.
 
-    Instances of this class must implement
-    :py:meth:`~pyxu.abc.Map.apply`,
-    :py:meth:`~pyxu.abc.DiffFunc.grad`, and
+    Instances of this class must implement :py:meth:`~pyxu.abc.Map.apply`, :py:meth:`~pyxu.abc.DiffFunc.grad`, and
     :py:meth:`~pyxu.abc.ProxFunc.prox`.
 
     If :math:`f` and/or its derivative :math:`f'` are Lipschitz-continuous with known Lipschitz constants :math:`L` and
-    :math:`\partial L`, the latter should be stored in the
-    :py:attr:`~pyxu.abc.Map.lipschitz`
-    and
-    :py:attr:`~pyxu.abc.DiffMap.diff_lipschitz`
-    properties.
+    :math:`\partial L`, the latter should be stored in the :py:attr:`~pyxu.abc.Map.lipschitz` and
+    :py:attr:`~pyxu.abc.DiffMap.diff_lipschitz` properties.
     """
 
     @classmethod
@@ -1193,10 +1162,8 @@ class QuadraticFunc(ProxDiffFunc):
        t,
        \qquad \forall \mathbf{x} \in \mathbb{R}^{M},
 
-    where
-    :math:`Q` is a positive-definite operator :math:`\mathbf{Q}:\mathbb{R}^{M} \to \mathbb{R}^{M}`,
-    :math:`\mathbf{c} \in \mathbb{R}^{M}`, and
-    :math:`t > 0`.
+    where :math:`Q` is a positive-definite operator :math:`\mathbf{Q}:\mathbb{R}^{M} \to \mathbb{R}^{M}`,
+    :math:`\mathbf{c} \in \mathbb{R}^{M}`, and :math:`t > 0`.
 
     Its gradient is given by:
 
@@ -1219,8 +1186,8 @@ class QuadraticFunc(ProxDiffFunc):
 
     In practice the proximity operator is evaluated via :py:class:`~pyxu.opt.solver.CG`.
 
-    The Lipschitz constant :math:`L` of a quadratic on an unbounded domain is unbounded.
-    The Lipschitz constant :math:`\partial L` of :math:`\nabla f` is given by the spectral norm of :math:`\mathbf{Q}`.
+    The Lipschitz constant :math:`L` of a quadratic on an unbounded domain is unbounded.  The Lipschitz constant
+    :math:`\partial L` of :math:`\nabla f` is given by the spectral norm of :math:`\mathbf{Q}`.
     """
 
     @classmethod
@@ -1323,12 +1290,9 @@ class LinOp(DiffMap):
     r"""
     Base class for real-valued linear operators :math:`\mathbf{A}: \mathbb{R}^{M} \to \mathbb{R}^{N}`.
 
-    Instances of this class must implement
-    :py:meth:`~pyxu.abc.Map.apply` and
-    :py:meth:`~pyxu.abc.LinOp.adjoint`.
+    Instances of this class must implement :py:meth:`~pyxu.abc.Map.apply` and :py:meth:`~pyxu.abc.LinOp.adjoint`.
 
-    If known, the Lipschitz constant :math:`L` should be stored in the
-    :py:attr:`~pyxu.abc.Map.lipschitz` property.
+    If known, the Lipschitz constant :math:`L` should be stored in the :py:attr:`~pyxu.abc.Map.lipschitz` property.
 
     The Jacobian of a linear map :math:`\mathbf{A}` is constant.
     """
@@ -1373,8 +1337,8 @@ class LinOp(DiffMap):
 
         Notes
         -----
-        The *adjoint* :math:`\mathbf{A}^{\ast}: \mathbb{R}^{N} \to \mathbb{R}^{M}` of
-        :math:`\mathbf{A}: \mathbb{R}^{M} \to \mathbb{R}^{N}` is defined as:
+        The *adjoint* :math:`\mathbf{A}^{\ast}: \mathbb{R}^{N} \to \mathbb{R}^{M}` of :math:`\mathbf{A}: \mathbb{R}^{M}
+        \to \mathbb{R}^{N}` is defined as:
 
         .. math::
 
@@ -1404,9 +1368,8 @@ class LinOp(DiffMap):
         gpu: bool = False,
     ) -> spsl.LinearOperator:
         r"""
-        Cast a :py:class:`~pyxu.abc.LinOp` to a CPU/GPU
-        :py:class:`~scipy.sparse.linalg.LinearOperator`, compatible with the matrix-free linear
-        algebra routines of :py:mod:`scipy.sparse.linalg`.
+        Cast a :py:class:`~pyxu.abc.LinOp` to a CPU/GPU :py:class:`~scipy.sparse.linalg.LinearOperator`, compatible with
+        the matrix-free linear algebra routines of :py:mod:`scipy.sparse.linalg`.
 
         Parameters
         ----------
@@ -1466,13 +1429,13 @@ class LinOp(DiffMap):
         Notes
         -----
         * The tightest Lipschitz constant is given by the spectral norm of the operator :math:`\mathbf{A}`:
-          :math:`\|\mathbf{A}\|_{2}`.
-          It can be computed via the SVD, which is compute-intensive task for large operators.
-          In this setting, it may be advantageous to overestimate the Lipschitz constant with the
-          Frobenius norm of :math:`\mathbf{A}` since :math:`\|\mathbf{A}\|_{F} \geq \|\mathbf{A}\|_{2}`.
+          :math:`\|\mathbf{A}\|_{2}`.  It can be computed via the SVD, which is compute-intensive task for large
+          operators.  In this setting, it may be advantageous to overestimate the Lipschitz constant with the Frobenius
+          norm of :math:`\mathbf{A}` since :math:`\|\mathbf{A}\|_{F} \geq \|\mathbf{A}\|_{2}`.
 
-          :math:`\|\mathbf{A}\|_{F}` can be efficiently approximated by computing the trace of :math:`\mathbf{A}^{\ast} \mathbf{A}`
-          (or :math:`\mathbf{A}\mathbf{A}^{\ast}`) via the `Hutch++ stochastic algorithm <https://arxiv.org/abs/2010.09649>`_.
+          :math:`\|\mathbf{A}\|_{F}` can be efficiently approximated by computing the trace of :math:`\mathbf{A}^{\ast}
+          \mathbf{A}` (or :math:`\mathbf{A}\mathbf{A}^{\ast}`) via the `Hutch++ stochastic algorithm
+          <https://arxiv.org/abs/2010.09649>`_.
 
         * :math:`\|\mathbf{A}\|_{F}` is upper-bounded by :math:`\|\mathbf{A}\|_{F} \leq \sqrt{n} \|\mathbf{A}\|_{2}`,
           where the equality is reached (worst-case scenario) when the eigenspectrum of the linear operator is flat.
@@ -1609,10 +1572,8 @@ class LinOp(DiffMap):
 
         Note
         ----
-        This generic implementation assumes the operator is backend-agnostic.
-        Thus, when defining a new backend-specific operator,
-        :py:meth:`~pyxu.abc.LinOp.asarray`
-        may need to be overriden.
+        This generic implementation assumes the operator is backend-agnostic.  Thus, when defining a new
+        backend-specific operator, :py:meth:`~pyxu.abc.LinOp.asarray` may need to be overriden.
         """
         if xp is None:
             xp = pxd.NDArrayInfo.default().module()
@@ -1635,9 +1596,9 @@ class LinOp(DiffMap):
 
         Note
         ----
-        By default the Gram is computed by the composition ``self.T * self``.
-        This may not be the fastest way to compute the Gram operator.
-        If the Gram can be computed more efficiently (e.g. with a convolution), the user should re-define this method.
+        By default the Gram is computed by the composition ``self.T * self``.  This may not be the fastest way to
+        compute the Gram operator.  If the Gram can be computed more efficiently (e.g. with a convolution), the user
+        should re-define this method.
         """
 
         def op_expr(_) -> tuple:
@@ -1658,9 +1619,9 @@ class LinOp(DiffMap):
 
         Note
         ----
-        By default the co-Gram is computed by the composition ``self * self.T``.
-        This may not be the fastest way to compute the co-Gram operator.
-        If the co-Gram can be computed more efficiently (e.g. with a convolution), the user should re-define this method.
+        By default the co-Gram is computed by the composition ``self * self.T``.  This may not be the fastest way to
+        compute the co-Gram operator.  If the co-Gram can be computed more efficiently (e.g. with a convolution), the
+        user should re-define this method.
         """
 
         def op_expr(_) -> tuple:
@@ -1699,19 +1660,18 @@ class LinOp(DiffMap):
 
         Notes
         -----
-        The Moore-Penrose pseudo-inverse of an operator :math:`\mathbf{A}: \mathbb{R}^{M} \to \mathbb{R}^{N}` is
-        defined as the operator :math:`\mathbf{A}^{\dagger}: \mathbb{R}^{N} \to \mathbb{R}^{M}` verifying the
-        Moore-Penrose conditions:
+        The Moore-Penrose pseudo-inverse of an operator :math:`\mathbf{A}: \mathbb{R}^{M} \to \mathbb{R}^{N}` is defined
+        as the operator :math:`\mathbf{A}^{\dagger}: \mathbb{R}^{N} \to \mathbb{R}^{M}` verifying the Moore-Penrose
+        conditions:
 
             1. :math:`\mathbf{A} \mathbf{A}^{\dagger} \mathbf{A} = \mathbf{A}`,
             2. :math:`\mathbf{A}^{\dagger} \mathbf{A} \mathbf{A}^{\dagger} = \mathbf{A}^{\dagger}`,
             3. :math:`(\mathbf{A}^{\dagger} \mathbf{A})^{\ast} = \mathbf{A}^{\dagger} \mathbf{A}`,
             4. :math:`(\mathbf{A} \mathbf{A}^{\dagger})^{\ast} = \mathbf{A} \mathbf{A}^{\dagger}`.
 
-        This operator exists and is unique for any finite-dimensional linear operator.
-        The action of the pseudo-inverse :math:`\mathbf{A}^{\dagger} \mathbf{y}` for every
-        :math:`\mathbf{y} \in \mathbb{R}^{N}` can be computed in matrix-free fashion by solving the
-        *normal equations*:
+        This operator exists and is unique for any finite-dimensional linear operator.  The action of the pseudo-inverse
+        :math:`\mathbf{A}^{\dagger} \mathbf{y}` for every :math:`\mathbf{y} \in \mathbb{R}^{N}` can be computed in
+        matrix-free fashion by solving the *normal equations*:
 
         .. math::
 
@@ -1721,8 +1681,8 @@ class LinOp(DiffMap):
            \quad
            \forall (\mathbf{x}, \mathbf{y}) \in \mathbb{R}^{M} \times \mathbb{R}^{N}.
 
-        In the case of severe ill-conditioning, it is possible to consider the dampened normal
-        equations for a numerically-stabler approximation of :math:`\mathbf{A}^{\dagger} \mathbf{y}`:
+        In the case of severe ill-conditioning, it is possible to consider the dampened normal equations for a
+        numerically-stabler approximation of :math:`\mathbf{A}^{\dagger} \mathbf{y}`:
 
         .. math::
 
@@ -1841,7 +1801,8 @@ class LinOp(DiffMap):
 
 class SquareOp(LinOp):
     r"""
-    Base class for *square* linear operators, i.e. :math:`\mathbf{A}: \mathbb{R}^{M} \to \mathbb{R}^{M}` (endomorphsisms).
+    Base class for *square* linear operators, i.e. :math:`\mathbf{A}: \mathbb{R}^{M} \to \mathbb{R}^{M}`
+    (endomorphsisms).
     """
 
     @classmethod
@@ -1904,11 +1865,10 @@ class NormalOp(SquareOp):
 
     Notes
     -----
-    Normal operators commute with their adjoint, i.e.
-    :math:`\mathbf{A} \mathbf{A}^{\ast} = \mathbf{A}^{\ast} \mathbf{A}`.
-    It is `possible to show <https://www.wikiwand.com/en/Spectral_theorem#/Normal_matrices>`_ that
-    an operator is normal iff it is *unitarily diagonalizable*, i.e.
-    :math:`\mathbf{A} = \mathbf{U} \mathbf{D} \mathbf{U}^{\ast}`.
+    Normal operators commute with their adjoint, i.e.  :math:`\mathbf{A} \mathbf{A}^{\ast} = \mathbf{A}^{\ast}
+    \mathbf{A}`.  It is `possible to show <https://www.wikiwand.com/en/Spectral_theorem#/Normal_matrices>`_ that an
+    operator is normal iff it is *unitarily diagonalizable*, i.e.  :math:`\mathbf{A} = \mathbf{U} \mathbf{D}
+    \mathbf{U}^{\ast}`.
     """
 
     @classmethod
@@ -1923,8 +1883,7 @@ class NormalOp(SquareOp):
 
 class SelfAdjointOp(NormalOp):
     r"""
-    Base class for *self-adjoint* operators, i.e.
-    :math:`\mathbf{A}^{\ast} = \mathbf{A}`.
+    Base class for *self-adjoint* operators, i.e.  :math:`\mathbf{A}^{\ast} = \mathbf{A}`.
     """
 
     @classmethod
@@ -1939,8 +1898,7 @@ class SelfAdjointOp(NormalOp):
 
 class UnitOp(NormalOp):
     r"""
-    Base class for *unitary* operators, i.e.
-    :math:`\mathbf{A} \mathbf{A}^{\ast} = \mathbf{A}^{\ast} \mathbf{A} = I`.
+    Base class for *unitary* operators, i.e.  :math:`\mathbf{A} \mathbf{A}^{\ast} = \mathbf{A}^{\ast} \mathbf{A} = I`.
     """
 
     @classmethod
@@ -1986,8 +1944,7 @@ class ProjOp(SquareOp):
     r"""
     Base class for *projection* operators.
 
-    Projection operators are *idempotent*, i.e.
-    :math:`\mathbf{A}^{2} = \mathbf{A}`.
+    Projection operators are *idempotent*, i.e. :math:`\mathbf{A}^{2} = \mathbf{A}`.
     """
 
     @classmethod
@@ -2001,8 +1958,8 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
     r"""
     Base class for *orthogonal projection* operators.
 
-    Orthogonal projection operators are *idempotent* and *self-adjoint*, i.e.
-    :math:`\mathbf{A}^{2} = \mathbf{A}` and :math:`\mathbf{A}^{\ast} = \mathbf{A}`.
+    Orthogonal projection operators are *idempotent* and *self-adjoint*, i.e.  :math:`\mathbf{A}^{2} = \mathbf{A}` and
+    :math:`\mathbf{A}^{\ast} = \mathbf{A}`.
     """
 
     @classmethod
@@ -2054,12 +2011,9 @@ class LinFunc(ProxDiffFunc, LinOp):
     r"""
     Base class for real-valued linear functionals :math:`f: \mathbb{R}^{M} \to \mathbb{R}`.
 
-    Instances of this class must implement
-    :py:meth:`~pyxu.abc.Map.apply`, and
-    :py:meth:`~pyxu.abc.LinOp.adjoint`.
+    Instances of this class must implement :py:meth:`~pyxu.abc.Map.apply`, and :py:meth:`~pyxu.abc.LinOp.adjoint`.
 
-    If known, the Lipschitz constant :math:`L` should be stored in the
-    :py:attr:`~pyxu.abc.Map.lipschitz` property.
+    If known, the Lipschitz constant :math:`L` should be stored in the :py:attr:`~pyxu.abc.Map.lipschitz` property.
     """
 
     @classmethod

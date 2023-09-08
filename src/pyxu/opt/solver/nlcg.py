@@ -20,17 +20,16 @@ class NLCG(pxa.Solver):
 
        \min_{x\in\mathbb{R}^{N}} f(x),
 
-    where :math:`f: \mathbb{R}^{N} \to \mathbb{R}` is a *differentiable* functional.
-    When :math:`f` is quadratic, NLCG is equivalent to the Conjugate Gradient (CG) method.
-    NLCG hence has similar convergence behaviour to CG if :math:`f` is locally-quadratic.
-    The converge speed may be slower however due to its line-search overhead [NumOpt_NocWri]_.
+    where :math:`f: \mathbb{R}^{N} \to \mathbb{R}` is a *differentiable* functional.  When :math:`f` is quadratic, NLCG
+    is equivalent to the Conjugate Gradient (CG) method.  NLCG hence has similar convergence behaviour to CG if
+    :math:`f` is locally-quadratic.  The converge speed may be slower however due to its line-search overhead
+    [NumOpt_NocWri]_.
 
-    The norm of the `gradient <https://www.wikiwand.com/en/Nonlinear_conjugate_gradient_method>`_
-    :math:`\nabla f_k = \nabla f(x_k)` is used as the default stopping criterion.
-    By default, the iterations stop when the norm of the gradient is smaller than 1e-4.
+    The norm of the `gradient <https://www.wikiwand.com/en/Nonlinear_conjugate_gradient_method>`_ :math:`\nabla f_k =
+    \nabla f(x_k)` is used as the default stopping criterion.  By default, the iterations stop when the norm of the
+    gradient is smaller than 1e-4.
 
-    Multiple variants of NLCG exist.
-    They differ mainly in how the weights applied to conjugate directions are updated.
+    Multiple variants of NLCG exist.  They differ mainly in how the weights applied to conjugate directions are updated.
     Two popular variants are implemented:
 
     * The Fletcher-Reeves variant:
@@ -89,9 +88,8 @@ class NLCG(pxa.Solver):
       --
       Optional parameters forwarded to :py:func:`~pyxu.math.backtracking_linesearch`.
 
-      If `a0` is unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a0`
-      is auto-chosen as :math:`\beta^{-1}`.
-      Users are expected to set `a0` if its value cannot be auto-inferred.
+      If `a0` is unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a0` is auto-chosen as
+      :math:`\beta^{-1}`.  Users are expected to set `a0` if its value cannot be auto-inferred.
 
       Other keyword parameters are passed on to :py:meth:`pyxu.abc.Solver.fit`.
 
@@ -121,8 +119,8 @@ class NLCG(pxa.Solver):
        x_opt = nlcg.solution()
        np.allclose(x_opt, 1/a)  # True
 
-    Note however that the CG method is preferable in this context since it omits the linesearch
-    overhead. The former depends on the cost of applying :math:`A`, and may be significant.
+    Note however that the CG method is preferable in this context since it omits the linesearch overhead. The former
+    depends on the cost of applying :math:`A`, and may be significant.
     """
 
     def __init__(self, f: pxa.DiffFunc, **kwargs):
@@ -141,27 +139,6 @@ class NLCG(pxa.Solver):
         restart_rate: pxt.Integer = None,
         **kwargs,
     ):
-        r"""
-        Parameters
-        ----------
-        x0: NDArray
-            (..., N) initial point(s).
-        variant: "PR", "FR"
-            Name of the NLCG variant to use:
-
-            * "PR": Polak-Ribière+ variant (default).
-            * "FR": Fletcher-Reeves variant.
-        restart_rate: Integer
-            Number of iterations after which restart is applied.
-
-            By default, restart is done after :math:`N` iterations.
-        \*\*kwargs
-            Optional parameters forwarded to :py:func:`~pyxu.math.backtracking_linesearch`.
-
-            If `a0` is unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a0`
-            is auto-chosen as :math:`\beta^{-1}`.
-            Users are expected to set `a0` if its value cannot be auto-inferred.
-        """
         mst = self._mstate  # shorthand
 
         if (a0 := kwargs.get("a0")) is None:

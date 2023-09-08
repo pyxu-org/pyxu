@@ -12,8 +12,7 @@ __all__ = [
 
 def view_as_complex(x: pxt.NDArray) -> pxt.NDArray:
     r"""
-    View real-valued array as its complex-valued bijection.
-    (Inverse of :py:func:`~pyxu.util.view_as_real`.)
+    View real-valued array as its complex-valued bijection.  (Inverse of :py:func:`~pyxu.util.view_as_real`.)
 
     Parameters
     ----------
@@ -37,8 +36,7 @@ def view_as_complex(x: pxt.NDArray) -> pxt.NDArray:
 
     Notes
     -----
-    Complex-valued inputs are returned unchanged.
-    For real-valued inputs, this function acts on the last axis as:
+    Complex-valued inputs are returned unchanged.  For real-valued inputs, this function acts on the last axis as:
 
     .. math::
 
@@ -68,8 +66,7 @@ def view_as_complex(x: pxt.NDArray) -> pxt.NDArray:
 
 def view_as_real(x: pxt.NDArray) -> pxt.NDArray:
     r"""
-    View complex-valued array as its real-valued bijection.
-    (Inverse of :py:func:`~pyxu.util.view_as_complex`.)
+    View complex-valued array as its real-valued bijection.  (Inverse of :py:func:`~pyxu.util.view_as_complex`.)
 
     Parameters
     ----------
@@ -93,8 +90,7 @@ def view_as_real(x: pxt.NDArray) -> pxt.NDArray:
 
     Notes
     -----
-    Real-valued inputs are returned unchanged.
-    For complex-valued inputs, this function acts on the last axis as:
+    Real-valued inputs are returned unchanged.  For complex-valued inputs, this function acts on the last axis as:
 
     .. math::
 
@@ -146,8 +142,7 @@ def view_as_real_mat(
     real_output: bool = False,
 ) -> pxt.NDArray:
     r"""
-    View complex-valued matrix as its real-valued equivalent.
-    (Inverse of :py:func:`~pyxu.util.view_as_complex_mat`.)
+    View complex-valued matrix as its real-valued equivalent.  (Inverse of :py:func:`~pyxu.util.view_as_complex_mat`.)
 
     Useful to transform complex-valued matrix/vector products to their real-valued counterparts.
 
@@ -187,9 +182,8 @@ def view_as_real_mat(
     Notes
     -----
     * Real-valued matrices are returned unchanged.
-    * Complex-valued matrices :math:`A\in\mathbb{C}^{M\times N}` are mapped into a real-valued
-      matrix :math:`\hat{A}\in\mathbb{R}^{2M\times 2N}` defined, for :math:`1\leq n \leq N`,
-      :math:`1\leq m\leq M` as
+    * Complex-valued matrices :math:`A\in\mathbb{C}^{M\times N}` are mapped into a real-valued matrix
+      :math:`\hat{A}\in\mathbb{R}^{2M\times 2N}` defined, for :math:`1\leq n \leq N`, :math:`1\leq m\leq M` as
 
       .. math::
 
@@ -200,8 +194,8 @@ def view_as_real_mat(
           & \quad
           \hat{A}_{2m,2n}=\mathcal{R}(A_{m,n}).
 
-      If ``real_[in|out]put=True``, then even columns/rows (or both) are furthermore dropped.
-      We have ``view_as_real(A @ x) = view_as_real_mat(A) @ view_as_real(x)``.
+      If ``real_[in|out]put=True``, then even columns/rows (or both) are furthermore dropped.  We have ``view_as_real(A
+      @ x) = view_as_real_mat(A) @ view_as_real(x)``.
 
     See Also
     --------
@@ -237,16 +231,14 @@ def view_as_complex_mat(
     real_output: bool = False,
 ) -> pxt.NDArray:
     r"""
-    View real-valued matrix as its complex-valued equivalent.
-    (Inverse of :py:func:`~pyxu.util.view_as_real_mat`.)
+    View real-valued matrix as its complex-valued equivalent.  (Inverse of :py:func:`~pyxu.util.view_as_real_mat`.)
 
     Useful to transform real-valued matrix/vector products to their complex-valued counterparts.
 
     Parameters
     ----------
     rmat: NDArray
-        Real-valued matrix.
-        Accepted dimensions depend on the values of `real_input` and `real_output`::
+        Real-valued matrix.  Accepted dimensions depend on the values of `real_input` and `real_output`::
 
            | real_input | real_output | rmat.shape |
            |------------|-------------|------------|
@@ -278,8 +270,7 @@ def view_as_complex_mat(
     Notes
     -----
     * Complex-valued matrices are returned unchanged.
-    * Real-valued matrices are mapped into a complex-valued matrix :math:`{A}\in\mathbb{C}^{M\times
-      N}` as follows:
+    * Real-valued matrices are mapped into a complex-valued matrix :math:`{A}\in\mathbb{C}^{M\times N}` as follows:
 
       * :math:`\hat{A}\in\mathbb{R}^{2M\times 2N}`:  :math:`A_{m,n} = \hat{A}_{2m-1,2n-1} + j \hat{A}_{2m,2n-1}`,
       * :math:`\hat{A}\in\mathbb{R}^{M\times 2N}`:  :math:`A_{m,n} = \hat{A}_{m,2n-1} - j \hat{A}_{m,2n}`,

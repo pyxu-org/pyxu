@@ -42,9 +42,8 @@ def peaks(x: pxt.NDArray, y: pxt.NDArray) -> pxt.NDArray:
     r"""
     Matlab 2D peaks function.
 
-    Peaks is a function of two variables, obtained by translating and scaling Gaussian
-    distributions.
-    (See `Matlab's peaks function <https://www.mathworks.com/help/matlab/ref/peaks.html>`_.)
+    Peaks is a function of two variables, obtained by translating and scaling Gaussian distributions.  (See `Matlab's
+    peaks function <https://www.mathworks.com/help/matlab/ref/peaks.html>`_.)
 
     This function is useful for testing purposes.
 
@@ -96,10 +95,10 @@ def star_like_sample(
     r"""
     Star-like test image.
 
-    Generates a (N, N) square image of a star-like object normalized between 0 and 1.
-    Based on `GlobalBioIm's StarLikeSample function
-    <https://github.com/Biomedical-Imaging-Group/GlobalBioIm/blob/master/Util/StarLikeSample.m>`_.
-    This function is useful for testing purposes as it contains high-frequency information.
+    Generates a (N, N) square image of a star-like object normalized between 0 and 1.  Based on `GlobalBioIm's
+    StarLikeSample function
+    <https://github.com/Biomedical-Imaging-Group/GlobalBioIm/blob/master/Util/StarLikeSample.m>`_.  This function is
+    useful for testing purposes as it contains high-frequency information.
 
     Parameters
     ----------

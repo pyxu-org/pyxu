@@ -401,8 +401,7 @@ class AffineSet(_IndicatorFunction):
 
 class ConvexSetIntersection(_IndicatorFunction):
     r"""
-    Indicator function of an intersection of convex domains
-    :math:`\mathcal{C}_{1} \cap \cdots \cap \mathcal{C}_{K}`.
+    Indicator function of an intersection of convex domains :math:`\mathcal{C}_{1} \cap \cdots \cap \mathcal{C}_{K}`.
 
     .. math::
 
@@ -410,12 +409,11 @@ class ConvexSetIntersection(_IndicatorFunction):
        :=
        \iota_{1}(\mathbf{x}) + \cdots + \iota_{K}(\mathbf{x}).
 
-    :math:`\text{prox}_{\tau\, \iota}(\mathbf{x})` is computed using the PoCS algorithm.
-    (Dykstra's variant [PoCS_Dykstra]_.)
+    :math:`\text{prox}_{\tau\, \iota}(\mathbf{x})` is computed using the PoCS algorithm.  (Dykstra's variant
+    [PoCS_Dykstra]_.)
 
     This function assumes :math:`\mathcal{C}_{1} \cap \cdots \cap \mathcal{C}_{K} \ne \emptyset`.
-    :py:meth:`~pyxu.operator.ConvexSetIntersection.prox` will loop indefinitely if
-    this condition is violated.
+    :py:meth:`~pyxu.operator.ConvexSetIntersection.prox` will loop indefinitely if this condition is violated.
 
     Examples
     --------

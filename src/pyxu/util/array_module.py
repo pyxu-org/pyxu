@@ -26,8 +26,7 @@ def get_array_module(x, fallback: pxt.ArrayModule = None) -> pxt.ArrayModule:
     x: object
         Any object compatible with the interface of NumPy arrays.
     fallback: ArrayModule
-        Fallback module if `x` is not a NumPy-like array.
-        Default behaviour: raise error if fallback used.
+        Fallback module if `x` is not a NumPy-like array.  Default behaviour: raise error if fallback used.
 
     Returns
     -------
@@ -56,11 +55,9 @@ def compute(*args, mode: str = "compute", **kwargs):
     Parameters
     ----------
     \*args: object, list
-        Any number of objects.
-        If it is a dask object, it is evaluated and the result is returned.
-        Non-dask arguments are passed through unchanged.
-        Python collections are traversed to find/evaluate dask objects within.
-        (Use `traverse` =False to disable this behavior.)
+        Any number of objects.  If it is a dask object, it is evaluated and the result is returned.  Non-dask arguments
+        are passed through unchanged.  Python collections are traversed to find/evaluate dask objects within.  (Use
+        `traverse` =False to disable this behavior.)
     mode: str
         Dask evaluation strategy: compute or persist.
     \*\*kwargs: dict
@@ -121,12 +118,11 @@ def redirect(
     """
     Change codepath for supplied array backends.
 
-    Some functions/methods cannot be written in module-agnostic fashion. The action of this
-    decorator is summarized below:
+    Some functions/methods cannot be written in module-agnostic fashion. The action of this decorator is summarized
+    below:
 
     * Analyze an array-valued parameter (`x`) of the wrapped function/method (`f`).
-    * If `x` lies in one of the supplied array namespaces: re-route execution to the specified
-      function.
+    * If `x` lies in one of the supplied array namespaces: re-route execution to the specified function.
     * If `x` lies in none of the supplied array namespaces: execute `f`.
 
     Parameters
@@ -140,15 +136,13 @@ def redirect(
 
     Notes
     -----
-    Auto-dispatch via :py:func:`redirect` assumes the dispatcher/dispatchee have the same
-    parameterization, i.e.:
+    Auto-dispatch via :py:func:`redirect` assumes the dispatcher/dispatchee have the same parameterization, i.e.:
 
-    * if `f` is a function -> dispatch possible to another callable with identical signature (i.e.,
-      function or staticmethod)
-    * if `f` is a staticmethod -> dispatch possible to another callable with identical signature
-      (i.e., function or staticmethod)
-    * if `f` is an instance-method -> dispatch to another instance-method of the class with
-      identical signature.
+    * if `f` is a function -> dispatch possible to another callable with identical signature (i.e., function or
+      staticmethod)
+    * if `f` is a staticmethod -> dispatch possible to another callable with identical signature (i.e., function or
+      staticmethod)
+    * if `f` is an instance-method -> dispatch to another instance-method of the class with identical signature.
 
     Example
     -------

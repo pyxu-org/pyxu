@@ -21,10 +21,9 @@ __all__ = [
     "coo_block",
 ]
 
-# Arithmetic methods/attributes of [hstack, vstack, block_diag, coo_block]() are very similar. To
-# avoid excessive copy/paste-ing the same implementation everywhere, these functions piggy-back on
-# _COOBlock() for most computations. When a more efficient implementation is known however, it is
-# overridden in [hstack, vstack, block_diag]() as needed.
+# Arithmetic methods/attributes of [hstack, vstack, block_diag, coo_block]() are very similar. To avoid excessive
+# copy/paste-ing the same implementation everywhere, these functions piggy-back on _COOBlock() for most computations.
+# When a more efficient implementation is known however, it is overridden in [hstack, vstack, block_diag]() as needed.
 
 
 def stack(
@@ -38,8 +37,7 @@ def stack(
     A stacked-operator :math:`V: \mathbb{R}^{d} \to \mathbb{R}^{c}` is an operator containing (vertically or
     horizontally) blocks of smaller operators :math:`\{O_{1}, \ldots, O_{N}\}`.
 
-    This is a convenience function around :py:func:`~pyxu.operator.hstack` and
-    :py:func:`~pyxu.operator.vstack`.
+    This is a convenience function around :py:func:`~pyxu.operator.hstack` and :py:func:`~pyxu.operator.vstack`.
 
     Parameters
     ----------
@@ -321,8 +319,8 @@ def block(
     r"""
     Construct a (dense) block-defined operator.
 
-    A block-defined operator is an operator containing blocks of smaller operators.
-    Blocks are stacked horizontally/vertically in a user-specified order to obtain the final shape.
+    A block-defined operator is an operator containing blocks of smaller operators.  Blocks are stacked
+    horizontally/vertically in a user-specified order to obtain the final shape.
 
     Parameters
     ----------
@@ -399,8 +397,8 @@ def coo_block(
     r"""
     Constuct a (possibly-sparse) block-defined operator in COOrdinate format.
 
-    A block-defined operator is an operator containing blocks of smaller operators.
-    Blocks must align on a coarse grid, akin to the COO format used to define sparse arrays.
+    A block-defined operator is an operator containing blocks of smaller operators.  Blocks must align on a coarse grid,
+    akin to the COO format used to define sparse arrays.
 
     Parameters
     ----------
@@ -437,11 +435,9 @@ def coo_block(
     .. Warning::
 
        When processing Dask inputs, or when ``parallel=True``, operators which are not thread-safe may produce incorrect
-       results.
-       There is no easy way to ensure thread-safety at the level of :py:mod:`~pyxu.operator.blocks` without impacting
-       performance of all operators involved.
-       Users are thus responsible for executing block-defined operators correctly, i.e., if thread-unsafe operators are
-       involved, stick to NumPy/CuPy inputs.
+       results.  There is no easy way to ensure thread-safety at the level of :py:mod:`~pyxu.operator.blocks` without
+       impacting performance of all operators involved.  Users are thus responsible for executing block-defined
+       operators correctly, i.e., if thread-unsafe operators are involved, stick to NumPy/CuPy inputs.
 
     Examples
     --------
@@ -531,8 +527,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         Returns
         -------
         op: pxt.OpT
-            Synthesized operator given inputs to
-            :py:meth:`~pyxu.operator._COOBlock.__init__`.
+            Synthesized operator given inputs to :py:meth:`~pyxu.operator._COOBlock.__init__`.
         """
         blk = self._block
         if len(blk) == 1:

@@ -101,9 +101,7 @@ class Precision(contextlib.AbstractContextManager):
 
 class EnforcePrecision(contextlib.AbstractContextManager):
     """
-    Context Manager to locally disable effect of
-    :py:func:`~pyxu.runtime.enforce_precision`.
-    [Default: enabled.]
+    Context Manager to locally disable effect of :py:func:`~pyxu.runtime.enforce_precision`.  [Default: enabled.]
 
     Use this object via a with-block.
 
@@ -147,13 +145,11 @@ def enforce_precision(
     Parameters
     ----------
     i: VarName
-        Function parameters for which precision must be enforced to runtime's FP-precision.
-        Function parameter values must have a NumPy API, or be scalars.
-        None-valued parameters are allowed if `allow_None` is True (default).
+        Function parameters for which precision must be enforced to runtime's FP-precision.  Function parameter values
+        must have a NumPy API, or be scalars.  None-valued parameters are allowed if `allow_None` is True (default).
     o: bool
-        If True (default), ensure function's output (if any) has runtime's FP-precision.
-        If function's output does not have a NumPy API or is not scalar-valued, set `o` explicitly
-        to False.
+        If True (default), ensure function's output (if any) has runtime's FP-precision.  If function's output does not
+        have a NumPy API or is not scalar-valued, set `o` explicitly to False.
     allow_None: bool
 
     Example
@@ -221,8 +217,8 @@ def coerce(x):
     Returns
     -------
     y: Real, NDArray
-        Input cast to the runtime FP-precision.
-        Fails if operation is impossible or unsafe. (I.e. casting complex-valued data.)
+        Input cast to the runtime FP-precision.  Fails if operation is impossible or unsafe. (I.e. casting
+        complex-valued data.)
 
     Note
     ----

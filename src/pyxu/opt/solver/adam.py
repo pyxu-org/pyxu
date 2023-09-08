@@ -99,12 +99,10 @@ class Adam(pxa.Solver):
     -------
     * The convergence is guaranteed for step sizes :math:`\alpha\leq 2/\beta`.
 
-    * The default stopping criterion is the relative norm change of the primal variable.
-      By default, the algorithm stops when the norm of the difference between two consecutive iterates
-      :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` is smaller than 1e-4.
-      Different stopping criteria can be used.
-      It is recommended to change the stopping criterion when using the PAdam and AMSGrad variants to avoid premature
-      stops.
+    * The default stopping criterion is the relative norm change of the primal variable.  By default, the algorithm
+      stops when the norm of the difference between two consecutive iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}`
+      is smaller than 1e-4.  Different stopping criteria can be used.  It is recommended to change the stopping
+      criterion when using the PAdam and AMSGrad variants to avoid premature stops.
 
     Parameters (``__init__()``)
     ---------------------------
@@ -122,12 +120,10 @@ class Adam(pxa.Solver):
       (..., N) initial point(s).
     * **variant** ("adam", "amsgrad", "padam")
       --
-      Name of the Adam variant to use.
-      Defaults to "adam".
+      Name of the Adam variant to use.  Defaults to "adam".
     * **a** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
       --
-      Max normalized gradient step size.
-      Defaults to :math:`1 / \beta` if unspecified.
+      Max normalized gradient step size.  Defaults to :math:`1 / \beta` if unspecified.
     * **b1** (:py:attr:`~pyxu.info.ptype.Real`)
       --
       1st-order gradient exponential decay :math:`\beta_{1} \in [0, 1)`.
@@ -136,25 +132,21 @@ class Adam(pxa.Solver):
       2nd-order gradient exponential decay :math:`\beta_{2} \in [0, 1)`.
     * **m0** (:py:attr:`~pyxu.info.ptype.NDArray`, :py:obj:`None`)
       --
-      (..., N) initial 1st-order gradient estimate corresponding to each initial point.
-      Defaults to the null vector if unspecified.
+      (..., N) initial 1st-order gradient estimate corresponding to each initial point.  Defaults to the null vector if
+      unspecified.
     * **v0** (:py:attr:`~pyxu.info.ptype.NDArray`, :py:obj:`None`)
       --
-      (..., N) initial 2nd-order gradient estimate corresponding to each initial point.
-      Defaults to the null vector if unspecified.
+      (..., N) initial 2nd-order gradient estimate corresponding to each initial point.  Defaults to the null vector if
+      unspecified.
     * **p** (:py:attr:`~pyxu.info.ptype.Real`)
       --
-      PAdam power parameter :math:`p \in (0, 0.5]`.
-      Must be specified for PAdam, unused otherwise.
+      PAdam power parameter :math:`p \in (0, 0.5]`.  Must be specified for PAdam, unused otherwise.
     * **eps_adam** (:py:attr:`~pyxu.info.ptype.Real`)
       --
-      Adam noise parameter :math:`\epsilon`.
-      This term is used exclusively if `variant="adam"`.
-      Defaults to 1e-6.
+      Adam noise parameter :math:`\epsilon`.  This term is used exclusively if `variant="adam"`.  Defaults to 1e-6.
     * **eps_var** (:py:attr:`~pyxu.info.ptype.Real`)
       --
-      Avoids division by zero if estimated gradient variance is too small.
-      Defaults to 1e-6.
+      Avoids division by zero if estimated gradient variance is too small.  Defaults to 1e-6.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
       Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.fit`.

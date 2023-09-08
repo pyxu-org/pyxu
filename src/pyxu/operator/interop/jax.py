@@ -38,8 +38,8 @@ def _from_jax(
     """
     JAX -> NUMPY/CUPY conversion.
 
-    The transform is always zero-copy, but it is not easy to check this condition for all array
-    types (contiguous, views, etc.) and backends (NUMPY, CUPY).
+    The transform is always zero-copy, but it is not easy to check this condition for all array types (contiguous,
+    views, etc.) and backends (NUMPY, CUPY).
 
     [More info] https://github.com/google/jax/issues/1961#issuecomment-875773326
     """
@@ -129,13 +129,11 @@ def from_jax(
 
            apply(), grad(), prox(), pinv(), adjoint()
 
-        Omitted arithmetic methods default to those provided by `cls`, or are
-        auto-inferred via auto-diff rules.
+        Omitted arithmetic methods default to those provided by `cls`, or are auto-inferred via auto-diff rules.
     vectorize: VarName
         Arithmetic methods to vectorize.
 
-        `vectorize` is useful if an arithmetic method provided to `kwargs` does not support stacking
-        dimensions.
+        `vectorize` is useful if an arithmetic method provided to `kwargs` does not support stacking dimensions.
     jit: bool
         If ``True``, JIT-compile JAX-backed arithmetic methods for better performance.
     enable_warnings: bool
@@ -158,26 +156,23 @@ def from_jax(
          def prox(arr: jax.Array, tau: pxt.Real) -> jax.Array
          def pinv(arr: jax.Array, damp: pxt.Real) -> jax.Array
 
-      Moreover, the methods above **must** accept ``(..., M)``-shaped inputs for ``arr``.
-      If this does not hold, consider populating `vectorize`.
+      Moreover, the methods above **must** accept ``(..., M)``-shaped inputs for ``arr``.  If this does not hold,
+      consider populating `vectorize`.
 
     * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
       :py:func:`jax.numpy.vectorize`.
 
-    * All arithmetic methods provided in `kwargs` are decorated using
-      :py:func:`~pyxu.runtime.enforce_precision` to abide by Pyxu's FP-runtime semantics.
-      Note however that JAX enforces `32-bit arithmetic <https://jax.readthedocs.io/en/latest/notebooks/Common_Gotchas_in_JAX.html#double-64bit-precision>`_
-      by default, and this constraint cannot be changed at runtime.
-      As such, to allow zero-copy transfers between JAX and NUMPY/CUPY arrays, it is advised to
-      perform computations in single-precision mode.
-      This can be achieved locally using the :py:class:`~pyxu.runtime.Precision` context manager.
-      (See example.)
-      Alternatively, precision/copy-related warnings can be silenced via the `enable_warnings`
-      option of :py:func:`~pyxu.operator.interop.from_jax`.
+    * All arithmetic methods provided in `kwargs` are decorated using :py:func:`~pyxu.runtime.enforce_precision` to
+      abide by Pyxu's FP-runtime semantics.  Note however that JAX enforces `32-bit arithmetic
+      <https://jax.readthedocs.io/en/latest/notebooks/Common_Gotchas_in_JAX.html#double-64bit-precision>`_ by default,
+      and this constraint cannot be changed at runtime.  As such, to allow zero-copy transfers between JAX and
+      NUMPY/CUPY arrays, it is advised to perform computations in single-precision mode.  This can be achieved locally
+      using the :py:class:`~pyxu.runtime.Precision` context manager.  (See example.) Alternatively,
+      precision/copy-related warnings can be silenced via the `enable_warnings` option of
+      :py:func:`~pyxu.operator.interop.from_jax`.
 
-    * Inferred arithmetic methods are not JIT-ed by default since the operation is error-prone
-      depending on how :py:meth:`~pyxu.abc.Map.apply` is defined.
-      If :py:meth:`~pyxu.abc.Map.apply` supplied to
+    * Inferred arithmetic methods are not JIT-ed by default since the operation is error-prone depending on how
+      :py:meth:`~pyxu.abc.Map.apply` is defined.  If :py:meth:`~pyxu.abc.Map.apply` supplied to
       :py:func:`~pyxu.operator.interop.from_jax` is JIT-friendly, then consider enabling `jit`.
 
     Examples
@@ -310,13 +305,11 @@ class _FromJax(px_src._FromSource):
         #     grad(), adjoint()
         #
         # Missing methods are auto-inferred via auto-diff rules and added to `_kwargs`.
-        # At the end of _infer_missing(), all jax-funcs required for _interface() have been added to
-        # `_kwargs`.
+        # At the end of _infer_missing(), all jax-funcs required for _interface() have been added to `_kwargs`.
         #
         # Notes
         # -----
-        # This method does NOT produce vectorized implementations: _auto_vectorize() is responsible
-        # for this.
+        # This method does NOT produce vectorized implementations: _auto_vectorize() is responsible for this.
         self._vectorize = set(self._vectorize)  # to allow updates below
 
         nl_difffunc = all(  # non-linear diff-func
@@ -384,8 +377,7 @@ class _FromJax(px_src._FromSource):
         #     * take `jax.Array` inputs
         #     * do not have the `self` parameter. (Reason: to be JIT-compatible.)
         #
-        # This method creates modified arithmetic functions to match Pyxu's API, and `state`
-        # required for them to work.
+        # This method creates modified arithmetic functions to match Pyxu's API, and `state` required for them to work.
         #
         # Returns
         # -------
@@ -554,9 +546,8 @@ class _FromJax(px_src._FromSource):
             # (1) Lin[Op,Func].asarray() assumes the operator is precision-agnostic.
             #     This condition does not hold for JAX arrays. (See from_jax() notes.)
             #
-            # (2) If the operator is backend-specific (i.e. only works with CUPY), then we have no
-            #     way to determine which `xp` value use in the generic LinOp.asarray()
-            #     implementation without a potential fail.
+            # (2) If the operator is backend-specific (i.e. only works with CUPY), then we have no way to determine
+            #     which `xp` value use in the generic LinOp.asarray() implementation without a potential fail.
             #
             # Consequence:
             # (1) May need to cast Lin[Op,Func].asarray()'s output.

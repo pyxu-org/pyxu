@@ -24,8 +24,7 @@ def shift_loss(
     Returns
     -------
     op: pxt.OpT
-        (1, M) Loss functionial.
-        If `data` is omitted, then this function is a no-op.
+        (1, M) Loss functionial.  If `data` is omitted, then this function is a no-op.
     """
     if data is None:
         return op
@@ -35,7 +34,8 @@ def shift_loss(
 
 class KLDivergence(pxa.ProxFunc):
     r"""
-    Generalised Kullback-Leibler divergence :math:`D_{KL}(\mathbf{y}||\mathbf{x}):=\sum_{i=1}^N y_i\log(y_i/x_i) -y_i +x_i`.
+    Generalised Kullback-Leibler divergence :math:`D_{KL}(\mathbf{y}||\mathbf{x}):=\sum_{i=1}^N y_i\log(y_i/x_i) -y_i
+    +x_i`.
     """
 
     def __init__(

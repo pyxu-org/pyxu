@@ -1,21 +1,19 @@
 r"""
-This sampler module implements state-of-the-art algorithms that generate samples from probability distributions.
-These algorithms are particularly well-suited for high-dimensional distributions such as posterior distributions of inverse
-problems in imaging, which is a notoriously difficult task.
-The ability to sample from the posterior distribution is extremely valuable, as it allows to explore the landscape of the
-objective function instead of having a single point estimate (the maximum a posteriori solution, i.e. the mode of the posterior).
-This is useful for uncertainty quantification (UQ) purposes [UQ_MCMC]_, and it allows compute Monte Carlo estimates of expected
-values with respect to the posterior.
-For example, the mean of samples from the posterior is an approximation of the minimum mean-square error (MMSE) estimator that
-can be used for image reconstruction.
-Higher-order pixel-wise statistics (e.g., the variance) can also be computed in an online fashion
-(see :py:mod:`~pyxu.experimental.sampler.statistics`) and provide useful diagnostic tools for uncertainty quantification.
+This sampler module implements state-of-the-art algorithms that generate samples from probability distributions.  These
+algorithms are particularly well-suited for high-dimensional distributions such as posterior distributions of inverse
+problems in imaging, which is a notoriously difficult task.  The ability to sample from the posterior distribution is
+extremely valuable, as it allows to explore the landscape of the objective function instead of having a single point
+estimate (the maximum a posteriori solution, i.e. the mode of the posterior).  This is useful for uncertainty
+quantification (UQ) purposes [UQ_MCMC]_, and it allows compute Monte Carlo estimates of expected values with respect to
+the posterior.  For example, the mean of samples from the posterior is an approximation of the minimum mean-square error
+(MMSE) estimator that can be used for image reconstruction.  Higher-order pixel-wise statistics (e.g., the variance) can
+also be computed in an online fashion (see :py:mod:`~pyxu.experimental.sampler.statistics`) and provide useful
+diagnostic tools for uncertainty quantification.
 
 In the following example, we showcase the unajusted Langevin algorithm (:py:class:`~pyxu.experimental.sampler.ULA`)
-applied to a total-variation denoising problem.
-We show the MMSE estimator as well as the pixelwise variance of the samples.
-As expected, the variance is higher around edges than in the smooth regions, indicating that there is higher uncertainty
-in these regions.
+applied to a total-variation denoising problem.  We show the MMSE estimator as well as the pixelwise variance of the
+samples.  As expected, the variance is higher around edges than in the smooth regions, indicating that there is higher
+uncertainty in these regions.
 
 .. code-block:: python3
 
@@ -142,8 +140,8 @@ class ULA(_Sampler):
 
     Notes
     -----
-    ULA is a Monte-Carlo Markov chain (MCMC) method that derives from the discretization of overdamped Langevin diffusions.
-    More specifically, it relies on the Langevin stochastic differential equation (SDE):
+    ULA is a Monte-Carlo Markov chain (MCMC) method that derives from the discretization of overdamped Langevin
+    diffusions.  More specifically, it relies on the Langevin stochastic differential equation (SDE):
 
     .. math::
 
@@ -151,10 +149,10 @@ class ULA(_Sampler):
        =
        - \nabla \mathcal{F}(\mathbf{X}_t) \mathrm{d}t + \sqrt{2} \mathrm{d} \mathbf{B}_t,
 
-    where :math:`(\mathbf{B}_t)_{t \geq 0}` is a :math:`N`-dimensional Brownian motion.
-    It is well known that under mild technical assumptions, this SDE has a unique strong solution whose invariant distribution
-    is :math:`p(\mathbf{x}) \propto \exp(-\mathcal{F}(\mathbf{x}))`.
-    The discrete-time Euler-Maruyama discretization of this SDE then yields the ULA Markov chain
+    where :math:`(\mathbf{B}_t)_{t \geq 0}` is a :math:`N`-dimensional Brownian motion.  It is well known that under
+    mild technical assumptions, this SDE has a unique strong solution whose invariant distribution is
+    :math:`p(\mathbf{x}) \propto \exp(-\mathcal{F}(\mathbf{x}))`.  The discrete-time Euler-Maruyama discretization of
+    this SDE then yields the ULA Markov chain
 
     .. math::
 
@@ -162,43 +160,39 @@ class ULA(_Sampler):
 
     for all :math:`k \in \mathbb{Z}`, where :math:`\gamma` is the discretization step size and :math:`(\mathbf{Z}_k)_{k
     \in \mathbb{Z}}` is a sequence of independant and identically distributed :math:`N`-dimensional standard Gaussian
-    distributions.
-    When :math:`\mathcal{F}` is differentiable with :math:`\beta`-Lipschitz continuous gradient and :math:`\gamma \leq \frac{1}{\beta}`,
-    the ULA Markov chain converges (see [ULA]_) to a unique stationary distribution :math:`p_\gamma` such that
+    distributions.  When :math:`\mathcal{F}` is differentiable with :math:`\beta`-Lipschitz continuous gradient and
+    :math:`\gamma \leq \frac{1}{\beta}`, the ULA Markov chain converges (see [ULA]_) to a unique stationary distribution
+    :math:`p_\gamma` such that
 
     .. math::
 
        \lim_{\gamma \to 0} \Vert p_\gamma - p \Vert_{\mathrm{TV}} = 0.
 
-    The discretization step :math:`\gamma` is subject to the bias-variance tradeoff:
-    a larger step will lead to faster convergence of the Markov chain at the expense of a larger bias in the
-    approximation of the distribution :math:`p`.
+    The discretization step :math:`\gamma` is subject to the bias-variance tradeoff: a larger step will lead to faster
+    convergence of the Markov chain at the expense of a larger bias in the approximation of the distribution :math:`p`.
     Setting :math:`\gamma` as large as possible (default behavior) is recommended for large-scale problems, since
-    convergence speed (rather than approximation bias) is then typically the main bottelneck.
-    See `Example` section below for a concrete illustration of this tradeoff.
+    convergence speed (rather than approximation bias) is then typically the main bottelneck.  See `Example` section
+    below for a concrete illustration of this tradeoff.
 
     Remarks
     -------
     Like all MCMC sampling methods, ULA comes with the following challenges:
 
     * The first few samples of the chain may not be adequate for computing statistics, as they might be located in low
-      probability regions.
-      This challenge can either be alleviated by selecting a representative starting point to the chain, or by having a
-      `burn-in` phase where the first few samples are discarded.
+      probability regions.  This challenge can either be alleviated by selecting a representative starting point to the
+      chain, or by having a `burn-in` phase where the first few samples are discarded.
 
     * Consecutive samples are typically correlated, which can deteriorate the Monte-Carlo estimation of quantities of
-      interest.
-      This issue can be alleviated by `thinning` the chain, i.e., selecting only every :math:`k` samples, at the expense
-      of an increased computational cost.
-      Useful diagnostic tools to quantify this correlation between samples include the pixel-wise autocorrelation function
-      and the `effective sample size <https://mc-stan.org/docs/reference-manual/effective-sample-size.html>`_.
+      interest.  This issue can be alleviated by `thinning` the chain, i.e., selecting only every :math:`k` samples, at
+      the expense of an increased computational cost.  Useful diagnostic tools to quantify this correlation between
+      samples include the pixel-wise autocorrelation function and the `effective sample size
+      <https://mc-stan.org/docs/reference-manual/effective-sample-size.html>`_.
 
     Example
     -------
     We illustrate ULA on a 1D example (:math:`N = 1`) where :math:`\mathcal{F}(x) = \frac{x^2}{2}`; the target
-    distribution :math:`p(x)` is thus the 1D standard Gaussian.
-    In this toy example, the biased distribution :math:`p_\gamma(x)` can be computed in closed form.
-    The ULA Markov chain is given by
+    distribution :math:`p(x)` is thus the 1D standard Gaussian.  In this toy example, the biased distribution
+    :math:`p_\gamma(x)` can be computed in closed form.  The ULA Markov chain is given by
 
     .. math::
 
@@ -207,15 +201,13 @@ class ULA(_Sampler):
 
     Assuming for simplicity that :math:`\mathbf{X}_0` is Gaussian with mean :math:`\mu_0` and variance
     :math:`\sigma_0^2`, :math:`\mathbf{X}_k` is Gaussian for any :math:`k \in \mathbb{Z}` as a linear combination of
-    Gaussians.
-    Taking the expected value of the recurrence relation yields
+    Gaussians.  Taking the expected value of the recurrence relation yields
 
     .. math::
 
        \mu_k := \mathbb{E}(\mathbf{X}_{k}) = \mathbb{E}(\mathbf{X}_{k-1}) (1 - \gamma) = \mu_0 (1 - \gamma)^k
 
-    (geometric sequence).
-    Taking the expected value of the square of the recurrence relation yields
+    (geometric sequence).  Taking the expected value of the square of the recurrence relation yields
 
     .. math::
 
@@ -223,21 +215,19 @@ class ULA(_Sampler):
        (1 - \gamma)^{2k} (\sigma_0^2 - b) + b
 
     with :math:`b = \frac{2 \gamma}{1 - (1 - \gamma)^{2}} = \frac{1}{1-\frac{\gamma}{2}}` (arithmetico-geometric
-    sequence) due to the independence of :math:`\mathbf{X}_{k-1}` and :math:`\mathbf{Z}_{k}`.
-    Hence, :math:`p_\gamma(x)` is a Gaussian with mean :math:`\mu_\gamma= \lim_{k \to \infty} \mu_k = 0` and
-    variance :math:`\sigma_\gamma^2 = \lim_{k \to \infty} \mu^{(2)}_k - \mu_k^2 = \frac{1}{1-\frac{\gamma}{2}}`.
-    As expected, we have :math:`\lim_{\gamma \to 0} \sigma_\gamma^2 = 1`, which is the variance of the target
-    distribution :math:`p(x)`.
+    sequence) due to the independence of :math:`\mathbf{X}_{k-1}` and :math:`\mathbf{Z}_{k}`.  Hence,
+    :math:`p_\gamma(x)` is a Gaussian with mean :math:`\mu_\gamma= \lim_{k \to \infty} \mu_k = 0` and variance
+    :math:`\sigma_\gamma^2 = \lim_{k \to \infty} \mu^{(2)}_k - \mu_k^2 = \frac{1}{1-\frac{\gamma}{2}}`.  As expected, we
+    have :math:`\lim_{\gamma \to 0} \sigma_\gamma^2 = 1`, which is the variance of the target distribution :math:`p(x)`.
 
     We plot the distribution of the samples of ULA for one large (:math:`\gamma_1 \approx 1`, i.e.
     :math:`\sigma_{\gamma_1}^2 \approx 2`) and one small (:math:`\gamma_2 = 0.1`, i.e. :math:`\sigma_{\gamma_2}^2
-    \approx 1.05`) step size.
-    As expected, the larger step size :math:`\gamma_1` leads to a larger bias in the approximation of :math:`p(x)`.
-    To quantify the speed of convergence of the Markov chains, we compute the `Cramér-von Mises
-    <https://en.wikipedia.org/wiki/Cram%C3%A9r%E2%80%93von_Mises_criterion>`_ tests of goodness of fit of the
-    empirical distributions to the stationary distributions of ULA :math:`p_{\gamma_1}(x)` and :math:`p_{\gamma_2}(x)`.
-    We observe that the larger step :math:`\gamma_1` leads to a better fit (lower Cramér-von Mises criterion), which
-    illustrates the aforementioned bias-variance tradeoff for the choice of the step size.
+    \approx 1.05`) step size.  As expected, the larger step size :math:`\gamma_1` leads to a larger bias in the
+    approximation of :math:`p(x)`.  To quantify the speed of convergence of the Markov chains, we compute the
+    `Cramér-von Mises <https://en.wikipedia.org/wiki/Cram%C3%A9r%E2%80%93von_Mises_criterion>`_ tests of goodness of fit
+    of the empirical distributions to the stationary distributions of ULA :math:`p_{\gamma_1}(x)` and
+    :math:`p_{\gamma_2}(x)`.  We observe that the larger step :math:`\gamma_1` leads to a better fit (lower Cramér-von
+    Mises criterion), which illustrates the aforementioned bias-variance tradeoff for the choice of the step size.
 
     .. plot::
 
@@ -354,11 +344,11 @@ class ULA(_Sampler):
 
     def objective_func(self) -> pxt.Real:
         r"""
-        Negative logarithm of the target ditribution (up to the a constant) evaluated at the current state of the
-        Markov chain.
+        Negative logarithm of the target ditribution (up to the a constant) evaluated at the current state of the Markov
+        chain.
 
-        Useful for diagnostics purposes to monitor whether the Markov chain is sufficiently warm-started.
-        If so, the samples should accumulate around the modes of the target distribution, i.e., toward the minimum of
+        Useful for diagnostics purposes to monitor whether the Markov chain is sufficiently warm-started.  If so, the
+        samples should accumulate around the modes of the target distribution, i.e., toward the minimum of
         :math:`\mathcal{F}`.
         """
         return pxu.copy_if_unsafe(self._f.apply(self.x))
@@ -395,18 +385,16 @@ class MYULA(ULA):
 
     Notes
     -----
-    MYULA is an extension of :py:class:`~pyxu.experimental.sampler.ULA` to sample from distributions whose
-    logarithm is nonsmooth.
-    It consists in applying ULA to the differentiable functional :math:`\mathcal{U}^\lambda = \mathcal{F} + \mathcal{G}^\lambda`
-    for some :math:`\lambda > 0`, where
+    MYULA is an extension of :py:class:`~pyxu.experimental.sampler.ULA` to sample from distributions whose logarithm is
+    nonsmooth.  It consists in applying ULA to the differentiable functional :math:`\mathcal{U}^\lambda = \mathcal{F} +
+    \mathcal{G}^\lambda` for some :math:`\lambda > 0`, where
 
      .. math::
 
         \mathcal{G}^\lambda (\mathbf{x}) = \inf_{\tilde{\mathbf{x}} \in \mathbb{R}^N} \frac{1}{2 \lambda} \Vert
         \tilde{\mathbf{x}} - \mathbf{x} \Vert_2^2 + \mathcal{G}(\tilde{\mathbf{x}})
 
-    is the Moreau-Yosida envelope of :math:`\mathcal{G}` with parameter :math:`\lambda`.
-    We then have
+    is the Moreau-Yosida envelope of :math:`\mathcal{G}` with parameter :math:`\lambda`.  We then have
 
     .. math::
 
@@ -414,26 +402,26 @@ class MYULA(ULA):
        \mathrm{prox}_{\lambda \mathcal{G}}(\mathbf{x})),
 
     hence :math:`\nabla \mathcal{U}^\lambda` is :math:`(\beta + \frac{1}{\lambda})`-Lipschitz continuous, where
-    :math:`\beta` is the Lipschitz constant of :math:`\nabla \mathcal{F}`.
-    Note that the target distribution of the underlying ULA Markov chain is not exactly :math:`p(\mathbf{x})`, but the distribution
+    :math:`\beta` is the Lipschitz constant of :math:`\nabla \mathcal{F}`.  Note that the target distribution of the
+    underlying ULA Markov chain is not exactly :math:`p(\mathbf{x})`, but the distribution
 
     .. math::
 
        p^\lambda(\mathbf{x}) \propto \exp(-\mathcal{F}(\mathbf{x})-\mathcal{G}^\lambda(\mathbf{x})),
 
     which introduces some additional bias on top of the bias of ULA related to the step size :math:`\gamma` (see `Notes`
-    of :py:class:`~pyxu.experimental.sampler.ULA` documentation).
-    MYULA is guaranteed to converges when :math:`\gamma \leq \frac{1}{\beta + \frac{1}{\lambda}}`, in which case it converges
-    toward the stationary distribution :math:`p^\lambda_\gamma(\mathbf{x})` that satisfies
+    of :py:class:`~pyxu.experimental.sampler.ULA` documentation).  MYULA is guaranteed to converges when :math:`\gamma
+    \leq \frac{1}{\beta + \frac{1}{\lambda}}`, in which case it converges toward the stationary distribution
+    :math:`p^\lambda_\gamma(\mathbf{x})` that satisfies
 
     .. math::
 
        \lim_{\gamma, \lambda \to 0} \Vert p^\lambda_\gamma - p \Vert_{\mathrm{TV}} = 0
 
-    (see [MYULA]_).
-    The parameter :math:`\lambda` parameter is subject to a similar bias-variance tradeoff as :math:`\gamma`.
-    It is recommended to set it in the order of :math:`\frac{1}{\beta}`, so that the contributions of :math:`\mathcal{F}`
-    and :math:`\mathcal{G}^\lambda` to the Lipschitz constant of :math:`\nabla \mathcal{U}^\lambda` is well balanced.
+    (see [MYULA]_).  The parameter :math:`\lambda` parameter is subject to a similar bias-variance tradeoff as
+    :math:`\gamma`.  It is recommended to set it in the order of :math:`\frac{1}{\beta}`, so that the contributions of
+    :math:`\mathcal{F}` and :math:`\mathcal{G}^\lambda` to the Lipschitz constant of :math:`\nabla \mathcal{U}^\lambda`
+    is well balanced.
     """
 
     def __init__(

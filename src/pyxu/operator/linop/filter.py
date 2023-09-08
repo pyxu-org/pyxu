@@ -105,9 +105,8 @@ def MovingAverage(
         Size of the moving average kernel.
 
         If a single integer value is provided, then the moving average filter will have as many dimensions as the input
-        array.
-        If a tuple is provided, it should contain as many elements as `arg_shape`.
-        For example, the ``size=(1, 3)`` will convolve the input image with the filter ``[[1, 1, 1]] / 3``.
+        array.  If a tuple is provided, it should contain as many elements as `arg_shape`.  For example, the ``size=(1,
+        3)`` will convolve the input image with the filter ``[[1, 1, 1]] / 3``.
 
     center: IndexSpec
         (i_1, ..., i_D) index of the kernel's center.
@@ -455,9 +454,8 @@ def Laplace(
 
     This operator uses the applies the Laplace kernel :math:`[1 -2 1]` to a :math:`D`-dimensional NDArray
     :math:`\mathbf{x} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` using separable kernels for improved
-    performance.
-    The Laplace filter is commonly used to find high-frequency components in the signal, such as for example, the edges
-    in an image.
+    performance.  The Laplace filter is commonly used to find high-frequency components in the signal, such as for
+    example, the edges in an image.
 
     Parameters
     ----------
@@ -549,10 +547,9 @@ def Sobel(
 
     This operator uses the applies the multi-dimensional Sobel filter to a :math:`D`-dimensional NDArray
     :math:`\mathbf{x} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` using separable kernels for improved
-    performance.  The Sobel filter applies the following edge filter in the dimensions of interest: ``[1, 0, -1]``
-    and the smoothing filter on the rest of dimensions: ``[1, 2, 1] / 4``.
-    The Sobel filter is commonly used to find high-frequency components in the signal, such as for example, the edges in
-    an image.
+    performance.  The Sobel filter applies the following edge filter in the dimensions of interest: ``[1, 0, -1]`` and
+    the smoothing filter on the rest of dimensions: ``[1, 2, 1] / 4``.  The Sobel filter is commonly used to find
+    high-frequency components in the signal, such as for example, the edges in an image.
 
     Parameters
     ----------
@@ -561,9 +558,8 @@ def Sobel(
     axis: int, tuple
         Compute the edge filter along this axis. If not provided, the edge magnitude is computed.
 
-        This is defined as:
-        ``np.sqrt(sum([sobel(array, axis=i)**2 for i in range(array.ndim)]) / array.ndim)``
-        The magnitude is also computed if axis is a sequence.
+        This is defined as: ``np.sqrt(sum([sobel(array, axis=i)**2 for i in range(array.ndim)]) / array.ndim)`` The
+        magnitude is also computed if axis is a sequence.
 
     mode: str, list[str]
         Boundary conditions.
@@ -649,10 +645,9 @@ def Prewitt(
 
     This operator uses the applies the multi-dimensional Prewitt filter to a :math:`D`-dimensional NDArray
     :math:`\mathbf{x} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` using separable kernels for improved
-    performance.  The Prewitt filter applies the following edge filter in the dimensions of interest:
-    ``[1, 0, -1]``, and the smoothing filter on the rest of dimensions: ``[1, 1, 1] / 3``.
-    The Prewitt filter is commonly used to find high-frequency components in the signal, such as for example, the edges
-    in an image.
+    performance.  The Prewitt filter applies the following edge filter in the dimensions of interest: ``[1, 0, -1]``,
+    and the smoothing filter on the rest of dimensions: ``[1, 1, 1] / 3``.  The Prewitt filter is commonly used to find
+    high-frequency components in the signal, such as for example, the edges in an image.
 
     Parameters
     ----------
@@ -661,8 +656,8 @@ def Prewitt(
     axis: int, tuple
         Compute the edge filter along this axis. If not provided, the edge magnitude is computed. This is defined as:
 
-        ``np.sqrt(sum([prewitt(array, axis=i)**2 for i in range(array.ndim)]) / array.ndim)``
-        The magnitude is also computed if axis is a sequence.
+        ``np.sqrt(sum([prewitt(array, axis=i)**2 for i in range(array.ndim)]) / array.ndim)`` The magnitude is also
+        computed if axis is a sequence.
 
     mode: str, list[str]
         Boundary conditions.
@@ -749,9 +744,8 @@ def Scharr(
     This operator uses the applies the multi-dimensional Scharr filter to a :math:`D`-dimensional NDArray
     :math:`\mathbf{x} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` using separable kernels for improved
     performance.  The Scharr filter applies the following edge filter in the dimensions of interest: ``[1, 0, -1]``, and
-    the smoothing filter on the rest of dimensions: ``[3, 10, 3] / 16``.
-    The Scharr filter is commonly used to find high-frequency components in the signal, such as for example, the edges
-    in an image.
+    the smoothing filter on the rest of dimensions: ``[3, 10, 3] / 16``.  The Scharr filter is commonly used to find
+    high-frequency components in the signal, such as for example, the edges in an image.
 
     Parameters
     ----------
@@ -760,8 +754,8 @@ def Scharr(
     axis: int, tuple
         Compute the edge filter along this axis. If not provided, the edge magnitude is computed. This is defined as:
 
-        ``np.sqrt(sum([scharr(array, axis=i)**2 for i in range(array.ndim)]) / array.ndim)``
-        The magnitude is also computed if axis is a sequence.
+        ``np.sqrt(sum([scharr(array, axis=i)**2 for i in range(array.ndim)]) / array.ndim)`` The magnitude is also
+        computed if axis is a sequence.
     mode: str, list[str]
         Boundary conditions.
         Multiple forms are accepted:
@@ -880,9 +874,9 @@ class StructureTensor(pxa.DiffMap):
     -----
     The Structure Tensor, also known as the second-order moment tensor or the inertia tensor, is a matrix derived from
     the gradient of a function. It describes the distribution of the gradient (i.e., its prominent directions) in a
-    specified neighbourhood around a point, and the degree to which those directions are coherent.
-    The structure tensor of a :math:`D`-dimensional signal
-    :math:`\mathbf{f} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` can be written as:
+    specified neighbourhood around a point, and the degree to which those directions are coherent.  The structure tensor
+    of a :math:`D`-dimensional signal :math:`\mathbf{f} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` can be
+    written as:
 
     .. math::
 
@@ -910,8 +904,8 @@ class StructureTensor(pxa.DiffMap):
 
     Remark
     ------
-    In case of using the finite differences (`diff_type="fd"`), the finite difference scheme defaults to `central`
-    (see :py:class:`~pyxu.operator.PartialDerivative`).
+    In case of using the finite differences (`diff_type="fd"`), the finite difference scheme defaults to `central` (see
+    :py:class:`~pyxu.operator.PartialDerivative`).
 
     Example
     -------

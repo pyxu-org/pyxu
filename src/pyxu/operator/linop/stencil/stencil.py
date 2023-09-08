@@ -28,28 +28,24 @@ class Stencil(pxa.SquareOp):
     Multi-dimensional JIT-compiled stencil.
 
     Stencils are a common computational pattern in which array elements are updated according to some fixed pattern
-    called the *stencil kernel*.
-    Notable examples include multi-dimensional convolutions, correlations and finite differences.  (See Notes for a
-    definition.)
+    called the *stencil kernel*.  Notable examples include multi-dimensional convolutions, correlations and finite
+    differences.  (See Notes for a definition.)
 
     Stencils can be evaluated efficiently on CPU/GPU architectures.
 
-    Several boundary conditions are supported.
-    Moreover boundary conditions may differ per axis.
+    Several boundary conditions are supported.  Moreover boundary conditions may differ per axis.
 
     .. rubric:: Implementation Notes
 
     * Numba (and its ``@stencil`` decorator) is used behind the scenes to compile efficient machine code from a stencil
       kernel specification.  This has 2 consequences:
 
-      * :py:class:`~pyxu.operator.Stencil` instances are **not arraymodule-agnostic**: they will
-        only work with NDArrays belonging to the same array module as `kernel`.
+      * :py:class:`~pyxu.operator.Stencil` instances are **not arraymodule-agnostic**: they will only work with NDArrays
+         belonging to the same array module as `kernel`.
       * Compiled stencils are not **precision-agnostic**: they will only work on NDArrays with the same dtype as
-        `kernel`.
-        A warning is emitted if inputs must be cast to the kernel dtype.
+        `kernel`.  A warning is emitted if inputs must be cast to the kernel dtype.
 
-    * Stencil kernels can be specified in two forms:
-      (See :py:meth:`~pyxu.operator.Stencil.__init__` for details.)
+    * Stencil kernels can be specified in two forms: (See :py:meth:`~pyxu.operator.Stencil.__init__` for details.)
 
       * A single non-separable :math:`D`-dimensional kernel :math:`k[i_{1},\ldots,i_{D}]` of shape
         :math:`(K_{1},\ldots,K_{D})`.
@@ -74,14 +70,13 @@ class Stencil(pxa.SquareOp):
     This corresponds to a *correlation* with a shifted version of the kernel :math:`k`.
 
     Numba stencils assume summation terms involving out-of-bound indices of :math:`x` are set to zero.
-    :py:class:`~pyxu.operator.Stencil` lifts this constraint by extending the stencil to boundary
-    values via pre-padding and post-trimming.
-    Concretely, any stencil operator :math:`S` instantiated with
-    :py:class:`~pyxu.operator.Stencil` can be written as the composition :math:`S = TS_0P`, where
-    :math:`(T, S_0, P)` are trimming, stencil with zero-padding conditions, and padding operators respectively.
-    This construct allows :py:class:`~pyxu.operator.Stencil` to handle complex boundary conditions
-    under which :math:`S` *may not be a proper stencil* (i.e., varying kernel) but can still be implemented efficiently
-    via a proper stencil upon appropriate trimming/padding.
+    :py:class:`~pyxu.operator.Stencil` lifts this constraint by extending the stencil to boundary values via pre-padding
+    and post-trimming.  Concretely, any stencil operator :math:`S` instantiated with :py:class:`~pyxu.operator.Stencil`
+    can be written as the composition :math:`S = TS_0P`, where :math:`(T, S_0, P)` are trimming, stencil with
+    zero-padding conditions, and padding operators respectively.  This construct allows
+    :py:class:`~pyxu.operator.Stencil` to handle complex boundary conditions under which :math:`S` *may not be a proper
+    stencil* (i.e., varying kernel) but can still be implemented efficiently via a proper stencil upon appropriate
+    trimming/padding.
 
     For example consider the decomposition of the following (improper) stencil operator:
 
@@ -128,8 +123,8 @@ class Stencil(pxa.SquareOp):
         [0  0  1  0  0]]  # Padding with reflect mode.
 
     Note that the adjoint of a stencil operator may not necessarily be a stencil operator, or the associated center and
-    boundary conditions may be hard to predict.
-    For example, the adjoint of the stencil operator defined above is given by:
+    boundary conditions may be hard to predict.  For example, the adjoint of the stencil operator defined above is given
+    by:
 
     .. code-block:: python3
 
@@ -140,12 +135,12 @@ class Stencil(pxa.SquareOp):
         [ 0   0   0  -3   2],
         [ 0   0   0   0  -3]]
 
-    which resembles a stencil with time-reversed kernel, but with weird (if not improper) boundary conditions.
-    This can also be seen from the fact that :math:`S^\ast = P^\ast S_0^\ast T^\ast = P^\ast S_0^\ast P_0,` and
-    :math:`P^\ast` is in general not a trimming operator.  (See :py:class:`~pyxu.operator.Pad`.)
+    which resembles a stencil with time-reversed kernel, but with weird (if not improper) boundary conditions.  This can
+    also be seen from the fact that :math:`S^\ast = P^\ast S_0^\ast T^\ast = P^\ast S_0^\ast P_0,` and :math:`P^\ast` is
+    in general not a trimming operator.  (See :py:class:`~pyxu.operator.Pad`.)
 
-    The same holds for gram/cogram operators.
-    Consider indeed the following order-1 backward finite-difference operator with zero-padding:
+    The same holds for gram/cogram operators.  Consider indeed the following order-1 backward finite-difference operator
+    with zero-padding:
 
     .. code-block:: python3
 
@@ -171,8 +166,7 @@ class Stencil(pxa.SquareOp):
 
     * **Moving average of a 1D signal**
 
-      Let :math:`x[n]` denote a 1D signal.
-      The weighted moving average
+      Let :math:`x[n]` denote a 1D signal.  The weighted moving average
 
       .. math::
 
@@ -198,8 +192,7 @@ class Stencil(pxa.SquareOp):
 
     * **Non-seperable image filtering**
 
-      Let :math:`x[n, m]` denote a 2D image.
-      The blurred image
+      Let :math:`x[n, m]` denote a 2D image.  The blurred image
 
       .. math::
 
@@ -254,8 +247,7 @@ class Stencil(pxa.SquareOp):
 
     * **Seperable image filtering**
 
-      Let :math:`x[n, m]` denote a 2D image.
-      The warped image
+      Let :math:`x[n, m]` denote a 2D image.  The warped image
 
       .. math::
 
@@ -367,12 +359,11 @@ class Stencil(pxa.SquareOp):
         arg_shape: NDArrayShape
             Shape of the rank-:math:`D` input array.
         kernel: ~pyxu.operator.Stencil.KernelSpec
-            Stencil coefficients.
-            Two forms are accepted:
+            Stencil coefficients.  Two forms are accepted:
 
             * NDArray of rank-:math:`D`: denotes a non-seperable stencil.
-            * tuple[NDArray_1, ..., NDArray_D]: a sequence of 1D stencils such that dimension[k]
-              is filtered by stencil `kernel[k]`, that is:
+            * tuple[NDArray_1, ..., NDArray_D]: a sequence of 1D stencils such that dimension[k] is filtered by stencil
+              `kernel[k]`, that is:
 
               .. math::
 
@@ -386,8 +377,7 @@ class Stencil(pxa.SquareOp):
             `center` defines how a kernel is overlaid on inputs to produce outputs.
 
         mode: str, :py:class:`list` ( str )
-            Boundary conditions.
-            Multiple forms are accepted:
+            Boundary conditions.  Multiple forms are accepted:
 
             * str: unique mode shared amongst dimensions.
               Must be one of:
@@ -812,8 +802,8 @@ class Convolve(Stencil):
        \,\cdot\,
        k[q_{1},\ldots,q_{D}].
 
-    The convolution is implemented via :py:class:`~pyxu.operator.Stencil`.
-    To do so, the convolution kernel is transformed to the equivalent correlation kernel:
+    The convolution is implemented via :py:class:`~pyxu.operator.Stencil`.  To do so, the convolution kernel is
+    transformed to the equivalent correlation kernel:
 
     .. math::
 

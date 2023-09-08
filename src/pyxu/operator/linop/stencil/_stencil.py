@@ -170,9 +170,8 @@ class _Stencil:
         -----
         * `arr` and `out` must have the same type/dtype as the kernel used during instantiation.
         * Index regions in `out` where the stencil is not fully supported are set to 0.
-        * :py:meth:`~pyxu.operator._Stencil.apply` may raise
-          ``CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES`` when the number of GPU registers required exceeds resource limits.
-          There are 2 solutions to this problem:
+        * :py:meth:`~pyxu.operator._Stencil.apply` may raise ``CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES`` when the number of
+          GPU registers required exceeds resource limits.  There are 2 solutions to this problem:
 
             (1) Pass the `max_registers` kwarg to f_jit()'s decorator; or
             (2) `Limit the number of threads per block <https://stackoverflow.com/a/68659008>`_.

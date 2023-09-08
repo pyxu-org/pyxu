@@ -26,8 +26,8 @@ def backtracking_linesearch(
     c: pxt.Real = LINESEARCH_DEFAULT_C,
 ) -> pxt.NDArray:
     r"""
-    Backtracking line search algorithm based on the
-    `Armijo-Goldstein condition <https://www.wikiwand.com/en/Backtracking_line_search>`_.
+    Backtracking line search algorithm based on the `Armijo-Goldstein condition
+    <https://www.wikiwand.com/en/Backtracking_line_search>`_.
 
     Parameters
     ----------
@@ -40,13 +40,13 @@ def backtracking_linesearch(
     gradient: NDArray
         (..., N) gradient of `f` at initial search point(s).
 
-        Specifying `gradient` when known is an optimization:
-        it will be autocomputed via :py:meth:`~pyxu.abc.DiffFunc.grad` if unspecified.
+        Specifying `gradient` when known is an optimization: it will be autocomputed via
+        :py:meth:`~pyxu.abc.DiffFunc.grad` if unspecified.
     a0: Real
         Initial step size.
 
-        If unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a0` is
-        auto-chosen as :math:`\frac{1}{\beta}`.
+        If unspecified and :math:`\nabla f` is :math:`\beta`-Lipschitz continuous, then `a0` is auto-chosen as
+        :math:`\frac{1}{\beta}`.
     r: Real
         Step reduction factor.
     c: Real

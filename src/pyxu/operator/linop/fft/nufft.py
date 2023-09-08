@@ -85,8 +85,8 @@ class NUFFT(pxa.LinOp):
     r"""
     Non-Uniform Fast Fourier Transform (NUFFT) of Type 1/2/3 (for :math:`d=\{1,2,3\}`).
 
-    The *Non-Uniform Fast Fourier Transform (NUFFT)* generalizes the FFT to off-grid data.
-    There are three types of NUFFTs proposed in the literature:
+    The *Non-Uniform Fast Fourier Transform (NUFFT)* generalizes the FFT to off-grid data.  There are three types of
+    NUFFTs proposed in the literature:
 
     * Type 1 (*non-uniform to uniform*),
     * Type 2 (*uniform to non-uniform*),
@@ -94,11 +94,9 @@ class NUFFT(pxa.LinOp):
 
     See the notes below, including [FINUFFT]_, for definitions of the various transforms and algorithmic details.
 
-    The transforms should be instantiated via
-    :py:meth:`~pyxu.operator.NUFFT.type1`,
-    :py:meth:`~pyxu.operator.NUFFT.type2`, and
-    :py:meth:`~pyxu.operator.NUFFT.type3` respectively.
-    (See each method for usage examples.)
+    The transforms should be instantiated via :py:meth:`~pyxu.operator.NUFFT.type1`,
+    :py:meth:`~pyxu.operator.NUFFT.type2`, and :py:meth:`~pyxu.operator.NUFFT.type3` respectively.  (See each method for
+    usage examples.)
 
     The dimension of each transform is inferred from the dimensions of the input arguments, with support for
     :math:`d=\{1,2,3\}`.
@@ -117,8 +115,8 @@ class NUFFT(pxa.LinOp):
          \mathcal{I}_{N_1} \times \cdots \times \mathcal{I}_{N_d}
          \subset \mathbb{Z}^d,
 
-      where the mesh indices :math:`\mathcal{I}_{N_i}\subset\mathbb{Z}` are given for each dimension :math:`i=1,\dots, d`
-      by:
+      where the mesh indices :math:`\mathcal{I}_{N_i}\subset\mathbb{Z}` are given for each dimension :math:`i=1,\dots,
+      d` by:
 
       .. math::
 
@@ -142,56 +140,51 @@ class NUFFT(pxa.LinOp):
          \end{align}
 
       where :math:`\sigma \in \{+1, -1\}` defines the sign of the transform and :math:`u_{\mathbf{n}}, v_{k}, w_{j}\in
-      \mathbb{C}`.
-      For the type-1 and type-2 NUFFTs, the non-uniform samples :math:`\mathbf{x}_{j}` are assumed to lie in
-      :math:`[-\pi,\pi)^{d}`.
-      For the type-3 NUFFT, the non-uniform samples :math:`\mathbf{x}_{j}` and :math:`\mathbf{z}_{k}` are arbitrary points
-      in :math:`\mathbb{R}^{d}`.
+      \mathbb{C}`.  For the type-1 and type-2 NUFFTs, the non-uniform samples :math:`\mathbf{x}_{j}` are assumed to lie
+      in :math:`[-\pi,\pi)^{d}`.  For the type-3 NUFFT, the non-uniform samples :math:`\mathbf{x}_{j}` and
+      :math:`\mathbf{z}_{k}` are arbitrary points in :math:`\mathbb{R}^{d}`.
 
     * **Adjoint NUFFTs.**
-      The type-1 and type-2 NUFFTs with opposite signs form an *adjoint pair*.
-      The adjoint of the type-3 NUFFT is obtained by flipping the transform's sign and switching the roles of
-      :math:`\mathbf{z}_k` and :math:`\mathbf{x}_{j}` in (3).
+      The type-1 and type-2 NUFFTs with opposite signs form an *adjoint pair*.  The adjoint of the type-3 NUFFT is
+      obtained by flipping the transform's sign and switching the roles of :math:`\mathbf{z}_k` and
+      :math:`\mathbf{x}_{j}` in (3).
 
     * **Lipschitz Constants.**
       We bound the Lipschitz constant by the Frobenius norm of the operators, which yields :math:`L \leq \sqrt{NM}`.
-      Note that these Lipschitz constants are cheap to compute but may be pessimistic.
-      Tighter Lipschitz constants can be computed by calling :py:meth:`~pyxu.abc.Map.estimate_lipschitz`.
+      Note that these Lipschitz constants are cheap to compute but may be pessimistic.  Tighter Lipschitz constants can
+      be computed by calling :py:meth:`~pyxu.abc.Map.estimate_lipschitz`.
 
     * **Error Analysis.**
       Let :math:`\tilde{\mathbf{u}}\in\mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` and
       :math:`\tilde{\mathbf{w}}\in\mathbb{C}^{M}` be the outputs of the type-1 and type-2 NUFFT algorithms which
       approximate the sequences :math:`{\mathbf{u}}\in\mathbb{C}^{\mathcal{I}_{N_1,\ldots, N_d}}` and
-      :math:`{\mathbf{w}}\in\mathbb{C}^{M}` defined in (1) and (2) respectively.
-      Then [FINUFFT]_ shows that the relative errors :math:`\|\tilde{\mathbf{u}}-{\mathbf{u}}\|_2/\|{\mathbf{u}}\|_2` and
+      :math:`{\mathbf{w}}\in\mathbb{C}^{M}` defined in (1) and (2) respectively.  Then [FINUFFT]_ shows that the
+      relative errors :math:`\|\tilde{\mathbf{u}}-{\mathbf{u}}\|_2/\|{\mathbf{u}}\|_2` and
       :math:`\|\tilde{\mathbf{w}}-{\mathbf{w}}\|_2/\|{\mathbf{w}}\|_2` are *almost always similar to the user-requested
       tolerance* :math:`\varepsilon`, except when round-off error dominates (i.e. very small user-requested tolerances).
-      The same holds approximately for the type-3 NUFFT.
-      Note however that this is a *typical error analysis*: some degenerate (but rare) worst-case scenarios can result in
-      higher errors.
+      The same holds approximately for the type-3 NUFFT.  Note however that this is a *typical error analysis*: some
+      degenerate (but rare) worst-case scenarios can result in higher errors.
 
     * **Complexity.**
       Naive evaluation of the exponential sums (1), (2) and (3) above costs :math:`O(NM)`, where :math:`N=N_{1}\ldots
-      N_{d}` for the type-1 and type-2 NUFFTs.
-      NUFFT algorithms approximate these sums to a user-specified relative tolerance :math:`\varepsilon` in log-linear
-      complexity in :math:`N` and :math:`M`.
-      The complexity of the various NUFFTs are given by (see [FINUFFT]_):
+      N_{d}` for the type-1 and type-2 NUFFTs.  NUFFT algorithms approximate these sums to a user-specified relative
+      tolerance :math:`\varepsilon` in log-linear complexity in :math:`N` and :math:`M`.  The complexity of the various
+      NUFFTs are given by (see [FINUFFT]_):
 
       .. math::
 
          &\mathcal{O}\left(N \log(N) + M|\log(\varepsilon)|^d\right)\qquad &\text{(Type 1 and 2)}\\
          &\mathcal{O}\left(\Pi_{i=1}^dX_iZ_i\sum_{i=1}^d\log(X_iZ_i) + (M + N)|\log(\varepsilon)|^d\right)\qquad &\text{(Type 3)}
 
-      where :math:`X_i = \max_{j=1,\ldots,M}|(\mathbf{x}_{j})_i|` and :math:`Z_i = \max_{k=1,\ldots,N}|(\mathbf{z}_k)_i|`
-      for :math:`i=1,\ldots,d`.
-      The terms above correspond to the complexities of the FFT and spreading/interpolation steps respectively.
+      where :math:`X_i = \max_{j=1,\ldots,M}|(\mathbf{x}_{j})_i|` and :math:`Z_i =
+      \max_{k=1,\ldots,N}|(\mathbf{z}_k)_i|` for :math:`i=1,\ldots,d`.  The terms above correspond to the complexities
+      of the FFT and spreading/interpolation steps respectively.
 
     * **Memory footprint.**
       The complexity and memory footprint of the type-3 NUFFT can be arbitrarily large for poorly-centered data, or for
-      data with a large spread.
-      An easy fix consists in centering the data before/after the NUFFT via pre/post-phasing operations, as described in
-      equation (3.24) of [FINUFFT]_.
-      This optimization is automatically carried out by FINUFFT if the compute/memory gains are non-negligible.
+      data with a large spread.  An easy fix consists in centering the data before/after the NUFFT via pre/post-phasing
+      operations, as described in equation (3.24) of [FINUFFT]_.  This optimization is automatically carried out by
+      FINUFFT if the compute/memory gains are non-negligible.
 
       Additionally the type-3 summation (eq. 3) can be evaluated block-wise by partitioning the non-uniform samples
       :math:`(x_{j}, z_{k})`:
@@ -209,24 +202,21 @@ class NUFFT(pxa.LinOp):
          \end{align}
 
       where :math:`\{\mathcal{M}_1, \ldots, \mathcal{M}_P\}` and :math:`\{\mathcal{N}_1, \ldots, \mathcal{N}_Q\}` are
-      *partitions* of the sets :math:`\{1, \ldots, M\}` and  :math:`\{1, \ldots, N\}` respectively.
-      In the chunked setting, the partial sums in (4)
+      *partitions* of the sets :math:`\{1, \ldots, M\}` and  :math:`\{1, \ldots, N\}` respectively.  In the chunked
+      setting, the partial sums in (4)
 
       .. math::
 
          \left\{\sum_{j\in \mathcal{M}_p} w_{j} e^{\sigma i\langle \mathbf{z}_k, \mathbf{x}_{j} \rangle }, \, k\in \mathcal{N}_q\right\}_{p,q}
 
-      are each evaluated via a type-3 NUFFT involving a subset of the non-uniform samples.
-      Sub-problems can be evaluated in parallel.
-      Moreover, for wisely chosen data partitions, the memory budget of each NUFFT can be explicitly controlled and capped
-      to a maximal value.
-      This allows one to perform out-of-core NUFFTs with (theoretically) no complexity overhead w.r.t a single large
-      NUFFT. (See note below however.)
+      are each evaluated via a type-3 NUFFT involving a subset of the non-uniform samples.  Sub-problems can be
+      evaluated in parallel.  Moreover, for wisely chosen data partitions, the memory budget of each NUFFT can be
+      explicitly controlled and capped to a maximal value.  This allows one to perform out-of-core NUFFTs with
+      (theoretically) no complexity overhead w.r.t a single large NUFFT. (See note below however.)
 
-      Chunking of the type-3 NUFFT is activated by passing ``chunked=True`` to
-      :py:meth:`~pyxu.operator.NUFFT.type3` (together with ``parallel=True`` for parallel computations).
-      Finally, :py:meth:`~pyxu.operator.NUFFT.auto_chunk` can be used to compute a good partition of the
-      X/Z-domains.
+      Chunking of the type-3 NUFFT is activated by passing ``chunked=True`` to :py:meth:`~pyxu.operator.NUFFT.type3`
+      (together with ``parallel=True`` for parallel computations).  Finally, :py:meth:`~pyxu.operator.NUFFT.auto_chunk`
+      can be used to compute a good partition of the X/Z-domains.
 
       .. admonition:: Hint
 
@@ -251,8 +241,8 @@ class NUFFT(pxa.LinOp):
             \end{align*}
 
 
-         and :math:`M_{p}, N_{q}` denote the number of elements in the sets :math:`\mathcal{M}_{p},
-         \mathcal{N}_{q}`, respectively.
+         and :math:`M_{p}, N_{q}` denote the number of elements in the sets :math:`\mathcal{M}_{p}, \mathcal{N}_{q}`,
+         respectively.
 
          For perfectly balanced and uniform chunks (i.e. :math:`M_{p}=M/P`, :math:`N_{q}=N/Q`, :math:`X^{(p)}_{i} =
          X_{i}/P`, :math:`Z^{(q)}_{i} = Z_{i}/Q` and :math:`P=Q`) the complexity reduces to
@@ -266,41 +256,36 @@ class NUFFT(pxa.LinOp):
             \right).
 
          This shows that the spreading/interpolation is :math:`P` times more expensive than in the non-chunked case.
-         This overhead is usually acceptable if the number of chunks remains small.
-         With explicit control on the spreading/interpolation steps (which the Python interface to the FINUFFT backend
-         does not currently offer), the spreading/interpolation overhead can be removed so as to obtain a computational
-         complexity on par to that of the non-chunked type-3 NUFFT.
-         This will be implemented in a future release.
+         This overhead is usually acceptable if the number of chunks remains small.  With explicit control on the
+         spreading/interpolation steps (which the Python interface to the FINUFFT backend does not currently offer), the
+         spreading/interpolation overhead can be removed so as to obtain a computational complexity on par to that of
+         the non-chunked type-3 NUFFT.  This will be implemented in a future release.
 
     * **Backend.**
       The NUFFT transforms are computed via Python wrappers to `FINUFFT <https://github.com/flatironinstitute/finufft>`_
-      and `cuFINUFFT <https://github.com/flatironinstitute/cufinufft>`_.  (See also [FINUFFT]_ and [cuFINUFFT]_.)
-      These librairies perform the expensive spreading/interpolation between nonuniform points and the fine grid via the
+      and `cuFINUFFT <https://github.com/flatironinstitute/cufinufft>`_.  (See also [FINUFFT]_ and [cuFINUFFT]_.) These
+      librairies perform the expensive spreading/interpolation between nonuniform points and the fine grid via the
       "exponential of semicircle" kernel.
 
     * **Optional Parameters.**
-      [cu]FINUFFT exposes many optional parameters to adjust the performance of the algorithms, change the output format,
-      or provide debug/timing information.
-      While the default options are sensible for most setups, advanced users may overwrite them via the ``kwargs``
-      parameter of
-      :py:meth:`~pyxu.operator.NUFFT.type1`,
-      :py:meth:`~pyxu.operator.NUFFT.type2`, and
-      :py:meth:`~pyxu.operator.NUFFT.type3`.
-      See the `guru interface <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_ from FINUFFT and its
-      `companion page <https://finufft.readthedocs.io/en/latest/opts.html#options-parameters>`_ for details.
+      [cu]FINUFFT exposes many optional parameters to adjust the performance of the algorithms, change the output
+      format, or provide debug/timing information.  While the default options are sensible for most setups, advanced
+      users may overwrite them via the ``kwargs`` parameter of :py:meth:`~pyxu.operator.NUFFT.type1`,
+      :py:meth:`~pyxu.operator.NUFFT.type2`, and :py:meth:`~pyxu.operator.NUFFT.type3`.  See the `guru interface
+      <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_ from FINUFFT and its `companion page
+      <https://finufft.readthedocs.io/en/latest/opts.html#options-parameters>`_ for details.
 
       .. admonition:: Hint
 
          FINUFFT exposes a ``dtype`` keyword to control the precision (single or double) at which transforms are
-         performed.
-         This parameter is ignored by :py:class:`~pyxu.operator.NUFFT`: use the context manager
+         performed.  This parameter is ignored by :py:class:`~pyxu.operator.NUFFT`: use the context manager
          :py:class:`~pyxu.runtime.Precision` to control floating point precision.
 
       .. admonition:: Hint
 
          The NUFFT is performed in **batches of (n_trans,)**, where `n_trans` denotes the number of simultaneous
-         transforms requested.
-         (See the ``n_trans`` parameter of `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.)
+         transforms requested.  (See the ``n_trans`` parameter of `finufft.Plan
+         <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.)
 
          Good performance is obtained when each batch fits easily in memory. This recommendation also applies to Dask
          inputs which are re-chunked internally to be `n_trans`-compliant.
@@ -317,8 +302,7 @@ class NUFFT(pxa.LinOp):
        * ``scheduler='synchronous'``
        * ``distributed.Client(processes=False)``
 
-       Batches are hence processed serially.
-       (Each batch is multi-threaded however.)
+       Batches are hence processed serially.  (Each batch is multi-threaded however.)
 
     .. [#] :math:`\varepsilon= 0` means that no approximation is performed: the exponential sums
            are naively computed by direct evaluation.
@@ -364,17 +348,14 @@ class NUFFT(pxa.LinOp):
             If ``eps=0``, the transform is computed exactly via direct evaluation of the exponential sum using a Numba
             JIT-compiled kernel.
         real: bool
-            If ``True``, assumes :py:func:`~pyxu.operator.NUFFT.apply` takes (..., M) inputs in
-            :math:`\mathbb{R}^{M}`.
+            If ``True``, assumes :py:func:`~pyxu.operator.NUFFT.apply` takes (..., M) inputs in :math:`\mathbb{R}^{M}`.
 
-            If ``False``, then :py:func:`~pyxu.operator.NUFFT.apply` takes (..., 2M) inputs, i.e.
-            :math:`\mathbb{C}^{M}` vectors viewed as bijections with :math:`\mathbb{R}^{2M}`.
+            If ``False``, then :py:func:`~pyxu.operator.NUFFT.apply` takes (..., 2M) inputs, i.e. :math:`\mathbb{C}^{M}`
+            vectors viewed as bijections with :math:`\mathbb{R}^{2M}`.
         plan_fw/bw: bool
-            If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw) transform.
-            These are advanced options: use them with care.
-            Some public methods in the :py:class:`~pyxu.abc.LinOp` interface may not work if fw/bw transforms
-            are disabled.
-            These options only take effect if ``eps > 0``.
+            If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw) transform.  These are
+            advanced options: use them with care.  Some public methods in the :py:class:`~pyxu.abc.LinOp` interface may
+            not work if fw/bw transforms are disabled.  These options only take effect if ``eps > 0``.
         enable_warnings: bool
             If ``True``, emit a warning in case of precision mis-match issues.
         **kwargs
@@ -471,11 +452,9 @@ class NUFFT(pxa.LinOp):
             If ``False``, then :py:func:`~pyxu.operator.NUFFT.apply` takes (..., 2N.prod()) inputs, i.e.
             :math:`\mathbb{C}^{N}` vectors viewed as bijections with :math:`\mathbb{R}^{2N}`.
         plan_fw/bw: bool
-            If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw) transform.
-            These are advanced options: use them with care.
-            Some public methods in the :py:class:`~pyxu.abc.LinOp` interface may not work if fw/bw transforms
-            are disabled.
-            These options only take effect if ``eps > 0``.
+            If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw) transform.  These are
+            advanced options: use them with care.  Some public methods in the :py:class:`~pyxu.abc.LinOp` interface may
+            not work if fw/bw transforms are disabled.  These options only take effect if ``eps > 0``.
         enable_warnings: bool
             If ``True``, emit a warning in case of precision mis-match issues.
         **kwargs
@@ -574,27 +553,23 @@ class NUFFT(pxa.LinOp):
         eps: Real
             Requested relative accuracy :math:`\varepsilon \geq 0`.
 
-            If ``eps=0``, the transform is computed exactly via direct evaluation of the exponential
-            sum using a Numba JIT-compiled kernel.
+            If ``eps=0``, the transform is computed exactly via direct evaluation of the exponential sum using a Numba
+            JIT-compiled kernel.
         real: bool
-            If ``True``, assumes :py:func:`~pyxu.operator.NUFFT.apply` takes (..., M) inputs in
-            :math:`\mathbb{R}^{M}`.
+            If ``True``, assumes :py:func:`~pyxu.operator.NUFFT.apply` takes (..., M) inputs in :math:`\mathbb{R}^{M}`.
 
-            If ``False``, then :py:func:`~pyxu.operator.NUFFT.apply` takes (..., 2M) inputs, i.e.
-            :math:`\mathbb{C}^{M}` vectors viewed as bijections with :math:`\mathbb{R}^{2M}`.
+            If ``False``, then :py:func:`~pyxu.operator.NUFFT.apply` takes (..., 2M) inputs, i.e. :math:`\mathbb{C}^{M}`
+            vectors viewed as bijections with :math:`\mathbb{R}^{2M}`.
         plan_fw/bw: bool
-            If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw) transform.
-            These are advanced options: use them with care.
-            Some public methods in the :py:class:`~pyxu.abc.LinOp` interface may not work if fw/bw transforms
-            are disabled.
-            These options only take effect if ``eps > 0``.
+            If ``True``, allocate FINUFFT resources to do the forward (fw) and/or backward (bw) transform.  These are
+            advanced options: use them with care.  Some public methods in the :py:class:`~pyxu.abc.LinOp` interface may
+            not work if fw/bw transforms are disabled.  These options only take effect if ``eps > 0``.
         enable_warnings: bool
             If ``True``, emit a warning in case of precision mis-match issues.
         chunked: bool
             If ``True``, the transform is performed in small chunks. (See Notes for details.)
         parallel: bool
-            This option only applies to chunked transforms.
-            If ``True``, evaluate chunks in parallel.
+            This option only applies to chunked transforms.  If ``True``, evaluate chunks in parallel.
         **kwargs
             Extra kwargs to `finufft.Plan <https://finufft.readthedocs.io/en/latest/python.html#finufft.Plan>`_.
             (Illegal keywords are dropped silently.) Most useful are ``n_trans``, ``nthreads`` and ``debug``.
@@ -653,31 +628,28 @@ class NUFFT(pxa.LinOp):
              x_chunks, z_chunks = A.auto_chunk()  # auto-determine a good x/z chunking strategy
              A.allocate(x_chunks, z_chunks)  # apply the chunking strategy.
 
-          :py:meth:`~pyxu.operator.NUFFT.auto_chunk` is a helper method to auto-determine a good
-          chunking strategy.
+          :py:meth:`~pyxu.operator.NUFFT.auto_chunk` is a helper method to auto-determine a good chunking strategy.
 
-          Its runtime is significant when the number of sub-problems grows large. (1000+)
-          In these contexts, assuming a good-enough x/z-split is known in advance, users can directly supply them to
+          Its runtime is significant when the number of sub-problems grows large. (1000+) In these contexts, assuming a
+          good-enough x/z-split is known in advance, users can directly supply them to
           :py:meth:`~pyxu.operator.NUFFT.allocate`.
 
-        * :py:func:`~pyxu.operator.NUFFT.apply` /
-          :py:func:`~pyxu.operator.NUFFT.adjoint` runtime is minimized when x/z are well-ordered, i.e.
-          when sub-problems can sub-sample inputs to :py:func:`~pyxu.operator.NUFFT.apply` /
+        * :py:func:`~pyxu.operator.NUFFT.apply` / :py:func:`~pyxu.operator.NUFFT.adjoint` runtime is minimized when x/z
+          are well-ordered, i.e.  when sub-problems can sub-sample inputs to :py:func:`~pyxu.operator.NUFFT.apply` /
           :py:func:`~pyxu.operator.NUFFT.adjoint` via slice operators.
 
-          To reduce runtime of chunked transforms, :py:meth:`~pyxu.operator.NUFFT.allocate`
-          automatically re-orders x/z when appropriate.
+          To reduce runtime of chunked transforms, :py:meth:`~pyxu.operator.NUFFT.allocate` automatically re-orders x/z
+          when appropriate.
 
-          The side-effect is the cost of a permutation before/after calls to
-          :py:func:`~pyxu.operator.NUFFT.apply` /
-          :py:func:`~pyxu.operator.NUFFT.adjoint`.
-          This cost becomes significant when the number of non-uniform points x/z is large. (> 1e6)
+          The side-effect is the cost of a permutation before/after calls to :py:func:`~pyxu.operator.NUFFT.apply` /
+          :py:func:`~pyxu.operator.NUFFT.adjoint`.  This cost becomes significant when the number of non-uniform points
+          x/z is large. (> 1e6)
 
           To avoid paying the re-ordering cost at each transform, it is recommended to supply x/z and apply/adjoint
           inputs in the "correct" order from the start.
 
-          A good re-ordering is computed automatically by :py:meth:`~pyxu.operator.NUFFT.allocate` and
-          can be used to initialize a new chunked-transform with better runtime properties as such:
+          A good re-ordering is computed automatically by :py:meth:`~pyxu.operator.NUFFT.allocate` and can be used to
+          initialize a new chunked-transform with better runtime properties as such:
 
           .. code-block:: python3
 
@@ -743,28 +715,26 @@ class NUFFT(pxa.LinOp):
         arr: NDArray
             - **Type 1 and 3:**
                 * (...,  M) input weights :math:`\mathbf{w} \in \mathbb{R}^{M}` (real transform).
-                * (..., 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
-                  (See :py:func:`~pyxu.util.view_as_real`.)
+                * (..., 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.  (See
+                  :py:func:`~pyxu.util.view_as_real`.)
             - **Type 2:**
-                * (...,  N.prod()) input weights :math:`\mathbf{u} \in
-                  \mathbb{R}^{\mathcal{I}_{N_1, \ldots, N_d}}` (real transform).
-                * (..., 2N.prod()) input weights :math:`\mathbf{u} \in
-                  \mathbb{C}^{\mathcal{I}_{N_1, \ldots, N_d}}` viewed as a real array.
-                  (See :py:func:`~pyxu.util.view_as_real`.)
+                * (...,  N.prod()) input weights :math:`\mathbf{u} \in \mathbb{R}^{\mathcal{I}_{N_1, \ldots, N_d}}`
+                  (real transform).
+                * (..., 2N.prod()) input weights :math:`\mathbf{u} \in \mathbb{C}^{\mathcal{I}_{N_1, \ldots, N_d}}`
+                  viewed as a real array.  (See :py:func:`~pyxu.util.view_as_real`.)
 
         Returns
         -------
         out: NDArray
             - **Type 1:**
-                (..., 2N.prod()) output weights :math:`\mathbf{u} \in
-                \mathbb{C}^{\mathcal{I}_{N_1, \ldots, N_d}}` viewed as a real array.
-                (See :py:func:`~pyxu.util.view_as_real`.)
+                (..., 2N.prod()) output weights :math:`\mathbf{u} \in \mathbb{C}^{\mathcal{I}_{N_1, \ldots, N_d}}`
+                viewed as a real array.  (See :py:func:`~pyxu.util.view_as_real`.)
             - **Type 2:**
-                (..., 2M) output weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
-                (See :py:func:`~pyxu.util.view_as_real`.)
+                (..., 2M) output weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.  (See
+                :py:func:`~pyxu.util.view_as_real`.)
             - **Type 3:**
-                (..., 2N) output weights :math:`\mathbf{v} \in \mathbb{C}^{N}` viewed as a real array.
-                (See :py:func:`~pyxu.util.view_as_real`.)
+                (..., 2N) output weights :math:`\mathbf{v} \in \mathbb{C}^{N}` viewed as a real array.  (See
+                :py:func:`~pyxu.util.view_as_real`.)
         """
         raise NotImplementedError
 
@@ -774,29 +744,27 @@ class NUFFT(pxa.LinOp):
         ----------
         arr: NDArray
             - **Type 1:**
-                (..., 2N.prod()) output weights :math:`\mathbf{u} \in
-                \mathbb{C}^{\mathcal{I}_{N_1, \ldots, N_d}}` viewed as a real array.
-                (See :py:func:`~pyxu.util.view_as_real`.)
+                (..., 2N.prod()) output weights :math:`\mathbf{u} \in \mathbb{C}^{\mathcal{I}_{N_1, \ldots, N_d}}`
+                viewed as a real array.  (See :py:func:`~pyxu.util.view_as_real`.)
             - **Type 2:**
-                (..., 2M) output weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
-                (See :py:func:`~pyxu.util.view_as_real`.)
+                (..., 2M) output weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.  (See
+                :py:func:`~pyxu.util.view_as_real`.)
             - **Type 3:**
-                (..., 2N) output weights :math:`\mathbf{v} \in \mathbb{C}^{N}` viewed as a real array.
-                (See :py:func:`~pyxu.util.view_as_real`.)
+                (..., 2N) output weights :math:`\mathbf{v} \in \mathbb{C}^{N}` viewed as a real array.  (See
+                :py:func:`~pyxu.util.view_as_real`.)
 
         Returns
         -------
         out: NDArray
             - **Type 1 and 3:**
                 * (...,  M) input weights :math:`\mathbf{w} \in \mathbb{R}^{M}` (real transform).
-                * (..., 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.
-                  (See :py:func:`~pyxu.util.view_as_real`.)
+                * (..., 2M) input weights :math:`\mathbf{w} \in \mathbb{C}^{M}` viewed as a real array.  (See
+                  :py:func:`~pyxu.util.view_as_real`.)
             - **Type 2:**
-                * (...,  N.prod()) input weights :math:`\mathbf{u} \in
-                  \mathbb{R}^{\mathcal{I}_{N_1, \ldots, N_d}}` (real transform).
-                * (..., 2N.prod()) input weights :math:`\mathbf{u} \in
-                  \mathbb{C}^{\mathcal{I}_{N_1, \ldots, N_d}}` viewed as a real array.
-                  (See :py:func:`~pyxu.util.view_as_real`.)
+                * (...,  N.prod()) input weights :math:`\mathbf{u} \in \mathbb{R}^{\mathcal{I}_{N_1, \ldots, N_d}}`
+                  (real transform).
+                * (..., 2N.prod()) input weights :math:`\mathbf{u} \in \mathbb{C}^{\mathcal{I}_{N_1, \ldots, N_d}}`
+                  viewed as a real array.  (See :py:func:`~pyxu.util.view_as_real`.)
         """
         raise NotImplementedError
 
@@ -876,8 +844,7 @@ class NUFFT(pxa.LinOp):
         # Returns
         # -------
         # x: pxt.NDArray
-        #     (N_blk, n_trans, N1) complex-valued blocks to input to [_fw|_bw](), suitably augmented
-        #     as needed.
+        #     (N_blk, n_trans, N1) complex-valued blocks to input to [_fw|_bw](), suitably augmented as needed.
         # N: pxt.Integer
         #     Amount of "valid" data to extract from [_fw|_bw](). {For _postprocess()}
         # sh_out: pxt.NDArrayShape
@@ -980,8 +947,8 @@ class NUFFT(pxa.LinOp):
 
                 * ``target``, i.e. :math:`\mathcal{I}_{\text{target}} \subset z^{c} + [-Z_{d}, Z_{d})^{d}`,
 
-              where :math:`x^{c}`, :math:`z^{c}` denote the source/target centroids, and :math:`X`,
-              :math:`Z` the source/target half-widths.
+              where :math:`x^{c}`, :math:`z^{c}` denote the source/target centroids, and :math:`X`, :math:`Z` the
+              source/target half-widths.
 
         upsampled: bool
             Use the upsampled meshgrid.  (See [FINUFFT]_ for details.)
@@ -1019,8 +986,7 @@ class NUFFT(pxa.LinOp):
         Parameters
         ----------
         ax: :py:class:`~matplotlib.axes.Axes`
-            Axes to draw on.
-            If :py:obj:`None`, a new axes is used.
+            Axes to draw on.  If :py:obj:`None`, a new axes is used.
         **kwargs
             Keyword arguments forwarded to :py:meth:`matplotlib.axes.Axes.plot`.
 
@@ -1094,10 +1060,9 @@ class NUFFT(pxa.LinOp):
 
         Notes
         -----
-        When called from a chunked type-3 transform, :py:meth:`~pyxu.operator.NUFFT.params` returns
-        parameters of the equivalent monolithic type-3 transform.
-        The monolithic transform is seldom instantiable due to its large memory requirements.
-        This method can hence be used to estimate the memory savings induced by chunking.
+        When called from a chunked type-3 transform, :py:meth:`~pyxu.operator.NUFFT.params` returns parameters of the
+        equivalent monolithic type-3 transform.  The monolithic transform is seldom instantiable due to its large memory
+        requirements.  This method can hence be used to estimate the memory savings induced by chunking.
         """
         if self._direct_eval:
             p = None
@@ -1158,9 +1123,8 @@ class NUFFT(pxa.LinOp):
 
         1. **Partition the NUFFT domains.**
            Given a maximum FFT memory budget :math:`B>0` and chunk anisotropy :math:`\alpha\geq 1`, partition the
-           source/target domains into uniform rectangular cells.
-           The (half) widths of the source/target cells :math:`h_{k}>0` and :math:`\eta_{k}>0` in each dimension
-           :math:`k=\{1,\ldots d\}` are chosen so as to:
+           source/target domains into uniform rectangular cells.  The (half) widths of the source/target cells
+           :math:`h_{k}>0` and :math:`\eta_{k}>0` in each dimension :math:`k=\{1,\ldots d\}` are chosen so as to:
 
            Minimize the total number of partitions:
 
@@ -1214,16 +1178,14 @@ class NUFFT(pxa.LinOp):
            Empty partitions are dropped.
         3. **Data-dependent Chunk Fusion.**
            Since (1) is data-independent, data chunks obtained in (2) may split clusters among adjacent chunks, which is
-           undesirable.
-           Clusters whose joint-spread is small enough are hence fused hierarchically.
+           undesirable.  Clusters whose joint-spread is small enough are hence fused hierarchically.
 
         .. Warning::
 
            This procedure yields a small number of memory-capped and well-separated data chunks in source/target
-           domains.
-           However, it may result in unbalanced chunks, with some chunks containing significantly more data-points than
-           others.
-           FINUFFT mitigates the unbalanced-chunk problem by spawning multiple threads to process dense clusters.
+           domains.  However, it may result in unbalanced chunks, with some chunks containing significantly more
+           data-points than others.  FINUFFT mitigates the unbalanced-chunk problem by spawning multiple threads to
+           process dense clusters.
 
         See Also
         --------
@@ -1253,8 +1215,8 @@ class NUFFT(pxa.LinOp):
             (z_idx[0], ..., z_idx[B-1]) z-coordinate chunk specifier.
             `z_idx[k]` contains indices of `z` which participate in the k-th NUFFT sub-problem.
         direct_eval_threshold: Integer
-            If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is
-            replaced with direct-evaluation (eps=0) for performance reasons.
+            If provided: lower bound on ``len(x) * len(z)`` below which an NUFFT sub-problem is replaced with
+            direct-evaluation (eps=0) for performance reasons.
 
             (Defaults to 10k as per the `FINUFFT guidelines
             <https://finufft.readthedocs.io/en/latest/#do-i-even-need-a-nufft>`_.)
@@ -2003,10 +1965,9 @@ def _parallelize(func: cabc.Callable) -> cabc.Callable:
 
         # [2022.09.26] Sepand Kashani
         # Q: Why do we parallelize only for NUMPY inputs and not CUPY?
-        # A: Given an arithmetic method `f`, there is no obligation (for DASK inputs) to satisfy the
-        #    relation `f(arr).chunk_type == arr.chunk_type`.
-        #    In particular the relationship does not hold for LinFunc.[grad, adjoint]() unless the
-        #    user provides a special implementation for DASK inputs.
+        # A: Given an arithmetic method `f`, there is no obligation (for DASK inputs) to satisfy the relation
+        #    `f(arr).chunk_type == arr.chunk_type`.  In particular the relationship does not hold for LinFunc.[grad,
+        #    adjoint]() unless the user provides a special implementation for DASK inputs.
         #    Consequence: the sum() / xp.concatenate() instructions in _COOBlock() may:
         #    * fail due to array-type mismatch; or
         #    * induce unnecessary CPU<>GPU transfers.
@@ -2030,8 +1991,8 @@ class _NUFFT3_chunked(_NUFFT3):
     #
     # TODO:
     #   What needs to be changed:
-    #   * _tesselate() assumes x/z are in memory to find optimal chunks.
-    #     Do we want to support Dask arrays here so that users can auto-chunk disk-sized data?
+    #   * _tesselate() assumes x/z are in memory to find optimal chunks.  Do we want to support Dask arrays here so that
+    #     users can auto-chunk disk-sized data?
 
     def __init__(self, **kwargs):
         self._disable_unsupported_methods()
@@ -2170,10 +2131,8 @@ class _NUFFT3_chunked(_NUFFT3):
         if len(x) * len(z) <= self._dEval_threshold:
             kwargs.update(eps=0)
 
-        # NUFFT.apply/adjoint() requires inputs to be C-contiguous.
-        # This is not guaranteed in chunked context given chain of operations preceding
-        # apply/adjoint().
-        # Chunks are small however, so the overhead is minimal.
+        # NUFFT.apply/adjoint() requires inputs to be C-contiguous.  This is not guaranteed in chunked context given
+        # chain of operations preceding apply/adjoint().  Chunks are small however, so the overhead is minimal.
         xp = pxu.get_array_module(arr)
         arr = xp.require(arr, requirements="C")
 
@@ -2201,8 +2160,8 @@ class _NUFFT3_chunked(_NUFFT3):
         # i.e. the spread/interpolation cost grows proportional to \sqrt{# sub-problems}
         #
         #
-        # It is possible to share the spread/interpolation costs amongst sub-problems so as to bring
-        # the complexity of _NUFFT3_chunked.[apply|adjoint]() down to
+        # It is possible to share the spread/interpolation costs amongst sub-problems so as to bring the complexity of
+        # _NUFFT3_chunked.[apply|adjoint]() down to
         # (2) (N_x_blk * N_z_blk) * N_F \ln N_F   +   (N_x + N_z) w^d.
         #
         # The philosophies of computing via (1) and (2) differ:
@@ -2471,9 +2430,8 @@ class _NUFFT3_chunked(_NUFFT3):
             6. 1/alpha <= (B_k / B_k^{tot}) / (B_q / B_q^{tot}) <= alpha                      # Z-domain box size anisotropy limited
             7. 1/alpha <= (T_l / T_l^{tot}) / (B_m / B_m^{tot}) <= alpha                      # XZ-domain box size cross-anisotropy limited
 
-        Constraint (7) ensures (T_k, B_k) partitions the X/Z-domains uniformly. (Not including this
-        term may give rise to solutions where X/Z-domains are partitioned finely/coarsely, or not at
-        all.)
+        Constraint (7) ensures (T_k, B_k) partitions the X/Z-domains uniformly. (Not including this term may give rise
+        to solutions where X/Z-domains are partitioned finely/coarsely, or not at all.)
 
         The problem above can be recast as a small LP and easily solved.
 

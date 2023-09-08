@@ -1,9 +1,3 @@
-r"""
-.. Warning::
-
-   This package requires the optional dependency `PyTorch <https://pytorch.org/>`_. See installation instructions.
-"""
-
 import collections.abc as cabc
 import typing as typ
 import warnings
@@ -68,9 +62,8 @@ def astensor(arr: pxt.NDArray, requires_grad: bool = False) -> TorchTensor:
 
     Notes
     -----
-    The returned tensor and input array share the same memory.
-    Modifications to the tensor will be reflected in the ndarray and vice versa.
-    The returned tensor is not resizable.
+    The returned tensor and input array share the same memory.  Modifications to the tensor will be reflected in the
+    ndarray and vice versa.  The returned tensor is not resizable.
     """
     if pxd.NDArrayInfo.from_obj(arr) == pxd.NDArrayInfo.CUPY:
         with torch.device("cuda", arr.device.id):
@@ -95,8 +88,8 @@ def asarray(tensor: TorchTensor) -> pxt.NDArray:
 
     Notes
     -----
-    The returned array and input tensor share the same memory.
-    Modifications to the tensor will be reflected in the ndarray and vice versa.
+    The returned array and input tensor share the same memory.  Modifications to the tensor will be reflected in the
+    ndarray and vice versa.
     """
     if tensor.get_device() == -1:
         return tensor.detach().numpy(force=False)
@@ -155,8 +148,8 @@ class _FromTorch(px_src._FromSource):
         #   2. auto-vectorize via vmap().              [_auto_vectorize()]
         #   3. JIT-compile via compile().              [_compile()]
         #   4. TORCH<>NUMPY/CUPY conversions.          [_interface()]
-        #   Note: JIT-compilation is currently deactivated due to the undocumented interaction of torch.func transforms and
-        #   torch.compile. Will be reactivated once torch.func goes out of beta.
+        #   Note: JIT-compilation is currently deactivated due to the undocumented interaction of torch.func transforms
+        #   and torch.compile. Will be reactivated once torch.func goes out of beta.
 
         self._infer_missing()
         self._compile()
@@ -188,13 +181,11 @@ class _FromTorch(px_src._FromSource):
         #     grad(), adjoint()
         #
         # Missing methods are auto-inferred via auto-diff rules and added to `_kwargs`.
-        # At the end of _infer_missing(), all torch-funcs required for _interface() have been added to
-        # `_kwargs`.
+        # At the end of _infer_missing(), all torch-funcs required for _interface() have been added to `_kwargs`.
         #
         # Notes
         # -----
-        # This method does NOT produce vectorized implementations: _auto_vectorize() is responsible
-        # for this.
+        # This method does NOT produce vectorized implementations: _auto_vectorize() is responsible for this.
         self._vectorize = set(self._vectorize)  # to allow updates below
 
         nl_difffunc = all(  # non-linear diff-func
@@ -269,8 +260,7 @@ class _FromTorch(px_src._FromSource):
         #     * take `torch.Tensor` inputs
         #     * do not have the `self` parameter. (Reason: to be JIT-compatible.)
         #
-        # This method creates modified arithmetic functions to match Pyxu's API, and `state`
-        # required for them to work.
+        # This method creates modified arithmetic functions to match Pyxu's API, and `state` required for them to work.
         #
         # Returns
         # -------
@@ -471,27 +461,28 @@ def from_torch(
     Parameters
     ----------
     apply: ~collections.abc.Callable
-        A Python function with single-element Tensor input/output. Defines the :py:meth:`~pyxu.abc.Map.apply`
-        method of the operator: ``apply(x)==op.apply(x)``.
+        A Python function with single-element Tensor input/output. Defines the :py:meth:`~pyxu.abc.Map.apply` method of
+        the operator: ``apply(x)==op.apply(x)``.
     shape: OpShape
-        (N,M) shape of the operator, where N and M are the sizes of the output and input Tensors of ``apply`` respectively.
+        (N,M) shape of the operator, where N and M are the sizes of the output and input Tensors of ``apply``
+        respectively.
     cls: OpT
         Pyxu abstract base class to instantiate from.
     vectorize: pxt.VarName
         Arithmetic methods to vectorize.
 
-        `vectorize` is useful if an arithmetic method provided to `kwargs` does not support stacking
-        dimensions.
+        `vectorize` is useful if an arithmetic method provided to `kwargs` does not support stacking dimensions.
     batch_size: int
-        If None (default), vectorized methods are applied as a single map over all inputs.
-        If not None, then compute the vectorized methods `batch_size` samples at a time.
-        Note that ``batch_size=1`` is equivalent to computing the vectorization with a for-loop.
-        If you run into memory issues applying your vectorized methods over stacked inputs, try a non-None `batch_size`.
+        If None (default), vectorized methods are applied as a single map over all inputs.  If not None, then compute
+        the vectorized methods `batch_size` samples at a time.  Note that ``batch_size=1`` is equivalent to computing
+        the vectorization with a for-loop.  If you run into memory issues applying your vectorized methods over stacked
+        inputs, try a non-None `batch_size`.
     jit: bool
-        Currently has no effect (for future-compatibility only). In the future, if ``True``, then Torch-backed arithmetic methods
-        will be JIT-compiled for better performance.
+        Currently has no effect (for future-compatibility only). In the future, if ``True``, then Torch-backed
+        arithmetic methods will be JIT-compiled for better performance.
     dtype: DType
-        Assumed `dtype` of the Torch-defined arithmetic methods. If `None` the arithmetic methods are assumed precision-agnostic.
+        Assumed `dtype` of the Torch-defined arithmetic methods. If `None` the arithmetic methods are assumed
+        precision-agnostic.
     enable_warnings: bool
         If ``True``, emit warnings in case of precision/zero-copy issues.
     name: str
@@ -507,8 +498,7 @@ def from_torch(
 
            grad(), prox(), pinv(), adjoint()  # methods
 
-        Omitted arithmetic methods default to those provided by `cls`, or are
-        auto-inferred via auto-diff rules.
+        Omitted arithmetic methods default to those provided by `cls`, or are auto-inferred via auto-diff rules.
 
     Returns
     -------
@@ -528,35 +518,31 @@ def from_torch(
          def pinv(tensor: torch.Tensor, damp: pxt.Real) -> torch.Tensor
 
       The arithmetic methods `apply`, `grad`, `prox` **must** accept ``(-1, M)``-shaped inputs for ``tensor``, that is a
-      core dimension of size `M` and an optional stacking/batching dimension of arbitrary size.
-      The arithmetic methods `adjoint`, `pinv` **must** accept ``(-1, N)``-shaped inputs for ``tensor``, that is a core
-      dimension of size `N` and an optional stacking/batching dimension of arbitrary size.
-      If stacking/batching dimensions are not supported for some methods, consider populating `vectorize` accordingly.
+      core dimension of size `M` and an optional stacking/batching dimension of arbitrary size.  The arithmetic methods
+      `adjoint`, `pinv` **must** accept ``(-1, N)``-shaped inputs for ``tensor``, that is a core dimension of size `N`
+      and an optional stacking/batching dimension of arbitrary size.  If stacking/batching dimensions are not supported
+      for some methods, consider populating `vectorize` accordingly.
 
-    * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with :py:func:`torch.vmap`.
-      See the `PyTorch documentation <https://pytorch.org/docs/stable/func.ux_limitations.html#vmap-limitations>`_ for
-      known limitations.
+    * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with :py:func:`torch.vmap`.  See
+      the `PyTorch documentation <https://pytorch.org/docs/stable/func.ux_limitations.html#vmap-limitations>`_ for known
+      limitations.
 
     * All arithmetic methods provided in `kwargs` are decorated using :py:func:`~pyxu.runtime.enforce_precision` to
-      abide by Pyxu's FP-runtime semantics.
-      Note however that Torch does not allow mixed-precision computation, so this wrapper will coerce the input if its
-      precision does not comply with the specified `dtype`.
-      This triggers a warning by default, which can be silenced via the `enable_warnings`.
+      abide by Pyxu's FP-runtime semantics.  Note however that Torch does not allow mixed-precision computation, so this
+      wrapper will coerce the input if its precision does not comply with the specified `dtype`.  This triggers a
+      warning by default, which can be silenced via the `enable_warnings`.
 
-    * Arithmetic methods are **not currently JIT-ed** even if `jit` is set to ``True``.
-      This is because of the undocumented and currently poor interaction between :py:mod:`torch.func` transforms and
-      :py:func:`torch.compile`.
+    * Arithmetic methods are **not currently JIT-ed** even if `jit` is set to ``True``.  This is because of the
+      undocumented and currently poor interaction between :py:mod:`torch.func` transforms and :py:func:`torch.compile`.
       See `this issue <https://github.com/pytorch/pytorch/issues/98822>`_ for additional details.
 
-    * For :py:class:`~pyxu.abc.DiffMap` (or subclasses thereof), the methods
-      :py:meth:`~pyxu.abc.DiffMap.jacobian`, :py:meth:`~pyxu.abc.DiffFunc.grad` and
-      :py:meth:`~pyxu.abc.LinOp.adjoint` are defined implicitly if not provided using the
-      auto-differentiation transforms from :py:mod:`torch.func`.
-      As detailed `on this page <https://pytorch.org/docs/stable/func.ux_limitations.html>`_, such transforms work well
-      on pure functions (that is, functions where the output is completely determined by the input and that do not
-      involve side effects like mutation), but may fail on more complex functions.
-      Moreover, :py:mod:`torch.func` does not yet have full coverage over PyTorch operations.
-      For functions that call a :py:class:`torch.nn.Module`, see `here
+    * For :py:class:`~pyxu.abc.DiffMap` (or subclasses thereof), the methods :py:meth:`~pyxu.abc.DiffMap.jacobian`,
+      :py:meth:`~pyxu.abc.DiffFunc.grad` and :py:meth:`~pyxu.abc.LinOp.adjoint` are defined implicitly if not provided
+      using the auto-differentiation transforms from :py:mod:`torch.func`.  As detailed `on this page
+      <https://pytorch.org/docs/stable/func.ux_limitations.html>`_, such transforms work well on pure functions (that
+      is, functions where the output is completely determined by the input and that do not involve side effects like
+      mutation), but may fail on more complex functions.  Moreover, :py:mod:`torch.func` does not yet have full coverage
+      over PyTorch operations.  For functions that call a :py:class:`torch.nn.Module`, see `here
       <https://pytorch.org/docs/stable/func.api.html#utilities-for-working-with-torch-nn-modules>`_ for some utilities.
 
     .. Warning::

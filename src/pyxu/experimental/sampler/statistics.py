@@ -138,8 +138,8 @@ class OnlineCenteredMoment(_OnlineStat):
     <https://en.wikipedia.org/wiki/Catastrophic_cancellation>`_ issues that may arise when naively computing online
     centered moments, which would lead to a loss of numerical precision.
 
-    Note that this class internally stores the values of all online centered moments of order :math:`d'` for
-    :math:`2 \leq d' \leq d` in the attribute ``_corrected_sums`` as well as the online mean (``_mean`` attribute). More
+    Note that this class internally stores the values of all online centered moments of order :math:`d'` for :math:`2
+    \leq d' \leq d` in the attribute ``_corrected_sums`` as well as the online mean (``_mean`` attribute). More
     precisely, the array ``_corrected_sums[i, :]`` corresponds to the online sum :math:`\boldsymbol{\mu}_{i+2}=
     \sum_{k=1}^K (\mathbf{x}_k-\boldsymbol{\mu})^{i+2}` for :math:`0 \leq i \leq d-2`.
     """

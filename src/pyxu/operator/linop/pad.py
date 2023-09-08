@@ -23,8 +23,8 @@ class Pad(pxa.LinOp):
     -----
     * If inputs are D-dimensional, then some of the padding of later axes are calculated from padding of previous axes.
     * The *adjoint* of the padding operator performs a cumulative summation over the original positions used to pad.
-      Its effect is clear from its matrix form.
-      For example the matrix-form of ``Pad(arg_shape=(3,), mode="wrap", pad_width=(1, 1))`` is:
+      Its effect is clear from its matrix form.  For example the matrix-form of ``Pad(arg_shape=(3,), mode="wrap",
+      pad_width=(1, 1))`` is:
 
       .. math::
 
@@ -100,8 +100,8 @@ class Pad(pxa.LinOp):
          =
          \mathbf{I}_{N} + \mathbf{S}_{i}^{\ast} \mathbf{S}_{i}.
 
-      - In mode="constant", :math:`\text{diag}(\mathbf{S}_{i}^{\ast} \mathbf{S}_{i}) = \mathbf{0}`,
-        hence :math:`L_{i} = 1`.
+      - In mode="constant", :math:`\text{diag}(\mathbf{S}_{i}^{\ast} \mathbf{S}_{i}) = \mathbf{0}`, hence :math:`L_{i} =
+        1`.
       - In mode="edge",
 
         .. math::
@@ -111,8 +111,8 @@ class Pad(pxa.LinOp):
            \left[p_{lhs}, 0, \ldots, 0, p_{rhs} \right],
 
         hence :math:`L_{i} = \sqrt{1 + \min(p_{lhs}, p_{rhs})}`.
-      - In mode="symmetric", "wrap", "reflect", :math:`\text{diag}(\mathbf{S}_{i}^{\ast}
-        \mathbf{S}_{i})` equals (up to a mode-dependant permutation)
+      - In mode="symmetric", "wrap", "reflect", :math:`\text{diag}(\mathbf{S}_{i}^{\ast} \mathbf{S}_{i})` equals (up to
+        a mode-dependant permutation)
 
         .. math::
 

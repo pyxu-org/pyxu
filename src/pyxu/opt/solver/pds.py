@@ -212,8 +212,8 @@ class CondatVu(_PrimalDualSplitting):
 
     This solver is also accessible via the alias :py:class:`~pyxu.opt.solver.CV`.
 
-    The *Condat-Vu (CV)* primal-dual method is described in [CVS]_.
-    (This particular implementation is based on the pseudo-code Algorithm 7.1 provided in [FuncSphere]_ Chapter 7, Section1.)
+    The *Condat-Vu (CV)* primal-dual method is described in [CVS]_.  (This particular implementation is based on the
+    pseudo-code Algorithm 7.1 provided in [FuncSphere]_ Chapter 7, Section1.)
 
     It can be used to solve problems of the form:
 
@@ -223,13 +223,15 @@ class CondatVu(_PrimalDualSplitting):
 
     where:
 
-    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
-      for some :math:`\beta\in[0,+\infty[`.
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with
+      :math:`\beta`-*Lipschitz continuous* gradient, for some :math:`\beta\in[0,+\infty[`.
 
-    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}`
-      are *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and
+      :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are *proper*, *lower semicontinuous* and
+      *convex functions* with *simple proximal operators*.
 
-    * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator* :math:`\mathbf{K}`), with **operator norm**:
+    * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator*
+      :math:`\mathbf{K}`), with **operator norm**:
 
       .. math::
 
@@ -239,11 +241,13 @@ class CondatVu(_PrimalDualSplitting):
     -------
     * The problem is *feasible*, i.e. there exists at least one solution.
 
-    * The algorithm is still valid if one or more of the terms :math:`\mathcal{F}`, :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
+    * The algorithm is still valid if one or more of the terms :math:`\mathcal{F}`, :math:`\mathcal{G}` or
+      :math:`\mathcal{H}` is zero.
 
-    * The algorithm has convergence guarantees when :math:`\mathcal{H}` is composed with a *linear operator* :math:`\mathbf{K}`.
-      When :math:`\mathcal{F}=0`, convergence can be proven for *non-linear differentiable maps* :math:`\mathcal{K}` (see [NLCP]_).
-      Note that :py:class:`~pyxu.opt.solver.CondatVu` does not yet support automatic selection of hyperparameters for the case of *non-linear differentiable maps* :math:`\mathcal{K}`.
+    * The algorithm has convergence guarantees when :math:`\mathcal{H}` is composed with a *linear operator*
+      :math:`\mathbf{K}`.  When :math:`\mathcal{F}=0`, convergence can be proven for *non-linear differentiable maps*
+      :math:`\mathcal{K}` (see [NLCP]_).  Note that :py:class:`~pyxu.opt.solver.CondatVu` does not yet support automatic
+      selection of hyperparameters for the case of *non-linear differentiable maps* :math:`\mathcal{K}`.
 
     * Assume that either of the following holds:
 
@@ -251,17 +255,18 @@ class CondatVu(_PrimalDualSplitting):
 
         - :math:`\gamma \geq \frac{\beta}{2}`,
         - :math:`\frac{1}{\tau}-\sigma\Vert\mathbf{K}\Vert_{2}^2\geq \gamma`,
-        - :math:`\rho \in ]0,\delta[`, where :math:`\delta:=2-\frac{\beta}{2}\gamma^{-1}\in[1,2[` (:math:`\delta=2` is possible when :math:`\mathcal{F}` is *quadratic*
-          and :math:`\gamma \geq \beta`, see [PSA]_).
+        - :math:`\rho \in ]0,\delta[`, where :math:`\delta:=2-\frac{\beta}{2}\gamma^{-1}\in[1,2[` (:math:`\delta=2` is
+          possible when :math:`\mathcal{F}` is *quadratic* and :math:`\gamma \geq \beta`, see [PSA]_).
 
       * :math:`\beta=0` and:
 
         - :math:`\tau\sigma\Vert\mathbf{K}\Vert_{2}^2\leq 1`,
         - :math:`\rho \in ]0,2[`.
 
-      Then there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution s.t. the primal and dual sequences
-      of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and
-      :math:`\mathbf{z}^\star` respectively, i.e.
+      Then there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution
+      s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and
+      :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star`
+      respectively, i.e.
 
       .. math::
 
@@ -319,23 +324,24 @@ class CondatVu(_PrimalDualSplitting):
 
     .. rubric:: Default hyperparameter values
 
-    This class supports three strategies to automatically set the hyperparameters (see [PSA]_ for more details and numerical experiments
-    comparing the performance of the three strategies):
+    This class supports three strategies to automatically set the hyperparameters (see [PSA]_ for more details and
+    numerical experiments comparing the performance of the three strategies):
 
     - ``tuning_strategy == 1``: :math:`\gamma = \beta` (safe step sizes) and :math:`\rho=1` (no relaxation).
 
       This is the most standard way of setting the parameters in the literature.
     - ``tuning_strategy == 2``: :math:`\gamma = \beta/1.9` (large step sizes) and :math:`\rho=1` (no relaxation).
 
-      This strategy favours large step sizes forbidding the use of overrelaxation.
-      When :math:`\beta=0`, coincides with the first strategy.
+      This strategy favours large step sizes forbidding the use of overrelaxation.  When :math:`\beta=0`, coincides with
+      the first strategy.
     - ``tuning_strategy == 3``: :math:`\gamma = \beta` (safe step sizes) and :math:`\rho=\delta - 0.1 > 1` (overrelaxation).
 
       This strategy chooses smaller step sizes, but performs overrelaxation.
 
-    Once :math:`\gamma` chosen, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as
-    large as possible and relatively well-balanced -- so that both the primal and dual variables converge at the same pace.
-    Whenever possible, we therefore choose perfectly balanced parameters :math:`\sigma=\tau` saturating the convergence inequalities for a given value of :math:`\gamma`.
+    Once :math:`\gamma` chosen, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and
+    :math:`\tau` as large as possible and relatively well-balanced -- so that both the primal and dual variables
+    converge at the same pace.  Whenever possible, we therefore choose perfectly balanced parameters :math:`\sigma=\tau`
+    saturating the convergence inequalities for a given value of :math:`\gamma`.
 
     * For :math:`\beta>0` and :math:`\mathcal{H}\neq 0` this yields:
 
@@ -368,8 +374,8 @@ class CondatVu(_PrimalDualSplitting):
     Warning
     -------
     When values are provided for both :math:`\tau` and :math:`\sigma`, it is assumed that the latter satisfy the
-    convergence inequalities, but no check is explicitly performed.
-    Automatic selection of hyperparameters for the case of non-linear differentiable maps :math:`\mathcal{K}` is not supported yet.
+    convergence inequalities, but no check is explicitly performed.  Automatic selection of hyperparameters for the case
+    of non-linear differentiable maps :math:`\mathcal{K}` is not supported yet.
 
     Example
     -------
@@ -379,9 +385,12 @@ class CondatVu(_PrimalDualSplitting):
 
        \min_{\mathbf{x}\in\mathbb{R}_+^N}\frac{1}{2}\left\|\mathbf{y}-\mathbf{G}\mathbf{x}\right\|_2^2\quad+\quad\lambda_1 \|\mathbf{D}\mathbf{x}\|_1\quad+\quad\lambda_2 \|\mathbf{x}\|_1,
 
-    with :math:`\mathbf{D}\in\mathbb{R}^{N\times N}` the discrete derivative operator and :math:`\mathbf{G}\in\mathbb{R}^{L\times N}, \, \mathbf{y}\in\mathbb{R}^L, \lambda_1,\lambda_2>0.`
-    This problem can be solved via PDS with :math:`\mathcal{F}(\mathbf{x})= \frac{1}{2}\left\|\mathbf{y}-\mathbf{G}\mathbf{x}\right\|_2^2`, :math:`\mathcal{G}(\mathbf{x})=\lambda_2\|\mathbf{x}\|_1,`
-    :math:`\mathcal{H}(\mathbf{x})=\lambda \|\mathbf{x}\|_1` and :math:`\mathbf{K}=\mathbf{D}`.
+    with :math:`\mathbf{D}\in\mathbb{R}^{N\times N}` the discrete derivative operator and
+    :math:`\mathbf{G}\in\mathbb{R}^{L\times N}, \, \mathbf{y}\in\mathbb{R}^L, \lambda_1,\lambda_2>0.` This problem can
+    be solved via PDS with :math:`\mathcal{F}(\mathbf{x})=
+    \frac{1}{2}\left\|\mathbf{y}-\mathbf{G}\mathbf{x}\right\|_2^2`,
+    :math:`\mathcal{G}(\mathbf{x})=\lambda_2\|\mathbf{x}\|_1,` :math:`\mathcal{H}(\mathbf{x})=\lambda \|\mathbf{x}\|_1`
+    and :math:`\mathbf{K}=\mathbf{D}`.
 
     .. plot::
 
@@ -533,12 +542,15 @@ class PD3O(_PrimalDualSplitting):
 
     where:
 
-    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
-      for some :math:`\beta\in[0,+\infty[`.
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with
+      :math:`\beta`-*Lipschitz continuous* gradient, for some :math:`\beta\in[0,+\infty[`.
 
-    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and
+      :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are *proper*, *lower semicontinuous* and
+      *convex functions* with *simple proximal operators*.
 
-    * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator* :math:`\mathbf{K}`), with **operator norm**:
+    * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator*
+      :math:`\mathbf{K}`), with **operator norm**:
 
       .. math::
 
@@ -548,11 +560,13 @@ class PD3O(_PrimalDualSplitting):
     -------
     * The problem is *feasible* -- i.e. there exists at least one solution.
 
-    * The algorithm is still valid if one or more of the terms :math:`\mathcal{F}`, :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
+    * The algorithm is still valid if one or more of the terms :math:`\mathcal{F}`, :math:`\mathcal{G}` or
+      :math:`\mathcal{H}` is zero.
 
-    * The algorithm has convergence guarantees for the case in which :math:`\mathcal{H}` is composed with a *linear operator* :math:`\mathbf{K}`.
-      When :math:`\mathcal{F}=0`, convergence can be proven for *non-linear differentiable maps* :math:`\mathcal{K}`. (See [NLCP]_.)
-      Note that this class does not yet support automatic selection of hyperparameters for the case of *non-linear differentiable maps* :math:`\mathcal{K}`.
+    * The algorithm has convergence guarantees for the case in which :math:`\mathcal{H}` is composed with a *linear
+      operator* :math:`\mathbf{K}`.  When :math:`\mathcal{F}=0`, convergence can be proven for *non-linear
+      differentiable maps* :math:`\mathcal{K}`. (See [NLCP]_.) Note that this class does not yet support automatic
+      selection of hyperparameters for the case of *non-linear differentiable maps* :math:`\mathcal{K}`.
 
     * Assume that the following holds:
 
@@ -562,15 +576,17 @@ class PD3O(_PrimalDualSplitting):
       * :math:`\delta = 2-\beta\tau/2 \in [1, 2[` and :math:`\rho \in (0, \delta]`.
 
       Then there exists a pair :math:`(\mathbf{x}^\star,\mathbf{z}^\star)\in\mathbb{R}^N\times \mathbb{R}^M` solution
-      s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}`
-      *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star` respectively (Theorem 8.2 of [PSA]_), i.e.
+      s.t. the primal and dual sequences of  estimates :math:`(\mathbf{x}_n)_{n\in\mathbb{N}}` and
+      :math:`(\mathbf{z}_n)_{n\in\mathbb{N}}` *converge* towards :math:`\mathbf{x}^\star` and :math:`\mathbf{z}^\star`
+      respectively (Theorem 8.2 of [PSA]_), i.e.
 
       .. math::
 
          \lim_{n\rightarrow +\infty}\Vert\mathbf{x}^\star-\mathbf{x}_n\Vert_2=0, \quad \text{and} \quad  \lim_{n\rightarrow +\infty}\Vert\mathbf{z}^\star-\mathbf{z}_n\Vert_2=0.
 
-      Futhermore, when :math:`\rho=1`, the objective functional sequence :math:`\left(\Psi(\mathbf{x}_n)\right)_{n\in\mathbb{N}}` can be shown to converge towards
-      its minimum :math:`\Psi^\ast` with rate :math:`o(1/\sqrt{n})` (Theorem 1 of [dPSA]_):
+      Futhermore, when :math:`\rho=1`, the objective functional sequence
+      :math:`\left(\Psi(\mathbf{x}_n)\right)_{n\in\mathbb{N}}` can be shown to converge towards its minimum
+      :math:`\Psi^\ast` with rate :math:`o(1/\sqrt{n})` (Theorem 1 of [dPSA]_):
 
       .. math::
 
@@ -626,23 +642,24 @@ class PD3O(_PrimalDualSplitting):
 
     .. rubric:: Default hyperparameter values
 
-    This class supports three strategies to automatically set the hyperparameters (see [PSA]_ for more details and numerical experiments
-    comparing the performance of the three strategies):
+    This class supports three strategies to automatically set the hyperparameters (see [PSA]_ for more details and
+    numerical experiments comparing the performance of the three strategies):
 
     - ``tuning_strategy == 1``: :math:`\gamma = \beta` (safe step sizes) and :math:`\rho=1` (no relaxation).
 
       This is the most standard way of setting the parameters in the literature.
     - ``tuning_strategy == 2``: :math:`\gamma = \beta/1.9` (large step sizes) and :math:`\rho=1` (no relaxation).
 
-      This strategy favours large step sizes forbidding the use of overrelaxation.
-      When :math:`\beta=0`, coincides with the first strategy.
+      This strategy favours large step sizes forbidding the use of overrelaxation.  When :math:`\beta=0`, coincides with
+      the first strategy.
     - ``tuning_strategy == 3``: :math:`\gamma = \beta` (safe step sizes) and :math:`\rho=\delta - 0.1 > 1` (overrelaxation).
 
       This strategy chooses smaller step sizes, but performs overrelaxation.
 
-    Once :math:`\gamma` chosen, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and :math:`\tau` as
-    large as possible and relatively well-balanced -- so that both the primal and dual variables converge at the same pace.
-    Whenever possible, we therefore choose perfectly balanced parameters :math:`\sigma=\tau` saturating the convergence inequalities for a given value of :math:`\gamma`.
+    Once :math:`\gamma` chosen, the convergence speed  of the algorithm is improved by choosing :math:`\sigma` and
+    :math:`\tau` as large as possible and relatively well-balanced -- so that both the primal and dual variables
+    converge at the same pace.  Whenever possible, we therefore choose perfectly balanced parameters :math:`\sigma=\tau`
+    saturating the convergence inequalities for a given value of :math:`\gamma`.
 
     In practice, the following linear programming optimization problem is solved:
 
@@ -653,7 +670,8 @@ class PD3O(_PrimalDualSplitting):
        & \operatorname{log}(\tau^{*}) \leq -\operatorname{log}(\gamma)\\
        & \operatorname{log}(\tau^{*}) = \operatorname{log}(\sigma^{*}).
 
-    When :math:`\tau \leq 1/\gamma` is given (i.e., :math:`\tau=\tau_{1}`), but not :math:`\sigma`, the latter is chosen as:
+    When :math:`\tau \leq 1/\gamma` is given (i.e., :math:`\tau=\tau_{1}`), but not :math:`\sigma`, the latter is chosen
+    as:
 
     .. math::
 
@@ -668,8 +686,8 @@ class PD3O(_PrimalDualSplitting):
     Warning
     -------
     When values are provided for both :math:`\tau` and :math:`\sigma`, it is assumed that the latter satisfy the
-    convergence inequalities, but no check is explicitly performed.
-    Automatic selection of hyperparameters for the case of non-linear differentiable maps :math:`\mathcal{K}` is not supported yet.
+    convergence inequalities, but no check is explicitly performed.  Automatic selection of hyperparameters for the case
+    of non-linear differentiable maps :math:`\mathcal{K}` is not supported yet.
 
     Example
     -------
@@ -679,9 +697,12 @@ class PD3O(_PrimalDualSplitting):
 
        \min_{\mathbf{x}\in\mathbb{R}_+^N}\frac{1}{2}\left\|\mathbf{y}-\mathbf{G}\mathbf{x}\right\|_2^2\quad+\quad\lambda_1 \|\mathbf{D}\mathbf{x}\|_1\quad+\quad\lambda_2 \|\mathbf{x}\|_1,
 
-    with :math:`\mathbf{D}\in\mathbb{R}^{N\times N}` the discrete derivative operator and :math:`\mathbf{G}\in\mathbb{R}^{L\times N}, \, \mathbf{y}\in\mathbb{R}^L, \lambda_1,\lambda_2>0.`
-    This problem can be solved via PD3O with :math:`\mathcal{F}(\mathbf{x})= \frac{1}{2}\left\|\mathbf{y}-\mathbf{G}\mathbf{x}\right\|_2^2`, :math:`\mathcal{G}(\mathbf{x})=\lambda_2\|\mathbf{x}\|_1,`
-    :math:`\mathcal{H}(\mathbf{x})=\lambda \|\mathbf{x}\|_1` and :math:`\mathbf{K}=\mathbf{D}`.
+    with :math:`\mathbf{D}\in\mathbb{R}^{N\times N}` the discrete derivative operator and
+    :math:`\mathbf{G}\in\mathbb{R}^{L\times N}, \, \mathbf{y}\in\mathbb{R}^L, \lambda_1,\lambda_2>0.` This problem can
+    be solved via PD3O with :math:`\mathcal{F}(\mathbf{x})=
+    \frac{1}{2}\left\|\mathbf{y}-\mathbf{G}\mathbf{x}\right\|_2^2`,
+    :math:`\mathcal{G}(\mathbf{x})=\lambda_2\|\mathbf{x}\|_1,` :math:`\mathcal{H}(\mathbf{x})=\lambda \|\mathbf{x}\|_1`
+    and :math:`\mathbf{K}=\mathbf{D}`.
 
     .. plot::
 
@@ -896,8 +917,11 @@ def ChambollePock(
 
     where:
 
-    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
-    * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator* :math:`\mathbf{K}`), with **operator norm**:
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and
+      :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` are *proper*, *lower semicontinuous* and
+      *convex functions* with *simple proximal operators*.
+    * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator*
+      :math:`\mathbf{K}`), with **operator norm**:
 
       .. math::
 
@@ -911,11 +935,11 @@ def ChambollePock(
 
     * Automatic selection of parameters is not supported for *non-linear differentiable maps* :math:`\mathcal{K}`.
 
-    * The *Chambolle-Pock (CP) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{F}=0` in :py:class:`~pyxu.opt.solver.CondatVu` or :py:class:`~pyxu.opt.solver.PD3O`.
-      Chambolle and Pock originally introduced the algorithm without relaxation (:math:`\rho=1`) [CPA]_.
-      Relaxed versions have been proposed afterwards [PSA]_.
-      Chambolle-Pock's algorithm is also known as the *Primal-Dual Hybrid Gradient (PDHG)* algorithm.
-      It can be seen as a preconditionned ADMM method [CPA]_.
+    * The *Chambolle-Pock (CP) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{F}=0` in
+      :py:class:`~pyxu.opt.solver.CondatVu` or :py:class:`~pyxu.opt.solver.PD3O`.  Chambolle and Pock originally
+      introduced the algorithm without relaxation (:math:`\rho=1`) [CPA]_.  Relaxed versions have been proposed
+      afterwards [PSA]_.  Chambolle-Pock's algorithm is also known as the *Primal-Dual Hybrid Gradient (PDHG)*
+      algorithm.  It can be seen as a preconditionned ADMM method [CPA]_.
 
     Parameters (``fit()``)
     ----------------------
@@ -980,12 +1004,14 @@ class LorisVerhoeven(PD3O):
 
     where:
 
-    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
-      for some :math:`\beta\in[0,+\infty[`.
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with
+      :math:`\beta`-*Lipschitz continuous* gradient, for some :math:`\beta\in[0,+\infty[`.
 
-    * :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` is a *proper*, *lower semicontinuous* and *convex function* with *simple proximal operator*.
+    * :math:`\mathcal{H}:\mathbb{R}^M\rightarrow \mathbb{R}\cup\{+\infty\}` is a *proper*, *lower semicontinuous* and
+      *convex function* with *simple proximal operator*.
 
-    * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator* :math:`\mathbf{K}`), with **operator norm**:
+    * :math:`\mathcal{K}:\mathbb{R}^N\rightarrow \mathbb{R}^M` is a *differentiable map* (e.g. a *linear operator*
+      :math:`\mathbf{K}`), with **operator norm**:
 
       .. math::
 
@@ -999,7 +1025,8 @@ class LorisVerhoeven(PD3O):
 
     * Automatic selection of parameters is not supported for *non-linear differentiable maps* :math:`\mathcal{K}`.
 
-    * The *Loris-Verhoeven (CP) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{G}=0` in :py:class:`~pyxu.opt.solver.PD3O`.
+    * The *Loris-Verhoeven (CP) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{G}=0` in
+      :py:class:`~pyxu.opt.solver.PD3O`.
 
     * In the specific case where :math:`\mathcal{F}` is *quadratic*, then one can set :math:`\rho \in ]0,\delta[` with
       :math:`\delta=2`. (See Theorem 4.3 in [PSA]_.)
@@ -1112,10 +1139,12 @@ class DavisYin(PD3O):
 
     where:
 
-    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
-      for some :math:`\beta\in[0,+\infty[`.
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with
+      :math:`\beta`-*Lipschitz continuous* gradient, for some :math:`\beta\in[0,+\infty[`.
 
-    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` are *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and
+      :math:`\mathcal{H}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` are *proper*, *lower semicontinuous* and
+      *convex functions* with *simple proximal operators*.
 
     Remarks
     -------
@@ -1123,8 +1152,8 @@ class DavisYin(PD3O):
 
     * The algorithm is still valid if one of the terms :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
 
-    * The *Davis-Yin primal-dual splitting* method can be obtained by choosing :math:`\mathcal{K}=\mathbf{I}`
-      (identity) and :math:`\tau=1/\sigma` in :py:class:`~pyxu.opt.solver.PD3O`, provided a suitable change of variable [PSA]_.
+    * The *Davis-Yin primal-dual splitting* method can be obtained by choosing :math:`\mathcal{K}=\mathbf{I}` (identity)
+      and :math:`\tau=1/\sigma` in :py:class:`~pyxu.opt.solver.PD3O`, provided a suitable change of variable [PSA]_.
 
     Parameters (``__init__()``)
     ---------------------------
@@ -1253,7 +1282,9 @@ def DouglasRachford(
 
        {\min_{\mathbf{x}\in\mathbb{R}^N} \mathcal{G}(\mathbf{x})\;\;+\;\;\mathcal{H}(\mathbf{x}),}
 
-    where :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and :math:`\mathcal{H}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` are *proper*, *lower semicontinuous* and *convex functions* with *simple proximal operators*.
+    where :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` and
+    :math:`\mathcal{H}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` are *proper*, *lower semicontinuous* and
+    *convex functions* with *simple proximal operators*.
 
     Remarks
     -------
@@ -1261,9 +1292,12 @@ def DouglasRachford(
 
     * The algorithm is still valid if one of the terms :math:`\mathcal{G}` or :math:`\mathcal{H}` is zero.
 
-    * The *Douglas-Rachford (DR) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{F}=0`, :math:`\mathbf{K}=\mathbf{Id}` and :math:`\tau=1/\sigma` in :py:class:`~pyxu.opt.solver.CondatVu` or :py:class:`~pyxu.opt.solver.PD3O`.
-      Douglas and Rachford originally introduced the algorithm without relaxation (:math:`\rho=1`), but relaxed versions have been proposed afterwards [PSA]_.
-      When :math:`\rho=1`, Douglas-Rachford's algorithm is *functionally equivalent* to ADMM (up to a change of variable, see [PSA]_ for a derivation).
+    * The *Douglas-Rachford (DR) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{F}=0`,
+      :math:`\mathbf{K}=\mathbf{Id}` and :math:`\tau=1/\sigma` in :py:class:`~pyxu.opt.solver.CondatVu` or
+      :py:class:`~pyxu.opt.solver.PD3O`.  Douglas and Rachford originally introduced the algorithm without relaxation
+      (:math:`\rho=1`), but relaxed versions have been proposed afterwards [PSA]_.  When :math:`\rho=1`,
+      Douglas-Rachford's algorithm is *functionally equivalent* to ADMM (up to a change of variable, see [PSA]_ for a
+      derivation).
 
     Parameters (``fit()``)
     ----------------------
@@ -1339,8 +1373,8 @@ class ADMM(_PDS):
 
     * This is an implementation of the algorithm described in Section 5.4 of [PSA]_, which handles the non-smooth
       composite term :math:`\mathcal{H}(\mathbf{K}\mathbf{x})` by means of a change of variable and an infimal
-      postcomposition trick.
-      The update equation of this algorithm involves the following :math:`\mathbf{x}`-minimization step:
+      postcomposition trick.  The update equation of this algorithm involves the following
+      :math:`\mathbf{x}`-minimization step:
 
       .. math::
          :label: eq:x_minimization
@@ -1348,18 +1382,19 @@ class ADMM(_PDS):
          \mathcal{V} = \operatorname*{arg\,min}_{\mathbf{x} \in \mathbb{R}^N} \quad \mathcal{F}(\mathbf{x}) + \frac1{2 \tau}
          \Vert \mathbf{K} \mathbf{x} - \mathbf{a} \Vert_2^2,
 
-      where :math:`\tau` is the primal step size and :math:`\mathbf{a} \in \mathbb{R}^M` is an iteration-dependant vector.
+      where :math:`\tau` is the primal step size and :math:`\mathbf{a} \in \mathbb{R}^M` is an iteration-dependant
+      vector.
 
       The following cases are covered in this implementation:
 
-      - :math:`\mathbf{K}` is ``None`` (i.e. the identity operator) and :math:`\mathcal{F}` is a :py:class:`~pyxu.abc.ProxFunc`.
-        Then, :math:numref:`eq:x_minimization` has a single solution provided by
-        :math:`\operatorname*{prox}_{\tau \mathcal{F}}(\mathbf{a})`.
-        This yields the *classical ADMM algorithm* described in Section 5.3 of [PSA]_ (i.e. without the postcomposition trick).
+      - :math:`\mathbf{K}` is ``None`` (i.e. the identity operator) and :math:`\mathcal{F}` is a
+        :py:class:`~pyxu.abc.ProxFunc`.  Then, :math:numref:`eq:x_minimization` has a single solution provided by
+        :math:`\operatorname*{prox}_{\tau \mathcal{F}}(\mathbf{a})`.  This yields the *classical ADMM algorithm*
+        described in Section 5.3 of [PSA]_ (i.e. without the postcomposition trick).
 
-      - :math:`\mathcal{F}` is a :py:class:`~pyxu.abc.QuadraticFunc`, i.e.
-        :math:`\mathcal{F}(\mathbf{x})=\frac{1}{2} \langle\mathbf{x}, \mathbf{Q}\mathbf{x}\rangle + \mathbf{c}^T\mathbf{x} + t`.
-        Then the unique solution to :math:numref:`eq:x_minimization` is obtained by solving a linear system of the form:
+      - :math:`\mathcal{F}` is a :py:class:`~pyxu.abc.QuadraticFunc`, i.e.  :math:`\mathcal{F}(\mathbf{x})=\frac{1}{2}
+        \langle\mathbf{x}, \mathbf{Q}\mathbf{x}\rangle + \mathbf{c}^T\mathbf{x} + t`.  Then the unique solution to
+        :math:numref:`eq:x_minimization` is obtained by solving a linear system of the form:
 
         .. math::
            :label: eq:linear_system
@@ -1367,23 +1402,24 @@ class ADMM(_PDS):
            \Big( \mathbf{Q} + \frac1\tau \mathbf{K}^* \mathbf{K} \Big) \mathbf{x} =
            \frac1\tau \mathbf{K}^\ast\mathbf{a}-\mathbf{c}, \qquad \mathbf{x} \in \mathbb{R}^N.
 
-        This linear system is solved via a sub-iterative :py:class:`~pyxu.opt.solver.CG` algorithm involving the repeated
-        application of :math:`\mathbf{Q}` and :math:`\mathbf{K}^{*}\mathbf{K}`.
-        This sub-iterative scheme may be computationally intensive if these operators do not admit fast matrix-free implementations.
+        This linear system is solved via a sub-iterative :py:class:`~pyxu.opt.solver.CG` algorithm involving the
+        repeated application of :math:`\mathbf{Q}` and :math:`\mathbf{K}^{*}\mathbf{K}`.  This sub-iterative scheme may
+        be computationally intensive if these operators do not admit fast matrix-free implementations.
 
-      - :math:`\mathcal{F}` is a :py:class:`~pyxu.abc.DiffFunc`.
-        Then, :math:numref:`eq:x_minimization` is solved via a sub-iterative :py:class:`~pyxu.opt.solver.NLCG` algorithm
-        involving repeated evaluation of :math:`\nabla\mathcal{F}` and :math:`\mathbf{K}^{*}\mathbf{K}`.
-        This sub-iterative scheme may be costly if these operators cannot be evaluated with fast algorithms.
-        In this scenario, the use of multiple initial points in :py:meth:`~pyxu.abc.solver.Solver.fit` is not supported.
+      - :math:`\mathcal{F}` is a :py:class:`~pyxu.abc.DiffFunc`.  Then, :math:numref:`eq:x_minimization` is solved via a
+        sub-iterative :py:class:`~pyxu.opt.solver.NLCG` algorithm involving repeated evaluation of
+        :math:`\nabla\mathcal{F}` and :math:`\mathbf{K}^{*}\mathbf{K}`.  This sub-iterative scheme may be costly if
+        these operators cannot be evaluated with fast algorithms.  In this scenario, the use of multiple initial points
+        in :py:meth:`~pyxu.abc.solver.Solver.fit` is not supported.
 
       The user may also provide a *custom* callable solver :math:`s: \mathbb{R}^M \times \mathbb{R} \to \mathbb{R}^N`,
-      taking as input :math:`(\mathbf{a}, \tau)` and solving :math:numref:`eq:x_minimization`,
-      i.e. :math:`s(\mathbf{a}, \tau) \in \mathcal{V}`. (See example below.)
-      If :py:class:`~pyxu.opt.solver.ADMM` is initialized with such a solver, then the latter is used to solve
-      :math:numref:`eq:x_minimization` regardless of whether one of the above-mentioned cases is met.
+      taking as input :math:`(\mathbf{a}, \tau)` and solving :math:numref:`eq:x_minimization`, i.e. :math:`s(\mathbf{a},
+      \tau) \in \mathcal{V}`. (See example below.) If :py:class:`~pyxu.opt.solver.ADMM` is initialized with such a
+      solver, then the latter is used to solve :math:numref:`eq:x_minimization` regardless of whether one of the
+      above-mentioned cases is met.
 
-    * Unlike traditional implementations of ADMM, :py:class:`~pyxu.opt.solver.ADMM` supports relaxation, i.e. :math:`\rho\neq 1`.
+    * Unlike traditional implementations of ADMM, :py:class:`~pyxu.opt.solver.ADMM` supports relaxation, i.e.
+      :math:`\rho\neq 1`.
 
     Parameters (``__init__()``)
     ---------------------------
@@ -1400,12 +1436,12 @@ class ADMM(_PDS):
       --
       Custom callable to solve the :math:`\mathbf{x}`-minimization step :math:numref:`eq:x_minimization`.
 
-      If provided, `solver` must have the `NumPy signature <https://numpy.org/neps/nep-0020-gufunc-signature-enhancement.html>`_
-      ``(n), (1) -> (n)``.
+      If provided, `solver` must have the `NumPy signature
+      <https://numpy.org/neps/nep-0020-gufunc-signature-enhancement.html>`_ ``(n), (1) -> (n)``.
     * **solver_kwargs** (:py:class:`~collections.abc.Mapping`)
       --
-      Keyword parameters passed to the ``__init__()`` method of sub-iterative
-      :py:class:`~pyxu.opt.solver.CG` or :py:class:`~pyxu.opt.solver.NLCG` solvers.
+      Keyword parameters passed to the ``__init__()`` method of sub-iterative :py:class:`~pyxu.opt.solver.CG` or
+      :py:class:`~pyxu.opt.solver.NLCG` solvers.
 
       `solver_kwargs` is ignored if `solver` provided.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
@@ -1454,13 +1490,13 @@ class ADMM(_PDS):
        \min_{\mathbf{x}\in\mathbb{R}^N}\frac{1}{2}\left\|\mathbf{y}-\mathbf{G}\mathbf{x}\right\|_2^2\quad+\quad\lambda \|\mathbf{D}\mathbf{x}\|_1,
 
     with :math:`\mathbf{D}\in\mathbb{R}^{N\times N}` the discrete second-order derivative operator,
-    :math:`\mathbf{G}\in\mathbb{R}^{M\times N}, \, \mathbf{y}\in\mathbb{R}^M, \lambda>0.`
-    This problem can be solved via ADMM with :math:`\mathcal{F}(\mathbf{x})= \frac{1}{2}\left\|\mathbf{y}-\mathbf{G}\mathbf{x}\right\|_2^2`,
-    :math:`\mathcal{H}(\mathbf{x})=\lambda \|\mathbf{D}\mathbf{x}\|_1,` and :math:`\mathbf{K}=\mathbf{D}`.
-    The functional :math:`\mathcal{F}` being quadratic, the :math:`\mathbf{x}`-minimization step consists in solving a linear system of
-    the form :math:numref:`eq:linear_system`.
-    Here, we demonstrate how to provide a custom solver, which consists in applying a matrix inverse, for this step.
-    Otherwise, a sub-iterative :py:class:`~pyxu.opt.solver.CG` algorithm would have been used automatically instead.
+    :math:`\mathbf{G}\in\mathbb{R}^{M\times N}, \, \mathbf{y}\in\mathbb{R}^M, \lambda>0.` This problem can be solved via
+    ADMM with :math:`\mathcal{F}(\mathbf{x})= \frac{1}{2}\left\|\mathbf{y}-\mathbf{G}\mathbf{x}\right\|_2^2`,
+    :math:`\mathcal{H}(\mathbf{x})=\lambda \|\mathbf{D}\mathbf{x}\|_1,` and :math:`\mathbf{K}=\mathbf{D}`.  The
+    functional :math:`\mathcal{F}` being quadratic, the :math:`\mathbf{x}`-minimization step consists in solving a
+    linear system of the form :math:numref:`eq:linear_system`.  Here, we demonstrate how to provide a custom solver,
+    which consists in applying a matrix inverse, for this step.  Otherwise, a sub-iterative
+    :py:class:`~pyxu.opt.solver.CG` algorithm would have been used automatically instead.
 
     .. plot::
 
@@ -1700,9 +1736,10 @@ class ForwardBackward(CondatVu):
 
     where:
 
-    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient,
-      for some :math:`\beta\in[0,+\infty[`.
-    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is *proper*, *lower semicontinuous* and *convex function* with *simple proximal operator*.
+    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with
+      :math:`\beta`-*Lipschitz continuous* gradient, for some :math:`\beta\in[0,+\infty[`.
+    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is *proper*, *lower semicontinuous* and
+      *convex function* with *simple proximal operator*.
 
     Remarks
     -------
@@ -1710,11 +1747,11 @@ class ForwardBackward(CondatVu):
 
     * The algorithm is still valid if one of the terms :math:`\mathcal{F}` or :math:`\mathcal{G}` is zero.
 
-    * The *Forward-backward (FB) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{H}=0` in :py:class:`~pyxu.opt.solver.CondatVu`.
-      Mercier originally introduced the algorithm without relaxation (:math:`\rho=1`) [FB]_.
-      Relaxed versions have been proposed afterwards [PSA]_.
-      The Forward-backward algorithm is also known as the *Proximal Gradient Descent (PGD)* algorithm.
-      For the accelerated version of PGD, use :py:class:`~pyxu.opt.solver.PGD`.
+    * The *Forward-backward (FB) primal-dual splitting* method can be obtained by choosing :math:`\mathcal{H}=0` in
+      :py:class:`~pyxu.opt.solver.CondatVu`.  Mercier originally introduced the algorithm without relaxation
+      (:math:`\rho=1`) [FB]_.  Relaxed versions have been proposed afterwards [PSA]_.  The Forward-backward algorithm is
+      also known as the *Proximal Gradient Descent (PGD)* algorithm.  For the accelerated version of PGD, use
+      :py:class:`~pyxu.opt.solver.PGD`.
 
     Parameters (``__init__()``)
     ---------------------------
@@ -1810,15 +1847,16 @@ def ProximalPoint(
 
        {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{G}(\mathbf{x}),}
 
-    where :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is *proper*, *lower semicontinuous* and *convex function* with *simple proximal operator*.
+    where :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is *proper*, *lower semicontinuous* and
+    *convex function* with *simple proximal operator*.
 
     Remarks
     -------
     * The problem is *feasible*, i.e. there exists at least one solution.
 
-    * The *Proximal-point* algorithm can be obtained by choosing :math:`\mathcal{F}=0` and :math:`\mathcal{H}=0` in :py:class:`~pyxu.opt.solver.CondatVu` or :py:class:`~pyxu.opt.solver.PD3O`.
-      The original version of the algorithm was introduced without relaxation (:math:`\rho=1`) [PP]_.
-      Relaxed versions have been proposed afterwards [PSA]_.
+    * The *Proximal-point* algorithm can be obtained by choosing :math:`\mathcal{F}=0` and :math:`\mathcal{H}=0` in
+      :py:class:`~pyxu.opt.solver.CondatVu` or :py:class:`~pyxu.opt.solver.PD3O`.  The original version of the algorithm
+      was introduced without relaxation (:math:`\rho=1`) [PP]_.  Relaxed versions have been proposed afterwards [PSA]_.
 
     Parameters (``fit()``)
     ----------------------

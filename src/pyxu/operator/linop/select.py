@@ -221,8 +221,8 @@ def Trim(
 
         * ``int``: trim each dimension's head/tail by `trim_width`.
         * ``tuple[int, ...]``: trim dimension[k]'s head/tail by `trim_width[k]`.
-        * ``tuple[tuple[int, int], ...]``: trim dimension[k]'s head/tail by `trim_width[k][0]` /
-          `trim_width[k][1]` respectively.
+        * ``tuple[tuple[int, int], ...]``: trim dimension[k]'s head/tail by `trim_width[k][0]` / `trim_width[k][1]`
+          respectively.
 
     Returns
     -------

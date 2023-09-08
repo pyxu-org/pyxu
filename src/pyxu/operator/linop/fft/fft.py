@@ -16,8 +16,8 @@ __all__ = [
 
 class FFT(pxa.LinOp):  # Inherits from LinOp instead of NormalOp since operator not square if `real=True`.
     r"""
-    Multi-dimensional Discrete Fourier Transform (DFT) :math:`A: \mathbb{C}^{N_{1} \times \cdots
-    \times N_{D}} \to \mathbb{C}^{N_{1} \times \cdots \times N_{D}}`:
+    Multi-dimensional Discrete Fourier Transform (DFT) :math:`A: \mathbb{C}^{N_{1} \times \cdots \times N_{D}} \to
+    \mathbb{C}^{N_{1} \times \cdots \times N_{D}}`:
 
     .. math::
 
@@ -167,8 +167,8 @@ class FFT(pxa.LinOp):  # Inherits from LinOp instead of NormalOp since operator 
             (N_1, ..., N_D) shape of the input array :math:`\mathbf{x} \in \mathbb{R}^{N_{1} \times \cdots \times
             N_{D}}` or :math:`\mathbb{C}^{N_{1} \times \cdots \times N_{D}}`.
         axes: NDArrayAxis
-            Axis or axes along which the DFT is performed.
-            The default, axes=None, will transform all dimensions of the input array.
+            Axis or axes along which the DFT is performed.  The default, axes=None, will transform all dimensions of the
+            input array.
         real: bool
             If ``True``, assumes :py:func:`~pyxu.operator.FFT.apply` takes (..., N.prod()) inputs in
             :math:`\mathbb{R}^{N}`.

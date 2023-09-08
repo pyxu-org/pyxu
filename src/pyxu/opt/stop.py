@@ -34,9 +34,8 @@ class MaxIter(pxa.StoppingCriterion):
 
     .. note::
 
-        If you want to add a grace period to a solver, i.e. for it to do *at least* N iterations before
-        stopping based on the value of another criteria, you can AND :py:class:`~pyxu.opt.stop.MaxIter`
-        with the other criteria.
+        If you want to add a grace period to a solver, i.e. for it to do *at least* N iterations before stopping based
+        on the value of another criteria, you can AND :py:class:`~pyxu.opt.stop.MaxIter` with the other criteria.
 
         .. code-block:: python3
 
@@ -74,9 +73,8 @@ class ManualStop(pxa.StoppingCriterion):
     """
     Continue-forever criterion.
 
-    This class is useful when calling
-    :py:meth:`~pyxu.abc.Solver.fit`
-    with mode=MANUAL/ASYNC to defer the stopping decision to an explicit call by the user, i.e.:
+    This class is useful when calling :py:meth:`~pyxu.abc.Solver.fit` with mode=MANUAL/ASYNC to defer the stopping
+    decision to an explicit call by the user, i.e.:
 
     * mode=MANUAL: user must stop calling ``next(solver.steps())``;
     * mode=ASYNC: user must call :py:meth:`~pyxu.abc.Solver.stop`.
@@ -127,18 +125,17 @@ class MaxDuration(pxa.StoppingCriterion):
 
 class MaxCarbon(pxa.StoppingCriterion):
     """
-    Stop iterative solver after a threshold amount of carbon dioxide (CO2) was produced by computing
-    resources used to execute the optimization.
+    Stop iterative solver after a threshold amount of carbon dioxide (CO2) was produced by computing resources used to
+    execute the optimization.
 
     .. note::
 
        Codecarbon is not a core dependency of Pyxu and must be installed separately.
 
-       On Windows and MacOS, `codecarbon <https://pypi.org/project/codecarbon/>`_ tracks power consumption of
-       Intel processors using the
-       `Intel Power Gadget (IPG) <https://www.intel.com/content/www/us/en/developer/articles/tool/power-gadget.html>`_.
-       IPG must be installed independently.
-       (MacOS-specific: IPG must also have correct security permissions.)
+       On Windows and MacOS, `codecarbon <https://pypi.org/project/codecarbon/>`_ tracks power consumption of Intel
+       processors using the `Intel Power Gadget (IPG)
+       <https://www.intel.com/content/www/us/en/developer/articles/tool/power-gadget.html>`_.  IPG must be installed
+       independently.  (MacOS-specific: IPG must also have correct security permissions.)
     """
 
     def __init__(self, co2: pxt.Real):
@@ -182,9 +179,8 @@ class MaxCarbon(pxa.StoppingCriterion):
 
 class Memorize(pxa.StoppingCriterion):
     """
-    Memorize a variable.
-    (Special :py:class:`~pyxu.abc.StoppingCriterion` mostly useful for tracking objective functions in
-    :py:class:`~pyxu.abc.Solver`.)
+    Memorize a variable.  (Special :py:class:`~pyxu.abc.StoppingCriterion` mostly useful for tracking objective
+    functions in :py:class:`~pyxu.abc.Solver`.)
     """
 
     def __init__(self, var: pxt.VarName):
@@ -192,8 +188,7 @@ class Memorize(pxa.StoppingCriterion):
         Parameters
         ----------
         var: VarName
-            Variable in :py:attr:`pyxu.abc.Solver._mstate` to query.
-            Must be a scalar or NDArray (1D).
+            Variable in :py:attr:`pyxu.abc.Solver._mstate` to query.  Must be a scalar or NDArray (1D).
         """
         self._var = var
         self._val = np.r_[0]  # last memorized value in stop().
@@ -242,17 +237,16 @@ class AbsError(pxa.StoppingCriterion):
         var: VarName
             Variable in :py:attr:`pyxu.abc.Solver._mstate` to query.
         f: ~collections.abc.Callable
-            Optional function to pre-apply to ``_mstate[var]`` before applying the norm.
-            Defaults to the identity function. The callable should either:
+            Optional function to pre-apply to ``_mstate[var]`` before applying the norm.  Defaults to the identity
+            function. The callable should either:
 
             * accept a scalar input -> output a scalar, or
-            * accept an NDArray input -> output an NDArray, i.e same semantics as
-              :py:meth:`~pyxu.abc.Map.apply`.
+            * accept an NDArray input -> output an NDArray, i.e same semantics as :py:meth:`~pyxu.abc.Map.apply`.
         norm: Integer, Real
             Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool
-            If True (default) and ``_mstate[var]`` is multi-dimensional, stop if all evaluation
-            points lie below threshold.
+            If True (default) and ``_mstate[var]`` is multi-dimensional, stop if all evaluation points lie below
+            threshold.
         """
         try:
             assert eps > 0
@@ -301,8 +295,7 @@ class AbsError(pxa.StoppingCriterion):
 
 class RelError(pxa.StoppingCriterion):
     """
-    Stop iterative solver after relative norm change of a variable (or function thereof) reaches
-    threshold.
+    Stop iterative solver after relative norm change of a variable (or function thereof) reaches threshold.
     """
 
     def __init__(
@@ -321,17 +314,16 @@ class RelError(pxa.StoppingCriterion):
         var: VarName
             Variable in :py:attr:`pyxu.abc.Solver._mstate` to query.
         f: ~collections.abc.Callable
-            Optional function to pre-apply to ``_mstate[var]`` before applying the norm.
-            Defaults to the identity function. The callable should either:
+            Optional function to pre-apply to ``_mstate[var]`` before applying the norm.  Defaults to the identity
+            function. The callable should either:
 
             * accept a scalar input -> output a scalar, or
-            * accept an NDArray input -> output an NDArray, i.e same semantics as
-              :py:meth:`~pyxu.abc.Map.apply`.
+            * accept an NDArray input -> output an NDArray, i.e same semantics as :py:meth:`~pyxu.abc.Map.apply`.
         norm: Integer, Real
             Ln norm to use >= 0. (Default: L2.)
         satisfy_all: bool
-            If True (default) and ``_mstate[var]`` is multi-dimensional, stop if all evaluation
-            points lie below threshold.
+            If True (default) and ``_mstate[var]`` is multi-dimensional, stop if all evaluation points lie below
+            threshold.
         """
         try:
             assert eps > 0
