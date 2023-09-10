@@ -309,7 +309,7 @@ class SolverT(ct.DisableTestMixin):
         kwargs_fit = _kwargs_fit_xp.copy()
         kwargs_fit.update(
             stop_crit=time_crit | functools.reduce(operator.and_, var_crit),
-            mode=pxa.Mode.MANUAL,
+            mode=pxa.SolverMode.MANUAL,
         )
         with pxrt.Precision(width):
             solver.fit(**kwargs_fit)
@@ -476,17 +476,17 @@ class SolverT(ct.DisableTestMixin):
         self._skip_if_disabled()
 
         data = dict()
-        for m in [pxa.Mode.BLOCK, pxa.Mode.MANUAL]:
+        for m in [pxa.SolverMode.BLOCK, pxa.SolverMode.MANUAL]:
             kwargs_fit = self.as_early_stop(kwargs_fit)
             kwargs_fit.update(mode=m)
             solver.fit(**kwargs_fit)
-            if m == pxa.Mode.BLOCK:
+            if m == pxa.SolverMode.BLOCK:
                 pass
-            elif m == pxa.Mode.ASYNC:
+            elif m == pxa.SolverMode.ASYNC:
                 while solver.busy():
                     time.sleep(0.5)
                 solver.stop()
-            else:  # m == pxa.Mode.MANUAL
+            else:  # m == pxa.SolverMode.MANUAL
                 for _ in solver.steps():
                     pass
             d, _ = solver.stats()

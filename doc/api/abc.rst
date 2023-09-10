@@ -8,7 +8,7 @@ pyxu.abc
 
    .. autoattribute:: _astate
 
-.. autoclass:: pyxu.abc.Mode
+.. autoclass:: pyxu.abc.SolverMode
 
 .. autoclass:: pyxu.abc.StoppingCriterion
 

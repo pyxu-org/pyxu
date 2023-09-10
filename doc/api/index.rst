@@ -75,8 +75,8 @@ Solver-related
 
 .. autosummary::
 
-   ~pyxu.abc.Mode
    ~pyxu.abc.Solver
+   ~pyxu.abc.SolverMode
    ~pyxu.abc.StoppingCriterion
 
 Arithmetic Rules (low-level)

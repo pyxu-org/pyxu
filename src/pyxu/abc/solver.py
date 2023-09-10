@@ -17,14 +17,14 @@ import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
-    "Mode",
+    "SolverMode",
     "Solver",
     "StoppingCriterion",
 ]
 
 
 @enum.unique
-class Mode(enum.Enum):
+class SolverMode(enum.Enum):
     """
     Solver execution mode.
     """
@@ -151,19 +151,19 @@ class Solver:
 
        slvr = Solver()
 
-       ### 1. Blocking Mode: .fit() does not return until solver has stopped.
-       >>> slvr.fit(mode=Mode.BLOCK, ...)
+       ### 1. Blocking mode: .fit() does not return until solver has stopped.
+       >>> slvr.fit(mode=SolverMode.BLOCK, ...)
        >>> data, hist = slvr.stats()  # final output of solver.
 
-       ### 2. Async Mode: solver iterations run in the background.
-       >>> slvr.fit(mode=Mode.ASYNC, ...)
+       ### 2. Async mode: solver iterations run in the background.
+       >>> slvr.fit(mode=SolverMode.ASYNC, ...)
        >>> print('test')  # you can do something in between.
        >>> slvr.busy()  # or check whether the solver already stopped.
        >>> slvr.stop()  # and preemptively force it to stop.
        >>> data, hist = slvr.stats()  # then query the result after a (potential) force-stop.
 
-       ### 3. Manual Mode: fine-grain control of solver data per iteration.
-       >>> slvr.fit(mode=Mode.MANUAL, ...)
+       ### 3. Manual mode: fine-grain control of solver data per iteration.
+       >>> slvr.fit(mode=SolverMode.MANUAL, ...)
        >>> for data in slvr.steps():
        ...     # Do something with the logged variables after each iteration.
        ...     pass  # solver has stopped after the loop.
@@ -288,7 +288,7 @@ class Solver:
         stop_crit: StoppingCriterion
             Stopping criterion to end solver iterations.  If unspecified, defaults to
             :py:meth:`~pyxu.abc.Solver.default_stop_crit`.
-        mode: Mode
+        mode: SolverMode
             Execution mode.
             See :py:class:`~pyxu.abc.Solver` for usage examples.
 
@@ -301,7 +301,7 @@ class Solver:
             Auto-compute objective function every time stopping criterion is evaluated.
         """
         self._fit_init(
-            mode=kwargs.pop("mode", Mode.BLOCK),
+            mode=kwargs.pop("mode", SolverMode.BLOCK),
             stop_crit=kwargs.pop("stop_crit", None),
             track_objective=kwargs.pop("track_objective", False),
         )
@@ -349,7 +349,7 @@ class Solver:
             The generator will terminate prematurely if the solver naturally stops before `n` calls to :py:func:`next`
             are made.
         """
-        self._check_mode(Mode.MANUAL)
+        self._check_mode(SolverMode.MANUAL)
         i = 0
         while (n is None) or (i < n):
             if self._step():
@@ -431,7 +431,7 @@ class Solver:
         b: bool
             True if solver has stopped, False otherwise.
         """
-        self._check_mode(Mode.ASYNC, Mode.BLOCK)
+        self._check_mode(SolverMode.ASYNC, SolverMode.BLOCK)
         return self._astate["active"].is_set()
 
     def solution(self):
@@ -457,7 +457,7 @@ class Solver:
 
         Users must call this method to terminate an async-solver, even if :py:meth:`~pyxu.abc.Solver.busy` is False.
         """
-        self._check_mode(Mode.ASYNC, Mode.BLOCK)
+        self._check_mode(SolverMode.ASYNC, SolverMode.BLOCK)
         self._astate["active"].clear()
         self._astate["worker"].join()
         self._astate.update(
@@ -469,7 +469,7 @@ class Solver:
 
     def _fit_init(
         self,
-        mode: Mode,
+        mode: SolverMode,
         stop_crit: StoppingCriterion,
         track_objective: bool,
     ):
@@ -481,7 +481,7 @@ class Solver:
 
             fmt = logging.Formatter(fmt="{levelname} -- {message}", style="{")
             handler = [logging.FileHandler(self.logfile, mode="w")]
-            if (mode is Mode.BLOCK) and self._astate["stdout"]:
+            if (mode is SolverMode.BLOCK) and self._astate["stdout"]:
                 handler.append(logging.StreamHandler(sys.stdout))
             for h in handler:
                 h.setLevel("DEBUG")
@@ -516,7 +516,7 @@ class Solver:
         self._m_persist()
 
         mode = self._astate["mode"]
-        if mode is Mode.MANUAL:
+        if mode is SolverMode.MANUAL:
             # User controls execution via steps().
             pass
         else:  # BLOCK / ASYNC
@@ -526,7 +526,7 @@ class Solver:
             )
             self._astate["active"].set()
             self._astate["worker"].start()
-            if mode is Mode.BLOCK:
+            if mode is SolverMode.BLOCK:
                 self._astate["worker"].join()
                 self.stop()  # state clean-up
             else:
@@ -543,7 +543,7 @@ class Solver:
         # [TODO][Feature Request] Allow user to choose writeback format. Useful for large-scale
         # outputs which cannot be stored on one machine.
 
-    def _check_mode(self, *modes: Mode):
+    def _check_mode(self, *modes: SolverMode):
         m = self._astate["mode"]
         if m in modes:
             pass  # ok

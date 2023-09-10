@@ -65,7 +65,7 @@ SolverT = typ.TypeVar("SolverT", bound="pxs.Solver")
 SolverC = typ.Type[SolverT]
 
 #: Solver run-modes.
-SolverM = typ.TypeVar("SolverM", bound="pxs.Mode")
+SolverM = typ.TypeVar("SolverM", bound="pxs.SolverMode")
 
 Integer = nb.Integral
 Real = nb.Real
