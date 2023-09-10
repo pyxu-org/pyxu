@@ -1,5 +1,5 @@
-References
-==========
+**References**
+==============
 
 .. [ProxAdam] Melchior, Joseph, Moolekamp. "Proximal Adam: Robust Adaptive Update Scheme for Constrained Optimization" (2020).
 .. .. [ProxAlg] Parikh, Neal, and Stephen Boyd. "Proximal algorithms." Foundations and Trends in optimization 1.3 (2014): 127-239.
