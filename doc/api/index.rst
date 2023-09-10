@@ -3,17 +3,45 @@ API Reference
 
 .. The goal of this page is to provide an alphabetical listing of all Pyxu objects exposed to users.  This is achieved
 .. via the `autosummary` extension.  While `autosummary` understands `automodule`-documented packages, explicitly
-.. listing a module's contents is  required.
+.. listing a module's contents is required.
 
-Welcome to the official API reference for Pyxu, your go-to library for cutting-edge scientific computing in Python. This
-API documentation is intended to serve as a comprehensive guide to the library's various modules, classes, functions,
-and interfaces, providing you with detailed descriptions of each component's role, relations, assumptions, and behavior.
+Welcome to the official API reference for Pyxu.  This API documentation is intended to serve as a comprehensive guide to
+the library's various modules, classes, functions, and interfaces.  It provides detailed descriptions of each
+component's role, relations, assumptions, and behavior.
+
 Please note that this API reference is not designed to be a tutorial; it's a technical resource aimed at users who are
 already familiar with the library's basics and wish to dive deeper into its functionalities.
 
-.. contents:: Table of Contents
-   :local:
-   :depth: 3
+Pyxu is broken down into the following top-level namespaces:
+
+* ``pyxu.abc``: abstract base types and logic used throughout Pyxu.
+* ``pyxu.info.deps``: array backend tools.
+* ``pyxu.info.ptype``: type aliases for Python type checkers.
+* ``pyxu.info.warning``: internal warnings.
+* ``pyxu.operator``: operator collection.
+* ``pyxu.operator.interop``: helpers to interface with external packages such as JAX, PyTorch, etc.
+* ``pyxu.opt.solver``: solver collection.
+* ``pyxu.opt.stop``: common stopping criteria.
+* ``pyxu.runtime``: compute precision tools.
+* ``pyxu.math``: math helpers.
+* ``pyxu.util``: utility functions.
+* ``pyxu.experimental``: experimental packages. These may change in the future without warning. Each sub-module under
+  ``experimental`` must be imported individually:
+
+  .. code-block:: python3
+
+     from pyxu.experimental.sampler import ULA
+
+
+Individual Pyxu components should be imported from these top-level modules. Some low-level routines are not exposed from
+the former and must be imported explicitly:
+
+.. code-block:: python3
+
+   from pyxu.operator import Sum  # top-level import
+   from pyxu.util.misc import peaks  # low-level import
+
+The import path of each object can be inferred by looking at its canonical path in the alphabetical listings below.
 
 pyxu.abc
 --------
