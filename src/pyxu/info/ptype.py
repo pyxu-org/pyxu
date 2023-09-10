@@ -1,7 +1,3 @@
-"""
-The purpose of this module is to group all abstract types and helpers useful to Python's static type-checker.
-"""
-
 import collections.abc as cabc
 import numbers as nb
 import pathlib as plib

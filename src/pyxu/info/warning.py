@@ -1,7 +1,4 @@
-"""
-Custom warnings used inside Pyxu.
-"""
-
+# Custom warnings used inside Pyxu.
 
 class PyxuWarning(UserWarning):
     """

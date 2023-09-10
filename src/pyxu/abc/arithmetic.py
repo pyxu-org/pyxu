@@ -1,6 +1,4 @@
-"""
-Operator Arithmetic.
-"""
+# Arithmetic Rules
 
 import types
 import typing as typ
