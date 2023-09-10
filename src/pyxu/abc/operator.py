@@ -19,7 +19,11 @@ import pyxu.util as pxu
 
 class Property(enum.Enum):
     """
-    Mathematical properties.
+    Mathematical property.
+
+    See Also
+    --------
+    :py:class:`~pyxu.abc.Operator`
     """
 
     CAN_EVAL = enum.auto()
@@ -1863,12 +1867,9 @@ class NormalOp(SquareOp):
     r"""
     Base class for *normal* operators.
 
-    Notes
-    -----
-    Normal operators commute with their adjoint, i.e.  :math:`\mathbf{A} \mathbf{A}^{\ast} = \mathbf{A}^{\ast}
-    \mathbf{A}`.  It is `possible to show <https://www.wikiwand.com/en/Spectral_theorem#/Normal_matrices>`_ that an
-    operator is normal iff it is *unitarily diagonalizable*, i.e.  :math:`\mathbf{A} = \mathbf{U} \mathbf{D}
-    \mathbf{U}^{\ast}`.
+    Normal operators satisfy the relation :math:`\mathbf{A} \mathbf{A}^{\ast} = \mathbf{A}^{\ast} \mathbf{A}`.  It can
+    be `shown <https://www.wikiwand.com/en/Spectral_theorem#/Normal_matrices>`_ that an operator is normal iff it is
+    *unitarily diagonalizable*, i.e.  :math:`\mathbf{A} = \mathbf{U} \mathbf{D} \mathbf{U}^{\ast}`.
     """
 
     @classmethod
@@ -1883,7 +1884,9 @@ class NormalOp(SquareOp):
 
 class SelfAdjointOp(NormalOp):
     r"""
-    Base class for *self-adjoint* operators, i.e.  :math:`\mathbf{A}^{\ast} = \mathbf{A}`.
+    Base class for *self-adjoint* operators.
+
+    Self-adjoint operators satisfy the relation :math:`\mathbf{A}^{\ast} = \mathbf{A}`.
     """
 
     @classmethod
@@ -1898,7 +1901,9 @@ class SelfAdjointOp(NormalOp):
 
 class UnitOp(NormalOp):
     r"""
-    Base class for *unitary* operators, i.e.  :math:`\mathbf{A} \mathbf{A}^{\ast} = \mathbf{A}^{\ast} \mathbf{A} = I`.
+    Base class for *unitary* operators.
+
+    Unitary operators satisfy the relation :math:`\mathbf{A} \mathbf{A}^{\ast} = \mathbf{A}^{\ast} \mathbf{A} = I`.
     """
 
     @classmethod

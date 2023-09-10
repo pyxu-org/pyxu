@@ -112,13 +112,8 @@ class _StoppingCriteriaComposition(StoppingCriterion):
 
 class Solver:
     r"""
-    Iterative solver for minimization problems of the form
-
-    .. math::
-
-       \hat{x} = \arg\min_{x \in \mathbb{R}^{N}} \mathcal{F}(x),
-
-    where the form of :math:`\mathcal{F}` is solver-dependent.
+    Iterative solver for minimization problems of the form :math:`\hat{x} = \arg\min_{x \in \mathbb{R}^{N}}
+    \mathcal{F}(x)`, where the form of :math:`\mathcal{F}` is solver-dependent.
 
     Solver provides a versatile API for solving optimisation problems, with the following features:
 
