@@ -1,43 +1,14 @@
 pyxu.util
 =========
 
-.. contents:: Table of Contents
-   :local:
-   :depth: 1
+.. automodule:: pyxu.util
 
-pyxu.util.array_module
-----------------------
+   .. Force document of some non-public functions.
 
-.. automodule:: pyxu.util.array_module
+   .. autofunction:: pyxu.util.misc.peaks
 
-pyxu.util.complex
------------------
+   .. autofunction:: pyxu.util.misc.star_like_sample
 
-.. automodule:: pyxu.util.complex
+   .. autofunction:: pyxu.util.operator._dask_zip
 
-pyxu.util.inspect
------------------
-
-.. automodule:: pyxu.util.inspect
-
-pyxu.util.misc
---------------
-
-.. automodule:: pyxu.util.misc
-
-   .. Force documentation of some non-public functions.
-
-   .. autofunction:: peaks
-
-   .. autofunction:: star_like_sample
-
-pyxu.util.operator
-------------------
-
-.. automodule:: pyxu.util.operator
-
-   .. Force documentation of some non-public functions.
-
-   .. autofunction:: _dask_zip
-
-   .. autofunction:: _array_ize
+   .. autofunction:: pyxu.util.operator._array_ize

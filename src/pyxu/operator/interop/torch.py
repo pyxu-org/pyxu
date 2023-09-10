@@ -468,7 +468,7 @@ def from_torch(
         respectively.
     cls: OpT
         Pyxu abstract base class to instantiate from.
-    vectorize: pxt.VarName
+    vectorize: VarName
         Arithmetic methods to vectorize.
 
         `vectorize` is useful if an arithmetic method provided to `kwargs` does not support stacking dimensions.
