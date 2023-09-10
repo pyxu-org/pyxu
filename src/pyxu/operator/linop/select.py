@@ -88,7 +88,7 @@ class SubSample(pxa.LinOp):
         ----------
         arg_shape: NDArrayShape
             Shape of the data to be sub-sampled.
-        indices: ~pyxu.operator.linop.select.SubSample.IndexSpec
+        indices: ~pyxu.operator.SubSample.IndexSpec
             Sub-sample specifier per dimension. (See examples.)
 
             Valid specifiers are:
@@ -215,7 +215,7 @@ def Trim(
     ----------
     arg_shape: NDArrayShape
         Shape of the input array.
-    trim_width: ~pyxu.operator.linop.select.SubSample.TrimSpec
+    trim_width: ~pyxu.operator.SubSample.TrimSpec
         Number of values trimmed from the edges of each axis.
         Multiple forms are accepted:
 

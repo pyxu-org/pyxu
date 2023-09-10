@@ -49,7 +49,7 @@ def stack(
         * 0: stack vertically (row-wise)
         * 1: stack horizontally (column-wise)
     kwargs
-        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator._COOBlock`.
+        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
 
     Returns
     -------
@@ -97,7 +97,7 @@ def vstack(
     ops: :py:class:`~collections.abc.Sequence` ( :py:attr:`~pyxu.info.ptype.OpT` )
         [op1(c1, d), ..., opN(cN, d)] operators to concatenate.
     kwargs
-        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator._COOBlock`.
+        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
 
     Returns
     -------
@@ -161,7 +161,7 @@ def hstack(
     ops: :py:class:`~collections.abc.Sequence` ( :py:attr:`~pyxu.info.ptype.OpT` )
         [op1(c, d1), ..., opN(c, dN)] operators to concatenate.
     kwargs
-        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator._COOBlock`.
+        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
 
     Returns
     -------
@@ -227,7 +227,7 @@ def block_diag(
     ops: :py:class:`~collections.abc.Sequence` ( :py:attr:`~pyxu.info.ptype.OpT` )
         [op1(c1, d1), ..., opN(cN, dN)] operators to concatenate.
     kwargs
-        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator._COOBlock`.
+        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
 
     Returns
     -------
@@ -332,7 +332,7 @@ def block(
         * 0: concatenate inner-most blocks via :py:func:`~pyxu.operator.vstack`, then :py:func:`~pyxu.operator.hstack`.
         * 1: concatenate inner-most blocks via :py:func:`~pyxu.operator.hstack`, then :py:func:`~pyxu.operator.vstack`.
     kwargs
-        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator._COOBlock`.
+        Extra keyword-arguments forwarded to :py:class:`~pyxu.operator.blocks._COOBlock`.
 
     Returns
     -------
@@ -527,7 +527,7 @@ class _COOBlock:  # See coo_block() for a detailed description.
         Returns
         -------
         op: pxt.OpT
-            Synthesized operator given inputs to :py:meth:`~pyxu.operator._COOBlock.__init__`.
+            Synthesized operator given inputs to :py:meth:`~pyxu.operator.blocks._COOBlock.__init__`.
         """
         blk = self._block
         if len(blk) == 1:

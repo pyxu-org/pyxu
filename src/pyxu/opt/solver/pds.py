@@ -1410,7 +1410,7 @@ class ADMM(_PDS):
         sub-iterative :py:class:`~pyxu.opt.solver.NLCG` algorithm involving repeated evaluation of
         :math:`\nabla\mathcal{F}` and :math:`\mathbf{K}^{*}\mathbf{K}`.  This sub-iterative scheme may be costly if
         these operators cannot be evaluated with fast algorithms.  In this scenario, the use of multiple initial points
-        in :py:meth:`~pyxu.abc.solver.Solver.fit` is not supported.
+        in :py:meth:`~pyxu.abc.Solver.fit` is not supported.
 
       The user may also provide a *custom* callable solver :math:`s: \mathbb{R}^M \times \mathbb{R} \to \mathbb{R}^N`,
       taking as input :math:`(\mathbf{a}, \tau)` and solving :math:numref:`eq:x_minimization`, i.e. :math:`s(\mathbf{a},

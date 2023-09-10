@@ -108,7 +108,7 @@ def MovingAverage(
         array.  If a tuple is provided, it should contain as many elements as `arg_shape`.  For example, the ``size=(1,
         3)`` will convolve the input image with the filter ``[[1, 1, 1]] / 3``.
 
-    center: IndexSpec
+    center: ~pyxu.operator.linop.filter.IndexSpec
         (i_1, ..., i_D) index of the kernel's center.
 
         `center` defines how a kernel is overlaid on inputs to produce outputs.

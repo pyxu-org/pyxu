@@ -5,10 +5,10 @@ API Rules
 ---------
 
 To implement novel operators or algorithms, users must subclass an abstract base class from Pyxu's
-:py:class:`~pyxu.abc.operator.Operator` hierarchy. Doing so requires defining the fundamental methods attached to the
-subclass (e.g. :py:meth:`~pyxu.abc.operator.Map.apply`, :py:meth:`~pyxu.abc.operator.DiffFunc.grad`,
-:py:meth:`~pyxu.abc.operator.ProxFunc.prox`, :py:meth:`~pyxu.abc.operator.LinOp.adjoint`, ...). When marked as such in
-the documentation, such a user-defined method should abide by the following set of rules:
+:py:class:`~pyxu.abc.Operator` hierarchy. Doing so requires defining the fundamental methods attached to the subclass
+(e.g. :py:meth:`~pyxu.abc.Map.apply`, :py:meth:`~pyxu.abc.DiffFunc.grad`, :py:meth:`~pyxu.abc.ProxFunc.prox`,
+:py:meth:`~pyxu.abc.LinOp.adjoint`, ...). When marked as such in the documentation, such a user-defined method should
+abide by the following set of rules:
 
 - It must handle properly the case where the input array is a 1-D or N-D array. In the latter case, the  first N-1
   dimensions of the input array should be considered as stacking dimensions, i.e. the method is applied along the last
@@ -22,8 +22,8 @@ the documentation, such a user-defined method should abide by the following set 
   out at the user-specified precision, accessible via :py:func:`~pyxu.runtime.getPrecision`.
 
 - Whenever possible, it should be compatible with the array modules supported by Pyxu. (Use
-  :py:func:`~pyxu.info.deps.supported_array_modules` for an up-to-date list).
-  :py:func:`~pyxu.util.array_module.get_array_module` can be used to write `module-agnostic
+  :py:func:`~pyxu.info.deps.supported_array_modules` for an up-to-date list).  :py:func:`~pyxu.util.get_array_module`
+  can be used to write `module-agnostic
   <https://docs.cupy.dev/en/stable/user_guide/basic.html#how-to-write-cpu-gpu-agnostic-code>`_ code easily.
 
 

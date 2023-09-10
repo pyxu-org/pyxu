@@ -18,12 +18,12 @@ def shift_loss(
 
     Parameters
     ----------
-    data: pxt.NDArray
+    data: NDArray
         (M,) input data.
 
     Returns
     -------
-    op: pxt.OpT
+    op: OpT
         (1, M) Loss functionial.  If `data` is omitted, then this function is a no-op.
     """
     if data is None:
