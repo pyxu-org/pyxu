@@ -440,16 +440,16 @@ pyxu.util
    :maxdepth: 2
    :hidden:
 
-   info.ptype
+   abc
    info.deps
+   info.ptype
    info.warning
-   experimental.sampler
+   operator
+   operator.interop
+   opt.solver
+   opt.stop
+   runtime
    math
    util
-   runtime
-   opt.stop
-   opt.solver
-   operator.interop
-   abc
-   operator
+   experimental.sampler
    ../references
