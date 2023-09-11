@@ -13,6 +13,6 @@ pyxu.operator.interop
 
 .. autofunction:: pyxu.operator.interop.from_torch
 
-.. autofunction:: pyxu.operator.interop.astensor
+.. autofunction:: pyxu.operator.interop.torch._from_torch
 
-.. autofunction:: pyxu.operator.interop.asarray
+.. autofunction:: pyxu.operator.interop.torch._to_torch

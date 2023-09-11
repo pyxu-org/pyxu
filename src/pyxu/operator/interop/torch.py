@@ -28,8 +28,6 @@ else:
 
 __all__ = [
     "from_torch",
-    "astensor",
-    "asarray",
 ]
 
 
@@ -44,7 +42,7 @@ def _traceable(f):
     return wrapper
 
 
-def astensor(arr: pxt.NDArray, requires_grad: bool = False) -> TorchTensor:
+def _to_torch(arr: pxt.NDArray, requires_grad: bool = False) -> TorchTensor:
     r"""
     Convert a Numpy-like array into a PyTorch tensor, sharing data, dtype and device.
 
@@ -72,7 +70,7 @@ def astensor(arr: pxt.NDArray, requires_grad: bool = False) -> TorchTensor:
         return torch.from_numpy(arr).requires_grad_(requires_grad)
 
 
-def asarray(tensor: TorchTensor) -> pxt.NDArray:
+def _from_torch(tensor: TorchTensor) -> pxt.NDArray:
     r"""
     Convert a PyTorch tensor into a Numpy-like array, sharing data, dtype and device.
 
@@ -303,39 +301,39 @@ class _FromTorch(px_src._FromSource):
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape(-1, self.dim))
+        tensor = _to_torch(arr.reshape(-1, self.dim))
         func = self._torch["apply"]
-        out = asarray(func(tensor)).reshape(arr.shape[:-1] + (-1,))
+        out = _from_torch(func(tensor)).reshape(arr.shape[:-1] + (-1,))
         return out
 
     @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape(-1, +self.dim))
+        tensor = _to_torch(arr.reshape(-1, +self.dim))
         func = self._torch["grad"]
-        return asarray(func(tensor)).reshape(arr.shape[:-1] + (-1,))
+        return _from_torch(func(tensor)).reshape(arr.shape[:-1] + (-1,))
 
     @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape(-1, +self.codim))
+        tensor = _to_torch(arr.reshape(-1, +self.codim))
         func = self._torch["adjoint"]
-        return asarray(func(tensor)).reshape(arr.shape[:-1] + (-1,))
+        return _from_torch(func(tensor)).reshape(arr.shape[:-1] + (-1,))
 
     @pxrt.enforce_precision(i=["arr", "tau"])
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape(-1, +self.dim))
+        tensor = _to_torch(arr.reshape(-1, +self.dim))
         func = self._torch["prox"]
-        return asarray(func(tensor, tau)).reshape(arr.shape[:-1] + (-1,))
+        return _from_torch(func(tensor, tau)).reshape(arr.shape[:-1] + (-1,))
 
     @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         arr = self._coerce(arr)
-        tensor = astensor(arr.reshape(-1, +self.codim))
+        tensor = _to_torch(arr.reshape(-1, +self.codim))
         func = self._torch["pinv"]
         out = func(tensor, damp)  # positional args only if auto-vectorized.
-        return asarray(out).reshape(arr.shape[:-1] + (-1,))
+        return _from_torch(out).reshape(arr.shape[:-1] + (-1,))
 
     @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
@@ -346,7 +344,7 @@ class _FromTorch(px_src._FromSource):
         except NotImplementedError:
             # ... and fallback to auto-inference if undefined.
             arr = self._coerce(arr)
-            primal = astensor(arr.reshape(self.dim))
+            primal = _to_torch(arr.reshape(self.dim))
             f = self._torch["apply"]
 
             def jf_apply(tan: TorchTensor) -> TorchTensor:

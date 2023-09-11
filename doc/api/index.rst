@@ -199,8 +199,8 @@ PyTorch
 
 .. autosummary::
 
-   ~pyxu.operator.interop.asarray
-   ~pyxu.operator.interop.astensor
+   ~pyxu.operator.interop.torch._from_torch
+   ~pyxu.operator.interop.torch._to_torch
    ~pyxu.operator.interop.from_torch
 
 pyxu.operator
