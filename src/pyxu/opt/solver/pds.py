@@ -208,7 +208,7 @@ _PDS = _PrimalDualSplitting  #: shorthand
 
 class CondatVu(_PrimalDualSplitting):
     r"""
-    Condat-Vu (CV) primal-dual splitting algorithm.
+    Condat-Vu primal-dual splitting algorithm.
 
     This solver is also accessible via the alias :py:class:`~pyxu.opt.solver.CV`.
 

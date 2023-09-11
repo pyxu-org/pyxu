@@ -155,7 +155,7 @@ class DownSampling(Masking):
             if (axis is not None) and (axis > len(shape) - 1):
                 raise ValueError(f"Array size {size} is incompatible with array shape {shape}.")
         if (shape is None) and (len(self.downsampling_factor) > 1):
-            raise ValueError("Please specify an array shape for multidimensional downsampling.")
+            raise ValueError("Please specify an array shape for multi-dimensional downsampling.")
         elif (shape is not None) and (axis is None) and (len(shape) != len(self.downsampling_factor)):
             raise ValueError(f"Inconsistent downsampling factors {downsampling_factor} for array of shape {shape}.")
         self.input_size = size
