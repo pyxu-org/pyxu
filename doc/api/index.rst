@@ -43,6 +43,10 @@ the former and must be imported explicitly:
 
 The import path of each object can be inferred by looking at its canonical path in the alphabetical listings below.
 
+.. contents:: Table of Contents
+   :local:
+   :depth: 2
+
 pyxu.abc
 --------
 
