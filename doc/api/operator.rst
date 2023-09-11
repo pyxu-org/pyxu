@@ -21,6 +21,8 @@ pyxu.operator
    :members: prox
    :special-members: __init__
 
+.. autofunction:: pyxu.operator.shift_loss
+
 .. autoclass:: pyxu.operator.KLDivergence
    :no-members:
    :special-members: __init__
@@ -239,3 +241,5 @@ pyxu.operator
 .. autofunction:: pyxu.operator.Prewitt
 
 .. autofunction:: pyxu.operator.Scharr
+
+.. autoclass:: pyxu.operator.StructureTensor
