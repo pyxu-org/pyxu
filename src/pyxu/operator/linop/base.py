@@ -130,7 +130,7 @@ def NullFunc(dim: pxt.Integer) -> pxt.OpT:
 
 def HomothetyOp(dim: pxt.Integer, cst: pxt.Real) -> pxt.OpT:
     """
-    Scaling operator.
+    Constant scaling operator.
 
     Parameters
     ----------
