@@ -19,7 +19,7 @@ __all__ = [
 
 
 def infer_sum_shape(sh1: pxt.OpShape, sh2: pxt.OpShape) -> pxt.OpShape:
-    """
+    r"""
     Infer shape of arithmetic operation :math:`A + B`.
     """
     A, B, C, D = *sh1, *sh2
@@ -30,7 +30,7 @@ def infer_sum_shape(sh1: pxt.OpShape, sh2: pxt.OpShape) -> pxt.OpShape:
 
 
 def infer_composition_shape(sh1: pxt.OpShape, sh2: pxt.OpShape) -> pxt.OpShape:
-    """
+    r"""
     Infer shape of arithmetic operation :math:`A \circ B`.
     """
     A, B, C, D = *sh1, *sh2

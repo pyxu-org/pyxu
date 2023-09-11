@@ -1,5 +1,6 @@
 # Custom warnings used inside Pyxu.
 
+
 class PyxuWarning(UserWarning):
     """
     Parent class of all warnings raised in Pyxu.
