@@ -10,7 +10,9 @@ __all__ = [
 
 
 def as_canonical_shape(x: pxt.NDArrayShape) -> pxt.NDArrayShape:
-    # Transform a lone integer into a valid tuple-based shape specifier.
+    """
+    Transform a lone integer into a valid tuple-based shape specifier.
+    """
     if isinstance(x, cabc.Iterable):
         x = tuple(x)
     else:
@@ -20,11 +22,11 @@ def as_canonical_shape(x: pxt.NDArrayShape) -> pxt.NDArrayShape:
 
 
 def next_fast_len(N: pxt.Integer, even: bool = False) -> pxt.Integer:
-    # Compute the next 5-smooth number greater-or-equal to `N`.
-    # If `even=True`, then ensure the next 5-smooth number is even-valued.
-    #
-    # ref: https://en.wikipedia.org/wiki/Smooth_number
+    """
+    Compute the next `5-smooth number <https://en.wikipedia.org/wiki/Smooth_number>`_ greater-or-equal to `N`.
 
+    If `even=True`, then ensure the next 5-smooth number is even-valued.
+    """
     # warning: scipy.fftpack.next_fast_len() != scipy.fft.next_fast_len()
     from scipy.fftpack import next_fast_len
 

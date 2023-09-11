@@ -19,6 +19,9 @@ __all__ = [
 
 
 def infer_sum_shape(sh1: pxt.OpShape, sh2: pxt.OpShape) -> pxt.OpShape:
+    """
+    Infer shape of arithmetic operation :math:`A + B`.
+    """
     A, B, C, D = *sh1, *sh2
     if B == D:
         return np.broadcast_shapes((A,), (C,)) + (B,)
@@ -27,6 +30,9 @@ def infer_sum_shape(sh1: pxt.OpShape, sh2: pxt.OpShape) -> pxt.OpShape:
 
 
 def infer_composition_shape(sh1: pxt.OpShape, sh2: pxt.OpShape) -> pxt.OpShape:
+    """
+    Infer shape of arithmetic operation :math:`A \circ B`.
+    """
     A, B, C, D = *sh1, *sh2
     if B == C:
         return (A, D)
@@ -130,7 +136,7 @@ def _dask_zip(
     parallel: bool,
 ) -> list[pxt.NDArray]:
     """
-    (This is a Low-Level function.)
+    Map functions in parallel via Dask.
 
     Computes the equivalent of ``out = [f(x) for (f, x) in zip(func, data)]``, with the following semantics:
 
@@ -228,10 +234,9 @@ def _array_ize(
     dtype: pxt.DType,
 ) -> pxt.NDArray:
     """
-    (This is a Low-Level function.)
+    Transform a Dask-delayed object into its Dask-array counterpart.
 
-    Transform a Dask-delayed object into its Dask-array counterpart.  This function is a no-op if `data` is not a
-    :py:class:`~dask.delayed.Delayed` object.
+    This function is a no-op if `data` is not a :py:class:`~dask.delayed.Delayed` object.
 
     Parameters
     ----------

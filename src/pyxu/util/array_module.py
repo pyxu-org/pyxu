@@ -187,10 +187,12 @@ def redirect(
 
 def copy_if_unsafe(x: pxt.NDArray) -> pxt.NDArray:
     """
-    Copy array if it is unsafe to do in-place updates on it, i.e.
+    Copy array if it is unsafe to do in-place updates on it.
 
-    * if the array is read-only, OR
-    * if the array is a view onto another array.
+    In-place updates are unsafe if:
+
+    * the array is read-only, OR
+    * the array is a view onto another array.
 
     Parameters
     ----------
