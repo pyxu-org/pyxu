@@ -15,3 +15,4 @@ essential aspects of the library, helping you harness its full power for your re
    algebra.ipynb
    algorithms.ipynb
    lipschitz.ipynb
+   hpc.ipynb
