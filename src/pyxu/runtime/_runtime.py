@@ -197,11 +197,17 @@ def enforce_precision(
 
 
 def getPrecision() -> Width:
+    """
+    Query current FP precision.
+    """
     state = globals()
     return state["__width"]
 
 
 def getCoerceState() -> bool:
+    """
+    Query if :py:func:`~pyxu.runtime.coerce` is (currently) a no-op.
+    """
     state = globals()
     return state["__coerce"]
 
