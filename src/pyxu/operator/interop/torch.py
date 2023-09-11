@@ -44,7 +44,9 @@ def _traceable(f):
 
 def _to_torch(arr: pxt.NDArray, requires_grad: bool = False) -> TorchTensor:
     r"""
-    Convert a Numpy-like array into a PyTorch tensor, sharing data, dtype and device.
+    NumPy/CuPy -> PyTorch conversion.
+
+    Convert a NumPy-like array into a PyTorch tensor, sharing data, dtype and device.
 
     Parameters
     ----------
@@ -72,7 +74,9 @@ def _to_torch(arr: pxt.NDArray, requires_grad: bool = False) -> TorchTensor:
 
 def _from_torch(tensor: TorchTensor) -> pxt.NDArray:
     r"""
-    Convert a PyTorch tensor into a Numpy-like array, sharing data, dtype and device.
+    PyTorch -> NumPy/CuPy conversion.
+
+    Convert a PyTorch tensor into a NumPy-like array, sharing data, dtype and device.
 
     Parameters
     ----------
@@ -145,7 +149,7 @@ class _FromTorch(px_src._FromSource):
         #   1. auto-define omitted methods.            [_infer_missing()]
         #   2. auto-vectorize via vmap().              [_auto_vectorize()]
         #   3. JIT-compile via compile().              [_compile()]
-        #   4. TORCH<>NUMPY/CUPY conversions.          [_interface()]
+        #   4. TORCH<>NumPy/CuPy conversions.          [_interface()]
         #   Note: JIT-compilation is currently deactivated due to the undocumented interaction of torch.func transforms
         #   and torch.compile. Will be reactivated once torch.func goes out of beta.
 
@@ -454,7 +458,7 @@ def from_torch(
     **kwargs,
 ) -> pxt.OpT:
     r"""
-    Define an :py:class:`~pyxu.abc.Operator` from Torch-based callables.
+    Define an :py:class:`~pyxu.abc.Operator` from PyTorch functions.
 
     Parameters
     ----------

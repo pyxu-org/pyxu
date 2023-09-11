@@ -36,7 +36,7 @@ def _from_jax(
     xp: pxt.ArrayModule = None,
 ) -> pxt.NDArray:
     """
-    JAX -> NUMPY/CUPY conversion.
+    JAX -> NumPy/CuPy conversion.
 
     The transform is always zero-copy, but it is not easy to check this condition for all array types (contiguous,
     views, etc.) and backends (NUMPY, CUPY).
@@ -49,7 +49,7 @@ def _from_jax(
         xp = N.default().module()
 
     if xp not in (N.NUMPY.module(), N.CUPY.module()):
-        raise pxw.BackendWarning("Only NUMPY/CUPY inputs are supported.")
+        raise pxw.BackendWarning("Only NumPy/CuPy inputs are supported.")
 
     y = xp.asarray(x)
     return y
@@ -57,7 +57,7 @@ def _from_jax(
 
 def _to_jax(x: pxt.NDArray, enable_warnings: bool = True) -> JaxArray:
     """
-    NUMPY/CUPY -> JAX conversion.
+    NumPy/CuPy -> JAX conversion.
 
     Conversion is zero-copy when possible, i.e. 16-byte alignment, on the right device, etc.
 
@@ -112,7 +112,7 @@ def from_jax(
     **kwargs,
 ) -> pxt.OpT:
     r"""
-    Define an :py:class:`~pyxu.abc.Operator` from low-level constructs.
+    Define an :py:class:`~pyxu.abc.Operator` from JAX functions.
 
     Parameters
     ----------
@@ -166,7 +166,7 @@ def from_jax(
       abide by Pyxu's FP-runtime semantics.  Note however that JAX enforces `32-bit arithmetic
       <https://jax.readthedocs.io/en/latest/notebooks/Common_Gotchas_in_JAX.html#double-64bit-precision>`_ by default,
       and this constraint cannot be changed at runtime.  As such, to allow zero-copy transfers between JAX and
-      NUMPY/CUPY arrays, it is advised to perform computations in single-precision mode.  This can be achieved locally
+      NumPy/CuPy arrays, it is advised to perform computations in single-precision mode.  This can be achieved locally
       using the :py:class:`~pyxu.runtime.Precision` context manager.  (See example.) Alternatively,
       precision/copy-related warnings can be silenced via the `enable_warnings` option of
       :py:func:`~pyxu.operator.interop.from_jax`.
@@ -278,7 +278,7 @@ class _FromJax(px_src._FromSource):
         # Idea: modify `**kwargs` from constructor to [when required]:
         #   1. auto-define omitted methods.            [_infer_missing()]
         #   2. auto-vectorize via vmap().              [_auto_vectorize()]
-        #   3. JIT & JAX<>NUMPY/CUPY conversions.      [_interface()]
+        #   3. JIT & JAX<>NumPy/CuPy conversions.      [_interface()]
         #   4. delegate enforce_precision() calls to from_source().
         self._infer_missing()
         self._auto_vectorize()
