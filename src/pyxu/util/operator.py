@@ -9,7 +9,7 @@ import numpy as np
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.util.array_module as pxa
-import pyxu.util.inspect as pxi
+import pyxu.util.misc as pxm
 
 __all__ = [
     "infer_composition_shape",
@@ -92,7 +92,7 @@ def vectorize(
 
         @functools.wraps(func)
         def wrapper(*ARGS, **KWARGS):
-            func_args = pxi.parse_params(func, *ARGS, **KWARGS)
+            func_args = pxm.parse_params(func, *ARGS, **KWARGS)
 
             x = func_args.pop(i)
             *sh, dim = x.shape

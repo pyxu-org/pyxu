@@ -5,7 +5,7 @@ import dask
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.util.inspect as pxi
+import pyxu.util.misc as pxm
 
 __all__ = [
     "compute",
@@ -163,7 +163,7 @@ def redirect(
         @functools.wraps(func)
         def wrapper(*ARGS, **KWARGS):
             try:
-                func_args = pxi.parse_params(func, *ARGS, **KWARGS)
+                func_args = pxm.parse_params(func, *ARGS, **KWARGS)
             except Exception as e:
                 error_msg = f"Could not parameterize {func}()."
                 raise ValueError(error_msg) from e
