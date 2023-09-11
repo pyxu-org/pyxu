@@ -115,7 +115,7 @@ html_theme_options = {
         },
         {
             "name": "Contact",
-            "url": "mailto: matthieu.simeoni@gmail.com",
+            "url": "mailto: contact@pyxu.org",
             "icon": "fa-brands fa-telegram",
         },
         {
