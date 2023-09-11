@@ -68,10 +68,10 @@ SolverC = typ.Type[SolverT]
 SolverM = typ.TypeVar("SolverM", bound="pxs.SolverMode")
 
 Integer = nb.Integral
-Real = nb.Real
-DType = npt.DTypeLike  #: NDArray dtype specifier.
-OpShape = tuple[Integer, Integer]  #: Operator shape specifier.
+Real = nb.Real  #: Alias of :py:class:`numbers.Real`.
+DType = npt.DTypeLike  #: :py:attr:`~pyxu.info.ptype.NDArray` dtype specifier.
+OpShape = tuple[Integer, Integer]  #: :py:class:`~pyxu.abc.Operator` shape specifier.
 NDArrayAxis = typ.Union[Integer, tuple[Integer, ...]]  #: Axis/Axes specifier.
-NDArrayShape = typ.Union[Integer, tuple[Integer, ...]]  #: NDArray shape specifier.
+NDArrayShape = typ.Union[Integer, tuple[Integer, ...]]  #: :py:attr:`~pyxu.info.ptype.NDArray` shape specifier.
 Path = typ.Union[str, plib.Path]  #: Path-like object.
 VarName = typ.Union[str, cabc.Collection[str]]  #: Variable name(s).
