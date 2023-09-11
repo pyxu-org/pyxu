@@ -15,6 +15,12 @@ import pyxu.util as pxu
 
 
 class Rule:
+    """
+    General arithmetic rule.
+
+    This class defines default arithmetic rules applicable unless re-defined by sub-classes.
+    """
+
     def op(self) -> pxt.OpT:
         """
         Returns
@@ -62,6 +68,8 @@ class Rule:
 
 class ScaleRule(Rule):
     r"""
+    Arithmetic rules for element-wise scaling: :math:`B(x) = \alpha A(x)`.
+
     Special Cases::
 
         \alpha = 0  => NullOp/NullFunc
@@ -258,6 +266,8 @@ class ScaleRule(Rule):
 
 class ArgScaleRule(Rule):
     r"""
+    Arithmetic rules for element-wise parameter scaling: :math:`B(x) = A(\alpha x)`.
+
     Special Cases::
 
         \alpha = 0  => ConstantValued (w/ potential vector-valued output)
@@ -476,6 +486,8 @@ class ArgScaleRule(Rule):
 
 class ArgShiftRule(Rule):
     r"""
+    Arithmetic rules for parameter shifting: :math:`B(x) = A(x - c)`.
+
     Special Cases::
 
         \shift = 0  => self
@@ -664,6 +676,8 @@ class ArgShiftRule(Rule):
 
 class AddRule(Rule):
     r"""
+    Arithmetic rules for operator addition: :math:`C(x) = A(x) + B(x)`.
+
     The output type of ``AddRule(A.squeeze(), B.squeeze())`` is summarized in the table below (LHS/RHS
     commute)::
 
@@ -1031,6 +1045,8 @@ class AddRule(Rule):
 
 class ChainRule(Rule):
     r"""
+    Arithmetic rules for operator composition: :math:`C(x) = (A \circ B)(x)`.
+
     The output type of ``ChainRule(A.squeeze(), B.squeeze())`` is summarized in the table below::
 
         |---------------|------|------------|----------|------------|------------|----------------|----------------------|------------------|------------|-----------|-----------|--------------|---------------|-----------|-----------|------------|
@@ -1348,6 +1364,8 @@ class ChainRule(Rule):
 
 class PowerRule(Rule):
     r"""
+    Arithmetic rules for operator exponentiation: :math:`B(x) = A^{k}(x)`.
+
     Special Cases::
 
         k = 0  => IdentityOp
@@ -1391,6 +1409,8 @@ class TransposeRule(Rule):
     # operators is identical to arithmetic methods.
     # LinOp.T() rules are hence summarized here.
     r"""
+    Arithmetic rules for :py:class:`~pyxu.abc.LinOp` transposition: :math:`B(x) = A^{T}(x)`.
+
     Arithmetic Update Rule(s)::
 
         * CAN_EVAL
