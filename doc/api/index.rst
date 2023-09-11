@@ -213,28 +213,52 @@ pyxu.operator
 Functionals
 ^^^^^^^^^^^
 
+Norms & Loss Functions
+++++++++++++++++++++++
+
+.. autosummary::
+
+   ~pyxu.operator.KLDivergence
+   ~pyxu.operator.L1Norm
+   ~pyxu.operator.L21Norm
+   ~pyxu.operator.L2Norm
+   ~pyxu.operator.LInfinityNorm
+   ~pyxu.operator.PositiveL1Norm
+   ~pyxu.operator.shift_loss
+   ~pyxu.operator.SquaredL1Norm
+   ~pyxu.operator.SquaredL2Norm
+
+Indicator Functions
++++++++++++++++++++
+
 .. autosummary::
 
    ~pyxu.operator.AffineSet
    ~pyxu.operator.ConvexSetIntersection
    ~pyxu.operator.HyperSlab
-   ~pyxu.operator.KLDivergence
    ~pyxu.operator.L1Ball
-   ~pyxu.operator.L1Norm
-   ~pyxu.operator.L21Norm
    ~pyxu.operator.L2Ball
-   ~pyxu.operator.L2Norm
    ~pyxu.operator.LInfinityBall
-   ~pyxu.operator.LInfinityNorm
-   ~pyxu.operator.PositiveL1Norm
    ~pyxu.operator.PositiveOrthant
    ~pyxu.operator.RangeSet
-   ~pyxu.operator.shift_loss
-   ~pyxu.operator.SquaredL1Norm
-   ~pyxu.operator.SquaredL2Norm
 
 Linear Operators
 ^^^^^^^^^^^^^^^^
+
+Basic Operators
++++++++++++++++
+
+.. autosummary::
+
+   ~pyxu.operator.DiagonalOp
+   ~pyxu.operator.HomothetyOp
+   ~pyxu.operator.IdentityOp
+   ~pyxu.operator.NullFunc
+   ~pyxu.operator.NullOp
+   ~pyxu.operator.Pad
+   ~pyxu.operator.SubSample
+   ~pyxu.operator.Sum
+   ~pyxu.operator.Trim
 
 Transforms
 ++++++++++
@@ -244,8 +268,8 @@ Transforms
    ~pyxu.operator.FFT
    ~pyxu.operator.NUFFT
 
-Filters
-+++++++
+Stencils & Convolutions
++++++++++++++++++++++++
 
 .. autosummary::
 
@@ -253,6 +277,11 @@ Filters
    ~pyxu.operator.Correlate
    ~pyxu.operator.Stencil
    ~pyxu.operator._Stencil
+
+Filters
++++++++
+
+.. autosummary::
 
    ~pyxu.operator.DifferenceOfGaussians
    ~pyxu.operator.DoG
@@ -280,21 +309,6 @@ Derivatives
    ~pyxu.operator.Laplacian
    ~pyxu.operator.PartialDerivative
 
-Other
-+++++
-
-.. autosummary::
-
-   ~pyxu.operator.DiagonalOp
-   ~pyxu.operator.HomothetyOp
-   ~pyxu.operator.IdentityOp
-   ~pyxu.operator.NullFunc
-   ~pyxu.operator.NullOp
-   ~pyxu.operator.Pad
-   ~pyxu.operator.SubSample
-   ~pyxu.operator.Sum
-   ~pyxu.operator.Trim
-
 Tensor Products
 +++++++++++++++
 
@@ -303,8 +317,8 @@ Tensor Products
    ~pyxu.operator.khatri_rao
    ~pyxu.operator.kron
 
-Other
-^^^^^
+Misc
+^^^^
 
 .. autosummary::
 
@@ -411,25 +425,46 @@ pyxu.runtime
 pyxu.util
 ---------
 
+Array Backend-Related
+^^^^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+
+   ~pyxu.util.get_array_module
+   ~pyxu.util.redirect
+
+Complex Number Handling
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+
+   ~pyxu.util.view_as_complex_mat
+   ~pyxu.util.view_as_complex
+   ~pyxu.util.view_as_real_mat
+   ~pyxu.util.view_as_real
+
+Operator-Related
+^^^^^^^^^^^^^^^^
+
 .. autosummary::
 
    ~pyxu.util.as_canonical_shape
+   ~pyxu.util.vectorize
+
+Misc
+^^^^
+
+.. autosummary::
+
    ~pyxu.util.compute
    ~pyxu.util.copy_if_unsafe
-   ~pyxu.util.get_array_module
    ~pyxu.util.import_module
    ~pyxu.util.infer_composition_shape
    ~pyxu.util.infer_sum_shape
    ~pyxu.util.next_fast_len
    ~pyxu.util.parse_params
    ~pyxu.util.read_only
-   ~pyxu.util.redirect
    ~pyxu.util.to_NUMPY
-   ~pyxu.util.vectorize
-   ~pyxu.util.view_as_complex_mat
-   ~pyxu.util.view_as_complex
-   ~pyxu.util.view_as_real_mat
-   ~pyxu.util.view_as_real
 
 .. rubric:: Low-lever Helpers
 
