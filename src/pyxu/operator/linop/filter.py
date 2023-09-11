@@ -80,7 +80,7 @@ def MovingAverage(
     dtype: typ.Optional[pxt.DType] = None,
 ):
     r"""
-    Multidimensional moving average or uniform filter.
+    Multi-dimensional moving average or uniform filter.
 
     Notes
     -----
@@ -194,7 +194,7 @@ def Gaussian(
     dtype: typ.Optional[pxt.DType] = None,
 ):
     r"""
-    Multidimensional Gaussian filter.
+    Multi-dimensional Gaussian filter.
 
     Notes
     -----
@@ -322,7 +322,7 @@ def DifferenceOfGaussians(
     dtype: typ.Optional[pxt.DType] = None,
 ):
     r"""
-    Multidimensional Difference of Gaussians filter.
+    Multi-dimensional Difference of Gaussians filter.
 
     Notes
     -----
@@ -436,7 +436,7 @@ def DifferenceOfGaussians(
     return op
 
 
-DoG = DifferenceOfGaussians
+DoG = DifferenceOfGaussians  #: Alias of :py:func:`~pyxu.operator.DifferenceOfGaussians`.
 
 
 def Laplace(
@@ -447,11 +447,12 @@ def Laplace(
     dtype: typ.Optional[pxt.DType] = None,
 ):
     r"""
-    Multidimensional Laplace filter based on second derivatives approximated via finite differences.
+    Multi-dimensional Laplace filter.
+
+    The implementation is based on second derivatives approximated via finite differences.
 
     Notes
     -----
-
     This operator uses the applies the Laplace kernel :math:`[1 -2 1]` to a :math:`D`-dimensional NDArray
     :math:`\mathbf{x} \in \mathbb{R}^{N_0 \times \cdots \times N_{D-1}}` using separable kernels for improved
     performance.  The Laplace filter is commonly used to find high-frequency components in the signal, such as for
@@ -540,7 +541,7 @@ def Sobel(
     dtype: typ.Optional[pxt.DType] = None,
 ):
     r"""
-    Multidimensional Sobel filter.
+    Multi-dimensional Sobel filter.
 
     Notes
     -----
@@ -638,7 +639,7 @@ def Prewitt(
     dtype: typ.Optional[pxt.DType] = None,
 ):
     r"""
-    Multidimensional Prewitt filter.
+    Multi-dimensional Prewitt filter.
 
     Notes
     -----
@@ -736,7 +737,7 @@ def Scharr(
     dtype: typ.Optional[pxt.DType] = None,
 ):
     r"""
-    Multidimensional Scharr filter.
+    Multi-dimensional Scharr filter.
 
     Notes
     -----

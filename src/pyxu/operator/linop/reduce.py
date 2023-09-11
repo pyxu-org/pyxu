@@ -20,7 +20,7 @@ def Sum(
     r"""
     Multi-dimensional sum reduction.
 
-    This operator re-arranges the input array to a multidimensional array of shape `arg_shape`, then reduces it via
+    This operator re-arranges the input array to a multi-dimensional array of shape `arg_shape`, then reduces it via
     summation across one or more `axis`.
 
     For example, assuming the input array :math:`\mathbf{x} \in \mathbb{R}^{N_1 \times N_2 \times N_3}` and ``axis=-1``,

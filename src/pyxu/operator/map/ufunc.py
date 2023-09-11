@@ -921,7 +921,7 @@ class _SoftPlus(pxa.DiffMap):
 
 def softplus(op: pxt.OpT) -> pxt.OpT:
     r"""
-    Softplus, element-wise.
+    Softplus operator.
 
     Notes
     -----
@@ -1048,7 +1048,7 @@ class _SoftMax(pxa.DiffMap):
 
 def softmax(op: pxt.OpT) -> pxt.OpT:
     r"""
-    Softmax, element-wise.
+    Softmax operator.
 
     Notes
     -----

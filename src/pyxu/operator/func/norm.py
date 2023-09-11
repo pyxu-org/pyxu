@@ -295,7 +295,7 @@ class LInfinityNorm(_ShiftLossMixin, pxa.ProxFunc):
 class L21Norm(_ShiftLossMixin, pxa.ProxFunc):
     r"""
     Mixed :math:`\ell_{2}-\ell_{1}` norm, :math:`\Vert\mathbf{x}\Vert_{2, 1} := \sum_{i=1}^{N} \sqrt{\sum_{j=1}^{M}
-    x_{i, j}^{2}}`, for arrays of dimension :math:`\geq 2`.
+    x_{i, j}^{2}}`.
 
     Note
     ----

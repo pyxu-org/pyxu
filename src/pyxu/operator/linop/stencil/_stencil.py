@@ -61,7 +61,7 @@ def _signature(params, returns) -> str:
 
 class _Stencil:
     """
-    Multi-dimensional JIT-compiled stencil.
+    Multi-dimensional JIT-compiled stencil. (Low-level function.)
 
     This low-level class creates a gu-vectorized stencil applicable on multiple inputs simultaneously.
 

@@ -14,7 +14,11 @@ def shift_loss(
     data: pxt.NDArray = None,
 ) -> pxt.OpT:
     r"""
-    Shift a functional :math:`f(x)` to a loss functional :math:`g(x) = f(x - c)`.
+    Shift a functional :math:`f(x)` to a loss functional.
+
+    .. math::
+
+       g(x; c) = f(x - c)
 
     Parameters
     ----------

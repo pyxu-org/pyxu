@@ -15,7 +15,8 @@ __all__ = [
 
 def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
     r"""
-    Kronecker product :math:`A \otimes B` between two linear operators.
+    `Kronecker product <https://en.wikipedia.org/wiki/Kronecker_product#Definition>`_ :math:`A \otimes B` between two
+    linear operators.
 
     The Kronecker product :math:`A \otimes B` is defined as
 
@@ -238,7 +239,9 @@ def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
 
 def khatri_rao(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
     r"""
-    Column-wise Khatri-Rao product :math:`A \circ B` between two linear operators.
+    `Column-wise Khatri-Rao product
+    <https://en.wikipedia.org/wiki/Khatri%E2%80%93Rao_product#Column-wise_Kronecker_product>`_ :math:`A \circ B` between
+    two linear operators.
 
     The Khatri-Rao product :math:`A \circ B` is defined as
 

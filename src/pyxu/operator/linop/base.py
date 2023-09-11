@@ -22,6 +22,10 @@ __all__ = [
 
 
 class IdentityOp(pxa.OrthProjOp):
+    """
+    Identity operator.
+    """
+
     def __init__(self, dim: pxt.Integer):
         super().__init__(shape=(dim, dim))
         self.lipschitz = 1
@@ -214,7 +218,7 @@ def DiagonalOp(
     enable_warnings: bool = True,
 ) -> pxt.OpT:
     r"""
-    Diagonal linear operator :math:`\mathbf{D}: \mathbf{x} \to \text{diag}(\mathbf{v}) \mathbf{x}`.
+    Element-wise scaling operator.
 
     Note
     ----

@@ -17,7 +17,9 @@ __all__ = [
 class FFT(pxa.LinOp):  # Inherits from LinOp instead of NormalOp since operator not square if `real=True`.
     r"""
     Multi-dimensional Discrete Fourier Transform (DFT) :math:`A: \mathbb{C}^{N_{1} \times \cdots \times N_{D}} \to
-    \mathbb{C}^{N_{1} \times \cdots \times N_{D}}`:
+    \mathbb{C}^{N_{1} \times \cdots \times N_{D}}`.
+
+    The FFT is defined as follows:
 
     .. math::
 
