@@ -67,7 +67,7 @@ def _load_entry_points(glob, group, names=None):
                     if names is not None:
                         names.append(name)
                     warnings.warn(f"Plugin `{name}` loaded, use with caution.", pxw.ContributionWarning)
-    except:
-        pass
+    except Exception as exc:
+        warnings.warn(f"Failed to load plugin `{name}`: {exc}.", pxw.ContributionWarning)
 
     return names
