@@ -430,8 +430,10 @@ Array Backend-Related
 
 .. autosummary::
 
+   ~pyxu.util.compute
    ~pyxu.util.get_array_module
    ~pyxu.util.redirect
+   ~pyxu.util.to_NUMPY
 
 Complex Number Handling
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -456,7 +458,6 @@ Misc
 
 .. autosummary::
 
-   ~pyxu.util.compute
    ~pyxu.util.copy_if_unsafe
    ~pyxu.util.import_module
    ~pyxu.util.infer_composition_shape
@@ -464,7 +465,6 @@ Misc
    ~pyxu.util.next_fast_len
    ~pyxu.util.parse_params
    ~pyxu.util.read_only
-   ~pyxu.util.to_NUMPY
 
 .. rubric:: Low-lever Helpers
 

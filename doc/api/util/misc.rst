@@ -1,8 +1,6 @@
 pyxu.util.misc
 ==============
 
-.. autofunction:: pyxu.util.compute
-
 .. autofunction:: pyxu.util.copy_if_unsafe
 
 .. autofunction:: pyxu.util.import_module
@@ -16,8 +14,6 @@ pyxu.util.misc
 .. autofunction:: pyxu.util.parse_params
 
 .. autofunction:: pyxu.util.read_only
-
-.. autofunction:: pyxu.util.to_NUMPY
 
 .. autofunction:: pyxu.util.misc.peaks
 
