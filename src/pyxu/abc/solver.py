@@ -367,7 +367,7 @@ class Solver:
         -------
         data: ~collections.abc.Mapping
             Value(s) of ``log_var`` (s) after last iteration.
-        history: numpy.ndarray, :py:obj:`None`
+        history: numpy.ndarray, None
             (N_iter,) records of stopping-criteria values per iteration.
 
         Notes

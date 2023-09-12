@@ -896,16 +896,16 @@ def ChambollePock(
 
     Parameters
     ----------
-    g: :py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`
+    g: :py:class:`~pyxu.abc.ProxFunc`, None
         Proximable function :math:`\mathcal{G}`.
-    h: :py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`
+    h: :py:class:`~pyxu.abc.ProxFunc`, None
         Proximable function :math:`\mathcal{H}`.
-    K: :py:class:`~pyxu.abc.DiffMap`, :py:class:`~pyxu.abc.LinOp`, :py:obj:`None`
+    K: :py:class:`~pyxu.abc.DiffMap`, :py:class:`~pyxu.abc.LinOp`, None
         Differentiable map or linear operator :math:`\mathcal{K}`.
     base: :py:class:`~pyxu.opt.solver.CondatVu`, :py:class:`~pyxu.opt.solver.PD3O`
         Specifies the base primal-dual algorithm.
         (Default = :py:class:`~pyxu.opt.solver.CondatVu`)
-    \*\*kwargs: :py:class:`~collections.abc.Mapping`
+    \*\*kwargs: ~collections.abc.Mapping
         Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
 
@@ -1265,14 +1265,14 @@ def DouglasRachford(
 
     Parameters
     ----------
-    g: :py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`
+    g: :py:class:`~pyxu.abc.ProxFunc`, None
         Proximable function :math:`\mathcal{G}`.
-    h: :py:class:`~pyxu.abc.ProxFunc`, :py:obj:`None`
+    h: :py:class:`~pyxu.abc.ProxFunc`, None
         Proximable function :math:`\mathcal{H}`.
     base: :py:class:`~pyxu.opt.solver.CondatVu`, :py:class:`~pyxu.opt.solver.PD3O`
         Specifies the base primal-dual algorithm.
         (Default = :py:class:`~pyxu.opt.solver.CondatVu`)
-    \*\*kwargs: :py:class:`~collections.abc.Mapping`
+    \*\*kwargs: ~collections.abc.Mapping
         Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
 
@@ -1837,7 +1837,7 @@ def ProximalPoint(
     base: :py:class:`~pyxu.opt.solver.CondatVu`, :py:class:`~pyxu.opt.solver.PD3O`
         Specifies the base primal-dual algorithm from which mathematical updates are inherited.
         (Default = :py:class:`~pyxu.opt.solver.CondatVu`)
-    \*\*kwargs: :py:class:`~collections.abc.Mapping`
+    \*\*kwargs: ~collections.abc.Mapping
         Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
 
 

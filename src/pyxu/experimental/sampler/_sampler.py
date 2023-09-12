@@ -434,9 +434,9 @@ class MYULA(ULA):
         r"""
         Parameters
         ----------
-        f: :py:class:`~pyxu.abc.DiffFunc` | None
+        f: :py:class:`~pyxu.abc.DiffFunc`, None
             Differentiable functional.
-        g: :py:class:`~pyxu.abc.ProxFunc` | None
+        g: :py:class:`~pyxu.abc.ProxFunc`, None
             Proximable functional.
         gamma: Real
             Euler-Maruyama discretization step of the Langevin equation (see `Notes` of

@@ -48,14 +48,14 @@ def ES_kernel(z: pxt.NDArray, beta: pxt.Real) -> pxt.NDArray:
 
     Parameters
     ----------
-    z: pxt.NDArray
+    z: NDArray
         (N,) evaluation points
-    beta: pxt.Real
+    beta: Real
         cutoff-frequency
 
     Returns
     -------
-    phi: pxt.NDArray
+    phi: NDArray
         (N,) kernel values at evaluation points.
 
     Notes
@@ -336,7 +336,7 @@ class NUFFT(pxa.LinOp):
         ----------
         x: NDArray
             (M, [d]) d-dimensional sample points :math:`\mathbf{x}_{j} \in [-\pi,\pi)^{d}`.
-        N: Integer, :py:class:`tuple` ( Integer )
+        N: Integer, :py:class:`tuple` ( :py:attr:`~pyxu.info.ptype.Integer` )
             ([d],) mesh size in each dimension :math:`(N_1, \ldots, N_d)`.
 
             If `N` is an integer, then the mesh is assumed to have the same size in each dimension.
@@ -434,7 +434,7 @@ class NUFFT(pxa.LinOp):
         ----------
         x: NDArray
             (M, [d]) d-dimensional sample points :math:`\mathbf{x}_{j} \in [-\pi,\pi]^{d}`.
-        N: Integer, :py:class:`tuple` ( Integer )
+        N: Integer, :py:class:`tuple` ( :py:attr:`~pyxu.info.ptype.Integer` )
             ([d],) mesh size in each dimension :math:`(N_1, \ldots, N_d)`.
 
             If `N` is an integer, then the mesh is assumed to have the same size in each dimension.
