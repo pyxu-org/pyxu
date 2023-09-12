@@ -1,0 +1,41 @@
+# Guidelines -- https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-nitpick_ignore_regex
+# See also -- ./conf.py:load_nitpick_ignore()
+
+# Broken CPython references
+py:class module
+
+# Sphinx does not understand sub-scripted containers
+py:class list\[.+\]
+
+# numpy.typing-related
+py:class numpy\._typing\._dtype_like\._DTypeDict
+py:class numpy\._typing\._dtype_like\._SupportsDType
+
+# Pyxu-related ====================================================================================
+# Private/Protected Pyxu references
+py:class pyxu\.operator\.blocks\._COOBlock
+py:class pyxu\.operator\.func\.indicator\._IndicatorFunction
+py:class pyxu\.operator\.func\.norm\._ShiftLossMixin
+py:class pyxu\.opt\.solver\.pds\._PrimalDualSplitting
+py:class pyxu\.abc\.Operator\._expr
+
+# pyxu.operator.linop.diff: special [un]ravel() methods.
+# [Cannot be referenced since dynamically generated.]
+py:meth pyxu\.operator\.PartialDerivative\.(un)?ravel
+py:meth pyxu\.operator\.Gradient\.(un)?ravel
+py:meth pyxu\.operator\.Jacobian\.(un)?ravel
+py:meth pyxu\.operator\.Divergence\.(un)?ravel
+py:meth pyxu\.operator\.Hessian\.(un)?ravel
+py:meth pyxu\.operator\.Laplacian\.(un)?ravel
+py:meth pyxu\.operator\.DirectionalDerivative\.(un)?ravel
+py:meth pyxu\.operator\.DirectionalGradient\.(un)?ravel
+py:meth pyxu\.operator\.DirectionalLaplacian\.(un)?ravel
+py:meth pyxu\.operator\.DirectionalHessian\.(un)?ravel
+
+# experimental.sampler.<sub-modules...>.<anything starting with '_'>
+py:class pyxu\.experimental\.sampler\..*\._.*
+
+# pyxu.info.ptype: special type-checker aliases.
+# [Not understood by Sphinx: for type-checkers only.]
+py:class pxs.Solver
+py:class pxs.SolverMode

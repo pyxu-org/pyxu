@@ -15,9 +15,7 @@ import re
 
 
 def setup_config() -> configparser.ConfigParser:
-    """
-    Load information contained in `setup.cfg`.
-    """
+    # Load information contained in `setup.cfg`.
     sphinx_src_dir = plib.Path(__file__).parent
     setup_path = sphinx_src_dir / ".." / "setup.cfg"
     setup_path = setup_path.resolve(strict=True)
@@ -29,9 +27,7 @@ def setup_config() -> configparser.ConfigParser:
 
 
 def pkg_info() -> cabc.Mapping:
-    """
-    Load information contained in `PKG-INFO`.
-    """
+    # Load information contained in `PKG-INFO`.
     sphinx_src_dir = plib.Path(__file__).parent
     info_path = sphinx_src_dir / ".." / "src" / "pyxu.egg-info" / "PKG-INFO"
     info_path = info_path.resolve(strict=True)
@@ -45,6 +41,20 @@ def pkg_info() -> cabc.Mapping:
             if (m := re.match(pat_version, line)) is not None:
                 info["version"] = m.group(1)
     return info
+
+
+def load_nitpick_ignore() -> list:
+    # Load references to be ignored by `nitpick`.
+    sphinx_src_dir = plib.Path(__file__).parent
+    f_path = sphinx_src_dir / "nitpick-exceptions"
+
+    data = set()
+    for line in open(f_path, mode="r"):
+        if line.strip() == "" or line.startswith("#"):
+            continue
+        dtype, target = line.split(None, 1)
+        data.add((dtype, target.strip()))
+    return list(data)
 
 
 # -- Project information -----------------------------------------------------
@@ -85,6 +95,7 @@ exclude_patterns = [
 templates_path = ["_templates"]
 
 nitpicky = True
+nitpick_ignore_regex = load_nitpick_ignore()
 add_module_names = False
 maximum_signature_line_length = 140
 language = "en"
