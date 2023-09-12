@@ -489,6 +489,6 @@ Misc
    opt.stop
    runtime
    math
-   util
+   util/index
    experimental.sampler
    ../references
