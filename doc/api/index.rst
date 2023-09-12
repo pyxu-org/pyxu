@@ -483,7 +483,7 @@ Misc
    info.deps
    info.ptype
    info.warning
-   operator
+   operator/index
    operator.interop
    opt.solver
    opt.stop
