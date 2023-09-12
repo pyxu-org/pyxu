@@ -1,15 +1,14 @@
 Pyxu Score Explained
 ====================
 
-The **Pyxu Score** is a quantitative measure we use to rank and evaluate Pyxu plugins. The score takes into account
-multiple criteria, ensuring you get a holistic understanding of a plugin's standing. Here's a breakdown:
+The **Pyxu Score** is a quantitative measure we use to rank and evaluate `Pyxu plugins <./plugins/index.html>`_. The score
+takes into account multiple criteria, ensuring you get a holistic understanding of a plugin's standing. Here's a breakdown:
 
-The Pyxu Score is calculated using the following criteria:
-
-1. **Version Matching**: If a plugin's version matches the latest Pyxu version, it gets a point.
-2. **Pyxu Principles Adherence**: Plugins abiding by key Pyxu principles, namely:
+1. **Version Matching**: If a plugin's version matches the latest Pyxu version, and the latest Python version it gets a point.
+2. **Pyxu Principles Adherence**: Plugins abiding by key `Pyxu principles <./dev_notes.html>`_, namely:
 
    * Input shape agnosticity (i.e., support for NDArrays),
+
    * Complete backend-agnosticity (i.e., support for Numpy, Cupy and Dask arrays),
    * Precision management (i.e., allow selection between computation at both single and double precision)
 
@@ -17,11 +16,12 @@ The Pyxu Score is calculated using the following criteria:
 
 3. **Development Stage Weight**:
 
-   * **Early stages** (Planning 📑, Pre-Alpha 🌒, Alpha 🌓) contribute 0.5 points.
-   * **Advanced stages** (Beta 🌔, Production/Stable ✔️, Mature 🌟) contribute 1 point.
-   * **Inactive 🚫** plugins do not recieive a score.
+   * **Early stages** (Planning, Pre-Alpha, Alpha) contribute 0.5 points.
+   * **Advanced stages** (Beta, Production/Stable, Mature) contribute 1 point.
+   * **Inactive** plugins do not recieive a score.
+   See `the PyPI classifiers <https://pypi.org/classifiers/>`_ for more information on the development stages.
 
-4. **Downloads ⬇️**: Plugins get points based on the number of downloads in the last month, up to a maximum of 1 point
+4. **Downloads ⬇**: Plugins get points based on the number of downloads in the last month, up to a maximum of 1 point
    for 1000 downloads.
 
 The final score is then normalized by the number of criteria used (6 in this case) and presented as a percentage.
@@ -37,8 +37,8 @@ Users are encouraged to explore plugins individually and consider other factors 
 Your insights matter! If you're a developer with ideas on how we can further refine the Pyxu Score, we'd love to hear
 from you. 💡
 
-We invite you to **open an issue** suggesting novel metrics or criteria that, in your opinion, would better represent
-the value and quality of Pyxu plugins. By contributing your thoughts, you play an integral role in refining and shaping
-the Pyxu community's standards.
+We invite you to `**open an issue** <https://github.com/matthieumeo/pyxu/issues>`_ suggesting novel metrics or criteria
+that, in your opinion, would better represent the value and quality of Pyxu plugins. By contributing your thoughts, you
+play an integral role in refining and shaping the Pyxu community's standards.
 
 Together, let's make the Pyxu Score the best reflection of plugin excellence! 🌟
