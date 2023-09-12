@@ -1,3 +1,4 @@
+from pyxu.info.plugin import _load_entry_points
 from pyxu.operator.blocks import *
 from pyxu.operator.func.indicator import *
 from pyxu.operator.func.loss import *
@@ -16,7 +17,5 @@ from pyxu.operator.linop.stencil._stencil import _Stencil
 from pyxu.operator.linop.stencil.stencil import *
 from pyxu.operator.map.base import *
 from pyxu.operator.map.ufunc import *
-
-from pyxu.info.plugin import _load_entry_points
 
 _load_entry_points(globals(), group="pyxu.operator")
