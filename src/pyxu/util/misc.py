@@ -3,14 +3,12 @@ import importlib
 import inspect
 import types
 
-import dask
 import numpy as np
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 
 __all__ = [
-    "compute",
     "copy_if_unsafe",
     "import_module",
     "infer_composition_shape",
@@ -18,7 +16,6 @@ __all__ = [
     "next_fast_len",
     "parse_params",
     "read_only",
-    "to_NUMPY",
 ]
 
 
@@ -181,69 +178,6 @@ def import_module(name: str, fail_on_error: bool = True) -> types.ModuleType:
         else:
             pkg = None
     return pkg
-
-
-def compute(*args, mode: str = "compute", **kwargs):
-    r"""
-    Force computation of Dask collections.
-
-    Parameters
-    ----------
-    \*args: object, list
-        Any number of objects.  If it is a dask object, it is evaluated and the result is returned.  Non-dask arguments
-        are passed through unchanged.  Python collections are traversed to find/evaluate dask objects within.  (Use
-        `traverse` =False to disable this behavior.)
-    mode: str
-        Dask evaluation strategy: compute or persist.
-    \*\*kwargs: dict
-        Extra keyword parameters forwarded to :py:func:`dask.compute` or :py:func:`dask.persist`.
-
-    Returns
-    -------
-    \*cargs: object, list
-        Evaluated objects. Non-dask arguments are passed through unchanged.
-    """
-    try:
-        func = dict(compute=dask.compute, persist=dask.persist)[mode.lower()]
-    except Exception:
-        raise ValueError(f"mode: expected compute/persist, got {mode}.")
-
-    cargs = func(*args, **kwargs)
-    if len(args) == 1:
-        cargs = cargs[0]
-    return cargs
-
-
-def to_NUMPY(x: pxt.NDArray) -> pxt.NDArray:
-    """
-    Convert an array from a specific backend to NUMPY.
-
-    Parameters
-    ----------
-    x: NDArray
-        Array to be converted.
-
-    Returns
-    -------
-    y: NDArray
-        Array with NumPy backend.
-
-    Notes
-    -----
-    This function is a no-op if the array is already a NumPy array.
-    """
-    N = pxd.NDArrayInfo
-    ndi = N.from_obj(x)
-    if ndi == N.NUMPY:
-        y = x
-    elif ndi == N.DASK:
-        y = compute(x)
-    elif ndi == N.CUPY:
-        y = x.get()
-    else:
-        msg = f"Dev-action required: define behaviour for {ndi}."
-        raise ValueError(msg)
-    return y
 
 
 def copy_if_unsafe(x: pxt.NDArray) -> pxt.NDArray:
