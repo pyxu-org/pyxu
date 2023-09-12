@@ -16,3 +16,4 @@ essential aspects of the library, helping you harness its full power for your re
    algorithms.ipynb
    lipschitz.ipynb
    hpc.ipynb
+   diff_ops.ipynb
