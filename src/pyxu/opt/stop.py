@@ -20,7 +20,7 @@ __all__ = [
     "RelError",
 ]
 
-__all__ = _load_entry_points(globals(), group="pyxu.stop", names=__all__)
+__all__ = _load_entry_points(globals(), group="pyxu.opt.stop", names=__all__)
 
 SVFunction = typ.Union[
     cabc.Callable[[pxt.Real], pxt.Real],
