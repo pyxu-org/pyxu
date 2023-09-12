@@ -1,45 +1,6 @@
-pyxu.abc
-========
+pyxu.abc.operator
+=================
 
-.. Solver-Related -------------------------------------------------------------
-.. autoclass:: pyxu.abc.Solver
-
-   .. autoattribute:: _mstate
-
-   .. autoattribute:: _astate
-
-.. autoclass:: pyxu.abc.SolverMode
-
-.. autoclass:: pyxu.abc.StoppingCriterion
-
-
-.. Arithmetic Rules -----------------------------------------------------------
-.. autoclass:: pyxu.abc.arithmetic.Rule
-   :members: op
-   :no-members:
-
-.. autoclass:: pyxu.abc.arithmetic.ScaleRule
-   :no-members:
-
-.. autoclass:: pyxu.abc.arithmetic.ArgScaleRule
-   :no-members:
-
-.. autoclass:: pyxu.abc.arithmetic.ArgShiftRule
-   :no-members:
-
-.. autoclass:: pyxu.abc.arithmetic.AddRule
-   :no-members:
-
-.. autoclass:: pyxu.abc.arithmetic.ChainRule
-   :no-members:
-
-.. autoclass:: pyxu.abc.arithmetic.PowerRule
-   :no-members:
-
-.. autoclass:: pyxu.abc.arithmetic.TransposeRule
-   :no-members:
-
-.. Operator-Related -----------------------------------------------------------
 .. autoclass:: pyxu.abc.Property
 
 .. autoclass:: pyxu.abc.Operator
