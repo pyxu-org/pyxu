@@ -11,6 +11,7 @@ import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
+from pyxu.info.plugin import _load_entry_points
 
 __all__ = [
     "stack",
@@ -20,6 +21,8 @@ __all__ = [
     "block",
     "coo_block",
 ]
+
+__all__ = _load_entry_points(globals(), group="pyxu.opt.blocks", names=__all__)
 
 # Arithmetic methods/attributes of [hstack, vstack, block_diag, coo_block]() are very similar. To avoid excessive
 # copy/paste-ing the same implementation everywhere, these functions piggy-back on _COOBlock() for most computations.
