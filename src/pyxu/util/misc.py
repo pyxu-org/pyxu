@@ -3,27 +3,23 @@ import importlib
 import inspect
 import types
 
+import dask
+import numpy as np
+
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 
 __all__ = [
-    "as_canonical_shape",
+    "compute",
+    "copy_if_unsafe",
     "import_module",
+    "infer_composition_shape",
+    "infer_sum_shape",
     "next_fast_len",
     "parse_params",
+    "read_only",
+    "to_NUMPY",
 ]
-
-
-def as_canonical_shape(x: pxt.NDArrayShape) -> pxt.NDArrayShape:
-    """
-    Transform a lone integer into a valid tuple-based shape specifier.
-    """
-    if isinstance(x, cabc.Iterable):
-        x = tuple(x)
-    else:
-        x = (x,)
-    sh = tuple(map(int, x))
-    return sh
 
 
 def next_fast_len(N: pxt.Integer, even: bool = False) -> pxt.Integer:
@@ -185,3 +181,153 @@ def import_module(name: str, fail_on_error: bool = True) -> types.ModuleType:
         else:
             pkg = None
     return pkg
+
+
+def compute(*args, mode: str = "compute", **kwargs):
+    r"""
+    Force computation of Dask collections.
+
+    Parameters
+    ----------
+    \*args: object, list
+        Any number of objects.  If it is a dask object, it is evaluated and the result is returned.  Non-dask arguments
+        are passed through unchanged.  Python collections are traversed to find/evaluate dask objects within.  (Use
+        `traverse` =False to disable this behavior.)
+    mode: str
+        Dask evaluation strategy: compute or persist.
+    \*\*kwargs: dict
+        Extra keyword parameters forwarded to :py:func:`dask.compute` or :py:func:`dask.persist`.
+
+    Returns
+    -------
+    \*cargs: object, list
+        Evaluated objects. Non-dask arguments are passed through unchanged.
+    """
+    try:
+        func = dict(compute=dask.compute, persist=dask.persist)[mode.lower()]
+    except Exception:
+        raise ValueError(f"mode: expected compute/persist, got {mode}.")
+
+    cargs = func(*args, **kwargs)
+    if len(args) == 1:
+        cargs = cargs[0]
+    return cargs
+
+
+def to_NUMPY(x: pxt.NDArray) -> pxt.NDArray:
+    """
+    Convert an array from a specific backend to NUMPY.
+
+    Parameters
+    ----------
+    x: NDArray
+        Array to be converted.
+
+    Returns
+    -------
+    y: NDArray
+        Array with NumPy backend.
+
+    Notes
+    -----
+    This function is a no-op if the array is already a NumPy array.
+    """
+    N = pxd.NDArrayInfo
+    ndi = N.from_obj(x)
+    if ndi == N.NUMPY:
+        y = x
+    elif ndi == N.DASK:
+        y = compute(x)
+    elif ndi == N.CUPY:
+        y = x.get()
+    else:
+        msg = f"Dev-action required: define behaviour for {ndi}."
+        raise ValueError(msg)
+    return y
+
+
+def copy_if_unsafe(x: pxt.NDArray) -> pxt.NDArray:
+    """
+    Copy array if it is unsafe to do in-place updates on it.
+
+    In-place updates are unsafe if:
+
+    * the array is read-only, OR
+    * the array is a view onto another array.
+
+    Parameters
+    ----------
+    x: NDArray
+
+    Returns
+    -------
+    y: NDArray
+    """
+    N = pxd.NDArrayInfo
+    ndi = N.from_obj(x)
+    if ndi == N.DASK:
+        # Dask operations span a graph -> always safe.
+        y = x
+    elif ndi == N.NUMPY:
+        read_only = not x.flags.writeable
+        reference = not x.flags.owndata
+        y = x.copy() if (read_only or reference) else x
+    elif ndi == N.CUPY:
+        read_only = False  # https://github.com/cupy/cupy/issues/2616
+        reference = not x.flags.owndata
+        y = x.copy() if (read_only or reference) else x
+    else:
+        msg = f"copy_if_unsafe() not yet defined for {ndi}."
+        raise NotImplementedError(msg)
+    return y
+
+
+def read_only(x: pxt.NDArray) -> pxt.NDArray:
+    """
+    Make an array read-only.
+
+    Parameters
+    ----------
+    x: NDArray
+
+    Returns
+    -------
+    y: NDArray
+    """
+    N = pxd.NDArrayInfo
+    ndi = N.from_obj(x)
+    if ndi == N.DASK:
+        # Dask operations are read-only since graph-backed.
+        y = x
+    elif ndi == N.NUMPY:
+        y = x.view()
+        y.flags.writeable = False
+    elif ndi == N.CUPY:
+        y = x.view()
+        # y.flags.writeable = False  # https://github.com/cupy/cupy/issues/2616
+    else:
+        msg = f"read_only() not yet defined for {ndi}."
+        raise NotImplementedError(msg)
+    return y
+
+
+def infer_sum_shape(sh1: pxt.OpShape, sh2: pxt.OpShape) -> pxt.OpShape:
+    r"""
+    Infer shape of arithmetic operation :math:`A + B`.
+    """
+    A, B, C, D = *sh1, *sh2
+    if B == D:
+        return np.broadcast_shapes((A,), (C,)) + (B,)
+    else:
+        raise ValueError(f"Addition of {sh1} and {sh2} operators forbidden.")
+
+
+def infer_composition_shape(sh1: pxt.OpShape, sh2: pxt.OpShape) -> pxt.OpShape:
+    r"""
+    Infer shape of arithmetic operation :math:`A \circ B`.
+    """
+    A, B, C, D = *sh1, *sh2
+    if B == C:
+        return (A, D)
+    else:
+        raise ValueError(f"Composition of {sh1} and {sh2} operators forbidden.")

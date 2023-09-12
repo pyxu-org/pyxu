@@ -4,7 +4,6 @@ import inspect
 
 import dask
 import dask.graph_manipulation as dgm
-import numpy as np
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
@@ -12,32 +11,21 @@ import pyxu.util.array_module as pxa
 import pyxu.util.misc as pxm
 
 __all__ = [
-    "infer_composition_shape",
-    "infer_sum_shape",
+    "as_canonical_shape",
     "vectorize",
 ]
 
 
-def infer_sum_shape(sh1: pxt.OpShape, sh2: pxt.OpShape) -> pxt.OpShape:
-    r"""
-    Infer shape of arithmetic operation :math:`A + B`.
+def as_canonical_shape(x: pxt.NDArrayShape) -> pxt.NDArrayShape:
     """
-    A, B, C, D = *sh1, *sh2
-    if B == D:
-        return np.broadcast_shapes((A,), (C,)) + (B,)
-    else:
-        raise ValueError(f"Addition of {sh1} and {sh2} operators forbidden.")
-
-
-def infer_composition_shape(sh1: pxt.OpShape, sh2: pxt.OpShape) -> pxt.OpShape:
-    r"""
-    Infer shape of arithmetic operation :math:`A \circ B`.
+    Transform a lone integer into a valid tuple-based shape specifier.
     """
-    A, B, C, D = *sh1, *sh2
-    if B == C:
-        return (A, D)
+    if isinstance(x, cabc.Iterable):
+        x = tuple(x)
     else:
-        raise ValueError(f"Composition of {sh1} and {sh2} operators forbidden.")
+        x = (x,)
+    sh = tuple(map(int, x))
+    return sh
 
 
 def vectorize(

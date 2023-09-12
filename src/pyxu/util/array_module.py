@@ -1,19 +1,13 @@
 import collections.abc as cabc
 import functools
 
-import dask
-
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.util.misc as pxm
 
 __all__ = [
-    "compute",
-    "copy_if_unsafe",
     "get_array_module",
-    "read_only",
     "redirect",
-    "to_NUMPY",
 ]
 
 
@@ -46,69 +40,6 @@ def get_array_module(x, fallback: pxt.ArrayModule = None) -> pxt.ArrayModule:
         return fallback
     else:
         raise ValueError(f"Could not infer array module for {type(x)}.")
-
-
-def compute(*args, mode: str = "compute", **kwargs):
-    r"""
-    Force computation of Dask collections.
-
-    Parameters
-    ----------
-    \*args: object, list
-        Any number of objects.  If it is a dask object, it is evaluated and the result is returned.  Non-dask arguments
-        are passed through unchanged.  Python collections are traversed to find/evaluate dask objects within.  (Use
-        `traverse` =False to disable this behavior.)
-    mode: str
-        Dask evaluation strategy: compute or persist.
-    \*\*kwargs: dict
-        Extra keyword parameters forwarded to :py:func:`dask.compute` or :py:func:`dask.persist`.
-
-    Returns
-    -------
-    \*cargs: object, list
-        Evaluated objects. Non-dask arguments are passed through unchanged.
-    """
-    try:
-        func = dict(compute=dask.compute, persist=dask.persist)[mode.lower()]
-    except Exception:
-        raise ValueError(f"mode: expected compute/persist, got {mode}.")
-
-    cargs = func(*args, **kwargs)
-    if len(args) == 1:
-        cargs = cargs[0]
-    return cargs
-
-
-def to_NUMPY(x: pxt.NDArray) -> pxt.NDArray:
-    """
-    Convert an array from a specific backend to NUMPY.
-
-    Parameters
-    ----------
-    x: NDArray
-        Array to be converted.
-
-    Returns
-    -------
-    y: NDArray
-        Array with NumPy backend.
-
-    Notes
-    -----
-    This function is a no-op if the array is already a NumPy array.
-    """
-    N = pxd.NDArrayInfo
-    ndi = N.from_obj(x)
-    if ndi == N.NUMPY:
-        y = x
-    elif ndi == N.DASK:
-        y = compute(x)
-    elif ndi == N.CUPY:
-        y = x.get()
-    else:
-        msg = f"Dev-action required: define behaviour for {ndi}."
-        raise ValueError(msg)
-    return y
 
 
 def redirect(
@@ -183,68 +114,3 @@ def redirect(
         return wrapper
 
     return decorator
-
-
-def copy_if_unsafe(x: pxt.NDArray) -> pxt.NDArray:
-    """
-    Copy array if it is unsafe to do in-place updates on it.
-
-    In-place updates are unsafe if:
-
-    * the array is read-only, OR
-    * the array is a view onto another array.
-
-    Parameters
-    ----------
-    x: NDArray
-
-    Returns
-    -------
-    y: NDArray
-    """
-    N = pxd.NDArrayInfo
-    ndi = N.from_obj(x)
-    if ndi == N.DASK:
-        # Dask operations span a graph -> always safe.
-        y = x
-    elif ndi == N.NUMPY:
-        read_only = not x.flags.writeable
-        reference = not x.flags.owndata
-        y = x.copy() if (read_only or reference) else x
-    elif ndi == N.CUPY:
-        read_only = False  # https://github.com/cupy/cupy/issues/2616
-        reference = not x.flags.owndata
-        y = x.copy() if (read_only or reference) else x
-    else:
-        msg = f"copy_if_unsafe() not yet defined for {ndi}."
-        raise NotImplementedError(msg)
-    return y
-
-
-def read_only(x: pxt.NDArray) -> pxt.NDArray:
-    """
-    Make an array read-only.
-
-    Parameters
-    ----------
-    x: NDArray
-
-    Returns
-    -------
-    y: NDArray
-    """
-    N = pxd.NDArrayInfo
-    ndi = N.from_obj(x)
-    if ndi == N.DASK:
-        # Dask operations are read-only since graph-backed.
-        y = x
-    elif ndi == N.NUMPY:
-        y = x.view()
-        y.flags.writeable = False
-    elif ndi == N.CUPY:
-        y = x.view()
-        # y.flags.writeable = False  # https://github.com/cupy/cupy/issues/2616
-    else:
-        msg = f"read_only() not yet defined for {ndi}."
-        raise NotImplementedError(msg)
-    return y
