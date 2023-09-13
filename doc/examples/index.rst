@@ -11,3 +11,4 @@ Example Gallery
    :hidden:
 
    Stencils
+   contributing
