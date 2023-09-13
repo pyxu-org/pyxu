@@ -10,5 +10,6 @@ Example Gallery
    :maxdepth: 2
    :hidden:
 
-   Stencils
    contributing
+   stencils
+
