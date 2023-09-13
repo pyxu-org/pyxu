@@ -233,3 +233,4 @@ communicate with the main framework.
    dev_notes
    score
    plugins/index
+   plugins_preview/index

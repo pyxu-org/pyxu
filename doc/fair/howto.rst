@@ -26,7 +26,7 @@ For instance:
 
   .. code-block:: python
 
-     import pyxu.opt.solver.GradientDescent
+     from pyxu.opt.solver import GradientDescent
 
 - Without the installation of the plugin, the previous line of code would have raised an error.
 
