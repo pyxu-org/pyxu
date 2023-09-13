@@ -4,7 +4,7 @@ Example Gallery
 .. nblinkgallery::
     :name: rst-link-gallery
 
-    Stencils
+    stencils
 
 .. toctree::
    :maxdepth: 2
