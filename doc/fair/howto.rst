@@ -55,9 +55,27 @@ as:
 * `pyxu.math <../api/math.html>`_
 * pyxu.contrib: for any other contribution
 
+To override a class or function in the core Pyxu framework, simply use the identical name as the target you wish to override.
+This process involves a critical step: specifying your intention in the setup.cfg file by prefixing the new entry point
+with an underscore (``_``).
+
+For example, to override the ``NullFunc`` class housed within the ``pyxu.operator.func`` namespace, insert the following
+directive in your setup.cfg file:
+
+.. code-block:: ini
+
+    [options.entry_points]
+       pyxu.operator.func =
+        _NullFunc = your_module_name:NullFunc
+
+
 Once ready, publish your plugin on `PyPI <https://pypi.org/>`_. The Pyxu-FAIR periodically scans PyPI for new plugins and
 `scores <./score.html>`_ them based on their popularity and quality. The higher the score, the higher the chances of your
 plugin being discovered by Pyxu users.
+
+If you believe your plugin enhances the Pyxu core codebase, we encourage you to reach out so we can evaluate the possibility
+of incorporating it. Even if you're uncertain, don't hesitate to open an issue on the `Pyxu GitHub repository <https://github.com/matthieumeo/pyxu>`_
+for feedback and guidance.
 
 🌟 No matter your expertise level, the Pyxu-FAIR ensures a smooth experience. Dive in, and may your Pyxu journey be
 FAIR and fantastic! 🌟
