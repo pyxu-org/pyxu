@@ -60,6 +60,11 @@ background: linear-gradient(to right, var(--pst-color-primary), rgb(245, 188, 71
 -webkit-text-fill-color: transparent;
 }
 
+h2 code {
+  -webkit-background-clip: initial;
+  -webkit-text-fill-color: initial;
+  color: var(--pst-color-primary);
+}
 
 .navbar-icon-links img.icon-link-image {
     border-radius: 0rem;
