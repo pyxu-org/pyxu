@@ -1,8 +1,15 @@
 Pyxu Score Explained
 ====================
 
-The **Pyxu Score** is a quantitative measure we use to rank and evaluate `Pyxu plugins <./plugins/index.html>`_. The score
-takes into account multiple criteria, ensuring you get a holistic understanding of a plugin's standing. Here's a breakdown:
+The **Pyxu Score** is a quantitative measure we use to rank and evaluate `Pyxu plugins <./plugins/index.html>`_.
+
+.. warning::
+
+    While the Pyxu Score offers insights into a plugin's quality and popularity, it's just one of many metrics.
+    Users are encouraged to explore plugins individually and consider other factors before making a decision.
+
+The score takes into account multiple criteria, ensuring you get a holistic understanding of a plugin's standing. Here's
+a breakdown:
 
 1. **Version Matching**: If a plugin's version matches the latest Pyxu version, and the latest Python version it gets a point.
 2. **Pyxu Principles Adherence**: Plugins abiding by key `Pyxu principles <./dev_notes.html>`_, namely:
