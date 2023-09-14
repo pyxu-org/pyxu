@@ -1,5 +1,40 @@
+pyxu.abc
+========
+
+.. contents:: Table of Contents
+   :local:
+   :depth: 2
+
+pyxu.abc.arithmetic
+-------------------
+
+.. autoclass:: pyxu.abc.arithmetic.Rule
+   :members: op
+   :no-members:
+
+.. autoclass:: pyxu.abc.arithmetic.ScaleRule
+   :no-members:
+
+.. autoclass:: pyxu.abc.arithmetic.ArgScaleRule
+   :no-members:
+
+.. autoclass:: pyxu.abc.arithmetic.ArgShiftRule
+   :no-members:
+
+.. autoclass:: pyxu.abc.arithmetic.AddRule
+   :no-members:
+
+.. autoclass:: pyxu.abc.arithmetic.ChainRule
+   :no-members:
+
+.. autoclass:: pyxu.abc.arithmetic.PowerRule
+   :no-members:
+
+.. autoclass:: pyxu.abc.arithmetic.TransposeRule
+   :no-members:
+
 pyxu.abc.operator
-=================
+-----------------
 
 .. autoclass:: pyxu.abc.Property
 
@@ -62,3 +97,16 @@ pyxu.abc.operator
 
 .. autoclass:: pyxu.abc.LinFunc
    :no-members:
+
+pyxu.abc.solver
+---------------
+
+.. autoclass:: pyxu.abc.Solver
+
+   .. autoattribute:: _mstate
+
+   .. autoattribute:: _astate
+
+.. autoclass:: pyxu.abc.SolverMode
+
+.. autoclass:: pyxu.abc.StoppingCriterion

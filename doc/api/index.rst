@@ -479,7 +479,7 @@ Misc
    :maxdepth: 2
    :hidden:
 
-   abc/index
+   abc
    info.deps
    info.ptype
    info.warning
