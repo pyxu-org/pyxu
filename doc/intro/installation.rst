@@ -36,44 +36,33 @@ That's it for the basic installation; you're ready to go!
 Installation with Optional Dependencies
 ---------------------------------------
 
-For extended features, you can install optional dependencies:
-
-- ``dev``: development tools like `Sphinx <https://www.sphinx-doc.org/en/master/contents.html>`_, `pre-commit
-  <https://pre-commit.com/>`_, etc.
-
-Additionally, you can use aggregate targets based on your platform's GPU capabilities:
-
-- ``complete_no_gpu``: full Pyxu install, without GPU support.
-- ``complete_gpu``: full Pyxu install, with GPU support. (CUDA 12.* required.)
-
-Optional dependencies are specified between square brackets:
+For extended features, you can install Pyxu with its optional dependencies:
 
 .. code-block:: bash
 
-   pip install pyxu[dev,complete_gpu]
+   pip install pyxu[complete_no_gpu]  # full CPU-only user install
+   pip install pyxu[complete_gpu]     # full CPU/GPU  user install. (CUDA 12.* required.)
+
+More fine-grained Pyxu installs can be obtained by looking at the ``extras_require`` field in ``setup.cfg`` at the root
+of the repository.
 
 Developer Installation
 ----------------------
 
-If you're interested in contributing to Pyxu or experimenting with its codebase, you can clone the repository and
-install it manually.
+If you're interested in contributing to Pyxu or experimenting with its codebase, you *must* clone the repository and
+install it manually *with developer dependencies*:
 
 .. code-block:: bash
 
    git clone https://github.com/matthieumeo/pyxu.git
    cd pyxu
-   pip install -e ".[dev,complete_gpu]"  # complete_no_gpu also available
+   pip install -e ".[dev,complete_gpu]"
 
 To run tests, you can execute:
 
 .. code-block:: bash
 
-   tox run  # optional, see below.
-
-.. warning::
-
-   Running the full test suite will take several hours.
-   This step can be skipped.
+   tox run  # setup and run a short test suite.
 
 For building documentation and running pre-commit hooks:
 
@@ -81,6 +70,12 @@ For building documentation and running pre-commit hooks:
 
    tox run -e doc-fast  # build HTML docs
    tox run -e pre-commit  # run pre-commit hooks
+
+All tox environments available can be viewed by running:
+
+.. code-block:: bash
+
+   tox list
 
 Interoperation with Deep Learning Frameworks
 --------------------------------------------
