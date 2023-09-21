@@ -6,41 +6,9 @@ For a full list see the documentation:
 https://www.sphinx-doc.org/en/master/usage/configuration.html
 """
 
-import collections.abc as cabc
-import configparser
 import datetime as dt
-import os
+import importlib.metadata as im
 import pathlib as plib
-import re
-
-
-def setup_config() -> configparser.ConfigParser:
-    # Load information contained in `setup.cfg`.
-    sphinx_src_dir = plib.Path(__file__).parent
-    setup_path = sphinx_src_dir / ".." / "setup.cfg"
-    setup_path = setup_path.resolve(strict=True)
-
-    with setup_path.open(mode="r") as f:
-        cfg = configparser.ConfigParser()
-        cfg.read_file(f)
-    return cfg
-
-
-def pkg_info() -> cabc.Mapping:
-    # Load information contained in `PKG-INFO`.
-    sphinx_src_dir = plib.Path(__file__).parent
-    info_path = sphinx_src_dir / ".." / "src" / "pyxu.egg-info" / "PKG-INFO"
-    info_path = info_path.resolve(strict=True)
-
-    # Pattern definitions
-    pat_version = r"Version: (.+)$"
-
-    with info_path.open(mode="r") as f:
-        info = dict(version=None)
-        for line in f:
-            if (m := re.match(pat_version, line)) is not None:
-                info["version"] = m.group(1)
-    return info
 
 
 def load_nitpick_ignore() -> list:
@@ -58,24 +26,10 @@ def load_nitpick_ignore() -> list:
 
 
 # -- Project information -----------------------------------------------------
-cfg, info = setup_config(), pkg_info()
-project = cfg.get("metadata", "name")
-author = cfg.get("metadata", "author")
+cfg = im.metadata("pyxu")
+author = cfg["Author"]
+version = release = cfg["Version"]
 copyright = f"{dt.date.today().year}, {author}"
-
-# The version info for the project you're documenting, acts as replacement for |version|
-# and |release|, also used in various other places throughout the built documents.
-version = info["version"]
-if os.environ.get("READTHEDOCS", False):
-    rtd_version = os.environ.get("READTHEDOCS_VERSION", "")
-    if "." not in rtd_version and rtd_version.lower() != "stable":
-        version = "dev"
-else:
-    branch_name = os.environ.get("BUILD_SOURCEBRANCHNAME", "")
-    if branch_name == "main":
-        version = "dev"
-release = version  # The full version, including alpha/beta/rc tags.
-
 
 # -- General configuration ---------------------------------------------------
 root_doc = "index"  # legacy term = "master_doc"
