@@ -1,7 +1,0 @@
-# Guidelines -- https://packaging.python.org/en/latest/guides/using-manifest-in/
-
-# Pyxu's repo contains many large files & notebooks.
-# These are not required by source/wheel distributions on PyPI.
-# Users wanting these files should pull the repo from GitHub instead.
-recursive-exclude doc/ *
-recursive-exclude dev/ *
