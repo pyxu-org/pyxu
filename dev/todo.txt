@@ -52,8 +52,6 @@ Sepand
 
   * Test Suite Enhancements
     * General
-      * Add @slow_test tags.
-      * Add alternative tox instance to run non-@slow_test tests.
       * Add DASK_CUPY mode. [Only to the test suite.]
         >>> with dask.config.set({"array.backend": "cupy"}):  # "numpy"
         ...     darr = da.ones(10, chunks=(5,))  # Get cupy-backed collection
