@@ -40,38 +40,37 @@ For extended features, you can install Pyxu with its optional dependencies:
 
 .. code-block:: bash
 
-   pip install pyxu[complete_no_gpu]  # full CPU-only user install
-   pip install pyxu[complete_gpu]     # full CPU/GPU  user install. (CUDA 12.* required.)
+   pip install pyxu[complete-cpu]  # full CPU-only user install.
+   pip install pyxu[complete]      # full CPU/GPU  user install. (CUDA 12.* required.)
 
-More fine-grained Pyxu installs can be obtained by looking at the ``extras_require`` field in ``setup.cfg`` at the root
-of the repository.
+More fine-grained extras can be installed by looking at the ``project.optional-dependencies`` field in
+``pyproject.toml`` at the root of the repository.
 
 Developer Installation
 ----------------------
 
-If you're interested in contributing to Pyxu or experimenting with its codebase, you *must* clone the repository and
-install it manually *with developer dependencies*:
+If you're interested in contributing to Pyxu or experimenting with its codebase, you **must** clone the repository and
+install it *with developer dependencies*:
 
 .. code-block:: bash
 
    git clone https://github.com/matthieumeo/pyxu.git
    cd pyxu
-   pip install -e ".[dev,complete_gpu]"
+   pip install -e ".[dev,complete]"
 
-To run tests, you can execute:
-
-.. code-block:: bash
-
-   tox run  # setup and run a short test suite.
-
-For building documentation and running pre-commit hooks:
+Pyxu uses `tox` to automate common operations during the development process. The commands below summarize the main
+operations:
 
 .. code-block:: bash
 
-   tox run -e doc-fast  # build HTML docs
-   tox run -e pre-commit  # run pre-commit hooks
+   tox run -e py311-test         # run test suite. (fast subset: ~5[min])
+   tox run -e py311-test -- all  # run test suite. (full suite; much longer)
+   tox run -e pre-commit         # run pre-commit hooks.
+   tox run -e doc                # build HTML docs. (incremental update)
+   tox run -e doc -- clean       # build HTML docs. (from scratch)
+   tox run -e dist               # build universal wheels for distribution.
 
-All tox environments available can be viewed by running:
+All available tox environments can be viewed by running:
 
 .. code-block:: bash
 
