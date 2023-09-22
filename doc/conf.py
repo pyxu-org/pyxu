@@ -28,8 +28,12 @@ def load_nitpick_ignore() -> list:
 # -- Project information -----------------------------------------------------
 cfg = im.metadata("pyxu")
 author = cfg["Author"]
-version = release = cfg["Version"]
 copyright = f"{dt.date.today().year}, {author}"
+
+# Compute legible version info.
+version = cfg["Version"]  # <semver>[.devXXX][+<git-hash>]
+version = version.strip().split("+")[0]  # restrict to <semver>[.devXXX]
+release = version
 
 # -- General configuration ---------------------------------------------------
 root_doc = "index"  # legacy term = "master_doc"
