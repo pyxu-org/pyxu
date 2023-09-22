@@ -123,7 +123,9 @@ And then install Pyxu:
 
    pip install pyxu
 
-That's it for the basic installation; you're ready to go!
+That's it for the basic installation; you're ready to go! Check out the `install guide
+<https://pyxu-org.github.io/intro/installation.html>`_ for instructions on how to build from source, or for more
+advanced options.
 
 Comparison with other Frameworks
 --------------------------------
