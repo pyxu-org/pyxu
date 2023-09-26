@@ -154,7 +154,7 @@
     </style>
 
 **********
-TokemakRec
+TokamakRec
 **********
 
 
@@ -162,13 +162,11 @@ Description
 ===========
 
 .. raw:: html
-    Adipisci labore labore sit eius dolore voluptatem consectetur. Dolor ipsum porro amet adipisci ut dolor voluptatem. Adipisci velit quisquam dolore. Modi numquam non ut tempora labore sed. Tempora numquam eius non voluptatem labore sed. Tempora labore non quisquam tempora numquam eius. Aliquam neque amet consectetur quisquam.
+    Aliquam aliquam quisquam numquam magnam ut neque numquam. Etincidunt ipsum ut velit ipsum. Quisquam non dolorem eius voluptatem dolore porro velit. Est dolor est neque voluptatem magnam. Quisquam dolor tempora sed numquam eius. Aliquam consectetur tempora porro numquam. Amet quiquia velit neque est quiquia tempora. Dolore non eius dolore. Ut est tempora dolorem quaerat neque consectetur est. Dolorem porro sed etincidunt tempora magnam tempora ipsum.
 
-    Numquam labore dolore eius quiquia etincidunt non neque. Consectetur quiquia neque sit non labore. Quaerat sed consectetur dolorem labore modi dolor. Etincidunt neque sed aliquam dolore consectetur. Quaerat labore sit labore. Dolore dolore dolor velit non quaerat.
+    Dolorem quiquia quisquam sit neque magnam ipsum. Neque adipisci amet numquam dolore. Ipsum dolor eius aliquam consectetur magnam dolorem aliquam. Eius non est neque dolore quiquia ipsum. Modi eius est ut quaerat sed dolor. Porro tempora quiquia voluptatem. Dolorem dolore sit adipisci adipisci ut sed quisquam. Sit sed numquam dolorem dolorem etincidunt dolore dolorem.
 
-    Porro modi adipisci sed modi adipisci sed. Neque eius non non porro. Quisquam velit modi etincidunt consectetur ipsum. Numquam neque dolor tempora tempora adipisci tempora aliquam. Modi etincidunt ipsum ipsum eius labore eius. Modi non consectetur non dolore aliquam porro. Quisquam eius dolore dolor. Etincidunt eius magnam non dolore. Neque etincidunt eius modi modi est neque. Consectetur sit numquam adipisci porro numquam amet.
-
-    Est numquam quaerat ut sit. Velit velit etincidunt dolor consectetur amet. Sed magnam est neque dolore dolore. Quisquam neque porro neque velit. Dolore est amet consectetur dolore est consectetur. Modi velit quiquia modi quiquia sit dolor porro.
+    Porro quiquia adipisci neque dolore. Modi quaerat velit ipsum quaerat eius sit. Eius neque sed non dolorem. Consectetur est modi ipsum. Dolor amet ut velit. Ipsum quisquam tempora tempora ipsum dolor tempora. Tempora quaerat dolore est. Modi velit quisquam numquam quisquam amet dolorem. Aliquam magnam porro voluptatem non aliquam.
 
 
 General information
@@ -176,51 +174,51 @@ General information
 
 .. raw:: html
 
-
+    
     <p>
-        <strong>Short description</strong>: Plasma imaging for tokemak data
+        <strong>Short description</strong>: Plasma imaging for tokamak data
     </p>
-
+    
 
     <p class="currentstate">
-
-        <img class="svg-badge" src="../../_static/plugins/status/status-beta-d6af23.svg" title="Beta: Adds new functionality, not yet ready for production. Testing welcome!"></p>
-
+        
+        <img class="svg-badge" src="../../_static/plugins/status/status-stable-4cc61e.svg" title="Mature: Ready for production calculations. Bug reports welcome!"></p>
+    
 
     <p>
-        <strong>Source code</strong>: <a href="https://github.com/msmith/TokemakRec" target="_blank">Go to the source code repository</a>
+        <strong>Source code</strong>: <a href="https://github.com/cportillo/TokamakRec" target="_blank">Go to the source code repository</a>
     </p>
 
-
+    
     <p>
-        <strong>Documentation</strong>: <a href="https://msmith.github.io/TokemakRec/html/index" target="_blank">Go to plugin documentation</a>
+        <strong>Documentation</strong>: <a href="https://cportillo.github.io/TokamakRec/html/index" target="_blank">Go to plugin documentation</a>
     <p>
-
+    
 
 
 Detailed information
 ====================
 
 .. raw:: html
-
+    
     <p>
-        <strong>Author(s)</strong>: Michael Smith
+        <strong>Author(s)</strong>: Christopher Portillo
     </p>
-
-
+    
+    
     <p>
-        <strong>Contact</strong>: <a href="mailto:michael.smith@pyxu_user.org">michael.smith@pyxu_user.org</a>
+        <strong>Contact</strong>: <a href="mailto:christopher.portillo@pyxu_user.org">christopher.portillo@pyxu_user.org</a>
     </p>
-
-
+    
+    
     <p>
         <strong>Most recent version</strong>: 0.1.0
     </p>
     <p>
         <strong>Compatibility</strong>:
-        <img class="svg-badge" title="Compatible with Pyxu 2.0.0" src="https://img.shields.io/badge/Pyxu-2.0.0-007ec6.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAARCAYAAADQWvz5AAAACXBIWXMAAA7DAAAOwwHHb6hkAAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAAfFJREFUOI2Vkl9IU1Ecxz933TVdFlHOt9pfg1AcBS0MCSUIIRa2XjLowbegiKAggujFN80gevWhHuzdsH8UpJkQ+JKyheRyW1Qyc2xG3Nrudn896C7Ti237vJ3fOedzvr9zjiIiQgVi6PB9CCMd5a9yHJpase8PsCb7cLlcbItskH/3UrSh27J0uVNkxiky4xR9/ICsvrkr3oNuSWuGpDVDus70ysjwPdmKrSzUHz3EWJinkG2sPAaAucUEK/EYJw77mJ54wfinWUsgG8DU5KRZaNhhulEa8gDs3qnQFw4D0BcOk135SeexkFWkaRqnYxkctwZpbvuCnnRuzCoARM6f4kJ/PwCPx8YIdLSTyWU3iZStl12m8H6Q0sdR5I+Nb4bK9eVuvi4scuhoEID5J0+JJxPVRZUEPF46Lp41x78zWZZeTXMuEmH4/kh9IgBf70kQIfX2A6WCDmCmUqtJypQ3iAitXp9l3mapVEFRFOLJBEW9WJvowbVL/xWq9s3NWForFYuM3rnKcuIzA8EWvO1HmHj+jJ7uHq7cvIG/SWU29YPQrjUcqspAsGU9aS2XLQhzU6+xNzppC3XRvGcvAKu/chWL6iQWjYrf7RG/2yOpVMqs15SokvJXyOfzOBwO8zXrfjWzE8MAIJdbb6/uRNvxD+osJR0a6bPBAAAAAElFTkSuQmCC">
+        <img class="svg-badge" title="Compatible with Pyxu 1.0.0" src="https://img.shields.io/badge/Pyxu-1.0.0-007ec6.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAAZCAYAAADE6YVjAAAACXBIWXMAAAHpAAAB6QHzJ3XIAAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAAzpJREFUSImtlU1oXFUUx3/nzVemWq1pbQXXIpSaEiPUtiCSTdK4qAhVLFh0VXChKAbSVbCiUFFxoSAB3ZmKH2C0aivigBpR/AJxERS1hGATg9F2JhN999x7XMx7Ly/TaQmZHvhzLoc793e+eCNmxuVsYXT/9vLmwhNRNXqUqpSlGiFVSRQhFWldNAY2DZ7+vtMbUafgWx9/dt/cYt3mFutWFFkwz2jwVsYD3mj55JzmKHzXrA3bSm1oz2UhJ0/Vnvl5dtH29ve/AVAZHyb/sHnDMr96zpshX63UDsx1hEyeqtmeW3cf21TtYX7+XCs5b7nM233u3GaG3ZgHRQlgvlgoUC6VODh8Jw/efw+//n42ybStAgXUEiXn0BnUrA0NABST2I59t/UDcGz8ae69e4Tfzs6yM30oFkLdQwEoCVISpJIoXYCeVjzaWkCqkg7qW0Ciyfdr7+YzuH3vfmYXzlMulSASzEFoBsxoDTlVyPlcJeGCJyz5bFaNz0eujxAOXlws7Np58+rEDEhX3SwREJJWWW7L0p80WzHR8EsUQsA5pd5YXnNpZmaGl2463N7ovOasINNW4SMry5SU+JrSWpT9ZwhcK6+9fdpCCIQQODB4R3bhi+lpAJaW/uHv8xfYtvU6jh45JKzTlj+86wZEz0lFKKoqKSSOHeVyKemKIUBv7xZ6e7fgnM6vFwBw1cgH84CsfDq0L1JVVBV1yntnPskuRVGEmWHJDFTjuUs/eWmrDp75MvJeH1CnuAQ2+c4U3/zwI7v7+hARSEA9PdWBjUAAxMx4buJkMhdP8K3W+RCIm3VEJNPxsUfWPZO8FQFU3Z8h2PbgfQZIt04EQBK/MYsAxh4+skNdq10uNyPnHLFzOOdwsdswJP2s4FR/CsHvCiFkLVNVDOiiiNVKAJ4aPXpLWkG6cS6rSHHOxruGAGisY2sA6nHaatsrL4wfvyKQ5598/EQKWFluZBVpsL82CoDcTFJzzrsQfCmOYywEzIzXJ57d1g3kov94r3pYVfHqUe/p8cVrugFAh0qi5h9TjXA13nsolvtfnThRv+KQRqG3z7t/oeo2v/nyi41uAQDZRzDVoYcea7bHutX/c3lfgmmbsZoAAAAASUVORK5CYII=">
     </p>
-
+    
 
 
 Components contributed
@@ -228,82 +226,52 @@ Components contributed
 
 .. raw:: html
     <p class="summaryinfo">
-
+        
         <span class="badge">
             <span class="badge-left blue">Operator</span>
             <span class="badge-right">1</span>
         </span>
-
-        <span class="badge">
-            <span class="badge-left brown">Solver</span>
-            <span class="badge-right">3</span>
-        </span>
-
-        <span class="badge">
-            <span class="badge-left purple">Stop</span>
-            <span class="badge-right">2</span>
-        </span>
-
+        
         <span class="badge">
             <span class="badge-left green">Math</span>
-            <span class="badge-right">1</span>
+            <span class="badge-right">2</span>
         </span>
-
+        
         <span class="badge">
             <span class="badge-left orange">Contrib</span>
             <span class="badge-right">1</span>
         </span>
-
+        
     </p>
-
-
-
-      Math <span class="entrypointraw">(pyxu.math)</span>
-
-    <ul>
-
-    <li><code>icky_math</code>
-
-    </ul>
-
-
+    
+    
+    
       Contrib <span class="entrypointraw">(pyxu.contrib)</span>
-
+    
     <ul>
-
-    <li><code>upbeat_contrib</code>
-
+    
+    <li><code>hot_contrib</code>
+    
     </ul>
-
-
+    
+    
+      Math <span class="entrypointraw">(pyxu.math)</span>
+    
+    <ul>
+    
+    <li><code>calm_math</code>
+    
+    <li><code>fine_math</code>
+    
+    </ul>
+    
+    
       Operator <span class="entrypointraw">(pyxu.operator)</span>
-
+    
     <ul>
-
-    <li><code>cooing_operator</code>
-
+    
+    <li><code>skinny_operator</code>
+    
     </ul>
-
-
-      Solver <span class="entrypointraw">(pyxu.solver)</span>
-
-    <ul>
-
-    <li><code>odd_solver</code>
-
-    <li><code>sordid_solver</code>
-
-    <li><code>light_solver</code>
-
-    </ul>
-
-
-      Stop <span class="entrypointraw">(pyxu.stop)</span>
-
-    <ul>
-
-    <li><code>smooth_stop</code>
-
-    <li><code>square_stop</code>
-
-    </ul>
+    
+    
