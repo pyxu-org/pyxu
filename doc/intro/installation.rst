@@ -57,6 +57,7 @@ install it *with developer dependencies*:
    git clone https://github.com/matthieumeo/pyxu.git
    cd pyxu
    pip install -e ".[dev,complete]"
+   pre-commit install
 
 Pyxu uses `tox` to automate common operations during the development process. The commands below summarize the main
 operations:
