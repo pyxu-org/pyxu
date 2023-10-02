@@ -1,5 +1,6 @@
 import warnings
-from importlib.metadata import entry_points
+
+from importlib_metadata import entry_points
 
 import pyxu.info.warning as pxw
 
