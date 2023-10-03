@@ -800,7 +800,7 @@ class AddRule(Rule):
                 for name in p.arithmetic_methods():
                     func = getattr(self.__class__, name)
                     setattr(op, name, types.MethodType(func, op))
-            self._propagate_constants(op)
+        self._propagate_constants(op)
         return op
 
     def _expr(self) -> tuple:
