@@ -509,6 +509,19 @@ decision-making process.
                :width: 40%
                :align: center
 
+    .. grid-item-card::
+            :shadow: none
+            :class-card: sd-border-0
+
+    .. grid-item-card::
+            :shadow: none
+            :class-card: sd-border-0
+
+            .. image:: _static/LCAV_LOGO.png
+               :width: 50%
+               :align: center
+               :target: https://www.epfl.ch/labs/lcav/
+
 Steering Council
 ----------------
 
