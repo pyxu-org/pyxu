@@ -10,7 +10,7 @@ build-backend = "hatchling.build"
 name = "pyxu"
 dynamic = ["version"]
 description = "Modular and scalable computational imaging in Python with support for GPU/out-of-core computing."
-readme = "README.rst"
+readme = "dev/README_no_html.rst"
 requires-python = ">= 3.9, < 3.12"
 license = "MIT"
 authors = [

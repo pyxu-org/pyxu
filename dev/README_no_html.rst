@@ -50,6 +50,11 @@ Pyxu: Modular and Scalable Computational Imaging
    :target: https://doi.org/10.5281/zenodo.4486431
 
 
+**Pyxu** (pronounced [piksu], formerly known as Pycsou) is an open-source Python framework allowing scientists at any
+level to quickly prototype/deploy *hardware accelerated and out-of-core* computational imaging pipelines at scale.
+Thanks to its **microservice architecture** and tight integration with the PyData ecosystem, Pyxu supports a wide range
+of imaging applications, scales, and computation architectures.
+
 What Makes Pyxu Special?
 ------------------------
 
@@ -100,9 +105,9 @@ Basic Installation
 
 The core of **Pyxu** is lightweight and straightforward to install. You'll need Python (>= 3.9, < 3.12) and a few
 mandatory dependencies. While these dependencies will be automatically installed via ``pip``, we highly recommend
-installing NumPy and SciPy via ``conda`` to benefit from Intel MKL bindings and speed optimizations.
+installing NumPy and SciPy via ``conda`` to benefit from optimized math libraries.
 
-First, to install NumPy and SciPy from the conda-forge channel:
+First, to install NumPy and SciPy from conda-forge:
 
 .. code-block:: bash
 
