@@ -41,10 +41,41 @@ For extended features, you can install Pyxu with its optional dependencies:
 .. code-block:: bash
 
    pip install pyxu[complete-cpu]  # full CPU-only user install.
-   pip install pyxu[complete]      # full CPU/GPU  user install. (CUDA 12.* required.)
+   pip install pyxu[complete]      # full CPU/GPU  user install.
 
 More fine-grained extras can be installed by looking at the ``project.optional-dependencies`` field in
 ``pyproject.toml`` at the root of the repository.
+
+.. warning::
+
+   The host system must have `CUDA 12.x <https://docs.nvidia.com/cuda/>`_ installed to use the GPU. If its CUDA version
+   is different (or CUDA is not installed), then the `cudatoolkit` optional dependency will pull the required libraries
+   from PyPI:
+
+   .. code-block:: bash
+
+      pip install pyxu[complete,cudatoolkit]
+
+   Once installed, run the code below and add the printed lines to your shell's config file to complete the setup.
+   (Typically `~/.bashrc` or `~/.zshrc`.)
+
+   .. code-block:: python3
+
+      # python3
+
+      import pathlib as plib
+      import sys
+
+      site_path = filter(lambda _: _.endswith("/site-packages"), sys.path)
+      site_path = next(site_path)  # there is only one
+
+      nv_path = plib.Path(site_path) / "nvidia"
+      lib_path = nv_path.glob("*/lib/")
+
+      for f in sorted(lib_path):
+          print(f'LD_LIBRARY_PATH="${{LD_LIBRARY_PATH}}":"{f}"')
+      print("export LD_LIBRARY_PATH")
+
 
 Developer Installation
 ----------------------

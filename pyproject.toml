@@ -62,17 +62,28 @@ dev = [
     "tox >= 4.6, < 5",
 ]
 fft = [ "finufft >= 2.1, < 3", ]
-gpu-base = [
-    "cupy-cuda12x",
-    "cutensor-cu12",
-    "nvidia-cudnn-cu12",
+gpu-base = [ "cupy-cuda12x", ]
+cudatoolkit = [
+    "nvidia-cublas-cu12",
+    "nvidia-cuda-cupti-cu12",
+    "nvidia-cuda-nvcc-cu12",
+    "nvidia-cuda-nvrtc-cu12",
+    "nvidia-cuda-opencl-cu12",
+    "nvidia-cuda-runtime-cu12",
+    "nvidia-cuda-sanitizer-api-cu12",
+    "nvidia-cufft-cu12",
+    "nvidia-curand-cu12",
+    "nvidia-cusolver-cu12",
     "nvidia-cusparse-cu12",
-    "nvidia-nccl-cu12",
+    "nvidia-npp-cu12",
+    "nvidia-nvjitlink-cu12",
+    "nvidia-nvjpeg-cu12",
+    "nvidia-nvml-dev-cu12",
+    "nvidia-nvtx-cu12",
     "nvidia-pyindex",
 ]
-gpu-fft = [ "nvidia-cufft-cu12", ]
 complete-cpu = [ "pyxu[fft]", ]
-complete = [ "pyxu[complete-cpu,gpu-base,gpu-fft]", ]
+complete = [ "pyxu[complete-cpu,gpu-base]", ]
 
 
 # Get version info from Git ===================================================
