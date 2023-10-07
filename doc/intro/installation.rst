@@ -16,7 +16,7 @@ Basic Installation
 ------------------
 
 The core of **Pyxu** is lightweight and straightforward to install. You'll need Python (>= 3.9, < 3.12) and a few
-mandatory dependencies. While these dependencies will be automatically installed via ``pip``, we highly recommend
+mandatory Python packages. While these dependencies will be automatically installed via ``pip``, we highly recommend
 installing NumPy and SciPy via ``conda`` to benefit from optimized math libraries.
 
 First, to install NumPy and SciPy from conda-forge:
@@ -48,34 +48,9 @@ More fine-grained extras can be installed by looking at the ``project.optional-d
 
 .. warning::
 
-   The host system must have `CUDA 12.x <https://docs.nvidia.com/cuda/>`_ installed to use the GPU. If its CUDA version
-   is different (or CUDA is not installed), then the `cudatoolkit` optional dependency will pull the required libraries
-   from PyPI:
-
-   .. code-block:: bash
-
-      pip install pyxu[complete,cudatoolkit]
-
-   Once installed, run the code below and add the printed lines to your shell's config file to complete the setup.
-   (Typically `~/.bashrc` or `~/.zshrc`.)
-
-   .. code-block:: python3
-
-      # python3
-
-      import pathlib as plib
-      import sys
-
-      site_path = filter(lambda _: _.endswith("/site-packages"), sys.path)
-      site_path = next(site_path)  # there is only one
-
-      nv_path = plib.Path(site_path) / "nvidia"
-      lib_path = nv_path.glob("*/lib/")
-
-      for f in sorted(lib_path):
-          print(f'LD_LIBRARY_PATH="${{LD_LIBRARY_PATH}}":"{f}"')
-      print("export LD_LIBRARY_PATH")
-
+   The host system must have `CUDA 12.x <https://docs.nvidia.com/cuda/>`_ installed to use the GPU. Similarly, some Pyxu
+   operators may require extra system dependencies such as `LLVM <https://llvm.org/>`_. If problems arise, we provide
+   `Docker receipes <https://github.com/pyxu-org/pyxu_docker>`_ to easily create Pyxu user/developer environments.
 
 Developer Installation
 ----------------------
