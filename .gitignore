@@ -1,3 +1,7 @@
+# Ignore everything under scratch/, except for README.
+dev/scratch/*
+!dev/scratch/README
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
