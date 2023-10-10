@@ -4,6 +4,7 @@ Example Gallery
 .. nblinkgallery::
     :name: rst-link-gallery
 
+    contributing
     stencils
 
 .. toctree::
