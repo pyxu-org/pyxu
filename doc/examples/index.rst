@@ -6,6 +6,7 @@ Example Gallery
 
     contributing
     stencils
+    deblur
 
 .. toctree::
    :maxdepth: 2
@@ -13,4 +14,5 @@ Example Gallery
 
    contributing
    stencils
+   deblur
 
