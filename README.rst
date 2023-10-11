@@ -1,9 +1,9 @@
-.. raw:: html
+.. image:: https://raw.githubusercontent.com/matthieumeo/pyxu/master/doc/_static/wide-logo.png
+   :target: https://pyxu-org.github.io/
+   :alt: Pyxu logo
 
-   <p align="center">
-   <img align="center" src="doc/_static/logo.png" alt="Pyxu logo" width=35%>
-   </p>
-   <h1> Pyxu: Modular and Scalable Computational Imaging </h1>
+Pyxu: Modular and Scalable Computational Imaging
+================================================
 
 .. image:: https://img.shields.io/badge/Documentation-View-blue
    :target: https://pyxu-org.github.io/
@@ -53,11 +53,9 @@ level to quickly prototype/deploy *hardware accelerated and out-of-core* computa
 Thanks to its **microservice architecture** and tight integration with the PyData ecosystem, Pyxu supports a wide range
 of imaging applications, scales, and computation architectures.
 
-.. raw:: html
-
-   <p align="center">
-   <img align="center" src="doc/_static/banner.jpg" alt="Banner" width=95%>
-   </p>
+.. image:: https://raw.githubusercontent.com/matthieumeo/pyxu/master/doc/_static/banner.jpg
+   :target: https://pyxu-org.github.io/examples/index.html
+   :alt: Banner
 
 What Makes Pyxu Special?
 ------------------------
