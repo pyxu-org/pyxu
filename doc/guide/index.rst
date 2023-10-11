@@ -10,6 +10,7 @@ essential aspects of the library, helping you harness its full power for your re
    :maxdepth: 1
    :hidden:
 
+   bayes.ipynb
    fwdops.ipynb
    funcs.ipynb
    algebra.ipynb
