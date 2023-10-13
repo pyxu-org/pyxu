@@ -175,3 +175,6 @@ cupy/
 *.rej
 *~
 **/.DS_Store
+
+# Zip files
+*.zip
