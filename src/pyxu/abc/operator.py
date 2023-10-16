@@ -1234,6 +1234,8 @@ class QuadraticFunc(ProxDiffFunc):
         assert self._Q.shape == (self.dim, self.dim)
         assert self._c.shape == self.shape
 
+        self.diff_lipschitz = self._Q.lipschitz
+
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         Q, c, t = self._quad_spec()
