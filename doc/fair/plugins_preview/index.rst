@@ -188,7 +188,7 @@ Plugin Preview Catalog
 
 .. raw:: html
 
-    <h2 style="font-size: 60px; font-weight: bold; display: inline"><span>Plugin Catalogue</span></h2>
+    <h2 style="font-size: 60px; font-weight: bold; display: inline"><span>Plugin Catalog</span></h2>
 
 
 **Total Registered Plugin Packages: 17**
