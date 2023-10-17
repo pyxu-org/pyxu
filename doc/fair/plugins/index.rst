@@ -255,7 +255,7 @@ Catalog
 
             
                 <li>
-                    <a> Score: 1 % </a>
+                    <a> Score: 100 % </a>
                 </li>
             
             </ul>
@@ -292,7 +292,7 @@ Catalog
 
             
                 <li>
-                    <a> Score: 1 % </a>
+                    <a> Score: 100 % </a>
                 </li>
             
             </ul>
