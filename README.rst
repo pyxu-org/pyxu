@@ -46,6 +46,12 @@ Pyxu: Modular and Scalable Computational Imaging
    :alt: PRs Welcome
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.4486431.svg
    :target: https://doi.org/10.5281/zenodo.4486431
+.. image:: https://img.shields.io/badge/total%20downloads-7313-green.svg
+   :target: https://www.pepy.tech/projects/pyxu
+   :alt: Total PyPI downloads (Pycsou + Pyxu)
+.. image:: https://img.shields.io/pypi/dm/pyxu.svg
+   :target: https://pypistats.org/packages/pyxu
+   :alt: Monthly PyPI downloads
 
 
 **Pyxu** (pronounced [piksu], formerly known as Pycsou) is an open-source Python framework allowing scientists at any
