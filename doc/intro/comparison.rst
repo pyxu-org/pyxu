@@ -43,7 +43,74 @@ Features and Maturity
 Pyxu offers a comprehensive suite of algorithms, including the latest primal-dual splitting methods for hybrid
 optimization.  The feature set is robust and mature, positioning it as a leader in the computational imaging arena.
 
-.. include:: feature_maturity_comparison.rst
+.. list-table:: Feature Maturity - Comparison
+    :header-rows: 1
+    :stub-columns: 1
+    :widths: auto
+
+    * - Package Name 📦
+      - Operator Types 🛠️
+      - Operator Algebra 🎯
+      - Algorithmic Suite 📚
+      - Application Focus 🎯
+      - Remarks 💬
+
+    * - PyLops
+      - 🔴 Linear oeprators
+      - 🟡 Partial
+      - 🔴 Least-squares & sparse reconstructions
+      - 🟡 Wave-processing, geophysics
+      - 🔴 Linear operators based on NumPy's old matrix interface
+
+    * - PyProximal
+      - 🔴 Proximable functionals
+      - 🔴 None
+      - 🔴 Non-smooth convex optimization
+      - 🟢 None
+      - 🔴 Under early development, unstable API
+
+    * - Operator Discretization Library (ODL)
+      - 🟡 Linear operators, differentiable/proximable functionals
+      - 🟢 Full
+      - 🟡 Smooth & non-smooth convex optimization
+      - 🟡 Tomography
+      - 🔴 Domain-specific language for mathematicians
+
+    * - GlobalBioIm
+      - 🟢 (Non)linear operators, differentiable/proximable functionals
+      - 🟢 Full
+      - 🟢 Smooth, non-smooth & hybrid convex optimization
+      - 🟢 None
+      - 🔴 MATLAB-based, unlike most DL frameworks
+
+    * - SigPy
+      - 🟡 Linear operators, proximable functionals
+      - 🟡 Partial
+      - 🟡 Smooth & non-smooth convex optimization
+      - 🔴 MRI
+      - 🔴 Very limited suite of operators, functionals, and algorithms
+
+    * - SCICO
+      - 🟢 (Non)linear operators, differentiable/proximable functionals
+      - 🟢 Full
+      - 🟢 Smooth, non-smooth & hybrid (non-)convex optimization
+      - 🟢 None
+      - 🟡 JAX-based (pure functions only, no mutation, etc.)
+
+    * - DeepInv
+      - 🟢 (Non)linear operators, differentiable/proximable functionals
+      - 🟡 Partial
+      - 🟢 Smooth, non-smooth & hybrid (non-)convex optimization
+      - 🟡 Deep Learning
+      - 🟡 PyTorch-based (lots of dependencies)
+
+    * - Pyxu
+      - 🟢 (Non)linear operators, differentiable/proximable functionals
+      - 🟢 Full
+      - 🟢 Smooth, non-smooth & hybrid (non-)convex optimization
+      - 🟢 None
+      - 🟢 Very rich suite of operators, functionals, algorithms & HPC features
+      
 
 Ease-of-Use
 +++++++++++
@@ -58,8 +125,66 @@ Pyxu is unique in supporting both out-of-core and distributed computing. Additio
 compilation and GPU computing via Numba and CuPy respectively. Most contenders either offer partial support or lack
 these features altogether.
 
-.. include:: hpc_features_comparison.rst
+.. list-table:: HPC Features - Comparison
+    :header-rows: 1
+    :stub-columns: 1
+    :widths: auto
 
+    * - Package Name 📦
+      - Auto Diff/Prox ⚙️
+      - GPU Computing 🖥️
+      - Out-of-core Computing 🌐
+      - JIT Compiling ⏱️
+
+    * - PyLops
+      - 🔴 No
+      - 🟢 Yes (CuPy)
+      - 🔴 No
+      - 🟡 Partial (LLVM via Numba)
+
+    * - PyProximal
+      - 🔴 No
+      - 🔴 No
+      - 🔴 No
+      - 🔴 No
+
+    * - Operator Discretization Library (ODL)
+      - 🟢 Yes
+      - 🟡 Very limited (CUDA)
+      - 🔴 No
+      - 🔴 No
+
+    * - GlobalBioIm
+      - 🟢 Yes
+      - 🟢 Yes (MATLAB)
+      - 🔴 No
+      - 🔴 No
+
+    * - SigPy
+      - 🔴 No
+      - 🟢 Yes (CuPy)
+      - 🟡 Manual (MPI)
+      - 🔴 No
+
+    * - SCICO
+      - 🟢 Yes
+      - 🟢 Yes + TPU (JAX)
+      - 🔴 No
+      - 🟢 Yes (XLA via JAX)
+
+    * - DeepInv
+      - 🟢 Autodiff support
+      - 🟢 Yes (PyTorch)
+      - 🔴 No
+      - 🟡 Partial(XLA via torch.compile)
+
+    * - Pyxu
+      - 🟢 Yes
+      - 🟢 Yes (CuPy)
+      - 🟢 Yes (Dask)
+      - 🟢 Yes (LLVM and CUDA via Numba)
+
+      
 SCICO: A Closer Look
 --------------------
 
