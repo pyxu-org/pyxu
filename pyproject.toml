@@ -63,8 +63,9 @@ dev = [
     "tox >= 4.6, < 5",
 ]
 fft = [ "finufft >= 2.1, < 3", ]
+xray = [ "drjit == 0.4.3", ]
 gpu-base = [ "cupy-cuda12x", ]
-complete-cpu = [ "pyxu[fft]", ]
+complete-cpu = [ "pyxu[fft,xray]", ]
 complete = [ "pyxu[complete-cpu,gpu-base]", ]
 
 
