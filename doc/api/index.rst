@@ -97,8 +97,11 @@ Arithmetic Rules (low-level)
    pyxu.abc.arithmetic.ScaleRule
    pyxu.abc.arithmetic.TransposeRule
 
-pyxu.experimental.sampler
--------------------------
+pyxu.experimental
+-----------------
+
+Sampling Tools
+^^^^^^^^^^^^^^
 
 .. autosummary::
 
@@ -110,6 +113,18 @@ pyxu.experimental.sampler
    ~pyxu.experimental.sampler.OnlineStd
    ~pyxu.experimental.sampler.OnlineVariance
    ~pyxu.experimental.sampler.ULA
+
+Transforms
+^^^^^^^^^^
+
+.. autosummary::
+
+   ~pyxu.experimental.xray.Box
+   ~pyxu.experimental.xray.Dirac
+   ~pyxu.experimental.xray.FSSPulse
+   ~pyxu.experimental.xray.KaiserBessel
+   ~pyxu.experimental.xray.TruncatedGaussian
+   ~pyxu.experimental.xray.XRayTransform
 
 pyxu.info.deps
 --------------
@@ -490,5 +505,5 @@ Misc
    runtime
    math
    util
-   experimental.sampler
+   experimental/index
    ../references
