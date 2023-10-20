@@ -1,7 +1,5 @@
 import warnings
 
-import drjit as dr
-import mitsuba as mi
 import numpy as np
 
 import pyxu.abc as pxa
@@ -38,17 +36,17 @@ class RayXRT(pxa.LinOp):
         self._ray_t = t_spec  # (N_l, D)
         self._ndi = pxd.NDArrayInfo.from_obj(n_spec)
 
-        # drjit/mitsuba variables. {Have shapes consistent for xrt_[apply,adjoint]().}
+        # Dr.Jit variables. {Have shapes consistent for xrt_[apply,adjoint]().}
         #   xrt_[apply,adjoint]() only support D=3 case.
-        #     -> D=2 case (RT-part) is embedded into 3D.
+        #     -> D=2 case is embedded into 3D.
         drb = _load_dr_variant(self._ndi)
-        self._fwd, self._bwd = _get_dr_funcs(self._ndi)
+        Ray3f, self._fwd, self._bwd = _get_dr_obj(self._ndi)
         if len(arg_shape) == 2:
             self._dr = dict(
                 o=drb.Array3f(*self._origin, 0),
                 pitch=drb.Array3f(*self._pitch, 1),
                 N=drb.Array3u(*self._arg_shape, 1),
-                r=mi.Ray3f(
+                r=Ray3f(
                     o=drb.Array3f(*[_xp2dr(_) for _ in self._ray_t.T], 0.5),  # Z-extension mid-point
                     d=drb.Array3f(*[_xp2dr(_) for _ in self._ray_n.T], 0),
                 ),
@@ -58,7 +56,7 @@ class RayXRT(pxa.LinOp):
                 o=drb.Array3f(*self._origin),
                 pitch=drb.Array3f(*self._pitch),
                 N=drb.Array3u(*self._arg_shape),
-                r=mi.Ray3f(
+                r=Ray3f(
                     o=drb.Array3f(*[_xp2dr(_) for _ in self._ray_t.T]),
                     d=drb.Array3f(*[_xp2dr(_) for _ in self._ray_n.T]),
                 ),
@@ -118,21 +116,144 @@ def _xp2dr(x: pxt.NDArray):
 
 def _load_dr_variant(ndi: pxd.NDArrayInfo):
     if ndi == pxd.NDArrayInfo.NUMPY:
-        mi.set_variant("llvm_ad_rgb")
-        drb = pxu.import_module("drjit.llvm.ad")
+        drb = pxu.import_module("drjit.llvm")
     elif ndi == pxd.NDArrayInfo.CUPY:
-        mi.set_variant("cuda_ad_rgb")
-        drb = pxu.import_module("drjit.cuda.ad")
+        drb = pxu.import_module("drjit.cuda")
     else:
         raise NotImplementedError
     return drb
 
 
-def _get_dr_funcs(ndi: pxd.NDArrayInfo):
-    # Create DrJIT functions performing fwd/bwd transforms.
+def _get_dr_obj(ndi: pxd.NDArrayInfo):
+    # Create DrJIT objects needed for fwd/bwd transforms.
+    import drjit as dr
+
     drb = _load_dr_variant(ndi)
 
-    def ray_step(r: mi.Ray3f) -> mi.Ray3f:
+    class Ray3f:
+        # Dr.JIT-backed 3D ray.
+        #
+        # Rays take the parametric form
+        #     r(t) = o + d * t,
+        # where {o, d} \in \bR^{3} and t \in \bR.
+        DRJIT_STRUCT = dict(
+            o=drb.Array3f,
+            d=drb.Array3f,
+        )
+
+        def __init__(self, o=drb.Array3f(), d=drb.Array3f()):
+            # Parameters
+            # ----------
+            # o: Array3f
+            #    (3,) ray origin.
+            # d: Array3f
+            #    (3,) ray direction.
+            #
+            # [2023.10.19 Sepand/Miguel]
+            # Use C++'s `operator=()` semantics instead of Python's `=` to safely reference inputs.
+            self.o = drb.Array3f()
+            self.o.assign(o)
+
+            self.d = drb.Array3f()
+            self.d.assign(d)
+
+        def __call__(self, t: drb.Float) -> drb.Array3f:
+            # Compute r(t).
+            #
+            # Parameters
+            # ----------
+            # t: Float
+            #
+            # Returns
+            # -------
+            # p: Array3f
+            #    p = r(t)
+            return dr.fma(self.d, t, self.o)
+
+        def assign(self, r: "Ray3f"):
+            # See __init__'s docstring for more info.
+            self.o.assign(r.o)
+            self.d.assign(r.d)
+
+        def __repr__(self) -> str:
+            return f"Ray3f(o={dr.shape(self.o)}, d={dr.shape(self.d)})"
+
+    class BoundingBox3f:
+        # Dr.JIT-backed 3D bounding box.
+        #
+        # A bounding box is described by coordinates {pMin, pMax} of two of its diagonal corners.
+        #
+        # Important
+        # ---------
+        # We do NOT check if (pMin < pMax) when constructing the BBox: users are left responsible of their actions.
+        DRJIT_STRUCT = dict(
+            pMin=drb.Array3f,
+            pMax=drb.Array3f,
+        )
+
+        def __init__(self, pMin=drb.Array3f(), pMax=drb.Array3f()):
+            # Parameters
+            # ----------
+            # pMin: Array3f
+            #     (3,) corner coordinate.
+            # pMax: Array3f
+            #     (3,) corner coordinate.
+            #
+            # [2023.10.19 Sepand/Miguel]
+            # Use C++'s `operator=()` semantics instead of Python's `=` to safely reference inputs.
+            self.pMin = drb.Array3f()
+            self.pMin.assign(pMin)
+
+            self.pMax = drb.Array3f()
+            self.pMax.assign(pMax)
+
+        def contains(self, p: drb.Array3f) -> drb.Bool:
+            # Check if point `p` lies in/on the BBox.
+            return dr.all((self.pMin <= p) & (p <= self.pMax))
+
+        def ray_intersect(self, r: Ray3f) -> tuple[drb.Bool, drb.Float, drb.Float]:
+            # Compute ray/bbox intersection parameters. [Adapted from Mitsuba3's ray_intersect().]
+            #
+            # Parameters
+            # ----------
+            # r: Ray3f
+            #
+            # Returns
+            # -------
+            # active: Bool
+            #     True if intersection occurs.
+            # mint, maxt: Float
+            #     Ray parameters `t` such that r(t) touches a BBox border.
+            #     The value only makes sense if `active` is enabled.
+
+            # Ensure ray has a nonzero slope on each axis, or that its origin on a 0-valued axis is within the box bounds.
+            active = dr.all(dr.neq(r.d, 0) | (self.pMin < r.o) | (r.o < self.pMax))
+
+            # Compute intersection intervals for each axis
+            d_rcp = dr.rcp(r.d)
+            t1 = (self.pMin - r.o) * d_rcp
+            t2 = (self.pMax - r.o) * d_rcp
+
+            # Ensure proper ordering
+            t1p = dr.minimum(t1, t2)
+            t2p = dr.maximum(t1, t2)
+
+            # Intersect intervals
+            mint = dr.max(t1p)
+            maxt = dr.min(t2p)
+            active &= mint <= maxt
+
+            return active, mint, maxt
+
+        def assign(self, bbox: "BoundingBox3f"):
+            # See __init__'s docstring for more info.
+            self.pMin.assign(bbox.pMin)
+            self.pMax.assign(bbox.pMax)
+
+        def __repr__(self) -> str:
+            return f"BoundingBox3f(pMin={dr.shape(self.pMin)}, pMax={dr.shape(self.pMax)})"
+
+    def ray_step(r: Ray3f) -> Ray3f:
         # Advance ray until next unit-step lattice intersection.
         #
         # Parameters
@@ -143,7 +264,7 @@ def _get_dr_funcs(ndi: pxd.NDArrayInfo):
 
         # Go to local coordinate system.
         o_ref = dr.floor(r.o)
-        r_local = mi.Ray3f(o=r.o - o_ref, d=r.d)
+        r_local = Ray3f(o=r.o - o_ref, d=r.d)
 
         # Find bounding box for ray-intersection tests.
         on_boundary = r_local.o <= eps
@@ -153,7 +274,7 @@ def _get_dr_funcs(ndi: pxd.NDArrayInfo):
             dr.select(on_boundary, dr.sign(r.d), 1),
             1,
         )
-        bbox = mi.BoundingBox3f(
+        bbox = BoundingBox3f(
             dr.minimum(0, bbox_border),
             dr.maximum(0, bbox_border),
         )
@@ -168,7 +289,7 @@ def _get_dr_funcs(ndi: pxd.NDArrayInfo):
 
         # Move ray to new position in global coordinates.
         # r_next located on lattice intersection (up to FP error).
-        r_next = mi.Ray3f(o=o_ref + r_local(a), d=r.d)
+        r_next = Ray3f(o=o_ref + r_local(a), d=r.d)
         return r_next
 
     def xrt_apply(
@@ -176,7 +297,7 @@ def _get_dr_funcs(ndi: pxd.NDArrayInfo):
         pitch: drb.Array3f,
         N: drb.Array3u,
         I: drb.Float,
-        r: mi.Ray3f,
+        r: Ray3f,
     ) -> drb.Float:
         # X-Ray Forward-Projection.
         #
@@ -191,23 +312,22 @@ def _get_dr_funcs(ndi: pxd.NDArrayInfo):
 
         # Go to normalized coordinates
         ipitch = dr.rcp(pitch)
-        r = mi.Ray3f(
+        r = Ray3f(
             o=(r.o - o) * ipitch,
             d=dr.normalize(r.d * ipitch),
         )
-
         stride = drb.Array3u(N[1] * N[2], N[2], 1)
-        flat_index = lambda i: dr.dot(stride, mi.Point3u(i))  # Point3f (int-valued) -> UInt32
+        flat_index = lambda i: dr.dot(stride, drb.Array3u(i))  # Array3f (int-valued) -> UInt32
 
         L = max(dr.shape(r.o)[1], dr.shape(r.d)[1])
         P = dr.zeros(drb.Float, shape=L)  # Forward-Projection samples
         idx_P = dr.arange(drb.UInt32, L)
 
         # Move (intersecting) rays to volume surface
-        bbox_vol = mi.BoundingBox3f(0, drb.Array3f(N))
+        bbox_vol = BoundingBox3f(drb.Array3f(0), drb.Array3f(N))
         active, a1, a2 = bbox_vol.ray_intersect(r)
         a_min = dr.minimum(a1, a2)
-        r.o = dr.select(active, r(a_min), r.o)
+        r.o.assign(dr.select(active, r(a_min), r.o))
 
         r_next = ray_step(r)
         active &= bbox_vol.contains(r_next.o)
@@ -229,8 +349,8 @@ def _get_dr_funcs(ndi: pxd.NDArrayInfo):
             dr.scatter_reduce(dr.ReduceOp.Add, P, weight * length, idx_P, active)
 
             # Walk to next lattice intersection.
-            r = r_next
-            r_next = ray_step(r)
+            r.assign(r_next)
+            r_next.assign(ray_step(r))
             active &= bbox_vol.contains(r_next.o)
         return P
 
@@ -239,7 +359,7 @@ def _get_dr_funcs(ndi: pxd.NDArrayInfo):
         pitch: drb.Array3f,
         N: drb.Array3u,
         P: drb.Float,
-        r: mi.Ray3f,
+        r: Ray3f,
     ) -> drb.Float:
         # X-Ray Back-Projection.
         #
@@ -250,25 +370,24 @@ def _get_dr_funcs(ndi: pxd.NDArrayInfo):
         #   P:     (L,) X-Ray samples \in \bR
         #   r:     (L,) ray descriptors
         # Returns
-        #   I: (Nx*Ny*Nz,) back-projected samples \in \bR [C-order]
+        #   I:     (Nx*Ny*Nz,) back-projected samples \in \bR [C-order]
 
         # Go to normalized coordinates
         ipitch = dr.rcp(pitch)
-        r = mi.Ray3f(
+        r = Ray3f(
             o=(r.o - o) * ipitch,
             d=dr.normalize(r.d * ipitch),
         )
-
         stride = drb.Array3u(N[1] * N[2], N[2], 1)
-        flat_index = lambda i: dr.dot(stride, mi.Point3u(i))  # Point3f (int-valued) -> UInt32
+        flat_index = lambda i: dr.dot(stride, drb.Array3u(i))  # Array3f (int-valued) -> UInt32
 
         I = dr.zeros(drb.Float, dr.prod(N)[0])  # noqa: E741 (Back-Projection samples)
 
         # Move (intersecting) rays to volume surface
-        bbox_vol = mi.BoundingBox3f(0, drb.Array3f(N))
+        bbox_vol = BoundingBox3f(drb.Array3f(0), drb.Array3f(N))
         active, a1, a2 = bbox_vol.ray_intersect(r)
         a_min = dr.minimum(a1, a2)
-        r.o = dr.select(active, r(a_min), r.o)
+        r.o.assign(dr.select(active, r(a_min), r.o))
 
         r_next = ray_step(r)
         active &= bbox_vol.contains(r_next.o)
@@ -289,9 +408,9 @@ def _get_dr_funcs(ndi: pxd.NDArrayInfo):
             )
 
             # Walk to next lattice intersection.
-            r = r_next
-            r_next = ray_step(r)
+            r.assign(r_next)
+            r_next.assign(ray_step(r))
             active &= bbox_vol.contains(r_next.o)
         return I
 
-    return xrt_apply, xrt_adjoint
+    return Ray3f, xrt_apply, xrt_adjoint
