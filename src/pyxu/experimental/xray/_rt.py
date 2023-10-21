@@ -268,12 +268,7 @@ def _get_dr_obj(ndi: pxd.NDArrayInfo):
 
         # Find bounding box for ray-intersection tests.
         on_boundary = r_local.o <= eps
-        any_boundary = dr.any(on_boundary)
-        bbox_border = dr.select(
-            any_boundary,
-            dr.select(on_boundary, dr.sign(r.d), 1),
-            1,
-        )
+        bbox_border = dr.select(on_boundary, dr.sign(r.d), 1)
         bbox = BoundingBox3f(
             dr.minimum(0, bbox_border),
             dr.maximum(0, bbox_border),
