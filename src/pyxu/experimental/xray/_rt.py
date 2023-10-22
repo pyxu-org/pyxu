@@ -65,7 +65,7 @@ class RayXRT(pxa.LinOp):
     @pxrt.enforce_precision(i="arr")
     @pxu.vectorize(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        arr = self._warn_cast(arr)
+        arr, dtype = self._warn_cast(arr)
 
         drb = _load_dr_variant(self._ndi)
         P = self._fwd(
@@ -74,13 +74,13 @@ class RayXRT(pxa.LinOp):
         )
 
         xp = self._ndi.module()
-        P = xp.asarray(P)
+        P = xp.asarray(P, dtype=dtype)
         return P
 
     @pxrt.enforce_precision(i="arr")
     @pxu.vectorize(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
-        arr = self._warn_cast(arr)
+        arr, dtype = self._warn_cast(arr)
 
         drb = _load_dr_variant(self._ndi)
         I = self._bwd(  # noqa: E741
@@ -89,10 +89,10 @@ class RayXRT(pxa.LinOp):
         )
 
         xp = self._ndi.module()
-        I = xp.asarray(I)  # noqa: E741
+        I = xp.asarray(I, dtype=dtype)  # noqa: E741
         return I
 
-    def _warn_cast(self, arr: pxt.NDArray) -> pxt.NDArray:
+    def _warn_cast(self, arr: pxt.NDArray) -> tuple[pxt.NDArray, pxt.DType]:
         W = pxrt.Width  # shorthand
         if W(arr.dtype) != W.SINGLE:
             msg = f"Only {W.SINGLE}-precision inputs are supported: casting."
@@ -100,7 +100,20 @@ class RayXRT(pxa.LinOp):
             out = arr.astype(dtype=W.SINGLE.value)
         else:
             out = arr
-        return out
+        return out, arr.dtype
+
+    def asarray(self, **kwargs) -> pxt.NDArray:
+        # DASK not yet supported, hence we support `xp=DASK` case sub-optimally for now.
+        xp = kwargs.get("xp", pxd.NDArrayInfo.default().module())
+        dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+
+        # compute array representation using instance's backend.
+        kwargs.update(xp=self._ndi.module())
+        A = super().asarray(**kwargs)
+
+        # then cast to user specs.
+        A = xp.array(pxu.to_NUMPY(A), dtype=dtype)
+        return A
 
 
 def _xp2dr(x: pxt.NDArray):
