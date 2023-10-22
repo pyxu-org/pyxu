@@ -19,6 +19,7 @@ class RayXRT(pxa.LinOp):
         pitch,
         n_spec,
         t_spec,
+        enable_warnings: bool = True,
     ):
         N_px = np.prod(arg_shape)
         N_l = len(n_spec)
@@ -35,6 +36,7 @@ class RayXRT(pxa.LinOp):
         self._ray_n = n_spec  # (N_l, D)
         self._ray_t = t_spec  # (N_l, D)
         self._ndi = pxd.NDArrayInfo.from_obj(n_spec)
+        self._enable_warnings = bool(enable_warnings)
 
         # Dr.Jit variables. {Have shapes consistent for xrt_[apply,adjoint]().}
         #   xrt_[apply,adjoint]() only support D=3 case.
@@ -95,8 +97,9 @@ class RayXRT(pxa.LinOp):
     def _warn_cast(self, arr: pxt.NDArray) -> tuple[pxt.NDArray, pxt.DType]:
         W = pxrt.Width  # shorthand
         if W(arr.dtype) != W.SINGLE:
-            msg = f"Only {W.SINGLE}-precision inputs are supported: casting."
-            warnings.warn(msg, pxw.PrecisionWarning)
+            if self._enable_warnings:
+                msg = f"Only {W.SINGLE}-precision inputs are supported: casting."
+                warnings.warn(msg, pxw.PrecisionWarning)
             out = arr.astype(dtype=W.SINGLE.value)
         else:
             out = arr

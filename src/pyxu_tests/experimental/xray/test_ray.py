@@ -102,6 +102,7 @@ class TestRayXRT(conftest.LinOpT):
                 method="ray-trace",
                 n_spec=xp.array(nt_spec[0]),
                 t_spec=xp.array(nt_spec[1]),
+                enable_warnings=False,
             )
         return op, ndi, width
 
