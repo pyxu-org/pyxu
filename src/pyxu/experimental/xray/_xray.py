@@ -59,6 +59,11 @@ class XRayTransform(pxa.LinOp):
                        1_{[\mathbf{0}, \mathbf{\Delta}]}(\mathbf{r} - \mathbf{q} \odot \mathbf{\Delta} - \mathbf{o}),
        \quad
        \alpha_{\mathbf{q}} \in \mathbb{R}.
+
+    .. image:: /_static/api/xray/xray_parametrization.svg
+       :alt: 2D XRay Geometry
+       :width: 50%
+       :align: center
     """
 
     @staticmethod
