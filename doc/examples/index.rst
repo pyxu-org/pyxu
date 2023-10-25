@@ -8,4 +8,5 @@ Example Gallery
     deblur
     ../guide/diff_ops
     stencils
+    xray
     contributing
