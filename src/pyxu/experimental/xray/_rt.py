@@ -1,3 +1,4 @@
+import types
 import warnings
 
 import numpy as np
@@ -117,6 +118,58 @@ class RayXRT(pxa.LinOp):
         # then cast to user specs.
         A = xp.array(pxu.to_NUMPY(A), dtype=dtype)
         return A
+
+    def gram(self) -> pxt.OpT:
+        # We replace apply() with a variant which does not force evaluation between FW/BW calls.
+
+        @pxrt.enforce_precision(i="arr")
+        @pxu.vectorize(i="arr")
+        def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
+            arr, dtype = _._warn_cast(arr)
+
+            drb = _load_dr_variant(_._ndi)
+            P = _._fwd(
+                **_._dr,
+                I=drb.Float(_xp2dr(arr)),
+            )
+            I = _._bwd(  # noqa: E741
+                **_._dr,
+                P=P,
+            )
+
+            xp = _._ndi.module()
+            I = xp.asarray(I, dtype=dtype)  # noqa: E741
+            return I
+
+        op = super().gram()
+        op.apply = types.MethodType(op_apply, self)
+        return op
+
+    def cogram(self) -> pxt.OpT:
+        # We replace apply() with a variant which does not enforce evaluation between BW/FW calls.
+
+        @pxrt.enforce_precision(i="arr")
+        @pxu.vectorize(i="arr")
+        def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
+            arr, dtype = _._warn_cast(arr)
+
+            drb = _load_dr_variant(_._ndi)
+            I = _._bwd(  # noqa: E741
+                **_._dr,
+                P=drb.Float(_xp2dr(arr)),
+            )
+            P = _._fwd(
+                **_._dr,
+                I=I,
+            )
+
+            xp = _._ndi.module()
+            P = xp.asarray(P, dtype=dtype)
+            return P
+
+        op = super().cogram()
+        op.apply = types.MethodType(op_apply, self)
+        return op
 
 
 def _xp2dr(x: pxt.NDArray):
