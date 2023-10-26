@@ -92,6 +92,7 @@ class TestRayXRT(conftest.LinOpT):
         request,
     ) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
+        self._skip_if_unsupported(ndi)
         xp = ndi.module()
 
         with pxrt.Precision(width):
