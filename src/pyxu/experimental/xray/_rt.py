@@ -12,7 +12,15 @@ import pyxu.util as pxu
 
 
 class RayXRT(pxa.LinOp):
-    # See XRayTransform() for instantiation details.
+    r"""
+    2D/3D X-Ray Transform :math:`\mathcal{P}[f](\mathbf{n}, \mathbf{t})`.
+
+    This implementation computes the XRT using a ray-marching method based on the `Dr.Jit
+    <https://drjit.readthedocs.io/en/latest/reference.html>`_ compiler.
+
+    See :py:class:`~pyxu.experimental.xray.XRayTransform` for notational conventions used herein.
+    """
+
     def __init__(
         self,
         arg_shape,
@@ -22,6 +30,28 @@ class RayXRT(pxa.LinOp):
         t_spec,
         enable_warnings: bool = True,
     ):
+        r"""
+        Parameters
+        ----------
+        arg_shape: NDArrayShape
+            Pixel count in each dimension.
+        origin: NDArray
+            Bottom-left coordinate :math:`\mathbf{o} \in \mathbb{R}^{D}`.
+        pitch: NDArray
+            Pixel size :math:`\mathbf{\Delta} \in \mathbb{R}_{+}^{D}`.
+        n_spec: NDArray
+            (N_l, D) ray directions :math:`\mathbf{n} \in \mathbb{S}^{D-1}`.
+        t_spec: NDArray
+            (N_l, D) offset specifiers :math:`\mathbf{t} \in \mathbb{R}^{D}`.
+        enable_warnings: bool
+
+
+        .. warning::
+
+           This is a low-level interface which does not perform any parameter validation.  Users are expected to
+           instantiate :py:class:`~pyxu.experimental.xray._rt.RayXRT` by calling
+           :py:meth:`~pyxu.experimental.xray.XRayTransform.init` instead.
+        """
         N_px = np.prod(arg_shape)
         N_l = len(n_spec)
         super().__init__(shape=(N_l, N_px))
@@ -77,6 +107,17 @@ class RayXRT(pxa.LinOp):
     @pxrt.enforce_precision(i="arr")
     @pxu.vectorize(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            (...,  arg_shape.prod()) spatial weights.
+
+        Returns
+        -------
+        P: NDArray
+            (..., N_l) XRT samples.
+        """
         arr, dtype = self._warn_cast(arr)
 
         drb = _load_dr_variant(self._ndi)
@@ -92,6 +133,17 @@ class RayXRT(pxa.LinOp):
     @pxrt.enforce_precision(i="arr")
     @pxu.vectorize(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
+        r"""
+        Parameters
+        ----------
+        arr: NDArray
+            (..., N_l) XRT samples.
+
+        Returns
+        -------
+        I: NDArray
+            (...,  arg_shape.prod()) spatial weights.
+        """
         arr, dtype = self._warn_cast(arr)
 
         drb = _load_dr_variant(self._ndi)
