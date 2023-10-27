@@ -39,6 +39,15 @@ class RayXRT(pxa.LinOp):
         self._ndi = pxd.NDArrayInfo.from_obj(n_spec)
         self._enable_warnings = bool(enable_warnings)
 
+        # Cheap analytical Lipschitz upper bound given by
+        #   \sigma_{\max}(P) <= \max{P.sum(axis=0), P.sum(axis=1)},
+        # with
+        #   P.sum(axis=0) <= \norm{pitch}{2} * N_ray               [very pessimistic]
+        #   P.sum(axis=1) <= \norm{pitch}{2} * \norm{arg_shape}{2}
+        row_ub = np.linalg.norm(pitch) * np.linalg.norm(arg_shape)
+        col_ub = np.linalg.norm(pitch) * len(n_spec)
+        self.lipschitz = max(row_ub, col_ub)
+
         # Dr.Jit variables. {Have shapes consistent for xrt_[apply,adjoint]().}
         #   xrt_[apply,adjoint]() only support D=3 case.
         #     -> D=2 case is embedded into 3D.
