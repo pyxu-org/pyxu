@@ -17,3 +17,13 @@ pyxu.experimental.xray
    :exclude-members: apply, applyF, support, supportF
 
 .. autoclass:: pyxu.experimental.xray.XRayTransform
+
+.. autoclass:: pyxu.experimental.xray._rt.RayXRT
+   :no-members:
+   :members: apply, adjoint
+   :special-members: __init__
+
+.. autoclass:: pyxu.experimental.xray._fourier.FourierXRT
+   :no-members:
+   :members: apply, adjoint
+   :special-members: __init__

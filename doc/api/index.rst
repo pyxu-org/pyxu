@@ -125,6 +125,8 @@ Transforms
    ~pyxu.experimental.xray.KaiserBessel
    ~pyxu.experimental.xray.TruncatedGaussian
    ~pyxu.experimental.xray.XRayTransform
+   ~pyxu.experimental.xray._rt.RayXRT
+   ~pyxu.experimental.xray._fourier.FourierXRT
 
 pyxu.info.deps
 --------------
