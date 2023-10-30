@@ -82,7 +82,7 @@ class RayXRT(pxa.LinOp):
         #   xrt_[apply,adjoint]() only support D=3 case.
         #     -> D=2 case is embedded into 3D.
         drb = _load_dr_variant(self._ndi)
-        Ray3f, self._fwd, self._bwd = _get_dr_obj(self._ndi)
+        Ray3f, _, self._fwd, self._bwd = _get_dr_obj(self._ndi)
         if len(arg_shape) == 2:
             self._dr = dict(
                 o=drb.Array3f(*self._origin, 0),
@@ -538,4 +538,4 @@ def _get_dr_obj(ndi: pxd.NDArrayInfo):
             active &= bbox_vol.contains(r_next.o)
         return I
 
-    return Ray3f, xrt_apply, xrt_adjoint
+    return Ray3f, BoundingBox3f, xrt_apply, xrt_adjoint
