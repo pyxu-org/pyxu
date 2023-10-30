@@ -232,6 +232,158 @@ class RayXRT(pxa.LinOp):
         op.apply = types.MethodType(op_apply, self)
         return op
 
+    def diagnostic_plot(self, ray_idx: pxt.NDArray = None):
+        r"""
+        Plot ray trajectories.
+
+        Parameters
+        ----------
+        ray_idx: NDArray
+            (Q,) indices of rays to plot. (Default: show all rays.)
+
+        Returns
+        -------
+        fig: :py:class:`~matplotlib.figure.Figure`
+            Diagnostic plot.
+
+        Notes
+        -----
+        * Rays which do not intersect the volume are **not** shown.
+
+        Examples
+        --------
+
+        .. plot::
+
+           import numpy as np
+           import pyxu.experimental.xray as pxr
+
+           op = pxr.XRayTransform.init(
+               arg_shape=(5, 6),
+               origin=0,
+               pitch=1,
+               method="ray-trace",
+               n_spec=np.array([[1   , 0   ],  # 3 rays ...
+                                [0.5 , 0.5 ],
+                                [0.75, 0.25]]),
+               t_spec=np.array([[2.5, 3],  # ... all defined w.r.t volume center
+                                [2.5, 3],
+                                [2.5, 3]]),
+           )
+           fig = op.diagnostic_plot()
+           fig.show()
+
+        Notes
+        -----
+        Requires `Matplotlib <https://matplotlib.org/>`_ to be installed.
+        """
+        dr = pxu.import_module("drjit")
+        plt = pxu.import_module("matplotlib.pyplot")
+        collections = pxu.import_module("matplotlib.collections")
+        patches = pxu.import_module("matplotlib.patches")
+
+        # Setup Figure ========================================================
+        D = len(self._arg_shape)
+        if D == 2:
+            fig, ax = plt.subplots()
+            data = [(ax, [0, 1], ["x", "y"])]
+        else:  # D == 3 case
+            fig, ax = plt.subplots(ncols=3)
+            data = [
+                (ax[0], [0, 1], ["x", "y"]),
+                (ax[1], [0, 2], ["x", "z"]),
+                (ax[2], [1, 2], ["y", "z"]),
+            ]
+
+        # Determine which rays intersect with BoundingBox =====================
+        _, BBox3f, _, _ = _get_dr_obj(self._ndi)
+        active, a1, a2 = BBox3f(
+            pMin=self._dr["o"],
+            pMax=self._dr["o"] + self._dr["pitch"] * self._dr["N"],
+        ).ray_intersect(self._dr["r"])
+        dr.eval(active, a1, a2)
+
+        # Then extract subset of interest (which intersect bbox)
+        if ray_idx is None:
+            ray_idx = slice(None)
+        active, a1, a2 = map(lambda _: _.numpy()[ray_idx], [active, a1, a2])  # (Q,)
+        a12 = np.stack([a1, a2], axis=-1)[active]  # (N_active, 2)
+        ray_n = self._ray_n[ray_idx][active]  # (N_active, D)
+        ray_t = self._ray_t[ray_idx][active]  # (N_active, D)
+
+        for _ax, dim_idx, dim_label in data:
+            # Subsample right dimensions ======================================
+            origin = np.array(self._origin)[dim_idx]
+            arg_shape = np.array(self._arg_shape)[dim_idx]
+            pitch = np.array(self._pitch)[dim_idx]
+            _ray_n = ray_n[:, dim_idx]
+            _ray_t = ray_t[:, dim_idx]
+
+            # Helper variables ================================================
+            bbox_dim = arg_shape * pitch
+
+            # Draw BBox =======================================================
+            rect = patches.Rectangle(
+                xy=origin,
+                width=bbox_dim[0],
+                height=bbox_dim[1],
+                facecolor="none",
+                edgecolor="k",
+                label="volume BBox",
+            )
+            _ax.add_patch(rect)
+
+            # Draw Pitch =======================================================
+            p_rect = patches.Rectangle(
+                xy=origin + bbox_dim - pitch,
+                width=pitch[0],
+                height=pitch[1],
+                facecolor="r",
+                edgecolor="none",
+                label="pitch size",
+            )
+            _ax.add_patch(p_rect)
+
+            # Draw Origin =====================================================
+            _ax.scatter(
+                origin[0],
+                origin[1],
+                color="k",
+                label="origin",
+                marker="x",
+            )
+
+            # Draw Rays & Anchor Points =======================================
+            # Each (2,2) sub-array in `coords` represents line start/end coordinates.
+            coords = _ray_t.reshape(-1, 1, 2) + a12.reshape(-1, 2, 1) * _ray_n.reshape(-1, 1, 2)  # (N_active, 2, 2)
+            lines = collections.LineCollection(
+                coords,
+                label=r"$t + \alpha n$",
+                color="k",
+                alpha=0.5,
+                linewidth=1,
+            )
+            _ax.add_collection(lines)
+            _ax.scatter(
+                _ray_t[:, 0],
+                _ray_t[:, 1],
+                label=r"t",
+                color="g",
+                marker=".",
+            )
+
+            # Misc Details ====================================================
+            pad_width = 0.1 * bbox_dim  # 10% axial pad
+            _ax.set_xlabel(dim_label[0])
+            _ax.set_ylabel(dim_label[1])
+            _ax.set_xlim(origin[0] - pad_width[0], origin[0] + bbox_dim[0] + pad_width[0])
+            _ax.set_ylim(origin[1] - pad_width[1], origin[1] + bbox_dim[1] + pad_width[1])
+            _ax.legend(loc="lower right", bbox_to_anchor=(1, 1))
+            _ax.set_aspect(1)
+
+        fig.tight_layout()
+        return fig
+
 
 def _xp2dr(x: pxt.NDArray):
     # Transform NP/CP inputs to format allowing zero-copy casts to {drb.Float, drb.Array3f}

@@ -166,14 +166,14 @@ class XRayTransform(pxa.LinOp):
             xp = ndi_n.module()
             n_spec = n_spec / xp.linalg.norm(n_spec, axis=-1, keepdims=True)
 
-            # Project `t_spec` to lie in n^{\perp}.
-            # (Not really required; just to have everything in standardized form.)
-            rng = xp.random.default_rng()
-            U = rng.standard_normal((N_l, D, D))  # create reference frames n^{\perp}
-            U[..., 0] = n_spec
-            U, _ = xp.linalg.qr(U)
-            s = U[..., 1:].transpose(0, 2, 1) @ t_spec.reshape(N_l, D, 1)
-            t_spec = (U[..., 1:] @ s).reshape(N_l, D)
+            ### Project `t_spec` to lie in n^{\perp}.
+            ### (We don't do this by default since it messes up diagnostic_plot() analysis.)
+            # rng = xp.random.default_rng()
+            # U = rng.standard_normal((N_l, D, D))  # create reference frames n^{\perp}
+            # U[..., 0] = n_spec
+            # U, _ = xp.linalg.qr(U)
+            # s = U[..., 1:].transpose(0, 2, 1) @ t_spec.reshape(N_l, D, 1)
+            # t_spec = (U[..., 1:] @ s).reshape(N_l, D)
 
             klass = _rt.RayXRT
         else:  # method == "fourier"
