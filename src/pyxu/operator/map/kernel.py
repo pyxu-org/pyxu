@@ -32,13 +32,13 @@ def _get_module(arr: pxt.NDArray):
     return xp, sps
 
 
-class FSSPulse(pxa.Func):
+class FSSPulse(pxa.Map):
     r"""
-    1D Finite-Support Symmetric function :math:`f: \mathbb{R} \to \mathbb{R}`.
+    1D Finite-Support Symmetric function :math:`f: \mathbb{R} \to \mathbb{R}`, element-wise.
     """
 
-    def __init__(self):
-        super().__init__(shape=(1, 1))
+    def __init__(self, dim: pxt.Integer):
+        super().__init__(shape=(dim, dim))
 
     def support(self) -> pxt.Real:
         r"""
@@ -53,7 +53,7 @@ class FSSPulse(pxa.Func):
         r"""
         Evaluate :math:`f^{\mathcal{F}}(v)`.
 
-        :py:meth:`~pyxu.experimental.xray.FSSPulse.applyF` has the same semantics as :py:meth:`~pyxu.abc.Map.apply`.
+        :py:meth:`~pyxu.operator.FSSPulse.applyF` has the same semantics as :py:meth:`~pyxu.abc.Map.apply`.
 
         The Fourier convention used is
 
@@ -136,7 +136,10 @@ class FSSPulse(pxa.Func):
             op, cst = _._op, _._cst
             return op.supportF(eps) * cst
 
-        g = FSSPulse()
+        def g_expr(_) -> tuple:
+            return ("argscale", _._op, _._cst)
+
+        g = FSSPulse(dim=self.dim)
         g._cst = scalar  # scale factor
         g._op = self  # initial pulse
 
@@ -144,6 +147,7 @@ class FSSPulse(pxa.Func):
         g.support = types.MethodType(g_support, g)
         g.applyF = types.MethodType(g_applyF, g)
         g.supportF = types.MethodType(g_supportF, g)
+        g._expr = types.MethodType(g_expr, g)
         return g
 
 
@@ -156,6 +160,9 @@ class Dirac(FSSPulse):
     * :math:`f(x) = \delta(x)`
     * :math:`f^{\mathcal{F}}(v) = 1`
     """
+
+    def __init__(self, dim: pxt.Integer):
+        super().__init__(dim=dim)
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
@@ -184,6 +191,9 @@ class Box(FSSPulse):
     * :math:`f(x) = 1_{[-1, 1]}(x)`
     * :math:`f^{\mathcal{F}}(v) = 2 \; \text{sinc}(2 v)`
     """
+
+    def __init__(self, dim: pxt.Integer):
+        super().__init__(dim=dim)
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
@@ -220,7 +230,8 @@ class TruncatedGaussian(FSSPulse):
       \right\}`
     """
 
-    def __init__(self, sigma: pxt.Real):
+    def __init__(self, dim: pxt.Integer, sigma: pxt.Real):
+        super().__init__(dim=dim)
         self._sigma = float(sigma)
         assert 0 < self._sigma <= 1
 
@@ -261,7 +272,8 @@ class KaiserBessel(FSSPulse):
       {\sqrt{\beta^{2} - (2 \pi v)^{2}}}`
     """
 
-    def __init__(self, beta: pxt.Real):
+    def __init__(self, dim: pxt.Integer, beta: pxt.Real):
+        super().__init__(dim=dim)
         self._beta = float(beta)
         assert self._beta >= 0
 

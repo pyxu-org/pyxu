@@ -16,6 +16,7 @@ from pyxu.operator.linop.select import *
 from pyxu.operator.linop.stencil._stencil import _Stencil
 from pyxu.operator.linop.stencil.stencil import *
 from pyxu.operator.map.base import *
+from pyxu.operator.map.kernel import *
 from pyxu.operator.map.ufunc import *
 
 _load_entry_points(globals(), group="pyxu.operator")

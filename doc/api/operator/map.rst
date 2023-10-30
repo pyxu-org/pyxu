@@ -66,3 +66,21 @@ Misc
 .. autofunction:: pyxu.operator.softmax
 
 .. autofunction:: pyxu.operator.softplus
+
+Pulses
+------
+
+.. autoclass:: pyxu.operator.FSSPulse
+   :exclude-members: argscale
+
+.. autoclass:: pyxu.operator.Dirac
+   :exclude-members: apply, applyF, support, supportF
+
+.. autoclass:: pyxu.operator.Box
+   :exclude-members: apply, applyF, support
+
+.. autoclass:: pyxu.operator.TruncatedGaussian
+   :exclude-members: apply, applyF, support
+
+.. autoclass:: pyxu.operator.KaiserBessel
+   :exclude-members: apply, applyF, support, supportF
