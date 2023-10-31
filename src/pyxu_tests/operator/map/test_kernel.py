@@ -158,6 +158,37 @@ class TestBox(FSSPulseT):
         )
 
 
+class TestTriangle(FSSPulseT):
+    @pytest.fixture
+    def spec(self, dim, _spec):
+        op = pxo.Triangle(dim)
+        return op, _spec[0], _spec[1]
+
+    @pytest.fixture
+    def data_apply(self, dim, _seed):
+        rng = np.random.default_rng(_seed)
+
+        x = rng.uniform(-1.5, 1.5, dim)
+        y = np.clip(1 - np.fabs(x), 0, None)
+
+        return dict(
+            in_=dict(arr=x),
+            out=y,
+        )
+
+    @pytest.fixture
+    def data_applyF(self, dim, _seed):
+        rng = np.random.default_rng(_seed)
+
+        x = rng.uniform(-1.5, 1.5, dim)
+        y = np.sinc(x) ** 2
+
+        return dict(
+            in_=dict(arr=x),
+            out=y,
+        )
+
+
 class TestTruncatedGaussian(FSSPulseT):
     @pytest.fixture(params=[0.3, 1])
     def gaussian_sigma(self, request) -> float:

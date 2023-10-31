@@ -390,6 +390,7 @@ Pulses
    ~pyxu.operator.Dirac
    ~pyxu.operator.FSSPulse
    ~pyxu.operator.KaiserBessel
+   ~pyxu.operator.Triangle
    ~pyxu.operator.TruncatedGaussian
 
 pyxu.opt.solver

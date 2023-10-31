@@ -13,6 +13,7 @@ __all__ = [
     "Dirac",
     "FSSPulse",
     "Box",
+    "Triangle",
     "TruncatedGaussian",
     "KaiserBessel",
 ]
@@ -209,6 +210,36 @@ class Box(FSSPulse):
     def applyF(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp, _ = _get_module(arr)
         y = 2 * xp.sinc(2 * arr)
+        return y
+
+
+class Triangle(FSSPulse):
+    r"""
+    Triangle function.
+
+    Notes
+    -----
+    * :math:`f(x) = (1 - |x|) 1_{[-1, 1]}(x)`
+    * :math:`f^{\mathcal{F}}(v) = \text{sinc}^{2}(v)`
+    """
+
+    def __init__(self, dim: pxt.Integer):
+        super().__init__(dim=dim)
+
+    @pxrt.enforce_precision(i="arr")
+    def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
+        xp, _ = _get_module(arr)
+        y = xp.clip(1 - xp.fabs(arr), 0, None)
+        return y
+
+    def support(self) -> pxt.Real:
+        return 1.0
+
+    @pxrt.enforce_precision(i="arr")
+    def applyF(self, arr: pxt.NDArray) -> pxt.NDArray:
+        xp, _ = _get_module(arr)
+        y = xp.sinc(arr)
+        y **= 2
         return y
 
 

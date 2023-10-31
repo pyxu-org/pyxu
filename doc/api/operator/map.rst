@@ -79,6 +79,9 @@ Pulses
 .. autoclass:: pyxu.operator.Box
    :exclude-members: apply, applyF, support
 
+.. autoclass:: pyxu.operator.Triangle
+   :exclude-members: apply, applyF, support
+
 .. autoclass:: pyxu.operator.TruncatedGaussian
    :exclude-members: apply, applyF, support
 
