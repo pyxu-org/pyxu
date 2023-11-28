@@ -82,7 +82,8 @@ class RayXRT(pxa.LinOp):
         #   xrt_[apply,adjoint]() only support D=3 case.
         #     -> D=2 case is embedded into 3D.
         drb = _load_dr_variant(self._ndi)
-        Ray3f, _, self._fwd, self._bwd = _get_dr_obj(self._ndi)
+        Ray3f = _Ray3f_Factory(self._ndi)
+        self._fwd, self._bwd = _build_xrt(self._ndi)
         if len(arg_shape) == 2:
             self._dr = dict(
                 o=drb.Array3f(*self._origin, 0),
@@ -296,7 +297,7 @@ class RayXRT(pxa.LinOp):
             ]
 
         # Determine which rays intersect with BoundingBox =====================
-        _, BBox3f, _, _ = _get_dr_obj(self._ndi)
+        BBox3f = _BoundingBox3f_Factory(self._ndi)
         active, a1, a2 = BBox3f(
             pMin=self._dr["o"],
             pMax=self._dr["o"] + self._dr["pitch"] * self._dr["N"],
@@ -385,6 +386,7 @@ class RayXRT(pxa.LinOp):
         return fig
 
 
+# Dr.Jit Helper Functions =====================================================
 def _xp2dr(x: pxt.NDArray):
     # Transform NP/CP inputs to format allowing zero-copy casts to {drb.Float, drb.Array3f}
     ndi = pxd.NDArrayInfo.from_obj(x)
@@ -397,6 +399,7 @@ def _xp2dr(x: pxt.NDArray):
 
 
 def _load_dr_variant(ndi: pxd.NDArrayInfo):
+    # Load right computation backend
     if ndi == pxd.NDArrayInfo.NUMPY:
         drb = pxu.import_module("drjit.llvm")
     elif ndi == pxd.NDArrayInfo.CUPY:
@@ -406,10 +409,9 @@ def _load_dr_variant(ndi: pxd.NDArrayInfo):
     return drb
 
 
-def _get_dr_obj(ndi: pxd.NDArrayInfo):
-    # Create DrJIT objects needed for fwd/bwd transforms.
-    import drjit as dr
-
+def _Ray3f_Factory(ndi: pxd.NDArrayInfo):
+    # Create a Ray3f class associated with a compute backend.
+    dr = pxu.import_module("drjit")
     drb = _load_dr_variant(ndi)
 
     class Ray3f:
@@ -459,6 +461,15 @@ def _get_dr_obj(ndi: pxd.NDArrayInfo):
 
         def __repr__(self) -> str:
             return f"Ray3f(o={dr.shape(self.o)}, d={dr.shape(self.d)})"
+
+    return Ray3f
+
+
+def _BoundingBox3f_Factory(ndi: pxd.NDArrayInfo):
+    # Create a BoundingBox3f class associated with a compute backend.
+    dr = pxu.import_module("drjit")
+    drb = _load_dr_variant(ndi)
+    Ray3f = _Ray3f_Factory(ndi)
 
     class BoundingBox3f:
         # Dr.JIT-backed 3D bounding box.
@@ -534,6 +545,17 @@ def _get_dr_obj(ndi: pxd.NDArrayInfo):
 
         def __repr__(self) -> str:
             return f"BoundingBox3f(pMin={dr.shape(self.pMin)}, pMax={dr.shape(self.pMax)})"
+
+    return BoundingBox3f
+
+
+def _build_xrt(ndi: pxd.NDArrayInfo):
+    # Create DrJIT FW/BW transforms.
+    dr = pxu.import_module("drjit")
+    drb = _load_dr_variant(ndi)
+
+    Ray3f = _Ray3f_Factory(ndi)
+    BoundingBox3f = _BoundingBox3f_Factory(ndi)
 
     def ray_step(r: Ray3f) -> Ray3f:
         # Advance ray until next unit-step lattice intersection.
@@ -690,4 +712,4 @@ def _get_dr_obj(ndi: pxd.NDArrayInfo):
             active &= bbox_vol.contains(r_next.o)
         return I
 
-    return Ray3f, BoundingBox3f, xrt_apply, xrt_adjoint
+    return xrt_apply, xrt_adjoint
