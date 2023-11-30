@@ -41,8 +41,12 @@ class TestRayXRT(conftest.LinOpT):
         p = rng.uniform(0.5, 3, size=dimensionality)
         return tuple(p)
 
+    @pytest.fixture(params=[True, False])
+    def weighted(self, request) -> bool:
+        return request.param
+
     @pytest.fixture
-    def nt_spec(self, arg_shape, origin, pitch) -> np.ndarray:
+    def ntw_spec(self, arg_shape, origin, pitch, weighted) -> np.ndarray:
         # To analytically test XRT correctness, we cast rays only along cardinal X/Y/Z directions, with one ray per
         # voxel side.
 
@@ -72,7 +76,17 @@ class TestRayXRT(conftest.LinOpT):
 
         n_spec = np.concatenate(n_spec, axis=0)
         t_spec = np.concatenate(t_spec, axis=0)
-        return n_spec, t_spec
+        if weighted:
+            # To avoid numerical inaccuracies in computing the ground-truth [due to use of np.exp()],
+            # we limit the range of valid `w`.
+
+            rng = np.random.default_rng(seed=0)
+            N_cell = np.prod(arg_shape)
+            w_spec = np.linspace(0.5, 1, N_cell, endpoint=True).reshape(arg_shape)
+            w_spec *= rng.choice([-1, 1], size=w_spec.shape)
+        else:
+            w_spec = None
+        return n_spec, t_spec, w_spec
 
     @pytest.fixture(
         params=itertools.product(
@@ -88,7 +102,8 @@ class TestRayXRT(conftest.LinOpT):
         arg_shape,
         origin,
         pitch,
-        nt_spec,
+        ntw_spec,
+        weighted,
         request,
     ) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
@@ -101,28 +116,49 @@ class TestRayXRT(conftest.LinOpT):
                 origin=origin,
                 pitch=pitch,
                 method="ray-trace",
-                n_spec=xp.array(nt_spec[0]),
-                t_spec=xp.array(nt_spec[1]),
+                n_spec=xp.array(ntw_spec[0]),
+                t_spec=xp.array(ntw_spec[1]),
+                w_spec=xp.array(ntw_spec[2]) if weighted else ntw_spec[2],
                 enable_warnings=False,
             )
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, arg_shape, nt_spec) -> pxt.OpShape:
+    def data_shape(self, arg_shape, ntw_spec) -> pxt.OpShape:
         dim = np.prod(arg_shape)
-        codim = len(nt_spec[0])
+        codim = len(ntw_spec[0])
         return (codim, dim)
 
     @pytest.fixture(params=[53])  # seed
-    def data_apply(self, arg_shape, pitch, request) -> conftest.DataLike:
+    def data_apply(
+        self,
+        arg_shape,
+        pitch,
+        weighted,
+        ntw_spec,
+        request,
+    ) -> conftest.DataLike:
         seed = request.param
         rng = np.random.default_rng(seed)
         V = rng.standard_normal(size=arg_shape)
+        w = ntw_spec[2]  # weights
 
         D = len(arg_shape)
         P = []
         for axis in range(D):
-            p = np.sum(V * pitch[axis], axis=axis)
+            if weighted:
+                # Compute accumulated attenuation
+                pad_width = [(0, 0)] * D
+                pad_width[axis] = (1, 0)
+                selector = [slice(None)] * D
+                selector[axis] = slice(0, -1)
+                _w = np.pad(w, pad_width)[tuple(selector)]
+
+                A = np.exp(-pitch[axis] * np.cumsum(_w, axis=axis))
+                B = np.where(np.isclose(w, 0), pitch[axis], (1 - np.exp(-w * pitch[axis])) / w)
+                p = np.sum(V * A * B, axis=axis)
+            else:
+                p = np.sum(V * pitch[axis], axis=axis)
             P.append(p.reshape(-1))
         P = np.concatenate(P, axis=0)
 
