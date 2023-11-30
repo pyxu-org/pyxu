@@ -708,7 +708,57 @@ def _build_xrt(ndi: pxd.NDArrayInfo, weighted: bool):
         #   r:     (L,) ray descriptors
         # Returns
         #   P:     (L,) forward-projected samples \in \bR
-        return xrt_apply(o, pitch, N, I, r)  # TODO: replace w/ attenuated implementation.
+
+        # Go to normalized coordinates
+        ipitch = dr.rcp(pitch)
+        r = Ray3f(
+            o=(r.o - o) * ipitch,
+            d=dr.normalize(r.d * ipitch),
+        )
+        stride = drb.Array3u(N[1] * N[2], N[2], 1)
+        flat_index = lambda i: dr.dot(stride, drb.Array3u(i))  # Array3f (int-valued) -> UInt32
+
+        L = max(dr.shape(r.o)[1], dr.shape(r.d)[1])
+        P = dr.zeros(drb.Float, L)  # Forward-Projection samples
+        d_acc = dr.zeros(drb.Float, L)  # Accumulated decay
+
+        # Move (intersecting) rays to volume surface
+        bbox_vol = BoundingBox3f(drb.Array3f(0), drb.Array3f(N))
+        active, a1, a2 = bbox_vol.ray_intersect(r)
+        a_min = dr.minimum(a1, a2)
+        r.o.assign(dr.select(active, r(a_min), r.o))
+
+        r_next = ray_step(r)
+        active &= bbox_vol.contains(r_next.o)
+        loop = drb.Loop("WXRT FW", lambda: (r, r_next, active, P, d_acc))
+        while loop(active):
+            # Read (I, w) at current cell
+            #   Careful to disable out-of-bound queries.
+            #   [This may occur if FP-error caused r_next(above) to not enter the lattice;
+            #    auto-rectified at next iteration.]
+            idx_I = dr.floor(0.5 * (r_next.o + r.o))
+            mask = active & dr.all(idx_I >= 0)
+            weight = dr.gather(type(I), I, flat_index(idx_I), mask)
+            decay = dr.gather(type(w), w, flat_index(idx_I), mask)
+
+            # Compute constants
+            length = dr.norm((r_next.o - r.o) * pitch)
+            A = dr.exp(-d_acc)
+            B = dr.select(
+                dr.eq(decay, 0),
+                length,
+                (1 - dr.exp(-decay * length)) * dr.rcp(decay),
+            )
+
+            # Update line integral estimates
+            P += weight * A * B
+            d_acc += decay * length
+
+            # Walk to next lattice intersection
+            r.assign(r_next)
+            r_next.assign(ray_step(r))
+            active &= bbox_vol.contains(r_next.o)
+        return P
 
     def xrt_adjoint(
         o: drb.Array3f,
@@ -792,7 +842,63 @@ def _build_xrt(ndi: pxd.NDArrayInfo, weighted: bool):
         #   r:     (L,) ray descriptors
         # Returns
         #   I:     (Nx*Ny*Nz,) back-projected samples \in \bR [C-order]
-        return xrt_adjoint(o, pitch, N, P, r)  # TODO: replace w/ attenuated implementation.
+
+        # Go to normalized coordinates
+        ipitch = dr.rcp(pitch)
+        r = Ray3f(
+            o=(r.o - o) * ipitch,
+            d=dr.normalize(r.d * ipitch),
+        )
+        stride = drb.Array3u(N[1] * N[2], N[2], 1)
+        flat_index = lambda i: dr.dot(stride, drb.Array3u(i))  # Array3f (int-valued) -> UInt32
+
+        L = dr.shape(P)[0]
+        I = dr.zeros(drb.Float, dr.prod(N)[0])  # noqa: E741 (Back-Projection samples)
+        d_acc = dr.zeros(drb.Float, L)  # Accumulated decay
+
+        # Move (intersecting) rays to volume surface
+        bbox_vol = BoundingBox3f(drb.Array3f(0), drb.Array3f(N))
+        active, a1, a2 = bbox_vol.ray_intersect(r)
+        a_min = dr.minimum(a1, a2)
+        r.o.assign(dr.select(active, r(a_min), r.o))
+
+        r_next = ray_step(r)
+        active &= bbox_vol.contains(r_next.o)
+        active &= dr.neq(P, 0)
+        loop = drb.Loop("WXRT BW", lambda: (r, r_next, active, d_acc))
+        while loop(active):
+            # Read (w,) at current cell
+            #   Careful to disable out-of-bound queries.
+            #   [This may occur if FP-error caused r_next(above) to not enter the lattice;
+            #    auto-rectified at next iteration.]
+            idx_I = dr.floor(0.5 * (r_next.o + r.o))
+            mask = active & dr.all(idx_I >= 0)
+            decay = dr.gather(type(w), w, flat_index(idx_I), mask)
+
+            # Compute constants
+            length = dr.norm((r_next.o - r.o) * pitch)
+            A = dr.exp(-d_acc)
+            B = dr.select(
+                dr.eq(decay, 0),
+                length,
+                (1 - dr.exp(-decay * length)) * dr.rcp(decay),
+            )
+
+            # Update back-projections
+            dr.scatter_reduce(
+                dr.ReduceOp.Add,
+                I,
+                P * A * B,
+                flat_index(idx_I),
+                mask,
+            )
+            d_acc += decay * length
+
+            # Walk to next lattice intersection
+            r.assign(r_next)
+            r_next.assign(ray_step(r))
+            active &= bbox_vol.contains(r_next.o)
+        return I
 
     if weighted:
         return wxrt_apply, wxrt_adjoint
