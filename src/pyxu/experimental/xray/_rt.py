@@ -619,8 +619,7 @@ def _build_xrt(ndi: pxd.NDArrayInfo):
         flat_index = lambda i: dr.dot(stride, drb.Array3u(i))  # Array3f (int-valued) -> UInt32
 
         L = max(dr.shape(r.o)[1], dr.shape(r.d)[1])
-        P = dr.zeros(drb.Float, shape=L)  # Forward-Projection samples
-        idx_P = dr.arange(drb.UInt32, L)
+        P = dr.zeros(drb.Float, L)  # Forward-Projection samples
 
         # Move (intersecting) rays to volume surface
         bbox_vol = BoundingBox3f(drb.Array3f(0), drb.Array3f(N))
@@ -630,24 +629,23 @@ def _build_xrt(ndi: pxd.NDArrayInfo):
 
         r_next = ray_step(r)
         active &= bbox_vol.contains(r_next.o)
-        loop = drb.Loop("XRT FW", lambda: (r, r_next, active))
+        loop = drb.Loop("XRT FW", lambda: (r, r_next, active, P))
         while loop(active):
+            # Read (I,) at current cell
+            #   Careful to disable out-of-bound queries.
+            #   [This may occur if FP-error caused r_next(above) to not enter the lattice;
+            #    auto-rectified at next iteration.]
+            idx_I = dr.floor(0.5 * (r_next.o + r.o))
+            mask = active & dr.all(idx_I >= 0)
+            weight = dr.gather(type(I), I, flat_index(idx_I), mask)
+
+            # Compute constants
             length = dr.norm((r_next.o - r.o) * pitch)
 
-            idx_I = dr.floor(0.5 * (r_next.o + r.o))
-            weight = dr.gather(
-                type(I),
-                I,
-                flat_index(idx_I),
-                active & dr.all(idx_I >= 0),
-                # Careful to disable out-of-bound queries.
-                # [This may occur if FP-error caused r_next(above) to not enter the lattice; auto-rectified at next iteration.]
-            )
-
             # Update line integral estimates
-            dr.scatter_reduce(dr.ReduceOp.Add, P, weight * length, idx_P, active)
+            P += weight * length
 
-            # Walk to next lattice intersection.
+            # Walk to next lattice intersection
             r.assign(r_next)
             r_next.assign(ray_step(r))
             active &= bbox_vol.contains(r_next.o)
@@ -693,9 +691,12 @@ def _build_xrt(ndi: pxd.NDArrayInfo):
         active &= dr.neq(P, 0)
         loop = drb.Loop("XRT BW", lambda: (r, r_next, active))
         while loop(active):
+            idx_I = dr.floor(0.5 * (r_next.o + r.o))
+
+            # Compute constants
             length = dr.norm((r_next.o - r.o) * pitch)
 
-            idx_I = dr.floor(0.5 * (r_next.o + r.o))
+            # Update back-projections
             dr.scatter_reduce(
                 dr.ReduceOp.Add,
                 I,
@@ -703,10 +704,11 @@ def _build_xrt(ndi: pxd.NDArrayInfo):
                 flat_index(idx_I),
                 active & dr.all(idx_I >= 0),
                 # Careful to disable out-of-bound queries.
-                # [This may occur if FP-error caused r_next(above) to not enter the lattice; auto-rectified at next iteration.]
+                # [This may occur if FP-error caused r_next(above) to not enter the lattice;
+                #  auto-rectified at next iteration.]
             )
 
-            # Walk to next lattice intersection.
+            # Walk to next lattice intersection
             r.assign(r_next)
             r_next.assign(ray_step(r))
             active &= bbox_vol.contains(r_next.o)
