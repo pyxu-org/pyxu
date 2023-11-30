@@ -119,6 +119,11 @@ class XRayTransform(pxa.LinOp):
             :py:class:`~pyxu.experimental.xray._rt.RayXRT` or
             :py:class:`~pyxu.experimental.xray._fourier.FourierXRT`.
 
+            See
+            :py:class:`~pyxu.experimental.xray._rt.RayXRT`,
+            :py:class:`~pyxu.experimental.xray._fourier.FourierXRT`
+            for more details.
+
         Notes
         -----
         * :py:class:`~pyxu.experimental.xray.XRayTransform` is not backend-agnostic: :py:class:`~pyxu.abc.Operator`

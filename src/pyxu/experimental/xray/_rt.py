@@ -28,6 +28,7 @@ class RayXRT(pxa.LinOp):
         pitch,
         n_spec,
         t_spec,
+        w_spec=None,
         enable_warnings: bool = True,
     ):
         r"""
@@ -43,12 +44,36 @@ class RayXRT(pxa.LinOp):
             (N_l, D) ray directions :math:`\mathbf{n} \in \mathbb{S}^{D-1}`.
         t_spec: NDArray
             (N_l, D) offset specifiers :math:`\mathbf{t} \in \mathbb{R}^{D}`.
+        w_spec: NDArray, None
+            (*arg_shape,) spatial decay weights.
+            If unspecified an un-weighted XRT is performed. (Default)
+
+            A *weighted* XRT is defined as
+
+            .. math::
+
+               \mathcal{P}_{w}[f](\mathbf{n}, \mathbf{t})
+               =
+               \int_{\mathbb{R}} f(\mathbf{t} + \mathbf{n} \alpha)
+               \exp\left[ -\int_{-\infty}^{\alpha} w(\mathbf{t} + \mathbf{n} \beta) d\beta \right]
+               d\alpha,
+
+            where :math:`w: \mathbb{R}^{D} \to \mathbb{R}` takes the form
+            (same pixelized form as :math:`\mathbf{f}`):
+
+            .. math::
+
+               w(\mathbf{r}) = \sum_{\{\mathbf{q}\} \subset \mathbb{N}^{D}}
+                               \alpha_{\mathbf{q}}
+                               1_{[\mathbf{0}, \mathbf{\Delta}]}(\mathbf{r} - \mathbf{q} \odot \mathbf{\Delta} - \mathbf{o}),
+               \quad
+               \alpha_{\mathbf{q}} \in \mathbb{R}.
         enable_warnings: bool
 
 
         .. warning::
 
-           This is a low-level interface which does not perform any parameter validation.  Users are expected to
+           This is a low-level interface which does not perform any much validation.  Users are expected to
            instantiate :py:class:`~pyxu.experimental.xray._rt.RayXRT` by calling
            :py:meth:`~pyxu.experimental.xray.XRayTransform.init` instead.
         """
@@ -59,6 +84,8 @@ class RayXRT(pxa.LinOp):
         W = pxrt.Width  # shorthand
         n_spec = n_spec.astype(W.SINGLE.value, copy=False)
         t_spec = t_spec.astype(W.SINGLE.value, copy=False)
+        if weighted := w_spec is not None:
+            w_spec = w_spec.astype(W.SINGLE.value, copy=False)
 
         # Internal variables. (Have shapes consistent with user inputs.)
         self._arg_shape = arg_shape  # (D,)
@@ -69,6 +96,12 @@ class RayXRT(pxa.LinOp):
         self._ndi = pxd.NDArrayInfo.from_obj(n_spec)
         self._enable_warnings = bool(enable_warnings)
 
+        # Validate RayXRT-only parameters: w_spec
+        if weighted:
+            assert w_spec.shape == arg_shape
+            assert pxd.NDArrayInfo.from_obj(w_spec) == self._ndi
+
+        # TODO: modify for weighted case?
         # Cheap analytical Lipschitz upper bound given by
         #   \sigma_{\max}(P) <= \max{P.sum(axis=0), P.sum(axis=1)},
         # with
@@ -83,7 +116,7 @@ class RayXRT(pxa.LinOp):
         #     -> D=2 case is embedded into 3D.
         drb = _load_dr_variant(self._ndi)
         Ray3f = _Ray3f_Factory(self._ndi)
-        self._fwd, self._bwd = _build_xrt(self._ndi)
+        self._fwd, self._bwd = _build_xrt(self._ndi, weighted)
         if len(arg_shape) == 2:
             self._dr = dict(
                 o=drb.Array3f(*self._origin, 0),
@@ -104,6 +137,8 @@ class RayXRT(pxa.LinOp):
                     d=drb.Array3f(*[_xp2dr(_) for _ in self._ray_n.T]),
                 ),
             )
+        if weighted:
+            self._dr["w"] = drb.Float(_xp2dr(w_spec.reshape(-1)))
 
     @pxrt.enforce_precision(i="arr")
     @pxu.vectorize(i="arr")
@@ -549,8 +584,11 @@ def _BoundingBox3f_Factory(ndi: pxd.NDArrayInfo):
     return BoundingBox3f
 
 
-def _build_xrt(ndi: pxd.NDArrayInfo):
+def _build_xrt(ndi: pxd.NDArrayInfo, weighted: bool):
     # Create DrJIT FW/BW transforms.
+    #
+    # Parameters
+    #   weighted: create attenuated FW/BW transforms.
     dr = pxu.import_module("drjit")
     drb = _load_dr_variant(ndi)
 
@@ -651,6 +689,27 @@ def _build_xrt(ndi: pxd.NDArrayInfo):
             active &= bbox_vol.contains(r_next.o)
         return P
 
+    def wxrt_apply(
+        o: drb.Array3f,
+        pitch: drb.Array3f,
+        N: drb.Array3u,
+        I: drb.Float,
+        w: drb.Float,
+        r: Ray3f,
+    ) -> drb.Float:
+        # Weighted X-Ray Forward-Projection.
+        #
+        # Parameters
+        #   o:     bottom-left coordinate of I[0,0,0]
+        #   pitch: cell dimensions \in \bR_{+}
+        #   N:     (Nx,Ny,Nz) lattice size
+        #   I:     (Nx*Ny*Nz,) cell weights \in \bR [C-order]
+        #   w:     (Nx*Ny*Nz,) cell decay rates \in \bR [C-order]
+        #   r:     (L,) ray descriptors
+        # Returns
+        #   P:     (L,) forward-projected samples \in \bR
+        return xrt_apply(o, pitch, N, I, r)  # TODO: replace w/ attenuated implementation.
+
     def xrt_adjoint(
         o: drb.Array3f,
         pitch: drb.Array3f,
@@ -714,4 +773,28 @@ def _build_xrt(ndi: pxd.NDArrayInfo):
             active &= bbox_vol.contains(r_next.o)
         return I
 
-    return xrt_apply, xrt_adjoint
+    def wxrt_adjoint(
+        o: drb.Array3f,
+        pitch: drb.Array3f,
+        N: drb.Array3u,
+        P: drb.Float,
+        w: drb.Float,
+        r: Ray3f,
+    ) -> drb.Float:
+        # Weighted X-Ray Back-Projection.
+        #
+        # Parameters
+        #   o:     bottom-left coordinate of I[0,0,0]
+        #   pitch: cell dimensions \in \bR_{+}
+        #   N:     (Nx,Ny,Nz) lattice size
+        #   P:     (L,) X-Ray samples \in \bR
+        #   w:     (Nx*Ny*Nz,) cell decay rates \in \bR [C-order]
+        #   r:     (L,) ray descriptors
+        # Returns
+        #   I:     (Nx*Ny*Nz,) back-projected samples \in \bR [C-order]
+        return xrt_adjoint(o, pitch, N, P, r)  # TODO: replace w/ attenuated implementation.
+
+    if weighted:
+        return wxrt_apply, wxrt_adjoint
+    else:
+        return xrt_apply, xrt_adjoint
