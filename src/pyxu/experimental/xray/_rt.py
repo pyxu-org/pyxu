@@ -101,15 +101,23 @@ class RayXRT(pxa.LinOp):
             assert w_spec.shape == arg_shape
             assert pxd.NDArrayInfo.from_obj(w_spec) == self._ndi
 
-        # TODO: modify for weighted case?
         # Cheap analytical Lipschitz upper bound given by
-        #   \sigma_{\max}(P) <= \max{P.sum(axis=0), P.sum(axis=1)},
+        #   \sigma_{\max}(P) <= \norm{P}{F},
         # with
-        #   P.sum(axis=0) <= \norm{pitch}{2} * N_ray               [very pessimistic]
-        #   P.sum(axis=1) <= \norm{pitch}{2} * \norm{arg_shape}{2}
-        row_ub = np.linalg.norm(pitch) * np.linalg.norm(arg_shape)
-        col_ub = np.linalg.norm(pitch) * len(n_spec)
-        self.lipschitz = max(row_ub, col_ub)
+        #   \norm{P}{F}^{2}
+        #   <= (max cell weight)^{2} * #non-zero elements
+        #    = (max cell weight)^{2} * N_ray * (maximum number of cells traversable by a ray)
+        #    = (max cell weight)^{2} * N_ray * \norm{arg_shape}{2}
+        #
+        #    (max cell weight) =
+        #      unweighted              : \norm{pitch}{2}
+        #        weighted & (w_min > 0): \norm{pitch}{2}
+        #        weighted & (w_min < 0): cannot infer
+        if weighted and (w_spec.min() < 0):
+            max_cell_weight = np.inf
+        else:
+            max_cell_weight = np.linalg.norm(pitch)
+        self.lipschitz = max_cell_weight * np.sqrt(N_l * np.linalg.norm(arg_shape))
 
         # Dr.Jit variables. {Have shapes consistent for xrt_[apply,adjoint]().}
         #   xrt_[apply,adjoint]() only support D=3 case.
