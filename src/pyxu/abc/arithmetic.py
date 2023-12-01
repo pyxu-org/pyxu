@@ -486,7 +486,7 @@ class ArgScaleRule(Rule):
 
 class ArgShiftRule(Rule):
     r"""
-    Arithmetic rules for parameter shifting: :math:`B(x) = A(x - c)`.
+    Arithmetic rules for parameter shifting: :math:`B(x) = A(x + c)`.
 
     Special Cases::
 
