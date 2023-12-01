@@ -97,7 +97,7 @@ def sin(op: pxt.OpT) -> pxt.OpT:
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = (2k + 1) \frac{\pi}{2}, \, k
       \in \mathbb{Z}`.)
     """
-    return _Sin(op.dim) * op
+    return _Sin(op.codim) * op
 
 
 class _Cos(pxa.DiffMap):
@@ -134,7 +134,7 @@ def cos(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = k \pi, \, k \in \mathbb{Z}`.)
     """
-    return _Cos(op.dim) * op
+    return _Cos(op.codim) * op
 
 
 class _Tan(pxa.DiffMap):
@@ -172,7 +172,7 @@ def tan(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [-\pi, \pi]`.)
     """
-    return _Tan(op.dim) * op
+    return _Tan(op.codim) * op
 
 
 class _ArcSin(pxa.DiffMap):
@@ -212,7 +212,7 @@ def arcsin(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
     """
-    return _ArcSin(op.dim) * op
+    return _ArcSin(op.codim) * op
 
 
 class _ArcCos(pxa.DiffMap):
@@ -250,7 +250,7 @@ def arccos(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
     """
-    return _ArcCos(op.dim) * op
+    return _ArcCos(op.codim) * op
 
 
 class _ArcTan(pxa.DiffMap):
@@ -290,7 +290,7 @@ def arctan(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \pm \frac{1}{\sqrt{3}}`.)
     """
-    return _ArcTan(op.dim) * op
+    return _ArcTan(op.codim) * op
 
 
 # Hyperbolic Functions ========================================================
@@ -327,7 +327,7 @@ def sinh(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
     """
-    return _Sinh(op.dim) * op
+    return _Sinh(op.codim) * op
 
 
 class _Cosh(pxa.DiffMap):
@@ -363,7 +363,7 @@ def cosh(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
     """
-    return _Cosh(op.dim) * op
+    return _Cosh(op.codim) * op
 
 
 class _Tanh(pxa.DiffMap):
@@ -406,7 +406,7 @@ def tanh(op: pxt.OpT) -> pxt.OpT:
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \frac{1}{2} \ln(2 \pm
       \sqrt{3})`.
     """
-    return _Tanh(op.dim) * op
+    return _Tanh(op.codim) * op
 
 
 class _ArcSinh(pxa.DiffMap):
@@ -448,7 +448,7 @@ def arcsinh(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \pm \frac{1}{\sqrt{2}}`.)
     """
-    return _ArcSinh(op.dim) * op
+    return _ArcSinh(op.codim) * op
 
 
 class _ArcCosh(pxa.DiffMap):
@@ -487,7 +487,7 @@ def arccosh(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [1, \infty[`.)
     """
-    return _ArcCosh(op.dim) * op
+    return _ArcCosh(op.codim) * op
 
 
 class _ArcTanh(pxa.DiffMap):
@@ -525,7 +525,7 @@ def arctanh(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = [-1, 1]`.)
     """
-    return _ArcTanh(op.dim) * op
+    return _ArcTanh(op.codim) * op
 
 
 # Exponential Functions =======================================================
@@ -570,7 +570,7 @@ def exp(op: pxt.OpT, base: pxt.Real = None) -> pxt.OpT:
 
       (Reason: :math:`f_{b}''(x)` is unbounded on :math:`\text{dom}(f_{b}) = \mathbb{R}`.)
     """
-    return _Exp(op.dim, base) * op
+    return _Exp(op.codim, base) * op
 
 
 class _Log(pxa.DiffMap):
@@ -612,7 +612,7 @@ def log(op: pxt.OpT, base: pxt.Real = None) -> pxt.OpT:
 
       (Reason: :math:`f_{b}''(x)` is unbounded on :math:`\text{dom}(f_{b}) = \mathbb{R}_{+}`.)
     """
-    return _Log(op.dim, base) * op
+    return _Log(op.codim, base) * op
 
 
 # Miscellaneous ===============================================================
@@ -654,7 +654,7 @@ def clip(op: pxt.OpT, a_min: pxt.Real = None, a_max: pxt.Real = None):
          \end{cases}
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
     """
-    return _Clip(op.dim, a_min=a_min, a_max=a_max) * op
+    return _Clip(op.codim, a_min=a_min, a_max=a_max) * op
 
 
 class _Sqrt(pxa.DiffMap):
@@ -691,7 +691,7 @@ def sqrt(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}_{+}`.)
     """
-    return _Sqrt(op.dim) * op
+    return _Sqrt(op.codim) * op
 
 
 class _Cbrt(pxa.DiffMap):
@@ -729,7 +729,7 @@ def cbrt(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`f''(x)` is unbounded on :math:`\text{dom}(f) = \mathbb{R}`.)
     """
-    return _Cbrt(op.dim) * op
+    return _Cbrt(op.codim) * op
 
 
 class _Square(pxa.DiffMap):
@@ -767,7 +767,7 @@ def square(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` everywhere.)
     """
-    return _Square(op.dim) * op
+    return _Square(op.codim) * op
 
 
 class _Abs(pxa.Map):
@@ -790,7 +790,7 @@ def abs(op: pxt.OpT) -> pxt.OpT:
     * :math:`f(x) = \vert x \vert`
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
     """
-    return _Abs(op.dim) * op
+    return _Abs(op.codim) * op
 
 
 class _Sign(pxa.Map):
@@ -813,7 +813,7 @@ def sign(op: pxt.OpT) -> pxt.OpT:
     * :math:`f(x) = x / \vert x \vert`
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 2`.
     """
-    return _Sign(op.dim) * op
+    return _Sign(op.codim) * op
 
 
 # Activation Functions ========================================================
@@ -856,7 +856,7 @@ def gaussian(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = 0`.)
     """
-    return _Gaussian(op.dim) * op
+    return _Gaussian(op.codim) * op
 
 
 class _Sigmoid(pxa.DiffMap):
@@ -898,7 +898,7 @@ def sigmoid(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = \ln(2 \pm \sqrt{3})`.)
     """
-    return _Sigmoid(op.dim) * op
+    return _Sigmoid(op.codim) * op
 
 
 class _SoftPlus(pxa.DiffMap):
@@ -935,7 +935,7 @@ def softplus(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = 0`.)
     """
-    return _SoftPlus(op.dim) * op
+    return _SoftPlus(op.codim) * op
 
 
 class _LeakyReLU(pxa.Map):
@@ -960,7 +960,7 @@ def leakyrelu(op: pxt.OpT, alpha: pxt.Real) -> pxt.OpT:
     * :math:`f(x) = x \left[\mathbb{1}_{\ge 0}(x) + \alpha \mathbb{1}_{< 0}(x)\right], \quad \alpha \ge 0`
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = \max(1, \alpha)`.
     """
-    return _LeakyReLU(dim=op.dim, alpha=alpha) * op
+    return _LeakyReLU(dim=op.codim, alpha=alpha) * op
 
 
 class _ReLU(_LeakyReLU):
@@ -977,7 +977,7 @@ def relu(op: pxt.OpT) -> pxt.OpT:
     * :math:`f(x) = \lfloor x \rfloor_{+}`
     * :math:`\vert f(x) - f(y) \vert \le L \vert x - y \vert`, with Lipschitz constant :math:`L = 1`.
     """
-    return _ReLU(op.dim) * op
+    return _ReLU(op.codim) * op
 
 
 class _SiLU(pxa.DiffMap):
@@ -1021,7 +1021,7 @@ def silu(op: pxt.OpT) -> pxt.OpT:
 
       (Reason: :math:`\vert f''(x) \vert` is bounded by :math:`\partial L` at :math:`x = 0`.)
     """
-    return _SiLU(op.dim) * op
+    return _SiLU(op.codim) * op
 
 
 class _SoftMax(pxa.DiffMap):
@@ -1058,4 +1058,4 @@ def softmax(op: pxt.OpT) -> pxt.OpT:
     * :math:`\vert f'(x) - f'(y) \vert \le \partial L \vert x - y \vert`, with diff-Lipschitz constant :math:`\partial L
       = 1`.
     """
-    return _SoftMax(op.dim) * op
+    return _SoftMax(op.codim) * op
