@@ -71,11 +71,6 @@ class TransposeAxes(pxa.UnitOp):
         out = out.reshape(*sh, -1)
         return out
 
-    def cogram(self) -> pxt.OpT:
-        from pyxu.operator import IdentityOp
-
-        return IdentityOp(dim=self.codim).squeeze()
-
 
 class SqueezeAxes(pxa.UnitOp):
     """

@@ -1938,6 +1938,11 @@ class UnitOp(NormalOp):
 
         return IdentityOp(dim=self.dim).squeeze()
 
+    def cogram(self) -> pxt.OpT:
+        from pyxu.operator import IdentityOp
+
+        return IdentityOp(dim=self.codim).squeeze()
+
     def svdvals(self, **kwargs) -> pxt.NDArray:
         gpu = kwargs.get("gpu", False)
         xp = pxd.NDArrayInfo.from_flag(gpu).module()
