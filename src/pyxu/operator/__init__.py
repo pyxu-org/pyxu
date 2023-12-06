@@ -10,6 +10,7 @@ from pyxu.operator.linop.fft.fft import *
 from pyxu.operator.linop.fft.nufft import *
 from pyxu.operator.linop.filter import *
 from pyxu.operator.linop.kron import *
+from pyxu.operator.linop.order import *
 from pyxu.operator.linop.pad import *
 from pyxu.operator.linop.reduce import *
 from pyxu.operator.linop.select import *

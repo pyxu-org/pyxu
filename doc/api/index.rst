@@ -337,6 +337,7 @@ Misc
    ~pyxu.operator.ConstantValued
    ~pyxu.operator.softmax
    ~pyxu.operator.softplus
+   ~pyxu.operator.TransposeAxes
 
 Block-defined Operators
 ^^^^^^^^^^^^^^^^^^^^^^^
