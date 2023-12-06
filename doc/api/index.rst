@@ -335,6 +335,7 @@ Misc
 .. autosummary::
 
    ~pyxu.operator.ConstantValued
+   ~pyxu.operator.SqueezeAxes
    ~pyxu.operator.softmax
    ~pyxu.operator.softplus
    ~pyxu.operator.TransposeAxes

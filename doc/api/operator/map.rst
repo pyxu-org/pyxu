@@ -66,6 +66,9 @@ Misc
 .. autoclass:: pyxu.operator.TransposeAxes
    :exclude-members: apply, adjoint, cogram
 
+.. autoclass:: pyxu.operator.SqueezeAxes
+   :exclude-members: apply, adjoint, cogram
+
 .. autofunction:: pyxu.operator.softmax
 
 .. autofunction:: pyxu.operator.softplus
