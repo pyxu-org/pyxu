@@ -225,7 +225,7 @@ class SolverT(ct.DisableTestMixin):
         def fun(x: np.ndarray, cost_f: pxt.OpT) -> tuple[float, np.ndarray]:  # f(x), \grad_{f}(x)
             val = cost_f.apply(x)
             grad = cost_f.grad(x)
-            return float(val), grad
+            return float(val.item()), grad
 
         rng = np.random.default_rng()
         data = dict()

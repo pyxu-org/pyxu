@@ -626,7 +626,7 @@ class ArgShiftRule(Rule):
                 if np.isnan(t2):
                     try:
                         cst = xp.broadcast_to(self._cst, Q1.dim)
-                        t2 = float(self._op.apply(cst))
+                        t2 = float(self._op.apply(cst).item())
                     except Exception:
                         pass
         else:
@@ -636,7 +636,7 @@ class ArgShiftRule(Rule):
                 # [enable_warnings] API users have no reason to call _quad_spec().
                 # If they choose to use `c2`, then we assume they know what they are doing.
             )
-            t2 = float(self._op.apply(self._cst))
+            t2 = float(self._op.apply(self._cst).item())
 
         return (Q2, c2, t2)
 
@@ -997,12 +997,12 @@ class AddRule(Rule):
                 rhs = _Sum(M=self._lhs.codim, N=1) * self._rhs
 
         if lhs_F:
-            scale = float(self._lhs.cogram().asarray())
+            scale = float(self._lhs.cogram().asarray().item())
             op1 = _Sum(M=self._rhs.codim, N=self._rhs.codim) * scale
         else:
             op1 = self._lhs.cogram()
         if rhs_F:
-            scale = float(self._rhs.cogram().asarray())
+            scale = float(self._rhs.cogram().asarray().item())
             op2 = _Sum(M=self._lhs.codim, N=self._lhs.codim) * scale
         else:
             op2 = self._rhs.cogram()
