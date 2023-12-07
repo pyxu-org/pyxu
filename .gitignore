@@ -157,6 +157,7 @@ docs/generated/
 
 # Sphinx-Gallery
 docs/auto_examples/
+sg_execution_times.rst
 
 # Tox
 .tox/
