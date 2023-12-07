@@ -74,7 +74,7 @@ html_theme_options = {
     "icon_links": [
         {
             "name": "GitHub",
-            "url": "https://github.com/matthieumeo/pyxu",
+            "url": "https://github.com/pyxu-org/pyxu",
             "icon": "fa-brands fa-github",
         },
         {
@@ -106,7 +106,7 @@ html_theme_options = {
 }
 
 html_context = {
-    "github_user": "matthieumeo",
+    "github_user": "pyxu-org",
     "github_repo": "pyxu",
     "github_version": "main",
     "doc_path": "doc",

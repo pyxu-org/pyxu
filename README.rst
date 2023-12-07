@@ -1,4 +1,4 @@
-.. image:: https://raw.githubusercontent.com/matthieumeo/pyxu/master/doc/_static/wide-logo.png
+.. image:: https://raw.githubusercontent.com/pyxu-org/pyxu/master/doc/_static/wide-logo.png
    :target: https://pyxu-org.github.io/
    :alt: Pyxu logo
 
@@ -29,20 +29,20 @@ Pyxu: Modular and Scalable Computational Imaging
 .. image:: https://img.shields.io/badge/pre--commit-enabled-brightgreen?style=flat&logo=pre-commit&logoColor=white
    :target: https://pre-commit.com/
    :alt: pre-commit enabled
-.. image:: https://img.shields.io/github/languages/code-size/matthieumeo/pyxu
+.. image:: https://img.shields.io/github/languages/code-size/pyxu-org/pyxu
    :alt: GitHub code size in bytes
-   :target: https://github.com/matthieumeo/pyxu
-.. image:: https://img.shields.io/github/commit-activity/y/matthieumeo/pyxu
-   :target: https://github.com/matthieumeo/pyxu/commits/main
+   :target: https://github.com/pyxu-org/pyxu
+.. image:: https://img.shields.io/github/commit-activity/y/pyxu-org/pyxu
+   :target: https://github.com/pyxu-org/pyxu/commits/main
    :alt: Number of Commits
-.. image:: https://img.shields.io/github/last-commit/matthieumeo/pyxu
-   :target: https://github.com/matthieumeo/pyxu/commits
+.. image:: https://img.shields.io/github/last-commit/pyxu-org/pyxu
+   :target: https://github.com/pyxu-org/pyxu/commits
    :alt: Last Commit
-.. image:: https://img.shields.io/github/contributors/matthieumeo/pyxu
-   :target: https://github.com/matthieumeo/pyxu/graphs/contributors
+.. image:: https://img.shields.io/github/contributors/pyxu-org/pyxu
+   :target: https://github.com/pyxu-org/pyxu/graphs/contributors
    :alt: Number of Contributors
 .. image:: https://img.shields.io/badge/PRs-welcome-brightgreen.svg
-   :target: https://github.com/matthieumeo/pyxu/pulls
+   :target: https://github.com/pyxu-org/pyxu/pulls
    :alt: PRs Welcome
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.4486431.svg
    :target: https://doi.org/10.5281/zenodo.4486431
@@ -59,7 +59,7 @@ level to quickly prototype/deploy *hardware accelerated and out-of-core* computa
 Thanks to its **microservice architecture** and tight integration with the PyData ecosystem, Pyxu supports a wide range
 of imaging applications, scales, and computation architectures.
 
-.. image:: https://raw.githubusercontent.com/matthieumeo/pyxu/master/doc/_static/banner.jpg
+.. image:: https://raw.githubusercontent.com/pyxu-org/pyxu/master/doc/_static/banner.jpg
    :target: https://pyxu-org.github.io/examples/index.html
    :alt: Banner
 
@@ -294,7 +294,7 @@ Cite us
                      Sepand Kashani and
                      Joan Rué-Queralt and
                      Pyxu Developers},
-     title        = {matthieumeo/pyxu: pyxu},
+     title        = {pyxu-org/pyxu: pyxu},
      publisher    = {Zenodo},
      doi          = {10.5281/zenodo.4486431},
      url          = {https://doi.org/10.5281/zenodo.4486431}

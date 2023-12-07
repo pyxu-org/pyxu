@@ -30,7 +30,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
 ]
-urls.download = "https://github.com/matthieumeo/pyxu"
+urls.download = "https://github.com/pyxu-org/pyxu"
 urls.homepage = "https://pyxu-org.github.io/"
 dependencies = [
     "dask[array,diagnostics,distributed] >= 2023.7, < 2023.12",

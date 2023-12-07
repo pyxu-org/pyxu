@@ -287,7 +287,7 @@ Key Features & Capabilities
                 <strong> Community driven </strong> <br/>
                 Pyxu is open source, version controlled, and is available to all on <a
                 href="https://pypi.org/project/pyxu/">PyPI</a> and <a
-                href="https://github.com/matthieumeo/pyxu">GitHub</a>.
+                href="https://github.com/pyxu-org/pyxu">GitHub</a>.
                 </p>
 
     .. grid-item-card::

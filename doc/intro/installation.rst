@@ -62,7 +62,7 @@ install it *with developer dependencies*:
 
 .. code-block:: bash
 
-   git clone https://github.com/matthieumeo/pyxu.git
+   git clone https://github.com/pyxu-org/pyxu
    cd pyxu
    pip install -e ".[dev,complete]"
    pre-commit install

@@ -45,7 +45,7 @@ Pyxu core. This allows Pyxu to be extensible without the need to modify the core
 For Developers
 --------------
 
-Kick-start your plugin development with the `Pyxu cookie-cutter <https://github.com/matthieumeo/cookiecutter-pyxu>`_ to
+Kick-start your plugin development with the `Pyxu cookie-cutter <https://github.com/pyxu-org/cookiecutter-pyxu>`_ to
 generate a plugin structure to be filled with your awesome code! You can contribute different types of entry points, such
 as:
 
@@ -74,7 +74,7 @@ Once ready, publish your plugin on `PyPI <https://pypi.org/>`_. The Pyxu-FAIR pe
 plugin being discovered by Pyxu users.
 
 If you believe your plugin enhances the Pyxu core codebase, we encourage you to reach out so we can evaluate the possibility
-of incorporating it. Even if you're uncertain, don't hesitate to open an issue on the `Pyxu GitHub repository <https://github.com/matthieumeo/pyxu>`_
+of incorporating it. Even if you're uncertain, don't hesitate to open an issue on the `Pyxu GitHub repository <https://github.com/pyxu-org/pyxu>`_
 for feedback and guidance.
 
 🌟 No matter your expertise level, the Pyxu-FAIR ensures a smooth experience. Dive in, and may your Pyxu journey be

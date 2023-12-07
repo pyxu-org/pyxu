@@ -211,7 +211,7 @@ Meta-programming Framework
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Kickstart your plugin development with the `Pyxu cookie-cutter
-<https://github.com/matthieumeo/cookiecutter-pycsou-plugin/>`_ 🖥. Want to share your Pyxu-based tools without the
+<https://github.com/pyxu-org/cookiecutter-pyxu>`_ 🖥. Want to share your Pyxu-based tools without the
 DevOps hassle? We've got you covered! 🛠️ This plugin-template generator ensures your plugins are easy to install,
 discoverable by Pyxu FAIR, and sync well with Pyxu's quality controls. 🌟
 

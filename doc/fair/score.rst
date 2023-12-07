@@ -41,7 +41,7 @@ The final score is then normalized by the number of criteria used (6 in this cas
 Your insights matter! If you're a developer with ideas on how we can further refine the Pyxu Score, we'd love to hear
 from you. 💡
 
-We invite you to `open an issue <https://github.com/matthieumeo/pyxu/issues>`_ suggesting novel metrics or criteria
+We invite you to `open an issue <https://github.com/pyxu-org/pyxu/issues>`_ suggesting novel metrics or criteria
 that, in your opinion, would better represent the value and quality of Pyxu plugins. By contributing your thoughts, you
 play an integral role in refining and shaping the Pyxu community's standards.
 

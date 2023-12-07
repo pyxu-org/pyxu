@@ -2,7 +2,7 @@ Contributing to the Pyxu-FAIR
 =============================
 
 **Want to contribute** your own Pyxu-based plugin and making it available in the `Pyxu FAIR <../plugins/index.html>`_?
-We recommend using the `Pyxu cookiecutter <https://github.com/matthieumeo/cookiecutter-pyxu-plugin>`_.
+We recommend using the `Pyxu cookiecutter <https://github.com/pyxu-org/cookiecutter-pyxu>`_.
 
 This tutorial will guide you through the process of creating a new plugin using the cookiecutter.
 
@@ -19,7 +19,7 @@ Generate a new Pyxu plugin project (a new folder will be created in your current
 
 .. code-block:: bash
 
-   cookiecutter https://github.com/matthieumeo/cookiecutter-pyxu-plugin
+   cookiecutter https://github.com/pyxu-org/cookiecutter-pyxu
 
 
 The Cookiecutter prompts you for information regarding your plugin. Defaults are shown in brackets.
@@ -90,7 +90,7 @@ You just created the necessary structure for a funcitonal Pyxu plugin, complete 
 deployment!
 
 For more detailed information on each prompt see the `prompts reference
-<https://github.com/matthieumeo/cookiecutter-pyxu-plugin/PROMPTS.md>`_.
+<https://github.com/pyxu-org/cookiecutter-pyxu/PROMPTS.md>`_.
 
 .. code-block:: bash
 
