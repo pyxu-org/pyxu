@@ -10,7 +10,6 @@ from pyxu.operator.linop.fft.fft import *
 from pyxu.operator.linop.fft.nufft import *
 from pyxu.operator.linop.filter import *
 from pyxu.operator.linop.kron import *
-from pyxu.operator.linop.order import *
 from pyxu.operator.linop.pad import *
 from pyxu.operator.linop.reduce import *
 from pyxu.operator.linop.select import *
@@ -19,5 +18,6 @@ from pyxu.operator.linop.stencil.stencil import *
 from pyxu.operator.map.base import *
 from pyxu.operator.map.kernel import *
 from pyxu.operator.map.ufunc import *
+from pyxu.operator.misc import *
 
 _load_entry_points(globals(), group="pyxu.operator")
