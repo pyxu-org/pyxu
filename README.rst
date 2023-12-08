@@ -164,10 +164,10 @@ optimization.  The feature set is robust and mature, positioning it as a leader 
       - 🔴 Under early development, unstable API
 
     * - Operator Discretization Library (ODL)
-      - 🟡 Linear operators, differentiable/proximable functionals
+      - 🟢 (Non)linear operators, differentiable/proximable functionals
       - 🟢 Full
-      - 🟡 Smooth & non-smooth convex optimization
-      - 🟡 Tomography
+      - 🟢 Smooth, non-smooth & hybrid (non-)convex optimization
+      - 🟢 None
       - 🔴 Domain-specific language for mathematicians
 
     * - GlobalBioIm
