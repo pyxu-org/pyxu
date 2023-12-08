@@ -6,15 +6,11 @@ class PyxuWarning(UserWarning):
     Parent class of all warnings raised in Pyxu.
     """
 
-    pass
-
 
 class AutoInferenceWarning(PyxuWarning):
     """
     Use when a quantity was auto-inferenced with possible caveats.
     """
-
-    pass
 
 
 class PerformanceWarning(PyxuWarning):
