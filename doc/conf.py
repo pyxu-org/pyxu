@@ -224,7 +224,6 @@ napoleon_type_aliases = {
     "NDArrayInfo": "~pyxu.info.deps.NDArrayInfo",
     "NDArrayShape": "~pyxu.info.ptype.NDArrayShape",
     "OpC": "~pyxu.info.ptype.OpC",
-    "OpShape": "~pyxu.info.ptype.OpShape",
     "OpT": "~pyxu.info.ptype.OpT",
     "Path": "~pyxu.info.ptype.Path",
     "Real": "~pyxu.info.ptype.Real",

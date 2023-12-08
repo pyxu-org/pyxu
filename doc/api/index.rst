@@ -148,7 +148,6 @@ pyxu.info.ptype
    ~pyxu.info.ptype.NDArrayAxis
    ~pyxu.info.ptype.NDArrayShape
    ~pyxu.info.ptype.OpC
-   ~pyxu.info.ptype.OpShape
    ~pyxu.info.ptype.OpT
    ~pyxu.info.ptype.Path
    ~pyxu.info.ptype.Property
