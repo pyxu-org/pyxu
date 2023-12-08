@@ -371,7 +371,7 @@ def _ExplicitLinOp(
         The input array can be *dense* or *sparse*.
         Accepted sparse arrays are:
 
-        * CPU: COO/CSC/CSR/BSR/GCXS
+        * CPU: COO/CSC/CSR/BSR
         * GPU: COO/CSC/CSR
     enable_warnings: bool
         If ``True``, emit a warning in case of precision mis-match issues.
@@ -433,9 +433,9 @@ def _ExplicitLinOp(
 
         try:  # Sparse arrays
             sdi = S.from_obj(_.mat)
-            if sdi in (S.SCIPY_SPARSE, S.PYDATA_SPARSE):
+            if sdi == S.SCIPY_SPARSE:
                 ndi = N.NUMPY
-            else:  # S.CUPY_SPARSE
+            elif sdi == S.CUPY_SPARSE:
                 ndi = N.CUPY
         except Exception:  # Dense arrays
             ndi = N.from_obj(_.mat)
@@ -451,12 +451,8 @@ def _ExplicitLinOp(
         dtype = kwargs.get("dtype", pxrt.getPrecision().value)
 
         try:  # Sparse arrays
-            info = S.from_obj(_.mat)
-            if info in (S.SCIPY_SPARSE, S.CUPY_SPARSE):
-                f = lambda _: _.toarray()
-            elif info == S.PYDATA_SPARSE:
-                f = lambda _: _.todense()
-            A = f(_.mat.astype(dtype))  # `copy` field not ubiquitous
+            S.from_obj(_.mat)
+            A = _.mat.astype(dtype).toarray()  # `copy field not ubiquitous`
         except Exception:  # Dense arrays
             info = N.from_obj(_.mat)
             A = pxu.compute(_.mat.astype(dtype, copy=False))
@@ -476,24 +472,12 @@ def _ExplicitLinOp(
         if _.dim != _.codim:
             raise NotImplementedError
         else:
-            try:
+            try:  # Dense Arrays
+                pxd.NDArrayInfo.from_obj(_.mat)
                 tr = _.mat.trace()
-            except Exception:
-                # .trace() missing for [PYDATA,CUPY]_SPARSE API.
-                S = pxd.SparseArrayInfo
-                info = S.from_obj(_.mat)
-                if info == S.PYDATA_SPARSE:
-                    # use `sparse.diagonal().sum()`, but array must be COO.
-                    try:
-                        A = _.mat.tocoo()  # GCXS inputs
-                    except Exception:
-                        A = _.mat  # COO inputs
-                    finally:
-                        tr = info.module().diagonal(A).sum()
-                elif info == S.CUPY_SPARSE:
-                    tr = _.mat.diagonal().sum()
-                else:
-                    raise ValueError(f"Unknown sparse format {_.mat}.")
+            except Exception:  # Sparse Arrays
+                pxd.SparseArrayInfo.from_obj(_.mat)
+                tr = _.mat.diagonal().sum()
             return float(tr)
 
     op = px_src.from_source(

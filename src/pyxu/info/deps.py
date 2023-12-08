@@ -7,7 +7,6 @@ import dask.array
 import numpy
 import packaging.version as pkgv
 import scipy.sparse
-import sparse
 
 #: Show if CuPy-based backends are available.
 CUPY_ENABLED: bool = importlib.util.find_spec("cupy") is not None
@@ -94,21 +93,18 @@ class SparseArrayInfo(enum.Enum):
     """
 
     SCIPY_SPARSE = enum.auto()
-    PYDATA_SPARSE = enum.auto()
     CUPY_SPARSE = enum.auto()
 
     @classmethod
     def default(cls) -> "SparseArrayInfo":
         """Default array backend to use."""
-        return cls.PYDATA_SPARSE
+        return cls.SCIPY_SPARSE
 
     def type(self) -> type:
         """Array type associated to a backend."""
         if self.name == "SCIPY_SPARSE":
             # All `*matrix` classes descend from `spmatrix`.
             return scipy.sparse.spmatrix
-        elif self.name == "PYDATA_SPARSE":
-            return sparse.SparseArray
         elif self.name == "CUPY_SPARSE":
             return cupyx.scipy.sparse.spmatrix if CUPY_ENABLED else type(None)
         else:
@@ -135,9 +131,6 @@ class SparseArrayInfo(enum.Enum):
         if self.name == "SCIPY_SPARSE":
             xp = scipy.sparse
             xpl = xp.linalg
-        elif self.name == "PYDATA_SPARSE":
-            xp = sparse
-            xpl = scipy.sparse.linalg
         elif self.name == "CUPY_SPARSE":
             xp = cupyx.scipy.sparse if CUPY_ENABLED else None
             xpl = xp if (xp is None) else cupyx.scipy.sparse.linalg

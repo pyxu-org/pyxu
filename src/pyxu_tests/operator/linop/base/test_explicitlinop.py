@@ -32,8 +32,6 @@ class ExplicitOpMixin:
                     S.SCIPY_SPARSE.module().coo_matrix,
                     S.SCIPY_SPARSE.module().csc_matrix,
                     S.SCIPY_SPARSE.module().csr_matrix,
-                    S.PYDATA_SPARSE.module().COO.from_numpy,
-                    S.PYDATA_SPARSE.module().GCXS.from_numpy,
                 ],
                 (N.NUMPY,),
                 pxrt.Width,

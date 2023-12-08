@@ -311,9 +311,9 @@ Ecosystem
 
 Pyxu is highly interoperable with the wider scientific Python ecosystem.
 It is built on a minimal set of foundational and robust scientific computing librairies from the PyData stack.
-Pyxu notably supports multiple array backends --`NumPy <https://numpy.org/>`_, `Dask <https://www.dask.org/>`_, `Sparse
-<https://sparse.pydata.org/en/stable/>`_ and optionally `CuPy <https://cupy.dev/>`_--, allowing users to choose array
-backends that work best for their application/computation.
+Pyxu notably supports multiple array backends --`NumPy <https://numpy.org/>`_, `Dask <https://www.dask.org/>`_, and
+optionally `CuPy <https://cupy.dev/>`_--, allowing users to choose array backends that work best for their
+application/computation.
 Aside from `SciPy <https://scipy.org/>`_ and  `Numba <https://numba.pydata.org/>`_ -- which we use for scientific
 computing and `JIT-compilation <https://numba.readthedocs.io/en/stable/user/5minguide.html#how-does-numba-work>`_
 respectively-- these are Pyxu's **only** dependencies, making the software very easy to ship, install, deploy in
@@ -379,23 +379,6 @@ Our wrappers can moreover leverage the autograd engine to auto-infer gradients o
 
                 <p style="text-align: center;">
                 NumPy-compatible array library for GPU-accelerated computing.
-                </p>
-
-    .. grid-item-card::
-            :shadow: none
-            :class-card: sd-border-0
-
-            .. image:: _static/sparse-logo.png
-               :width: 65%
-               :align: center
-               :alt: Sparse's logo
-               :target: https://sparse.pydata.org/en/stable/
-
-
-            .. raw:: html
-
-                <p style="text-align: center;">
-                Sparse multi-dimensional arrays for the PyData ecosystem.
                 </p>
 
     .. grid-item-card::

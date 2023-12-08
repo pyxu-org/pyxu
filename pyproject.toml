@@ -38,7 +38,6 @@ dependencies = [
     "numpy >= 1.24, < 2",
     "packaging >= 23.1",
     "scipy >= 1.11, < 2",
-    "sparse >= 0.14, < 1",
 ]
 
 # Optional dependencies =======================================================

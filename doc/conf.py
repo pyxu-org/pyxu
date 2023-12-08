@@ -200,7 +200,6 @@ intersphinx_mapping = {  # We only include most useful doc-sets.
     "CuPy [latest]": ("https://docs.cupy.dev/en/latest/", None),
     "SciPy [latest]": ("https://docs.scipy.org/doc/scipy/", None),
     "Dask [stable]": ("https://docs.dask.org/en/stable/", None),
-    "Sparse [latest]": ("https://sparse.pydata.org/en/latest/", None),
     "Pytest [latest]": ("https://docs.pytest.org/en/latest/", None),
     "Matplotlib [stable]": ("https://matplotlib.org/stable/", None),
     "JAX [latest]": ("https://jax.readthedocs.io/en/latest/", None),

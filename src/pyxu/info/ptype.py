@@ -21,13 +21,16 @@ ArrayModule = typ.TypeVar(
 )
 
 #: Supported sparse array types.
-SparseArray = typ.TypeVar("SparseArray", *pxd.supported_sparse_types())
+if len(sst := pxd.supported_sparse_types()) == 1:
+    SparseArray = typ.TypeVar("SparseArray", bound=tuple(sst)[0])
+else:
+    SparseArray = typ.TypeVar("SparseArray", *sst)
 
 #: Supported sparse array modules.
-SparseModule = typ.TypeVar(
-    "SparseModule",
-    *[typ.Literal[_] for _ in pxd.supported_sparse_modules()],
-)
+if len(ssm := pxd.supported_sparse_modules()) == 1:
+    SparseModule = typ.TypeVar("SparseModule", bound=tuple(ssm)[0])
+else:
+    SparseModule = typ.TypeVar("SparseModule", *[typ.Literal[_] for _ in ssm])
 
 #: Top-level abstract :py:class:`~pyxu.abc.Operator` interface exposed to users.
 OpT = typ.TypeVar(
