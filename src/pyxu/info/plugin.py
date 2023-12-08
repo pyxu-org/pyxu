@@ -40,7 +40,7 @@ def _load_entry_points(glob, group, names=None):
             if name.startswith("_"):
                 if name[1:] in glob:
                     warnings.warn(
-                        f"Plugin `{name}` overloaded an existing Pyxu base class/function, use with " f"caution.",
+                        f"Plugin `{name}` overloaded an existing Pyxu base class/function, use with caution.",
                         pxw.ContributionWarning,
                     )
                     glob[name[1:]] = ep_load
