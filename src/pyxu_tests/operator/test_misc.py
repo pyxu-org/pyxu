@@ -151,3 +151,69 @@ class TestSqueezeAxes(conftest.UnitOpT):
             in_=dict(arr=arr_gt),
             out=out_gt,
         )
+
+
+class TestReshapeAxes(conftest.UnitOpT):
+    @pytest.fixture(
+        params=[
+            # Specification:
+            #     arg_shape (user-specified),
+            #     arg_shape (canonical),
+            #     out_shape (user-specified),
+            #     out_shape (canonical).
+            # 1D cases --------------------
+            (6, (6,), 6, (6,)),
+            ((6,), (6,), (2, -1), (2, 3)),
+            (6, (6,), (1, 2, -1), (1, 2, 3)),
+            # 3D cases --------------------
+            ((5, 3, 4), (5, 3, 4), 60, (60,)),
+            ((5, 3, 4), (5, 3, 4), -1, 60),
+            ((5, 3, 4), (5, 3, 4), (15, 4), (15, 4)),
+            ((5, 3, 4), (5, 3, 4), (-1, 1, 4), (15, 1, 4)),
+        ]
+    )
+    def _spec(self, request):
+        return request.param
+
+    @pytest.fixture
+    def arg_shape(self, _spec) -> pxt.NDArrayShape:
+        # canonical arg_shape
+        return _spec[1]
+
+    @pytest.fixture
+    def out_shape(self, _spec) -> pxt.NDArrayAxis:
+        # canonical out_shape
+        return _spec[3]
+
+    @pytest.fixture(
+        params=itertools.product(
+            pxd.NDArrayInfo,
+            pxrt.Width,
+        )
+    )
+    def spec(self, _spec, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
+        arg_shape, out_shape = _spec[0], _spec[2]  # user-specified version
+        ndi, width = request.param
+
+        op = pxo.ReshapeAxes(
+            arg_shape=arg_shape,
+            out_shape=out_shape,
+        )
+        return op, ndi, width
+
+    @pytest.fixture
+    def data_shape(self, arg_shape) -> pxt.OpShape:
+        codim = dim = np.prod(arg_shape)
+        return (codim, dim)
+
+    @pytest.fixture
+    def data_apply(self, arg_shape, out_shape) -> conftest.DataLike:
+        arr_gt = np.arange(np.prod(arg_shape))
+        arr = arr_gt.reshape(arg_shape)
+        out = arr.reshape(out_shape)
+        out_gt = out.reshape(-1)
+
+        return dict(
+            in_=dict(arr=arr_gt),
+            out=out_gt,
+        )

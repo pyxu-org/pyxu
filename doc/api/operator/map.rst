@@ -64,10 +64,13 @@ Misc
 .. autofunction:: pyxu.operator.ConstantValued
 
 .. autoclass:: pyxu.operator.TransposeAxes
-   :exclude-members: apply, adjoint, cogram
+   :exclude-members: apply, adjoint
 
 .. autoclass:: pyxu.operator.SqueezeAxes
-   :exclude-members: apply, adjoint, cogram
+   :exclude-members: apply, adjoint
+
+.. autoclass:: pyxu.operator.ReshapeAxes
+   :exclude-members: apply, adjoint
 
 .. autofunction:: pyxu.operator.softmax
 
