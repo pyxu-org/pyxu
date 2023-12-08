@@ -33,7 +33,7 @@ def _load_entry_points(glob, group, names=None):
 
     # Load entry points
     try:
-        for i, ep in enumerate(eps):
+        for ep in eps:
             ep_load = ep.load()
             name = ep.name
             # If plugin can overload, load directly
