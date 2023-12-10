@@ -541,15 +541,10 @@ class _FromJax(px_src._FromSource):
                 apply=c_apply,
             )
 
-            # We cannot know a-priori which backend the supplied jax-apply() function works with.
-            # Consequence: to compute `t`, we must try different backends until one works.
+            # `t` can be computed using any backend, so we choose NUMPY.
             f = self._jax["apply"]
-            try:  # test a CPU implementation ...
-                with jax.default_device(jax.devices("cpu")[0]):
-                    t = float(f(jnp.zeros(self.dim_shape)))
-            except Exception:  # ... and use GPU if it doesn't work.
-                with jax.default_device(jax.devices("gpu")[0]):
-                    t = float(f(jnp.zeros(self.dim_shape)))
+            with jax.default_device(jax.devices("cpu")[0]):
+                t = float(f(jnp.zeros(self.dim_shape)))
 
             return (Q, c, t)
         else:
@@ -557,28 +552,18 @@ class _FromJax(px_src._FromSource):
 
     def asarray(self, **kwargs) -> pxt.NDArray:
         if self.has(pxa.Property.LINEAR):
-            # (1) Lin[Op,Func].asarray() assumes the operator is precision-agnostic.
-            #     This condition does not hold for JAX arrays. (See from_jax() notes.)
-            #
-            # (2) If the operator is backend-specific (i.e. only works with CUPY), then we have no way to determine
-            #     which `xp` value use in the generic LinOp.asarray() implementation without a potential fail.
-            #
-            # Consequence:
-            # (1) May need to cast Lin[Op,Func].asarray()'s output.
-            # (2) We must try different `xp` values until one works.
+            # JAX operators don't accept DASK inputs: cannot call Lin[Op,Func].asaray() with user-specified `xp` value.
+            # -> We arbitrarily perform computations using the NUMPY backend, then cast as needed.
             N = pxd.NDArrayInfo  # shorthand
-            dtype_orig = kwargs.get("dtype", pxrt.getPrecision().value)
-            xp_orig = kwargs.get("xp", N.default().module())
+            dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+            xp = kwargs.get("xp", N.default().module())
 
             klass = self.__class__
-            try:
-                A = klass.asarray(self, dtype=dtype_orig, xp=N.NUMPY.module())
-            except Exception:
-                A = klass.asarray(self, dtype=dtype_orig, xp=N.CUPY.module())
+            A = klass.asarray(self, dtype=dtype, xp=N.NUMPY.module())
 
             # Not the most efficient method, but fail-proof
-            A = xp_orig.array(pxu.to_NUMPY(A), dtype=dtype_orig)
-            return A
+            B = xp.array(A, dtype=dtype)
+            return B
         else:
             raise NotImplementedError
 
