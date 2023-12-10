@@ -693,7 +693,7 @@ class Func(Map):
         )
         assert (self.codim_size == 1) and (self.codim_rank == 1)
 
-    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
+    def asloss(self, data: typ.Union[pxt.Real, pxt.NDArray] = None) -> pxt.OpT:
         """
         Transform a functional into a loss functional.
 
@@ -1332,7 +1332,7 @@ class QuadraticFunc(ProxDiffFunc):
         slvr.fit(b=b, stop_crit=stop_crit)
         return slvr.solution()
 
-    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
+    def asloss(self, data: typ.Union[pxt.Real, pxt.NDArray] = None) -> pxt.OpT:
         from pyxu.operator import shift_loss
 
         op = shift_loss(op=self, data=data)
