@@ -17,7 +17,7 @@ __all__ = [
 
 def from_sciop(cls: pxt.OpC, sp_op: spsl.LinearOperator) -> pxt.OpT:
     r"""
-    Wrap a :py:class:`~scipy.sparse.linalg.LinearOperator` as a :py:class:`~pyxu.abc.LinOp` (or sub-class thereof).
+    Wrap a :py:class:`~scipy.sparse.linalg.LinearOperator` as a 2D :py:class:`~pyxu.abc.LinOp` (or sub-class thereof).
 
     Parameters
     ----------
@@ -27,7 +27,10 @@ def from_sciop(cls: pxt.OpC, sp_op: spsl.LinearOperator) -> pxt.OpT:
     Returns
     -------
     op: OpT
-        (N, M) Pyxu-compliant linear operator.
+        Pyxu-compliant linear operator with:
+
+        * dim_shape: (M,)
+        * codim_shape: (N,)
     """
     assert cls.has(pxa.Property.LINEAR)
 
