@@ -974,10 +974,7 @@ class ProxFunc(Func):
            =
            \mathbf{z} - \sigma \mathbf{\text{prox}}_{f/\sigma}(\mathbf{z}/\sigma).
         """
-        out = self.prox(arr=arr / sigma, tau=1 / sigma)
-        out = pxu.copy_if_unsafe(out)
-        out *= -sigma
-        out += arr
+        out = arr - sigma * self.prox(arr=arr / sigma, tau=1 / sigma)
         return out
 
     def moreau_envelope(self, mu: pxt.Real) -> pxt.OpT:
@@ -1079,10 +1076,9 @@ class ProxFunc(Func):
 
         @pxrt.enforce_precision(i="arr")
         def op_grad(_, arr):
-            x = arr.copy()
-            x -= self.prox(arr, tau=_._mu)
-            x /= _._mu
-            return x
+            out = arr - self.prox(arr, tau=_._mu)
+            out /= _._mu
+            return out
 
         op = from_source(
             cls=DiffFunc,
@@ -1308,8 +1304,7 @@ class QuadraticFunc(ProxDiffFunc):
     @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         Q, c, _ = self._quad_spec()
-        out = pxu.copy_if_unsafe(Q.apply(arr))
-        out += c.grad(arr)
+        out = Q.apply(arr) + c.grad(arr)
         return out
 
     @pxrt.enforce_precision(i=("arr", "tau"))
@@ -2151,10 +2146,7 @@ class LinFunc(ProxDiffFunc, LinOp):
 
     @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
-        # out = arr - tau * self.grad(arr)
-        out = pxu.copy_if_unsafe(self.grad(arr))
-        out *= -tau
-        out += arr
+        out = arr - tau * self.grad(arr)
         return out
 
     @pxrt.enforce_precision(i=("arr", "sigma"))
