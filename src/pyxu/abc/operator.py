@@ -1581,8 +1581,9 @@ class LinOp(DiffMap):
             else:
                 import numpy as xp
                 import scipy.linalg as spx
-            op = self.asarray(xp=xp, dtype=pxrt.getPrecision().value)
-            return spx.svd(op, compute_uv=False)
+            A = self.asarray(xp=xp, dtype=pxrt.getPrecision().value)
+            B = A.reshape(self.codim_size, self.dim_size)
+            return spx.svd(B, compute_uv=False)
 
         def _sparse_eval():
             if gpu:
@@ -1592,7 +1593,13 @@ class LinOp(DiffMap):
                 self._warn_vals_sparse_gpu()
             else:
                 spx = spsl
-            op = self.to_sciop(gpu=gpu, dtype=pxrt.getPrecision().value)
+            from pyxu.operator import ReshapeAxes
+
+            # SciPy's LinearOperator only understands 2D linear operators.
+            # -> wrap `self` into 2D form for SVD computations.
+            lhs = ReshapeAxes(dim_shape=self.codim_shape, codim_shape=self.codim_size)
+            rhs = ReshapeAxes(dim_shape=self.dim_size, codim_shape=self.dim_shape)
+            op = (lhs * self * rhs).to_sciop(gpu=gpu, dtype=pxrt.getPrecision().value)
 
             which = kwargs.get("which", "LM")
             assert which.upper() == "LM", "Only computing leading singular values is supported."
