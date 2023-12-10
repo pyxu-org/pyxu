@@ -1570,6 +1570,7 @@ class LinOp(DiffMap):
 
         def _dense_eval():
             if gpu:
+                assert pxd.CUPY_ENABLED
                 import cupy as xp
                 import cupy.linalg as spx
             else:
