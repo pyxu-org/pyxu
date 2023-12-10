@@ -14,7 +14,8 @@ __all__ = [
 
 def from_source(
     cls: pxt.OpC,
-    shape: pxt.OpShape,
+    dim_shape: pxt.NDArrayShape,
+    codim_shape: pxt.NDArrayShape,
     embed: dict = None,
     vectorize: pxt.VarName = frozenset(),
     vmethod: typ.Union[str, dict] = None,
@@ -28,8 +29,10 @@ def from_source(
     ----------
     cls: OpC
         Operator sub-class to instantiate.
-    shape: OpShape
-        (N, M) operator shape.
+    dim_shape: NDArrayShape
+        Operator domain shape (M1,...,MD).
+    codim_shape: NDArrayShape
+        Operator co-domain shape (N1,...,NK).
     embed: dict
         (k[str], v[value]) pairs to embed into the created operator.
 
@@ -61,7 +64,8 @@ def from_source(
     Returns
     -------
     op: OpT
-        (N, M) Pyxu-compliant operator.
+        Pyxu-compliant operator :math:`A: \mathbb{R}^{M_{1} \times\cdots\times M_{D}} \to \mathbb{R}^{N_{1}
+        \times\cdots\times N_{K}}`.
 
     Notes
     -----
@@ -70,14 +74,14 @@ def from_source(
 
       .. code-block:: python3
 
-         def apply(self, arr: pxt.NDArray) -> pxt.NDArray
-         def grad(self, arr: pxt.NDArray) -> pxt.NDArray
-         def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray
-         def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray
-         def pinv(self, arr: pxt.NDArray, damp: pxt.Real) -> pxt.NDArray
+         def apply(self, arr: pxt.NDArray) -> pxt.NDArray                   # (..., M1,...,MD) -> (..., N1,...,NK)
+         def grad(self, arr: pxt.NDArray) -> pxt.NDArray                    # (..., M1,...,MD) -> (..., M1,...,MD)
+         def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray                 # (..., N1,...,NK) -> (..., M1,...,MD)
+         def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray     # (..., M1,...,MD) -> (..., M1,...,MD)
+         def pinv(self, arr: pxt.NDArray, damp: pxt.Real) -> pxt.NDArray    # (..., N1,...,NK) -> (..., M1,...,MD)
 
-      Moreover, the methods above **must** accept ``(..., M)``-shaped inputs for ``arr``.  If this does not hold,
-      consider populating `vectorize`.
+      Moreover, the methods above **must** accept stacking dimensions in ``arr``.  If this does not hold, consider
+      populating `vectorize`.
 
     * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
       :py:func:`~pyxu.util.vectorize`.  Auto-vectorization may be less efficient than explicitly providing a vectorized
@@ -96,7 +100,8 @@ def from_source(
        N = 5
        f = from_source(
            cls=pyxu.abc.DiffMap,
-           shape=(N, N),
+           dim_shape=N,
+           codim_shape=N,
            apply=lambda _, arr: arr**2,
        )
        x = np.arange(N)
@@ -111,8 +116,10 @@ def from_source(
        N = 5
        f = from_source(
            cls=pyxu.abc.DiffMap,
-           shape=(N, N),
-           embed=dict(  # special form to set (diff-)Lipschitz attributes via from_source()
+           dim_shape=N,
+           codim_shape=N,
+           embed=dict(
+               # special form to set (diff-)Lipschitz attributes via from_source()
                _diff_lipschitz=2,
            ),
            apply=lambda _, arr: arr**2,
@@ -134,7 +141,8 @@ def from_source(
 
     src = _FromSource(
         cls=cls,
-        shape=shape,
+        dim_shape=dim_shape,
+        codim_shape=codim_shape,
         embed=embed,
         vectorize=vectorize,
         vmethod=vmethod,
@@ -149,7 +157,8 @@ class _FromSource:  # See from_source() for a detailed description.
     def __init__(
         self,
         cls: pxt.OpC,
-        shape: pxt.OpShape,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
         embed: dict,
         vectorize: frozenset[str],
         vmethod: typ.Union[str, dict],
@@ -159,7 +168,10 @@ class _FromSource:  # See from_source() for a detailed description.
         from pyxu.abc.operator import _core_operators
 
         assert cls in _core_operators(), f"Unknown Operator type: {cls}."
-        self._op = cls(shape)  # ensure shape well-formed
+        self._op = cls(  # ensure shape well-formed
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
 
         # Arithmetic methods to attach to `_op`.
         meth = frozenset.union(*[p.arithmetic_methods() for p in pxa.Property])
