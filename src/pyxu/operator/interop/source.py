@@ -1,6 +1,5 @@
 import collections.abc as cabc
 import types
-import typing as typ
 
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
@@ -18,7 +17,6 @@ def from_source(
     codim_shape: pxt.NDArrayShape,
     embed: dict = None,
     vectorize: pxt.VarName = frozenset(),
-    vmethod: typ.Union[str, dict] = None,
     enforce_precision: pxt.VarName = frozenset(),
     **kwargs,
 ) -> pxt.OpT:
@@ -47,14 +45,8 @@ def from_source(
     vectorize: VarName
         Arithmetic methods to vectorize.
 
-        `vectorize` is useful if an arithmetic method provided to `kwargs` (ex: :py:meth:`~pyxu.abc.Map.apply`):
-
-        * does not support stacking dimensions; OR
-        * does not support DASK inputs.
-    vmethod: str, dict
-        Vectorization strategy. (See :py:class:`~pyxu.util.vectorize`.)
-
-        Different strategies can be applied per arithmetic method via a dictionary.
+        `vectorize` is useful if an arithmetic method provided to `kwargs` (ex: :py:meth:`~pyxu.abc.Map.apply`) does not
+        support stacking dimensions.
     enforce_precision: VarName
         Arithmetic methods to make compliant with Pyxu's runtime FP-precision.
 
@@ -145,7 +137,6 @@ def from_source(
         codim_shape=codim_shape,
         embed=embed,
         vectorize=vectorize,
-        vmethod=vmethod,
         enforce_precision=enforce_precision,
         **kwargs,
     )
@@ -161,7 +152,6 @@ class _FromSource:  # See from_source() for a detailed description.
         codim_shape: pxt.NDArrayShape,
         embed: dict,
         vectorize: frozenset[str],
-        vmethod: typ.Union[str, dict],
         enforce_precision: frozenset[str],
         **kwargs,
     ):
@@ -186,10 +176,11 @@ class _FromSource:  # See from_source() for a detailed description.
         assert isinstance(embed, cabc.Mapping)
         self._embed = embed
 
-        # Add-on functionality to enable.
-        self._vkwargs = self._parse_vectorize(vectorize, vmethod)
+        # Add-on vectorization functionality.
+        self._vkwargs = self._parse_vectorize(vectorize)
         self._vectorize = vectorize
 
+        # Add-on enforce-precision functionality.
         self._ekwargs = self._parse_precision(enforce_precision)
         self._enforce_fp = enforce_precision
 
@@ -217,41 +208,39 @@ class _FromSource:  # See from_source() for a detailed description.
 
         return _op
 
-    def _parse_vectorize(
-        self,
-        vectorize: frozenset[str],
-        vmethod: typ.Union[str, dict],
-    ):
-        vsize = dict(  # `codim` hint for vectorize()
-            apply=self._op.codim,
-            prox=self._op.dim,
-            grad=self._op.dim,
-            adjoint=self._op.dim,
-            pinv=self._op.dim,
+    def _parse_vectorize(self, vectorize: frozenset[str]):
+        vkwargs = dict(  # Parameter hints for vectorize()
+            apply=dict(
+                i="arr",  # Pyxu arithmetic methods broadcast along parameter `arr`.
+                dim_shape=self._op.dim_shape,
+                codim_shape=self._op.codim_shape,
+            ),
+            prox=dict(
+                i="arr",
+                dim_shape=self._op.dim_shape,
+                codim_shape=self._op.dim_shape,
+            ),
+            grad=dict(
+                i="arr",
+                dim_shape=self._op.dim_shape,
+                codim_shape=self._op.dim_shape,
+            ),
+            adjoint=dict(
+                i="arr",
+                dim_shape=self._op.codim_shape,
+                codim_shape=self._op.dim_shape,
+            ),
+            pinv=dict(
+                i="arr",
+                dim_shape=self._op.codim_shape,
+                codim_shape=self._op.dim_shape,
+            ),
         )
 
-        if not (vectorize <= set(vsize)):  # un-recognized arithmetic method
+        if not (vectorize <= set(vkwargs)):  # un-recognized arithmetic method
             msg_head = "Can only vectorize arithmetic methods"
-            msg_tail = ", ".join([f"{name}()" for name in vsize])
+            msg_tail = ", ".join([f"{name}()" for name in vkwargs])
             raise ValueError(f"{msg_head} {msg_tail}")
-
-        vmethod_default = pxu.parse_params(
-            pxu.vectorize,
-            i="bogus",  # doesn't matter
-        )["method"]
-        if vmethod is None:
-            vmethod = vmethod_default
-        if isinstance(vmethod, str):
-            vmethod = {name: vmethod for name in vsize}
-
-        vkwargs = {
-            name: dict(
-                i="arr",  # Pyxu arithmetic methods broadcast along parameter `arr`.
-                method=vmethod.get(name, vmethod_default),
-                codim=vsize[name],
-            )
-            for name in vsize
-        }
         return vkwargs
 
     def _parse_precision(self, enforce_precision: frozenset[str]):

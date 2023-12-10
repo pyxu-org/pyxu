@@ -259,7 +259,6 @@ class _FromJax(px_src._FromSource):
             shape=shape,
             embed=dict(),  # jax-funcs are state-free.
             vectorize=vectorize,
-            vmethod=None,  # pyxu.util.vectorize() not used for jax-funcs
             enforce_precision=frozenset(),  # will be applied manually in op() ...
             **kwargs,
         )
@@ -293,7 +292,6 @@ class _FromJax(px_src._FromSource):
                 _jit=self._jit,
             ),
             # vectorize=None,  # see top-level comment.
-            # vmethod=None,    #
             enforce_precision=self._enforce_fp,
             **kwargs,
         )
