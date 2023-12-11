@@ -141,7 +141,8 @@ def compute(*args, mode: str = "compute", **kwargs):
         Evaluated objects. Non-dask arguments are passed through unchanged.
     """
     try:
-        func = dict(compute=dask.compute, persist=dask.persist)[mode.lower()]
+        mode = mode.strip().lower()
+        func = dict(compute=dask.compute, persist=dask.persist)[mode]
     except Exception:
         raise ValueError(f"mode: expected compute/persist, got {mode}.")
 
