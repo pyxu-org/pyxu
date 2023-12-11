@@ -497,8 +497,6 @@ Misc
 
    pyxu.util.misc.peaks
    pyxu.util.misc.star_like_sample
-   pyxu.util.operator._array_ize
-   pyxu.util.operator._dask_zip
 
 .. toctree::
    :maxdepth: 2
