@@ -94,40 +94,71 @@ class Operator:
     # This is achieved by increasing __array_priority__ for all operators.
     __array_priority__ = np.inf
 
-    def __init__(self, shape: pxt.OpShape):
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
+    ):
         r"""
         Parameters
         ----------
-        shape: OpShape
-            (N, M) operator shape.
+        dim_shape: NDArrayShape
+            (M1,...,MD) operator input shape.
+        codim_shape: NDArrayShape
+            (N1,...,NK) operator output shape.
         """
-        shape = pxu.as_canonical_shape(shape)
-        assert len(shape) == 2, f"shape: expected {pxt.OpShape}, got {shape}."
+        dim_shape = pxu.as_canonical_shape(dim_shape)
+        assert all(ax >= 1 for ax in dim_shape)
 
-        self._shape = shape
+        codim_shape = pxu.as_canonical_shape(codim_shape)
+        assert all(ax >= 1 for ax in codim_shape)
+
+        self._dim_shape = dim_shape
+        self._codim_shape = codim_shape
         self._name = self.__class__.__name__
 
     # Public Interface --------------------------------------------------------
     @property
-    def shape(self) -> pxt.OpShape:
+    def dim_shape(self) -> pxt.NDArrayShape:
         r"""
-        Return (N, M) operator shape.
+        Return shape of operator's domain. (M1,...,MD)
         """
-        return self._shape
+        return self._dim_shape
 
     @property
-    def dim(self) -> pxt.Integer:
+    def dim_size(self) -> pxt.Integer:
         r"""
-        Return dimension of operator's domain. (M)
+        Return size of operator's domain. (M1*...*MD)
         """
-        return self.shape[1]
+        return np.prod(self.dim_shape)
 
     @property
-    def codim(self) -> pxt.Integer:
+    def dim_rank(self) -> pxt.Integer:
         r"""
-        Return dimension of operator's co-domain. (N)
+        Return rank of operator's domain. (D)
         """
-        return self.shape[0]
+        return len(self.dim_shape)
+
+    @property
+    def codim_shape(self) -> pxt.NDArrayShape:
+        r"""
+        Return shape of operator's co-domain. (N1,...,NK)
+        """
+        return self._codim_shape
+
+    @property
+    def codim_size(self) -> pxt.Integer:
+        r"""
+        Return size of operator's co-domain. (N1*...*NK)
+        """
+        return np.prod(self.codim_shape)
+
+    @property
+    def codim_rank(self) -> pxt.Integer:
+        r"""
+        Return rank of operator's co-domain. (K)
+        """
+        return len(self.codim_shape)
 
     @classmethod
     def properties(cls) -> cabc.Set[Property]:
@@ -162,7 +193,7 @@ class Operator:
             Operator with the new interface.
 
             Fails when cast is forbidden.
-            (Ex: :py:class:`~pyxu.abc.Map` -> :py:class:`~pyxu.abc.Func` if codim > 1)
+            (Ex: :py:class:`~pyxu.abc.Map` -> :py:class:`~pyxu.abc.Func` if codim.size > 1)
 
         Notes
         -----
@@ -183,7 +214,10 @@ class Operator:
             # (p_shell > p_core) -> specializing to a sub-class of ``self``
             # OR
             # len(p_shell ^ p_core) > 0 -> specializing to another branch of the class hierarchy.
-            op = cast_to(shape=self.shape)
+            op = cast_to(
+                dim_shape=self.dim_shape,
+                codim_shape=self.codim_shape,
+            )
             op._core = self  # for debugging
 
             # Forward shared arithmetic fields from core to shell.
@@ -440,7 +474,7 @@ class Operator:
 
     def __repr__(self) -> str:
         klass = self._name
-        return f"{klass}{self.shape}"
+        return f"{klass}(dim={self.dim_shape}, codim={self.codim_shape})"
 
     def _expr(self) -> tuple:
         r"""
@@ -528,8 +562,15 @@ class Map(Operator):
         p.add(Property.CAN_EVAL)
         return frozenset(p)
 
-    def __init__(self, shape: pxt.OpShape):
-        super().__init__(shape=shape)
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
+    ):
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
         self.lipschitz = np.inf
 
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
@@ -661,9 +702,16 @@ class Func(Map):
         p.add(Property.FUNCTIONAL)
         return frozenset(p)
 
-    def __init__(self, shape: pxt.OpShape):
-        super().__init__(shape=shape)
-        assert self.codim == 1, f"shape: expected (1, n), got {shape}."
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
+    ):
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
+        assert (self.codim_size == 1) and (self.codim_rank == 1)
 
     def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
         """
@@ -705,8 +753,15 @@ class DiffMap(Map):
         p.add(Property.DIFFERENTIABLE)
         return frozenset(p)
 
-    def __init__(self, shape: pxt.OpShape):
-        super().__init__(shape=shape)
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
+    ):
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
         self.diff_lipschitz = np.inf
 
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
@@ -863,8 +918,15 @@ class ProxFunc(Func):
         p.add(Property.PROXIMABLE)
         return frozenset(p)
 
-    def __init__(self, shape: pxt.OpShape):
-        super().__init__(shape=shape)
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
+    ):
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
 
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         r"""
@@ -1084,9 +1146,17 @@ class DiffFunc(DiffMap, Func):
         p.add(Property.DIFFERENTIABLE_FUNCTION)
         return frozenset(p)
 
-    def __init__(self, shape: pxt.OpShape):
-        DiffMap.__init__(self, shape)
-        Func.__init__(self, shape)
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
+    ):
+        for klass in [DiffMap, Func]:
+            klass.__init__(
+                self,
+                dim_shape=dim_shape,
+                codim_shape=codim_shape,
+            )
 
     @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
@@ -1143,9 +1213,17 @@ class ProxDiffFunc(ProxFunc, DiffFunc):
             p |= klass.properties()
         return frozenset(p)
 
-    def __init__(self, shape: pxt.OpShape):
-        ProxFunc.__init__(self, shape)
-        DiffFunc.__init__(self, shape)
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
+    ):
+        for klass in [ProxFunc, DiffFunc]:
+            klass.__init__(
+                self,
+                dim_shape=dim_shape,
+                codim_shape=codim_shape,
+            )
 
 
 class QuadraticFunc(ProxDiffFunc):
@@ -1202,7 +1280,8 @@ class QuadraticFunc(ProxDiffFunc):
 
     def __init__(
         self,
-        shape: pxt.OpShape,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
         # required in place of `dim` to have uniform interface with Operator hierarchy.
         Q: "PosDefOp" = None,
         c: "LinFunc" = None,
@@ -1220,19 +1299,24 @@ class QuadraticFunc(ProxDiffFunc):
         """
         from pyxu.operator import IdentityOp, NullFunc
 
-        super().__init__(shape=shape)
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
 
         # Do NOT access (_Q, _c, _t) directly through `self`:
         # their values may not reflect the true (Q, c, t) parameterization.
         # (Reason: arithmetic propagation.)
         # Always access (Q, c, t) by querying the arithmetic method `_quad_spec()`.
-        self._Q = IdentityOp(dim=self.dim) if (Q is None) else Q
-        self._c = NullFunc(dim=self.dim) if (c is None) else c
+        self._Q = IdentityOp(dim_shape=self.dim_shape) if (Q is None) else Q
+        self._c = NullFunc(dim_shape=self.dim_shape) if (c is None) else c
         self._t = t
 
         # ensure dimensions are consistent if None-initialized
-        assert self._Q.shape == (self.dim, self.dim)
-        assert self._c.shape == self.shape
+        assert self._Q.dim_shape == self.dim_shape
+        assert self._Q.codim_shape == self.dim_shape
+        assert self._c.dim_shape == self.dim_shape
+        assert self._c.codim_shape == self.codim_shape
 
         self.diff_lipschitz = self._Q.lipschitz
 
@@ -1323,8 +1407,15 @@ class LinOp(DiffMap):
         p.add(Property.LINEAR)
         return frozenset(p)
 
-    def __init__(self, shape: pxt.OpShape):
-        super().__init__(shape=shape)
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
+    ):
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
         self.diff_lipschitz = 0
 
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
@@ -1808,9 +1899,16 @@ class SquareOp(LinOp):
         p.add(Property.LINEAR_SQUARE)
         return frozenset(p)
 
-    def __init__(self, shape: pxt.OpShape):
-        super().__init__(shape=shape)
-        assert self.dim == self.codim, f"shape: expected (M, M), got {self.shape}."
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
+    ):
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
+        assert self.dim_size == self.codim_size
 
     @pxrt.enforce_precision()
     def trace(self, **kwargs) -> pxt.Real:
@@ -1905,8 +2003,15 @@ class UnitOp(NormalOp):
         p.add(Property.LINEAR_UNITARY)
         return frozenset(p)
 
-    def __init__(self, shape: pxt.OpShape):
-        super().__init__(shape=shape)
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
+    ):
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
         self.lipschitz = UnitOp.estimate_lipschitz(self)
 
     def estimate_lipschitz(self, **kwargs) -> pxt.Real:
@@ -1972,8 +2077,15 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
             p |= klass.properties()
         return frozenset(p)
 
-    def __init__(self, shape: pxt.OpShape):
-        super().__init__(shape=shape)
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
+    ):
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
         self.lipschitz = OrthProjOp.estimate_lipschitz(self)
 
     def estimate_lipschitz(self, **kwargs) -> pxt.Real:
@@ -2026,10 +2138,17 @@ class LinFunc(ProxDiffFunc, LinOp):
             p |= klass.properties()
         return frozenset(p)
 
-    def __init__(self, shape: pxt.OpShape):
-        super().__init__(shape=shape)
-        ProxDiffFunc.__init__(self, shape)
-        LinOp.__init__(self, shape)
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
+    ):
+        for klass in [ProxDiffFunc, LinOp]:
+            klass.__init__(
+                self,
+                dim_shape=dim_shape,
+                codim_shape=codim_shape,
+            )
 
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         return LinOp.jacobian(self, arr)
