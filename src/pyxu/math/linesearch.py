@@ -1,7 +1,7 @@
 import pyxu.abc as pxa
+import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
-import pyxu.util as pxu
 
 __all__ = [
     "backtracking_linesearch",
@@ -10,6 +10,7 @@ __all__ = [
 
 LINESEARCH_DEFAULT_R = 0.5
 LINESEARCH_DEFAULT_C = 1e-4
+newaxis = None  # Since we don't import NumPy
 
 
 @pxrt.enforce_precision(
@@ -34,11 +35,11 @@ def backtracking_linesearch(
     f: ~pyxu.abc.operator.DiffFunc
         Differentiable functional.
     x: NDArray
-        (..., N) initial search point(s).
+        (..., M1,...,MD) initial search point(s).
     direction: NDArray
-        (..., N) search direction(s) corresponding to initial point(s).
+        (..., M1,...,MD) search direction(s) corresponding to initial point(s).
     gradient: NDArray
-        (..., N) gradient of `f` at initial search point(s).
+        (..., M1,...,MD) gradient of `f` at initial search point(s).
 
         Specifying `gradient` when known is an optimization: it will be autocomputed via
         :py:meth:`~pyxu.abc.DiffFunc.grad` if unspecified.
@@ -56,7 +57,14 @@ def backtracking_linesearch(
     -------
     a: NDArray
         (..., 1) step sizes.
+
+    Notes
+    -----
+    * Performing a line-search with DASK inputs is inefficient due to iterative nature of algorithm.
     """
+    ndi = pxd.NDArrayInfo.from_obj(x)
+    xp = ndi.module()
+
     assert 0 < r < 1
     assert 0 < c < 1
     if a0 is None:
@@ -68,8 +76,14 @@ def backtracking_linesearch(
     if gradient is None:
         gradient = f.grad(x)
 
-    f_x = f.apply(x)
-    d_f = c * (gradient * direction).sum(axis=-1, keepdims=True)  # \delta f
+    f_x = f.apply(x)  # (..., 1)
+    d_f = (  # \delta f  (..., 1)
+        c
+        * xp.sum(
+            gradient * direction,
+            axis=tuple(range(-f.dim_rank, 0)),
+        )[..., newaxis]
+    )
 
     def refine(a: pxt.NDArray) -> pxt.NDArray:
         # Do one iteration of the algorithm.
@@ -77,18 +91,21 @@ def backtracking_linesearch(
         # Parameters
         # ----------
         # a : NDArray
-        #     (..., 1) current step size(s)
+        #     (..., 1) current step size(s).
         #
         # Returns
         # -------
         # mask : NDArray[bool]
         #     (..., 1) refinement points
-        lhs = f.apply(x + a * direction)
-        rhs = f_x + a * d_f
+        a_D = a[..., *((newaxis,) * (f.dim_rank - 1))]  # (..., 1,...,1)
+        lhs = f.apply(x + a_D * direction)  # (..., 1)
+        rhs = f_x + a * d_f  # (..., 1)
         return lhs > rhs  # mask
 
-    xp = pxu.get_array_module(x)
-    a = xp.full(shape=(*x.shape[:-1], 1), fill_value=a0, dtype=x.dtype)
-    while (mask := refine(a)).any():
+    a = xp.full_like(d_f, fill_value=a0, dtype=x.dtype)
+    while xp.any(mask := refine(a)):
         a[mask] *= r
+
+        if ndi == pxd.NDArrayInfo.DASK:
+            a.compute_chunk_sizes()
     return a
