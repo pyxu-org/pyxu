@@ -121,10 +121,10 @@ class Solver:
       :py:meth:`~pyxu.abc.Solver.fit`. (See below.)
     * automatic checkpointing of solver progress, providing a safe restore point in case of faulty numerical code.  Each
       solver instance backs its state and final output to a folder on disk for post-analysis.  In particular
-      :py:meth:`~pyxu.abc.Solver.fit` will never crash: detailed exception information will always be available in a
+      :py:meth:`~pyxu.abc.Solver.fit` should never crash: detailed exception information will always be available in a
       logfile for post-analysis.
     * arbitrary specification of complex stopping criteria via the :py:class:`~pyxu.abc.StoppingCriterion` class.
-    * solve for multiple initial points in parallel.
+    * solve for multiple initial points in parallel. (Not always supported by all solvers.)
 
     To implement a new iterative solver, users need to sub-class :py:class:`~pyxu.abc.Solver` and overwrite the methods
     below:
@@ -368,7 +368,7 @@ class Solver:
         data: ~collections.abc.Mapping
             Value(s) of ``log_var`` (s) after last iteration.
         history: numpy.ndarray, None
-            (N_iter,) records of stopping-criteria values per iteration.
+            (N_iter,) records of stopping-criteria values sampled every `stop_rate` iteration.
 
         Notes
         -----
