@@ -9,29 +9,9 @@ import pyxu.info.ptype as pxt
 __all__ = [
     "copy_if_unsafe",
     "import_module",
-    "next_fast_len",
     "parse_params",
     "read_only",
 ]
-
-
-def next_fast_len(N: pxt.Integer, even: bool = False) -> pxt.Integer:
-    """
-    Compute the next `5-smooth number <https://en.wikipedia.org/wiki/Smooth_number>`_ greater-or-equal to `N`.
-
-    If `even=True`, then ensure the next 5-smooth number is even-valued.
-    """
-    # warning: scipy.fftpack.next_fast_len() != scipy.fft.next_fast_len()
-    from scipy.fftpack import next_fast_len
-
-    N5 = next_fast_len(int(N))
-
-    is_even = lambda n: n % 2 == 0
-    if (not is_even(N5)) and even:
-        while not is_even(N5 := next_fast_len(N5)):
-            N5 += 1
-
-    return N5
 
 
 def peaks(x: pxt.NDArray, y: pxt.NDArray) -> pxt.NDArray:

@@ -486,7 +486,6 @@ Misc
 
    ~pyxu.util.copy_if_unsafe
    ~pyxu.util.import_module
-   ~pyxu.util.next_fast_len
    ~pyxu.util.parse_params
    ~pyxu.util.read_only
 

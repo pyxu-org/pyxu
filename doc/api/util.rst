@@ -32,8 +32,6 @@ pyxu.util.misc
 
 .. autofunction:: pyxu.util.import_module
 
-.. autofunction:: pyxu.util.next_fast_len
-
 .. autofunction:: pyxu.util.parse_params
 
 .. autofunction:: pyxu.util.read_only
