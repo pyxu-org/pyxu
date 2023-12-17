@@ -10,6 +10,7 @@ import pyxu.info.ptype as pxt
 import pyxu.util.misc as pxm
 
 __all__ = [
+    "as_canonical_axes",
     "as_canonical_shape",
     "vectorize",
 ]
@@ -25,6 +26,26 @@ def as_canonical_shape(x: pxt.NDArrayShape) -> pxt.NDArrayShape:
         x = (x,)
     sh = tuple(map(int, x))
     return sh
+
+
+def as_canonical_axes(
+    axes: pxt.NDArrayAxis,
+    rank: pxt.Integer,
+) -> pxt.NDArrayAxis:
+    """
+    Transform NDarray axes into tuple-form with positive indices.
+
+    Parameters
+    ----------
+    rank: Integer
+        Rank of the NDArray. (Required to make all entries positive.)
+    """
+    assert rank >= 1
+
+    axes = as_canonical_shape(axes)
+    assert all(-rank <= ax < rank for ax in axes)  # all axes in valid range
+    axes = tuple((ax + rank) % rank for ax in axes)  # get rid of negative axes
+    return axes
 
 
 def vectorize(

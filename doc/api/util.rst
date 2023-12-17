@@ -45,6 +45,8 @@ pyxu.util.misc
 pyxu.util.operator
 ------------------
 
+.. autofunction:: pyxu.util.as_canonical_axes
+
 .. autofunction:: pyxu.util.as_canonical_shape
 
 .. autofunction:: pyxu.util.vectorize

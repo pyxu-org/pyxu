@@ -475,6 +475,7 @@ Operator-Related
 
 .. autosummary::
 
+   ~pyxu.util.as_canonical_axes
    ~pyxu.util.as_canonical_shape
    ~pyxu.util.vectorize
 

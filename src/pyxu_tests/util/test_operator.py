@@ -9,6 +9,32 @@ import pyxu.info.ptype as pxt
 import pyxu.util as pxu
 
 
+class TestAsCanonicalAxes:
+    @pytest.mark.parametrize(
+        ["x", "gt"],
+        [
+            # TestAsCanonicalShape verifies in/out types,
+            # so we concentrate on range of valid axes only.
+            (-4, (0,)),
+            (-3, (1,)),
+            (-2, (2,)),
+            (-1, (3,)),
+            (0, (0,)),
+            (1, (1,)),
+            (2, (2,)),
+            (3, (3,)),
+        ],
+    )
+    def test_valid_input(self, x, gt):
+        y = pxu.as_canonical_axes(x, rank=4)
+        assert y == gt
+
+    @pytest.mark.parametrize("x", [-5, 4])
+    def test_invalid_input(self, x):
+        with pytest.raises(AssertionError):
+            pxu.as_canonical_axes(x, rank=4)
+
+
 class TestVectorize:
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture(
