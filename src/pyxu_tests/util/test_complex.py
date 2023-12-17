@@ -55,11 +55,13 @@ class ViewAs:
 
     @pytest.fixture
     def valid_data(self) -> tuple[np.ndarray, np.ndarray]:  # input -> output
-        # 1D inputs only. Tests needing ND inputs should augment accordingly.
+        # No stacking dimensions.
+        # Tests needing stacked inputs should augment accordingly.
         raise NotImplementedError
 
     @pytest.fixture
     def _valid_data(self, valid_data, xp, width_in_out):
+        # Same as valid_data(), but with right backend/width.
         return (
             xp.array(valid_data[0], dtype=width_in_out[0].value),
             xp.array(valid_data[1], dtype=width_in_out[1].value),
@@ -70,8 +72,15 @@ class ViewAs:
         with pytest.raises(Exception):
             func(non_array_input)
 
-    def test_fail_unrecognized_dtype(self, func, unrecognized_dtype):
-        array = np.arange(50).astype(unrecognized_dtype)
+    def test_fail_unrecognized_dtype(
+        self,
+        func,
+        valid_data,
+        unrecognized_dtype,
+    ):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", np.ComplexWarning)
+            array = valid_data[0].astype(unrecognized_dtype)
         with pytest.raises(Exception):
             func(array)
 
@@ -90,7 +99,7 @@ class ViewAs:
         assert np.allclose(out, out_gt)
 
     def test_valueND(self, func, _valid_data):
-        sh_extra = (2, 1)  # prepend input/output shape by this amount.
+        sh_extra = (2, 1, 3)  # prepend input/output shape by this amount.
 
         in_ = _valid_data[0]
         in_ = np.broadcast_to(in_, (*sh_extra, *in_.shape))
@@ -128,8 +137,9 @@ class TestViewAsComplex(ViewAs):
 
     @pytest.fixture
     def valid_data(self):
-        in_ = np.arange(6)
-        out = np.r_[0, 2, 4] + 1j * np.r_[1, 3, 5]
+        N = 5
+        in_ = np.arange(2 * N).reshape(N, 2)
+        out = in_[:, 0] + 1j * in_[:, 1]
         return in_, out
 
     @pytest.fixture(params=[_.value for _ in list(pxrt.CWidth)])
@@ -150,8 +160,9 @@ class TestViewAsReal(ViewAs):
 
     @pytest.fixture
     def valid_data(self):
-        in_ = np.r_[0, 2, 4] + 1j * np.r_[1, 3, 5]
-        out = np.arange(6)
+        N = 5
+        in_ = np.arange(N) + 1j * np.arange(N, 2 * N)
+        out = np.stack([np.arange(N), np.arange(N, 2 * N)], axis=-1)
         return in_, out
 
     @pytest.fixture(params=[_.value for _ in list(pxrt.Width)])
