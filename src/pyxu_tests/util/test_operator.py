@@ -9,6 +9,40 @@ import pyxu.info.ptype as pxt
 import pyxu.util as pxu
 
 
+class TestAsCanonicalShape:
+    @pytest.mark.parametrize(
+        ["x", "gt"],
+        [
+            # int-valued types ------------------
+            (1, (1,)),
+            (np.int8(1), (1,)),
+            # int-valued sequences --------------
+            ((-1,), (-1,)),
+            ((-1, np.int16(23)), (-1, 23)),
+            ([2, 3], (2, 3)),  # other sequence types
+        ],
+    )
+    def test_valid_input(self, x, gt):
+        y = pxu.as_canonical_shape(x)
+        assert y == gt
+
+    @pytest.mark.parametrize(
+        "x",
+        [
+            # float-valued types --------------------
+            1.0,
+            np.single(5),
+            # float-valued sequences ----------------
+            (2.1,),
+            (2.1, np.single(-3)),
+            [2.1, -1],
+        ],
+    )
+    def test_invalid_input(self, x):
+        with pytest.raises(AssertionError):
+            pxu.as_canonical_shape(x)
+
+
 class TestAsCanonicalAxes:
     @pytest.mark.parametrize(
         ["x", "gt"],

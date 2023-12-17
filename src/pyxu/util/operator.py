@@ -24,8 +24,10 @@ def as_canonical_shape(x: pxt.NDArrayShape) -> pxt.NDArrayShape:
         x = tuple(x)
     else:
         x = (x,)
-    sh = tuple(map(int, x))
-    return sh
+    assert all(isinstance(_x, pxt.Integer) for _x in x)
+
+    shape = tuple(map(int, x))
+    return shape
 
 
 def as_canonical_axes(
