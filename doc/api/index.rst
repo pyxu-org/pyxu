@@ -485,8 +485,6 @@ Misc
 
    ~pyxu.util.copy_if_unsafe
    ~pyxu.util.import_module
-   ~pyxu.util.infer_composition_shape
-   ~pyxu.util.infer_sum_shape
    ~pyxu.util.next_fast_len
    ~pyxu.util.parse_params
    ~pyxu.util.read_only

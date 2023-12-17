@@ -3,16 +3,12 @@ import importlib
 import inspect
 import types
 
-import numpy as np
-
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 
 __all__ = [
     "copy_if_unsafe",
     "import_module",
-    "infer_composition_shape",
-    "infer_sum_shape",
     "next_fast_len",
     "parse_params",
     "read_only",
@@ -243,25 +239,3 @@ def read_only(x: pxt.NDArray) -> pxt.NDArray:
         msg = f"read_only() not yet defined for {ndi}."
         raise NotImplementedError(msg)
     return y
-
-
-def infer_sum_shape(sh1: pxt.OpShape, sh2: pxt.OpShape) -> pxt.OpShape:
-    r"""
-    Infer shape of arithmetic operation :math:`A + B`.
-    """
-    A, B, C, D = *sh1, *sh2
-    if B == D:
-        return np.broadcast_shapes((A,), (C,)) + (B,)
-    else:
-        raise ValueError(f"Addition of {sh1} and {sh2} operators forbidden.")
-
-
-def infer_composition_shape(sh1: pxt.OpShape, sh2: pxt.OpShape) -> pxt.OpShape:
-    r"""
-    Infer shape of arithmetic operation :math:`A \circ B`.
-    """
-    A, B, C, D = *sh1, *sh2
-    if B == C:
-        return (A, D)
-    else:
-        raise ValueError(f"Composition of {sh1} and {sh2} operators forbidden.")

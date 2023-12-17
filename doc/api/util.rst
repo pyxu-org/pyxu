@@ -32,10 +32,6 @@ pyxu.util.misc
 
 .. autofunction:: pyxu.util.import_module
 
-.. autofunction:: pyxu.util.infer_composition_shape
-
-.. autofunction:: pyxu.util.infer_sum_shape
-
 .. autofunction:: pyxu.util.next_fast_len
 
 .. autofunction:: pyxu.util.parse_params
