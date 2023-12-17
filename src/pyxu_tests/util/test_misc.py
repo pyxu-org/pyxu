@@ -1,3 +1,5 @@
+import contextlib
+
 import numpy as np
 import pytest
 
@@ -72,3 +74,26 @@ class TestReadOnly:
         assert not out.flags.owndata
         assert out.shape == data.shape
         assert xp.allclose(out, data)
+
+
+class TestImportModule:
+    def test_successful_import(self):
+        # Loading a module known to exist must work.
+        xp = pxu.import_module("numpy")
+        xp_gt = pxd.NDArrayInfo.NUMPY.module()
+
+        assert xp == xp_gt
+
+    @pytest.mark.parametrize("fail_on_error", [True, False])
+    def test_unsuccessful_import(self, fail_on_error):
+        # Raise error depending if `fail_on_error` flag.
+        if fail_on_error:
+            ctx = pytest.raises(ModuleNotFoundError)
+        else:
+            ctx = contextlib.nullcontext()
+
+        with ctx:
+            pxu.import_module(
+                "my_inexistent_module",
+                fail_on_error,
+            )
