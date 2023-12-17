@@ -97,3 +97,23 @@ class TestImportModule:
                 "my_inexistent_module",
                 fail_on_error,
             )
+
+
+class TestParseParams:
+    @pytest.mark.parametrize(
+        ["args", "kwargs", "gt"],
+        [
+            # Provide all parameters ----------------------
+            ((1, 2), dict(), dict(x=1, y=2)),
+            ((1,), dict(y=2), dict(x=1, y=2)),
+            ((), dict(x=1, y=2), dict(x=1, y=2)),
+            # Now omit specifying y -----------------------
+            ((1,), dict(), dict(x=1, y=3)),
+            ((), dict(x=1), dict(x=1, y=3)),
+        ],
+    )
+    def test_no_default_args(self, args, kwargs, gt):
+        f = lambda x, y=3: None
+
+        params = pxu.parse_params(f, *args, **kwargs)
+        assert params == gt
