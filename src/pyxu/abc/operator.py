@@ -450,26 +450,6 @@ class Operator:
         else:
             raise ValueError(f"No operator found with properties {prop}.")
 
-    def squeeze(self) -> pxt.OpT:
-        r"""
-        Cast an :py:class:`~pyxu.abc.Operator` to the right core operator sub-type given codomain dimension.
-        """
-        p = set(self.properties())
-        if self.codim == 1:
-            p.add(Property.FUNCTIONAL)
-            if Property.DIFFERENTIABLE in self.properties():
-                p.add(Property.DIFFERENTIABLE_FUNCTION)
-            if Property.LINEAR in self.properties():
-                for p_ in Property:
-                    if p_.name.startswith("LINEAR_"):
-                        p.discard(p_)
-                p.add(Property.PROXIMABLE)
-        elif self.codim == self.dim:
-            if Property.LINEAR in self.properties():
-                p.add(Property.LINEAR_SQUARE)
-        klass = self._infer_operator_type(p)
-        return self.asop(klass)
-
     def __repr__(self) -> str:
         klass = self._name
         return f"{klass}(dim={self.dim_shape}, codim={self.codim_shape})"
@@ -1545,22 +1525,14 @@ class LinOp(DiffMap):
             kwargs.update(k=1)
             estimate = lambda: func(self, **kwargs).item()
         elif method == "trace":
-            if self.shape == (1, 1):
-                # [Sepand] Special case of degenerate LinOps (which are not LinFuncs).
-                # Cannot call .gram() below since it will recurse indefinitely.
-                # [Reason: asop().squeeze() combinations don't work for (1, 1) degenerate LinOps.]
-                func = sig_func = LinFunc.estimate_lipschitz
-                estimate = lambda: func(self.squeeze(), **kwargs)
-            else:
-                from pyxu.math import hutchpp as func
+            from pyxu.math import hutchpp as func
 
-                sig_func = func
-
-                kwargs.update(
-                    op=self.gram() if (self.codim >= self.dim) else self.cogram(),
-                    m=kwargs.get("m", 126),
-                )
-                estimate = lambda: np.sqrt(func(**kwargs)).item()
+            sig_func = func
+            kwargs.update(
+                op=self.gram() if (self.codim >= self.dim) else self.cogram(),
+                m=kwargs.get("m", 126),
+            )
+            estimate = lambda: np.sqrt(func(**kwargs)).item()
         else:
             raise NotImplementedError
 
@@ -1694,7 +1666,7 @@ class LinOp(DiffMap):
 
         op = self.T * self
         op._expr = types.MethodType(op_expr, op)
-        return op.asop(SelfAdjointOp).squeeze()
+        return op.asop(SelfAdjointOp)
 
     def cogram(self) -> pxt.OpT:
         r"""
@@ -1718,7 +1690,7 @@ class LinOp(DiffMap):
 
         op = self * self.T
         op._expr = types.MethodType(op_expr, op)
-        return op.asop(SelfAdjointOp).squeeze()
+        return op.asop(SelfAdjointOp)
 
     @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(
@@ -2037,12 +2009,12 @@ class UnitOp(NormalOp):
     def gram(self) -> pxt.OpT:
         from pyxu.operator import IdentityOp
 
-        return IdentityOp(dim=self.dim).squeeze()
+        return IdentityOp(dim=self.dim)
 
     def cogram(self) -> pxt.OpT:
         from pyxu.operator import IdentityOp
 
-        return IdentityOp(dim=self.codim).squeeze()
+        return IdentityOp(dim=self.codim)
 
     def svdvals(self, **kwargs) -> pxt.NDArray:
         gpu = kwargs.get("gpu", False)
@@ -2097,10 +2069,10 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
         return 1
 
     def gram(self) -> pxt.OpT:
-        return self.squeeze()
+        return self
 
     def cogram(self) -> pxt.OpT:
-        return self.squeeze()
+        return self
 
     @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:

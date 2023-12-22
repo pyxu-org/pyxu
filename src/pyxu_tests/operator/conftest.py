@@ -87,7 +87,6 @@ class MapT(ct.DisableTestMixin):
             "lipschitz",
             "estimate_lipschitz",
             "expr",
-            "squeeze",
         }
     )
 
