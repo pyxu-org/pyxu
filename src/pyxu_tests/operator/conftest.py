@@ -162,7 +162,7 @@ class MapT(ct.DisableTestMixin):
     ):
         sh_extra = (2, 1, 3)  # prepend input/output shape by this amount.
 
-        in_ = data["in_"]
+        in_ = data["in_"].copy()
         arr = in_["arr"]
         xp = pxu.get_array_module(arr)
         arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
