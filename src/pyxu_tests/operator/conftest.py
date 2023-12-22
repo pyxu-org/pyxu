@@ -2,7 +2,6 @@ import collections.abc as cabc
 import copy
 import itertools
 import typing as typ
-import warnings
 
 import numpy as np
 import numpy.random as npr
@@ -13,7 +12,6 @@ import scipy.sparse.linalg as spsl
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.info.warning as pxw
 import pyxu.math as pxm
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
@@ -247,20 +245,8 @@ class MapT(ct.DisableTestMixin):
                 assert cls._metric(out_2, out_gt, as_dtype=pxrt.Width.SINGLE.value)
             except AssertionError:
                 # Function is non-transparent, but which backend caused it?
-                N = pxd.NDArrayInfo
-                ndi = N.from_obj(out_1)
-                if ndi == N.CUPY:
-                    # warn about CuPy-only non-transparency.
-                    msg = "\n".join(
-                        [
-                            f"{func} is not transparent when applied to CuPy inputs.",
-                            f"If the same test fails for non-CuPy inputs, then {func}'s implementation is at fault -> user fix required.",
-                            "If the same test passes for non-CuPy inputs, then this warning can be safely ignored.",
-                        ]
-                    )
-                    warnings.warn(msg, pxw.NonTransparentWarning)
-                else:
-                    raise
+                ndi = pxd.NDArrayInfo.from_obj(out_1)
+                raise f"Not transparent to {ndi} inputs."
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
