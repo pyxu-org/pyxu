@@ -4,7 +4,6 @@ import itertools
 import typing as typ
 
 import numpy as np
-import numpy.random as npr
 import pytest
 import scipy.linalg as splinalg
 import scipy.sparse.linalg as spsl
@@ -100,9 +99,9 @@ class MapT(ct.DisableTestMixin):
         xp: pxt.ArrayModule = pxd.NDArrayInfo.NUMPY.module(),
         width: pxrt.Width = pxrt.Width.DOUBLE,
     ) -> pxt.NDArray:
-        rng = npr.default_rng(seed)
-        x = rng.normal(size=shape)
-        return xp.array(x, dtype=width.value)
+        rng = xp.random.default_rng(seed)
+        x = rng.standard_normal(size=shape, dtype=width.value)
+        return x
 
     @staticmethod
     def _sanitize(x, default):
