@@ -99,7 +99,7 @@ class MapT(ct.DisableTestMixin):
     @staticmethod
     def _random_array(
         shape: pxt.NDArrayShape,
-        seed: int = 0,
+        seed: int = None,
         xp: pxt.ArrayModule = pxd.NDArrayInfo.NUMPY.module(),
         width: pxrt.Width = pxrt.Width.DOUBLE,
     ) -> pxt.NDArray:
