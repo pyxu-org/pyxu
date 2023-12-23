@@ -402,7 +402,7 @@ class MapT(ct.DisableTestMixin):
         self._skip_if_disabled()
         L_orig = op.lipschitz
 
-        L_new = self._random_array((1,)).item()
+        L_new = abs(self._random_array((1,)).item())
         op.lipschitz = L_new
         assert isinstance(op.lipschitz, pxt.Real)
         with pxrt.EnforcePrecision(False):
@@ -562,7 +562,7 @@ class DiffMapT(MapT):
         self._skip_if_disabled()
         dL_orig = op.diff_lipschitz
 
-        dL_new = self._random_array((1,)).item()
+        dL_new = abs(self._random_array((1,)).item())
         op.diff_lipschitz = dL_new
         assert isinstance(op.diff_lipschitz, pxt.Real)
         with pxrt.EnforcePrecision(False):
