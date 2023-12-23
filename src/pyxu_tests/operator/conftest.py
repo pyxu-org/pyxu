@@ -920,16 +920,19 @@ class QuadraticFuncT(ProxDiffFuncT):
 
         # f(0) == t
         x = xp.zeros(op.dim, dtype=width.value)
-        out = op.apply(x)
+        with pxrt.EnforcePrecision(False):
+            out = op.apply(x)
         assert self._metric(out, t, as_dtype=width.value)
 
         # \grad_{f}(0) == c
-        out = op.grad(x)
+        with pxrt.EnforcePrecision(False):
+            out = op.grad(x)
         assert self._metric(out, c, as_dtype=width.value)
 
         # J_{f}(e_{i}) - c == Q_{i}
-        x = xp.eye(op.dim)
-        out = op.grad(x) - c
+        x = xp.eye(op.dim, dtype=width.value)
+        with pxrt.EnforcePrecision(False):
+            out = op.grad(x) - c
         assert self._metric(out.T, Q, as_dtype=width.value)
 
     def test_math2_diff_lipschitz(self, op, _data_estimate_diff_lipschitz, _gpu):
