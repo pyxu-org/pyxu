@@ -1338,6 +1338,10 @@ class LinOpT(DiffMapT):
     def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(ndi)
+
+        if k > len(_op_svd):
+            pytest.skip("Not enough singular values. (Skipping higher-order tests.)")
+
         ct.flaky(
             func=self._check_value1D_vals,
             args=dict(
@@ -1567,11 +1571,6 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
         )
 
     # Tests -------------------------------------------------------------------
-    @pytest.mark.parametrize("k", [1])  # override: only `k=1` feasible for LinFuncs
-    def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k):
-        self._skip_if_disabled()
-        super().test_value1D_svdvals(op, ndi, _gpu, _op_svd, k)
-
     @pytest.mark.skip("Notion of loss undefined for LinFuncs.")
     def test_interface_asloss(self, op, xp, width):
         super().test_interface_asloss(op, xp, width)
