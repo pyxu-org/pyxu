@@ -36,9 +36,6 @@ def get_test_class(cls: pxt.OpC) -> "MapT":
 # Naming conventions
 # ------------------
 #
-# * data_<property>()
-#       Return expected object of `op.<property>`.
-#
 # * test_<property>(op, ...):
 #       Verify property values.
 #
@@ -111,7 +108,7 @@ class MapT(ct.DisableTestMixin):
             return default
 
     @staticmethod
-    def _check_has_interface(op: pxa.Map, klass: "MapT"):
+    def _check_has_interface(op: pxt.OpT, klass: "MapT"):
         # Verify `op` has the public interface of `klass`.
         assert klass.interface <= frozenset(dir(op))
 
@@ -130,14 +127,14 @@ class MapT(ct.DisableTestMixin):
         # Parameters
         # ----------
         # a, b: pxt.NDArray
-        #    (..., N) arrays
+        #    (...) arrays.
         # as_dtype: pxt.DType
         #    dtype used to compare the values. (Not always relevant depending on the metric.)
         #
         # Returns
         # -------
         # match: bool
-        #    True if all (...) arrays match.
+        #    True if all (...) arrays match. (Broadcasting rules apply.)
         return ct.allclose(a, b, as_dtype)
 
     @classmethod
@@ -145,14 +142,14 @@ class MapT(ct.DisableTestMixin):
         cls,
         func,
         data: DataLike,
-        dtype: pxt.DType = None,
+        dtype: pxt.DType = None,  # use in_["arr"].dtype
     ):
         in_ = data["in_"]
         with pxrt.EnforcePrecision(False):
             out = func(**in_)
         out_gt = data["out"]
 
-        dtype = MapT._sanitize(dtype, in_["arr"].dtype)
+        dtype = MapT._sanitize(dtype, default=in_["arr"].dtype)
         assert out.ndim == in_["arr"].ndim
         assert cls._metric(out, out_gt, as_dtype=dtype)
 
@@ -161,7 +158,7 @@ class MapT(ct.DisableTestMixin):
         cls,
         func,
         data: DataLike,
-        dtype: pxt.DType = None,
+        dtype: pxt.DType = None,  # use in["arr"].dtype
     ):
         sh_extra = (2, 1, 3)  # prepend input/output shape by this amount.
 
@@ -174,7 +171,7 @@ class MapT(ct.DisableTestMixin):
             out = func(**in_)
         out_gt = np.broadcast_to(data["out"], (*sh_extra, *data["out"].shape))
 
-        dtype = MapT._sanitize(dtype, in_["arr"].dtype)
+        dtype = MapT._sanitize(dtype, default=in_["arr"].dtype)
         assert out.ndim == in_["arr"].ndim
         assert cls._metric(out, out_gt, as_dtype=dtype)
 
@@ -792,7 +789,7 @@ class ProxFuncT(FuncT):
 
     def test_math_prox(self, op, xp, width, _data_prox):
         # Ensure y = prox_{tau f}(x) minimizes:
-        # 2\tau f(z) - \norm{z - x}{2}^{2}, for any z \in \bR^{N}
+        # 2\tau f(z) + \norm{z - x}{2}^{2}, for any z \in \bR^{dim_shape}
         self._skip_if_disabled()
         in_ = _data_prox["in_"]
         y = op.prox(**in_)
@@ -870,12 +867,12 @@ class QuadraticFuncT(ProxDiffFuncT):
     interface = ProxDiffFuncT.interface
 
     @pytest.fixture
-    def data_math_lipschitz(self, op):
+    def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
         N_test, dim = 5, self._sanitize(op.dim, 3)
         return self._random_array((N_test, dim), seed=5)
 
     @pytest.fixture
-    def data_math_diff_lipschitz(self, op):
+    def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
         N_test, dim = 5, self._sanitize(op.dim, 3)
         return self._random_array((N_test, dim), seed=5)
 
@@ -883,6 +880,8 @@ class QuadraticFuncT(ProxDiffFuncT):
     def _data_estimate_diff_lipschitz(self, xp, width, _gpu, request) -> DataLike:
         data = dict(
             in_=dict(
+                # Some combination of these kwargs are used in estimate_diff_lipschitz().
+                # We provide them all, knowing that implementations should take what they need only.
                 method=request.param,
                 gpu=_gpu,
                 xp=xp,
