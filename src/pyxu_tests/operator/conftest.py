@@ -1049,23 +1049,11 @@ class LinOpT(DiffMapT):
         assert ct.allclose(out[idx], out, out.dtype)  # sorted in ascending magnitude
 
         # and output is correct (in magnitude)
-        which = kwargs["which"]
         idx_gt = xp.argsort(xp.abs(ground_truth))
-        if which == "SM":
-            out = out[idx][:k]
-            gt = ground_truth[idx_gt][:k]
-        else:  # LM
-            out = out[idx][-k:]
-            gt = ground_truth[idx_gt][-k:]
+        out = out[idx][-k:]
+        gt = ground_truth[idx_gt][-k:]
 
-        # When seeking the smallest-magnitude singular values via svdvals(), the iterative algorithm
-        # used converges to values close to the ground-truth (GT).
-        # However, for 0-valued singular vectors, the relative error between converged solution and
-        # GT is sometimes slightly higher than the relative tolerance set for FP32/FP64 to consider
-        # them identical.
-        # We therefore assess svdvals() outputs at FP32-precision only.
-        # This precision is enough to query an operator's spectrum for further diagnostics.
-        assert cls._metric(xp.abs(out), xp.abs(gt), as_dtype=pxrt.Width.SINGLE.value)
+        assert cls._metric(xp.abs(out), xp.abs(gt), as_dtype=out.dtype)
 
     @staticmethod
     def _check_backend_vals(func, _gpu):
@@ -1356,23 +1344,18 @@ class LinOpT(DiffMapT):
         assert J is op
 
     @pytest.mark.parametrize("k", [1, 2])
-    @pytest.mark.parametrize("which", ["LM", "SM"])
-    def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k, which):
+    def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(ndi)
-        gpu_reason = dict(
-            LM="`which=LM` sparse-evaled via CuPy flaky.",
-            SM="`which=SM` unsupported by CuPy",
-        )
         ct.flaky(
             func=self._check_value1D_vals,
             args=dict(
                 func=op.svdvals,
-                kwargs=dict(k=k, which=which, gpu=_gpu),
+                kwargs=dict(k=k, gpu=_gpu),
                 ground_truth=_op_svd,
             ),
             condition=_gpu is True,
-            reason=gpu_reason[which],
+            reason="svdvals() sparse-evaled via CuPy flaky.",
         )
 
     def test_backend_svdvals(self, op, ndi, _gpu):
@@ -1594,10 +1577,9 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
 
     # Tests -------------------------------------------------------------------
     @pytest.mark.parametrize("k", [1])  # override: only `k=1` feasible for LinFuncs
-    @pytest.mark.parametrize("which", ["SM", "LM"])
-    def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k, which):
+    def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k):
         self._skip_if_disabled()
-        super().test_value1D_svdvals(op, ndi, _gpu, _op_svd, k, which)
+        super().test_value1D_svdvals(op, ndi, _gpu, _op_svd, k)
 
     @pytest.mark.skip("Notion of loss undefined for LinFuncs.")
     def test_interface_asloss(self, op, xp, width):

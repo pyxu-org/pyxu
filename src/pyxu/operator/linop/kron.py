@@ -150,30 +150,17 @@ def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
         return op
 
     def op_svdvals(_, **kwargs) -> pxt.NDArray:
-        # (A \kron B).svdvals(k, which)
+        # (A \kron B).svdvals(k)
         # = outer(
-        #     A.svdvals(k, which),
-        #     B.svdvals(k, which)
-        #   ).[top|bottom](k)
+        #     A.svdvals(k),
+        #     B.svdvals(k)
+        #   ).top(k)
         k = kwargs.get("k", 1)
-        which = kwargs.get("which", "LM")
-        if which.upper() == "SM":
-            # `scipy.sparse.linalg.svds()` and `scipy.linalg.svd()` will only return up to
-            # min(shape) singular values.
-            # As such (A.svdvals(), B.svdvals()) output is insufficient to infer SM-singular values
-            # of (A \kron B).
-            D_C = _.__class__.svdvals(_, **kwargs)
-        else:
-            D_A = _._A.svdvals(**kwargs)
-            D_B = _._B.svdvals(**kwargs)
-            xp = pxu.get_array_module(D_A)
-            pad_length = np.fmax(k - len(D_A) * len(D_B), 0)
-            D_C = xp.concatenate(
-                [
-                    xp.zeros(pad_length, dtype=D_A.dtype),
-                    xp.sort(xp.outer(D_A, D_B), axis=None),
-                ]
-            )[-k:]
+
+        D_A = _._A.svdvals(**kwargs)
+        D_B = _._B.svdvals(**kwargs)
+        xp = pxu.get_array_module(D_A)
+        D_C = xp.concatenate([D_A, D_B])[-k:]
         return D_C
 
     @pxrt.enforce_precision(i=("arr", "damp"))

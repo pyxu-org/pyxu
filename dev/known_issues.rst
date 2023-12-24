@@ -57,6 +57,3 @@ upstream. A link to an issue-tracker entry is provided if already reported.
 
      >>> y_dense, y_sparse
      (array(1.), array([2.08290313]))
-
-* ``cupyx.scipy.sparse.linalg.svds()`` only support computing leading
-  singular-values, i.e. ``which="LM"``. (``which="SM"`` unsupported.)

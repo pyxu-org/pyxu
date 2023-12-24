@@ -1452,10 +1452,7 @@ class LinOp(DiffMap):
             # svdvals() may have alternative signature in specialized classes, but we must always use
             # the LinOp.svdvals() interface below for kwargs-filtering.
             func, sig_func = self.__class__.svdvals, LinOp.svdvals
-            kwargs.update(
-                k=1,
-                which="LM",
-            )
+            kwargs.update(k=1)
             estimate = lambda: func(self, **kwargs).item()
         elif method == "trace":
             if self.shape == (1, 1):
@@ -1488,22 +1485,16 @@ class LinOp(DiffMap):
     def svdvals(
         self,
         k: pxt.Integer,
-        which: str = "LM",
         gpu: bool = False,
         **kwargs,
     ) -> pxt.NDArray:
         r"""
-        Compute singular values of a linear operator.
+        Compute leading singular values of the linear operator.
 
         Parameters
         ----------
         k: Integer
             Number of singular values to compute.
-        which: "LM" | "SM"
-            Which `k` singular values to find:
-
-                * `LM`: largest magnitude
-                * `SM`: smallest magnitude
         gpu: bool
             If ``True`` the singular value decomposition is performed on the GPU.
         kwargs: ~collections.abc.Mapping
@@ -1514,8 +1505,6 @@ class LinOp(DiffMap):
         D: NDArray
             (k,) singular values in ascending order.
         """
-        which = which.upper().strip()
-        assert which in {"SM", "LM"}
 
         def _dense_eval():
             if gpu:
@@ -1536,6 +1525,9 @@ class LinOp(DiffMap):
             else:
                 spx = spsl
             op = self.to_sciop(gpu=gpu, dtype=pxrt.getPrecision().value)
+
+            which = kwargs.get("which", "LM")
+            assert which.upper() == "LM", "Only computing leading singular values is supported."
             kwargs.update(
                 k=k,
                 which=which,
@@ -1551,10 +1543,9 @@ class LinOp(DiffMap):
         else:
             D = _sparse_eval()
 
-        # Filter to k largest/smallest magnitude + sorted
+        # Filter to k largest magnitude + sorted
         xp = pxu.get_array_module(D)
-        D = D[xp.argsort(D)]
-        return D[:k] if (which == "SM") else D[-k:]
+        return D[xp.argsort(D)][-k:]
 
     def asarray(
         self,

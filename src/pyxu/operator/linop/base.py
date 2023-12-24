@@ -275,12 +275,11 @@ def DiagonalOp(
                 width = pxrt.getPrecision()
 
                 k = kwargs["k"]
-                which = kwargs.get("which", "LM")
 
                 D = xp.abs(pxu.compute(_._vec))
                 D = D[xp.argsort(D)]
                 D = D.astype(width.value, copy=False)
-                return D[:k] if (which == "SM") else D[-k:]
+                return D[-k:]
 
             @pxrt.enforce_precision(i=("arr", "damp"))
             def op_pinv(_, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:

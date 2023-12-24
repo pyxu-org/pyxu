@@ -244,18 +244,14 @@ def block_diag(
     """
 
     def op_svdvals(_, **kwargs) -> pxt.NDArray:
-        # op.svdvals(**kwargs) = [top|bottom-k]([op1.svdvals(**kwargs), ..., opN.svdvals(**kwargs)])
+        # op.svdvals(**kwargs) = top_k([op1.svdvals(**kwargs), ..., opN.svdvals(**kwargs)])
         if not _.has(pxa.Property.LINEAR):
             raise NotImplementedError
 
         k = kwargs.get("k", 1)
-        which = kwargs.get("which", "LM")
-        if which.upper() == "SM":
-            D = _.__class__.svdvals(_, **kwargs)
-        else:
-            parts = [op.svdvals(**kwargs) for op in _._block.values()]
-            xp = pxu.get_array_module(parts[0])
-            D = xp.sort(xp.concatenate(parts, axis=0), axis=None)[-k:]
+        parts = [op.svdvals(**kwargs) for op in _._block.values()]
+        xp = pxu.get_array_module(parts[0])
+        D = xp.sort(xp.concatenate(parts, axis=0), axis=None)[-k:]
         return D
 
     @pxrt.enforce_precision(i=("arr", "damp"))
