@@ -1464,6 +1464,9 @@ class LinOp(DiffMap):
         op: ~scipy.sparse.linalg.LinearOperator
             Linear operator object compliant with SciPy's interface.
         """
+        if not (self.dim_rank == self.codim_rank == 1):
+            msg = "SciPy LinOps are limited to 1D -> 1D maps."
+            raise ValueError(msg)
 
         def matmat(arr):
             with pxrt.EnforcePrecision(False):
@@ -1482,7 +1485,7 @@ class LinOp(DiffMap):
         else:
             spx = spsl
         return spx.LinearOperator(
-            shape=self.shape,
+            shape=(self.codim_size, self.dim_size),
             matvec=matmat,
             rmatvec=rmatmat,
             matmat=matmat,

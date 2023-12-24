@@ -1034,6 +1034,10 @@ class LinOpT(DiffMapT):
         if ndi not in {N.NUMPY, N.CUPY}:
             pytest.skip("Only NUMPY/CUPY backends supported.")
 
+    def _skip_unless_2D(self, op):
+        if not ((op.dim_rank == 1) and (op.codim_rank == 1)):
+            pytest.skip("Only 2D operators supported.")
+
     @classmethod
     def _check_value1D_vals(cls, func, kwargs, ground_truth):
         N = pxd.NDArrayInfo
@@ -1209,6 +1213,7 @@ class LinOpT(DiffMapT):
 
     @pytest.fixture
     def _op_sciop(self, op, _gpu, width) -> spsl.LinearOperator:
+        self._skip_unless_2D(op)
         A = op.to_sciop(dtype=width.value, gpu=_gpu)
         return A
 
@@ -1223,6 +1228,7 @@ class LinOpT(DiffMapT):
     def _data_to_sciop(self, op, ndi, xp, width, request) -> DataLike:
         # Do not override in subclass: for internal use only to test `op.to_sciop()`.
         self._skip_unless_NUMPY_CUPY(ndi)
+        self._skip_unless_2D(op)
 
         N_test = 7
         f = lambda _: self._random_array(_, xp=xp, width=width)
