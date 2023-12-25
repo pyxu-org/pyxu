@@ -322,7 +322,7 @@ class ArgScaleRule(Rule):
 
     def __init__(self, op: pxt.OpT, cst: pxt.Real):
         super().__init__()
-        self._op = op.squeeze()
+        self._op = op
         self._cst = float(cst)
 
     def op(self) -> pxt.OpT:
@@ -333,23 +333,25 @@ class ArgScaleRule(Rule):
             @pxrt.enforce_precision(i="arr")
             def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
                 xp = pxu.get_array_module(arr)
-                arr = xp.zeros(
-                    (*arr.shape[:-1], self._op.dim),
-                    dtype=arr.dtype,
-                )
+                arr = xp.zeros_like(arr)
                 out = self._op.apply(arr)
                 return out
 
             op = ConstantValued(
-                shape=self._op.shape,
+                dim_shape=self._op.dim_shape,
+                codim_shape=self._op.codim_shape,
                 cst=self._cst,
             )
             op.apply = types.MethodType(op_apply, op)
+            op._name = "ConstantVector"
         elif np.isclose(self._cst, 1):
             op = self._op
         else:
             klass = self._infer_op_klass()
-            op = klass(shape=self._op.shape)
+            op = klass(
+                dim_shape=self._op.dim_shape,
+                codim_shape=self._op.codim_shape,
+            )
             op._op = self._op  # embed for introspection
             op._cst = self._cst  # embed for introspection
             for p in op.properties():
@@ -404,7 +406,8 @@ class ArgScaleRule(Rule):
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         x = arr.copy()
         x *= self._cst
-        out = self._op.prox(x, (self._cst**2) * tau)
+        y = self._op.prox(x, (self._cst**2) * tau)
+        out = pxu.copy_if_unsafe(y)
         out /= self._cst
         return out
 
@@ -437,7 +440,7 @@ class ArgScaleRule(Rule):
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         x = arr.copy()
         x *= self._cst
-        out = self._op.grad(x)
+        out = pxu.copy_if_unsafe(self._op.grad(x))
         out *= self._cst
         return out
 
