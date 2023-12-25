@@ -12,7 +12,6 @@ import scipy.sparse.linalg as spsl
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.math as pxm
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 import pyxu_tests.conftest as ct
