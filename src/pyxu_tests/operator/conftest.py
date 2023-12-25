@@ -246,7 +246,7 @@ class MapT(ct.DisableTestMixin):
                 ndi = pxd.NDArrayInfo.from_obj(out_1)
                 raise f"Not transparent to {ndi} inputs."
 
-    # Fixtures ----------------------------------------------------------------
+    # Fixtures (Public-Facing) ------------------------------------------------
     @pytest.fixture
     def spec(self) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         # override in subclass to return:
@@ -257,35 +257,6 @@ class MapT(ct.DisableTestMixin):
         # The triplet (op, backend, precision) must be provided since some operators may not be
         # backend/precision-agnostic.
         raise NotImplementedError
-
-    @pytest.fixture
-    def op(self, spec) -> pxt.OpT:
-        return spec[0]
-
-    @pytest.fixture
-    def ndi(self, spec) -> pxd.NDArrayInfo:
-        ndi_ = spec[1]
-        self._skip_if_unsupported(ndi_)
-        return ndi_
-
-    @pytest.fixture
-    def xp(self, ndi) -> pxt.ArrayModule:
-        return ndi.module()
-
-    @pytest.fixture
-    def _gpu(self, ndi) -> bool:
-        # Boolean flag needed by some methods
-        return ndi == pxd.NDArrayInfo.CUPY
-
-    @pytest.fixture
-    def width(self, spec) -> pxrt.Width:
-        return spec[2]
-
-    @pytest.fixture(params=_core_operators())
-    def _klass(self, request) -> pxt.OpC:
-        # Returns some operator in the Operator hierarchy.
-        # Do not override in subclass: for internal use only to test `op.asop()`.
-        return request.param
 
     @pytest.fixture
     def dim_shape(self) -> pxt.NDArrayShape:
@@ -313,6 +284,38 @@ class MapT(ct.DisableTestMixin):
         # Arrays should be NumPy-only. (Internal machinery will transform to different
         # backend/precisions as needed.)
         raise NotImplementedError
+
+    # Fixtures (Public-Facing; auto-inferred) ---------------------------------
+    #           but can be overidden manually if desired ----------------------
+    @pytest.fixture
+    def op(self, spec) -> pxt.OpT:
+        return spec[0]
+
+    @pytest.fixture
+    def ndi(self, spec) -> pxd.NDArrayInfo:
+        ndi_ = spec[1]
+        self._skip_if_unsupported(ndi_)
+        return ndi_
+
+    @pytest.fixture
+    def xp(self, ndi) -> pxt.ArrayModule:
+        return ndi.module()
+
+    @pytest.fixture
+    def width(self, spec) -> pxrt.Width:
+        return spec[2]
+
+    # Fixtures (Internal) -----------------------------------------------------
+    @pytest.fixture
+    def _gpu(self, ndi) -> bool:
+        # Boolean flag needed by some methods
+        return ndi == pxd.NDArrayInfo.CUPY
+
+    @pytest.fixture(params=_core_operators())
+    def _klass(self, request) -> pxt.OpC:
+        # Returns some operator in the Operator hierarchy.
+        # Do not override in subclass: for internal use only to test `op.asop()`.
+        return request.param
 
     @pytest.fixture
     def _data_estimate_lipschitz(self) -> DataLike:
@@ -522,7 +525,8 @@ class FuncT(MapT):
     base = pxa.Func
     interface = frozenset(MapT.interface | {"asloss"})
 
-    # Fixtures (Public-Facing) ------------------------------------------------
+    # Fixtures (Public-Facing; auto-inferred) ---------------------------------
+    #           but can be overidden manually if desired ----------------------
     @pytest.fixture
     def codim_shape(self) -> pxt.NDArrayShape:
         return (1,)
@@ -566,7 +570,7 @@ class DiffMapT(MapT):
         }
     )
 
-    # Fixtures ----------------------------------------------------------------
+    # Fixtures (Public-Facing) ------------------------------------------------
     @pytest.fixture
     def data_math_diff_lipschitz(self) -> cabc.Collection[np.ndarray]:
         # override in subclass with at least 2 evaluation points for op.apply().
@@ -575,6 +579,7 @@ class DiffMapT(MapT):
         # backend/precisions as needed.)
         raise NotImplementedError
 
+    # Fixtures (Internal) -----------------------------------------------------
     @pytest.fixture
     def _data_estimate_diff_lipschitz(self) -> DataLike:
         # Generate Cartesian product of inputs.
@@ -658,7 +663,7 @@ class DiffFuncT(FuncT, DiffMapT):
     interface = frozenset(FuncT.interface | DiffMapT.interface | {"grad"})
     disable_test = frozenset(FuncT.disable_test | DiffMapT.disable_test)
 
-    # Fixtures ----------------------------------------------------------------
+    # Fixtures (Public-Facing) ------------------------------------------------
     @pytest.fixture
     def data_grad(self) -> DataLike:
         # override in subclass with 1D input/outputs of op.grad(). [1D means no stacking dimensions allowed.]
@@ -666,6 +671,7 @@ class DiffFuncT(FuncT, DiffMapT):
         # backend/precisions as needed.)
         raise NotImplementedError
 
+    # Fixtures (Internal) -----------------------------------------------------
     @pytest.fixture
     def _data_grad(self, data_grad, xp, width) -> DataLike:
         # Generate Cartesian product of inputs.
@@ -753,12 +759,7 @@ class ProxFuncT(FuncT):
         }
     )
 
-    # Fixtures ----------------------------------------------------------------
-    @pytest.fixture
-    def _op_m(self, op) -> tuple[float, pxa.DiffFunc]:
-        mu = 1.1
-        return mu, op.moreau_envelope(mu)
-
+    # Fixtures (Public-Facing) ------------------------------------------------
     @pytest.fixture
     def data_prox(self) -> DataLike:
         # override in subclass with 1D input/outputs of op.prox(). [1D means no stacking dimensions allowed.]
@@ -766,6 +767,8 @@ class ProxFuncT(FuncT):
         # backend/precisions as needed.)
         raise NotImplementedError
 
+    # Fixtures (Public-Facing; auto-inferred) ---------------------------------
+    #           but can be overidden manually if desired ----------------------
     @pytest.fixture
     def data_fenchel_prox(self, data_prox) -> DataLike:
         # override in subclass with 1D input/outptus of op.fenchel_prox(). [1D means no stacking dimensions allowed.]
@@ -780,6 +783,12 @@ class ProxFuncT(FuncT):
             ),
             out=(p_arr - p_out) / p_tau,
         )
+
+    # Fixtures (Internal) -----------------------------------------------------
+    @pytest.fixture
+    def _op_m(self, op) -> tuple[float, pxa.DiffFunc]:
+        mu = 1.1
+        return mu, op.moreau_envelope(mu)
 
     @pytest.fixture
     def _data_prox(self, data_prox, xp, width) -> DataLike:
@@ -920,6 +929,8 @@ class QuadraticFuncT(ProxDiffFuncT):
     base = pxa.QuadraticFunc
     interface = ProxDiffFuncT.interface
 
+    # Fixtures (Public-Facing; auto-inferred) ---------------------------------
+    #           but can be overidden manually if desired ----------------------
     @pytest.fixture
     def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
         N_test = 10
@@ -932,6 +943,7 @@ class QuadraticFuncT(ProxDiffFuncT):
         x = self._random_array((N_test, *op.dim_shape))
         return x
 
+    # Fixtures (Internal) -----------------------------------------------------
     @pytest.fixture(params=["svd", "trace"])  # supported methods
     def _data_estimate_diff_lipschitz(self, xp, width, _gpu, request) -> DataLike:
         data = dict(
@@ -1109,7 +1121,8 @@ class LinOpT(DiffMapT):
         out = func(k=1, gpu=_gpu)
         assert N.from_obj(out) == N.from_flag(_gpu)
 
-    # Fixtures ----------------------------------------------------------------
+    # Fixtures (Public-Facing; auto-inferred) ---------------------------------
+    #           but can be overidden manually if desired ----------------------
     @pytest.fixture
     def data_adjoint(self, op) -> DataLike:
         # override in subclass with 1D input/outputs of op.adjoint().
@@ -1122,58 +1135,6 @@ class LinOpT(DiffMapT):
             in_=dict(arr=np.zeros(op.codim)),
             out=np.zeros(op.dim),
         )
-
-    @pytest.fixture
-    def _data_adjoint(self, data_adjoint, xp, width) -> DataLike:
-        # Generate Cartesian product of inputs.
-        # Do not override in subclass: for internal use only to test `op.adjoint()`.
-        # Outputs are left unchanged: different tests should transform them as required.
-        in_ = copy.deepcopy(data_adjoint["in_"])
-        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
-        data = dict(
-            in_=in_,
-            out=data_adjoint["out"],
-        )
-        return data
-
-    @pytest.fixture
-    def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
-        N_test = 5
-        return self._random_array((N_test, op.dim))
-
-    @pytest.fixture
-    def _data_estimate_lipschitz(self, xp, width, _gpu) -> DataLike:
-        data = dict(
-            in_=dict(
-                # method=...  # defined in tests as needed
-                gpu=_gpu,
-                xp=xp,
-                dtype=width.value,
-            )
-        )
-        return data
-
-    @pytest.fixture
-    def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
-        N_test = 5
-        return self._random_array((N_test, op.dim))
-
-    @pytest.fixture
-    def _op_svd(self, op) -> np.ndarray:
-        # compute all singular values, sorted in ascending order.
-        D = np.linalg.svd(
-            op.asarray(),
-            full_matrices=False,
-            compute_uv=False,
-        )
-        return np.sort(D)
-
-    @pytest.fixture(params=[1, 2])
-    def _damp(self, request) -> float:
-        # candidate dampening factors for .pinv() & .dagger()
-        # We do not test damp=0 since ill-conditioning of some operators would require a lot of
-        # manual _damp-correcting to work.
-        return request.param
 
     @pytest.fixture
     def data_pinv(self, op, _damp, data_apply) -> DataLike:
@@ -1203,6 +1164,59 @@ class LinOpT(DiffMapT):
             out=out,
         )
         return data
+
+    @pytest.fixture
+    def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
+        N_test = 5
+        return self._random_array((N_test, op.dim))
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
+        N_test = 5
+        return self._random_array((N_test, op.dim))
+
+    # Fixtures (Internal) -----------------------------------------------------
+    @pytest.fixture
+    def _data_adjoint(self, data_adjoint, xp, width) -> DataLike:
+        # Generate Cartesian product of inputs.
+        # Do not override in subclass: for internal use only to test `op.adjoint()`.
+        # Outputs are left unchanged: different tests should transform them as required.
+        in_ = copy.deepcopy(data_adjoint["in_"])
+        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
+        data = dict(
+            in_=in_,
+            out=data_adjoint["out"],
+        )
+        return data
+
+    @pytest.fixture
+    def _data_estimate_lipschitz(self, xp, width, _gpu) -> DataLike:
+        data = dict(
+            in_=dict(
+                # method=...  # defined in tests as needed
+                gpu=_gpu,
+                xp=xp,
+                dtype=width.value,
+            )
+        )
+        return data
+
+    @pytest.fixture
+    def _op_svd(self, op) -> np.ndarray:
+        # compute all singular values, sorted in ascending order.
+        D = np.linalg.svd(
+            op.asarray(),
+            full_matrices=False,
+            compute_uv=False,
+        )
+        return np.sort(D)
+
+    @pytest.fixture(params=[1, 2])
+    def _damp(self, request) -> float:
+        # candidate dampening factors for .pinv() & .dagger()
+        # We do not test damp=0 since ill-conditioning of some operators would require a lot of
+        # manual _damp-correcting to work.
+        return request.param
 
     @pytest.fixture
     def _data_pinv(self, data_pinv, xp, width) -> DataLike:
@@ -1593,7 +1607,8 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
     interface = frozenset(ProxDiffFuncT.interface | LinOpT.interface)
     disable_test = frozenset(ProxDiffFuncT.disable_test | LinOpT.disable_test)
 
-    # Fixtures ----------------------------------------------------------------
+    # Fixtures (Public-Facing; auto-inferred) ---------------------------------
+    #           but can be overidden manually if desired ----------------------
     @pytest.fixture
     def data_grad(self, op) -> DataLike:
         # We know for linfuncs that op.grad(x) = op.asarray()
@@ -1640,7 +1655,7 @@ class SquareOpT(LinOpT):
     base = pxa.SquareOp
     interface = frozenset(LinOpT.interface | {"trace"})
 
-    # Fixtures ----------------------------------------------------------------
+    # Fixtures (Internal) -----------------------------------------------------
     @pytest.fixture
     def _op_trace(self, op) -> float:
         # True trace
@@ -1709,7 +1724,7 @@ class UnitOpT(NormalOpT):
         assert ct.allclose(operator.apply(x), x, as_dtype=width.value)
         assert ct.allclose(operator.adjoint(x), x, as_dtype=width.value)
 
-    # Fixtures ----------------------------------------------------------------
+    # Fixtures (Internal) -----------------------------------------------------
     @pytest.fixture
     def _op_svd(self, op) -> np.ndarray:
         D = np.ones(op.dim)
@@ -1775,7 +1790,7 @@ class ProjOpT(SquareOpT):
     # Class Properties --------------------------------------------------------
     base = pxa.ProjOp
 
-    # Fixtures ----------------------------------------------------------------
+    # Tests -------------------------------------------------------------------
     def test_math_idempotent(self, op, xp, width):
         # op.apply = op.apply^2
         self._skip_if_disabled()
