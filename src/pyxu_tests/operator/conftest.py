@@ -1605,11 +1605,13 @@ class SquareOpT(LinOpT):
         assert op.dim == op.codim
 
     def test_interface_trace(self, op, _data_trace):
+        self._skip_if_disabled()
         tr = op.trace(**_data_trace["in_"])
         assert isinstance(tr, pxt.Real)
 
     def test_value_trace(self, op, _data_trace, _op_trace, width):
         # tr(op) == op.trace(method=explicit)
+        self._skip_if_disabled()
         tr = op.trace(**_data_trace["in_"])
         assert ct.allclose(tr, _op_trace, as_dtype=width.value)
 
