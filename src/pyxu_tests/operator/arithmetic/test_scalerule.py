@@ -1,8 +1,9 @@
 # How ScaleRule tests work:
 #
 # * ScaleRuleMixin auto-defines all arithmetic method (input,output) pairs.
-#   [Caveat: we assume all tested examples are defined on \bR.] (This is not a problem in practice.)
-#   [Caveat: we assume the base operators (op_orig) are correctly implemented.] (True if choosing test operators from examples/.)
+#   [Caveat: we assume all tested examples are defined on \bR^{M1,...,MD}.] (This is not a problem in practice.)
+#   [Caveat: we assume the base operators (op_orig) are correctly implemented.
+#            (True if choosing test operators from examples/.)                ]
 #
 # * To test a scaled-operator, inherit from ScaleRuleMixin and the suitable conftest.MapT subclass
 #   which the scaled operator should abide by.
@@ -29,7 +30,7 @@ op_scale_nonidentity = frozenset(_ for _ in op_scale_params if ~np.isclose(_, 1)
 
 
 class ScaleRuleMixin:
-    # Fixtures ----------------------------------------------------------------
+    # Fixtures (Public-Facing) ------------------------------------------------
     @pytest.fixture
     def op_orig(self) -> pxt.OpT:
         # Override in inherited class with the operator to be scaled.
@@ -40,6 +41,8 @@ class ScaleRuleMixin:
         # Scaling factors applied to op_orig()
         return request.param
 
+    # Fixtures (Public-Facing; auto-inferred) ---------------------------------
+    #           but can be overidden manually if desired ----------------------
     @pytest.fixture(
         params=itertools.product(
             [
@@ -62,62 +65,68 @@ class ScaleRuleMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_orig) -> pxt.OpShape:
-        return op_orig.shape
+    def dim_shape(self, op_orig) -> pxt.NDArrayShape:
+        return op_orig.dim_shape
+
+    @pytest.fixture
+    def codim_shape(self, op_orig) -> pxt.NDArrayShape:
+        return op_orig.codim_shape
 
     @pytest.fixture
     def data_apply(self, op_orig, op_scale) -> conftest.DataLike:
-        dim = self._sanitize(op_orig.dim, 7)
-        arr = self._random_array((dim,), seed=20)  # random seed for reproducibility
-        out = op_orig.apply(arr) * op_scale
+        x = self._random_array(op_orig.dim_shape)
+        y = op_orig.apply(x) * op_scale
+
         return dict(
-            in_=dict(arr=arr),
-            out=out,
+            in_=dict(arr=x),
+            out=y,
         )
 
     @pytest.fixture
     def data_adjoint(self, op_orig, op_scale) -> conftest.DataLike:
-        codim = self._sanitize(op_orig.codim, 7)
-        arr = self._random_array((codim,), seed=20)  # random seed for reproducibility
-        out = op_orig.adjoint(arr) * op_scale
+        x = self._random_array(op_orig.codim_shape)
+        y = op_orig.adjoint(x) * op_scale
+
         return dict(
-            in_=dict(arr=arr),
-            out=out,
+            in_=dict(arr=x),
+            out=y,
         )
 
     @pytest.fixture
     def data_grad(self, op_orig, op_scale) -> conftest.DataLike:
-        dim = self._sanitize(op_orig.dim, 7)
-        arr = self._random_array((dim,), seed=20)  # random seed for reproducibility
-        out = op_orig.grad(arr) * op_scale
+        x = self._random_array(op_orig.dim_shape)
+        y = op_orig.grad(x) * op_scale
+
         return dict(
-            in_=dict(arr=arr),
-            out=out,
+            in_=dict(arr=x),
+            out=y,
         )
 
     @pytest.fixture
     def data_prox(self, op_orig, op_scale) -> conftest.DataLike:
-        dim = self._sanitize(op_orig.dim, 7)
-        arr = self._random_array((dim,), seed=20)  # random seed for reproducibility
-        tau = np.abs(self._random_array((1,), seed=21))[0]  # random seed for reproducibility
-        out = op_orig.prox(arr, tau * op_scale)
+        x = self._random_array(op_orig.dim_shape)
+        tau = abs(self._random_array((1,)).item()) + 1e-2
+        y = op_orig.prox(x, tau * op_scale)
+
         return dict(
             in_=dict(
-                arr=arr,
+                arr=x,
                 tau=tau,
             ),
-            out=out,
+            out=y,
         )
 
     @pytest.fixture
     def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
-        N_test, dim = 5, self._sanitize(op.dim, 7)
-        return self._random_array((N_test, dim))
+        N_test = 20
+        x = self._random_array((N_test, *op.dim_shape))
+        return x
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
-        N_test, dim = 5, self._sanitize(op.dim, 7)
-        return self._random_array((N_test, dim))
+        N_test = 20
+        x = self._random_array((N_test, *op.dim_shape))
+        return x
 
     # Tests -------------------------------------------------------------------
     def test_interface_asloss(self, op, xp, width, op_orig):
@@ -134,53 +143,92 @@ class ScaleRuleMixin:
 
 # Test classes (Maps) ---------------------------------------------------------
 class TestScaleRuleMap(ScaleRuleMixin, conftest.MapT):
-    @pytest.fixture
-    def op_orig(self):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
+    def op_orig(self, request):
         import pyxu_tests.operator.examples.test_map as tc
 
-        return tc.ReLU(M=6)
+        dim_shape = request.param
+        return tc.ReLU(dim_shape=dim_shape)
 
 
 class TestScaleRuleDiffMap(ScaleRuleMixin, conftest.DiffMapT):
-    @pytest.fixture
-    def op_orig(self):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
+    def op_orig(self, request):
         import pyxu_tests.operator.examples.test_diffmap as tc
 
-        return tc.Sin(M=6)
+        dim_shape = request.param
+        return tc.Sin(dim_shape=dim_shape)
 
 
 class TestScaleRuleLinOp(ScaleRuleMixin, conftest.LinOpT):
-    @pytest.fixture
-    def op_orig(self):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
+    def op_orig(self, request):
         import pyxu_tests.operator.examples.test_linop as tc
 
-        return tc.Tile(N=3, M=4)
+        dim_shape = request.param
+        return tc.Sum(dim_shape=dim_shape)
 
 
 class TestScaleRuleSquareOp(ScaleRuleMixin, conftest.SquareOpT):
-    @pytest.fixture
-    def op_orig(self):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
+    def op_orig(self, request):
         import pyxu_tests.operator.examples.test_squareop as tc
 
-        return tc.CumSum(N=7)
+        dim_shape = request.param
+        return tc.CumSum(dim_shape=dim_shape)
 
 
 class TestScaleRuleNormalOp(ScaleRuleMixin, conftest.NormalOpT):
-    @pytest.fixture
-    def op_orig(self):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 5),
+        ]
+    )
+    def op_orig(self, request):
         import pyxu_tests.operator.examples.test_normalop as tc
 
-        h = self._random_array((5,), seed=2)
-        return tc.CircularConvolution(h=h)
+        dim_shape = request.param
+        conv_filter = self._random_array(dim_shape[-1], seed=2)
+        return tc.CircularConvolution(
+            dim_shape=dim_shape,
+            h=conv_filter,
+        )
 
 
 # START UnitOp ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 class ScaleRuleUnitOp(ScaleRuleMixin):
-    @pytest.fixture
-    def op_orig(self):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
+    def op_orig(self, request):
         import pyxu_tests.operator.examples.test_unitop as tc
 
-        return tc.Permutation(N=7)
+        dim_shape = request.param
+        return tc.Permutation(dim_shape=dim_shape)
 
 
 @pytest.mark.parametrize("op_scale", op_scale_unit)
@@ -197,20 +245,32 @@ class TestScaleRuleUnitOp_NonUnitScale(ScaleRuleUnitOp, conftest.NormalOpT):
 
 
 class TestScaleRuleSelfAdjointOp(ScaleRuleMixin, conftest.SelfAdjointOpT):
-    @pytest.fixture
-    def op_orig(self):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 5),
+        ]
+    )
+    def op_orig(self, request):
         import pyxu_tests.operator.examples.test_selfadjointop as tc
 
-        return tc.SelfAdjointConvolution(N=7)
+        dim_shape = request.param
+        return tc.SelfAdjointConvolution(dim_shape=dim_shape)
 
 
 # START PosDefOp ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 class ScaleRulePosDefOp(ScaleRuleMixin):
-    @pytest.fixture
-    def op_orig(self):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 5),
+        ]
+    )
+    def op_orig(self, request):
         import pyxu_tests.operator.examples.test_posdefop as tc
 
-        return tc.PSDConvolution(N=7)
+        dim_shape = request.param
+        return tc.PSDConvolution(dim_shape=dim_shape)
 
 
 @pytest.mark.parametrize("op_scale", op_scale_positive)
@@ -228,11 +288,20 @@ class TestScaleRulePosDefOp_NegativeScale(ScaleRulePosDefOp, conftest.SelfAdjoin
 
 # START ProjOp ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 class ScaleRuleProjOp(ScaleRuleMixin):
-    @pytest.fixture
-    def op_orig(self):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
+    def op_orig(self, request):
         import pyxu_tests.operator.examples.test_projop as tc
 
-        return tc.Oblique(N=7, alpha=0.3)
+        dim_shape = request.param
+        return tc.Oblique(
+            dim_shape=dim_shape,
+            alpha=0.3,
+        )
 
 
 @pytest.mark.parametrize("op_scale", [1])
@@ -250,11 +319,17 @@ class TestScaleRuleProjOp_NonIdentityScale(ScaleRuleProjOp, conftest.SquareOpT):
 
 # START OrthProjOp ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 class ScaleRuleOrthProjOp(ScaleRuleMixin):
-    @pytest.fixture
-    def op_orig(self):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
+    def op_orig(self, request):
         import pyxu_tests.operator.examples.test_orthprojop as tc
 
-        return tc.ScaleDown(N=7)
+        dim_shape = request.param
+        return tc.ScaleDown(dim_shape=dim_shape)
 
 
 @pytest.mark.parametrize("op_scale", [1])
@@ -272,28 +347,46 @@ class TestScaleRuleOrthProjOp_NonIdentityScale(ScaleRuleOrthProjOp, conftest.Sel
 
 # Test classes (Funcs) --------------------------------------------------------
 class TestScaleRuleFunc(ScaleRuleMixin, conftest.FuncT):
-    @pytest.fixture(params=[7])
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
     def op_orig(self, request):
         import pyxu_tests.operator.examples.test_func as tc
 
-        return tc.Median(dim=request.param)
+        dim_shape = request.param
+        return tc.Median(dim_shape=dim_shape)
 
 
 class TestScaleRuleDiffFunc(ScaleRuleMixin, conftest.DiffFuncT):
-    @pytest.fixture(params=[7])
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
     def op_orig(self, request):
         import pyxu_tests.operator.examples.test_difffunc as tc
 
-        return tc.SquaredL2Norm(M=request.param)
+        dim_shape = request.param
+        return tc.SquaredL2Norm(dim_shape=dim_shape)
 
 
 # START ProxFunc ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 class ScaleRuleProxFunc(ScaleRuleMixin):
-    @pytest.fixture(params=[7])
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
     def op_orig(self, request):
         import pyxu_tests.operator.examples.test_proxfunc as tc
 
-        return tc.L1Norm(M=request.param)
+        dim_shape = request.param
+        return tc.L1Norm(dim_shape=dim_shape)
 
 
 @pytest.mark.parametrize("op_scale", op_scale_positive)
@@ -311,11 +404,17 @@ class TestScaleRuleProxFunc_NegativeScale(ScaleRuleProxFunc, conftest.FuncT):
 
 # START ProxDiffFunc ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 class ScaleRuleProxDiffFunc(ScaleRuleMixin):
-    @pytest.fixture(params=[7])
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
     def op_orig(self, request):
         import pyxu_tests.operator.examples.test_proxdifffunc as tc
 
-        return tc.SquaredL2Norm(M=request.param)
+        dim_shape = request.param
+        return tc.SquaredL2Norm(dim_shape=dim_shape)
 
 
 @pytest.mark.parametrize("op_scale", op_scale_positive)
@@ -333,21 +432,32 @@ class TestScaleRuleProxDiffFunc_NegativeScale(ScaleRuleProxDiffFunc, conftest.Di
 
 # START QuadraticFunc ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 class ScaleRuleQuadraticFunc(ScaleRuleMixin):
-    @pytest.fixture(params=[0, 1])
+    @pytest.fixture(
+        params=[
+            ("default", (5,)),
+            ("default", (5, 3, 5)),
+            ("explicit", (5,)),
+            ("explicit", (5, 3, 5)),
+        ]
+    )
     def op_orig(self, request):
-        from pyxu_tests.operator.examples.test_linfunc import ScaledSum
+        from pyxu_tests.operator.examples.test_linfunc import Sum
         from pyxu_tests.operator.examples.test_posdefop import PSDConvolution
 
-        N = 7
-        op = {
-            0: pxa.QuadraticFunc(shape=(1, N)),
-            1: pxa.QuadraticFunc(
-                shape=(1, N),
-                Q=PSDConvolution(N=N),
-                c=ScaledSum(N=N),
+        init_type, dim_shape = request.param
+        if init_type == "default":
+            op = pxa.QuadraticFunc(
+                dim_shape=dim_shape,
+                codim_shape=1,
+            )
+        else:  # "explicit"
+            op = pxa.QuadraticFunc(
+                dim_shape=dim_shape,
+                codim_shape=1,
+                Q=PSDConvolution(dim_shape=dim_shape),
+                c=Sum(dim_shape=dim_shape),
                 t=1,
-            ),
-        }[request.param]
+            )
         return op
 
 
@@ -365,8 +475,14 @@ class TestScaleRuleQuadraticFunc_NegativeScale(ScaleRuleQuadraticFunc, conftest.
 
 
 class TestScaleRuleLinFunc(ScaleRuleMixin, conftest.LinFuncT):
-    @pytest.fixture()
-    def op_orig(self):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
+    def op_orig(self, request):
         import pyxu_tests.operator.examples.test_linfunc as tc
 
-        return tc.ScaledSum(N=7)
+        dim_shape = request.param
+        return tc.Sum(dim_shape=dim_shape)

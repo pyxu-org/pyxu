@@ -118,19 +118,25 @@ class ScaleRule(Rule):
 
     def __init__(self, op: pxt.OpT, cst: pxt.Real):
         super().__init__()
-        self._op = op.squeeze()
+        self._op = op
         self._cst = float(cst)
 
     def op(self) -> pxt.OpT:
         if np.isclose(self._cst, 0):
             from pyxu.operator import NullOp
 
-            op = NullOp(shape=self._op.shape).squeeze()
+            op = NullOp(
+                dim_shape=self._op.dim_shape,
+                codim_shape=self._op.codim_shape,
+            )
         elif np.isclose(self._cst, 1):
             op = self._op
         else:
             klass = self._infer_op_klass()
-            op = klass(shape=self._op.shape)
+            op = klass(
+                dim_shape=self._op.dim_shape,
+                codim_shape=self._op.codim_shape,
+            )
             op._op = self._op  # embed for introspection
             op._cst = self._cst  # embed for introspection
             for p in op.properties():
