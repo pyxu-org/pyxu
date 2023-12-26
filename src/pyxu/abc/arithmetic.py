@@ -1358,48 +1358,6 @@ class ChainRule(Rule):
             raise NotImplementedError
 
 
-class PowerRule(Rule):
-    r"""
-    Arithmetic rules for operator exponentiation: :math:`B(x) = A^{k}(x)`.
-
-    Special Cases::
-
-        k = 0  => IdentityOp
-
-    Else::
-
-        B = A \circ ... \circ A  (k-1 compositions)
-    """
-
-    def __init__(self, op: pxt.OpT, k: pxt.Integer):
-        super().__init__()
-        assert op.codim == op.dim, f"PowerRule: expected endomorphism, got {op}."
-        assert int(k) >= 0, "PowerRule: only non-negative exponents are supported."
-        self._op = op.squeeze()
-        self._k = int(k)
-
-    def op(self) -> pxt.OpT:
-        if self._k == 0:
-            from pyxu.operator import IdentityOp
-
-            op = IdentityOp(dim=self._op.codim)
-        else:
-            op = self._op
-            if pxo.Property.LINEAR_IDEMPOTENT not in self._op.properties():
-                for _ in range(self._k - 1):
-                    op = ChainRule(self._op, op).op()
-
-                # Needed due to implicit PowerRule definition in terms of ChainRule.
-                op._expr = self._expr
-            else:
-                # To stop .expr() from recursing indefinitely.
-                op._expr = self._op._expr
-        return op
-
-    def _expr(self) -> tuple:
-        return ("exp", self._op, self._k)
-
-
 class TransposeRule(Rule):
     # Not strictly-speaking an arithmetic method, but the logic behind constructing transposed
     # operators is identical to arithmetic methods.

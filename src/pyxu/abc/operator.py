@@ -358,33 +358,8 @@ class Operator:
             return NotImplemented
 
     def __pow__(self, k: pxt.Integer) -> pxt.OpT:
-        """
-        Exponentiate an operator, i.e. compose it with itself.
-
-        Parameters
-        ----------
-        k: Integer
-            Number of times the operator is composed with itself.
-
-        Returns
-        -------
-        op: OpT
-            Exponentiated operator.
-
-        Notes
-        -----
-        Exponentiation is only allowed for endomorphisms, i.e. square operators.
-
-        See Also
-        --------
-        :py:class:`~pyxu.abc.arithmetic.PowerRule`
-        """
-        import pyxu.abc.arithmetic as arithmetic
-
-        if isinstance(k, pxt.Integer) and (k >= 0):
-            return arithmetic.PowerRule(op=self, k=k).op()
-        else:
-            return NotImplemented
+        # (op ** k) unsupported
+        return NotImplemented
 
     def __matmul__(self, other) -> pxt.OpT:
         # (op @ NDArray) unsupported

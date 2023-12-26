@@ -92,7 +92,6 @@ Arithmetic Rules (low-level)
    pyxu.abc.arithmetic.ArgScaleRule
    pyxu.abc.arithmetic.ArgShiftRule
    pyxu.abc.arithmetic.ChainRule
-   pyxu.abc.arithmetic.PowerRule
    pyxu.abc.arithmetic.Rule
    pyxu.abc.arithmetic.ScaleRule
    pyxu.abc.arithmetic.TransposeRule
