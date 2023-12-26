@@ -1428,7 +1428,7 @@ class TransposeRule(Rule):
 
         * LINEAR
             opT.adjoint(arr) = op.apply(arr)
-            opT.asarray() = op.asarray().T
+            opT.asarray() = op.asarray().T [block-reorder dim/codim]
             opT.gram() = op.cogram()
             opT.cogram() = op.gram()
             opT.svdvals() = op.svdvals()
@@ -1443,7 +1443,10 @@ class TransposeRule(Rule):
 
     def op(self) -> pxt.OpT:
         klass = self._infer_op_klass()
-        op = klass(shape=(self._op.dim, self._op.codim))
+        op = klass(
+            dim_shape=self._op.codim_shape,
+            codim_shape=self._op.dim_shape,
+        )
         op._op = self._op  # embed for introspection
         for p in op.properties():
             for name in p.arithmetic_methods():
@@ -1456,22 +1459,26 @@ class TransposeRule(Rule):
         return ("transpose", self._op)
 
     def _infer_op_klass(self) -> pxt.OpC:
-        # |----------------------|-----------------------|
-        # | op_klass(codim, dim) | opT_klass(codim, dim) |
-        # |----------------------|-----------------------|
-        # | LinFunc(1, N)        | LinOp(N, 1)           |
-        # | LinOp(N, 1)          | LinFunc(1, N)         |
-        # | SquareOp(N, N)       | SquareOp(N, N)        |
-        # |----------------------|-----------------------|
-        properties = self._op.properties()
-        if self._op.codim == self._op.dim == 1:
+        # |--------------------------------|--------------------------------|
+        # |      op_klass(codim; dim)      |     opT_klass(codim; dim)      |
+        # |--------------------------------|--------------------------------|
+        # | LINEAR(1; 1)                   | LinFunc(1; 1)                  |
+        # | LinFunc(1; M1,...,MD)          | LinOp(M1,...,MD; 1)            |
+        # | LinOp(N1,...,ND; 1)            | LinFunc(1; N1,...,ND)          |
+        # | op_klass(N1,...,ND; M1,...,MD) | op_klass(M1,...,MD; N1,...,ND) |
+        # |--------------------------------|--------------------------------|
+        single_dim = self._op.dim_shape == (1,)
+        single_codim = self._op.codim_shape == (1,)
+
+        if single_dim and single_codim:
             klass = pxo.LinFunc
-        elif pxo.Property.FUNCTIONAL in properties:
+        elif single_codim:
             klass = pxo.LinOp
-        elif self._op.dim == 1:
+        elif single_dim:
             klass = pxo.LinFunc
         else:
-            klass = pxo.Operator._infer_operator_type(properties)
+            prop = self._op.properties()
+            klass = pxo.Operator._infer_operator_type(prop)
         return klass
 
     @pxrt.enforce_precision(i="arr")
@@ -1513,7 +1520,11 @@ class TransposeRule(Rule):
 
     def asarray(self, **kwargs) -> pxt.NDArray:
         A = self._op.asarray(**kwargs)
-        return A.T
+        B = A.transpose(
+            *range(-self._op.dim_rank, 0),
+            *range(self._op.codim_rank),
+        )
+        return B
 
     def gram(self) -> pxt.OpT:
         op = self._op.cogram()
