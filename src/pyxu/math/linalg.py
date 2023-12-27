@@ -2,23 +2,11 @@ import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
-import pyxu.util as pxu
 
 __all__ = [
     "hutchpp",
-    "norm",
     "trace",
 ]
-
-
-def norm(x: pxt.NDArray, **kwargs):
-    """
-    This function is identical to :py:func:`numpy.linalg.norm`.  It exists to correct bugs in Dask's implementation.
-    """
-    xp = pxu.get_array_module(x)
-    nrm = xp.linalg.norm(x, **kwargs)
-    nrm = nrm.astype(x.dtype, copy=False)  # dask bug: linalg.norm() always returns float64
-    return nrm
 
 
 def trace(

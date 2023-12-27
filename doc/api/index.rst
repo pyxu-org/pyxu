@@ -180,7 +180,6 @@ pyxu.math
 
    ~pyxu.math.backtracking_linesearch
    ~pyxu.math.hutchpp
-   ~pyxu.math.norm
    ~pyxu.math.trace
 
 pyxu.operator.interop
