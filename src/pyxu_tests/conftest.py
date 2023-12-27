@@ -17,6 +17,11 @@ def xp(request) -> types.ModuleType:
     return request.param
 
 
+@pytest.fixture(params=pxrt.Width)
+def width(request) -> pxrt.Width:
+    return request.param
+
+
 def flaky(func: cabc.Callable, args: dict, condition: bool, reason: str):
     # XFAIL if func(**args) fails when `condition` satisfied.
     # This function is required when pytest.mark.xfail() cannot be used.
