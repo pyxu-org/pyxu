@@ -1,8 +1,9 @@
 # How AddRule tests work:
 #
 # * AddRuleMixin auto-defines all arithmetic method (input,output) pairs.
-#   [Caveat: we assume all tested examples are defined on \bR.] (This is not a problem in practice.)
-#   [Caveat: we assume the base operators (op_lhs, op_rhs) are correctly implemented.] (True if choosing test operators from examples/.)
+#   [Caveat: we assume all tested examples are defined on \bR^{M1,...,MD}.] (This is not a problem in practice.)
+#   [Caveat: we assume the base operators (op_orig) are correctly implemented.
+#            (True if choosing test operators from examples/.)                ]
 #
 # * To test a compound operator (via +), inherit from AddRuleMixin and the suitable conftest.MapT
 #   subclass which the compound operator should abide by.
@@ -18,120 +19,156 @@ import scipy.linalg as splinalg
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
+import pyxu.operator as pxo
 import pyxu.runtime as pxrt
-import pyxu.util as pxu
 import pyxu_tests.operator.conftest as conftest
 
 
+# Helper methods --------------------------------------------------------------
+def reshape(
+    op: pxt.OpT,
+    dim: pxt.NDArrayShape = None,
+    codim: pxt.NDArrayShape = None,
+) -> pxt.OpT:
+    # Reshape an operator to new dim/codim_shape.
+    # (Useful for testing advanced broadcasting rules.)
+    opR = 1
+    if dim is not None:
+        opR = pxo.ReshapeAxes(
+            dim_shape=dim,
+            codim_shape=op.dim_shape,
+        )
+
+    opL = 1
+    if codim is not None:
+        opL = pxo.ReshapeAxes(
+            dim_shape=op.codim_shape,
+            codim_shape=codim,
+        )
+
+    op_reshape = opL * op * opR
+    return op_reshape
+
+
 # LHS/RHS test operators ------------------------------------------------------
-def op_map():
+def op_map(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_map as tc
 
-    return tc.ReLU(M=7)
+    return tc.ReLU(dim_shape=dim_shape)
 
 
-def op_func():
+def op_func(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_func as tc
 
-    return tc.Median(dim=7)
+    return tc.Median(dim_shape=dim_shape)
 
 
-def op_diffmap():
+def op_diffmap(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_diffmap as tc
 
-    return tc.Sin(M=7)
+    return tc.Sin(dim_shape=dim_shape)
 
 
-def op_difffunc():
+def op_difffunc(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_difffunc as tc
 
-    return tc.SquaredL2Norm(M=7)
+    return tc.SquaredL2Norm(dim_shape=dim_shape)
 
 
-def op_proxfunc():
+def op_proxfunc(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_proxfunc as tc
 
-    return tc.L1Norm(M=7)
+    return tc.L1Norm(dim_shape=dim_shape)
 
 
-def op_proxdifffunc():
+def op_proxdifffunc(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_proxdifffunc as tc
 
-    return tc.SquaredL2Norm(M=7)
+    return tc.SquaredL2Norm(dim_shape=dim_shape)
 
 
-def op_quadraticfunc():
-    from pyxu_tests.operator.examples.test_linfunc import ScaledSum
-    from pyxu_tests.operator.examples.test_posdefop import PSDConvolution
+def op_quadraticfunc(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
+    # QuadraticFunc may be defined for dim=1.
+    # In this case we cannot use PSDConvolution (examples/test_posdefop.py) due to minimal domain-size restrictions.
+    # We therefore use HomothetyOp without loss of generality.
 
-    N = 7
+    from pyxu.operator import HomothetyOp
+    from pyxu_tests.operator.examples.test_linfunc import Sum
+
     return pxa.QuadraticFunc(
-        shape=(1, N),
-        Q=PSDConvolution(N=N),
-        c=ScaledSum(N=N),
+        dim_shape=dim_shape,
+        codim_shape=1,
+        Q=HomothetyOp(dim_shape=dim_shape, cst=3),
+        c=Sum(dim_shape=dim_shape),
         t=1,
     )
 
 
-def op_linop(dim: int = 7, codim_scale: int = 1):
+def op_linop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_linop as tc
 
-    return tc.Tile(N=dim, M=codim_scale)
+    return tc.Sum(dim_shape=dim_shape)
 
 
-def op_linfunc():
+def op_linfunc(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_linfunc as tc
 
-    return tc.ScaledSum(N=7)
+    op = tc.Sum(dim_shape=dim_shape)
+    return op
 
 
-def op_squareop():
+def op_squareop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_squareop as tc
 
-    return tc.CumSum(N=7)
+    return tc.CumSum(dim_shape=dim_shape)
 
 
-def op_normalop():
+def op_normalop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_normalop as tc
 
     rng = np.random.default_rng(seed=2)
-    h = rng.normal(size=(7,))
-    return tc.CircularConvolution(h=h)
+    conv_filter = rng.normal(size=dim_shape[-1])
+    return tc.CircularConvolution(
+        dim_shape=dim_shape,
+        h=conv_filter,
+    )
 
 
-def op_unitop():
+def op_unitop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_unitop as tc
 
-    return tc.Permutation(N=7)
+    return tc.Permutation(dim_shape=dim_shape)
 
 
-def op_selfadjointop():
+def op_selfadjointop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_selfadjointop as tc
 
-    return tc.SelfAdjointConvolution(N=7)
+    return tc.SelfAdjointConvolution(dim_shape=dim_shape)
 
 
-def op_posdefop():
+def op_posdefop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_posdefop as tc
 
-    return tc.PSDConvolution(N=7)
+    return tc.PSDConvolution(dim_shape=dim_shape)
 
 
-def op_projop():
+def op_projop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_projop as tc
 
-    return tc.Oblique(N=7, alpha=0.1)
+    return tc.Oblique(
+        dim_shape=dim_shape,
+        alpha=np.pi / 4,
+    )
 
 
-def op_orthprojop():
+def op_orthprojop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_orthprojop as tc
 
-    return tc.ScaleDown(N=7)
+    return tc.ScaleDown(dim_shape=dim_shape)
 
 
-# Data Mixin ------------------------------------------------------------------
 class AddRuleMixin:
-    # Fixtures ----------------------------------------------------------------
+    # Fixtures (Public-Facing) ------------------------------------------------
     @pytest.fixture
     def op_lrhs(self) -> tuple[pxt.OpT, pxt.OpT]:
         # Override in inherited class with LHS/RHS operands.
@@ -145,6 +182,8 @@ class AddRuleMixin:
     def op_rhs(self, op_lrhs) -> pxt.OpT:
         return op_lrhs[1]
 
+    # Fixtures (Public-Facing; auto-inferred) ---------------------------------
+    #           but can be overidden manually if desired ----------------------
     @pytest.fixture(
         params=itertools.product(
             [
@@ -166,93 +205,113 @@ class AddRuleMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_lhs, op_rhs) -> pxt.OpShape:
-        sh = pxu.infer_sum_shape(op_lhs.shape, op_rhs.shape)
+    def dim_shape(self, op_lhs, op_rhs) -> pxt.NDArrayShape:
+        sh = op_lhs.dim_shape
         return sh
 
     @pytest.fixture
-    def data_apply(self, op, op_lhs, op_rhs) -> conftest.DataLike:
-        dim = self._sanitize(op.dim, 7)
-        arr = self._random_array((dim,), seed=20)  # random seed for reproducibility
-        out = op_lhs.apply(arr) + op_rhs.apply(arr)
+    def codim_shape(self, op_lhs, op_rhs) -> pxt.NDArrayShape:
+        sh = np.broadcast_shapes(
+            op_lhs.codim_shape,
+            op_rhs.codim_shape,
+        )
+        return sh
+
+    @pytest.fixture
+    def data_apply(self, dim_shape, op_lhs, op_rhs) -> conftest.DataLike:
+        x = self._random_array(dim_shape)
+        y = op_lhs.apply(x) + op_rhs.apply(x)
         return dict(
-            in_=dict(arr=arr),
-            out=out,
+            in_=dict(arr=x),
+            out=y,
         )
 
     @pytest.fixture
-    def data_adjoint(self, op, op_lhs, op_rhs) -> conftest.DataLike:
-        arr = self._random_array((op.codim,), seed=20)  # random seed for reproducibility
-        if op_lhs.has(pxa.Property.FUNCTIONAL) and (not op_rhs.has(pxa.Property.FUNCTIONAL)):
-            # LHS broadcasts
-            out_lhs = op_lhs.adjoint(arr.sum(keepdims=True))
-            out_rhs = op_rhs.adjoint(arr)
-        elif (not op_lhs.has(pxa.Property.FUNCTIONAL)) and op_rhs.has(pxa.Property.FUNCTIONAL):
-            # RHS broadcasts
-            out_lhs = op_lhs.adjoint(arr)
-            out_rhs = op_rhs.adjoint(arr.sum(keepdims=True))
-        else:
-            out_lhs = op_lhs.adjoint(arr)
-            out_rhs = op_rhs.adjoint(arr)
+    def data_adjoint(self, codim_shape, op_lhs, op_rhs) -> conftest.DataLike:
+        x = self._random_array(codim_shape)
 
-        out = out_lhs + out_rhs
+        bcast_lhs = pxo.BroadcastAxes(
+            dim_shape=op_lhs.codim_shape,
+            codim_shape=codim_shape,
+        )
+        out_lhs = bcast_lhs.adjoint(x)
+        out_lhs = op_lhs.adjoint(out_lhs)
+
+        bcast_rhs = pxo.BroadcastAxes(
+            dim_shape=op_rhs.codim_shape,
+            codim_shape=codim_shape,
+        )
+        out_rhs = bcast_rhs.adjoint(x)
+        out_rhs = op_rhs.adjoint(out_rhs)
+
+        y = out_lhs + out_rhs
         return dict(
-            in_=dict(arr=arr),
-            out=out,
+            in_=dict(arr=x),
+            out=y,
         )
 
     @pytest.fixture
-    def data_grad(self, op, op_lhs, op_rhs) -> conftest.DataLike:
-        dim = self._sanitize(op.dim, 7)
-        arr = self._random_array((dim,), seed=20)  # random seed for reproducibility
-        out = op_lhs.grad(arr) + op_rhs.grad(arr)
+    def data_grad(self, dim_shape, op_lhs, op_rhs) -> conftest.DataLike:
+        x = self._random_array(dim_shape)
+        y = op_lhs.grad(x) + op_rhs.grad(x)
         return dict(
-            in_=dict(arr=arr),
-            out=out,
+            in_=dict(arr=x),
+            out=y,
         )
 
     @pytest.fixture
     def data_prox(self, op, op_lhs, op_rhs) -> conftest.DataLike:
-        dim = self._sanitize(op.dim, 7)
-        arr = self._random_array((dim,), seed=20)  # random seed for reproducibility
-        tau = np.abs(self._random_array((1,), seed=21))[0]  # random seed for reproducibility
+        x = self._random_array(op.dim_shape)
+        tau = abs(self._random_array((1,)).item()) + 1e-2
 
         if op.has(pxa.Property.PROXIMABLE):
-            out = None
+            y = None
             if op_lhs.has(pxa.Property.LINEAR):
                 P, G = op_rhs, op_lhs
-                out = P.prox(arr - tau * G.grad(arr), tau)
+                y = P.prox(x - tau * G.grad(x), tau)
             elif op_rhs.has(pxa.Property.LINEAR):
                 P, G = op_lhs, op_rhs
-                out = P.prox(arr - tau * G.grad(arr), tau)
+                y = P.prox(x - tau * G.grad(x), tau)
             elif op_lhs.has(pxa.Property.QUADRATIC) and op_rhs.has(pxa.Property.QUADRATIC):
                 A = op_lhs._quad_spec()[0].asarray()
-                B = op_rhs._quad_spec()[0].asarray()
-                C = op_lhs.grad(np.zeros(op.dim))
-                D = op_rhs.grad(np.zeros(op.dim))
-                Q = tau * (A + B) + np.eye(op.dim)
-                b = arr - tau * (C + D)
-                out, *_ = splinalg.lstsq(Q, b)
+                A = A.reshape(op_lhs.dim_size, op_lhs.dim_size)
 
-            if out is not None:
+                B = op_rhs._quad_spec()[0].asarray()
+                B = B.reshape(op_rhs.dim_size, op_rhs.dim_size)
+
+                C = op_lhs._quad_spec()[1].asarray()
+                C = C.reshape(1, op_lhs.dim_size)
+
+                D = op_rhs._quad_spec()[1].asarray()
+                D = D.reshape(1, op_rhs.dim_size)
+
+                Q = tau * (A + B) + np.eye(op.dim_size)
+                b = x.reshape(-1) - tau * (C + D)[0]
+
+                y, *_ = splinalg.lstsq(Q, b)
+                y = y.reshape(op.dim_shape)
+
+            if y is not None:
                 return dict(
                     in_=dict(
-                        arr=arr,
+                        arr=x,
                         tau=tau,
                     ),
-                    out=out,
+                    out=y,
                 )
         raise NotImplementedError
 
     @pytest.fixture
     def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
-        N_test, dim = 5, self._sanitize(op.dim, 7)
-        return self._random_array((N_test, dim))
+        N_test = 20
+        x = self._random_array((N_test, *op.dim_shape))
+        return x
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
-        N_test, dim = 5, self._sanitize(op.dim, 7)
-        return self._random_array((N_test, dim))
+        N_test = 20
+        x = self._random_array((N_test, *op.dim_shape))
+        return x
 
     # Tests -------------------------------------------------------------------
     def test_interface_asloss(self, op, xp, width, op_lhs, op_rhs):
@@ -272,40 +331,47 @@ class AddRuleMixin:
 class TestAddRuleMap(AddRuleMixin, conftest.MapT):
     @pytest.fixture(
         params=[
-            (op_map(), op_map()),
-            (op_map(), op_func()),
-            (op_map(), op_diffmap()),
-            (op_map(), op_difffunc()),
-            (op_map(), op_proxfunc()),
-            (op_map(), op_proxdifffunc()),
-            (op_map(), op_quadraticfunc()),
-            (op_map(), op_linop()),
-            (op_map(), op_linfunc()),
-            (op_map(), op_squareop()),
-            (op_map(), op_normalop()),
-            (op_map(), op_unitop()),
-            (op_map(), op_selfadjointop()),
-            (op_map(), op_posdefop()),
-            (op_map(), op_projop()),
-            (op_map(), op_orthprojop()),
-            (op_func(), op_diffmap()),
-            (op_func(), op_linop()),
-            (op_func(), op_squareop()),
-            (op_func(), op_normalop()),
-            (op_func(), op_unitop()),
-            (op_func(), op_selfadjointop()),
-            (op_func(), op_posdefop()),
-            (op_func(), op_projop()),
-            (op_func(), op_orthprojop()),
-            (op_diffmap(), op_proxfunc()),
-            (op_proxfunc(), op_linop()),
-            (op_proxfunc(), op_squareop()),
-            (op_proxfunc(), op_normalop()),
-            (op_proxfunc(), op_unitop()),
-            (op_proxfunc(), op_selfadjointop()),
-            (op_proxfunc(), op_posdefop()),
-            (op_proxfunc(), op_projop()),
-            (op_proxfunc(), op_orthprojop()),
+            (op_map((5, 3, 4)), op_map((5, 3, 4))),
+            (op_map((5, 3, 4)), op_func((5, 3, 4))),
+            (op_map((5, 3, 4)), op_diffmap((5, 3, 4))),
+            (op_map((5, 3, 4)), op_difffunc((5, 3, 4))),
+            (op_map((5, 3, 4)), op_proxfunc((5, 3, 4))),
+            (op_map((5, 3, 4)), op_proxdifffunc((5, 3, 4))),
+            (op_map((5, 3, 5)), op_quadraticfunc((5, 3, 5))),
+            (op_map((5, 3, 4)), op_linfunc((5, 3, 4))),
+            (op_map((5, 3, 4)), op_squareop((5, 3, 4))),
+            (op_map((5, 3, 5)), op_normalop((5, 3, 5))),
+            (op_map((5, 3, 4)), op_unitop((5, 3, 4))),
+            (op_map((5, 3, 5)), op_selfadjointop((5, 3, 5))),
+            (op_map((5, 3, 5)), op_posdefop((5, 3, 5))),
+            (op_map((5, 3, 4)), op_projop((5, 3, 4))),
+            (op_map((5, 3, 4)), op_orthprojop((5, 3, 4))),
+            (op_func((5, 3, 4)), op_diffmap((5, 3, 4))),
+            (op_func((5, 3, 4)), op_squareop((5, 3, 4))),
+            (op_func((5, 3, 5)), op_normalop((5, 3, 5))),
+            (op_func((5, 3, 4)), op_unitop((5, 3, 4))),
+            (op_func((5, 3, 5)), op_selfadjointop((5, 3, 5))),
+            (op_func((5, 3, 5)), op_posdefop((5, 3, 5))),
+            (op_func((5, 3, 4)), op_projop((5, 3, 4))),
+            (op_func((5, 3, 4)), op_orthprojop((5, 3, 4))),
+            (op_diffmap((5, 3, 4)), op_proxfunc((5, 3, 4))),
+            (op_proxfunc((5, 3, 4)), op_squareop((5, 3, 4))),
+            (op_proxfunc((5, 3, 4)), op_unitop((5, 3, 4))),
+            (op_proxfunc((5, 3, 5)), op_normalop((5, 3, 5))),
+            (op_proxfunc((5, 3, 5)), op_selfadjointop((5, 3, 5))),
+            (op_proxfunc((5, 3, 5)), op_posdefop((5, 3, 5))),
+            (op_proxfunc((5, 3, 4)), op_projop((5, 3, 4))),
+            (op_proxfunc((5, 3, 4)), op_orthprojop((5, 3, 4))),
+            # Advanced broadcasting (one term expands) ------------------------
+            (op_map((5, 5, 5)), op_linop((5, 5, 5))),
+            (op_map((5, 5, 5)), reshape(op_linop((5, 5, 5)), codim=(5, 5, 1))),
+            (op_map((5, 5, 5)), reshape(op_linop((5, 5, 5)), codim=(5, 1, 5))),
+            (op_map((5, 5, 5)), reshape(op_linop((5, 5, 5)), codim=(1, 5, 5))),
+            # Advanced broadcasting (two terms expand) ------------------------
+            # We use op_linop() since it allows to move the bcast-ed axes where we want.
+            (reshape(op_linop((5, 5, 5)), codim=(5, 1, 5)), reshape(op_linop((5, 5, 5)), codim=(5, 5, 1))),
+            (reshape(op_linop((5, 5, 5)), codim=(1, 5, 5)), reshape(op_linop((5, 5, 5)), codim=(5, 1, 5))),
+            (reshape(op_linop((5, 5, 5)), codim=(5, 5, 1)), reshape(op_linop((5, 5, 5)), codim=(1, 5, 5))),
         ]
     )
     def op_lrhs(self, request):
@@ -315,43 +381,49 @@ class TestAddRuleMap(AddRuleMixin, conftest.MapT):
 class TestAddRuleDiffMap(AddRuleMixin, conftest.DiffMapT):
     @pytest.fixture(
         params=[
-            (op_diffmap(), op_diffmap()),
-            (op_diffmap(), op_difffunc()),
-            (op_diffmap(), op_proxdifffunc()),
-            (op_diffmap(), op_quadraticfunc()),
-            (op_diffmap(), op_linop()),
-            (op_diffmap(), op_linfunc()),
-            (op_diffmap(), op_squareop()),
-            (op_diffmap(), op_normalop()),
-            (op_diffmap(), op_unitop()),
-            (op_diffmap(), op_selfadjointop()),
-            (op_diffmap(), op_posdefop()),
-            (op_diffmap(), op_projop()),
-            (op_diffmap(), op_orthprojop()),
-            (op_difffunc(), op_linop()),
-            (op_difffunc(), op_squareop()),
-            (op_difffunc(), op_normalop()),
-            (op_difffunc(), op_unitop()),
-            (op_difffunc(), op_selfadjointop()),
-            (op_difffunc(), op_posdefop()),
-            (op_difffunc(), op_projop()),
-            (op_difffunc(), op_orthprojop()),
-            (op_quadraticfunc(), op_linop()),
-            (op_quadraticfunc(), op_squareop()),
-            (op_quadraticfunc(), op_normalop()),
-            (op_quadraticfunc(), op_unitop()),
-            (op_quadraticfunc(), op_selfadjointop()),
-            (op_quadraticfunc(), op_posdefop()),
-            (op_quadraticfunc(), op_projop()),
-            (op_quadraticfunc(), op_orthprojop()),
-            (op_quadraticfunc(), op_linop()),
-            (op_quadraticfunc(), op_squareop()),
-            (op_quadraticfunc(), op_normalop()),
-            (op_quadraticfunc(), op_unitop()),
-            (op_quadraticfunc(), op_selfadjointop()),
-            (op_quadraticfunc(), op_posdefop()),
-            (op_quadraticfunc(), op_projop()),
-            (op_quadraticfunc(), op_orthprojop()),
+            (op_diffmap((5, 3, 4)), op_diffmap((5, 3, 4))),
+            (op_diffmap((5, 3, 4)), op_difffunc((5, 3, 4))),
+            (op_diffmap((5, 3, 4)), op_proxdifffunc((5, 3, 4))),
+            (op_diffmap((5, 3, 5)), op_quadraticfunc((5, 3, 5))),
+            (op_diffmap((5, 3, 4)), op_linfunc((5, 3, 4))),
+            (op_diffmap((5, 3, 4)), op_squareop((5, 3, 4))),
+            (op_diffmap((5, 3, 5)), op_normalop((5, 3, 5))),
+            (op_diffmap((5, 3, 4)), op_unitop((5, 3, 4))),
+            (op_diffmap((5, 3, 5)), op_selfadjointop((5, 3, 5))),
+            (op_diffmap((5, 3, 5)), op_posdefop((5, 3, 5))),
+            (op_diffmap((5, 3, 4)), op_projop((5, 3, 4))),
+            (op_diffmap((5, 3, 4)), op_orthprojop((5, 3, 4))),
+            (op_difffunc((5, 3, 4)), op_squareop((5, 3, 4))),
+            (op_difffunc((5, 3, 5)), op_normalop((5, 3, 5))),
+            (op_difffunc((5, 3, 4)), op_unitop((5, 3, 4))),
+            (op_difffunc((5, 3, 5)), op_selfadjointop((5, 3, 5))),
+            (op_difffunc((5, 3, 5)), op_posdefop((5, 3, 5))),
+            (op_difffunc((5, 3, 4)), op_projop((5, 3, 4))),
+            (op_difffunc((5, 3, 4)), op_orthprojop((5, 3, 4))),
+            (op_quadraticfunc((5, 3, 5)), op_squareop((5, 3, 5))),
+            (op_quadraticfunc((5, 3, 5)), op_normalop((5, 3, 5))),
+            (op_quadraticfunc((5, 3, 5)), op_unitop((5, 3, 5))),
+            (op_quadraticfunc((5, 3, 5)), op_selfadjointop((5, 3, 5))),
+            (op_quadraticfunc((5, 3, 5)), op_posdefop((5, 3, 5))),
+            (op_quadraticfunc((5, 3, 5)), op_projop((5, 3, 5))),
+            (op_quadraticfunc((5, 3, 5)), op_orthprojop((5, 3, 5))),
+            (op_quadraticfunc((5, 3, 5)), op_squareop((5, 3, 5))),
+            (op_quadraticfunc((5, 3, 5)), op_normalop((5, 3, 5))),
+            (op_quadraticfunc((5, 3, 5)), op_unitop((5, 3, 5))),
+            (op_quadraticfunc((5, 3, 5)), op_selfadjointop((5, 3, 5))),
+            (op_quadraticfunc((5, 3, 5)), op_posdefop((5, 3, 5))),
+            (op_quadraticfunc((5, 3, 5)), op_projop((5, 3, 5))),
+            (op_quadraticfunc((5, 3, 5)), op_orthprojop((5, 3, 5))),
+            # Advanced broadcasting (one term expands) ------------------------
+            (op_diffmap((5, 5, 5)), op_linop((5, 5, 5))),
+            (op_diffmap((5, 5, 5)), reshape(op_linop((5, 5, 5)), codim=(5, 5, 1))),
+            (op_diffmap((5, 5, 5)), reshape(op_linop((5, 5, 5)), codim=(5, 1, 5))),
+            (op_diffmap((5, 5, 5)), reshape(op_linop((5, 5, 5)), codim=(1, 5, 5))),
+            # Advanced broadcasting (two terms expand) ------------------------
+            # We use op_linop() since it allows to move the bcast-ed axes where we want.
+            (reshape(op_linop((5, 5, 5)), codim=(5, 1, 5)), reshape(op_linop((5, 5, 5)), codim=(5, 5, 1))),
+            (reshape(op_linop((5, 5, 5)), codim=(1, 5, 5)), reshape(op_linop((5, 5, 5)), codim=(5, 1, 5))),
+            (reshape(op_linop((5, 5, 5)), codim=(5, 5, 1)), reshape(op_linop((5, 5, 5)), codim=(1, 5, 5))),
         ]
     )
     def op_lrhs(self, request):
@@ -361,10 +433,18 @@ class TestAddRuleDiffMap(AddRuleMixin, conftest.DiffMapT):
 class TestAddRuleLinOp(AddRuleMixin, conftest.LinOpT):
     @pytest.fixture(
         params=[
-            (op_linop(), op_linop()),
-            (op_linop(), op_linfunc()),
-            (op_linop(codim_scale=2), op_linop(codim_scale=2)),
-            (op_linop(codim_scale=2), op_linfunc()),
+            (op_linop((5, 3, 4)), op_linop((5, 3, 4))),
+            (op_linop((5, 3, 4)), op_linfunc((5, 3, 4))),
+            # Advanced broadcasting (one term expands) ------------------------
+            # Linfuncs which register as LinOps since codim_rank > 1.
+            (op_linfunc((5, 5, 5)), reshape(op_linfunc((5, 5, 5)), codim=(1,))),
+            (op_linfunc((5, 5, 5)), reshape(op_linfunc((5, 5, 5)), codim=(1, 1))),
+            (op_linfunc((5, 5, 5)), reshape(op_linfunc((5, 5, 5)), codim=(1, 1, 1))),
+            # Advanced broadcasting (two terms expand) ------------------------
+            # We use op_linop() since it allows to move the bcast-ed axes where we want.
+            (reshape(op_linop((5, 5, 5)), codim=(5, 1, 5)), reshape(op_linop((5, 5, 5)), codim=(5, 5, 1))),
+            (reshape(op_linop((5, 5, 5)), codim=(1, 5, 5)), reshape(op_linop((5, 5, 5)), codim=(5, 1, 5))),
+            (reshape(op_linop((5, 5, 5)), codim=(5, 5, 1)), reshape(op_linop((5, 5, 5)), codim=(1, 5, 5))),
         ]
     )
     def op_lrhs(self, request):
@@ -374,35 +454,35 @@ class TestAddRuleLinOp(AddRuleMixin, conftest.LinOpT):
 class TestAddRuleSquareOp(AddRuleMixin, conftest.SquareOpT):
     @pytest.fixture(
         params=[
-            (op_linfunc(), op_squareop()),
-            (op_linfunc(), op_normalop()),
-            (op_linfunc(), op_unitop()),
-            (op_linfunc(), op_selfadjointop()),
-            (op_linfunc(), op_posdefop()),
-            (op_linfunc(), op_projop()),
-            (op_linfunc(), op_orthprojop()),
-            (op_squareop(), op_squareop()),
-            (op_squareop(), op_normalop()),
-            (op_squareop(), op_unitop()),
-            (op_squareop(), op_selfadjointop()),
-            (op_squareop(), op_posdefop()),
-            (op_squareop(), op_projop()),
-            (op_squareop(), op_orthprojop()),
-            (op_normalop(), op_normalop()),
-            (op_normalop(), op_unitop()),
-            (op_normalop(), op_selfadjointop()),
-            (op_normalop(), op_posdefop()),
-            (op_normalop(), op_projop()),
-            (op_normalop(), op_orthprojop()),
-            (op_unitop(), op_unitop()),
-            (op_unitop(), op_selfadjointop()),
-            (op_unitop(), op_posdefop()),
-            (op_unitop(), op_projop()),
-            (op_unitop(), op_orthprojop()),
-            (op_selfadjointop(), op_projop()),
-            (op_posdefop(), op_projop()),
-            (op_projop(), op_projop()),
-            (op_projop(), op_orthprojop()),
+            (op_linfunc((5, 3, 4)), op_squareop((5, 3, 4))),
+            (op_linfunc((5, 3, 5)), op_normalop((5, 3, 5))),
+            (op_linfunc((5, 3, 4)), op_unitop((5, 3, 4))),
+            (op_linfunc((5, 3, 5)), op_selfadjointop((5, 3, 5))),
+            (op_linfunc((5, 3, 5)), op_posdefop((5, 3, 5))),
+            (op_linfunc((5, 3, 4)), op_projop((5, 3, 4))),
+            (op_linfunc((5, 3, 4)), op_orthprojop((5, 3, 4))),
+            (op_squareop((5, 3, 4)), op_squareop((5, 3, 4))),
+            (op_squareop((5, 3, 5)), op_normalop((5, 3, 5))),
+            (op_squareop((5, 3, 4)), op_unitop((5, 3, 4))),
+            (op_squareop((5, 3, 5)), op_selfadjointop((5, 3, 5))),
+            (op_squareop((5, 3, 5)), op_posdefop((5, 3, 5))),
+            (op_squareop((5, 3, 4)), op_projop((5, 3, 4))),
+            (op_squareop((5, 3, 4)), op_orthprojop((5, 3, 4))),
+            (op_normalop((5, 3, 5)), op_normalop((5, 3, 5))),
+            (op_normalop((5, 3, 5)), op_unitop((5, 3, 5))),
+            (op_normalop((5, 3, 5)), op_selfadjointop((5, 3, 5))),
+            (op_normalop((5, 3, 5)), op_posdefop((5, 3, 5))),
+            (op_normalop((5, 3, 5)), op_projop((5, 3, 5))),
+            (op_normalop((5, 3, 5)), op_orthprojop((5, 3, 5))),
+            (op_unitop((5, 3, 4)), op_unitop((5, 3, 4))),
+            (op_unitop((5, 3, 5)), op_selfadjointop((5, 3, 5))),
+            (op_unitop((5, 3, 5)), op_posdefop((5, 3, 5))),
+            (op_unitop((5, 3, 4)), op_projop((5, 3, 4))),
+            (op_unitop((5, 3, 4)), op_orthprojop((5, 3, 4))),
+            (op_selfadjointop((5, 3, 5)), op_projop((5, 3, 5))),
+            (op_posdefop((5, 3, 5)), op_projop((5, 3, 5))),
+            (op_projop((5, 3, 4)), op_projop((5, 3, 4))),
+            (op_projop((5, 3, 4)), op_orthprojop((5, 3, 4))),
         ]
     )
     def op_lrhs(self, request):
@@ -424,10 +504,10 @@ class TestAddRuleUnitOp(AddRuleMixin, conftest.UnitOpT):
 class TestAddRuleSelfAdjointOp(AddRuleMixin, conftest.SelfAdjointOpT):
     @pytest.fixture(
         params=[
-            (op_selfadjointop(), op_selfadjointop()),
-            (op_selfadjointop(), op_posdefop()),
-            (op_selfadjointop(), op_orthprojop()),
-            (op_orthprojop(), op_orthprojop()),
+            (op_selfadjointop((5, 3, 5)), op_selfadjointop((5, 3, 5))),
+            (op_selfadjointop((5, 3, 5)), op_posdefop((5, 3, 5))),
+            (op_selfadjointop((5, 3, 5)), op_orthprojop((5, 3, 5))),
+            (op_orthprojop((5, 3, 4)), op_orthprojop((5, 3, 4))),
         ]
     )
     def op_lrhs(self, request):
@@ -437,8 +517,8 @@ class TestAddRuleSelfAdjointOp(AddRuleMixin, conftest.SelfAdjointOpT):
 class TestAddRulePosDefOp(AddRuleMixin, conftest.PosDefOpT):
     @pytest.fixture(
         params=[
-            (op_posdefop(), op_posdefop()),
-            (op_posdefop(), op_orthprojop()),
+            (op_posdefop((5, 3, 5)), op_posdefop((5, 3, 5))),
+            (op_posdefop((5, 3, 5)), op_orthprojop((5, 3, 5))),
         ]
     )
     def op_lrhs(self, request):
@@ -461,16 +541,26 @@ class TestAddRuleOrthProjOp(AddRuleMixin, conftest.OrthProjOpT):
 class TestAddRuleFunc(AddRuleMixin, conftest.FuncT):
     @pytest.fixture(
         params=[
-            (op_func(), op_func()),
-            (op_func(), op_difffunc()),
-            (op_func(), op_proxfunc()),
-            (op_func(), op_proxdifffunc()),
-            (op_func(), op_quadraticfunc()),
-            (op_func(), op_linfunc()),
-            (op_difffunc(), op_proxfunc()),
-            (op_proxfunc(), op_proxfunc()),
-            (op_proxfunc(), op_proxdifffunc()),
-            (op_proxfunc(), op_quadraticfunc()),
+            (op_func((5, 3, 4)), op_func((5, 3, 4))),
+            (op_func((1,)), op_func((1,))),
+            (op_func((5, 3, 4)), op_difffunc((5, 3, 4))),
+            (op_func((1,)), op_difffunc((1,))),
+            (op_func((5, 3, 4)), op_proxfunc((5, 3, 4))),
+            (op_func((1,)), op_proxfunc((1,))),
+            (op_func((5, 3, 4)), op_proxdifffunc((5, 3, 4))),
+            (op_func((1,)), op_proxdifffunc((1,))),
+            (op_func((5, 3, 5)), op_quadraticfunc((5, 3, 5))),
+            (op_func((1,)), op_quadraticfunc((1,))),
+            (op_func((5, 3, 4)), op_linfunc((5, 3, 4))),
+            (op_func((1,)), op_linfunc((1,))),
+            (op_difffunc((5, 3, 4)), op_proxfunc((5, 3, 4))),
+            (op_difffunc((1,)), op_proxfunc((1,))),
+            (op_proxfunc((5, 3, 4)), op_proxfunc((5, 3, 4))),
+            (op_proxfunc((1,)), op_proxfunc((1,))),
+            (op_proxfunc((5, 3, 4)), op_proxdifffunc((5, 3, 4))),
+            (op_proxfunc((1,)), op_proxdifffunc((1,))),
+            (op_proxfunc((5, 3, 5)), op_quadraticfunc((5, 3, 5))),
+            (op_proxfunc((1,)), op_quadraticfunc((1,))),
         ]
     )
     def op_lrhs(self, request):
@@ -480,12 +570,18 @@ class TestAddRuleFunc(AddRuleMixin, conftest.FuncT):
 class TestAddRuleDiffFunc(AddRuleMixin, conftest.DiffFuncT):
     @pytest.fixture(
         params=[
-            (op_difffunc(), op_difffunc()),
-            (op_difffunc(), op_proxdifffunc()),
-            (op_difffunc(), op_quadraticfunc()),
-            (op_difffunc(), op_linfunc()),
-            (op_proxdifffunc(), op_proxdifffunc()),
-            (op_proxdifffunc(), op_quadraticfunc()),
+            (op_difffunc((5, 3, 4)), op_difffunc((5, 3, 4))),
+            (op_difffunc((1,)), op_difffunc((1,))),
+            (op_difffunc((5, 3, 4)), op_proxdifffunc((5, 3, 4))),
+            (op_difffunc((1,)), op_proxdifffunc((1,))),
+            (op_difffunc((5, 3, 5)), op_quadraticfunc((5, 3, 5))),
+            (op_difffunc((1,)), op_quadraticfunc((1,))),
+            (op_difffunc((5, 3, 4)), op_linfunc((5, 3, 4))),
+            (op_difffunc((1,)), op_linfunc((1,))),
+            (op_proxdifffunc((5, 3, 4)), op_proxdifffunc((5, 3, 4))),
+            (op_proxdifffunc((1,)), op_proxdifffunc((1,))),
+            (op_proxdifffunc((5, 3, 5)), op_quadraticfunc((5, 3, 5))),
+            (op_proxdifffunc((1,)), op_quadraticfunc((1,))),
         ]
     )
     def op_lrhs(self, request):
@@ -495,7 +591,8 @@ class TestAddRuleDiffFunc(AddRuleMixin, conftest.DiffFuncT):
 class TestAddRuleProxFunc(AddRuleMixin, conftest.ProxFuncT):
     @pytest.fixture(
         params=[
-            (op_proxfunc(), op_linfunc()),
+            (op_proxfunc((1,)), op_linfunc((1,))),
+            (op_proxfunc((5, 3, 4)), op_linfunc((5, 3, 4))),
         ]
     )
     def op_lrhs(self, request):
@@ -505,7 +602,8 @@ class TestAddRuleProxFunc(AddRuleMixin, conftest.ProxFuncT):
 class TestAddRuleProxDiffFunc(AddRuleMixin, conftest.ProxDiffFuncT):
     @pytest.fixture(
         params=[
-            (op_proxdifffunc(), op_linfunc()),
+            (op_proxdifffunc((1,)), op_linfunc((1,))),
+            (op_proxdifffunc((5, 3, 4)), op_linfunc((5, 3, 4))),
         ]
     )
     def op_lrhs(self, request):
@@ -515,8 +613,10 @@ class TestAddRuleProxDiffFunc(AddRuleMixin, conftest.ProxDiffFuncT):
 class TestAddRuleQuadraticFunc(AddRuleMixin, conftest.QuadraticFuncT):
     @pytest.fixture(
         params=[
-            (op_quadraticfunc(), op_quadraticfunc()),
-            (op_quadraticfunc(), op_linfunc()),
+            (op_quadraticfunc((1,)), op_quadraticfunc((1,))),
+            (op_quadraticfunc((5, 3, 5)), op_quadraticfunc((5, 3, 5))),
+            (op_quadraticfunc((1,)), op_linfunc((1,))),
+            (op_quadraticfunc((5, 3, 5)), op_linfunc((5, 3, 5))),
         ]
     )
     def op_lrhs(self, request):
@@ -526,7 +626,8 @@ class TestAddRuleQuadraticFunc(AddRuleMixin, conftest.QuadraticFuncT):
 class TestAddRuleLinFunc(AddRuleMixin, conftest.LinFuncT):
     @pytest.fixture(
         params=[
-            (op_linfunc(), op_linfunc()),
+            (op_linfunc((1,)), op_linfunc((1,))),
+            (op_linfunc((5, 3, 4)), op_linfunc((5, 3, 4))),
         ]
     )
     def op_lrhs(self, request):
