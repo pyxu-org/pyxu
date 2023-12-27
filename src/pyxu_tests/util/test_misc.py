@@ -1,67 +1,74 @@
-import dask.array as da
 import numpy as np
 import pytest
 
 import pyxu.info.deps as pxd
+import pyxu.info.ptype as pxt
 import pyxu.util as pxu
 
 
 class TestCopyIfUnsafe:
-    @pytest.fixture(
-        params=[
-            np.r_[1],
-            np.ones((5,)),
-            np.ones((5, 3, 4)),
-        ]
-    )
-    def x(self, request):
-        return request.param
+    @pytest.fixture
+    def data(self, xp) -> pxt.NDArray:
+        # Raw data which owns its memory.
+        x = np.arange(50**3).reshape(50, 50, 50)
+        y = xp.array(x, dtype=x.dtype)
+        return y
 
-    def test_no_copy(self, xp, x):
-        x = xp.array(x)
+    def test_no_copy(self, data):
+        out = pxu.copy_if_unsafe(data)
+        assert out is data
 
-        y = pxu.copy_if_unsafe(x)
-        assert x is y
-
-    @pytest.mark.parametrize("xp", set(pxd.supported_array_modules()) - {da})
     @pytest.mark.parametrize("mode", ["read_only", "view"])
-    def test_copy(self, xp, x, mode):
-        x = xp.array(x)
-        if mode == "read_only":
-            x.flags.writeable = False
-        elif mode == "view":
-            x = x.view()
+    def test_copy(self, data, mode):
+        xp = pxu.get_array_module(data)
+        if xp == pxd.NDArrayInfo.DASK.module():
+            pytest.skip("Unsupported config.")
 
-        y = pxu.copy_if_unsafe(x)
-        assert y.flags.owndata
-        assert y.shape == x.shape
-        assert xp.allclose(y, x)
+        data = data.copy()
+        if mode == "read_only":
+            data.flags.writeable = False
+        elif mode == "view":
+            data = data.view()
+
+        out = pxu.copy_if_unsafe(data)
+        assert out.flags.owndata
+        assert out.shape == data.shape
+        assert xp.allclose(out, data)
 
 
 class TestReadOnly:
     @pytest.fixture(
         params=[
-            np.ones((1,)),  # contiguous
-            np.ones((5,)),  # contiguous
-            np.ones((5, 3, 4)),  # multi-dim, contiguous
-            np.ones((5, 3, 4))[:, ::-1],  # multi-dim, view
+            (slice(None), slice(None), slice(None)),  # multi-dim, contiguous
+            (slice(None), slice(1, None, 2), slice(None, None, -1)),  # multi-dim view
         ]
     )
-    def x(self, request):
-        return request.param
+    def data(self, request, xp) -> pxt.NDArray:
+        # Raw data, potentially non-contiguous given provided selector
+        x = np.arange(50**3).reshape(50, 50, 50)
+        y = xp.array(x, dtype=x.dtype)
 
-    def test_transparent(self, x):
-        x = da.array(x)
-        y = pxu.read_only(x)
-        assert y is x
+        selector = request.param
+        z = y[selector]
+        return z
 
-    @pytest.mark.parametrize("xp", set(pxd.supported_array_modules()) - {da})
-    def test_readonly(self, xp, x):
-        x = xp.array(x)
-        y = pxu.read_only(x)
+    def test_DASK_transparent(self, data, xp):
+        # DASK arrays go through un-modified
+        if xp != pxd.NDArrayInfo.DASK.module():
+            pytest.skip("Unsupported config.")
 
-        if hasattr(y.flags, "writeable"):
-            assert not y.flags.writeable
-        assert not y.flags.owndata
-        assert y.shape == x.shape
-        assert xp.allclose(y, x)
+        out = pxu.read_only(data)
+        assert out is data
+
+    def test_NUMCUPY_readonly(self, data, xp):
+        # NUMPY/CUPY arrays are read-only
+        if xp == pxd.NDArrayInfo.DASK.module():
+            pytest.skip("Unsupported config.")
+
+        out = pxu.read_only(data)
+
+        if hasattr(out.flags, "writeable"):
+            assert not out.flags.writeable
+        assert not out.flags.owndata
+        assert out.shape == data.shape
+        assert xp.allclose(out, data)
