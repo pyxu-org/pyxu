@@ -1,6 +1,9 @@
+import numpy as np
+
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
+import pyxu.info.warning as pxw
 import pyxu.runtime as pxrt
 
 __all__ = [
@@ -38,11 +41,14 @@ def trace(
     width = pxrt.Width(dtype)
 
     tr = 0
-    for i in range(op.dim):
-        e = xp.zeros(op.dim, dtype=dtype)
-        e[i] = 1
+    for i in range(op.dim_size):
+        idx_in = np.unravel_index(i, op.dim_shape)
+        idx_out = np.unravel_index(i, op.codim_shape)
+
+        e = xp.zeros(op.dim_shape, dtype=dtype)
+        e[idx_in] = 1
         with pxrt.Precision(width):
-            tr += op.apply(e)[i]
+            tr += op.apply(e)[idx_out]
     return float(tr)
 
 
@@ -77,22 +83,37 @@ def hutchpp(
     tr: Real
         Stochastic estimate of tr(op).
     """
+    from pyxu.operator import ReshapeAxes
+
     if xp is None:
         xp = pxd.NDArrayInfo.default().module()
+    if using_dask := (xp == pxd.NDArrayInfo.DASK.module()):
+        msg = "\n".join(
+            [
+                "DASK.linalg.qr() has limitations.",
+                "[More info] https://docs.dask.org/en/stable/_modules/dask/array/linalg.html#qr",
+            ]
+        )
+        pxw.warn_dask_perf(msg)
 
     if dtype is None:
         dtype = pxrt.getPrecision().value
     width = pxrt.Width(dtype)
 
+    # To avoid constant reshaping below, we use the 2D-equivalent operator.
+    lhs = ReshapeAxes(dim_shape=op.codim_shape, codim_shape=op.codim_size)
+    rhs = ReshapeAxes(dim_shape=op.dim_size, codim_shape=op.dim_shape)
+    op = lhs * op * rhs
+
     rng = xp.random.default_rng(seed=seed)
-    s = rng.standard_normal(size=(op.dim, (m + 2) // 4), dtype=dtype)
-    g = rng.integers(0, 2, size=(op.dim, (m - 2) // 2)) * 2 - 1
+    s = rng.standard_normal(size=(op.dim_size, (m + 2) // 4), dtype=dtype)
+    g = rng.integers(0, 2, size=(op.dim_size, (m - 2) // 2)) * 2 - 1
 
     with pxrt.Precision(width):
-        data = op.apply(s.T).T
+        data = op.apply(s.T).T  # (dim, (m+2)//4)
 
     kwargs = dict(mode="reduced")
-    if xp == pxd.NDArrayInfo.DASK.module():
+    if using_dask:
         data = data.rechunk({0: "auto", 1: -1})
         kwargs.pop("mode", None)
 

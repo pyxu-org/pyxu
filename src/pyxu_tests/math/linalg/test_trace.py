@@ -3,64 +3,51 @@ import pytest
 
 import pyxu.info.ptype as pxt
 import pyxu.math as pxm
-import pyxu.runtime as pxrt
+import pyxu.operator as pxo
 import pyxu_tests.conftest as ct
 
 
-def op_squareop():
+# Helper methods --------------------------------------------------------------
+def reshape(
+    op: pxt.OpT,
+    dim: pxt.NDArrayShape = None,
+    codim: pxt.NDArrayShape = None,
+) -> pxt.OpT:
+    # Reshape an operator to new dim/codim_shape.
+    # (Useful for testing square operators where dim != codim.)
+    opR = 1
+    if dim is not None:
+        opR = pxo.ReshapeAxes(
+            dim_shape=dim,
+            codim_shape=op.dim_shape,
+        )
+
+    opL = 1
+    if codim is not None:
+        opL = pxo.ReshapeAxes(
+            dim_shape=op.codim_shape,
+            codim_shape=codim,
+        )
+
+    op_reshape = opL * op * opR
+    return op_reshape
+
+
+def op_squareop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     import pyxu_tests.operator.examples.test_squareop as tc
 
-    return tc.CumSum(N=7)
-
-
-def op_normalop():
-    import pyxu_tests.operator.examples.test_normalop as tc
-
-    rng = np.random.default_rng(seed=2)
-    h = rng.normal(size=(7,))
-    return tc.CircularConvolution(h=h)
-
-
-def op_unitop():
-    import pyxu_tests.operator.examples.test_unitop as tc
-
-    return tc.Permutation(N=7)
-
-
-def op_selfadjointop():
-    import pyxu_tests.operator.examples.test_selfadjointop as tc
-
-    return tc.SelfAdjointConvolution(N=7)
-
-
-def op_posdefop():
-    import pyxu_tests.operator.examples.test_posdefop as tc
-
-    return tc.PSDConvolution(N=7)
-
-
-def op_projop():
-    import pyxu_tests.operator.examples.test_projop as tc
-
-    return tc.Oblique(N=7, alpha=np.pi / 4)
-
-
-def op_orthprojop():
-    import pyxu_tests.operator.examples.test_orthprojop as tc
-
-    return tc.ScaleDown(N=7)
+    return tc.CumSum(dim_shape=dim_shape)
 
 
 class TestTrace:
     @pytest.fixture(
         params=[
-            op_squareop(),
-            op_normalop(),
-            op_unitop(),
-            op_selfadjointop(),
-            op_posdefop(),
-            op_projop(),
-            op_orthprojop(),
+            # dim_shape == codim_shape case -----------------------------------
+            op_squareop((5,)),
+            op_squareop((5, 3, 4)),
+            # dim_shape != codim_shape case -----------------------------------
+            reshape(op_squareop((5, 3, 4)), dim=None, codim=(2, 30)),
+            reshape(op_squareop((5, 3, 4)), dim=(2, 30), codim=None),
         ]
     )
     def op(self, request) -> pxt.OpT:
@@ -69,17 +56,32 @@ class TestTrace:
     @pytest.fixture
     def _op_trace(self, op) -> float:
         # Ground truth trace
-        tr = op.asarray().trace()
+        A = op.asarray()
+        B = A.reshape(op.codim_size, op.dim_size)
+        tr = B.trace()
         return tr
 
-    def test_value_explicit(self, op, _op_trace):
-        tr = pxm.trace(op)
-        assert ct.allclose(tr, _op_trace, as_dtype=pxrt.getPrecision().value)
+    def test_value_explicit(self, op, _op_trace, xp, width):
+        tr = pxm.trace(op, xp=xp, dtype=width.value)
+        assert ct.allclose(tr, _op_trace, as_dtype=width.value)
 
-    def test_value_hutchpp(self, op, _op_trace):
+    @pytest.mark.parametrize("seed", [0, 5, 135])
+    def test_value_hutchpp(self, op, _op_trace, xp, width, seed):
         # Ensure computed trace (w/ default parameter values) satisfies statistical property stated
         # in hutchpp() docstring, i.e.: estimation error smaller than 1e-2 w/ probability 0.9
         N_trial = 100
-        tr = np.array([pxm.hutchpp(op) for _ in range(N_trial)])
+
+        tr = np.array(
+            [
+                pxm.hutchpp(
+                    op,
+                    xp=xp,
+                    dtype=width.value,
+                    seed=seed,
+                )
+                for _ in range(N_trial)
+            ]
+        )
+
         N_pass = sum(np.abs(tr - _op_trace) <= 1e-2)
         assert N_pass >= 0.9 * N_trial
