@@ -34,14 +34,14 @@ class MaxIter(pxa.StoppingCriterion):
 
     .. note::
 
-        If you want to add a grace period to a solver, i.e. for it to do *at least* N iterations before stopping based
-        on the value of another criteria, you can AND :py:class:`~pyxu.opt.stop.MaxIter` with the other criteria.
+       If you want to add a grace period to a solver, i.e. for it to do *at least* N iterations before stopping based
+       on the value of another criteria, you can AND :py:class:`~pyxu.opt.stop.MaxIter` with the other criteria.
 
-        .. code-block:: python3
+       .. code-block:: python3
 
-           sc = MaxIter(n=5) & AbsError(eps=0.1)
-           # If N_iter < 5  -> never stop.
-           # If N_iter >= 5 -> stop if AbsError() decides to.
+          sc = MaxIter(n=5) & AbsError(eps=0.1)
+          # If N_iter < 5  -> never stop.
+          # If N_iter >= 5 -> stop if AbsError() decides to.
     """
 
     def __init__(self, n: pxt.Integer):
