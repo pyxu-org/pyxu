@@ -1125,55 +1125,66 @@ class LinOpT(DiffMapT):
     #           but can be overidden manually if desired ----------------------
     @pytest.fixture
     def data_adjoint(self, op) -> DataLike:
-        # override in subclass with 1D input/outputs of op.adjoint().
+        # override in subclass with 1D input/outputs of op.adjoint(). [1D means no stacking dimensions allowed.]
         # Arrays should be NumPy-only. (Internal machinery will transform to different
         # backend/precisions as needed.)
         #
         # Default implementation just tests A(0) = 0. Subsequent math tests ensure .adjoint() output
         # is consistent with .apply().
         return dict(
-            in_=dict(arr=np.zeros(op.codim)),
-            out=np.zeros(op.dim),
+            in_=dict(arr=np.zeros(op.codim_shape)),
+            out=np.zeros(op.dim_shape),
         )
 
     @pytest.fixture
     def data_pinv(self, op, _damp, data_apply) -> DataLike:
-        # override in subclass with 1D input/outputs of op.pinv().
+        # override in subclass with 1D input/outputs of op.pinv(). [1D means no stacking dimensions allowed.]
         # Arrays should be NumPy-only. (Internal machinery will transform to different
         # backend/precisions as needed.)
         #
         # Default implementation: auto-computes pinv() at output points specified to test op.apply().
 
+        # Idea: use scipy.linalg.lstsq() to compute pseudo-inverse.
+        # Caveat: lstsq() understands 2D operators only, so we must 2D-ize the array representation.
+
         # Safe implementation of --------------------------
         #   A = op.gram().asarray(xp=np, dtype=pxrt.Width.DOUBLE.value)
-        B = op.asarray(xp=np, dtype=pxrt.Width.DOUBLE.value)
+        B = np.reshape(
+            op.asarray(
+                xp=np,
+                dtype=pxrt.Width.DOUBLE.value,
+            ),
+            (op.codim_size, op.dim_size),
+        )
         A = B.T @ B
         # -------------------------------------------------
-        for i in range(op.dim):
+        for i in range(op.dim_size):
             A[i, i] += _damp
 
-        arr = data_apply["out"]
+        arr = data_apply["out"].reshape(op.codim_size)
         out, *_ = splinalg.lstsq(A, B.T @ arr)
         data = dict(
             in_=dict(
-                arr=arr,
+                arr=arr.reshape(op.codim_shape),
                 damp=_damp,
                 kwargs_init=dict(),
                 kwargs_fit=dict(),
             ),
-            out=out,
+            out=out.reshape(op.dim_shape),
         )
         return data
 
     @pytest.fixture
     def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
-        N_test = 5
-        return self._random_array((N_test, op.dim))
+        N_test = 10
+        x = self._random_array((N_test, *op.dim_shape))
+        return x
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
-        N_test = 5
-        return self._random_array((N_test, op.dim))
+        N_test = 10
+        x = self._random_array((N_test, *op.dim_shape))
+        return x
 
     # Fixtures (Internal) -----------------------------------------------------
     @pytest.fixture
@@ -1204,8 +1215,11 @@ class LinOpT(DiffMapT):
     @pytest.fixture
     def _op_svd(self, op) -> np.ndarray:
         # compute all singular values, sorted in ascending order.
-        D = np.linalg.svd(
-            op.asarray(),
+        D = splinalg.svd(
+            a=np.reshape(
+                op.asarray(),
+                (op.codim_size, op.dim_size),
+            ),
             full_matrices=False,
             compute_uv=False,
         )
@@ -1257,18 +1271,18 @@ class LinOpT(DiffMapT):
         # op() only defined for specifid xp/width combos.
         # Idea: compute .asarray() using backend/precision supported by op(), then cast to
         # user-desired backend/precision.
-        A_gt = xp.zeros((op.codim, op.dim), dtype=width.value)
-        for i in range(op.dim):
-            e = xp.zeros((op.dim,), dtype=width.value)
-            e[i] = 1
-            with pxrt.EnforcePrecision(False):
-                A_gt[:, i] = op.apply(e)
+        A_gt = xp.zeros((*op.codim_shape, *op.dim_shape), dtype=width.value)
 
-        N = pxd.NDArrayInfo
+        for i in range(op.dim_size):
+            e = xp.zeros(op.dim_shape, dtype=width.value)
+            idx = np.unravel_index(i, op.dim_shape)
+            e[idx] = 1
+            with pxrt.EnforcePrecision(False):
+                A_gt[..., *idx] = op.apply(e)
+
         xp_, width_ = request.param
-        if N.from_obj(A_gt) == N.CUPY:
-            A_gt = A_gt.get()
-        return xp_.array(A_gt, dtype=width_.value)
+        A = xp_.array(pxu.to_NUMPY(A_gt), dtype=width_.value)
+        return A
 
     @pytest.fixture
     def _op_sciop(self, op, _gpu, width) -> spsl.LinearOperator:
@@ -1289,24 +1303,24 @@ class LinOpT(DiffMapT):
         self._skip_unless_NUMPY_CUPY(ndi)
         self._skip_unless_2D(op)
 
-        N_test = 7
+        N_test = 10
         f = lambda _: self._random_array(_, xp=xp, width=width)
         op_array = op.asarray(xp=xp, dtype=width.value)
         mode = request.param
         if mode == "matvec":
-            arr = f((op.dim,))
+            arr = f((op.dim_size,))
             out_gt = op_array @ arr
             var = "x"
         elif mode == "matmat":
-            arr = f((op.dim, N_test))
+            arr = f((op.dim_size, N_test))
             out_gt = op_array @ arr
             var = "X"
         elif mode == "rmatvec":
-            arr = f((op.codim,))
+            arr = f((op.codim_size,))
             out_gt = op_array.T @ arr
             var = "x"
         elif mode == "rmatmat":
-            arr = f((op.codim, N_test))
+            arr = f((op.codim_size, N_test))
             out_gt = op_array.T @ arr
             var = "X"
         return dict(
@@ -1344,13 +1358,13 @@ class LinOpT(DiffMapT):
         # <op.adjoint(x), y> = <x, op.apply(y)>
         self._skip_if_disabled()
         N = 20
-        x = self._random_array((N, op.codim), xp=xp, width=width)
-        y = self._random_array((N, op.dim), xp=xp, width=width)
+        x = self._random_array((N, *op.codim_shape), xp=xp, width=width)
+        y = self._random_array((N, *op.dim_shape), xp=xp, width=width)
 
-        ip = lambda a, b: (a * b).sum(axis=-1)  # (N, Q) * (N, Q) -> (N,)
+        ip = lambda a, b, D: (a * b).sum(axis=tuple(range(-D, 0)))  # (N, M1,...,MD) * (N, M1,...,MD) -> (N,)
         with pxrt.EnforcePrecision(False):
-            lhs = ip(op.adjoint(x), y)
-            rhs = ip(x, op.apply(y))
+            lhs = ip(op.adjoint(x), y, D=op.dim_rank)
+            rhs = ip(x, op.apply(y), D=op.codim_rank)
 
         assert self._metric(lhs, rhs, as_dtype=width.value)
 
@@ -1519,17 +1533,15 @@ class LinOpT(DiffMapT):
 
     def test_interface_gram(self, op):
         self._skip_if_disabled()
-        if op.dim > 1:
-            klass = SelfAdjointOpT
-        else:
-            klass = LinFuncT
-        self._check_has_interface(op.gram(), klass)
+        self._check_has_interface(op.gram(), SelfAdjointOpT)
 
     def test_math_gram(self, op, xp, width):
         # op_g.apply == op_g.adjoint == adjoint \comp apply
         self._skip_if_disabled()
         op_g = op.gram()
-        x = self._random_array((30, op.dim), xp=xp, width=width)
+
+        N_test = 30
+        x = self._random_array((N_test, *op.dim_shape), xp=xp, width=width)
 
         with pxrt.EnforcePrecision(False):
             assert self._metric(op_g.apply(x), op_g.adjoint(x), as_dtype=width.value)
@@ -1537,17 +1549,15 @@ class LinOpT(DiffMapT):
 
     def test_interface_cogram(self, op):
         self._skip_if_disabled()
-        if op.codim > 1:
-            klass = SelfAdjointOpT
-        else:
-            klass = LinFuncT
-        self._check_has_interface(op.cogram(), klass)
+        self._check_has_interface(op.cogram(), SelfAdjointOpT)
 
     def test_math_cogram(self, op, xp, width):
         # op_cg.apply == op_cg.adjoint == apply \comp adjoint
         self._skip_if_disabled()
         op_cg = op.cogram()
-        x = self._random_array((30, op.codim), xp=xp, width=width)
+
+        N_test = 30
+        x = self._random_array((N_test, *op.codim_shape), xp=xp, width=width)
 
         with pxrt.EnforcePrecision(False):
             assert self._metric(op_cg.apply(x), op_cg.adjoint(x), as_dtype=width.value)
@@ -1560,7 +1570,7 @@ class LinOpT(DiffMapT):
 
         A = op.asarray(xp=xp, dtype=dtype)
         assert A.shape == _op_array.shape
-        assert self._metric(_op_array.T, A.T, as_dtype=dtype)
+        assert self._metric(_op_array, A, as_dtype=dtype)
 
     def test_backend_asarray(self, op, _op_array):
         self._skip_if_disabled()
@@ -1612,8 +1622,8 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
     @pytest.fixture
     def data_grad(self, op) -> DataLike:
         # We know for linfuncs that op.grad(x) = op.asarray()
-        x = self._random_array((op.dim,))
-        y = op.asarray()
+        x = self._random_array(op.dim_shape)
+        y = op.asarray()[0]
         return dict(
             in_=dict(arr=x),
             out=y,
@@ -1634,7 +1644,7 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
         # We know for linfuncs that op.prox(x, tau) = x - op.grad(x) * tau
         x = data_grad["in_"]["arr"].copy()
         g = data_grad["out"]
-        tau = np.abs(self._random_array((1,)))[0]
+        tau = np.abs(self._random_array((1,))).item()
         y = x - tau * g
         return dict(
             in_=dict(
@@ -1659,7 +1669,12 @@ class SquareOpT(LinOpT):
     @pytest.fixture
     def _op_trace(self, op) -> float:
         # True trace
-        tr = op.asarray().trace()
+        A = op.asarray()
+        tr = 0
+        for i in range(op.dim_size):
+            codim_idx = np.unravel_index(i, op.codim_shape)
+            dim_idx = np.unravel_index(i, op.dim_shape)
+            tr += A[*codim_idx, *dim_idx]
         return float(tr)
 
     @pytest.fixture
@@ -1676,9 +1691,9 @@ class SquareOpT(LinOpT):
         return data
 
     # Tests -------------------------------------------------------------------
-    def test_square(self, op):
+    def test_square_size(self, op):
         self._skip_if_disabled()
-        assert op.dim == op.codim
+        assert op.dim_size == op.codim_size
 
     def test_interface_trace(self, op, _data_trace):
         self._skip_if_disabled()
@@ -1706,11 +1721,18 @@ class NormalOpT(SquareOpT):
         # AA^{*} = A^{*}A
         self._skip_if_disabled()
         N = 20
-        x = self._random_array((N, op.dim), xp=xp, width=width)
 
+        x = self._random_array((N, *op.codim_shape), xp=xp, width=width)
         lhs = op.apply(op.adjoint(x))
-        rhs = op.adjoint(op.apply(x))
-        assert self._metric(lhs, rhs, as_dtype=width.value)
+
+        y = x.reshape((N, *op.dim_shape))
+        rhs = op.adjoint(op.apply(y))
+
+        assert self._metric(
+            lhs.reshape(N, -1),
+            rhs.reshape(N, -1),
+            as_dtype=width.value,
+        )
 
 
 class UnitOpT(NormalOpT):
@@ -1720,14 +1742,15 @@ class UnitOpT(NormalOpT):
     # Internal helpers --------------------------------------------------------
     @classmethod
     def _check_identity(cls, operator, xp, width):
-        x = cls._random_array((30, operator.dim), xp=xp, width=width)
+        N_test = 30
+        x = cls._random_array((N_test, *operator.dim_shape), xp=xp, width=width)
         assert ct.allclose(operator.apply(x), x, as_dtype=width.value)
         assert ct.allclose(operator.adjoint(x), x, as_dtype=width.value)
 
     # Fixtures (Internal) -----------------------------------------------------
     @pytest.fixture
     def _op_svd(self, op) -> np.ndarray:
-        D = np.ones(op.dim)
+        D = np.ones(op.dim_size)
         return D
 
     # Tests -------------------------------------------------------------------
@@ -1742,17 +1765,21 @@ class UnitOpT(NormalOpT):
         self._check_identity(op.cogram(), xp, width)
 
     def test_math_norm(self, op, xp, width):
-        # \norm{U x} = \norm{U^{*} x} = \norm{x}
+        # norm preservation
         self._skip_if_disabled()
-        N = 20
-        x = self._random_array((N, op.dim), xp=xp, width=width)
+        N = 30
 
-        lhs1 = pxm.norm(op.apply(x), axis=-1)
-        lhs2 = pxm.norm(op.adjoint(x), axis=-1)
-        rhs = pxm.norm(x, axis=-1)
+        # \norm{U x} = \norm{x}
+        x1 = self._random_array((N, *op.dim_shape), xp=xp, width=width)
+        lhs1 = xp.sum(op.apply(x1) ** 2, axis=tuple(range(-op.codim_rank, 0)))
+        rhs1 = xp.sum(x1**2, axis=tuple(range(-op.dim_rank, 0)))
+        assert self._metric(lhs1, rhs1, as_dtype=width.value)
 
-        assert self._metric(lhs1, lhs2, as_dtype=width.value)
-        assert self._metric(lhs1, rhs, as_dtype=width.value)
+        # \norm{U^{*} x} = \norm{x}
+        x2 = self._random_array((N, *op.codim_shape), xp=xp, width=width)
+        lhs2 = xp.sum(op.adjoint(x2) ** 2, axis=tuple(range(-op.dim_rank, 0)))
+        rhs2 = xp.sum(x2**2, axis=tuple(range(-op.codim_rank, 0)))
+        assert self._metric(lhs2, rhs2, as_dtype=width.value)
 
 
 class SelfAdjointOpT(NormalOpT):
@@ -1760,11 +1787,20 @@ class SelfAdjointOpT(NormalOpT):
     base = pxa.SelfAdjointOp
 
     # Tests -------------------------------------------------------------------
+    def test_square_shape(self, op):
+        # dim_shape == codim_shape
+        #
+        # This test is stricter than test_square_size().
+        # Reason: self-adjoint-ness implies apply/adjoint can be swapped, but
+        #         this only holds in dim/codim have identical shapes.
+        self._skip_if_disabled()
+        assert op.dim_shape == op.codim_shape
+
     def test_math_selfadjoint(self, op, xp, width):
         # A = A^{*}
         self._skip_if_disabled()
         N = 20
-        x = self._random_array((N, op.dim), xp=xp, width=width)
+        x = self._random_array((N, *op.dim_shape), xp=xp, width=width)
 
         lhs = op.apply(x)
         rhs = op.adjoint(x)
@@ -1780,10 +1816,16 @@ class PosDefOpT(SelfAdjointOpT):
         # <Ax,x> > 0
         self._skip_if_disabled()
         N = 20
-        x = self._random_array((N, op.dim), xp=xp, width=width)
+        x = self._random_array((N, *op.dim_shape), xp=xp, width=width)
 
-        ip = lambda a, b: (a * b).sum(axis=-1)  # (N, Q) * (N, Q) -> (N,)
-        assert np.all(ct.less_equal(0, ip(op.apply(x), x), as_dtype=width.value))
+        ip = lambda a, b, D: (a * b).sum(axis=tuple(range(-D, 0)))  # (N, M1,...,MD) * (N, M1,...,MD) -> (N,)
+        assert np.all(
+            ct.less_equal(
+                0,
+                ip(op.apply(x), x, D=op.dim_rank),
+                as_dtype=width.value,
+            )
+        )
 
 
 class ProjOpT(SquareOpT):
@@ -1791,11 +1833,16 @@ class ProjOpT(SquareOpT):
     base = pxa.ProjOp
 
     # Tests -------------------------------------------------------------------
+    def test_square_shape(self, op):
+        # dim_shape == codim_shape
+        self._skip_if_disabled()
+        SelfAdjointOpT.test_square_shape(self, op)
+
     def test_math_idempotent(self, op, xp, width):
         # op.apply = op.apply^2
         self._skip_if_disabled()
         N = 30
-        x = self._random_array((N, op.dim), xp=xp, width=width)
+        x = self._random_array((N, *op.dim_shape), xp=xp, width=width)
         y = op.apply(x)
         z = op.apply(y)
 
