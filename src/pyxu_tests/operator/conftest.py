@@ -69,9 +69,12 @@ class MapT(ct.DisableTestMixin):
     base = pxa.Map
     interface: cabc.Set[str] = frozenset(
         {
-            "shape",
-            "dim",
-            "codim",
+            "dim_shape",
+            "dim_size",
+            "dim_rank",
+            "codim_shape",
+            "codim_size",
+            "codim_rank",
             "asop",
             "argshift",
             "argscale",
@@ -150,7 +153,7 @@ class MapT(ct.DisableTestMixin):
         out_gt = data["out"]
 
         dtype = MapT._sanitize(dtype, default=in_["arr"].dtype)
-        assert out.ndim == in_["arr"].ndim
+        assert out.shape == out_gt.shape
         assert cls._metric(out, out_gt, as_dtype=dtype)
 
     @classmethod
@@ -172,7 +175,7 @@ class MapT(ct.DisableTestMixin):
         out_gt = np.broadcast_to(data["out"], (*sh_extra, *data["out"].shape))
 
         dtype = MapT._sanitize(dtype, default=in_["arr"].dtype)
-        assert out.ndim == in_["arr"].ndim
+        assert out.shape == out_gt.shape
         assert cls._metric(out, out_gt, as_dtype=dtype)
 
     @staticmethod
@@ -285,14 +288,20 @@ class MapT(ct.DisableTestMixin):
         return request.param
 
     @pytest.fixture
-    def data_shape(self) -> pxt.OpShape:
-        # override in subclass with the shape of op.
-        # Don't return `op.shape`: hard-code what you are expecting.
+    def dim_shape(self) -> pxt.NDArrayShape:
+        # override in subclass with dimension of op.
+        # Don't return `op.dim_shape`: hard-code what you are expecting.
+        raise NotImplementedError
+
+    @pytest.fixture
+    def codim_shape(self) -> pxt.NDArrayShape:
+        # override in subclass with co-dimension of op.
+        # Don't return `op.codim_shape`: hard-code what you are expecting.
         raise NotImplementedError
 
     @pytest.fixture
     def data_apply(self) -> DataLike:
-        # override in subclass with 1D input/outputs of op.apply().
+        # override in subclass with 1D input/outputs of op.apply(). [1D means no stacking dimensions allowed.]
         # Arrays should be NumPy-only. (Internal machinery will transform to different
         # backend/precisions as needed.)
         raise NotImplementedError
@@ -330,17 +339,29 @@ class MapT(ct.DisableTestMixin):
         self._skip_if_disabled()
         self._check_has_interface(op, self.__class__)
 
-    def test_shape(self, op, data_shape):
+    def test_dim_shape(self, op, dim_shape):
         self._skip_if_disabled()
-        assert op.shape == data_shape
+        assert op.dim_shape == dim_shape
 
-    def test_dim(self, op, data_shape):
+    def test_dim_size(self, op, dim_shape):
         self._skip_if_disabled()
-        assert op.dim == data_shape[1]
+        assert op.dim_size == np.prod(dim_shape)
 
-    def test_codim(self, op, data_shape):
+    def test_dim_rank(self, op, dim_shape):
         self._skip_if_disabled()
-        assert op.codim == data_shape[0]
+        assert op.dim_rank == len(dim_shape)
+
+    def test_codim_shape(self, op, codim_shape):
+        self._skip_if_disabled()
+        assert op.codim_shape == codim_shape
+
+    def test_codim_size(self, op, codim_shape):
+        self._skip_if_disabled()
+        assert op.codim_size == np.prod(codim_shape)
+
+    def test_codim_rank(self, op, codim_shape):
+        self._skip_if_disabled()
+        assert op.codim_rank == len(codim_shape)
 
     def test_value1D_apply(self, op, _data_apply):
         self._skip_if_disabled()
@@ -440,13 +461,19 @@ class MapT(ct.DisableTestMixin):
             x = xp.stack([_[0] for _ in data], axis=0)
             y = xp.stack([_[1] for _ in data], axis=0)
 
-            lhs = pxm.norm(op.apply(x) - op.apply(y), axis=-1)
+            lhs = xp.sum(
+                (op.apply(x) - op.apply(y)) ** 2,
+                axis=tuple(range(-op.codim_rank, 0)),
+            )
             # .apply() may return INFs, in which case `INF-INF=NaN` may arise above.
             # less_equal() is not able to handle NaNs, so the former are overwritten by a sensible
             # value in this context, i.e. 0.
             lhs[xp.isnan(lhs)] = 0
 
-            rhs = L * pxm.norm(x - y, axis=-1)
+            rhs = (L**2) * xp.sum(
+                (x - y) ** 2,
+                axis=tuple(range(-op.dim_rank, 0)),
+            )
             success = ct.less_equal(lhs, rhs, as_dtype=width.value)
             assert all(success)
 
@@ -459,11 +486,11 @@ class MapT(ct.DisableTestMixin):
         if _klass in op.__class__.__mro__:
             op2 = op.asop(_klass)
             assert op2 is op
-        elif (P.FUNCTIONAL in _klass.properties()) and (op.codim > 1):
+        elif (P.FUNCTIONAL in _klass.properties()) and not (op.codim_size == op.codim_rank == 1):
             # Casting to functionals when codim != 1.
             with pytest.raises(Exception):
                 op2 = op.asop(_klass)
-        elif (P.LINEAR_SQUARE in _klass.properties()) and (op.codim != op.dim):
+        elif (P.LINEAR_SQUARE in _klass.properties()) and (op.codim_size != op.dim_size):
             # Casting non-square operators to square linops.
             with pytest.raises(Exception):
                 op2 = op.asop(_klass)
@@ -495,18 +522,30 @@ class FuncT(MapT):
     base = pxa.Func
     interface = frozenset(MapT.interface | {"asloss"})
 
+    # Fixtures (Public-Facing) ------------------------------------------------
+    @pytest.fixture
+    def codim_shape(self) -> pxt.NDArrayShape:
+        return (1,)
+
     # Tests -------------------------------------------------------------------
-    def test_codim(self, op):
+    def test_codim_shape(self, op):
         self._skip_if_disabled()
-        assert op.codim == 1
+        assert op.codim_shape == (1,)
+
+    def test_codim_size(self, op):
+        self._skip_if_disabled()
+        assert op.codim_size == 1
+
+    def test_codim_rank(self, op):
+        self._skip_if_disabled()
+        assert op.codim_rank == 1
 
     def test_interface_asloss(self, op, xp, width):
         # op.asloss() sub-classes Func if data provided, transparent otherwise.
         # Disable this test if asloss() not defined for a functional.
         self._skip_if_disabled()
 
-        N_dim = self._sanitize(op.dim, default=3)
-        data = self._random_array((N_dim,), xp=xp, width=width)
+        data = self._random_array(op.dim_shape, xp=xp, width=width)
         try:
             assert op.asloss() is op
             self._check_has_interface(op.asloss(data), self.__class__)
@@ -595,15 +634,13 @@ class DiffMapT(MapT):
         with pxrt.EnforcePrecision(False):
             dL = op.estimate_diff_lipschitz(**_data_estimate_diff_lipschitz["in_"])
 
-            J = lambda _: op.jacobian(_).asarray(dtype=width.value).flatten()
-            # .flatten() used to consistently compare jacobians via the L2 norm.
-            # (Allows one to re-use this test for scalar-valued DiffMaps.)
+            J = lambda _: op.jacobian(_).asarray(dtype=width.value)
 
             stats = []  # (x, y, condition success)
             data = xp.array(data_math_diff_lipschitz, dtype=width.value)
             for x, y in itertools.combinations(data, 2):
-                lhs = pxm.norm(J(x) - J(y))
-                rhs = dL * pxm.norm(x - y)
+                lhs = np.sum((J(x) - J(y)) ** 2)
+                rhs = (dL**2) * xp.sum((x - y) ** 2)
                 if np.isnan(lhs):
                     # J() may return INFs, in which case `INF-INF=NaN` may arise above. less_equal()
                     # is not able to handle NaNs, so the former are overwritten by a sensible value
@@ -624,7 +661,7 @@ class DiffFuncT(FuncT, DiffMapT):
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
     def data_grad(self) -> DataLike:
-        # override in subclass with 1D input/outputs of op.grad().
+        # override in subclass with 1D input/outputs of op.grad(). [1D means no stacking dimensions allowed.]
         # Arrays should be NumPy-only. (Internal machinery will transform to different
         # backend/precisions as needed.)
         raise NotImplementedError
@@ -675,8 +712,10 @@ class DiffFuncT(FuncT, DiffMapT):
             J = op.jacobian(arr).asarray(dtype=width.value)
             g = op.grad(arr)
 
+            assert len(J.shape) == len(g.shape) + 1
             assert J.size == g.size
-            assert ct.allclose(J.squeeze(), g, as_dtype=arr.dtype)
+            assert J.shape[1:] == g.shape
+            assert ct.allclose(J, g, as_dtype=arr.dtype)
 
     def test_math2_grad(self, op, xp, width, _data_estimate_lipschitz):
         # f(x - \frac{1}{L} \grad_{f}(x)) <= f(x)
@@ -689,11 +728,17 @@ class DiffFuncT(FuncT, DiffMapT):
             elif np.isclose(L, np.inf):
                 return  # trivially true since f(x) <= f(x)
 
-            N_test, N_dim = 5, self._sanitize(op.dim, default=3)
-            rhs = self._random_array((N_test, N_dim), xp=xp, width=width)
+            N_test = 10
+            rhs = self._random_array((N_test, *op.dim_shape), xp=xp, width=width)
             lhs = rhs - op.grad(rhs) / L
 
-            assert np.all(ct.less_equal(op.apply(lhs), op.apply(rhs), as_dtype=width.value))
+            assert np.all(
+                ct.less_equal(
+                    op.apply(lhs),
+                    op.apply(rhs),
+                    as_dtype=width.value,
+                )
+            )
 
 
 class ProxFuncT(FuncT):
@@ -716,14 +761,14 @@ class ProxFuncT(FuncT):
 
     @pytest.fixture
     def data_prox(self) -> DataLike:
-        # override in subclass with 1D input/outputs of op.prox().
+        # override in subclass with 1D input/outputs of op.prox(). [1D means no stacking dimensions allowed.]
         # Arrays should be NumPy-only. (Internal machinery will transform to different
         # backend/precisions as needed.)
         raise NotImplementedError
 
     @pytest.fixture
     def data_fenchel_prox(self, data_prox) -> DataLike:
-        # override in subclass with 1D input/outptus of op.fenchel_prox().
+        # override in subclass with 1D input/outptus of op.fenchel_prox(). [1D means no stacking dimensions allowed.]
         # Default value: inferred from data_prox().
         p_arr = data_prox["in_"]["arr"]
         p_tau = data_prox["in_"]["tau"]
@@ -794,15 +839,24 @@ class ProxFuncT(FuncT):
         in_ = _data_prox["in_"]
         y = op.prox(**in_)
 
-        N_test, N_dim = 5, y.shape[-1]
-        x = self._random_array((N_test, N_dim), xp=xp, width=width) + in_["arr"]
+        N_test = 10
+        x = in_["arr"]
+        z = x + self._random_array(
+            (N_test, *op.dim_shape),
+            xp=xp,
+            width=width,
+        )
 
-        def g(x):
-            a = 2 * in_["tau"] * op.apply(x)
-            b = pxm.norm(in_["arr"] - x, axis=-1, keepdims=True) ** 2
+        def g(z):
+            a = 2 * in_["tau"] * op.apply(z)
+            b = xp.sum(
+                (x - z) ** 2,
+                axis=tuple(range(-op.dim_rank, 0)),
+                keepdims=True,
+            )
             return a + b
 
-        assert np.all(ct.less_equal(g(y), g(x), as_dtype=y.dtype))
+        assert np.all(ct.less_equal(g(y), g(z), as_dtype=y.dtype))
 
     def test_value1D_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
@@ -868,13 +922,15 @@ class QuadraticFuncT(ProxDiffFuncT):
 
     @pytest.fixture
     def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
-        N_test, dim = 5, self._sanitize(op.dim, 3)
-        return self._random_array((N_test, dim), seed=5)
+        N_test = 10
+        x = self._random_array((N_test, *op.dim_shape))
+        return x
 
     @pytest.fixture
     def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
-        N_test, dim = 5, self._sanitize(op.dim, 3)
-        return self._random_array((N_test, dim), seed=5)
+        N_test = 10
+        x = self._random_array((N_test, *op.dim_shape))
+        return x
 
     @pytest.fixture(params=["svd", "trace"])  # supported methods
     def _data_estimate_diff_lipschitz(self, xp, width, _gpu, request) -> DataLike:
@@ -919,7 +975,7 @@ class QuadraticFuncT(ProxDiffFuncT):
         c = c.asarray(xp=xp, dtype=width.value)
 
         # f(0) == t
-        x = xp.zeros(op.dim, dtype=width.value)
+        x = xp.zeros(op.dim_shape, dtype=width.value)
         with pxrt.EnforcePrecision(False):
             out = op.apply(x)
         assert self._metric(out, t, as_dtype=width.value)
@@ -930,10 +986,13 @@ class QuadraticFuncT(ProxDiffFuncT):
         assert self._metric(out, c, as_dtype=width.value)
 
         # J_{f}(e_{i}) - c == Q_{i}
-        x = xp.eye(op.dim, dtype=width.value)
+        x = xp.reshape(
+            xp.eye(op.dim_size, dtype=width.value),
+            (*op.dim_shape, *op.dim_shape),
+        )
         with pxrt.EnforcePrecision(False):
             out = op.grad(x) - c
-        assert self._metric(out.T, Q, as_dtype=width.value)
+        assert self._metric(out, Q, as_dtype=width.value)
 
     def test_math2_diff_lipschitz(self, op, _data_estimate_diff_lipschitz, _gpu):
         # op.estimate_diff_lipschitz(svd) <= op.estimate_diff_lipschitz(trace)
