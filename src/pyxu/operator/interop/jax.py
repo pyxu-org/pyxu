@@ -419,7 +419,8 @@ class _FromJax(px_src._FromSource):
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         j_arr = _to_jax(arr, enable_warnings=self._enable_warnings)
         func = self._jax["apply"]
-        with jax.default_device(j_arr.device()):
+        dev = j_arr.devices().pop()
+        with jax.default_device(dev):
             j_out = func(j_arr)
         out = _from_jax(j_out, xp=pxu.get_array_module(arr))
         return out
@@ -427,7 +428,8 @@ class _FromJax(px_src._FromSource):
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         j_arr = _to_jax(arr, enable_warnings=self._enable_warnings)
         func = self._jax["grad"]
-        with jax.default_device(j_arr.device()):
+        dev = j_arr.devices().pop()
+        with jax.default_device(dev):
             j_out = func(j_arr)
         out = _from_jax(j_out, xp=pxu.get_array_module(arr))
         return out
@@ -435,7 +437,8 @@ class _FromJax(px_src._FromSource):
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         j_arr = _to_jax(arr, enable_warnings=self._enable_warnings)
         func = self._jax["adjoint"]
-        with jax.default_device(j_arr.device()):
+        dev = j_arr.devices().pop()
+        with jax.default_device(dev):
             j_out = func(j_arr)
         out = _from_jax(j_out, xp=pxu.get_array_module(arr))
         return out
@@ -443,7 +446,8 @@ class _FromJax(px_src._FromSource):
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         j_arr = _to_jax(arr, enable_warnings=self._enable_warnings)
         func = self._jax["prox"]
-        with jax.default_device(j_arr.device()):
+        dev = j_arr.devices().pop()
+        with jax.default_device(dev):
             j_out = func(j_arr, tau)  # positional args only if auto-vectorized.
         out = _from_jax(j_out, xp=pxu.get_array_module(arr))
         return out
@@ -451,7 +455,8 @@ class _FromJax(px_src._FromSource):
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         j_arr = _to_jax(arr, enable_warnings=self._enable_warnings)
         func = self._jax["pinv"]
-        with jax.default_device(j_arr.device()):
+        dev = j_arr.devices().pop()
+        with jax.default_device(dev):
             j_out = func(j_arr, damp)  # positional args only if auto-vectorized.
         out = _from_jax(j_out, xp=pxu.get_array_module(arr))
         return out
