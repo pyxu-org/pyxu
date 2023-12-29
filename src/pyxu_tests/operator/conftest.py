@@ -105,6 +105,12 @@ class MapT(ct.DisableTestMixin):
             pytest.skip("Only NUMPY/CUPY backends supported.")
 
     @staticmethod
+    def _skip_unless_DASK(ndi: pxd.NDArrayInfo):
+        N = pxd.NDArrayInfo
+        if ndi is not N.DASK:
+            pytest.skip("Only DASK backend supported.")
+
+    @staticmethod
     def _skip_unless_2D(op: pxt.OpT):
         if not ((op.dim_rank == 1) and (op.codim_rank == 1)):
             pytest.skip("Only 2D operators supported.")
