@@ -22,14 +22,15 @@ class PGD(pxa.Solver):
 
     .. math::
 
-       {\min_{\mathbf{x}\in\mathbb{R}^N} \;\mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})},
+       {\min_{\mathbf{x}\in\mathbb{R}^{M_{1} \times\cdots\times M_{D}}} \;
+       \mathcal{F}(\mathbf{x})\;\;+\;\;\mathcal{G}(\mathbf{x})},
 
     where:
 
-    * :math:`\mathcal{F}:\mathbb{R}^N\rightarrow \mathbb{R}` is *convex* and *differentiable*, with
-      :math:`\beta`-*Lipschitz continuous* gradient, for some :math:`\beta\in[0,+\infty[`.
-    * :math:`\mathcal{G}:\mathbb{R}^N\rightarrow \mathbb{R}\cup\{+\infty\}` is a *proper*, *lower semicontinuous* and
-      *convex function* with a *simple proximal operator*.
+    * :math:`\mathcal{F}:\mathbb{R}^{M_{1} \times\cdots\times M_{D}}\rightarrow \mathbb{R}` is *convex* and
+      *differentiable*, with :math:`\beta`-*Lipschitz continuous* gradient, for some :math:`\beta\in[0,+\infty[`.
+    * :math:`\mathcal{G}:\mathbb{R}^{M_{1} \times\cdots\times M_{D}}\rightarrow \mathbb{R}\cup\{+\infty\}` is a
+      *proper*, *lower semicontinuous* and *convex function* with a *simple proximal operator*.
 
     Remarks
     -------
@@ -48,10 +49,10 @@ class PGD(pxa.Solver):
          \qquad\&\qquad
          \lim\limits_{n\rightarrow \infty} n^2\Vert \mathbf{x}_n-\mathbf{x}_{n-1}\Vert^2_\mathcal{X}=0,
 
-      for *some minimiser* :math:`{\mathbf{x}^\star}\in\arg\min_{\mathbf{x}\in\mathbb{R}^N}
-      \;\left\{\mathcal{J}(\mathbf{x}):=\mathcal{F}(\mathbf{x})+\mathcal{G}(\mathbf{x})\right\}`.  In other words, both
-      the objective functional and the PGD iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` converge at a rate
-      :math:`o(1/n^2)`.  Significant practical *speedup* can be achieved for values of :math:`d` in the range
+      for *some minimiser* :math:`{\mathbf{x}^\star}\in\arg\min_{\mathbf{x}\in\mathbb{R}^{M_{1} \times\cdots\times
+      M_{D}}} \;\left\{\mathcal{J}(\mathbf{x}):=\mathcal{F}(\mathbf{x})+\mathcal{G}(\mathbf{x})\right\}`.  In other
+      words, both the objective functional and the PGD iterates :math:`\{\mathbf{x}_n\}_{n\in\mathbb{N}}` converge at a
+      rate :math:`o(1/n^2)`.  Significant practical *speedup* can be achieved for values of :math:`d` in the range
       :math:`[50,100]` [APGD]_.
 
     * The relative norm change of the primal variable is used as the default stopping criterion.  By default, the
@@ -74,7 +75,7 @@ class PGD(pxa.Solver):
     ----------------------
     * **x0** (:py:attr:`~pyxu.info.ptype.NDArray`)
       --
-      (..., N) initial point(s).
+      (..., M1,...,MD) initial point(s).
     * **tau** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
       --
       Gradient step size.  Defaults to :math:`1 / \beta` if unspecified.
@@ -108,16 +109,14 @@ class PGD(pxa.Solver):
                     "At least one of Parameter[f, g] must be specified.",
                 ]
             )
-            raise ValueError(msg)
+            raise NotImplementedError(msg)
+        elif f is None:
+            self._f = pxo.NullFunc(dim_shape=g.dim_shape)
+            self._g = g
+        elif g is None:
+            self._f = f
+            self._g = pxo.NullFunc(dim_shape=f.dim_shape)
         else:
-            # Problem
-            # -------
-            # If f/g is domain-agnostic and g/f is unspecified, cannot auto-infer NullFunc
-            # dimension.
-            #
-            # Solution
-            # --------
-            # Delay initialization of missing f/g to m_init(), where x0's shape can be used.
             self._f = f
             self._g = g
 
@@ -131,11 +130,6 @@ class PGD(pxa.Solver):
     ):
         mst = self._mstate  # shorthand
         mst["x"] = mst["x_prev"] = x0
-
-        if self._f is None:
-            self._f = pxo.NullFunc(dim=x0.shape[-1])
-        if self._g is None:
-            self._g = pxo.NullFunc(dim=x0.shape[-1])
 
         if tau is None:
             mst["tau"] = pxrt.coerce(1 / self._f.diff_lipschitz)
@@ -191,6 +185,7 @@ class PGD(pxa.Solver):
         stop_crit = RelError(
             eps=1e-4,
             var="x",
+            rank=self._f.dim_rank,
             f=None,
             norm=2,
             satisfy_all=True,
@@ -208,7 +203,7 @@ class PGD(pxa.Solver):
         Returns
         -------
         x: NDArray
-            (..., N) solution.
+            (..., M1,...,MD) solution.
         """
         data, _ = self.stats()
         return data.get("x")

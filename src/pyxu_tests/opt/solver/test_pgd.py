@@ -12,12 +12,12 @@ import pyxu_tests.opt.solver.conftest as conftest
 @pytest.mark.filterwarnings("ignore::pyxu.info.warning.AutoInferenceWarning")
 class TestPGD(conftest.SolverT):
     @staticmethod
-    def spec_data(N: int) -> list[tuple[pxt.SolverC, dict, dict]]:
+    def spec_data(dim_shape: pxt.NDArrayShape) -> list[tuple[pxt.SolverC, dict, dict]]:
         klass = [
             pxsl.PGD,
         ]
 
-        funcs = conftest.funcs(N, seed=3)
+        funcs = conftest.funcs(dim_shape=dim_shape, seed=3)
         stream1 = conftest.generate_funcs(funcs, N_term=1)
         stream2 = conftest.generate_funcs(funcs, N_term=2)
         kwargs_init = [
@@ -29,8 +29,8 @@ class TestPGD(conftest.SolverT):
         kwargs_fit = []
         param_sweep = dict(
             x0=[
-                np.full(N, 50),
-                np.full((2, N), 50),  # multiple initial points
+                np.full(dim_shape, 50),
+                np.full((2, *dim_shape), 50),  # multiple initial points
             ],
             tau=[None],
             acceleration=[True, False],
@@ -43,7 +43,12 @@ class TestPGD(conftest.SolverT):
         data = itertools.product(klass, kwargs_init, kwargs_fit)
         return list(data)
 
-    @pytest.fixture(params=spec_data(N=7))
+    @pytest.fixture(
+        params=[
+            *spec_data((7,)),
+            *spec_data((5, 3, 7)),
+        ]
+    )
     def spec(self, request) -> tuple[pxt.SolverC, dict, dict]:
         klass, kwargs_init, kwargs_fit = request.param
         return klass, kwargs_init, kwargs_fit
