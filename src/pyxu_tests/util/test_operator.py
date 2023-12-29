@@ -4,11 +4,13 @@ import inspect
 import numpy as np
 import pytest
 
+import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.util as pxu
 
 
 class TestVectorize:
+    # Fixtures ----------------------------------------------------------------
     @pytest.fixture(
         params=[
             # (func, dim_shape, codim_shape) triplets.
@@ -79,6 +81,7 @@ class TestVectorize:
             )
         return data
 
+    # Tests -------------------------------------------------------------------
     def test_1d(self, vfunc, data_func, codim_shape):
         # No stacking dimensions -> rank[out] == codim_rank
         out_gt = data_func["out"]
@@ -118,3 +121,23 @@ class TestVectorize:
         out = vfunc(**in_)
 
         assert type(out) == type(in_["x"])  # noqa: E721
+
+    def test_chunk_preserved(self, vfunc, data_func, xp):
+        # DASK-inputs only: chunk size in stack-dimensions preserved.
+        if xp != pxd.NDArrayInfo.DASK.module():
+            pytest.skip("Unsupported for non-DASK inputs.")
+
+        sh_extra = (7, 7, 7)
+        in_ = data_func["in_"]
+        in_["x"] = xp.broadcast_to(
+            in_["x"],
+            shape=(*sh_extra, *in_["x"].shape),
+        )
+
+        sh_chunks = (2, 3, 4)  # stack chunks
+        cr_chunks = ("auto",) * len(in_["x"].shape)  # core-chunks
+        in_["x"] = in_["x"].rechunk(sh_chunks + cr_chunks)
+
+        out = vfunc(**in_)
+        sh_rank = len(sh_extra)
+        assert out.chunks[:sh_rank] == in_["x"].chunks[:sh_rank]
