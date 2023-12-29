@@ -42,17 +42,17 @@ def from_sciop(cls: pxt.OpC, sp_op: spsl.LinearOperator) -> pxt.OpT:
     @pxrt.enforce_precision(i="arr")
     def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[:-1]
-        arr = arr.reshape(-1, _.dim)
+        arr = arr.reshape(-1, _.dim_size)
         out = _._sp_op.matmat(arr.T).T
-        out = out.reshape(*sh, _.codim)
+        out = out.reshape(*sh, _.codim_size)
         return out
 
     @pxrt.enforce_precision(i="arr")
     def op_adjoint(_, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[:-1]
-        arr = arr.reshape(-1, _.codim)
+        arr = arr.reshape(-1, _.codim_size)
         out = _._sp_op.rmatmat(arr.T).T
-        out = out.reshape(*sh, _.dim)
+        out = out.reshape(*sh, _.dim_size)
         return out
 
     def op_asarray(_, **kwargs) -> pxt.NDArray:
@@ -79,7 +79,8 @@ def from_sciop(cls: pxt.OpC, sp_op: spsl.LinearOperator) -> pxt.OpT:
 
     op = px_src.from_source(
         cls=cls,
-        shape=sp_op.shape,
+        dim_shape=sp_op.shape[1],
+        codim_shape=sp_op.shape[0],
         apply=op_apply,
         adjoint=op_adjoint,
         asarray=op_asarray,

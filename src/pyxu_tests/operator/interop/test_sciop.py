@@ -15,6 +15,7 @@ class FromSciOpMixin:
     @pytest.fixture
     def op_orig(self) -> pxt.OpT:
         # Override in inherited class with the operator used to create the sci_op.
+        # Must be (1D -> 1D) op due to LinearOperator limitations.
         raise NotImplementedError
 
     @pytest.fixture(
@@ -43,13 +44,16 @@ class FromSciOpMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_orig) -> pxt.OpShape:
-        return op_orig.shape
+    def dim_shape(self, op_orig) -> pxt.NDArrayShape:
+        return (op_orig.dim_size,)
 
     @pytest.fixture
-    def data_apply(self, op_orig) -> conftest.DataLike:
-        dim = op_orig.dim
-        arr = self._random_array((dim,), seed=53)  # random seed for reproducibility
+    def codim_shape(self, op_orig) -> pxt.NDArrayShape:
+        return (op_orig.codim_size,)
+
+    @pytest.fixture
+    def data_apply(self, dim_shape, op_orig) -> conftest.DataLike:
+        arr = self._random_array(dim_shape)
         out = op_orig.apply(arr)
         return dict(
             in_=dict(arr=arr),
@@ -57,9 +61,8 @@ class FromSciOpMixin:
         )
 
     @pytest.fixture
-    def data_adjoint(self, op_orig) -> conftest.DataLike:
-        codim = op_orig.codim
-        arr = self._random_array((codim,), seed=54)  # random seed for reproducibility
+    def data_adjoint(self, codim_shape, op_orig) -> conftest.DataLike:
+        arr = self._random_array(codim_shape)
         out = op_orig.adjoint(arr)
         return dict(
             in_=dict(arr=arr),
@@ -72,7 +75,7 @@ class TestFromSciOpLinFunc(FromSciOpMixin, conftest.LinFuncT):
     def op_orig(self) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_linfunc as tc
 
-        return tc.ScaledSum(N=7)
+        return tc.Sum(dim_shape=(7,))
 
 
 class TestFromSciOpLinOp(FromSciOpMixin, conftest.LinOpT):
@@ -80,7 +83,7 @@ class TestFromSciOpLinOp(FromSciOpMixin, conftest.LinOpT):
     def op_orig(self) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_linop as tc
 
-        return tc.Tile(N=3, M=4)
+        return tc.Sum(dim_shape=(15,))
 
 
 class TestFromSciOpSquareOp(FromSciOpMixin, conftest.SquareOpT):
@@ -88,7 +91,7 @@ class TestFromSciOpSquareOp(FromSciOpMixin, conftest.SquareOpT):
     def op_orig(self) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_squareop as tc
 
-        return tc.CumSum(N=7)
+        return tc.CumSum(dim_shape=(7,))
 
 
 class TestFromSciOpNormalOp(FromSciOpMixin, conftest.NormalOpT):
@@ -96,8 +99,8 @@ class TestFromSciOpNormalOp(FromSciOpMixin, conftest.NormalOpT):
     def op_orig(self) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_normalop as tc
 
-        h = self._random_array((5,), seed=2)
-        return tc.CircularConvolution(h=h)
+        conv_filter = self._random_array((5,), seed=2)
+        return tc.CircularConvolution(dim_shape=(5,), h=conv_filter)
 
 
 class TestFromSciOpUnitOp(FromSciOpMixin, conftest.UnitOpT):
@@ -105,7 +108,7 @@ class TestFromSciOpUnitOp(FromSciOpMixin, conftest.UnitOpT):
     def op_orig(self) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_unitop as tc
 
-        return tc.Permutation(N=7)
+        return tc.Permutation(dim_shape=(7,))
 
 
 class TestFromSciOpSelfAdjointOp(FromSciOpMixin, conftest.SelfAdjointOpT):
@@ -113,7 +116,7 @@ class TestFromSciOpSelfAdjointOp(FromSciOpMixin, conftest.SelfAdjointOpT):
     def op_orig(self) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_selfadjointop as tc
 
-        return tc.SelfAdjointConvolution(N=7)
+        return tc.SelfAdjointConvolution(dim_shape=(7,))
 
 
 class TestFromSciOpPosDefOp(FromSciOpMixin, conftest.PosDefOpT):
@@ -121,7 +124,7 @@ class TestFromSciOpPosDefOp(FromSciOpMixin, conftest.PosDefOpT):
     def op_orig(self) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_posdefop as tc
 
-        return tc.PSDConvolution(N=7)
+        return tc.PSDConvolution(dim_shape=(7,))
 
 
 class TestFromSciOpProjOp(FromSciOpMixin, conftest.ProjOpT):
@@ -129,7 +132,7 @@ class TestFromSciOpProjOp(FromSciOpMixin, conftest.ProjOpT):
     def op_orig(self) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_projop as tc
 
-        return tc.Oblique(N=7, alpha=0.3)
+        return tc.Oblique(dim_shape=(7,), alpha=0.3)
 
 
 class TestFromSciOpOrthProjOp(FromSciOpMixin, conftest.OrthProjOpT):
@@ -137,4 +140,4 @@ class TestFromSciOpOrthProjOp(FromSciOpMixin, conftest.OrthProjOpT):
     def op_orig(self) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_orthprojop as tc
 
-        return tc.ScaleDown(N=7)
+        return tc.ScaleDown(dim_shape=(7,))
