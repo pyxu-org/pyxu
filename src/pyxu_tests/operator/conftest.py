@@ -50,7 +50,8 @@ def get_test_class(cls: pxt.OpC) -> "MapT":
 # * test_[value,backend,
 #         prec,precCM,
 #         transparent,math,
-#         interface
+#         interface,
+#         chunk,
 #        ]_<method>(op, ...)
 #       Verify that <method>, returns
 #       * value: right output values
@@ -60,6 +61,7 @@ def get_test_class(cls: pxt.OpC) -> "MapT":
 #       * transparent: referential-transparency, i.e. no side-effects
 #       * math: mathematical identities hold
 #       * interface: objects have the right interface
+#       * chunk: output preserves input chunks (stack-dims and/or core-dims)
 #
 DataLike = cabc.Mapping[str, typ.Any]
 
@@ -134,6 +136,19 @@ class MapT(ct.DisableTestMixin):
             return default
 
     @staticmethod
+    def _chunk_array(x: pxt.NDArray) -> pxt.NDArray:
+        # Chunk DASK arrays to have (when possible) at least 2 chunks per axis.
+        ndi = pxd.NDArrayInfo.from_obj(x)
+        if ndi == pxd.NDArrayInfo.DASK:
+            chunks = {}
+            for ax, sh in enumerate(x.shape):
+                chunks[ax] = sh // 2 if sh > 1 else sh
+            y = x.rechunk(chunks)
+        else:
+            y = x
+        return y
+
+    @staticmethod
     def _check_has_interface(op: pxt.OpT, klass: "MapT"):
         # Verify `op` has the public interface of `klass`.
         assert klass.interface <= frozenset(dir(op))
@@ -200,6 +215,29 @@ class MapT(ct.DisableTestMixin):
         dtype = MapT._sanitize(dtype, default=in_["arr"].dtype)
         assert out.shape == out_gt.shape
         assert cls._metric(out, out_gt, as_dtype=dtype)
+
+    @classmethod
+    def _check_chunk(
+        cls,
+        func,
+        data: DataLike,
+        preserve_core: bool,
+    ):
+        in_ = data["in_"].copy()
+        arr = in_["arr"]
+        xp = pxu.get_array_module(arr)
+        arr = xp.broadcast_to(
+            arr,
+            shape=(5, 1, 3, *arr.shape),
+            chunks=(2, 2, 2, *arr.chunks),
+        )
+        in_.update(arr=arr)
+        with pxrt.EnforcePrecision(False):
+            out = func(**in_)
+
+        assert out.chunks[:3] == arr.chunks[:3]
+        if preserve_core:
+            assert out.chunks[3:] == arr.chunks[3:]
 
     @staticmethod
     def _check_backend(func, data: DataLike):
@@ -353,7 +391,9 @@ class MapT(ct.DisableTestMixin):
         # Do not override in subclass: for internal use only to test `op.apply()`.
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_apply["in_"])
-        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
+        arr = xp.array(in_["arr"], dtype=width.value)
+        arr = self._chunk_array(arr)
+        in_.update(arr=arr)
         data = dict(
             in_=in_,
             out=data_apply["out"],
@@ -401,6 +441,11 @@ class MapT(ct.DisableTestMixin):
         self._skip_if_disabled()
         self._check_backend(op.apply, _data_apply)
 
+    def test_chunk_apply(self, op, ndi, _data_apply):
+        self._skip_if_disabled()
+        self._skip_unless_DASK(ndi)
+        self._check_chunk(op.apply, _data_apply, False)
+
     def test_prec_apply(self, op, _data_apply):
         self._skip_if_disabled()
         self._check_prec(op.apply, _data_apply)
@@ -424,6 +469,11 @@ class MapT(ct.DisableTestMixin):
     def test_backend_call(self, op, _data_apply):
         self._skip_if_disabled()
         self._check_backend(op.__call__, _data_apply)
+
+    def test_chunk_call(self, op, ndi, _data_apply):
+        self._skip_if_disabled()
+        self._skip_unless_DASK(ndi)
+        self._check_chunk(op.__call__, _data_apply, False)
 
     def test_prec_call(self, op, _data_apply):
         self._skip_if_disabled()
@@ -701,7 +751,9 @@ class DiffFuncT(FuncT, DiffMapT):
         # Do not override in subclass: for internal use only to test `op.grad()`.
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_grad["in_"])
-        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
+        arr = xp.array(in_["arr"], dtype=width.value)
+        arr = self._chunk_array(arr)
+        in_.update(arr=arr)
         data = dict(
             in_=in_,
             out=data_grad["out"],
@@ -720,6 +772,11 @@ class DiffFuncT(FuncT, DiffMapT):
     def test_backend_grad(self, op, _data_grad):
         self._skip_if_disabled()
         self._check_backend(op.grad, _data_grad)
+
+    def test_chunk_grad(self, op, ndi, _data_grad):
+        self._skip_if_disabled()
+        self._skip_unless_DASK(ndi)
+        self._check_chunk(op.grad, _data_grad, True)
 
     def test_prec_grad(self, op, _data_grad):
         self._skip_if_disabled()
@@ -819,7 +876,9 @@ class ProxFuncT(FuncT):
         # Do not override in subclass: for internal use only to test `op.prox()`.
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_prox["in_"])
-        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
+        arr = xp.array(in_["arr"], dtype=width.value)
+        arr = self._chunk_array(arr)
+        in_.update(arr=arr)
         data = dict(
             in_=in_,
             out=data_prox["out"],
@@ -832,7 +891,9 @@ class ProxFuncT(FuncT):
         # Do not override in subclass: for internal use only to test `op.fenchel_prox()`.
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_fenchel_prox["in_"])
-        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
+        arr = xp.array(in_["arr"], dtype=width.value)
+        arr = self._chunk_array(arr)
+        in_.update(arr=arr)
         data = dict(
             in_=in_,
             out=data_fenchel_prox["out"],
@@ -851,6 +912,11 @@ class ProxFuncT(FuncT):
     def test_backend_prox(self, op, _data_prox):
         self._skip_if_disabled()
         self._check_backend(op.prox, _data_prox)
+
+    def test_chunk_prox(self, op, ndi, _data_prox):
+        self._skip_if_disabled()
+        self._skip_unless_DASK(ndi)
+        self._check_chunk(op.prox, _data_prox, True)
 
     def test_prec_prox(self, op, _data_prox):
         self._skip_if_disabled()
@@ -901,6 +967,11 @@ class ProxFuncT(FuncT):
     def test_backend_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
         self._check_backend(op.fenchel_prox, _data_fenchel_prox)
+
+    def test_chunk_fenchel_prox(self, op, ndi, _data_fenchel_prox):
+        self._skip_if_disabled()
+        self._skip_unless_DASK(ndi)
+        self._check_chunk(op.fenchel_prox, _data_fenchel_prox, True)
 
     def test_prec_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
@@ -1207,7 +1278,9 @@ class LinOpT(DiffMapT):
         # Do not override in subclass: for internal use only to test `op.adjoint()`.
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_adjoint["in_"])
-        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
+        arr = xp.array(in_["arr"], dtype=width.value)
+        arr = self._chunk_array(arr)
+        in_.update(arr=arr)
         data = dict(
             in_=in_,
             out=data_adjoint["out"],
@@ -1252,7 +1325,9 @@ class LinOpT(DiffMapT):
         # Do not override in subclass: for internal use only to test `op.pinv()`.
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_pinv["in_"])
-        in_.update(arr=xp.array(in_["arr"], dtype=width.value))
+        arr = xp.array(in_["arr"], dtype=width.value)
+        arr = self._chunk_array(arr)
+        in_.update(arr=arr)
         data = dict(
             in_=in_,
             out=data_pinv["out"],
@@ -1355,6 +1430,11 @@ class LinOpT(DiffMapT):
     def test_backend_adjoint(self, op, _data_adjoint):
         self._skip_if_disabled()
         self._check_backend(op.adjoint, _data_adjoint)
+
+    def test_chunk_adjoint(self, op, ndi, _data_adjoint):
+        self._skip_if_disabled()
+        self._skip_unless_DASK(ndi)
+        self._check_chunk(op.adjoint, _data_adjoint, False)
 
     def test_prec_adjoint(self, op, _data_adjoint):
         self._skip_if_disabled()
@@ -1488,6 +1568,11 @@ class LinOpT(DiffMapT):
     def test_backend_pinv(self, op, _data_pinv):
         self._skip_if_disabled()
         self._check_backend(op.pinv, _data_pinv)
+
+    def test_chunk_pinv(self, op, ndi, _data_pinv):
+        self._skip_if_disabled()
+        self._skip_unless_DASK(ndi)
+        self._check_chunk(op.pinv, _data_pinv, False)
 
     def test_prec_pinv(self, op, _data_pinv):
         self._skip_if_disabled()
