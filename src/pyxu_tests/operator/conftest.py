@@ -99,6 +99,17 @@ class MapT(ct.DisableTestMixin):
             pytest.skip(f"{ndi} unsupported on this machine.")
 
     @staticmethod
+    def _skip_unless_NUMPY_CUPY(ndi: pxd.NDArrayInfo):
+        N = pxd.NDArrayInfo
+        if ndi not in {N.NUMPY, N.CUPY}:
+            pytest.skip("Only NUMPY/CUPY backends supported.")
+
+    @staticmethod
+    def _skip_unless_2D(op: pxt.OpT):
+        if not ((op.dim_rank == 1) and (op.codim_rank == 1)):
+            pytest.skip("Only 2D operators supported.")
+
+    @staticmethod
     def _random_array(
         shape: pxt.NDArrayShape,
         seed: int = None,
@@ -1092,15 +1103,6 @@ class LinOpT(DiffMapT):
     )
 
     # Internal helpers --------------------------------------------------------
-    def _skip_unless_NUMPY_CUPY(self, ndi):
-        N = pxd.NDArrayInfo
-        if ndi not in {N.NUMPY, N.CUPY}:
-            pytest.skip("Only NUMPY/CUPY backends supported.")
-
-    def _skip_unless_2D(self, op):
-        if not ((op.dim_rank == 1) and (op.codim_rank == 1)):
-            pytest.skip("Only 2D operators supported.")
-
     @classmethod
     def _check_value1D_vals(cls, func, kwargs, ground_truth):
         N = pxd.NDArrayInfo
