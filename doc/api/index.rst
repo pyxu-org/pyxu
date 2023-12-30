@@ -334,6 +334,7 @@ Misc
 
 .. autosummary::
 
+   ~pyxu.operator.BroadcastAxes
    ~pyxu.operator.ConstantValued
    ~pyxu.operator.ReshapeAxes
    ~pyxu.operator.SqueezeAxes

@@ -72,6 +72,9 @@ Misc
 .. autoclass:: pyxu.operator.ReshapeAxes
    :exclude-members: apply, adjoint
 
+.. autoclass:: pyxu.operator.BroadcastAxes
+   :exclude-members: apply, adjoint
+
 .. autofunction:: pyxu.operator.softmax
 
 .. autofunction:: pyxu.operator.softplus
