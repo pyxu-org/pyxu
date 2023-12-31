@@ -58,10 +58,6 @@ Indicator Functions
    :no-members:
    :special-members: __init__
 
-.. autoclass:: pyxu.operator.AffineSet
-   :no-members:
-   :special-members: __init__
-
 .. autoclass:: pyxu.operator.ConvexSetIntersection
    :no-members:
    :members: prox
