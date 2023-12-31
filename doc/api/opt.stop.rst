@@ -13,10 +13,6 @@ pyxu.opt.stop
    :no-members:
    :special-members: __init__
 
-.. autoclass:: pyxu.opt.stop.MaxCarbon
-   :no-members:
-   :special-members: __init__
-
 .. autoclass:: pyxu.opt.stop.Memorize
    :no-members:
    :special-members: __init__

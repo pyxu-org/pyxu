@@ -427,7 +427,6 @@ pyxu.opt.stop
 
    ~pyxu.opt.stop.AbsError
    ~pyxu.opt.stop.ManualStop
-   ~pyxu.opt.stop.MaxCarbon
    ~pyxu.opt.stop.MaxDuration
    ~pyxu.opt.stop.MaxIter
    ~pyxu.opt.stop.Memorize
