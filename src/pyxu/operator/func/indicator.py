@@ -6,7 +6,6 @@ import numpy as np
 
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
-import pyxu.math as pxm
 import pyxu.operator.func.norm as pxf
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
@@ -24,8 +23,11 @@ __all__ = [
 
 
 class _IndicatorFunction(pxf._ShiftLossMixin, pxa.ProxFunc):
-    def __init__(self, dim: pxt.Integer):
-        super().__init__(shape=(1, dim))
+    def __init__(self, dim_shape: pxt.NDArrayShape):
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=1,
+        )
         self.lipschitz = np.inf
 
     @staticmethod
@@ -41,17 +43,19 @@ class _IndicatorFunction(pxf._ShiftLossMixin, pxa.ProxFunc):
 class _NormBall(_IndicatorFunction):
     def __init__(
         self,
-        dim: pxt.Integer,
+        dim_shape: pxt.NDArrayShape,
         ord: pxt.Integer,
         radius: pxt.Real,
     ):
-        super().__init__(dim=dim)
+        super().__init__(dim_shape=dim_shape)
         self._ord = ord
         self._radius = float(radius)
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        norm = pxm.norm(arr, ord=self._ord, axis=-1, keepdims=True)
+        from pyxu.opt.stop import _norm
+
+        norm = _norm(arr, ord=self._ord, rank=self.dim_rank)  # (..., 1)
         out = self._bool2indicator(norm <= self._radius, arr.dtype)
         return out
 
@@ -62,14 +66,14 @@ class _NormBall(_IndicatorFunction):
             2: pxf.L2Norm,
             np.inf: pxf.L1Norm,
         }[self._ord]
-        op = klass(dim=self.dim)
+        op = klass(dim_shape=self.dim_shape)
 
         out = arr.copy()
         out -= op.prox(arr, tau=self._radius)
         return out
 
 
-def L1Ball(dim: pxt.Integer, radius: pxt.Real = 1) -> pxt.OpT:
+def L1Ball(dim_shape: pxt.NDArrayShape, radius: pxt.Real = 1) -> pxt.OpT:
     r"""
     Indicator function of the :math:`\ell_{1}`-ball.
 
@@ -90,20 +94,25 @@ def L1Ball(dim: pxt.Integer, radius: pxt.Real = 1) -> pxt.OpT:
 
     Parameters
     ----------
-    dim: Integer
+    dim_shape: NDArrayShape
     radius: Real
         Ball radius. (Default: unit ball.)
 
     Returns
     -------
     op: OpT
+
+    Note
+    ----
+    * Computing :py:meth:`~pyxu.abc.ProxFunc.prox` is unavailable with DASK inputs.
+      (Inefficient exact solution at scale.)
     """
-    op = _NormBall(dim=dim, ord=1, radius=radius)
+    op = _NormBall(dim_shape=dim_shape, ord=1, radius=radius)
     op._name = "L1Ball"
     return op
 
 
-def L2Ball(dim: pxt.Integer, radius: pxt.Real = 1) -> pxt.OpT:
+def L2Ball(dim_shape: pxt.NDArrayShape, radius: pxt.Real = 1) -> pxt.OpT:
     r"""
     Indicator function of the :math:`\ell_{2}`-ball.
 
@@ -124,7 +133,7 @@ def L2Ball(dim: pxt.Integer, radius: pxt.Real = 1) -> pxt.OpT:
 
     Parameters
     ----------
-    dim: Integer
+    dim_shape: NDArrayShape
     radius: Real
         Ball radius. (Default: unit ball.)
 
@@ -132,12 +141,12 @@ def L2Ball(dim: pxt.Integer, radius: pxt.Real = 1) -> pxt.OpT:
     -------
     op: OpT
     """
-    op = _NormBall(dim=dim, ord=2, radius=radius)
+    op = _NormBall(dim_shape=dim_shape, ord=2, radius=radius)
     op._name = "L2Ball"
     return op
 
 
-def LInfinityBall(dim: pxt.Integer, radius: pxt.Real = 1) -> pxt.OpT:
+def LInfinityBall(dim_shape: pxt.NDArrayShape, radius: pxt.Real = 1) -> pxt.OpT:
     r"""
     Indicator function of the :math:`\ell_{\infty}`-ball.
 
@@ -158,7 +167,7 @@ def LInfinityBall(dim: pxt.Integer, radius: pxt.Real = 1) -> pxt.OpT:
 
     Parameters
     ----------
-    dim: Integer
+    dim_shape: NDArrayShape
     radius: Real
         Ball radius. (Default: unit ball.)
 
@@ -166,7 +175,7 @@ def LInfinityBall(dim: pxt.Integer, radius: pxt.Real = 1) -> pxt.OpT:
     -------
     op: OpT
     """
-    op = _NormBall(dim=dim, ord=np.inf, radius=radius)
+    op = _NormBall(dim_shape=dim_shape, ord=np.inf, radius=radius)
     op._name = "LInfinityBall"
     return op
 
@@ -191,12 +200,13 @@ class PositiveOrthant(_IndicatorFunction):
        \max(\mathbf{x}, \mathbf{0})
     """
 
-    def __init__(self, dim: pxt.Integer):
-        super().__init__(dim=dim)
+    def __init__(self, dim_shape: pxt.NDArrayShape):
+        super().__init__(dim_shape=dim_shape)
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        in_set = (arr >= 0).all(axis=-1, keepdims=True)
+        axis = tuple(range(-self.dim_rank, 0))
+        in_set = (arr >= 0).all(axis=axis)[..., np.newaxis]
         out = self._bool2indicator(in_set, arr.dtype)
         return out
 
@@ -236,14 +246,14 @@ class HyperSlab(_IndicatorFunction):
         Parameters
         ----------
         A: ~pyxu.abc.operator.LinFunc
-            (N,) operator
+            Linear functional with domain (M1,...,MD).
         lb: Real
-            Lower bound
+            Lower bound.
         ub: Real
-            Upper bound
+            Upper bound.
         """
         assert lb < ub
-        super().__init__(dim=a.dim)
+        super().__init__(dim_shape=a.dim_shape)
 
         # Everything happens internally in normalized coordinates.
         _norm = a.lipschitz  # \norm{a}{2}
@@ -253,17 +263,18 @@ class HyperSlab(_IndicatorFunction):
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        y = self._a.apply(arr)
+        y = self._a.apply(arr)  # (..., 1)
         in_set = ((self._l <= y) & (y <= self._u)).all(axis=-1, keepdims=True)
-        out = self._bool2indicator(in_set, arr.dtype)
+        out = self._bool2indicator(in_set, arr.dtype)  # (..., 1)
         return out
 
     @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
 
-        a = self._a.adjoint(xp.ones(1, dtype=arr.dtype))  # slab direction
-        y = self._a.apply(arr)
+        a = self._a.adjoint(xp.ones(1, dtype=arr.dtype))  # (M1,...,MD)
+        expand = (np.newaxis,) * (self.dim_rank - 1)
+        y = self._a.apply(arr)[..., *expand]  # (..., 1,...,1)
         out = arr.copy()
 
         l_corr = self._l - y
@@ -298,36 +309,23 @@ class RangeSet(_IndicatorFunction):
     """
 
     def __init__(self, A: pxa.LinOp):
-        """
-        Parameters
-        ----------
-        A: ~pyxu.abc.operator.LinOp
-            (M, N) operator
-        """
-        super().__init__(dim=A.codim)
+        super().__init__(dim_shape=A.codim_shape)
         self._A = A
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        # I'm in range(A) if prox(x)==x.
         xp = pxu.get_array_module(arr)
-        in_set = xp.isclose(self.prox(arr, tau=1), arr).all(axis=-1, keepdims=True)
-        out = self._bool2indicator(in_set, arr.dtype)
-        return out
+
+        # I'm in range(A) if prox(x)==x.
+        axis = tuple(range(-self.dim_rank, 0))
+        y = self.prox(arr, tau=1)
+        in_set = xp.isclose(y, arr).all(axis=axis)  # (...,)
+
+        out = self._bool2indicator(in_set[..., np.newaxis], arr.dtype)
+        return out  # (..., 1)
 
     @pxrt.enforce_precision(i=("arr", "tau"))
-    @pxu.vectorize(i="arr")  # see comment below
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
-        # [2023.01.03 Sepand]
-        #
-        # When more than one input is provided, `A.pinv(arr)` may sometimes return NaNs.
-        # The problem is pinpointed to the instruction below from CG():
-        #     alpha = rr / (p * Ap).sum(axis=-1, keepdims=True)
-        #
-        # Oddly the problem does not occur when `arr` is 1D.
-        # Could not figure out why the CG line breaks down at times with multi-inputs.
-        #
-        # Temporary(/Permanent?) workaround: use @vectorize() to evaluate prox calls one at a time.
         y = self._A.pinv(arr, damp=0)
         out = self._A.apply(y)
         return out
