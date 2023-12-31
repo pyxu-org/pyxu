@@ -5,123 +5,109 @@ import pytest
 
 import pyxu.abc as pxa
 import pyxu.opt.stop as pxst
+from pyxu_tests.operator.examples.test_linfunc import Sum
 
 # We do not test MaxIter(), ManualStop() and MaxDuration() since they are trivial.
 
 
 class TestAbsError:
+    @pytest.mark.parametrize("var", ["x", "y"])
     @pytest.mark.parametrize(
-        ["eps", "f", "state", "stop_val"],
+        ["eps", "rank", "f", "norm", "satisfy_all", "state", "stop_val"],
         [
-            [3, None, 4, False],
-            [3, None, 3, True],
-            [3, None, 2, True],
-            [3, lambda _: _**2, 4, False],
-            [3, lambda _: _**2, 3, False],
-            [3, lambda _: _**2, np.sqrt(3), True],
-            [3, lambda _: _**2, 1, True],
+            # L0-norm, rank 1, 1 input ----------------------------------------
+            [0.5, 1, None, 0, False, np.r_[1e-4], False],
+            [1, 1, None, 0, False, np.r_[1e-4], True],
+            [2.999, 1, None, 0, False, np.r_[:4], False],
+            [4, 1, None, 0, False, np.r_[:4], True],
+            # L0-norm, rank 1, 2 input ----------------------------------------
+            [2, 1, None, 0, True, np.r_[:4].reshape(2, 2), True],
+            [1, 1, None, 0, True, np.r_[:4].reshape(2, 2), False],  # playing with satisfy_all
+            [1, 1, None, 0, False, np.r_[:4].reshape(2, 2), True],  # playing with satisfy_all
+            # L0-norm, rank 2, 1 input ----------------------------------------
+            [3, 2, None, 0, True, np.r_[:4].reshape(2, 2), True],
+            [2.999, 2, None, 0, True, np.r_[:4].reshape(2, 2), False],
+            # L0-norm, rank 2, 2 input ----------------------------------------
+            [6, 2, None, 0, True, np.r_[:12].reshape(2, 2, 3), True],
+            [4.9, 2, None, 0, False, np.r_[:12].reshape(2, 2, 3), False],
+            [5, 2, None, 0, False, np.r_[:12].reshape(2, 2, 3), True],
+            # L0.5-norm, f given, rank 1, 6 input -----------------------------
+            [25, 1, Sum((5, 3, 4)), 0.5, False, np.r_[:360].reshape(3, 2, 5, 3, 4) / 360, True],
+            [25, 1, Sum((5, 3, 4)), 0.5, True, np.r_[:360].reshape(3, 2, 5, 3, 4) / 360, False],
+            [3016, 1, Sum((5, 3, 4)), 0.5, True, np.r_[:360].reshape(3, 2, 5, 3, 4) / 360, True],
         ],
     )
-    def test_scalar_in(self, eps, f, state, stop_val):
-        sc = pxst.AbsError(eps=eps, f=f)
-        state = dict(x=state)
-        assert sc.stop(state) == stop_val
-        sc.info()  # just to make sure it doesn't crash
+    def test_stop(
+        self,
+        var,
+        # ---------
+        eps,
+        rank,
+        f,
+        norm,
+        satisfy_all,
+        state,
+        stop_val,
+        # ---------
+        xp,
+        width,
+    ):
+        sc = pxst.AbsError(
+            eps=eps,
+            var=var,
+            rank=rank,
+            f=f,
+            norm=norm,
+            satisfy_all=satisfy_all,
+        )
+        state = {var: xp.array(state, dtype=width.value)}
 
-    @pytest.mark.parametrize(
-        ["eps", "f", "satisfy_all", "state", "stop_val"],
-        [
-            # 1 input, function
-            [np.sqrt(14), None, True, np.arange(1, 4), True],
-            [np.sqrt(14), None, True, np.arange(1, 5), False],
-            [6, lambda _: _.sum(axis=-1, keepdims=True), True, np.broadcast_to(np.arange(1, 4), (1, 3)), True],
-            [6, lambda _: _.sum(axis=-1, keepdims=True), True, np.broadcast_to(np.arange(1, 5), (1, 4)), False],
-            # N input, satisfy_[any/all]
-            [6.5, None, True, np.array([np.linspace(1, 4, 5), np.linspace(1, 5, 5)]), False],
-            [6.5, None, False, np.array([np.linspace(1, 4, 5), np.linspace(1, 5, 5)]), True],
-        ],
-    )
-    def test_array_in(self, eps, f, satisfy_all, state, stop_val, xp):
-        sc = pxst.AbsError(eps=eps, f=f, satisfy_all=satisfy_all)
-        state = dict(x=xp.array(state))  # test all possible array backends.
         assert sc.stop(state) == stop_val
         sc.info()  # just to make sure it doesn't crash
 
 
 class TestRelError:
+    # We disable RuntimeWarnings which may arise due to NaNs. (See comment below.)
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
+    @pytest.mark.parametrize("var", ["x", "y"])
     @pytest.mark.parametrize(
-        ["eps", "f", "state", "stop_val"],
+        ["eps", "rank", "f", "norm", "satisfy_all", "state0", "state1", "stop_val"],
         [
-            [0.5, None, (1, 2), False],
-            [0.5, None, (2, 3), True],
-            [0.5, None, (3, 4), True],
-            [0.3, lambda _: _**2, (1, 2), False],
-            [0.3, lambda _: _**2, (2, 3), False],
-            [0.9, lambda _: _**2, (3, 4), True],
+            # L1-norm, rank 1, 1 input ----------------------------------------
+            [1, 1, None, 1, True, np.full((5,), 1), np.full((5,), 2), True],
+            [0.9, 1, None, 1, True, np.full((5,), 1), np.full((5,), 2), False],
+            [1e-6, 1, None, 1, True, np.full((5,), 0), np.full((5,), 0), True],  # 0/0 at 2nd iteration forces stop
+            [1e-6, 1, None, 1, True, np.full((5,), 0), np.full((5,), 1), False],  # 1/0 at 2nd iteration forces continue
         ],
     )
-    def test_scalar_in(self, eps, f, state, stop_val):
-        sc = pxst.RelError(eps=eps, f=f)
-        state0 = dict(x=state[0])
-        assert sc.stop(state0) is False
-        state1 = dict(x=state[1])
-        assert sc.stop(state1) == stop_val
-        sc.info()  # just to make sure it doesn't crash
+    def test_stop(
+        self,
+        var,
+        # ---------
+        eps,
+        rank,
+        f,
+        norm,
+        satisfy_all,
+        state0,
+        state1,
+        stop_val,
+        # ---------
+        xp,
+        width,
+    ):
+        sc = pxst.RelError(
+            eps=eps,
+            var=var,
+            rank=rank,
+            f=f,
+            norm=norm,
+            satisfy_all=satisfy_all,
+        )
+        state0 = {var: xp.array(state0, dtype=width.value)}
+        state1 = {var: xp.array(state1, dtype=width.value)}
 
-    @pytest.mark.parametrize(
-        ["eps", "f", "satisfy_all", "state", "stop_val"],
-        [
-            # 1 input, function
-            [0.6, None, True, (np.r_[1, 1, 1], np.r_[1, 2, 1]), True],
-            [0.23, None, True, (np.r_[2, 2, 2], np.r_[2, 3, 2]), False],
-            [
-                0.4,
-                lambda _: _.sum(axis=-1, keepdims=True),
-                True,
-                (
-                    np.broadcast_to(np.r_[1, 1, 1], (1, 3)),
-                    np.broadcast_to(np.r_[1, 2, 1], (1, 3)),
-                ),
-                True,
-            ],
-            [
-                0.16,
-                lambda _: _.sum(axis=-1, keepdims=True),
-                True,
-                (
-                    np.broadcast_to(np.r_[2, 2, 2], (1, 3)),
-                    np.broadcast_to(np.r_[2, 3, 2], (1, 3)),
-                ),
-                False,
-            ],
-            # N input, satisfy_[any/all]
-            [
-                0.3,
-                None,
-                True,
-                (
-                    np.array([[1, 1, 1], [2, 2, 2]]),
-                    np.array([[1, 2, 1], [2, 3, 2]]),
-                ),
-                False,
-            ],
-            [
-                0.3,
-                None,
-                False,
-                (
-                    np.array([[1, 1, 1], [2, 2, 2]]),
-                    np.array([[1, 2, 1], [2, 3, 2]]),
-                ),
-                True,
-            ],
-        ],
-    )
-    def test_array_in(self, eps, f, satisfy_all, state, stop_val, xp):
-        sc = pxst.RelError(eps=eps, f=f, satisfy_all=satisfy_all)
-        state0 = dict(x=xp.array(state[0]))  # test all possible array backends.
         assert sc.stop(state0) is False
-        state1 = dict(x=xp.array(state[1]))  # test all possible array backends.
         assert sc.stop(state1) == stop_val
         sc.info()  # just to make sure it doesn't crash
 
@@ -131,9 +117,8 @@ class TestRelError:
     [
         [pxst.MaxIter(n=10), [{}] * 12],  # state meaningless
         [pxst.ManualStop(), [{}] * 12],  # state meaningless
-        # [pxst.MaxDuration(), [{}] * 10],  # MaxDuration is never 100% reproducible
-        [pxst.AbsError(eps=3), [dict(x=_) for _ in np.arange(10, 0, -1)]],
-        [pxst.RelError(eps=1 / 6), [dict(x=_) for _ in np.arange(10)]],
+        [pxst.AbsError(eps=3), [dict(x=np.r_[x]) for x in np.arange(10, 0, -1)]],
+        [pxst.RelError(eps=1 / 6), [dict(x=np.r_[x]) for x in np.arange(10)]],
     ],
 )
 def test_clear(
