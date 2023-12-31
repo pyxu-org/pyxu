@@ -18,38 +18,44 @@ import pyxu.util as pxu
 import pyxu_tests.conftest as ct
 
 
-def funcs(N: int, seed: int = 0) -> cabc.Sequence[tuple[pxt.OpT, pxt.OpT]]:
+def funcs(dim_shape: pxt.NDArrayShape, seed: int = 0) -> cabc.Sequence[tuple[pxt.OpT, pxt.OpT]]:
     # Sequence of functional descriptors. (More terms can be added.)
     #
     # Used to create strongly-convex functionals.
     #
     # These functions MUST be backend-agnostic.
     import pyxu.operator as pxo
-    import pyxu_tests.operator.examples.test_unitop as unitop
+    from pyxu_tests.operator.examples.test_linfunc import Sum
+    from pyxu_tests.operator.examples.test_unitop import Permutation
 
-    L2 = pxo.SquaredL2Norm(dim=N)
-    Id = pxo.IdentityOp(dim=N)
+    L2 = pxo.SquaredL2Norm(dim_shape=dim_shape)
+    Id = pxo.IdentityOp(dim_shape=dim_shape)
 
     rng = np.random.default_rng(seed)
     f = [
         (  # f1(x) = \norm{A1 x}{2}^{2}
             L2,
-            pxo.HomothetyOp(cst=rng.uniform(1.1, 1.3), dim=N),
+            pxo.HomothetyOp(cst=rng.uniform(1.1, 1.3), dim_shape=dim_shape),
         ),
-        (  # f2(x) = \norm{A2 x - y2}
-            L2.asloss(rng.uniform(1, 3)),
-            unitop.Permutation(N=N),
+        (  # f2(x) = sum(x-permuted)
+            Sum(dim_shape=dim_shape),
+            Permutation(dim_shape=dim_shape),
         ),
-        (  # f3(x) = sum(x)
-            pxo.Sum(arg_shape=N),
-            Id,
-        ),
-        (  # f4(x) = \norm{a x}{2}^{2}
+        (  # f3(x) = \norm{a x}{2}^{2}
             L2.argscale(rng.uniform(-5, -1.1)),
             Id,
         ),
-        (  # f5(x) = cst * \norm{x + y5}{2}^{2}
-            L2.argshift(rng.normal()) * rng.uniform(1.1, 3),
+        (  # f4(x) = QuadraticFunc() with non-zero minimum.
+            pxa.QuadraticFunc(
+                dim_shape=dim_shape,
+                codim_shape=1,
+                Q=pxo.HomothetyOp(
+                    dim_shape=dim_shape,
+                    cst=rng.uniform(0.3, 1.1),
+                ),
+                c=Sum(dim_shape=dim_shape),
+                t=rng.uniform(-1.3, 1.3),
+            ),
             Id,
         ),
     ]
@@ -205,16 +211,12 @@ class SolverT(ct.DisableTestMixin):
     def xp(self, request) -> pxt.ArrayModule:
         return request.param
 
-    @pytest.fixture(params=pxrt.Width)
-    def width(self, request) -> pxrt.Width:
-        return request.param
-
     @pytest.fixture
     def cost_function(self, kwargs_init) -> dict[str, pxt.OpT]:
         # override in subclass to create cost function minimized per logged variable.
         #
         # Inputs are assumed to be some linear combination of conftest.funcs().
-        # The cost functions are hence guaranteed to be a strongly convex.
+        # The cost functions are hence guaranteed to be strongly convex.
         raise NotImplementedError
 
     @pytest.fixture
@@ -223,9 +225,10 @@ class SolverT(ct.DisableTestMixin):
         #
         # Must return the same output as solver.stats()[0], i.e. the data dictionary.
         def fun(x: np.ndarray, cost_f: pxt.OpT) -> tuple[float, np.ndarray]:  # f(x), \grad_{f}(x)
-            val = cost_f.apply(x)
-            grad = cost_f.grad(x)
-            return float(val.item()), grad
+            _x = x.reshape(cost_f.dim_shape)
+            val = cost_f.apply(_x)
+            grad = cost_f.grad(_x)
+            return float(val.item()), grad.reshape(-1)
 
         rng = np.random.default_rng()
         data = dict()
@@ -233,12 +236,14 @@ class SolverT(ct.DisableTestMixin):
             res = sopt.minimize(
                 fun=fun,
                 args=(cost_f,),
-                x0=rng.uniform(size=cost_f.dim),
+                x0=rng.uniform(size=cost_f.dim_size),
                 method="CG",
                 jac=True,
             )
             assert res.success  # if raised, means cost function was not strongly-convex
-            data[log_var] = xp.array(res.x)
+
+            sol = res.x.reshape(cost_f.dim_shape)
+            data[log_var] = xp.array(sol)
         return data
 
     # Tests -------------------------------------------------------------------
@@ -299,10 +304,12 @@ class SolverT(ct.DisableTestMixin):
             pxst.RelError(
                 eps=eps_threshold,
                 var=k,
+                rank=c_func.dim_rank,
                 f=None,
+                norm=2,
                 satisfy_all=True,
             )
-            for k in cost_function.keys()
+            for (k, c_func) in cost_function.items()
         ]
         time_crit = pxst.MaxDuration(t=time_threshold)
 
@@ -321,8 +328,8 @@ class SolverT(ct.DisableTestMixin):
 
         # ensure solver ended because rel-err threshold reached, not timeout
         relerr_decrease = dict()
-        for var in cost_function.keys():
-            if data_0[var].ndim == 1:
+        for var, c_func in cost_function.items():
+            if data_0[var].ndim == c_func.dim_rank:
                 k = f"RelError[{var}]"
             else:
                 k = f"RelError[{var}]_max"
@@ -337,7 +344,7 @@ class SolverT(ct.DisableTestMixin):
             c_gt = c_func.apply(ground_truth[var])
 
             # Numerical errors can make c_gt > c_opt at convergence.
-            # We piggy-back on less_equal() from the operator test suite to handle this case.
+            # We piggy-back on less_equal() to handle this case.
             bound_1 = ct.less_equal(c_gt, c_opt, as_dtype=width.value)
 
             # The cost function MUST decrease. (See test-level comment for details.)
