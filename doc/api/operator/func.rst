@@ -57,8 +57,3 @@ Indicator Functions
 .. autoclass:: pyxu.operator.RangeSet
    :no-members:
    :special-members: __init__
-
-.. autoclass:: pyxu.operator.ConvexSetIntersection
-   :no-members:
-   :members: prox
-   :special-members: __init__

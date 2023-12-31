@@ -1,7 +1,3 @@
-import collections.abc as cabc
-import functools
-import operator
-
 import numpy as np
 
 import pyxu.abc as pxa
@@ -17,7 +13,6 @@ __all__ = [
     "PositiveOrthant",
     "HyperSlab",
     "RangeSet",
-    "ConvexSetIntersection",
 ]
 
 
@@ -328,130 +323,3 @@ class RangeSet(_IndicatorFunction):
         y = self._A.pinv(arr, damp=0)
         out = self._A.apply(y)
         return out
-
-
-class ConvexSetIntersection(_IndicatorFunction):
-    r"""
-    Indicator function of an intersection of convex domains :math:`\mathcal{C}_{1} \cap \cdots \cap \mathcal{C}_{K}`.
-
-    .. math::
-
-       \iota(\mathbf{x})
-       :=
-       \iota_{1}(\mathbf{x}) + \cdots + \iota_{K}(\mathbf{x}).
-
-    :math:`\text{prox}_{\tau\, \iota}(\mathbf{x})` is computed using the PoCS algorithm.  (Dykstra's variant
-    [PoCS_Dykstra]_.)
-
-    This function assumes :math:`\mathcal{C}_{1} \cap \cdots \cap \mathcal{C}_{K} \ne \emptyset`.
-    :py:meth:`~pyxu.operator.ConvexSetIntersection.prox` will loop indefinitely if this condition is violated.
-
-    Examples
-    --------
-    .. code-block:: python3
-
-       import numpy as np
-       import pyxu.operator as pxo
-
-       op = pxo.ConvexSetIntersection(             # intersection of
-           pxo.LInfinityBall(),                    #   L-\infty ball centered at (0,0)
-           pxo.L2Ball().asloss(np.array([1, 0])),  #   L2 ball centered at (1,0)
-       )
-
-       x = np.array([
-           [0, 0],
-           [1, 0],
-           [2, 0],  # not in LInfinity ball -> \infty
-           [1, 1],
-           [1, -1],
-           [0, 1],  # not in L2 ball -> \infty
-        ])
-       op.apply(x)  # [0 0 inf 0 0 inf]
-    """
-
-    def __init__(self, *args: cabc.Sequence[pxa.ProxFunc]):
-        """
-        Parameters
-        ----------
-        args: :py:class:`list` ( :py:class:`~pyxu.abc.ProxFunc` )
-            Sequence of indicator functions encoding convex domains.
-        """
-        # Create `op` to auto-compute best shape behind the scenes.
-        if len(args) == 1:
-            op = args[0]
-        else:
-            op = functools.reduce(operator.add, args)
-        super().__init__(dim=op.dim)
-
-        self._f = args
-
-        # Initialize PoCS solver.
-        # Useful to do so in __init__() to be able to examine solver stats() after prox() calls.
-        self._slvr = ConvexSetIntersection._PoCS(
-            f=self._f,
-            show_progress=False,
-            log_var="x",
-        )
-
-    @pxrt.enforce_precision(i="arr")
-    def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        out = [None] * len(self._f)
-        for i, f in enumerate(self._f):
-            out[i] = f.apply(arr)
-        out = sum(out)
-        return out
-
-    @pxrt.enforce_precision(i=("arr", "tau"))
-    def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
-        if len(self._f) == 1:
-            # One projection sufficient
-            op = self._f[0]
-            out = op.prox(arr, tau)  # tau can be arbitrary
-        else:
-            # Use Dykstra's PoCS algorithm until a point in the intersection is found
-            from pyxu.opt.stop import AbsError
-
-            self._slvr.fit(
-                x0=arr,
-                stop_crit=AbsError(
-                    var="x",
-                    eps=1,  # any point in intersection satisfies (eps < inf)
-                    f=lambda x: self.apply(x),
-                ),
-            )
-
-            data, _ = self._slvr.stats()
-            out = data["x"]
-        return out
-
-    def _expr(self) -> tuple:
-        # Show all cvx-domains involved
-        return ("add", *self._f)
-
-    class _PoCS(pxa.Solver):
-        # Dykstra's PoCS algorithm [PoCS_Dykstra]_
-        #
-        # This is a bare-bones Solver sub-class since only used internally.
-
-        def __init__(self, f: cabc.Sequence[pxa.ProxFunc], **kwargs):
-            super().__init__(**kwargs)
-            self._f = f
-
-        @pxrt.enforce_precision(i="x0")
-        def m_init(self, x0: pxt.NDArray):
-            mst = self._mstate  # shorthand
-            mst["x"] = x0.copy()
-
-            xp = pxu.get_array_module(x0)
-            K = len(self._f)
-            *sh, N = x0.shape
-            mst["residual"] = xp.zeros((K, *sh, N), dtype=x0.dtype)
-
-        def m_step(self):
-            mst = self._mstate  # shorthand
-            x, r = mst["x"], mst["residual"]
-
-            for i, f in enumerate(self._f):
-                y = f.prox(x - r[i], tau=1)  # tau is arbitrary
-                r[i] = y - x
-                x[:] = y

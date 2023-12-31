@@ -242,7 +242,6 @@ Indicator Functions
 
 .. autosummary::
 
-   ~pyxu.operator.ConvexSetIntersection
    ~pyxu.operator.HyperSlab
    ~pyxu.operator.L1Ball
    ~pyxu.operator.L2Ball
