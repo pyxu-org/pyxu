@@ -285,7 +285,7 @@ class MapT(ct.DisableTestMixin):
             except AssertionError:
                 # Function is non-transparent, but which backend caused it?
                 ndi = pxd.NDArrayInfo.from_obj(out_1)
-                raise f"Not transparent to {ndi} inputs."
+                raise Exception(f"Not transparent to {ndi} inputs.")
 
     # Fixtures (Public-Facing) ------------------------------------------------
     @pytest.fixture
