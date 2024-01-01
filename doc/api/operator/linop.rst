@@ -15,7 +15,7 @@ Basic Operators
 
 .. autofunction:: pyxu.operator.Trim
 
-.. autofunction:: pyxu.operator.Sum
+.. autoclass:: pyxu.operator.Sum
 
 .. autoclass:: pyxu.operator.IdentityOp
    :no-members:

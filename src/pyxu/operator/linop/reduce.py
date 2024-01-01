@@ -1,10 +1,7 @@
-import collections.abc as cabc
-
 import numpy as np
 
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
-import pyxu.operator.interop.source as px_src
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -13,111 +10,84 @@ __all__ = [
 ]
 
 
-def Sum(
-    arg_shape: pxt.NDArrayShape,
-    axis: pxt.NDArrayAxis = None,
-) -> pxt.OpT:
+class Sum(pxa.LinOp):
     r"""
-    Multi-dimensional sum reduction.
-
-    This operator re-arranges the input array to a multi-dimensional array of shape `arg_shape`, then reduces it via
-    summation across one or more `axis`.
-
-    For example, assuming the input array :math:`\mathbf{x} \in \mathbb{R}^{N_1 \times N_2 \times N_3}` and ``axis=-1``,
-    then
-
-    .. math::
-
-       \mathbf{y}_{i,j} = \sum_{k}{\mathbf{x}_{i,j,k}}.
-
-    Parameters
-    ----------
-    arg_shape: NDArrayShape
-        Shape of the data to be reduced.
-    axis: NDArrayAxis
-        Axis or axes along which a sum is performed.  The default, axis=None, will sum all the elements of the input
-        array.  If axis is negative it counts from the last to the first axis.
+    Multi-dimensional sum reduction :math:`\mathbf{A}: \mathbb{R}^{M_{1} \times\cdots\times M_{D}} \to \mathbb{R}^{N_{1}
+    \times\cdots\times N_{D}}`.
 
     Notes
     -----
-    The matrix operator of a 1D reduction applied to :math:`\mathbf{x} \in \mathbb{R}^{N}` is given by
+    * The co-dimension rank **always** matches the dimension rank, i.e. summed-over dimensions are not dropped.
+      Single-element dimensions can be removed by composing :py:class:`~pyxu.operator.Sum` with
+      :py:class:`~pyxu.operator.SqueezeAxes`.
 
-    .. math::
+    * The matrix operator of a 1D reduction applied to :math:`\mathbf{x} \in \mathbb{R}^{M}` is given by
 
-       \mathbf{A}(x) = \mathbf{1}^{T} \mathbf{x},
+      .. math::
 
-    where :math:`\sigma_{\max}(\mathbf{A}) = \sqrt{N}`.  An ND reduction is a chain of 1D reductions in orthogonal
-    dimensions.  Hence the Lipschitz constant of an ND reduction is the product of Lipschitz constants of all 1D
-    reductions involved, i.e.:
+         \mathbf{A}(x) = \mathbf{1}^{T} \mathbf{x},
 
-    .. math::
+      where :math:`\sigma_{\max}(\mathbf{A}) = \sqrt{M}`.  An ND reduction is a chain of 1D reductions in orthogonal
+      dimensions.  Hence the Lipschitz constant of an ND reduction is the product of Lipschitz constants of all 1D
+      reductions involved, i.e.:
 
-       L = \sqrt{\prod_{i_{k}} N_{i_{k}}},
+      .. math::
 
-    where :math:`\{i_{k}\}_{k}` denotes the axes being summed over.
+         L = \sqrt{\prod_{i_{k}} M_{i_{k}}},
+
+      where :math:`\{i_{k}\}_{k}` denotes the axes being summed over.
     """
 
-    def as_array(obj) -> np.ndarray:
-        if isinstance(obj, cabc.Sequence):
-            pass
-        else:
-            obj = [obj]
-        return np.array(obj, dtype=int)
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        axis: pxt.NDArrayAxis = None,
+    ):
+        r"""
+        Multi-dimensional sum reduction.
 
-    arg_shape = as_array(arg_shape)
-    assert np.all(arg_shape > 0)
-    N_dim = len(arg_shape)
+        Parameters
+        ----------
+        dim_shape: NDArrayShape
+            (M1,...,MD) domain dimensions.
+        axis: NDArrayAxis
+            Axis or axes along which a sum is performed.  The default, axis=None, will sum all the elements of the input
+            array.
+        """
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=dim_shape,  # temporary; to canonicalize dim_shape.
+        )
 
-    if axis is None:
-        axis = np.arange(N_dim)
-    axis = np.unique(as_array(axis))  # drop potential duplicates
-    assert np.all((-N_dim <= axis) & (axis < N_dim))  # all axes in valid range
-    axis = (axis + N_dim) % N_dim  # get rid of negative axes
+        if axis is None:
+            axis = np.arange(self.dim_rank)
+        axis = pxu.as_canonical_axes(axis, rank=self.dim_rank)
+        axis = set(axis)  # drop duplicates
 
-    sum_shape = arg_shape.copy()  # array shape after reduction
-    sum_shape[axis] = 1
+        codim_shape = list(self.dim_shape)  # array shape after reduction
+        for i in range(self.dim_rank):
+            if i in axis:
+                codim_shape[i] = 1
+        self._codim_shape = tuple(codim_shape)
+
+        self._axis = tuple(axis)
+        self.lipschitz = self.estimate_lipschitz()
 
     @pxrt.enforce_precision(i="arr")
-    def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
-        sh = arr.shape[:-1]
-        arr = arr.reshape(sh + _._arg_shape)
-
-        axis = tuple(ax + len(sh) for ax in _._axis)
-        out = arr.sum(axis=axis).reshape(*sh, -1)
-
+    def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
+        sh = arr.shape[: -self.dim_rank]
+        axis = tuple(ax + len(sh) for ax in self._axis)
+        out = arr.sum(axis=axis, keepdims=True)
         return out
 
     @pxrt.enforce_precision(i="arr")
-    def op_adjoint(_, arr: pxt.NDArray) -> pxt.NDArray:
-        sh = arr.shape[:-1]
-        arr = arr.reshape(sh + _._sum_shape)
-
+    def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
+        sh = arr.shape[: -self.codim_rank]
         xp = pxu.get_array_module(arr)
-        out = xp.broadcast_to(arr, sh + _._arg_shape)
-
-        out = out.reshape(*sh, -1)
+        out = xp.broadcast_to(arr, sh + self.dim_shape)
         return out
 
-    def op_estimate_lipschitz(_, **kwargs) -> pxt.Real:
-        N = np.prod(_._arg_shape) / np.prod(_._sum_shape)
-        L = np.sqrt(N)
+    def estimate_lipschitz(self, **kwargs) -> pxt.Real:
+        M = np.prod(self.dim_shape) / np.prod(self.codim_shape)
+        L = np.sqrt(M)
         return L
-
-    dim = arg_shape.prod()
-    codim = dim // arg_shape[axis].prod()
-
-    op = px_src.from_source(
-        cls=pxa.LinOp if codim > 1 else pxa.LinFunc,
-        shape=(codim, dim),
-        embed=dict(
-            _name="Sum",
-            _axis=tuple(axis),
-            _arg_shape=tuple(arg_shape),
-            _sum_shape=tuple(sum_shape),
-        ),
-        apply=op_apply,
-        adjoint=op_adjoint,
-        estimate_lipschitz=op_estimate_lipschitz,
-    )
-    op.lipschitz = op.estimate_lipschitz()
-    return op
