@@ -70,23 +70,26 @@ class TestPad(conftest.LinOpT):
         ]
     )
     def _spec(self, request):
-        # (arg_shape, pad_width, mode) configs to test.
+        # (dim_shape, pad_width, mode) configs to test.
         # * `request.param[0]` corresponds to raw inputs users provide to Pad().
         # * `request.param[1]` corresponds to their ground-truth canonical parameterization.
         return request.param
 
     @pytest.fixture
-    def arg_shape(self, _spec):  # canonical representation
-        arg_shape, _, _ = _spec[1]
-        return arg_shape
+    def dim_shape(self, _spec) -> pxt.NDArrayShape:
+        # canonical representation
+        dim_shape, _, _ = _spec[1]
+        return dim_shape
 
     @pytest.fixture
-    def pad_width(self, _spec):  # canonical representation
+    def pad_width(self, _spec):
+        # canonical representation
         _, pad_width, _ = _spec[1]
         return pad_width
 
     @pytest.fixture
-    def mode(self, _spec):  # canonical representation
+    def mode(self, _spec):
+        # canonical representation
         _, _, mode = _spec[1]
         return mode
 
@@ -98,29 +101,25 @@ class TestPad(conftest.LinOpT):
     )
     def spec(self, _spec, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
-        arg_shape, pad_width, mode = _spec[0]  # user-provided form
+        dim_shape, pad_width, mode = _spec[0]  # user-provided form
         op = pxo.Pad(
-            arg_shape=arg_shape,
+            dim_shape=dim_shape,
             pad_width=pad_width,
             mode=mode,
         )
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, arg_shape, pad_width) -> pxt.OpShape:
-        dim = np.prod(arg_shape)
-
-        pad_shape = []
-        for N, (lhs, rhs) in zip(arg_shape, pad_width):
+    def codim_shape(self, dim_shape, pad_width) -> pxt.NDArrayShape:
+        codim_shape = []
+        for N, (lhs, rhs) in zip(dim_shape, pad_width):
             p = N + (lhs + rhs)
-            pad_shape.append(p)
-        codim = np.prod(pad_shape)
-
-        return (codim, dim)
+            codim_shape.append(p)
+        return tuple(codim_shape)
 
     @pytest.fixture
-    def data_apply(self, arg_shape, pad_width, mode) -> conftest.DataLike:
-        arr = self._random_array(arg_shape)
+    def data_apply(self, dim_shape, pad_width, mode) -> conftest.DataLike:
+        arr = self._random_array(dim_shape)
         if len(set(mode)) == 1:  # uni-mode
             out = np.pad(
                 array=arr,
@@ -128,7 +127,7 @@ class TestPad(conftest.LinOpT):
                 mode=mode[0],
             )
         else:  # multi-mode
-            N_dim = len(arg_shape)
+            N_dim = len(dim_shape)
             out = arr
             for i in range(N_dim):
                 p = [(0, 0)] * N_dim
@@ -139,6 +138,6 @@ class TestPad(conftest.LinOpT):
                     mode=mode[i],
                 )
         return dict(
-            in_=dict(arr=arr.reshape(-1)),
-            out=out.reshape(-1),
+            in_=dict(arr=arr),
+            out=out,
         )

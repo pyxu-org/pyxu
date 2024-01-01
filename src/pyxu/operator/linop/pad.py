@@ -23,7 +23,7 @@ class Pad(pxa.LinOp):
     -----
     * If inputs are D-dimensional, then some of the padding of later axes are calculated from padding of previous axes.
     * The *adjoint* of the padding operator performs a cumulative summation over the original positions used to pad.
-      Its effect is clear from its matrix form.  For example the matrix-form of ``Pad(arg_shape=(3,), mode="wrap",
+      Its effect is clear from its matrix form.  For example the matrix-form of ``Pad(dim_shape=(3,), mode="wrap",
       pad_width=(1, 1))`` is:
 
       .. math::
@@ -86,7 +86,7 @@ class Pad(pxa.LinOp):
 
       .. math::
 
-         L \le \prod_{i} L_{i}, \qquad i \in \{0, \dots, N-1\},
+         L \le \prod_{i} L_{i}, \qquad i \in \{1, \ldots, D\},
 
       where :math:`L_{i}` depends on the boundary condition at the :math:`i`-th axis.
 
@@ -110,7 +110,7 @@ class Pad(pxa.LinOp):
            =
            \left[p_{lhs}, 0, \ldots, 0, p_{rhs} \right],
 
-        hence :math:`L_{i} = \sqrt{1 + \min(p_{lhs}, p_{rhs})}`.
+        hence :math:`L_{i} = \sqrt{1 + \max(p_{lhs}, p_{rhs})}`.
       - In mode="symmetric", "wrap", "reflect", :math:`\text{diag}(\mathbf{S}_{i}^{\ast} \mathbf{S}_{i})` equals (up to
         a mode-dependant permutation)
 
@@ -138,15 +138,15 @@ class Pad(pxa.LinOp):
 
     def __init__(
         self,
-        arg_shape: pxt.NDArrayShape,
+        dim_shape: pxt.NDArrayShape,
         pad_width: WidthSpec,
         mode: ModeSpec = "constant",
     ):
         r"""
         Parameters
         ----------
-        arg_shape: NDArrayShape
-            Shape of the input array.
+        dim_shape: NDArrayShape
+            (M1,...,MD) domain dimensions.
         pad_width: ~pyxu.operator.linop.pad.Pad.WidthSpec
             Number of values padded to the edges of each axis.
             Multiple forms are accepted:
@@ -171,32 +171,31 @@ class Pad(pxa.LinOp):
 
             (See :py:func:`numpy.pad` for details.)
         """
-        self._arg_shape = tuple(arg_shape)
-        assert all(_ > 0 for _ in self._arg_shape)
-        N_dim = len(self._arg_shape)
+        dim_shape = pxu.as_canonical_shape(dim_shape)
+        dim_rank = len(dim_shape)
 
         # transform `pad_width` to canonical form tuple[tuple[int, int], ...]
         is_seq = lambda _: isinstance(_, cabc.Sequence)
         if not is_seq(pad_width):  # int-form
-            pad_width = ((pad_width, pad_width),) * N_dim
-        assert len(pad_width) == N_dim, "arg_shape/pad_width are length-mismatched."
+            pad_width = ((pad_width, pad_width),) * dim_rank
+        assert len(pad_width) == dim_rank, "dim_shape/pad_width are length-mismatched."
         if not is_seq(pad_width[0]):  # tuple[int, ...] form
             pad_width = tuple((w, w) for w in pad_width)
         else:  # tuple[tulpe[int, int], ...] form
             pass
         assert all(0 <= min(lhs, rhs) for (lhs, rhs) in pad_width)
-        self._pad_width = tuple(pad_width)
+        pad_width = tuple(pad_width)
 
         # transform `mode` to canonical form tuple[str, ...]
         if isinstance(mode, str):  # shared mode
-            mode = (mode,) * N_dim
+            mode = (mode,) * dim_rank
         elif isinstance(mode, cabc.Sequence):  # tuple[str, ...]: different modes
-            assert len(mode) == N_dim, "arg_shape/mode are length-mismatched."
+            assert len(mode) == dim_rank, "dim_shape/mode are length-mismatched."
             mode = tuple(mode)
         else:
             raise ValueError(f"Unkwown mode encountered: {mode}.")
-        self._mode = tuple(map(lambda _: _.strip().lower(), mode))
-        assert set(self._mode) <= {
+        mode = tuple(map(lambda _: _.strip().lower(), mode))
+        assert set(mode) <= {
             "constant",
             "wrap",
             "reflect",
@@ -204,29 +203,30 @@ class Pad(pxa.LinOp):
             "edge",
         }, "Unknown mode(s) encountered."
 
-        # Useful constant: shape of padded outputs
-        self._pad_shape = list(self._arg_shape)
-        for i, (lhs, rhs) in enumerate(self._pad_width):
-            self._pad_shape[i] += lhs + rhs
-        self._pad_shape = tuple(self._pad_shape)
-
-        codim = np.prod(self._pad_shape)
-        dim = np.prod(self._arg_shape)
-        super().__init__(shape=(codim, dim))
-
         # Some modes have awkward interpretations when pad-widths cross certain thresholds.
         # Supported pad-widths are thus limited to sensible regions.
-        for i in range(N_dim):
-            N = self._arg_shape[i]
+        for i in range(dim_rank):
+            M = dim_shape[i]
             w_max = dict(
                 constant=np.inf,
-                wrap=N,
-                reflect=N - 1,
-                symmetric=N,
+                wrap=M,
+                reflect=M - 1,
+                symmetric=M,
                 edge=np.inf,
-            )[self._mode[i]]
-            lhs, rhs = self._pad_width[i]
+            )[mode[i]]
+            lhs, rhs = pad_width[i]
             assert max(lhs, rhs) <= w_max, f"pad_width along dim-{i} is limited to {w_max}."
+
+        # Instantiate op & store useful constants
+        codim_shape = list(dim_shape)
+        for i, (lhs, rhs) in enumerate(pad_width):
+            codim_shape[i] += lhs + rhs
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
+        self._pad_width = pad_width
+        self._mode = mode
 
         # We know a crude Lipschitz bound by default. Since computing it takes (code) space,
         # the estimate is computed as a special case of estimate_lipschitz()
@@ -234,9 +234,7 @@ class Pad(pxa.LinOp):
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        sh = arr.shape[:-1]
-        arr = arr.reshape(*sh, *self._arg_shape)
-        N_dim = len(self._arg_shape)
+        sh = arr.shape[: -self.dim_rank]
 
         # Part 1: extend the core
         xp = pxu.get_array_module(arr)
@@ -249,13 +247,13 @@ class Pad(pxa.LinOp):
         )
 
         # Part 2: apply border effects (if any)
-        for i in range(N_dim, 0, -1):
+        for i in range(self.dim_rank, 0, -1):
             mode = self._mode[-i]
             lhs, rhs = self._pad_width[-i]
-            N = self._pad_shape[-i]
+            N = self.codim_shape[-i]
 
-            r_s = [slice(None)] * (len(sh) + N_dim)  # read axial selector
-            w_s = [slice(None)] * (len(sh) + N_dim)  # write axial selector
+            r_s = [slice(None)] * (len(sh) + self.dim_rank)  # read axial selector
+            w_s = [slice(None)] * (len(sh) + self.dim_rank)  # write axial selector
 
             if mode == "constant":
                 # no border effects
@@ -301,24 +299,21 @@ class Pad(pxa.LinOp):
                     w_s[-i] = slice(N - rhs, N)
                     out[tuple(w_s)] = out[tuple(r_s)]
 
-        out = out.reshape(*sh, self.codim)
         return out
 
     @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
-        sh = arr.shape[:-1]
-        arr = arr.reshape(*sh, *self._pad_shape)
-        N_dim = len(self._arg_shape)
+        sh = arr.shape[: -self.codim_rank]
 
         # Part 1: apply correction terms (if any)
         out = arr.copy()  # in-place updates below
-        for i in range(1, N_dim + 1):
+        for i in range(1, self.codim_rank + 1):
             mode = self._mode[-i]
             lhs, rhs = self._pad_width[-i]
-            N = self._pad_shape[-i]
+            N = self.codim_shape[-i]
 
-            r_s = [slice(None)] * (len(sh) + N_dim)  # read axial selector
-            w_s = [slice(None)] * (len(sh) + N_dim)  # write axial selector
+            r_s = [slice(None)] * (len(sh) + self.codim_rank)  # read axial selector
+            w_s = [slice(None)] * (len(sh) + self.codim_rank)  # write axial selector
 
             if mode == "constant":
                 # no correction required
@@ -366,25 +361,24 @@ class Pad(pxa.LinOp):
 
         # Part 2: extract the core
         selector = [slice(None)] * len(sh)
-        for N, (lhs, rhs) in zip(self._pad_shape, self._pad_width):
+        for N, (lhs, rhs) in zip(self.codim_shape, self._pad_width):
             s = slice(lhs, N - rhs)
             selector.append(s)
         out = out[tuple(selector)]
 
-        out = out.reshape(*sh, self.dim)
         return out
 
     def estimate_lipschitz(self, **kwargs) -> pxt.Real:
         no_eval = "__rule" in kwargs
         if no_eval:
             L = []  # 1D pad-op Lipschitz constants
-            for N, m, (lhs, rhs) in zip(self._arg_shape, self._mode, self._pad_width):
+            for M, m, (lhs, rhs) in zip(self.dim_shape, self._mode, self._pad_width):
                 if m == "constant":
                     _L = 1
                 elif m in {"wrap", "symmetric"}:
-                    _L = np.sqrt(1 + np.ceil((lhs + rhs) / N))
+                    _L = np.sqrt(1 + np.ceil((lhs + rhs) / M))
                 elif m == "reflect":
-                    _L = np.sqrt(1 + np.ceil((lhs + rhs) / (N - 2)))
+                    _L = np.sqrt(1 + np.ceil((lhs + rhs) / (M - 2)))
                 elif m == "edge":
                     _L = np.sqrt(1 + max(lhs, rhs))
                 L.append(_L)
@@ -395,20 +389,20 @@ class Pad(pxa.LinOp):
 
     def gram(self) -> pxt.OpT:
         if all(m == "constant" for m in self._mode):
-            from pyxu.operator.linop.base import IdentityOp
+            from pyxu.operator import IdentityOp
 
-            op = IdentityOp(dim=self.dim)
+            op = IdentityOp(dim_shape=self.dim_shape)
         else:
             op = super().gram()
         return op
 
     def cogram(self) -> pxt.OpT:
         if all(m == "constant" for m in self._mode):
-            from pyxu.operator.linop.select import Trim
+            from pyxu.operator import Trim
 
             # Orthogonal projection
             op = Trim(
-                arg_shape=self._pad_shape,
+                dim_shape=self.codim_shape,
                 trim_width=self._pad_width,
             ).gram()
         else:
