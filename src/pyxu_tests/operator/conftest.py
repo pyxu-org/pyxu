@@ -1874,6 +1874,12 @@ class SelfAdjointOpT(NormalOpT):
     # Class Properties --------------------------------------------------------
     base = pxa.SelfAdjointOp
 
+    # Fixtures (Public-Facing; auto-inferred) ---------------------------------
+    #           but can be overidden manually if desired ----------------------
+    @pytest.fixture
+    def codim_shape(self, dim_shape) -> pxt.NDArrayShape:
+        return dim_shape
+
     # Tests -------------------------------------------------------------------
     def test_square_shape(self, op):
         # dim_shape == codim_shape
@@ -1919,6 +1925,12 @@ class PosDefOpT(SelfAdjointOpT):
 class ProjOpT(SquareOpT):
     # Class Properties --------------------------------------------------------
     base = pxa.ProjOp
+
+    # Fixtures (Public-Facing; auto-inferred) ---------------------------------
+    #           but can be overidden manually if desired ----------------------
+    @pytest.fixture
+    def codim_shape(self, dim_shape) -> pxt.NDArrayShape:
+        return dim_shape
 
     # Tests -------------------------------------------------------------------
     def test_square_shape(self, op):
