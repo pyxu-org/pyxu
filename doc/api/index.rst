@@ -333,6 +333,7 @@ Misc
 
    ~pyxu.operator.BroadcastAxes
    ~pyxu.operator.ConstantValued
+   ~pyxu.operator.RechunkAxes
    ~pyxu.operator.ReshapeAxes
    ~pyxu.operator.SqueezeAxes
    ~pyxu.operator.softmax

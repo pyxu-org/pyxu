@@ -1,3 +1,5 @@
+import types
+
 import numpy as np
 
 import pyxu.abc as pxa
@@ -8,6 +10,7 @@ import pyxu.util as pxu
 
 __all__ = [
     "BroadcastAxes",
+    "RechunkAxes",
     "ReshapeAxes",
     "SqueezeAxes",
     "TransposeAxes",
@@ -258,3 +261,71 @@ class BroadcastAxes(pxa.LinOp):
         cst = self.codim_size / self.dim_size
         op = self.T / (cst + damp)
         return op
+
+
+def RechunkAxes(dim_shape: pxt.NDArrayShape, chunks: dict) -> pxt.OpT:
+    """
+    Re-chunk core dimensions to new chunk size.
+
+    Parameters
+    ----------
+    dim_shape: NDArrayShape
+    chunks: dict
+        (ax -> chunk_size) mapping, where `chunk_size` can be:
+
+        * int (non-negative)
+        * tuple[int]
+
+        The following special values per axis can also be used:
+
+        * None: do not change chunks.
+        * -1: do not chunk.
+        * "auto": select a good chunk size.
+
+    Returns
+    -------
+    op: OpT
+
+    Notes
+    -----
+    * :py:meth:`~pyxu.abc.Map.apply` is a no-op if inputs are not DASK arrays.
+    * :py:meth:`~pyxu.abc.LinOp.adjoint` is always a no-op.
+    * Chunk sizes along stacking dimensions are not modified.
+    """
+    from pyxu.operator import IdentityOp
+
+    # Create chunking UnitOp
+    op = IdentityOp(dim_shape=dim_shape).asop(pxa.UnitOp)
+    op._name = "RechunkAxes"
+
+    # Canonicalize & store chunks
+    assert isinstance(chunks, dict)
+    op._chunks = {
+        pxu.as_canonical_axes(
+            ax,
+            rank=op.dim_rank,
+        )[0]: chunk_size
+        for (ax, chunk_size) in chunks.items()
+    }
+
+    # Update op.apply() to perform re-chunking
+    @pxrt.enforce_precision(i="arr")
+    def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
+        ndi = pxd.NDArrayInfo.from_obj(arr)
+        if ndi != pxd.NDArrayInfo.DASK:
+            out = pxu.read_only(arr)
+        else:
+            stack_rank = len(arr.shape[: -_.dim_rank])
+            stack_chunks = {ax: arr.chunks[ax] for ax in range(stack_rank)}
+            core_chunks = {ax + stack_rank: chk for (ax, chk) in _._chunks.items()}
+            out = arr.rechunk(chunks=stack_chunks | core_chunks)
+        return out
+
+    op.apply = types.MethodType(op_apply, op)
+    op.__call__ = types.MethodType(op_apply, op)
+
+    # To print 'RechunkAxes' in place of 'IdentityOp'
+    # [Consequence of `asop()`'s forwarding principle.]
+    op._expr = types.MethodType(lambda _: (_,), op)
+
+    return op

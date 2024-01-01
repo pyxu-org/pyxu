@@ -69,6 +69,8 @@ Misc
 .. autoclass:: pyxu.operator.SqueezeAxes
    :exclude-members: apply, adjoint
 
+.. autofunction:: pyxu.operator.RechunkAxes
+
 .. autoclass:: pyxu.operator.ReshapeAxes
    :exclude-members: apply, adjoint
 
