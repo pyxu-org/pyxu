@@ -4,6 +4,7 @@ import typing as typ
 import numpy as np
 
 import pyxu.abc as pxa
+import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.operator.interop.source as px_src
 import pyxu.runtime as pxrt
@@ -46,9 +47,9 @@ class SubSample(pxa.LinOp):
              slice(None),  # take all rows
              [1, 3, -1],   # and these columns
        )
-       y = S(x.reshape(-1)).reshape(3, 3)  # array([[  1.,   3.,  39.],
-                                           #        [ 41.,  43.,  79.],
-                                           #        [ 81.,  83., 119.]])
+       y = S(x)  # array([[  1.,   3.,  39.],
+                 #        [ 41.,  43.,  79.],
+                 #        [ 81.,  83., 119.]])
 
     .. code-block:: python3
 
@@ -62,14 +63,14 @@ class SubSample(pxa.LinOp):
              mask,         # row selector
              slice(None),  # all columns; this field can be omitted.
        )
-       y = S(x.reshape(-1)).reshape(1, mask.sum(), 4)  # array([[[ 0.,  1.,  2.,  3.],
-                                                       #         [12., 13., 14., 15.]]])
+       y = S(x)  # array([[[ 0,  1,  2,  3],
+                 #         [12, 13, 14, 15]]])
     """
     IndexSpec = typ.Union[
         pxt.Integer,
         cabc.Sequence[pxt.Integer],
+        cabc.Sequence[bool],
         slice,
-        pxt.NDArray,  # ints or boolean mask (per dimension)
     ]
 
     TrimSpec = typ.Union[
@@ -80,40 +81,56 @@ class SubSample(pxa.LinOp):
 
     def __init__(
         self,
-        arg_shape: pxt.NDArrayShape,
+        dim_shape: pxt.NDArrayShape,
         *indices: IndexSpec,
     ):
         """
         Parameters
         ----------
-        arg_shape: NDArrayShape
-            Shape of the data to be sub-sampled.
+        dim_shape: NDArrayShape
+            (M1,...,MD) domain dimensions.
         indices: ~pyxu.operator.SubSample.IndexSpec
             Sub-sample specifier per dimension. (See examples.)
 
             Valid specifiers are:
 
             * integers
-            * lists (or arrays) of indices
+            * 1D sequence of int/bool-s
             * slices
-            * 1D boolean masks
 
             Unspecified trailing dimensions are not sub-sampled.
+
+        Notes
+        -----
+        The co-dimension rank **always** matches the dimension rank, i.e. sub-sampling does not drop dimensions.
+        Single-element dimensions can be removed by composing :py:class:`~pyxu.operator.SubSample` with
+        :py:class:`~pyxu.operator.SqueezeAxes`.
         """
-        self._arg_shape = pxu.as_canonical_shape(arg_shape)
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=dim_shape,  # temporary; just to validate dim_shape
+        )
+        assert 1 <= len(indices) <= self.dim_rank
 
-        assert 1 <= len(indices) <= len(self._arg_shape)
-        self._idx = [slice(None)] * len(self._arg_shape)
-        for i, idx in enumerate(indices):
-            if isinstance(idx, pxt.Integer):
-                idx = slice(idx, idx + 1)
-            self._idx[i] = idx
-        self._idx = tuple(self._idx)
+        # Explicitize missing trailing indices.
+        idx = [slice(None)] * self.dim_rank
+        for i, _idx in enumerate(indices):
+            idx[i] = _idx
 
-        output = np.broadcast_to(0, self._arg_shape)[self._idx]
-        self._sub_shape = np.atleast_1d(output).shape
+        # Replace integer indices with slices.
+        for i, _idx in enumerate(idx):
+            if isinstance(_idx, pxt.Integer):
+                M = self.dim_shape[i]
+                _idx = (_idx + M) % M  # get rid of negative indices
+                idx[i] = slice(_idx, _idx + 1)
 
-        super().__init__(shape=(np.prod(self._sub_shape), np.prod(self._arg_shape)))
+        # Compute output shape, then re-instantiate `self`.
+        self._idx = tuple(idx)
+        out = np.broadcast_to(0, self.dim_shape)[self._idx]
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=out.shape,
+        )
         self.lipschitz = 1
 
     @pxrt.enforce_precision(i="arr")
@@ -124,21 +141,18 @@ class SubSample(pxa.LinOp):
         Parameters
         ----------
         arr: NDArray
-            (..., arg_shape.prod()) data
+            (..., M1,...,MD) data points.
 
         Returns
         -------
         out: NDArray
-            (..., sub_shape.prod()) sub-sampled data points.
+            (..., N1,..,NK) sub-sampled data points.
         """
-        sh = arr.shape[:-1]
-        arr = arr.reshape(*sh, *self._arg_shape)
+        sh = arr.shape[: -self.dim_rank]
 
-        selector = (*[slice(None) for dim in sh], *self._idx)
-        out = arr[selector].reshape(*sh, -1)
-
-        out = pxu.read_only(out)
-        return out
+        selector = ((slice(None),) * len(sh)) + self._idx
+        out = arr[selector]
+        return pxu.read_only(out)
 
     @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
@@ -148,22 +162,28 @@ class SubSample(pxa.LinOp):
         Parameters
         ----------
         arr: NDArray
-            (..., sub_shape.prod()) data points.
+            (..., N1,...,NK) data points.
 
         Returns
         -------
         out: NDArray
-            (..., arg_shape.prod()) up-sampled data points. (Zero-filled.)
+            (..., M1,...,MD) up-sampled data points. (Zero-filled.)
         """
-        sh = arr.shape[:-1]
-        arr = arr.reshape(*sh, *self._sub_shape)
+        sh = arr.shape[: -self.codim_rank]
 
-        xp = pxu.get_array_module(arr)
-        out = xp.zeros((*sh, *self._arg_shape), dtype=arr.dtype)
-        selector = (*[slice(None) for dim in sh], *self._idx)
+        ndi = pxd.NDArrayInfo.from_obj(arr)
+        kwargs = dict(
+            shape=(*sh, *self.dim_shape),
+            dtype=arr.dtype,
+        )
+        if ndi == pxd.NDArrayInfo.DASK:
+            stack_chunks = arr.chunks[: -self.codim_rank]
+            core_chunks = ("auto",) * self.dim_rank
+            kwargs.update(chunks=stack_chunks + core_chunks)
+        out = ndi.module().zeros(**kwargs)
+
+        selector = ((slice(None),) * len(sh)) + self._idx
         out[selector] = arr
-
-        out = out.reshape(*sh, -1)
         return out
 
     def svdvals(self, **kwargs) -> pxt.NDArray:
@@ -177,19 +197,20 @@ class SubSample(pxa.LinOp):
             out = _op.adjoint(_op.apply(arr))
             return out
 
-        op = px_src.from_source(
+        G = px_src.from_source(
             cls=pxa.OrthProjOp,
-            shape=(self.dim, self.dim),
+            dim_shape=self.dim_shape,
+            codim_shape=self.dim_shape,
             embed=dict(_op=self),
             apply=op_apply,
         )
-        return op
+        return G
 
     def cogram(self) -> pxt.OpT:
-        from pyxu.operator.linop.base import IdentityOp
+        from pyxu.operator import IdentityOp
 
-        CG = IdentityOp(dim=self.codim)
-        return CG.squeeze()
+        CG = IdentityOp(dim_shape=self.codim_shape)
+        return CG
 
     @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
@@ -203,7 +224,7 @@ class SubSample(pxa.LinOp):
 
 
 def Trim(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     trim_width: SubSample.TrimSpec,
 ) -> pxt.OpT:
     """
@@ -213,8 +234,8 @@ def Trim(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
-        Shape of the input array.
+    dim_shape: NDArrayShape
+        (M1,...,MD) domain dimensions.
     trim_width: ~pyxu.operator.SubSample.TrimSpec
         Number of values trimmed from the edges of each axis.
         Multiple forms are accepted:
@@ -228,14 +249,14 @@ def Trim(
     -------
     op: OpT
     """
-    arg_shape = tuple(arg_shape)
-    N_dim = len(arg_shape)
+    dim_shape = pxu.as_canonical_shape(dim_shape)
+    N_dim = len(dim_shape)
 
     # transform `trim_width` to canonical form tuple[tuple[int, int]]
     is_seq = lambda _: isinstance(_, cabc.Sequence)
     if not is_seq(trim_width):  # int-form
         trim_width = ((trim_width, trim_width),) * N_dim
-    assert len(trim_width) == N_dim, "arg_shape/trim_width are length-mismatched."
+    assert len(trim_width) == N_dim, "dim_shape/trim_width are length-mismatched."
     if not is_seq(trim_width[0]):  # tuple[int, ...] form
         trim_width = tuple((w, w) for w in trim_width)
     else:  # tuple[tuple[int, int], ...] form
@@ -243,9 +264,9 @@ def Trim(
 
     # translate `trim_width` to `indices` needed for SubSample
     indices = []
-    for (w_head, w_tail), dim_size in zip(trim_width, arg_shape):
+    for (w_head, w_tail), dim_size in zip(trim_width, dim_shape):
         s = slice(w_head, dim_size - w_tail)
         indices.append(s)
 
-    op = SubSample(arg_shape, *indices)
+    op = SubSample(dim_shape, *indices)
     return op
