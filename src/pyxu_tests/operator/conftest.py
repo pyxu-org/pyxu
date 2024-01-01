@@ -83,6 +83,12 @@ class MapT(ct.DisableTestMixin):
             "lipschitz",
             "estimate_lipschitz",
             "expr",
+            "squeeze",
+            "transpose",
+            "reshape",
+            "broadcast_to",
+            "subsample",
+            "rechunk",
         }
     )
 

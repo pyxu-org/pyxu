@@ -498,6 +498,111 @@ class Operator:
             out = out.strip(",")  # drop comma at top-level tail.
         return out
 
+    # Short-hands for commonly-used operators ---------------------------------
+    def squeeze(self, axes: pxt.NDArrayAxis = None) -> pxt.OpT:
+        """
+        Drop size-1 axes from co-dimension.
+
+        See Also
+        --------
+        :py:class:`~pyxu.operator.SqueezeAxes`
+        """
+
+        from pyxu.operator import SqueezeAxes
+
+        sq = SqueezeAxes(
+            dim_shape=self.codim_shape,
+            axes=axes,
+        )
+        op = sq * self
+        return op
+
+    def transpose(self, axes: pxt.NDArrayAxis = None) -> pxt.OpT:
+        """
+        Permute co-dimension axes.
+
+        See Also
+        --------
+        :py:class:`~pyxu.operator.TransposeAxes`
+        """
+
+        from pyxu.operator import TransposeAxes
+
+        tr = TransposeAxes(
+            dim_shape=self.codim_shape,
+            axes=axes,
+        )
+        op = tr * self
+        return op
+
+    def reshape(self, codim_shape: pxt.NDArrayShape) -> pxt.OpT:
+        """
+        Reshape co-dimension shape.
+
+        See Also
+        --------
+        :py:class:`~pyxu.operator.ReshapeAxes`
+        """
+
+        from pyxu.operator import ReshapeAxes
+
+        rsh = ReshapeAxes(
+            dim_shape=self.codim_shape,
+            codim_shape=codim_shape,
+        )
+        op = rsh * self
+        return op
+
+    def broadcast_to(self, codim_shape: pxt.NDArrayShape) -> pxt.OpT:
+        """
+        Broadcast co-dimension shape.
+
+        See Also
+        --------
+        :py:class:`~pyxu.operator.BroadcastAxes`
+        """
+
+        from pyxu.operator import BroadcastAxes
+
+        bcast = BroadcastAxes(
+            dim_shape=self.codim_shape,
+            codim_shape=codim_shape,
+        )
+        op = bcast * self
+        return op
+
+    def subsample(self, *indices) -> pxt.OpT:
+        """
+        Sub-sample co-dimension.
+
+        See Also
+        --------
+        :py:class:`~pyxu.operator.SubSample`
+        """
+
+        from pyxu.operator import SubSample
+
+        sub = SubSample(self.codim_shape, *indices)
+        op = sub * self
+        return op
+
+    def rechunk(self, chunks: dict) -> pxt.OpT:
+        """
+        Re-chunk core dimensions to new chunk size.
+
+        See Also
+        --------
+        :py:func:`~pyxu.operator.RechunkAxes`
+        """
+        from pyxu.operator import RechunkAxes
+
+        chk = RechunkAxes(
+            dim_shape=self.codim_shape,
+            chunks=chunks,
+        )
+        op = chk * self
+        return op
+
 
 class Map(Operator):
     r"""
