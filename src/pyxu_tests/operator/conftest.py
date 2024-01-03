@@ -136,13 +136,21 @@ class MapT(ct.DisableTestMixin):
             return default
 
     @staticmethod
-    def _chunk_array(x: pxt.NDArray) -> pxt.NDArray:
+    def _chunk_array(x: pxt.NDArray, complex_view: bool) -> pxt.NDArray:
         # Chunk DASK arrays to have (when possible) at least 2 chunks per axis.
+        #
+        # Parameters
+        # ----------
+        # complex_view: bool
+        #     If True, `x` is assumed to be a (..., 2) array representing complex numbers.
+        #     The final axis is not chunked in this case.
         ndi = pxd.NDArrayInfo.from_obj(x)
         if ndi == pxd.NDArrayInfo.DASK:
             chunks = {}
             for ax, sh in enumerate(x.shape):
                 chunks[ax] = sh // 2 if sh > 1 else sh
+            if complex_view:
+                chunks[x.ndim - 1] = -1
             y = x.rechunk(chunks)
         else:
             y = x
@@ -314,6 +322,8 @@ class MapT(ct.DisableTestMixin):
         # * the operator to test;
         # * the backend of accepted input arrays;
         # * the precision of accepted input arrays.
+        #   If of type CWidth, it implies arithmetic methods accept real-valued (..., M1,...,MD,2) arrays, i.e. a
+        #   bijective view of complex-valued (..., M1,...,MD) arrays.
         #
         # The triplet (op, backend, precision) must be provided since some operators may not be
         # backend/precision-agnostic.
@@ -363,8 +373,15 @@ class MapT(ct.DisableTestMixin):
         return ndi.module()
 
     @pytest.fixture
-    def width(self, spec) -> pxrt.Width:
-        return spec[2]
+    def width(self, spec, complex_valued) -> pxrt.Width:
+        if complex_valued:
+            return spec[2].real
+        else:
+            return spec[2]
+
+    @pytest.fixture
+    def complex_valued(self, spec) -> bool:
+        return isinstance(spec[2], pxrt.CWidth)
 
     # Fixtures (Internal) -----------------------------------------------------
     @pytest.fixture
@@ -386,13 +403,13 @@ class MapT(ct.DisableTestMixin):
         return data
 
     @pytest.fixture
-    def _data_apply(self, data_apply, xp, width) -> DataLike:
+    def _data_apply(self, data_apply, xp, width, complex_valued) -> DataLike:
         # Generate Cartesian product of inputs.
         # Do not override in subclass: for internal use only to test `op.apply()`.
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_apply["in_"])
         arr = xp.array(in_["arr"], dtype=width.value)
-        arr = self._chunk_array(arr)
+        arr = self._chunk_array(arr, complex_valued)
         in_.update(arr=arr)
         data = dict(
             in_=in_,
@@ -746,13 +763,13 @@ class DiffFuncT(FuncT, DiffMapT):
 
     # Fixtures (Internal) -----------------------------------------------------
     @pytest.fixture
-    def _data_grad(self, data_grad, xp, width) -> DataLike:
+    def _data_grad(self, data_grad, xp, width, complex_valued) -> DataLike:
         # Generate Cartesian product of inputs.
         # Do not override in subclass: for internal use only to test `op.grad()`.
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_grad["in_"])
         arr = xp.array(in_["arr"], dtype=width.value)
-        arr = self._chunk_array(arr)
+        arr = self._chunk_array(arr, complex_valued)
         in_.update(arr=arr)
         data = dict(
             in_=in_,
@@ -871,13 +888,13 @@ class ProxFuncT(FuncT):
         return mu, op.moreau_envelope(mu)
 
     @pytest.fixture
-    def _data_prox(self, data_prox, xp, width) -> DataLike:
+    def _data_prox(self, data_prox, xp, width, complex_valued) -> DataLike:
         # Generate Cartesian product of inputs.
         # Do not override in subclass: for internal use only to test `op.prox()`.
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_prox["in_"])
         arr = xp.array(in_["arr"], dtype=width.value)
-        arr = self._chunk_array(arr)
+        arr = self._chunk_array(arr, complex_valued)
         in_.update(arr=arr)
         data = dict(
             in_=in_,
@@ -886,13 +903,13 @@ class ProxFuncT(FuncT):
         return data
 
     @pytest.fixture
-    def _data_fenchel_prox(self, data_fenchel_prox, xp, width) -> DataLike:
+    def _data_fenchel_prox(self, data_fenchel_prox, xp, width, complex_valued) -> DataLike:
         # Generate Cartesian product of inputs.
         # Do not override in subclass: for internal use only to test `op.fenchel_prox()`.
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_fenchel_prox["in_"])
         arr = xp.array(in_["arr"], dtype=width.value)
-        arr = self._chunk_array(arr)
+        arr = self._chunk_array(arr, complex_valued)
         in_.update(arr=arr)
         data = dict(
             in_=in_,
@@ -1273,13 +1290,13 @@ class LinOpT(DiffMapT):
 
     # Fixtures (Internal) -----------------------------------------------------
     @pytest.fixture
-    def _data_adjoint(self, data_adjoint, xp, width) -> DataLike:
+    def _data_adjoint(self, data_adjoint, xp, width, complex_valued) -> DataLike:
         # Generate Cartesian product of inputs.
         # Do not override in subclass: for internal use only to test `op.adjoint()`.
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_adjoint["in_"])
         arr = xp.array(in_["arr"], dtype=width.value)
-        arr = self._chunk_array(arr)
+        arr = self._chunk_array(arr, complex_valued)
         in_.update(arr=arr)
         data = dict(
             in_=in_,
@@ -1320,13 +1337,13 @@ class LinOpT(DiffMapT):
         return request.param
 
     @pytest.fixture
-    def _data_pinv(self, data_pinv, xp, width) -> DataLike:
+    def _data_pinv(self, data_pinv, xp, width, complex_valued) -> DataLike:
         # Generate Cartesian product of inputs.
         # Do not override in subclass: for internal use only to test `op.pinv()`.
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_pinv["in_"])
         arr = xp.array(in_["arr"], dtype=width.value)
-        arr = self._chunk_array(arr)
+        arr = self._chunk_array(arr, complex_valued)
         in_.update(arr=arr)
         data = dict(
             in_=in_,
