@@ -1,4 +1,7 @@
+import numpy as np
+
 import pyxu.abc as pxa
+import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
@@ -23,12 +26,13 @@ def shift_loss(
     Parameters
     ----------
     data: NDArray
-        (M,) input data.
+        (M1,...,MD) input data.
 
     Returns
     -------
     op: OpT
-        (1, M) Loss functionial.  If `data` is omitted, then this function is a no-op.
+        Loss functionial :math:`g(x)`.
+        If `data` is omitted, then this function is a no-op.
     """
     if data is None:
         return op
@@ -38,21 +42,16 @@ def shift_loss(
 
 class KLDivergence(pxa.ProxFunc):
     r"""
-    Generalised Kullback-Leibler divergence :math:`D_{KL}(\mathbf{y}||\mathbf{x}):=\sum_{i=1}^N y_i\log(y_i/x_i) -y_i
-    +x_i`.
+    Generalised Kullback-Leibler divergence
+    :math:`D_{KL}(\mathbf{y}||\mathbf{x}) := \sum_{i} y_{i} \log(y_{i} / x_{i}) - y_{i} + x_{i}`.
     """
 
-    def __init__(
-        self,
-        dim: pxt.Integer,
-        data: pxt.NDArray,
-    ):
+    def __init__(self, data: pxt.NDArray):
         r"""
         Parameters
         ----------
-        dim: Integer
         data: NDArray
-            (M,) strictly positive input data.
+            (M1,...,MD) non-negative input data.
 
         Examples
         --------
@@ -61,53 +60,76 @@ class KLDivergence(pxa.ProxFunc):
            import numpy as np
            from pyxu.operator import KLDivergence
 
-           y = np.arange(10)
-           loss = KLDivergence(dim=y.size, data=y)
-           x = 2 * np.arange(10)
-           loss(x)
-           # 13.80837687480246
-           np.round(loss.prox(x, tau=1))
-           # array([ 0.,  2.,  4.,  6.,  8., 10., 12., 14., 16., 18.])
+           y = np.arange(5)
+           loss = KLDivergence(y)
+
+           loss(2 * y)  # [3.06852819]
+           np.round(loss.prox(2 * y, tau=1))  # [0. 2. 4. 6. 8.]
 
         Notes
         -----
-        In information theory, and in the case where :math:`\mathbf{y}` and :math:`\mathbf{x}`  sum to one  --and hence
-        can be interpreted as discrete probability distributions, the KL-divergence can be interpreted as the relative
-        entropy of :math:`\mathbf{y}` w.r.t. :math:`\mathbf{x}`, i.e. the amount of information lost when using
-        :math:`\mathbf{x}` to approximate :math:`\mathbf{y}`. It is particularly useful in the context of count data
-        with Poisson distribution. Indeed, the KL-divergence corresponds –up to an additive constant– to the likelihood
-        of the data :math:`\mathbf{y}` where each component is independent with Poisson distribution and respective
-        intensities given by the entries of :math:`\mathbf{x}`. See [FuncSphere]_ Section 5 of Chapter 7 for the
-        computation of its proximal operator.
+        * When :math:`\mathbf{y}` and :math:`\mathbf{x}` sum to one, and hence can be interpreted as discrete
+          probability distributions, the KL-divergence corresponds to the relative entropy of :math:`\mathbf{y}` w.r.t.
+          :math:`\mathbf{x}`, i.e. the amount of information lost when using :math:`\mathbf{x}` to approximate
+          :math:`\mathbf{y}`. It is particularly useful in the context of count data with Poisson distribution; the
+          KL-divergence then corresponds (up to an additive constant) to the likelihood of :math:`\mathbf{y}` where each
+          component is independent with Poisson distribution and respective intensities given by :math:`\mathbf{x}`. See
+          [FuncSphere]_ Chapter 7, Section 5 for the computation of its proximal operator.
+        * :py:class:`~pyxu.operator.KLDivergence` is not backend-agnostic: inputs to arithmetic methods must have the
+          same backend as `data`.
+        * If `data` is a DASK array, it's entries are assumed non-negative de-facto.  Reason: the operator should be
+          quick to build under all circumstances, and this is not guaranteed if we have to check that all entries are positive for out-of-core arrays.
+        * If `data` is a DASK array, the core-dimensions of arrays supplied to arithmetic methods **must** have the
+          same chunk-size as `data`.
         """
-        super().__init__(shape=(1, dim))
+        super().__init__(
+            dim_shape=data.shape,
+            codim_shape=1,
+        )
 
-        xp = pxu.get_array_module(data)
-        assert data.ndim == 1, "`data` must have 1 axis only."
-        assert data.size == dim, "`data` must have the same size as the domain dimension."
-        assert xp.all(data > 0), "KL Divergence only defined for positive-valued arguments."
-        self.data = data.reshape(1, -1)
+        ndi = pxd.NDArrayInfo.from_obj(data)
+        if ndi != pxd.NDArrayInfo.DASK:
+            assert (data >= 0).all(), "KL Divergence only defined for non-negative arguments."
+        self._data = data
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        xp = pxu.get_array_module(arr)
-        assert xp.all(arr > 0), "KL Divergence only defined for positive-valued arguments."
-        sh = arr.shape[:-1]
-        arr = arr.reshape(-1, self.data.size)
-        out = xp.true_divide(self.data, arr)
-        out = xp.log(out)
-        out *= self.data
-        out -= self.data
-        out += arr
-        return xp.sum(out, axis=-1).reshape(*sh, -1)
+        axis = tuple(range(-self.dim_rank, 0))
+        out = self._kl_div(arr, self._data)
+        out = out.sum(axis=axis)[..., np.newaxis]
+        return out
 
     @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
-        sh = arr.shape[:-1]
-        arr = arr.reshape(-1, self.data.size)
-        out = xp.sqrt((arr - tau) ** 2 + 4 * tau * self.data)
-        out += arr
-        out -= tau
-        out /= 2
-        return out.reshape(*sh, -1)
+        x = arr - tau
+        out = x + xp.sqrt((x**2) + ((4 * tau) * self._data))
+        out *= 0.5
+        return out
+
+    @staticmethod
+    def _kl_div(x: pxt.NDArray, data: pxt.NDArray) -> pxt.NDArray:
+        # Element-wise KL-divergence
+        N = pxd.NDArrayInfo  # short-hand
+        ndi = N.from_obj(x)
+
+        if ndi == N.NUMPY:
+            sp = pxu.import_module("scipy.special")
+            out = sp.kl_div(data, x)
+        elif ndi == N.CUPY:
+            sp = pxu.import_module("cupyx.scipy.special")
+            out = sp.kl_div(data, x)
+        elif ndi == N.DASK:
+            assert x.chunks[-data.ndim :] == data.chunks
+            xp = ndi.module()
+
+            out = xp.map_blocks(
+                KLDivergence._kl_div,
+                x,
+                data,
+                dtype=data.dtype,
+                meta=data._meta,
+            )
+        else:
+            raise NotImplementedError
+        return out
