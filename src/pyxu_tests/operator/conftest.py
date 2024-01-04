@@ -129,34 +129,6 @@ class MapT(ct.DisableTestMixin):
         return x
 
     @staticmethod
-    def _sanitize(x, default):
-        if x is not None:
-            return x
-        else:
-            return default
-
-    @staticmethod
-    def _chunk_array(x: pxt.NDArray, complex_view: bool) -> pxt.NDArray:
-        # Chunk DASK arrays to have (when possible) at least 2 chunks per axis.
-        #
-        # Parameters
-        # ----------
-        # complex_view: bool
-        #     If True, `x` is assumed to be a (..., 2) array representing complex numbers.
-        #     The final axis is not chunked in this case.
-        ndi = pxd.NDArrayInfo.from_obj(x)
-        if ndi == pxd.NDArrayInfo.DASK:
-            chunks = {}
-            for ax, sh in enumerate(x.shape):
-                chunks[ax] = sh // 2 if sh > 1 else sh
-            if complex_view:
-                chunks[x.ndim - 1] = -1
-            y = x.rechunk(chunks)
-        else:
-            y = x
-        return y
-
-    @staticmethod
     def _check_has_interface(op: pxt.OpT, klass: "MapT"):
         # Verify `op` has the public interface of `klass`.
         assert klass.interface <= frozenset(dir(op))
@@ -198,7 +170,7 @@ class MapT(ct.DisableTestMixin):
             out = func(**in_)
         out_gt = data["out"]
 
-        dtype = MapT._sanitize(dtype, default=in_["arr"].dtype)
+        dtype = ct.sanitize(dtype, default=in_["arr"].dtype)
         assert out.shape == out_gt.shape
         assert cls._metric(out, out_gt, as_dtype=dtype)
 
@@ -220,7 +192,7 @@ class MapT(ct.DisableTestMixin):
             out = func(**in_)
         out_gt = np.broadcast_to(data["out"], (*sh_extra, *data["out"].shape))
 
-        dtype = MapT._sanitize(dtype, default=in_["arr"].dtype)
+        dtype = ct.sanitize(dtype, default=in_["arr"].dtype)
         assert out.shape == out_gt.shape
         assert cls._metric(out, out_gt, as_dtype=dtype)
 
@@ -409,7 +381,7 @@ class MapT(ct.DisableTestMixin):
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_apply["in_"])
         arr = xp.array(in_["arr"], dtype=width.value)
-        arr = self._chunk_array(arr, complex_valued)
+        arr = ct.chunk_array(arr, complex_valued)
         in_.update(arr=arr)
         data = dict(
             in_=in_,
@@ -769,7 +741,7 @@ class DiffFuncT(FuncT, DiffMapT):
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_grad["in_"])
         arr = xp.array(in_["arr"], dtype=width.value)
-        arr = self._chunk_array(arr, complex_valued)
+        arr = ct.chunk_array(arr, complex_valued)
         in_.update(arr=arr)
         data = dict(
             in_=in_,
@@ -894,7 +866,7 @@ class ProxFuncT(FuncT):
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_prox["in_"])
         arr = xp.array(in_["arr"], dtype=width.value)
-        arr = self._chunk_array(arr, complex_valued)
+        arr = ct.chunk_array(arr, complex_valued)
         in_.update(arr=arr)
         data = dict(
             in_=in_,
@@ -909,7 +881,7 @@ class ProxFuncT(FuncT):
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_fenchel_prox["in_"])
         arr = xp.array(in_["arr"], dtype=width.value)
-        arr = self._chunk_array(arr, complex_valued)
+        arr = ct.chunk_array(arr, complex_valued)
         in_.update(arr=arr)
         data = dict(
             in_=in_,
@@ -1296,7 +1268,7 @@ class LinOpT(DiffMapT):
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_adjoint["in_"])
         arr = xp.array(in_["arr"], dtype=width.value)
-        arr = self._chunk_array(arr, complex_valued)
+        arr = ct.chunk_array(arr, complex_valued)
         in_.update(arr=arr)
         data = dict(
             in_=in_,
@@ -1343,7 +1315,7 @@ class LinOpT(DiffMapT):
         # Outputs are left unchanged: different tests should transform them as required.
         in_ = copy.deepcopy(data_pinv["in_"])
         arr = xp.array(in_["arr"], dtype=width.value)
-        arr = self._chunk_array(arr, complex_valued)
+        arr = ct.chunk_array(arr, complex_valued)
         in_.update(arr=arr)
         data = dict(
             in_=in_,

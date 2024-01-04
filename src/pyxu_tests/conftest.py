@@ -89,6 +89,34 @@ def less_equal(
     return x | y
 
 
+def sanitize(x, default):
+    if x is not None:
+        return x
+    else:
+        return default
+
+
+def chunk_array(x: pxt.NDArray, complex_view: bool) -> pxt.NDArray:
+    # Chunk DASK arrays to have (when possible) at least 2 chunks per axis.
+    #
+    # Parameters
+    # ----------
+    # complex_view: bool
+    #     If True, `x` is assumed to be a (..., 2) array representing complex numbers.
+    #     The final axis is not chunked in this case.
+    ndi = pxd.NDArrayInfo.from_obj(x)
+    if ndi == pxd.NDArrayInfo.DASK:
+        chunks = {}
+        for ax, sh in enumerate(x.shape):
+            chunks[ax] = sh // 2 if sh > 1 else sh
+        if complex_view:
+            chunks[x.ndim - 1] = -1
+        y = x.rechunk(chunks)
+    else:
+        y = x
+    return y
+
+
 class DisableTestMixin:
     """
     Disable certain tests based on user black-list.
