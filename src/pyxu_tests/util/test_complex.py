@@ -4,8 +4,10 @@ import warnings
 import numpy as np
 import pytest
 
+import pyxu.info.deps as pxd
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
+import pyxu_tests.conftest as ct
 
 
 class ViewAs:
@@ -144,6 +146,34 @@ class TestViewAsComplex(ViewAs):
     def no_op_dtype(self, request):
         return request.param
 
+    # Tests -----------------------------------------------
+    @pytest.mark.parametrize(
+        "shape",
+        [
+            (1,),
+            (5,),
+            (5, 1, 4),
+            (5, 10, 4),
+        ],
+    )
+    def test_chunk(self, shape, width):
+        # DASK-only: verify chunk structure:
+        # * unchanged in batch dimensions.
+        ndi = pxd.NDArrayInfo.DASK
+        xp = ndi.module()
+
+        rng = xp.random.default_rng()
+        x = rng.standard_normal(size=(*shape, 2), dtype=width.value)
+        x = ct.chunk_array(x, complex_view=True)
+
+        y = pxu.view_as_complex(x)
+
+        assert y.shape == shape
+        assert y.dtype == width.complex.value
+        assert y.chunks == x.chunks[:-1]
+        assert xp.allclose(y.real, x[..., 0]).compute()
+        assert xp.allclose(y.imag, x[..., 1]).compute()
+
 
 class TestViewAsReal(ViewAs):
     @pytest.fixture
@@ -166,3 +196,35 @@ class TestViewAsReal(ViewAs):
     @pytest.fixture(params=[_.value for _ in list(pxrt.Width)])
     def no_op_dtype(self, request):
         return request.param
+
+    # Tests -----------------------------------------------
+    @pytest.mark.parametrize(
+        "shape",
+        [
+            (1,),
+            (5,),
+            (5, 1, 4),
+            (5, 10, 4),
+        ],
+    )
+    def test_chunk(self, shape, width):
+        # DASK-only: verify chunk structure:
+        # * unchanged in batch dimensions;
+        # * no chunks in virtual dimension.
+        ndi = pxd.NDArrayInfo.DASK
+        xp = ndi.module()
+
+        rng = xp.random.default_rng()
+        xR = rng.standard_normal(size=shape, dtype=width.value)
+        xI = rng.standard_normal(size=shape, dtype=width.value)
+        x = (xR + 1j * xI).astype(width.complex.value)
+        x = ct.chunk_array(x, complex_view=False)
+
+        y = pxu.view_as_real(x)
+
+        assert y.shape == (*shape, 2)
+        assert y.dtype == width.value
+        assert y.chunks[:-1] == x.chunks
+        assert y.chunks[-1] == (2,)
+        assert xp.allclose(y[..., 0], x.real).compute()
+        assert xp.allclose(y[..., 1], x.imag).compute()

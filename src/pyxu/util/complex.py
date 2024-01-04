@@ -1,3 +1,4 @@
+import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
 
@@ -55,8 +56,8 @@ def view_as_complex(x: pxt.NDArray) -> pxt.NDArray:
         raise ValueError(f"Unsupported dtype {r_dtype}.")
     assert x.shape[-1] == 2, "Last array dimension should contain real/imaginary terms only."
 
-    y_sh = x.shape[:-1]
-    y = x.view(c_dtype).reshape(y_sh)
+    y = x.view(c_dtype)  # (..., N, 1)
+    y = y[..., 0]  # (..., N)
     return y
 
 
@@ -107,8 +108,22 @@ def view_as_real(x: pxt.NDArray) -> pxt.NDArray:
     except Exception:
         raise ValueError(f"Unsupported dtype {c_dtype}.")
 
-    y_sh = (*x.shape, 2)
-    y = x.view(r_dtype).reshape(y_sh)
+    y = x.view(r_dtype)  # (..., 2N)
+
+    ndi = pxd.NDArrayInfo.from_obj(x)
+    if ndi == pxd.NDArrayInfo.DASK:
+        y = y.map_blocks(  # (..., N, 2)
+            lambda blk: blk.reshape(
+                *blk.shape[:-1],
+                blk.shape[-1] // 2,
+                2,
+            ),
+            chunks=(*x.chunks, 2),
+            new_axis=x.ndim,
+            meta=y._meta,
+        )
+    else:
+        y = y.reshape(*x.shape, 2)  # (..., N, 2)
     return y
 
 
