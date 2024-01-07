@@ -411,16 +411,9 @@ class Stencil(pxa.SquareOp):
             trim_width=pad_width,
         )
 
-        # Stencil operators used in .apply()
-        self._st_fw = [None] * len(_kernel)
-        for i, (k_fw, c_fw) in enumerate(zip(_kernel, _center)):
-            self._st_fw[i] = _Stencil.init(kernel=k_fw, center=c_fw)
-
-        # Stencil operators used in .adjoint()
-        self._st_bw = [None] * len(_kernel)
-        _kernel, _center = self._bw_equivalent(_kernel, _center)
-        for i, (k_bw, c_bw) in enumerate(zip(_kernel, _center)):
-            self._st_bw[i] = _Stencil.init(kernel=k_bw, center=c_bw)
+        # Kernels
+        self._st_fw = self._init_fw(_kernel, _center)
+        self._st_bw = self._init_bw(_kernel, _center)
 
         self._dispatch_params = dict()  # Extra kwargs passed to _Stencil.apply()
         self._dtype = _kernel[0].dtype  # useful constant
@@ -693,6 +686,29 @@ class Stencil(pxa.SquareOp):
         return tuple(pad_width)
 
     @staticmethod
+    def _init_fw(_kernel, _center) -> list:
+        # Initialize kernels used in apply().
+        # The returned objects must have the following fields:
+        # * _kernel: ndarray[float] (D,)
+        # * _center: ndarray[int] (D,)
+        _st_fw = [None] * len(_kernel)
+        for i, (k_fw, c_fw) in enumerate(zip(_kernel, _center)):
+            _st_fw[i] = _Stencil.init(kernel=k_fw, center=c_fw)
+        return _st_fw
+
+    @staticmethod
+    def _init_bw(_kernel, _center) -> list:
+        # Initialize kernels used in adjoint().
+        # The returned objects must have the following fields:
+        # * _kernel: ndarray[float] (D,)
+        # * _center: ndarray[int] (D,)
+        _st_bw = [None] * len(_kernel)
+        _kernel, _center = Stencil._bw_equivalent(_kernel, _center)
+        for i, (k_bw, c_bw) in enumerate(zip(_kernel, _center)):
+            _st_bw[i] = _Stencil.init(kernel=k_bw, center=c_bw)
+        return _st_bw
+
+    @staticmethod
     def _bw_equivalent(_kernel, _center):
         # Transform FW kernel/center specification to BW variant.
         k_bw = [np.flip(k_fw) for k_fw in _kernel]
@@ -704,7 +720,6 @@ class Stencil(pxa.SquareOp):
             c_bw = np.zeros((N, N), dtype=int)
             for i in range(N):
                 c_bw[i, i] = _kernel[i].shape[i] - _center[i][i] - 1
-
         return k_bw, c_bw
 
     def _stencil_chain(self, x: pxt.NDArray, stencils: list) -> pxt.NDArray:
