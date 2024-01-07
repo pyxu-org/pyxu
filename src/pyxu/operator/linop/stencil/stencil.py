@@ -336,8 +336,9 @@ class Stencil(pxa.SquareOp):
     See Also
     --------
     :py:class:`~pyxu.operator.Convolve`,
-    :py:class:`~pyxu.operator._Stencil`
-
+    :py:class:`~pyxu.operator._Stencil`,
+    :py:class:`~pyxu.operator.FFTCorrelate`,
+    :py:class:`~pyxu.operator.FFTConvolve`
     """
 
     KernelSpec = typ.Union[
