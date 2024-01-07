@@ -559,37 +559,6 @@ class Stencil(pxa.SquareOp):
             ctr = [st._center[d] for (d, st) in enumerate(self._st_fw)]
         return tuple(ctr)
 
-    @property
-    def relative_indices(self) -> cabc.Sequence[pxt.NDArray]:
-        r"""
-        Relative indices of the stencil.
-
-        Returns
-        -------
-        r_idx: :py:class:`list` ( :py:attr:`~pyxu.info.ptype.NDArray` )
-            Relative indices of the stencil's kernel in each dimension.
-
-        Example
-        -------
-        .. code-block:: python3
-
-           S = Stencil(
-               dim_shape=(5, 6, 9),
-               kernel=[
-                   np.r_[1, -1],
-                   np.r_[3, 2, 1],
-                   np.r_[2, -1, 3, 1],
-               ],
-               center=(1, 0, 3),
-           )
-           S.relative_indices  # [array([-1,  0]), array([0, 1, 2]), array([-3, -2, -1,  0])]
-        """
-        if len(self._st_fw) == 1:
-            r_idx = [np.arange(s) - c for c, s in zip(self.center, self.kernel.shape)]
-        else:
-            r_idx = [np.arange(k.size) - c for c, k in zip(self.center, self.kernel)]
-        return r_idx
-
     def visualize(self) -> str:
         r"""
         Show the :math:`D`-dimensional stencil kernel.
