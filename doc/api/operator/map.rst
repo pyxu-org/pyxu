@@ -8,55 +8,57 @@ pyxu.operator.map
 Element-wise Operators
 ----------------------
 
-.. autofunction:: pyxu.operator.abs
+.. autoclass:: pyxu.operator.Abs
 
-.. autofunction:: pyxu.operator.arccos
+.. autoclass:: pyxu.operator.ArcCos
 
-.. autofunction:: pyxu.operator.arccosh
+.. autoclass:: pyxu.operator.ArcCosh
 
-.. autofunction:: pyxu.operator.arcsin
+.. autoclass:: pyxu.operator.ArcSin
 
-.. autofunction:: pyxu.operator.arcsinh
+.. autoclass:: pyxu.operator.ArcSinh
 
-.. autofunction:: pyxu.operator.arctan
+.. autoclass:: pyxu.operator.ArcTan
 
-.. autofunction:: pyxu.operator.arctanh
+.. autoclass:: pyxu.operator.ArcTanh
 
-.. autofunction:: pyxu.operator.cbrt
+.. autoclass:: pyxu.operator.Cbrt
 
-.. autofunction:: pyxu.operator.clip
+.. autoclass:: pyxu.operator.Clip
 
-.. autofunction:: pyxu.operator.cos
+.. autoclass:: pyxu.operator.Cos
 
-.. autofunction:: pyxu.operator.cosh
+.. autoclass:: pyxu.operator.Cosh
 
-.. autofunction:: pyxu.operator.exp
+.. autoclass:: pyxu.operator.Exp
 
-.. autofunction:: pyxu.operator.gaussian
+.. autoclass:: pyxu.operator.Gaussian
 
-.. autofunction:: pyxu.operator.leakyrelu
+.. autoclass:: pyxu.operator.LeakyReLU
 
-.. autofunction:: pyxu.operator.log
+.. autoclass:: pyxu.operator.Log
 
-.. autofunction:: pyxu.operator.relu
+.. autoclass:: pyxu.operator.ReLU
 
-.. autofunction:: pyxu.operator.sigmoid
+.. autoclass:: pyxu.operator.Sigmoid
 
-.. autofunction:: pyxu.operator.sign
+.. autoclass:: pyxu.operator.Sign
 
-.. autofunction:: pyxu.operator.silu
+.. autoclass:: pyxu.operator.SiLU
 
-.. autofunction:: pyxu.operator.sin
+.. autoclass:: pyxu.operator.Sin
 
-.. autofunction:: pyxu.operator.sinh
+.. autoclass:: pyxu.operator.Sinh
 
-.. autofunction:: pyxu.operator.sqrt
+.. autoclass:: pyxu.operator.SoftPlus
 
-.. autofunction:: pyxu.operator.square
+.. autoclass:: pyxu.operator.Sqrt
 
-.. autofunction:: pyxu.operator.tan
+.. autoclass:: pyxu.operator.Square
 
-.. autofunction:: pyxu.operator.tanh
+.. autoclass:: pyxu.operator.Tan
+
+.. autoclass:: pyxu.operator.Tanh
 
 Misc
 ----
@@ -76,10 +78,6 @@ Misc
 
 .. autoclass:: pyxu.operator.BroadcastAxes
    :exclude-members: apply, adjoint
-
-.. autofunction:: pyxu.operator.softmax
-
-.. autofunction:: pyxu.operator.softplus
 
 Pulses
 ------

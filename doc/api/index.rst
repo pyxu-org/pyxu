@@ -336,8 +336,6 @@ Misc
    ~pyxu.operator.RechunkAxes
    ~pyxu.operator.ReshapeAxes
    ~pyxu.operator.SqueezeAxes
-   ~pyxu.operator.softmax
-   ~pyxu.operator.softplus
    ~pyxu.operator.TransposeAxes
 
 Block-defined Operators
@@ -357,31 +355,32 @@ Element-wise Operators
 
 .. autosummary::
 
-   ~pyxu.operator.abs
-   ~pyxu.operator.arccos
-   ~pyxu.operator.arccosh
-   ~pyxu.operator.arcsin
-   ~pyxu.operator.arcsinh
-   ~pyxu.operator.arctan
-   ~pyxu.operator.arctanh
-   ~pyxu.operator.cbrt
-   ~pyxu.operator.clip
-   ~pyxu.operator.cos
-   ~pyxu.operator.cosh
-   ~pyxu.operator.exp
-   ~pyxu.operator.gaussian
-   ~pyxu.operator.leakyrelu
-   ~pyxu.operator.log
-   ~pyxu.operator.relu
-   ~pyxu.operator.sigmoid
-   ~pyxu.operator.sign
-   ~pyxu.operator.silu
-   ~pyxu.operator.sin
-   ~pyxu.operator.sinh
-   ~pyxu.operator.sqrt
-   ~pyxu.operator.square
-   ~pyxu.operator.tan
-   ~pyxu.operator.tanh
+   ~pyxu.operator.Abs
+   ~pyxu.operator.ArcCos
+   ~pyxu.operator.ArcCosh
+   ~pyxu.operator.ArcSin
+   ~pyxu.operator.ArcSinh
+   ~pyxu.operator.ArcTan
+   ~pyxu.operator.ArcTanh
+   ~pyxu.operator.Cbrt
+   ~pyxu.operator.Clip
+   ~pyxu.operator.Cos
+   ~pyxu.operator.Cosh
+   ~pyxu.operator.Exp
+   ~pyxu.operator.Gaussian
+   ~pyxu.operator.LeakyReLU
+   ~pyxu.operator.Log
+   ~pyxu.operator.ReLU
+   ~pyxu.operator.Sigmoid
+   ~pyxu.operator.Sign
+   ~pyxu.operator.SiLU
+   ~pyxu.operator.Sin
+   ~pyxu.operator.Sinh
+   ~pyxu.operator.SoftPlus
+   ~pyxu.operator.Sqrt
+   ~pyxu.operator.Square
+   ~pyxu.operator.Tan
+   ~pyxu.operator.Tanh
 
 Pulses
 ++++++
