@@ -466,6 +466,7 @@ Complex Number Handling
 
 .. autosummary::
 
+   ~pyxu.util.as_real_op
    ~pyxu.util.view_as_complex
    ~pyxu.util.view_as_real
 

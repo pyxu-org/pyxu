@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 import pyxu.info.deps as pxd
+import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 import pyxu_tests.conftest as ct
@@ -228,3 +229,82 @@ class TestViewAsReal(ViewAs):
         assert y.chunks[-1] == (2,)
         assert xp.allclose(y[..., 0], x.real).compute()
         assert xp.allclose(y[..., 1], x.imag).compute()
+
+
+class TestAsRealOp:
+    # Fixtures ----------------------------------------------------------------
+    @pytest.fixture(
+        params=[
+            # Specification of complex-valued arrays
+            #     dim_shape   [canonical form]
+            #     dim_rank    [user form]
+            #     codim_shape [canonical form]
+            # 2D operators
+            ((5,), None, (3,)),
+            ((5,), (1,), (3,)),
+            # ND operators
+            ((5,), 1, (1, 2, 3)),
+            ((5, 3), 2, (1, 2, 3)),
+            ((5, 3, 4), 3, (1, 2, 3)),
+            ((5, 3, 4), 3, (1, 2, 3, 4)),
+        ]
+    )
+    def _spec(self, request):
+        return request.param
+
+    @pytest.fixture
+    def dim_shape(self, _spec) -> pxt.NDArrayShape:
+        return _spec[0]
+
+    @pytest.fixture
+    def codim_shape(self, _spec) -> pxt.NDArrayShape:
+        return _spec[2]
+
+    @pytest.fixture
+    def complex_in(self, dim_shape, codim_shape, xp, cwidth) -> pxt.NDArray:
+        rng = np.random.default_rng()
+        A_r = rng.standard_normal((*codim_shape, *dim_shape))
+        A_i = rng.standard_normal((*codim_shape, *dim_shape))
+        A = xp.array(A_r + 1j * A_i, dtype=cwidth.value)
+        return A
+
+    @pytest.fixture
+    def real_out(self, complex_in, _spec) -> pxt.NDArray:
+        A_r = pxu.as_real_op(complex_in, dim_rank=_spec[1])
+        return A_r
+
+    @pytest.fixture(params=pxrt.CWidth)
+    def cwidth(self, request) -> pxrt.CWidth:
+        return request.param
+
+    # Tests -------------------------------------------------------------------
+    def test_backend(self, complex_in, real_out):
+        assert type(complex_in) == type(real_out)  # noqa: E721
+
+    def test_prec(self, complex_in, real_out):
+        prec_in = pxrt.CWidth(complex_in.dtype)
+        prec_out = pxrt.Width(real_out.dtype)
+        assert prec_in.real == prec_out
+
+    def test_shape(self, dim_shape, codim_shape, complex_in, real_out):
+        dim_rank = len(dim_shape)
+        codim_rank = len(codim_shape)
+        sh_codim = complex_in.shape[:codim_rank]
+        sh_dim = complex_in.shape[-dim_rank:]
+        assert real_out.shape == (*sh_codim, 2, *sh_dim, 2)
+
+    @pytest.mark.parametrize("seed", list(range(10)))
+    def test_math(self, dim_shape, complex_in, real_out, seed):
+        # <A, x>_{\bC} = <A_r, x_r>_{\bR}
+        rng = np.random.default_rng(seed=seed)
+
+        x = rng.standard_normal((2, *dim_shape))
+        x = x[0] + 1j * x[1]
+        x_r = pxu.view_as_real(x)
+
+        dim_rank = len(dim_shape)
+        ip_R = np.tensordot(real_out, x_r, axes=dim_rank + 1)  # real-valued tensor contraction
+        ip_C = np.tensordot(complex_in, x, axes=dim_rank)  # complex-valued tensor contraction
+        ip_C_r = pxu.view_as_real(ip_C)
+
+        assert np.allclose(ip_C_r, ip_R)

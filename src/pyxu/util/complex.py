@@ -5,6 +5,7 @@ import pyxu.runtime as pxrt
 __all__ = [
     "view_as_real",
     "view_as_complex",
+    "as_real_op",
 ]
 
 
@@ -125,6 +126,101 @@ def view_as_real(x: pxt.NDArray) -> pxt.NDArray:
     else:
         y = y.reshape(*x.shape, 2)  # (..., N, 2)
     return y
+
+
+def as_real_op(A: pxt.NDArray, dim_rank: pxt.Integer = None) -> pxt.NDArray:
+    r"""
+    View complex-valued linear operator as its real-valued equivalent.
+
+    Useful to transform complex-valued matrix/vector products to their real-valued counterparts.
+
+    Parameters
+    ----------
+    A: NDArray
+        (N1...,NK, M1,...,MD) complex-valued matrix.
+    dim_rank: Integer
+        Dimension rank :math:`D`. (Can be omitted if `A` is 2D.)
+
+    Returns
+    -------
+    A_r: NDArray
+        (N1,...,NK,2, M1,...,MD,2) real-valued equivalent.
+
+    Examples
+    --------
+
+    .. code-block:: python3
+
+       import numpy as np
+       import pyxu.util.complex as cpl
+
+       codim_shape = (1,2,3)
+       dim_shape = (4,5,6,7)
+       dim_rank = len(dim_shape)
+
+       rng = np.random.default_rng(0)
+       A =      rng.standard_normal((*codim_shape, *dim_shape)) \
+         + 1j * rng.standard_normal((*codim_shape, *dim_shape))    # (1,2,3  |4,5,6,7  )
+       A_r = cpl.as_real_op(A, dim_rank=dim_rank)                  # (1,2,3,2|4,5,6,7,2)
+
+       x =      rng.standard_normal(dim_shape) \
+         + 1j * rng.standard_normal(dim_shape)                     # (4,5,6,7  )
+       x_r = cpl.view_as_real(x)                                   # (4,5,6,7,2)
+
+       y = np.tensordot(A, x, axes=dim_rank)                       # (1,2,3  )
+       y_r = np.tensordot(A_r, x_r, axes=dim_rank+1)               # (1,2,3,2)
+
+       np.allclose(y, cpl.view_as_complex(y_r))                    # True
+
+
+    Notes
+    -----
+    Real-valued matrices are returned unchanged.
+
+    See Also
+    --------
+    :py:func:`~pyxu.util.view_as_real`,
+    :py:func:`~pyxu.util.view_as_complex`
+    """
+    if _is_real(A):
+        return A
+
+    try:
+        c_dtype = A.dtype
+        c_width = pxrt.CWidth(c_dtype)
+        r_dtype = c_width.real.value
+    except Exception:
+        raise ValueError(f"Unsupported dtype {c_dtype}.")
+
+    if A.ndim == 2:
+        dim_rank = 1  # doesn't matter what the user specified.
+    else:  # rank > 2
+        # if ND -> mandatory supplied & (1 <= dim_rank < A.ndim)
+        assert dim_rank is not None, "Dimension rank must be specified for ND operators."
+        assert 1 <= dim_rank < A.ndim
+    dim_shape = A.shape[-dim_rank:]
+    codim_shape = A.shape[:-dim_rank]
+    codim_rank = len(codim_shape)
+
+    xp = pxd.NDArrayInfo.from_obj(A).module()
+    A_r = xp.zeros((*codim_shape, 2, *dim_shape, 2), dtype=r_dtype)
+
+    codim_sel = [*(slice(None),) * codim_rank, 0]
+    dim_sel = [*(slice(None),) * dim_rank, 0]
+    A_r[*codim_sel, *dim_sel] = A.real
+
+    codim_sel = [*(slice(None),) * codim_rank, 1]
+    dim_sel = [*(slice(None),) * dim_rank, 1]
+    A_r[*codim_sel, *dim_sel] = A.real
+
+    codim_sel = [*(slice(None),) * codim_rank, 0]
+    dim_sel = [*(slice(None),) * dim_rank, 1]
+    A_r[*codim_sel, *dim_sel] = -A.imag
+
+    codim_sel = [*(slice(None),) * codim_rank, 1]
+    dim_sel = [*(slice(None),) * dim_rank, 0]
+    A_r[*codim_sel, *dim_sel] = A.imag
+    return A_r
 
 
 def _is_real(x: pxt.NDArray) -> bool:

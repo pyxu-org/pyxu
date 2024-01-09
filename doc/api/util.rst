@@ -19,6 +19,8 @@ pyxu.util.array_module
 pyxu.util.complex
 -----------------
 
+.. autofunction:: pyxu.util.as_real_op
+
 .. autofunction:: pyxu.util.view_as_complex
 
 .. autofunction:: pyxu.util.view_as_real
