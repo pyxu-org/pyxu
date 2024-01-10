@@ -4,54 +4,68 @@ import pytest
 
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
+import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 import pyxu_tests.operator.conftest as conftest
 
 
 class Permutation(pxa.UnitOp):
-    # f: \bR^{N} -> \bR^{N}
-    #      x     -> x[::-1] (reverse-ordering)
-    def __init__(self, N: int):
-        super().__init__(shape=(N, N))
+    # f: \bR^{M1,...,MD} -> \bR^{M1,...,MD}
+    #      x             -> x[::-1]
+    #                       (reverse order of each dimension)
+    def __init__(self, dim_shape: pxt.NDArrayShape):
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=dim_shape,
+        )
 
     @pxrt.enforce_precision(i="arr")
-    def apply(self, arr):
-        return pxu.read_only(arr[..., ::-1])
+    def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
+        selector = (slice(None, None, -1),) * self.dim_rank
+        return pxu.read_only(arr[..., *selector])
 
     @pxrt.enforce_precision(i="arr")
-    def adjoint(self, arr):
-        return pxu.read_only(arr[..., ::-1])
+    def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
+        selector = (slice(None, None, -1),) * self.codim_rank
+        return pxu.read_only(arr[..., *selector])
 
 
 class TestPermutation(conftest.UnitOpT):
     @pytest.fixture(
         params=itertools.product(
-            ((10, Permutation(N=10)),),  # dim, op
             pxd.NDArrayInfo,
             pxrt.Width,
         )
     )
-    def _spec(self, request):
+    def spec(self, dim_shape, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
+        ndi, width = request.param
+        op = Permutation(dim_shape)
+        return op, ndi, width
+
+    @pytest.fixture(
+        params=[
+            (1,),
+            (5,),
+            (5, 3, 4),
+        ]
+    )
+    def dim_shape(self, request) -> pxt.NDArrayShape:
         return request.param
 
     @pytest.fixture
-    def spec(self, _spec):
-        return _spec[0][1], _spec[1], _spec[2]
+    def codim_shape(self, dim_shape) -> pxt.NDArrayShape:
+        return dim_shape
 
-    @pytest.fixture
-    def dim(self, _spec):
-        return _spec[0][0]
+    @pytest.fixture(params=[0, 17, 93])
+    def data_apply(self, dim_shape, request) -> conftest.DataLike:
+        seed = request.param
 
-    @pytest.fixture
-    def data_shape(self, dim):
-        return (dim, dim)
+        x = self._random_array(dim_shape, seed=seed)
+        selector = (slice(None, None, -1),) * len(dim_shape)
+        y = x[selector]
 
-    @pytest.fixture
-    def data_apply(self, dim):
-        arr = self._random_array((dim,))
-        out = arr[::-1]
         return dict(
-            in_=dict(arr=arr),
-            out=out,
+            in_=dict(arr=x),
+            out=y,
         )

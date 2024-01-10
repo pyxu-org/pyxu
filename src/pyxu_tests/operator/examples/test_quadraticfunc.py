@@ -11,16 +11,16 @@ import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
 
-def Q(dim: int) -> pxa.PosDefOp:
+def Q(dim_shape: pxt.NDArrayShape) -> pxa.PosDefOp:
     import pyxu_tests.operator.examples.test_posdefop as tc_p
 
-    return tc_p.PSDConvolution(N=dim)
+    return tc_p.PSDConvolution(dim_shape)
 
 
-def c(dim: int) -> pxa.LinFunc:
+def c(dim_shape: pxt.NDArrayShape) -> pxa.LinFunc:
     import pyxu_tests.operator.examples.test_linfunc as tc_l
 
-    return tc_l.ScaledSum(N=dim)
+    return tc_l.Sum(dim_shape)
 
 
 def t() -> float:
@@ -31,81 +31,112 @@ class TestQuadraticFunc(conftest.QuadraticFuncT):
     from pyxu.operator import IdentityOp, NullFunc
 
     @pytest.fixture(
-        params=itertools.product(
-            (
-                # dim, Q[init], c[init], t[init], Q[ground-truth], c[ground-truth], t[ground-truth]
-                (5, None, None, 0, IdentityOp(5), NullFunc(5), 0),
-                (5, Q(5), c(5), t(), Q(5), c(5), t()),
-            ),
-            pxd.NDArrayInfo,
-            pxrt.Width,
-        )
+        params=[
+            # [0]    dim_shape,
+            # [1--3] Q[init], c[init], t[init],
+            # [4--6] Q[ground-truth], c[ground-truth], t[ground-truth]
+            ((5,), None, None, 0, IdentityOp(5), NullFunc(5), 0),
+            ((5,), Q(5), c(5), t(), Q(5), c(5), t()),
+            ((5, 3, 7), None, None, 0, IdentityOp((5, 3, 7)), NullFunc((5, 3, 7)), 0),
+            ((5, 3, 7), Q((5, 3, 7)), c((5, 3, 7)), t(), Q((5, 3, 7)), c((5, 3, 7)), t()),
+        ]
     )
     def _spec(self, request):
         return request.param
 
     @pytest.fixture
     def Q_param(self, _spec) -> pxt.OpT:
-        return _spec[0][4]
+        return _spec[4]
 
     @pytest.fixture
     def c_param(self, _spec) -> pxt.OpT:
-        return _spec[0][5]
+        return _spec[5]
 
     @pytest.fixture
     def t_param(self, _spec) -> pxt.Real:
-        return _spec[0][6]
+        return _spec[6]
 
-    @pytest.fixture
-    def spec(self, _spec):
+    @pytest.fixture(
+        params=itertools.product(
+            pxd.NDArrayInfo,
+            pxrt.Width,
+        )
+    )
+    def spec(self, _spec, request):
+        ndi, width = request.param
         op = pxa.QuadraticFunc(
-            shape=(1, _spec[0][0]),
-            Q=_spec[0][1],
-            c=_spec[0][2],
-            t=_spec[0][3],
+            dim_shape=_spec[0],
+            codim_shape=1,
+            Q=_spec[1],
+            c=_spec[2],
+            t=_spec[3],
         )
-        return op, _spec[1], _spec[2]
+        return op, ndi, width
 
     @pytest.fixture
-    def dim(self, _spec) -> int:
-        return _spec[0][0]
+    def dim_shape(self, Q_param) -> pxt.NDArrayShape:
+        return Q_param.dim_shape
 
-    @pytest.fixture
-    def data_shape(self, dim):
-        return (1, dim)
+    @pytest.fixture(params=[0, 19, 107])
+    def data_apply(
+        self,
+        dim_shape,
+        Q_param,
+        c_param,
+        t_param,
+        request,
+    ) -> conftest.DataLike:
+        seed = request.param
 
-    @pytest.fixture
-    def data_apply(self, dim, Q_param, c_param, t_param):
-        dim = self._sanitize(dim, 3)
-        arr = self._random_array((dim,))
-        out = 0.5 * (arr @ Q_param.apply(arr)) + c_param.apply(arr) + t_param
+        x = self._random_array(dim_shape, seed=seed)
+        y = 0.5 * (x * Q_param.apply(x)).sum() + c_param.apply(x) + t_param
+
         return dict(
-            in_=dict(arr=arr),
-            out=out,
+            in_=dict(arr=x),
+            out=y,
         )
 
-    @pytest.fixture
-    def data_grad(self, dim, Q_param, c_param):
-        dim = self._sanitize(dim, 3)
-        arr = self._random_array((dim,))
-        out = Q_param.apply(arr) + c_param.asarray().reshape(-1)
+    @pytest.fixture(params=[0, 19, 107])
+    def data_grad(
+        self,
+        dim_shape,
+        Q_param,
+        c_param,
+        request,
+    ) -> conftest.DataLike:
+        seed = request.param
+
+        x = self._random_array(dim_shape, seed=seed)
+        y = Q_param.apply(x) + c_param.asarray()[0]
+
         return dict(
-            in_=dict(arr=arr),
-            out=out,
+            in_=dict(arr=x),
+            out=y,
         )
 
-    @pytest.fixture
-    def data_prox(self, dim, Q_param, c_param):
-        dim = self._sanitize(dim, 3)
-        arr, tau = self._random_array((dim,)), 2
-        out, *_ = splinalg.lstsq(
-            Q_param.asarray() + np.eye(dim) / tau,
-            arr / tau - c_param.asarray().reshape(-1),
-        )
+    @pytest.fixture(params=[0, 19, 107])
+    def data_prox(
+        self,
+        dim_shape,
+        Q_param,
+        c_param,
+        request,
+    ) -> conftest.DataLike:
+        seed = request.param
+
+        x, tau = self._random_array(dim_shape, seed=seed), 2
+        N = np.prod(dim_shape)
+
+        A = np.reshape(Q_param.asarray(), (N, N)) + np.eye(N) / tau
+        b = np.reshape(x / tau - c_param.asarray(), (N,))
+
+        y, *_ = splinalg.lstsq(A, b)
+        y = np.reshape(y, dim_shape)
+
         return dict(
             in_=dict(
-                arr=arr,
+                arr=x,
                 tau=tau,
             ),
-            out=out,
+            out=y,
         )

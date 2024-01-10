@@ -4,17 +4,22 @@ import pytest
 
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
+import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
 
 class ScaleDown(pxa.OrthProjOp):
-    # Drop the last component of a vector
-    def __init__(self, N: int):
-        super().__init__(shape=(N, N))
+    # Drop the last component of an NDArray
+    def __init__(self, dim_shape: pxt.NDArrayShape):
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=dim_shape,
+        )
+        assert self.dim_shape[-1] > 1, "Not a orth-projection."
 
     @pxrt.enforce_precision("arr")
-    def apply(self, arr):
+    def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = arr.copy()
         out[..., -1] = 0
         return out
@@ -23,31 +28,34 @@ class ScaleDown(pxa.OrthProjOp):
 class TestScaleDown(conftest.OrthProjOpT):
     @pytest.fixture(
         params=itertools.product(
-            ((10, ScaleDown(N=10)),),  # dim, op
             pxd.NDArrayInfo,
             pxrt.Width,
         )
     )
-    def _spec(self, request):
+    def spec(self, dim_shape, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
+        ndi, width = request.param
+        op = ScaleDown(dim_shape)
+        return op, ndi, width
+
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
+    def dim_shape(self, request) -> pxt.NDArrayShape:
         return request.param
 
-    @pytest.fixture
-    def spec(self, _spec):
-        return _spec[0][1], _spec[1], _spec[2]
+    @pytest.fixture(params=[0, 17, 93])
+    def data_apply(self, dim_shape, request) -> conftest.DataLike:
+        seed = request.param
 
-    @pytest.fixture
-    def dim(self, _spec):
-        return _spec[0][0]
+        x = self._random_array(dim_shape, seed=seed)
 
-    @pytest.fixture
-    def data_shape(self, dim):
-        return (dim, dim)
-
-    @pytest.fixture
-    def data_apply(self, dim):
-        x = self._random_array((dim,))
         y = x.copy()
-        y[-1] = 0
+        idx = dim_shape[-1] - 1
+        y[..., idx] = 0
+
         return dict(
             in_=dict(arr=x),
             out=y,
