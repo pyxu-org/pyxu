@@ -1,61 +1,99 @@
+import collections.abc as cabc
 import inspect
 
 import numpy as np
 import pytest
 
+import pyxu.info.ptype as pxt
 import pyxu.util as pxu
 
 
 class TestVectorize:
     @pytest.fixture(
         params=[
-            lambda x: (x.sum(keepdims=True) + 1).astype(np.half),  # 1D only
-            lambda x, y: (x.sum(keepdims=True) + y).astype(np.half),  # 1D only, multi-parameter
-            lambda x, y=1: (x.sum(keepdims=True) + y).astype(np.half),  # 1D only, multi-parameter (with defaults)
-            lambda x: (x.sum(axis=-1, keepdims=True) + 1).astype(np.half),  # already has desired ND behaviour
+            # (func, dim_shape, codim_shape) triplets.
+            # [dim_shape / codim_shape are in user-provided form.]
+            (  # 1D-func
+                lambda x: (x.sum(keepdims=True) + 1).astype(np.half),
+                5,
+                1,
+            ),
+            (  # 1D-func, multi-parameter
+                lambda x, y: (x.sum(keepdims=True) + y).astype(np.half),
+                5,
+                1,
+            ),
+            (  # 1D-func, multi-parameter (with defaults)
+                lambda x, y=1: (x.sum(keepdims=True) + y).astype(np.half),
+                5,
+                1,
+            ),
+            (  # already has ND behaviour
+                lambda x: (x.sum(axis=(0, 2), keepdims=True)).astype(np.half),
+                (5, 3, 4),
+                (1, 3, 1),
+            ),
         ]
     )
-    def func(self, request):
+    def _spec(self, request):
         return request.param
 
-    @pytest.fixture(
-        params=[  # (method, codim)  [codim-size when specified comes from `data_func` fixture.]
-            ("scan", None),
-            ("scan", 10),  # codim irrelevant; bogus value to see if unused
-            ("parallel", 5),
-            ("scan_dask", 5),
-        ]
-    )
-    def vfunc(self, func, request):
-        method, codim = request.param
-        decorate = pxu.vectorize(i="x", method=method, codim=codim)
+    @pytest.fixture
+    def func(self, _spec) -> cabc.Callable:
+        return _spec[0]
+
+    @pytest.fixture
+    def dim_shape(self, _spec) -> pxt.NDArrayShape:
+        return pxu.as_canonical_shape(_spec[1])
+
+    @pytest.fixture
+    def codim_shape(self, _spec) -> pxt.NDArrayShape:
+        return pxu.as_canonical_shape(_spec[2])
+
+    @pytest.fixture
+    def vfunc(self, _spec) -> cabc.Callable:
+        # vectorized function
+        func, dim_shape, codim_shape = _spec
+        decorate = pxu.vectorize(
+            i="x",
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
         return decorate(func)
 
     @pytest.fixture
-    def data_func(self, func):
+    def data_func(self, func, dim_shape):
+        x = np.arange(np.prod(dim_shape)).reshape(dim_shape)
+
         sig = inspect.Signature.from_callable(func)
-        data = dict(
-            in_=dict(x=np.arange(5)),
-            out=np.array([11]),
-        )
         if "y" in sig.parameters:
-            data["in_"].update(y=1)
+            y = 0.5
+            data = dict(
+                in_=dict(x=x, y=y),
+                out=func(x, y),
+            )
+        else:
+            data = dict(
+                in_=dict(x=x),
+                out=func(x),
+            )
         return data
 
-    def test_1d(self, vfunc, data_func):
+    def test_1d(self, vfunc, data_func, codim_shape):
+        # No stacking dimensions -> rank[out] == codim_rank
         out_gt = data_func["out"]
 
         in_ = data_func["in_"]
         out = vfunc(**in_)
 
-        assert out.ndim == 1
+        assert out.ndim == len(codim_shape)
         assert np.allclose(out, out_gt)
 
-    def test_nd(self, vfunc, data_func):
-        sh_extra = (2, 1)  # prepend input/output shape by this amount.
+    def test_nd(self, vfunc, data_func, codim_shape):
+        sh_extra = (3, 2, 1)  # prepend input/output shape by this amount.
 
         out_gt = data_func["out"]
-        out_gt = np.broadcast_to(out_gt, (*sh_extra, out_gt.shape[-1]))
+        out_gt = np.broadcast_to(out_gt, (*sh_extra, *codim_shape))
 
         in_ = data_func["in_"]
         in_["x"] = np.broadcast_to(in_["x"], (*sh_extra, *in_["x"].shape))

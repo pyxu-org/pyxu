@@ -1,13 +1,15 @@
 import collections.abc as cabc
+import concurrent.futures as cf
+import copy
 import functools
 import inspect
+import itertools
 
 import dask
 import dask.graph_manipulation as dgm
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.util.array_module as pxa
 import pyxu.util.misc as pxm
 
 __all__ = [
@@ -30,28 +32,26 @@ def as_canonical_shape(x: pxt.NDArrayShape) -> pxt.NDArrayShape:
 
 def vectorize(
     i: pxt.VarName,
-    method: str = "scan",
-    codim: pxt.Integer = None,
+    dim_shape: pxt.NDArrayShape,
+    codim_shape: pxt.NDArrayShape,
 ) -> cabc.Callable:
-    """
-    Decorator to auto-vectorize an array function to abide by :py:class:`~pyxu.abc.Property` API rules.
+    r"""
+    Decorator to auto-vectorize a function :math:`\mathbf{f}: \mathbb{R}^{M_{1} \times\cdots\times M_{D}} \to
+    \mathbb{R}^{N_{1} \times\cdots\times N_{K}}` to accept stacking dimensions.
 
     Parameters
     ----------
     i: VarName
-        Function parameter to vectorize. This variable must hold an object with a NumPy API.
-    method: str
-        Vectorization strategy:
+        Function/method parameter to vectorize. This variable must hold an object with a NumPy API.
+    dim_shape: NDArrayShape
+        (M1,...,MD) shape of operator's domain.
+    codim_shape: NDArrayShape
+        (N1,...,NK) shape of operator's co-domain.
 
-        * `scan` computes outputs using a for-loop.
-        * `parallel` passes inputs to DASK and evaluates them in parallel.
-        * `scan_dask` passes inputs to DASK but evaluates inputs in sequence.
-          This is useful if the function being vectorized has a shared resource, i.e. is not thread-safe.  It
-          effectively gives a DASK-unaware function the ability to work with DASK inputs.
-    codim: Integer
-        Size of the function's core dimension output.
-
-        This parameter is only required in "parallel" and "scan_dask" modes.
+    Returns
+    -------
+    g: ~collections.abc.Callable
+        Function/Method with signature ``(..., M1,...,MD) -> (..., N1,...,NK)`` in parameter `i`.
 
     Example
     -------
@@ -59,18 +59,30 @@ def vectorize(
 
        import pyxu.util as pxu
 
-       @pxu.vectorize('x')
        def f(x):
            return x.sum(keepdims=True)
 
-       x = np.arange(10).reshape((2, 5))
-       f(x[0]), f(x[1])  #  [10], [35]
-       f(x)              #  [10, 35] -> would have retured [45] if not decorated.
+       N = 5
+       g = pxu.vectorize("x", N, 1)(f)
+
+       x = np.arange(2*N).reshape((2, N))
+       g(x[0]), g(x[1])  #  [10], [35]
+       g(x)              #  [[10],
+                         #   [35]]
+
+    Notes
+    -----
+    * :py:func:`~pyxu.util.vectorize` assumes the function being vectorized is **thread-safe** and can be evaluated in
+      parallel. Using it on thread-unsafe code may lead to incorrect outputs.
+    * As predicted by Pyxu's :py:class:`~pyxu.abc.Operator` API:
+
+      - The dtype of the vectorized function is assumed to match `x.dtype`.
+      - The array backend of the vectorized function is assumed to match that of `x`.
     """
-    method = method.strip().lower()
-    assert method in ("scan", "scan_dask", "parallel"), f"Unknown vectorization method '{method}'."
-    if using_dask := (method in ("scan_dask", "parallel")):
-        assert isinstance(codim, pxt.Integer), f"Parameter[codim] must be specified for DASK-backed '{method}'."
+    N = pxd.NDArrayInfo  # short-hand
+    dim_shape = as_canonical_shape(dim_shape)
+    dim_rank = len(dim_shape)
+    codim_shape = as_canonical_shape(codim_shape)
 
     def decorator(func: cabc.Callable) -> cabc.Callable:
         sig = inspect.Signature.from_callable(func)
@@ -83,32 +95,39 @@ def vectorize(
             func_args = pxm.parse_params(func, *ARGS, **KWARGS)
 
             x = func_args.pop(i)
-            *sh, dim = x.shape
-            x = x.reshape((-1, dim))
-            N, xp = len(x), pxa.get_array_module(x)
+            ndi = N.from_obj(x)
+            xp = ndi.module()
 
-            if using_dask:
-                f = lambda _: func(**{i: _, **func_args})
-                blks = _dask_zip(
-                    func=(f,) * N,
-                    data=x,
-                    out_shape=[(codim,)] * N,  # can't infer codim -> user-specified
-                    out_dtype=(x.dtype,) * N,
-                    parallel=method == "parallel",
+            sh_stack = x.shape[:-dim_rank]
+            if ndi in [N.NUMPY, N.CUPY]:
+                task_kwargs = []
+                for idx in itertools.product(*map(range, sh_stack)):
+                    kwargs = copy.deepcopy(func_args)
+                    kwargs[i] = x[idx]
+                    task_kwargs.append(kwargs)
+
+                with cf.ThreadPoolExecutor() as executor:
+                    res = executor.map(lambda _: func(**_), task_kwargs)
+                y = xp.stack(list(res), axis=0).reshape((*sh_stack, *codim_shape))
+            elif ndi == N.DASK:
+                # Find out codim chunk structure ...
+                idx = (0,) * len(sh_stack)
+                func_args[i] = x[idx]
+                codim_chunks = func(**func_args).chunks  # no compute; only extract chunk info
+
+                # ... then process all inputs.
+                y = xp.zeros(
+                    (*sh_stack, *codim_shape),
+                    dtype=x.dtype,
+                    chunks=x.chunks[:-dim_rank] + codim_chunks,
                 )
-                y = xp.stack(blks, axis=0)  # (N, codim)
-            else:  # method = "scan"
-                # infer output dimensions + allocate
-                func_args[i] = x[0]
-                y0 = func(**func_args)
-                y = xp.zeros((N, y0.size), dtype=y0.dtype)  # (N, codim)
+                for idx in itertools.product(*map(range, sh_stack)):
+                    func_args[i] = x[idx]
+                    y[idx] = func(**func_args)
+            else:
+                # Define custom behavior
+                raise ValueError("Unknown NDArray category.")
 
-                y[0] = y0
-                for k in range(1, N):
-                    func_args[i] = x[k]
-                    y[k] = func(**func_args)
-
-            y = y.reshape(*sh, -1)
             return y
 
         return wrapper
