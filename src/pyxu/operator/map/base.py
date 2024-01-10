@@ -1,6 +1,7 @@
 import numpy as np
 
 import pyxu.abc as pxa
+import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.operator.interop.source as px_src
 import pyxu.runtime as pxrt
@@ -12,45 +13,84 @@ __all__ = [
 
 
 def ConstantValued(
-    shape: pxt.OpShape,
+    dim_shape: pxt.NDArrayShape,
+    codim_shape: pxt.NDArrayShape,
     cst: pxt.Real,
 ) -> pxt.OpT:
     r"""
-    Constant-valued operator :math:`C: \mathbb{R}^{M} \to \mathbb{R}^{N}`.
+    Constant-valued operator :math:`C: \mathbb{R}^{M_{1} \times\cdots\times M_{D}} \to
+    \mathbb{R}^{N_{1} \times\cdots\times N_{K}}`.
     """
+    codim_shape = pxu.as_canonical_shape(codim_shape)
+
     cst = float(cst)
     if np.isclose(cst, 0):
-        from pyxu.operator import NullOp
+        if codim_shape == (1,):
+            from pyxu.operator import NullFunc
 
-        op = NullOp(shape=shape)
+            op = NullFunc(dim_shape=dim_shape)
+        else:
+            from pyxu.operator import NullOp
+
+            op = NullOp(
+                dim_shape=dim_shape,
+                codim_shape=codim_shape,
+            )
     else:
 
         @pxrt.enforce_precision(i="arr")
         def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
-            xp = pxu.get_array_module(arr)
-            x = xp.full((1,), fill_value=_._cst, dtype=arr.dtype)
-            out = xp.broadcast_to(x, (*arr.shape[:-1], _.codim))
+            ndi = pxd.NDArrayInfo.from_obj(arr)
+            kwargs = dict()
+            if ndi == pxd.NDArrayInfo.DASK:
+                stack_chunks = arr.chunks[: -_.dim_rank]
+                core_chunks = ("auto",) * _.codim_rank
+                kwargs.update(chunks=stack_chunks + core_chunks)
+
+            xp = ndi.module()
+            sh = arr.shape[: -_.dim_rank]
+            out = xp.broadcast_to(
+                xp.array(_._cst, arr.dtype),
+                (*sh, *_.codim_shape),
+                **kwargs,
+            )
             return out
 
         def op_jacobian(_, arr: pxt.NDArray) -> pxt.OpT:
             from pyxu.operator import NullOp
 
-            return NullOp(shape=_.shape).squeeze()
+            return NullOp(
+                dim_shape=_.dim_shape,
+                codim_shape=_.codim_shape,
+            )
 
         @pxrt.enforce_precision(i="arr")
         def op_grad(_, arr: pxt.NDArray) -> pxt.NDArray:
-            xp = pxu.get_array_module(arr)
-            x = xp.zeros((1,), dtype=arr.dtype)
-            out = xp.broadcast_to(x, arr.shape)
+            ndi = pxd.NDArrayInfo.from_obj(arr)
+            kwargs = dict()
+            if ndi == pxd.NDArrayInfo.DASK:
+                kwargs.update(chunks=arr.chunks)
+
+            xp = ndi.module()
+            out = xp.broadcast_to(
+                xp.array(0, arr.dtype),
+                arr.shape,
+                **kwargs,
+            )
             return out
 
         @pxrt.enforce_precision(i=("arr", "tau"))
         def op_prox(_, arr: pxt.NDArray, tau: pxt.NDArray) -> pxt.NDArray:
             return pxu.read_only(arr)
 
+        if codim_shape == (1,):
+            klass = pxa.ProxDiffFunc
+        else:
+            klass = pxa.DiffMap
         op = px_src.from_source(
-            cls=pxa.ProxDiffFunc if (shape[0] == 1) else pxa.DiffMap,
-            shape=shape,
+            cls=klass,
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
             embed=dict(
                 _name="ConstantValued",
                 _cst=cst,
@@ -62,4 +102,4 @@ def ConstantValued(
         )
         op.lipschitz = 0
         op.diff_lipschitz = 0
-    return op.squeeze()
+    return op
