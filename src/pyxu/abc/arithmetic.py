@@ -1043,7 +1043,7 @@ class ChainRule(Rule):
     r"""
     Arithmetic rules for operator composition: :math:`C(x) = (A \circ B)(x)`.
 
-    The output type of ``ChainRule(A.squeeze(), B.squeeze())`` is summarized in the table below::
+    The output type of ``ChainRule(A, B)`` is summarized in the table below::
 
         |---------------|------|------------|----------|------------|------------|----------------|----------------------|------------------|------------|-----------|-----------|--------------|---------------|-----------|-----------|------------|
         |   LHS / RHS   | Map  |    Func    | DiffMap  |  DiffFunc  |  ProxFunc  |  ProxDiffFunc  |      Quadratic       |      LinOp       |  LinFunc   |  SquareOp |  NormalOp |    UnitOp    | SelfAdjointOp |  PosDefOp |   ProjOp  | OrthProjOp |
@@ -1102,14 +1102,18 @@ class ChainRule(Rule):
     """
 
     def __init__(self, lhs: pxt.OpT, rhs: pxt.OpT):
+        assert lhs.dim_shape == rhs.codim_shape, "Operator dimensions are not compatible."
+
         super().__init__()
-        self._lhs = lhs.squeeze()
-        self._rhs = rhs.squeeze()
+        self._lhs = lhs
+        self._rhs = rhs
 
     def op(self) -> pxt.OpT:
-        sh_op = pxu.infer_composition_shape(self._lhs.shape, self._rhs.shape)
         klass = self._infer_op_klass()
-        op = klass(shape=sh_op)
+        op = klass(
+            dim_shape=self._rhs.dim_shape,
+            codim_shape=self._lhs.codim_shape,
+        )
         op._lhs = self._lhs  # embed for introspection
         op._rhs = self._rhs  # embed for introspection
         for p in op.properties():
@@ -1180,9 +1184,10 @@ class ChainRule(Rule):
             properties.add(P.QUADRATIC)
         if P.LINEAR in (lhs_p & rhs_p):
             properties.add(P.LINEAR)
-            if self._lhs.codim == 1:
-                properties.add(P.PROXIMABLE)
-            if self._lhs.codim == self._rhs.dim > 1:
+            if self._lhs.codim_shape == (1,):
+                for p in pxo.LinFunc.properties():
+                    properties.add(p)
+            if (self._lhs.codim_size == self._rhs.dim_size) and (self._rhs.dim_size > 1):
                 properties.add(P.LINEAR_SQUARE)
         if P.LINEAR_UNITARY in (lhs_p & rhs_p):
             properties.add(P.LINEAR_NORMAL)
@@ -1228,7 +1233,14 @@ class ChainRule(Rule):
             elif self._lhs.has(pxo.Property.QUADRATIC) and self._rhs.has(pxo.Property.LINEAR):
                 # quadratic \comp linop => quadratic
                 Q, c, t = self._quad_spec()
-                out = pxo.QuadraticFunc(shape=self.shape, Q=Q, c=c, t=t).prox(arr, tau)
+                op = pxo.QuadraticFunc(
+                    dim_shape=self.dim_shape,
+                    codim_shape=self.codim_shape,
+                    Q=Q,
+                    c=c,
+                    t=t,
+                )
+                out = op.prox(arr, tau)
             elif self._lhs.has(pxo.Property.LINEAR) and self._rhs.has(pxo.Property.PROXIMABLE):
                 # linfunc() \comp prox[diff]func() => prox[diff]func()
                 #                                  = (\alpha * prox[diff]func())
@@ -1271,7 +1283,13 @@ class ChainRule(Rule):
         no_eval = "__rule" in kwargs
         if self.has(pxo.Property.QUADRATIC):
             Q, c, t = self._quad_spec()
-            op = pxo.QuadraticFunc(shape=self.shape, Q=Q, c=c, t=t)
+            op = pxo.QuadraticFunc(
+                dim_shape=self.dim_shape,
+                codim_shape=self.codim_shape,
+                Q=Q,
+                c=c,
+                t=t,
+            )
             if no_eval:
                 dL = op.diff_lipschitz
             else:
@@ -1300,27 +1318,38 @@ class ChainRule(Rule):
 
     @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
-        x = self._lhs.grad(self._rhs.apply(arr))
-        if (arr.ndim == 1) or self._rhs.has(pxo.Property.LINEAR):
+        sh = arr.shape[: -self.dim_rank]
+        if (len(sh) == 0) or self._rhs.has(pxo.Property.LINEAR):
+            x = self._lhs.grad(self._rhs.apply(arr))
             out = self._rhs.jacobian(arr).adjoint(x)
+
+            # RHS.adjoint() may change core-chunks if (codim->dim) changes are involved.
+            # This is problematic since grad() should preserve core-chunks by default.
+            ndi = pxd.NDArrayInfo.from_obj(arr)
+            if ndi == pxd.NDArrayInfo.DASK:
+                if out.chunks != arr.chunks:
+                    out = out.rechunk(arr.chunks)
         else:
-            xp = pxu.get_array_module(arr)
-            out = xp.stack(
-                [
-                    self._rhs.jacobian(a).adjoint(b)
-                    for (a, b) in zip(
-                        arr.reshape((np.prod(arr.shape[:-1]), -1)),
-                        x.reshape((np.prod(x.shape[:-1]), -1)),
-                        # zip() above safer than
-                        #       zip(
-                        #         arr.reshape((-1, self._rhs.dim)),
-                        #         x.reshape((-1, self._lhs.dim)),
-                        #       )
-                        # Due to potential _lhs/_rhs domain-agnosticity, i.e. `[lhs|rhs].dim=None`.
-                    )
-                ],
-                axis=0,
-            ).reshape(arr.shape)
+            # We need to evaluate the Jacobian seperately per stacked input.
+
+            @pxu.vectorize(
+                i="arr",
+                dim_shape=self.dim_shape,
+                codim_shape=self.dim_shape,
+            )
+            def f(arr: pxt.NDArray) -> pxt.NDArray:
+                x = self._lhs.grad(self._rhs.apply(arr))
+                out = self._rhs.jacobian(arr).adjoint(x)
+
+                # RHS.adjoint() may change core-chunks if (codim->dim) changes are involved.
+                # This is problematic since grad() should preserve core-chunks by default.
+                ndi = pxd.NDArrayInfo.from_obj(arr)
+                if ndi == pxd.NDArrayInfo.DASK:
+                    if out.chunks != arr.chunks:
+                        out = out.rechunk(arr.chunks)
+                return out
+
+            out = f(arr)
         return out
 
     @pxrt.enforce_precision(i="arr")
@@ -1332,16 +1361,18 @@ class ChainRule(Rule):
     def asarray(self, **kwargs) -> pxt.NDArray:
         A_lhs = self._lhs.asarray(**kwargs)
         A_rhs = self._rhs.asarray(**kwargs)
-        A = A_lhs @ A_rhs
+
+        xp = pxu.get_array_module(A_lhs)
+        A = xp.tensordot(A_lhs, A_rhs, axes=self._lhs.dim_rank)
         return A
 
     def gram(self) -> pxt.OpT:
         op = self._rhs.T * self._lhs.gram() * self._rhs
-        return op.asop(pxo.SelfAdjointOp).squeeze()
+        return op.asop(pxo.SelfAdjointOp)
 
     def cogram(self) -> pxt.OpT:
         op = self._lhs * self._rhs.cogram() * self._lhs.T
-        return op.asop(pxo.SelfAdjointOp).squeeze()
+        return op.asop(pxo.SelfAdjointOp)
 
     def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
         if self.has(pxo.Property.FUNCTIONAL):
