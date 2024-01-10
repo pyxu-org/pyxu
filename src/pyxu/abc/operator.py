@@ -1066,12 +1066,17 @@ class ProxFunc(Func):
         assert mu > 0, f"mu: expected positive, got {mu}"
 
         @pxrt.enforce_precision(i="arr")
-        def op_apply(_, arr):
-            from pyxu.math import norm
+        def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
+            xp = pxu.get_array_module(arr)
 
             x = self.prox(arr, tau=_._mu)
-            out = pxu.copy_if_unsafe(self.apply(x))
-            out += (0.5 / _._mu) * norm(arr - x, axis=-1, keepdims=True) ** 2
+            y = xp.sum(
+                (arr - x) ** 2,
+                axis=tuple(range(-self.dim_rank, 0)),
+            )[..., np.newaxis]
+            y *= 0.5 / _._mu
+
+            out = self.apply(x) + y
             return out
 
         @pxrt.enforce_precision(i="arr")
@@ -1082,7 +1087,8 @@ class ProxFunc(Func):
 
         op = from_source(
             cls=DiffFunc,
-            shape=self.shape,
+            dim_shape=self.dim_shape,
+            codim_shape=self.codim_shape,
             embed=dict(
                 _name="moreau_envelope",
                 _mu=mu,
@@ -1129,7 +1135,11 @@ class DiffFunc(DiffMap, Func):
 
     @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
-        return LinFunc.from_array(self.grad(arr))
+        op = LinFunc.from_array(
+            A=self.grad(arr)[np.newaxis, ...],
+            dim_rank=self.dim_rank,
+        )
+        return op
 
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         r"""
@@ -1295,7 +1305,7 @@ class QuadraticFunc(ProxDiffFunc):
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         Q, c, t = self._quad_spec()
-        out = (arr * Q.apply(arr)).sum(axis=-1, keepdims=True)
+        out = (arr * Q.apply(arr)).sum(axis=tuple(range(-self.dim_rank, 0)))[..., np.newaxis]
         out /= 2
         out += c.apply(arr)
         out += t
@@ -1314,14 +1324,14 @@ class QuadraticFunc(ProxDiffFunc):
         from pyxu.opt.stop import MaxIter
 
         Q, c, _ = self._quad_spec()
-        A = Q + HomothetyOp(cst=1 / tau, dim=Q.dim)
+        A = Q + HomothetyOp(cst=1 / tau, dim_shape=Q.dim_shape)
         b = arr.copy()
         b /= tau
         b -= c.grad(arr)
 
         slvr = CG(A=A, show_progress=False)
 
-        sentinel = MaxIter(n=2 * A.dim)
+        sentinel = MaxIter(n=2 * A.dim_size)
         stop_crit = slvr.default_stop_crit() | sentinel
 
         slvr.fit(b=b, stop_crit=stop_crit)
@@ -1524,7 +1534,7 @@ class LinOp(DiffMap):
 
             sig_func = func
             kwargs.update(
-                op=self.gram() if (self.codim >= self.dim) else self.cogram(),
+                op=self.gram() if (self.codim_size >= self.dim_size) else self.cogram(),
                 m=kwargs.get("m", 126),
             )
             estimate = lambda: np.sqrt(func(**kwargs)).item()
@@ -1594,7 +1604,7 @@ class LinOp(DiffMap):
             )
             return spx.svds(op, **kwargs)
 
-        if k >= min(self.shape) // 2:
+        if k >= min(self.dim_size, self.codim_size) // 2:
             msg = "Too many svdvals wanted: using matrix-based ops."
             warnings.warn(msg, pxw.DenseWarning)
             D = _dense_eval()
@@ -1635,10 +1645,13 @@ class LinOp(DiffMap):
         if dtype is None:
             dtype = pxrt.getPrecision().value
 
+        E = xp.eye(self.dim_size, dtype=dtype).reshape(*self.dim_shape, *self.dim_shape)
         with pxrt.EnforcePrecision(False):
-            E = xp.eye(self.dim, dtype=dtype)
-            A = self.apply(E).T
-        return A
+            A = self.apply(E)  # (*dim_shape, *codim_shape)
+
+        axes = tuple(range(-self.codim_rank, 0)) + tuple(range(self.dim_rank))
+        B = A.transpose(axes)  # (*codim_shape, *dim_shape)
+        return B
 
     def gram(self) -> pxt.OpT:
         r"""
@@ -1760,13 +1773,13 @@ class LinOp(DiffMap):
         if np.isclose(damp, 0):
             A = self.gram()
         else:
-            A = self.gram() + HomothetyOp(cst=damp, dim=self.dim)
+            A = self.gram() + HomothetyOp(cst=damp, dim_shape=self.dim_shape)
 
         cg = CG(A, **kwargs_init)
         if "stop_crit" not in kwargs_fit:
             # .pinv() may not have sufficiently converged given the default CG stopping criteria.
             # To avoid infinite loops, CG iterations are thresholded.
-            sentinel = MaxIter(n=20 * A.dim)
+            sentinel = MaxIter(n=20 * A.dim_size)
             kwargs_fit["stop_crit"] = cg.default_stop_crit() | sentinel
 
         b = self.adjoint(arr)
@@ -1818,8 +1831,9 @@ class LinOp(DiffMap):
         kwargs_init = dict() if kwargs_init is None else kwargs_init
 
         dagger = from_source(
-            cls=SquareOp if (self.dim == self.codim) else LinOp,
-            shape=(self.dim, self.codim),
+            cls=SquareOp if (self.dim_size == self.codim_size) else LinOp,
+            dim_shape=self.codim_shape,
+            codim_shape=self.dim_shape,
             embed=dict(
                 _name="dagger",
                 _damp=damp,
@@ -1836,6 +1850,7 @@ class LinOp(DiffMap):
     def from_array(
         cls,
         A: typ.Union[pxt.NDArray, pxt.SparseArray],
+        dim_rank=None,
         enable_warnings: bool = True,
     ) -> pxt.OpT:
         r"""
@@ -1857,7 +1872,13 @@ class LinOp(DiffMap):
         """
         from pyxu.operator.linop.base import _ExplicitLinOp
 
-        return _ExplicitLinOp(cls, A, enable_warnings)
+        op = _ExplicitLinOp(
+            cls,
+            mat=A,
+            dim_rank=dim_rank,
+            enable_warnings=enable_warnings,
+        )
+        return op
 
 
 class SquareOp(LinOp):
@@ -2005,12 +2026,7 @@ class UnitOp(NormalOp):
     def gram(self) -> pxt.OpT:
         from pyxu.operator import IdentityOp
 
-        return IdentityOp(dim=self.dim)
-
-    def cogram(self) -> pxt.OpT:
-        from pyxu.operator import IdentityOp
-
-        return IdentityOp(dim=self.codim)
+        return IdentityOp(dim_shape=self.dim_shape)
 
     def svdvals(self, **kwargs) -> pxt.NDArray:
         gpu = kwargs.get("gpu", False)
@@ -2131,17 +2147,28 @@ class LinFunc(ProxDiffFunc, LinOp):
         for ndi in pxd.NDArrayInfo:
             try:
                 xp = ndi.module()
-                g = self.grad(xp.ones(self.dim))
-                L = float(xp.linalg.norm(g))
+                g = self.grad(xp.ones(self.dim_shape))
+                L = float(xp.sqrt(xp.sum(g**2)))
                 return L
             except Exception:
                 pass
 
     @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
-        xp = pxu.get_array_module(arr)
-        x = xp.ones((*arr.shape[:-1], 1), dtype=arr.dtype)
+        ndi = pxd.NDArrayInfo.from_obj(arr)
+        xp = ndi.module()
+
+        sh = arr.shape[: -self.dim_rank]
+        x = xp.ones((*sh, 1), dtype=arr.dtype)
         g = self.adjoint(x)
+
+        if ndi == pxd.NDArrayInfo.DASK:
+            # LinFuncs auto-determine [grad,prox,fenchel_prox]() via the user-specified adjoint().
+            # Problem: cannot forward any core-chunk info to adjoint(), hence grad's core-chunks
+            # may differ from `arr`. This is problematic since [grad,prox,fenchel_prox]() should
+            # preserve core-chunks by default.
+            if g.chunks != arr.chunks:
+                g = g.rechunk(arr.chunks)
         return g
 
     @pxrt.enforce_precision(i=("arr", "tau"))
@@ -2157,7 +2184,7 @@ class LinFunc(ProxDiffFunc, LinOp):
         from pyxu.operator import HomothetyOp
 
         L = self.estimate_lipschitz()
-        return HomothetyOp(cst=L**2, dim=1)
+        return HomothetyOp(cst=L**2, dim_shape=1)
 
     def svdvals(self, **kwargs) -> pxt.NDArray:
         gpu = kwargs.get("gpu", False)
@@ -2172,21 +2199,10 @@ class LinFunc(ProxDiffFunc, LinOp):
         xp = kwargs.get("xp", pxd.NDArrayInfo.default().module())
         dtype = kwargs.get("dtype", pxrt.getPrecision().value)
 
+        E = xp.ones((1, 1), dtype=dtype)
         with pxrt.EnforcePrecision(False):
-            x = xp.ones((1, 1), dtype=dtype)
-            A = self.adjoint(x)
+            A = self.adjoint(E)  # (1, *dim_shape)
         return A
-
-    @classmethod
-    def from_array(
-        cls,
-        A: typ.Union[pxt.NDArray, pxt.SparseArray],
-        enable_warnings: bool = True,
-    ) -> pxt.OpT:
-        if A.ndim == 1:
-            A = A.reshape((1, -1))
-        op = super().from_array(A, enable_warnings)
-        return op
 
 
 def _core_operators() -> cabc.Set[pxt.OpC]:
