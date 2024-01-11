@@ -64,6 +64,7 @@ class _Stencil:
     Multi-dimensional JIT-compiled stencil. (Low-level function.)
 
     This low-level class creates a gu-vectorized stencil applicable on multiple inputs simultaneously.
+    Only NUMPY/CUPY arrays are accepted.
 
     Create instances via factory method :py:meth:`~pyxu.operator._Stencil.init`.
 
@@ -78,7 +79,7 @@ class _Stencil:
     .. code-block:: python3
 
        import numpy as np
-       from pyxu.operator.linop.stencil._stencil import _Stencil
+       from pyxu.operator import _Stencil
 
        # create the stencil
        kernel = np.array([[0, 1, 0],
@@ -105,7 +106,7 @@ class _Stencil:
         Parameters
         ----------
         kernel: NDArray
-            (k_1, ..., k_D) kernel coefficients.
+            (k1,...,kD) kernel coefficients.
 
             Only float32/64 kernels are supported.
         center: ~pyxu.operator._Stencil.IndexSpec
@@ -113,7 +114,7 @@ class _Stencil:
 
         Returns
         -------
-        st: ~pyxu.operator.linop.stencil._stencil._Stencil
+        st: ~pyxu.operator._Stencil
             Rank-D stencil.
         """
         dtype = kernel.dtype
@@ -122,7 +123,7 @@ class _Stencil:
 
         center = np.array(center, dtype=int)
         assert center.size == kernel.ndim
-        assert np.all(0 <= center) and np.all(center < kernel.shape)
+        assert np.all((0 <= center) & (center < kernel.shape))
 
         N = pxd.NDArrayInfo
         ndi = N.from_obj(kernel)
@@ -148,9 +149,9 @@ class _Stencil:
         Parameters
         ----------
         arr: NDArray
-            (..., N_1, ..., N_D) data to process.
+            (..., M1,...,MD) data to process.
         out: NDArray
-            (..., N_1, ..., N_D) array to which outputs are written.
+            (..., M1,...,MD) array to which outputs are written.
         kwargs: dict
             Extra kwargs to configure `f_jit()`, the Dispatcher instance created by Numba.
 
@@ -164,7 +165,7 @@ class _Stencil:
         Returns
         -------
         out: NDArray
-            (..., N_1, ..., N_D) outputs.
+            (..., M1,...,MD) outputs.
 
         Notes
         -----
@@ -187,12 +188,13 @@ class _Stencil:
         #   LinOp.to_sciop() is partially broken.
 
         K_dim = len(self._kernel.shape)
-        arg_shape = arr.shape[-K_dim:]
+        dim_shape = arr.shape[-K_dim:]
 
         stencil = self._configure_dispatcher(arr.size, **kwargs)
         stencil(
-            arr.reshape(-1, *arg_shape),
-            out.reshape(-1, *arg_shape),
+            # OK since NP/CP input constraint.
+            arr.reshape(-1, *dim_shape),
+            out.reshape(-1, *dim_shape),
         )
         return out
 
@@ -254,8 +256,8 @@ def f_stencil(a):
     boundscheck=False,
 )
 def f_jit(arr, out):
-    # arr: (N_stack, N_1, ..., N_D)
-    # out: (N_stack, N_1, ..., N_D)
+    # arr: (N_stack, M1,...,MD)
+    # out: (N_stack, M1,...,MD)
     f_stencil(arr, out=out)
 """
         )
@@ -371,8 +373,8 @@ def full_overlap(
     # max_registers=None,  # see .apply() notes
 )
 def f_jit(arr, out):
-    # arr: (N_stack, N_1, ..., N_D)
-    # out: (N_stack, N_1, ..., N_D)
+    # arr: (N_stack, M1,...,MD)
+    # out: (N_stack, M1,...,MD)
     offset = numba.cuda.grid(1)
     if offset < arr.size:
         idx = unravel_offset(offset, arr.shape)

@@ -11,9 +11,7 @@ import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
 
-# We disable PrecisionWarnings since Stencil() is not precision-agnostic.
 # We disable NumbaPerformanceWarnings due to solving small-scale problems at test time.
-@pytest.mark.filterwarnings("ignore::pyxu.info.warning.PrecisionWarning")
 @pytest.mark.filterwarnings("ignore::numba.core.errors.NumbaPerformanceWarning")
 class TestStencil(conftest.SquareOpT):
     @pytest.fixture(
@@ -83,28 +81,37 @@ class TestStencil(conftest.SquareOpT):
         ]
     )
     def _spec(self, request):
-        # (arg_shape, kernel, center, mode) configs to test
+        # (dim_shape, kernel, center, mode) configs to test
         # * `request.param[0]` corresponds to raw inputs users provide to Stencil().
         # * `request.param[1]` corresponds to their ground-truth canonical parameterization.
         return request.param
 
     @pytest.fixture
-    def arg_shape(self, _spec):  # canonical representation
-        arg_shape, _, _, _ = _spec[1]
-        return arg_shape
+    def dim_shape(self, _spec) -> pxt.NDArrayShape:
+        # canonical representation
+        dim_shape, _, _, _ = _spec[1]
+        return dim_shape
 
     @pytest.fixture
-    def kernel(self, _spec):  # canonical representation (NumPy)
+    def codim_shape(self, dim_shape) -> pxt.NDArrayShape:
+        # canonical representation
+        return dim_shape
+
+    @pytest.fixture
+    def kernel(self, _spec):
+        # canonical representation (NumPy)
         _, kernel, _, _ = _spec[1]
         return kernel
 
     @pytest.fixture
-    def center(self, _spec):  # canonical representation
+    def center(self, _spec):
+        # canonical representation
         _, _, center, _ = _spec[1]
         return center
 
     @pytest.fixture
-    def mode(self, _spec):  # canonical representation
+    def mode(self, _spec):
+        # canonical representation
         _, _, _, mode = _spec[1]
         return mode
 
@@ -116,41 +123,39 @@ class TestStencil(conftest.SquareOpT):
     )
     def spec(self, _spec, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
-        arg_shape, kernel, center, mode = _spec[0]  # user-provided form
+        self._skip_if_unsupported(ndi)
+
+        dim_shape, kernel, center, mode = _spec[0]  # user-provided form
 
         # transform kernel to right backend
-        self._skip_if_unsupported(ndi)
         xp = ndi.module()
         try:
             pxd.NDArrayInfo.from_obj(kernel)  # passes if array object
-            kernel = xp.array(kernel)
+            kernel = xp.array(kernel, dtype=width.value)
         except Exception:
-            kernel = [xp.array(k) for k in kernel]
+            kernel = [xp.array(k, dtype=width.value) for k in kernel]
 
         with pxrt.Precision(width):
             op = pxo.Stencil(
-                arg_shape=arg_shape,
+                dim_shape=dim_shape,
                 kernel=kernel,
                 center=center,
                 mode=mode,
+                enable_warnings=False,
             )
         return op, ndi, width
-
-    @pytest.fixture
-    def data_shape(self, arg_shape) -> pxt.OpShape:
-        codim = dim = np.prod(arg_shape)
-        return (codim, dim)
 
     @pytest.fixture(params=[0, 1, 2])  # different seeds to test robustness
     def data_apply(
         self,
-        arg_shape,
+        dim_shape,
         kernel,
         center,
         mode,
         request,
     ) -> conftest.DataLike:
-        arr = self._random_array(arg_shape, seed=request.param)
+        seed = request.param
+        x = self._random_array(dim_shape, seed=seed)
 
         # Pad input in excess of what is stricly required (using Pad(); assumed correct)
         if len(kernel) == 1:  # non-seperable filter
@@ -158,11 +163,11 @@ class TestStencil(conftest.SquareOpT):
         else:  # seperable filter(s)
             pad_width = [(k.shape[i],) * 2 for (i, k) in enumerate(kernel)]
         pad = pxo.Pad(
-            arg_shape=arg_shape,
+            dim_shape=dim_shape,
             pad_width=pad_width,
             mode=mode,
         )
-        corr_in = pad.apply(arr.reshape(-1)).reshape(pad._pad_shape)
+        corr_in = pad.apply(x)
 
         # perform correlation via scipy.ndimage.correlate
         corr_out = corr_in.copy()
@@ -178,14 +183,14 @@ class TestStencil(conftest.SquareOpT):
 
         # Trim fat off (using Trim(); assumed correct)
         trim = pxo.Trim(
-            arg_shape=corr_out.shape,
+            dim_shape=corr_out.shape,
             trim_width=pad_width,
         )
-        out = trim.apply(corr_out.reshape(-1)).reshape(arg_shape)
+        y = trim.apply(corr_out)
 
         return dict(
-            in_=dict(arr=arr.reshape(-1)),
-            out=out.reshape(-1),
+            in_=dict(arr=x),
+            out=y,
         )
 
 
@@ -218,7 +223,7 @@ class TestConvolve:
 
         # Compute Stencil-based solution
         op = pxo.Convolve(
-            arg_shape=arr.shape,
+            dim_shape=arr.shape,
             kernel=kernel,
             center=center,
             mode="constant",

@@ -37,8 +37,8 @@ class Stencil(pxa.SquareOp):
 
     .. rubric:: Implementation Notes
 
-    * Numba (and its ``@stencil`` decorator) is used behind the scenes to compile efficient machine code from a stencil
-      kernel specification.  This has 2 consequences:
+    * Numba (and its ``@stencil`` decorator) is used to compile efficient machine code from a stencil kernel
+      specification.  This has 2 consequences:
 
       * :py:class:`~pyxu.operator.Stencil` instances are **not arraymodule-agnostic**: they will only work with NDArrays
          belonging to the same array module as `kernel`.
@@ -83,7 +83,7 @@ class Stencil(pxa.SquareOp):
     .. code-block:: python3
 
        >>> S = Stencil(
-       ...      arg_shape=(5,),
+       ...      dim_shape=(5,),
        ...      kernel=np.r_[1, 2, -3],
        ...      center=(2,),
        ...      mode="reflect",
@@ -145,7 +145,7 @@ class Stencil(pxa.SquareOp):
     .. code-block:: python3
 
        >>> S = Stencil(
-       ...      arg_shape=(5,),
+       ...      dim_shape=(5,),
        ...      kernel=np.r_[-1, 1],
        ...      center=(0,),
        ...      mode='constant',
@@ -182,7 +182,7 @@ class Stencil(pxa.SquareOp):
          x = np.arange(10)  # [0  1  2  3  4  5  6  7  8  9]
 
          op = Stencil(
-             arg_shape=x.shape,
+             dim_shape=x.shape,
              kernel=np.array([1, 2, 3]),
              center=(2,),  # k[2] applies on x[n]
          )
@@ -227,7 +227,7 @@ class Stencil(pxa.SquareOp):
          #  [56  57  58  59  60  61  62  63]]
 
          op = Stencil(
-             arg_shape=x.shape,
+             dim_shape=x.shape,
              kernel=np.array(
                  [[2, 0, 3],
                   [0, 0, 0],
@@ -235,7 +235,7 @@ class Stencil(pxa.SquareOp):
              center=(1, 1),  # k[1, 1] applies on x[n, m]
          )
 
-         y = op.apply(x.reshape(-1)).reshape(8, 8)
+         y = op.apply(x)
          # [[ 45   82   91  100  109  118  127   56 ]
          #  [ 88  160  174  188  202  216  230  100 ]
          #  [152  272  286  300  314  328  342  148 ]
@@ -306,7 +306,7 @@ class Stencil(pxa.SquareOp):
          #  [56  57  58  59  60  61  62  63]]
 
          op_2D = Stencil(  # using non-seperable kernel
-             arg_shape=x.shape,
+             dim_shape=x.shape,
              kernel=np.array(
                  [[ 4,  5,  6],
                   [ 8, 10, 12],
@@ -314,7 +314,7 @@ class Stencil(pxa.SquareOp):
              center=(1, 1),  # k[1, 1] applies on x[n, m]
          )
          op_sep = Stencil(  # using seperable kernels
-             arg_shape=x.shape,
+             dim_shape=x.shape,
              kernel=[
                  np.array([1, 2, 3]),  # k1: stencil along 1st axis
                  np.array([4, 5, 6]),  # k2: stencil along 2nd axis
@@ -322,8 +322,8 @@ class Stencil(pxa.SquareOp):
              center=(1, 1),  # k1[1] * k2[1] applies on x[n, m]
          )
 
-         y_2D = op_2D.apply(x.reshape(-1)).reshape(8, 8)
-         y_sep = op_sep.apply(x.reshape(-1)).reshape(8, 8)  # np.allclose(y_2D, y_sep) -> True
+         y_2D = op_2D.apply(x)
+         y_sep = op_sep.apply(x)  # np.allclose(y_2D, y_sep) -> True
          # [[ 294   445   520   595   670   745   820   511 ]
          #  [ 740  1062  1152  1242  1332  1422  1512   930 ]
          #  [1268  1782  1872  1962  2052  2142  2232  1362 ]
@@ -341,13 +341,13 @@ class Stencil(pxa.SquareOp):
     """
 
     KernelSpec = typ.Union[
-        pxt.NDArray,  # (k1, ..., kD) non-seperable kernel
+        pxt.NDArray,  # (k1,...,kD) non-seperable kernel
         cabc.Sequence[pxt.NDArray],  # [(k1,), ..., (kD,)] seperable kernels
     ]
 
     def __init__(
         self,
-        arg_shape: pxt.NDArrayShape,
+        dim_shape: pxt.NDArrayShape,
         kernel: KernelSpec,
         center: _Stencil.IndexSpec,
         mode: Pad.ModeSpec = "constant",
@@ -356,8 +356,8 @@ class Stencil(pxa.SquareOp):
         r"""
         Parameters
         ----------
-        arg_shape: NDArrayShape
-            Shape of the rank-:math:`D` input array.
+        dim_shape: NDArrayShape
+            (M1,...,MD) input dimensions.
         kernel: ~pyxu.operator.Stencil.KernelSpec
             Stencil coefficients.  Two forms are accepted:
 
@@ -367,12 +367,12 @@ class Stencil(pxa.SquareOp):
 
               .. math::
 
-                 k = k_1\otimes \cdots\otimes k_D,
+                 k = k_1 \otimes\cdots\otimes k_D,
 
               or in Python: ``k = functools.reduce(numpy.multiply.outer, kernel)``.
 
         center: ~pyxu.operator._Stencil.IndexSpec
-            (i_1, ..., i_D) index of the stencil's center.
+            (i1,...,iD) index of the stencil's center.
 
             `center` defines how a kernel is overlaid on inputs to produce outputs.
 
@@ -393,19 +393,21 @@ class Stencil(pxa.SquareOp):
         enable_warnings: bool
             If ``True``, emit a warning in case of precision mis-match issues.
         """
-        arg_shape, _kernel, _center, _mode = self._canonical_repr(arg_shape, kernel, center, mode)
-        codim = dim = np.prod(arg_shape)
-        super().__init__(shape=(codim, dim))
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=dim_shape,
+        )
+        _kernel, _center, _mode = self._canonical_repr(self.dim_shape, kernel, center, mode)
 
         # Pad/Trim operators
         pad_width = self._compute_pad_width(_kernel, _center, _mode)
         self._pad = Pad(
-            arg_shape=arg_shape,
+            dim_shape=dim_shape,
             pad_width=pad_width,
             mode=_mode,
         )
         self._trim = Trim(
-            arg_shape=self._pad._pad_shape,
+            dim_shape=self._pad.codim_shape,
             trim_width=pad_width,
         )
 
@@ -431,24 +433,22 @@ class Stencil(pxa.SquareOp):
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         x = self._pad.apply(arr)
-        x = x.reshape(-1, *self._pad._pad_shape)
-
-        y = self._stencil_chain(self._cast_warn(x), self._st_fw)
-        y = y.reshape(*arr.shape[:-1], -1)
-
-        out = self._trim.apply(y)
-        return out
+        y = self._stencil_chain(
+            x=self._cast_warn(x),
+            stencils=self._st_fw,
+        )
+        z = self._trim.apply(y)
+        return z
 
     @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         x = self._trim.adjoint(arr)
-        x = x.reshape(-1, *self._pad._pad_shape)
-
-        y = self._stencil_chain(self._cast_warn(x), self._st_bw)
-        y = y.reshape(*arr.shape[:-1], -1)
-
-        out = self._pad.adjoint(y)
-        return out
+        y = self._stencil_chain(
+            x=self._cast_warn(x),
+            stencils=self._st_bw,
+        )
+        z = self._pad.adjoint(y)
+        return z
 
     def configure_dispatcher(self, **kwargs):
         """
@@ -468,7 +468,7 @@ class Stencil(pxa.SquareOp):
            x = cp.arange(10)
 
            op = Stencil(
-               arg_shape=x.shape,
+               dim_shape=x.shape,
                kernel=np.array([1, 2, 3]),
                center=(1,),
            )
@@ -483,148 +483,6 @@ class Stencil(pxa.SquareOp):
         """
         for k, v in kwargs.items():
             self._dispatch_params.update(k=v)
-
-    @staticmethod
-    def _canonical_repr(arg_shape, kernel, center, mode):
-        # Create canonical representations
-        #   * `arg_shape`: tuple[int]
-        #   * `_kernel`: list[ndarray[float], ...]
-        #   * `_center`: list[ndarray[int], ...]
-        #   * `_mode`: list[str, ...]
-        if not isinstance(arg_shape, cabc.Sequence):
-            arg_shape = (arg_shape,)
-        arg_shape = tuple(arg_shape)
-
-        N = len(arg_shape)
-        assert len(center) == N
-
-        kernel = pxu.compute(kernel, traverse=True)
-        try:
-            # array input -> non-seperable filter
-            pxu.get_array_module(kernel)
-            assert kernel.ndim == N
-
-            _kernel = [pxrt.coerce(kernel)]
-            _center = [np.array(center, dtype=int)]
-        except Exception:
-            # sequence input -> seperable filter(s)
-            assert len(kernel) == N  # one filter per dimension
-
-            _kernel = [None] * N
-            for i in range(N):
-                sh = [1] * N
-                sh[i] = -1
-                _kernel[i] = pxrt.coerce(kernel[i]).reshape(sh)
-
-            _center = np.zeros((N, N), dtype=int)
-            _center[np.diag_indices(N)] = center
-
-        _mode = Pad(  # get `mode` in canonical form
-            (3,) * _kernel[0].ndim,
-            pad_width=1,
-            mode=mode,
-        )._mode
-
-        return arg_shape, _kernel, _center, _mode
-
-    @staticmethod
-    def _compute_pad_width(_kernel, _center, _mode) -> Pad.WidthSpec:
-        N = _kernel[0].ndim
-        pad_width = [None] * N
-        for i in range(N):
-            if len(_kernel) == 1:  # non-seperable filter
-                c = _center[0][i]
-                n = _kernel[0].shape[i]
-            else:  # seperable filter(s)
-                c = _center[i][i]
-                n = _kernel[i].size
-
-            # 1. Pad/Trim operators are shared amongst [apply,adjoint]():
-            #    lhs/rhs are thus padded equally.
-            # 2. When mode != "constant", pad width must match kernel dimensions to retain border
-            #    effects.
-            if _mode[i] == "constant":
-                p = max(c, n - c - 1)
-            else:  # anything else supported by Pad()
-                p = n - 1
-            pad_width[i] = (p, p)
-        return tuple(pad_width)
-
-    @staticmethod
-    def _bw_equivalent(_kernel, _center):
-        # Transform FW kernel/center specification to BW variant.
-        k_bw = [np.flip(k_fw) for k_fw in _kernel]
-
-        if len(_kernel) == 1:  # non-seperable filter
-            c_bw = [(_kernel[0].shape - _center[0]) - 1]
-        else:  # seperable filter(s)
-            N = _kernel[0].ndim
-            c_bw = np.zeros((N, N), dtype=int)
-            for i in range(N):
-                c_bw[i, i] = _kernel[i].shape[i] - _center[i][i] - 1
-
-        return k_bw, c_bw
-
-    def _stencil_chain_DASK(self, x: pxt.NDArray, stencils: list) -> pxt.NDArray:
-        # Apply sequence of stencils to `x`.
-        #
-        # x: (N_stack, N_1, ..., N_D)
-        # y: (N_stack, N_1, ..., N_D)
-        #
-        # [2022.12.28, Sepand]
-        #   For some unknown reason, .map_overlap() gives incorrect results when inputs to
-        #   .map_overlap() contain stacking dimensions.
-        #   Workaround: call .map_overlap() on each stack-dim seperately, then re-assemble.
-
-        # _compute_pad_width(): LHS/RHS padded equally, so choose either one
-        depth = [lhs for (lhs, rhs) in self._pad._pad_width]
-        y = [
-            _.map_overlap(
-                self._stencil_chain,
-                depth=depth,
-                boundary=0,
-                trim=True,
-                dtype=x.dtype,
-                meta=x._meta,
-                stencils=stencils,
-            )
-            for _ in x
-        ]
-
-        xp = pxu.get_array_module(x)
-        y = xp.stack(y, axis=0)
-        return y
-
-    @pxu.redirect("x", DASK=_stencil_chain_DASK)
-    def _stencil_chain(self, x: pxt.NDArray, stencils: list) -> pxt.NDArray:
-        # Apply sequence of stencils to `x`.
-        # (For Dask inputs, see _stencil_chain_DASK().)
-        #
-        # x: (N_stack, N_1, ..., N_D)
-        # y: (N_stack, N_1, ..., N_D)
-        if len(stencils) == 1:
-            x, y = x, x.copy()
-        else:
-            # [2023.04.17, Sepand]
-            # In-place updates of `x` breaks thread-safety of Stencil().
-            # This is problematic if Stencil() is used with DASK inputs.
-            x, y = x.copy(), x.copy()
-
-        for st in stencils:
-            st.apply(x, y, **self._dispatch_params)
-            x, y = y, x
-        y = x
-        return y
-
-    def _cast_warn(self, arr: pxt.NDArray) -> pxt.NDArray:
-        if arr.dtype == self._dtype:
-            out = arr
-        else:
-            if self._enable_warnings:
-                msg = "Computation may not be performed at the requested precision."
-                warnings.warn(msg, pxw.PrecisionWarning)
-            out = arr.astype(dtype=self._dtype)
-        return out
 
     def estimate_lipschitz(self, **kwargs) -> pxt.Real:
         no_eval = "__rule" in kwargs
@@ -645,12 +503,6 @@ class Stencil(pxa.SquareOp):
             L = super().estimate_lipschitz(**kwargs)
         return L
 
-    def to_sciop(self, **kwargs):
-        # Stencil.apply/adjoint() prefer precision provided at init-time.
-        kwargs.update(dtype=self._dtype)
-        op = pxa.SquareOp.to_sciop(self, **kwargs)
-        return op
-
     def asarray(self, **kwargs) -> pxt.NDArray:
         # Stencil.apply() prefers precision provided at init-time.
         xp = pxu.get_array_module(self._st_fw[0]._kernel)
@@ -664,13 +516,13 @@ class Stencil(pxa.SquareOp):
     @pxrt.enforce_precision()
     def trace(self, **kwargs) -> pxt.Real:
         if all(m == "constant" for m in self._pad._mode):
-            # tr = (kernel center coefficient) * N
+            # tr = (kernel center coefficient) * dim_size
             tr = functools.reduce(
                 operator.mul,
                 [st._kernel[tuple(st._center)] for st in self._st_fw],
                 1,
             )
-            tr *= self.dim
+            tr *= self.dim_size
         else:
             # Standard algorithm, with computations restricted to precision supported by
             # Stencil.apply().
@@ -678,6 +530,7 @@ class Stencil(pxa.SquareOp):
             tr = super().trace(**kwargs)
         return float(tr)
 
+    # Helper routines (public) ------------------------------------------------
     @property
     def kernel(self) -> KernelSpec:
         r"""
@@ -728,7 +581,7 @@ class Stencil(pxa.SquareOp):
         .. code-block:: python3
 
            S = Stencil(
-               arg_shape=(5, 6, 9),
+               dim_shape=(5, 6, 9),
                kernel=[
                    np.r_[1, -1],
                    np.r_[3, 2, 1],
@@ -754,10 +607,8 @@ class Stencil(pxa.SquareOp):
         -------
         .. code-block:: python3
 
-           from pyxu.operator import Stencil
-
            S = Stencil(
-               arg_shape=(5, 6),
+               dim_shape=(5, 6),
                kernel=[
                    np.r_[3, 2, 1],
                    np.r_[2, -1, 3, 1],
@@ -777,6 +628,124 @@ class Stencil(pxa.SquareOp):
         kern = np.array2string(kernel).replace("'", "")
         return kern
 
+    # Helper routines (internal) ----------------------------------------------
+    @staticmethod
+    def _canonical_repr(dim_shape, kernel, center, mode):
+        # Create canonical representations
+        #   * `_kernel`: list[ndarray[float], ...]
+        #   * `_center`: list[ndarray[int], ...]
+        #   * `_mode`: list[str, ...]
+        #
+        # `dim_shape`` is already assumed in tuple-form.
+        N = len(dim_shape)
+        assert len(center) == N
+
+        kernel = pxu.compute(kernel, traverse=True)
+        try:
+            # array input -> non-seperable filter
+            pxu.get_array_module(kernel)
+            assert kernel.ndim == N
+
+            _kernel = [pxrt.coerce(kernel)]
+            _center = [np.array(center, dtype=int)]
+        except Exception:
+            # sequence input -> seperable filter(s)
+            assert len(kernel) == N  # one filter per dimension
+
+            _kernel = [None] * N
+            for i in range(N):
+                sh = [1] * N
+                sh[i] = -1
+                _kernel[i] = pxrt.coerce(kernel[i]).reshape(sh)
+
+            _center = np.zeros((N, N), dtype=int)
+            _center[np.diag_indices(N)] = center
+
+        _mode = Pad(  # get `mode` in canonical form
+            (3,) * _kernel[0].ndim,
+            pad_width=1,
+            mode=mode,
+        )._mode
+
+        return _kernel, _center, _mode
+
+    @staticmethod
+    def _compute_pad_width(_kernel, _center, _mode) -> Pad.WidthSpec:
+        N = _kernel[0].ndim
+        pad_width = [None] * N
+        for i in range(N):
+            if len(_kernel) == 1:  # non-seperable filter
+                c = _center[0][i]
+                n = _kernel[0].shape[i]
+            else:  # seperable filter(s)
+                c = _center[i][i]
+                n = _kernel[i].size
+
+            # 1. Pad/Trim operators are shared amongst [apply,adjoint]():
+            #    lhs/rhs are thus padded equally.
+            # 2. When mode != "constant", pad width must match kernel dimensions to retain border
+            #    effects.
+            if _mode[i] == "constant":
+                p = max(c, n - c - 1)
+            else:  # anything else supported by Pad()
+                p = n - 1
+            pad_width[i] = (p, p)
+        return tuple(pad_width)
+
+    @staticmethod
+    def _bw_equivalent(_kernel, _center):
+        # Transform FW kernel/center specification to BW variant.
+        k_bw = [np.flip(k_fw) for k_fw in _kernel]
+
+        if len(_kernel) == 1:  # non-seperable filter
+            c_bw = [(_kernel[0].shape - _center[0]) - 1]
+        else:  # seperable filter(s)
+            N = _kernel[0].ndim
+            c_bw = np.zeros((N, N), dtype=int)
+            for i in range(N):
+                c_bw[i, i] = _kernel[i].shape[i] - _center[i][i] - 1
+
+        return k_bw, c_bw
+
+    def _stencil_chain(self, x: pxt.NDArray, stencils: list) -> pxt.NDArray:
+        # Apply sequence of stencils to `x`.
+        #
+        # x: (..., M1,...,MD)
+        # y: (..., M1,...,MD)
+        ndi = pxd.NDArrayInfo.from_obj(x)
+        if ndi == pxd.NDArrayInfo.DASK:
+            stack_depth = (0,) * (x.ndim - self.dim_rank)
+            return x.map_overlap(
+                self._stencil_chain,
+                depth=stack_depth + self._pad._pad_width,
+                dtype=x.dtype,
+                meta=x._meta,
+                stencils=stencils,
+            )
+        else:
+            if len(stencils) == 1:
+                x, y = x, x.copy()
+            else:
+                # [2023.04.17, Sepand]
+                # In-place updates of `x` breaks thread-safety of Stencil().
+                x, y = x.copy(), x.copy()
+
+            for st in stencils:
+                st.apply(x, y, **self._dispatch_params)
+                x, y = y, x
+            y = x
+            return y
+
+    def _cast_warn(self, arr: pxt.NDArray) -> pxt.NDArray:
+        if arr.dtype == self._dtype:
+            out = arr
+        else:
+            if self._enable_warnings:
+                msg = "Computation may not be performed at the requested precision."
+                warnings.warn(msg, pxw.PrecisionWarning)
+            out = arr.astype(dtype=self._dtype)
+        return out
+
 
 Correlate = Stencil  #: Alias of :py:class:`~pyxu.operator.Stencil`.
 
@@ -789,9 +758,9 @@ class Convolve(Stencil):
 
     Notes
     -----
-    Given a :math:`D`-dimensional array :math:`x\in\mathbb{R}^{N_1\times\cdots\times N_D}` and kernel
-    :math:`k\in\mathbb{R}^{K_1\times\cdots\times K_D}` with center :math:`(c_1, \ldots, c_D)`, the output of the
-    convolution operator is an array :math:`y\in\mathbb{R}^{N_1\times\cdots\times N_D}` given by:
+    Given a :math:`D`-dimensional array :math:`x\in\mathbb{R}^{N_1 \times\cdots\times N_D}` and kernel
+    :math:`k\in\mathbb{R}^{K_1 \times\cdots\times K_D}` with center :math:`(c_1, \ldots, c_D)`, the output of the
+    convolution operator is an array :math:`y\in\mathbb{R}^{N_1 \times\cdots\times N_D}` given by:
 
     .. math::
 
@@ -836,13 +805,13 @@ class Convolve(Stencil):
             [1, 0, 0],
        ])
        op = Convolve(
-           arg_shape=x.shape,
+           dim_shape=x.shape,
            kernel=k,
            center=(1, 1),
            mode="constant",
        )
 
-       y_op = op.apply(x.reshape(-1)).reshape(4, 4)
+       y_op = op.apply(x)
        y_sp = convolve(x, k, mode="constant", origin=0)  # np.allclose(y_op, y_sp) -> True
        # [[11  10   7   4],
        #  [10   3  11  11],
@@ -856,7 +825,7 @@ class Convolve(Stencil):
 
     def __init__(
         self,
-        arg_shape: pxt.NDArrayShape,
+        dim_shape: pxt.NDArrayShape,
         kernel: Stencil.KernelSpec,
         center: _Stencil.IndexSpec,
         mode: Pad.ModeSpec = "constant",
@@ -866,7 +835,7 @@ class Convolve(Stencil):
         See :py:meth:`~pyxu.operator.Stencil.__init__` for a description of the arguments.
         """
         super().__init__(
-            arg_shape=arg_shape,
+            dim_shape=dim_shape,
             kernel=kernel,
             center=center,
             mode=mode,
