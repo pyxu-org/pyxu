@@ -1188,9 +1188,9 @@ class LinOpT(DiffMapT):
         assert cls._metric(xp.abs(out), xp.abs(gt), as_dtype=out.dtype)
 
     @staticmethod
-    def _check_backend_vals(func, _gpu):
+    def _check_backend_vals(func, _gpu, width):
         N = pxd.NDArrayInfo
-        out = func(k=1, gpu=_gpu)
+        out = func(k=1, gpu=_gpu, dtype=width.value)
         assert N.from_obj(out) == N.from_flag(_gpu)
 
     # Fixtures (Public-Facing; auto-inferred) ---------------------------------
@@ -1458,7 +1458,7 @@ class LinOpT(DiffMapT):
         assert J is op
 
     @pytest.mark.parametrize("k", [1, 2])
-    def test_value1D_svdvals(self, op, ndi, _gpu, _op_svd, k):
+    def test_value1D_svdvals(self, op, ndi, width, _gpu, _op_svd, k):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(ndi)
 
@@ -1469,19 +1469,19 @@ class LinOpT(DiffMapT):
             func=self._check_value1D_vals,
             args=dict(
                 func=op.svdvals,
-                kwargs=dict(k=k, gpu=_gpu),
+                kwargs=dict(k=k, gpu=_gpu, dtype=width.value),
                 ground_truth=_op_svd,
             ),
             condition=_gpu is True,
             reason="svdvals() sparse-evaled via CuPy flaky.",
         )
 
-    def test_backend_svdvals(self, op, ndi, _gpu):
+    def test_backend_svdvals(self, op, ndi, width, _gpu):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(ndi)
         ct.flaky(
             func=self._check_backend_vals,
-            args=dict(func=op.svdvals, _gpu=_gpu),
+            args=dict(func=op.svdvals, _gpu=_gpu, width=width),
             condition=_gpu is True,
             reason="svdvals() sparse-evaled via CuPy flaky.",
         )
@@ -1489,7 +1489,7 @@ class LinOpT(DiffMapT):
     def test_precCM_svdvals(self, op, ndi, _gpu, width):
         self._skip_if_disabled()
         self._skip_unless_NUMPY_CUPY(ndi)
-        data = dict(in_=dict(k=1, gpu=_gpu))
+        data = dict(in_=dict(k=1, gpu=_gpu, dtype=width.value))
         ct.flaky(
             func=self._check_precCM,
             args=dict(func=op.svdvals, data=data, widths=(width,)),

@@ -1586,6 +1586,7 @@ class LinOp(DiffMap):
         self,
         k: pxt.Integer,
         gpu: bool = False,
+        dtype: pxt.DType = None,
         **kwargs,
     ) -> pxt.NDArray:
         r"""
@@ -1597,6 +1598,8 @@ class LinOp(DiffMap):
             Number of singular values to compute.
         gpu: bool
             If ``True`` the singular value decomposition is performed on the GPU.
+        dtype: DType
+            Working precision of the linear operator.
         kwargs: ~collections.abc.Mapping
             Additional kwargs accepted by :py:func:`~scipy.sparse.linalg.svds`.
 
@@ -1605,6 +1608,8 @@ class LinOp(DiffMap):
         D: NDArray
             (k,) singular values in ascending order.
         """
+        if dtype is None:
+            dtype = pxrt.getPrecision().value
 
         def _dense_eval():
             if gpu:
@@ -1614,7 +1619,7 @@ class LinOp(DiffMap):
             else:
                 import numpy as xp
                 import scipy.linalg as spx
-            A = self.asarray(xp=xp, dtype=pxrt.getPrecision().value)
+            A = self.asarray(xp=xp, dtype=dtype)
             B = A.reshape(self.codim_size, self.dim_size)
             return spx.svd(B, compute_uv=False)
 
