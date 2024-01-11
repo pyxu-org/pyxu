@@ -6,7 +6,6 @@ import typing as typ
 import numpy as np
 import pytest
 import scipy.linalg as splinalg
-import scipy.sparse.linalg as spsl
 
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
@@ -1164,7 +1163,6 @@ class LinOpT(DiffMapT):
             "pinv",
             "svdvals",
             "T",
-            "to_sciop",
         }
     )
 
@@ -1361,51 +1359,6 @@ class LinOpT(DiffMapT):
         xp_, width_ = request.param
         A = xp_.array(pxu.to_NUMPY(A_gt), dtype=width_.value)
         return A
-
-    @pytest.fixture
-    def _op_sciop(self, op, _gpu, width) -> spsl.LinearOperator:
-        self._skip_unless_2D(op)
-        A = op.to_sciop(dtype=width.value, gpu=_gpu)
-        return A
-
-    @pytest.fixture(
-        params=[
-            "matvec",
-            "matmat",
-            "rmatvec",
-            "rmatmat",
-        ]
-    )
-    def _data_to_sciop(self, op, ndi, xp, width, request) -> DataLike:
-        # Do not override in subclass: for internal use only to test `op.to_sciop()`.
-        self._skip_unless_NUMPY_CUPY(ndi)
-        self._skip_unless_2D(op)
-
-        N_test = 10
-        f = lambda _: self._random_array(_, xp=xp, width=width)
-        op_array = op.asarray(xp=xp, dtype=width.value)
-        mode = request.param
-        if mode == "matvec":
-            arr = f((op.dim_size,))
-            out_gt = op_array @ arr
-            var = "x"
-        elif mode == "matmat":
-            arr = f((op.dim_size, N_test))
-            out_gt = op_array @ arr
-            var = "X"
-        elif mode == "rmatvec":
-            arr = f((op.codim_size,))
-            out_gt = op_array.T @ arr
-            var = "x"
-        elif mode == "rmatmat":
-            arr = f((op.codim_size, N_test))
-            out_gt = op_array.T @ arr
-            var = "X"
-        return dict(
-            in_={var: arr},
-            out=out_gt,
-            mode=mode,  # for test_xxx_sciop()
-        )
 
     # Tests -------------------------------------------------------------------
     def test_value1D_adjoint(self, op, _data_adjoint):
@@ -1675,28 +1628,6 @@ class LinOpT(DiffMapT):
 
         A = op.asarray(xp=xp, dtype=dtype)
         assert A.dtype == dtype
-
-    def test_value_to_sciop(self, _op_sciop, _data_to_sciop):
-        self._skip_if_disabled()
-        func = getattr(_op_sciop, _data_to_sciop["mode"])
-        out = func(**_data_to_sciop["in_"])
-        out_gt = _data_to_sciop["out"]
-        assert out.shape == out_gt.shape
-        assert self._metric(out, out_gt, as_dtype=out_gt.dtype)
-
-    def test_backend_to_sciop(self, _op_sciop, _data_to_sciop):
-        self._skip_if_disabled()
-        func = getattr(_op_sciop, _data_to_sciop["mode"])
-        out = func(**_data_to_sciop["in_"])
-        out_gt = _data_to_sciop["out"]
-        assert pxu.get_array_module(out) == pxu.get_array_module(out_gt)
-
-    def test_prec_to_sciop(self, _op_sciop, _data_to_sciop):
-        self._skip_if_disabled()
-        func = getattr(_op_sciop, _data_to_sciop["mode"])
-        out = func(**_data_to_sciop["in_"])
-        out_gt = _data_to_sciop["out"]
-        assert out.dtype == out_gt.dtype
 
 
 class LinFuncT(ProxDiffFuncT, LinOpT):
