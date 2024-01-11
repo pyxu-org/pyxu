@@ -65,7 +65,11 @@ Stencils & Convolutions
 
 .. autoclass:: pyxu.operator.Correlate
 
-.. autofunction:: pyxu.operator.Convolve
+.. autoclass:: pyxu.operator.Convolve
+
+.. autoclass:: pyxu.operator.FFTCorrelate
+
+.. autoclass:: pyxu.operator.FFTConvolve
 
 Filters
 -------

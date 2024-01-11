@@ -282,6 +282,8 @@ Stencils & Convolutions
 
    ~pyxu.operator.Convolve
    ~pyxu.operator.Correlate
+   ~pyxu.operator.FFTConvolve
+   ~pyxu.operator.FFTCorrelate
    ~pyxu.operator.Stencil
    ~pyxu.operator._Stencil
 
