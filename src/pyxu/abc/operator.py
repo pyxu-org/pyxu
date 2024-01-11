@@ -416,19 +416,21 @@ class Operator:
         assert _is_real(scalar)
         return arithmetic.ArgScaleRule(op=self, cst=float(scalar)).op()
 
-    def argshift(self, shift: typ.Union[pxt.Real, pxt.NDArray]) -> pxt.OpT:
-        """
+    def argshift(self, shift: pxt.NDArray) -> pxt.OpT:
+        r"""
         Shift operator's domain.
 
         Parameters
         ----------
-        shift: Real, NDArray
-            Shift value.
+        shift: NDArray
+            Shift value :math:`c \in \mathbb{R}^{M_{1} \times\cdots\times M_{D}}`.
+
+            `shift` must be broadcastable with operator's dimension.
 
         Returns
         -------
         op: OpT
-            Domain-shifted operator.
+            Domain-shifted operator :math:`g(x) = f(x + c)`.
 
         See Also
         --------
@@ -436,8 +438,6 @@ class Operator:
         """
         import pyxu.abc.arithmetic as arithmetic
 
-        if _is_real(shift):
-            shift = float(shift)
         return arithmetic.ArgShiftRule(op=self, cst=shift).op()
 
     # Internal Helpers --------------------------------------------------------
@@ -693,7 +693,7 @@ class Func(Map):
         )
         assert (self.codim_size == 1) and (self.codim_rank == 1)
 
-    def asloss(self, data: typ.Union[pxt.Real, pxt.NDArray] = None) -> pxt.OpT:
+    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
         """
         Transform a functional into a loss functional.
 
@@ -702,7 +702,7 @@ class Func(Map):
 
         Parameters
         ----------
-        data: Real, NDArray
+        data: NDArray
             (M1,...,MD) input.
 
         Returns
@@ -1337,7 +1337,7 @@ class QuadraticFunc(ProxDiffFunc):
         slvr.fit(b=b, stop_crit=stop_crit)
         return slvr.solution()
 
-    def asloss(self, data: typ.Union[pxt.Real, pxt.NDArray] = None) -> pxt.OpT:
+    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
         from pyxu.operator import shift_loss
 
         op = shift_loss(op=self, data=data)

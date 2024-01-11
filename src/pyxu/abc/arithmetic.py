@@ -1,7 +1,6 @@
 # Arithmetic Rules
 
 import types
-import typing as typ
 import warnings
 
 import numpy as np
@@ -499,7 +498,9 @@ class ArgShiftRule(Rule):
 
     Special Cases::
 
-        \shift = 0  => self
+        [NUMPY,CUPY] \shift = 0  => self
+        [DASK]       \shift = 0  => rules below apply ...
+                                    ... because we don't force evaluation of \shift for performance reasons.
 
     Else::
 
@@ -537,26 +538,37 @@ class ArgShiftRule(Rule):
         |--------------------------|------------|-----------------------------------------------------------------|
     """
 
-    def __init__(self, op: pxt.OpT, cst: typ.Union[pxt.Real, pxt.NDArray]):
+    def __init__(self, op: pxt.OpT, cst: pxt.NDArray):
         super().__init__()
-        self._op = op.squeeze()
-        self._scalar = isinstance(cst, pxt.Real)
-        if self._scalar:
-            cst = float(cst)
-        else:  # pxt.NDArray
-            assert cst.size == len(cst), f"cst: expected 1D array, got {cst.shape}."
+        self._op = op
+
+        xp = pxu.get_array_module(cst)
+        try:
+            xp.broadcast_to(cst, op.dim_shape)
+        except ValueError:
+            error_msg = "`cst` must be broadcastable with operator dimensions: "
+            error_msg += f"expected broadcastable-to {op.dim_shape}, got {cst.shape}."
+            raise ValueError(error_msg)
         self._cst = cst
 
     def op(self) -> pxt.OpT:
-        kwargs = dict(fallback=np if self._scalar else None)
-        xp = pxu.get_array_module(self._cst, **kwargs)
-        norm = pxu.compute(xp.linalg.norm(self._cst))
-        if np.isclose(float(norm), 0):
+        N = pxd.NDArrayInfo  # short-hand
+        ndi = N.from_obj(self._cst)
+        if ndi == N.DASK:
+            no_op = False
+        else:  # NUMPY/CUPY
+            xp = ndi.module()
+            norm = xp.sum(self._cst) ** 2
+            no_op = xp.allclose(norm, 0)
+
+        if no_op:
             op = self._op
         else:
             klass = self._infer_op_klass()
-            shape = self._infer_op_shape()
-            op = klass(shape=shape)
+            op = klass(
+                dim_shape=self._op.dim_shape,
+                codim_shape=self._op.codim_shape,
+            )
             op._op = self._op  # embed for introspection
             op._cst = self._cst  # embed for introspection
             for p in op.properties():
@@ -567,8 +579,7 @@ class ArgShiftRule(Rule):
         return op
 
     def _expr(self) -> tuple:
-        sh = (None,) if isinstance(self._cst, pxt.Real) else self._cst.shape
-        return ("argshift", self._op, sh)
+        return ("argshift", self._op, self._cst.shape)
 
     def _infer_op_klass(self) -> pxt.OpC:
         preserved = {
@@ -583,17 +594,6 @@ class ArgShiftRule(Rule):
         properties = self._op.properties() & preserved
         klass = pxo.Operator._infer_operator_type(properties)
         return klass
-
-    def _infer_op_shape(self) -> pxt.OpShape:
-        if self._scalar:
-            return self._op.shape
-        else:  # pxt.NDArray
-            dim_op = self._op.dim
-            dim_cst = self._cst.size
-            if (dim_op is None) or (dim_op == dim_cst):
-                return (self._op.codim, dim_cst)
-            else:
-                raise ValueError(f"Shifting {self._op} by {self._cst.shape} forbidden.")
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
@@ -620,32 +620,19 @@ class ArgShiftRule(Rule):
 
     def _quad_spec(self):
         Q1, c1, t1 = self._op._quad_spec()
+
+        xp = pxu.get_array_module(self._cst)
+        cst = xp.broadcast_to(self._cst, self._op.dim_shape)
+
         Q2 = Q1
-
-        if isinstance(self._cst, pxt.Real):
-            from pyxu.operator import Sum
-
-            # backend-agnostic `c2`-term
-            c2 = c1 + (self._cst * (Sum(arg_shape=(Q1.dim,)) * Q1))
-
-            # Try all backends until one lets you compute `t2`.
-            # (Reason: We cannot infer the backend of an operator from its public API.)
-            t2 = np.nan
-            for xp in pxd.supported_array_modules():
-                if np.isnan(t2):
-                    try:
-                        cst = xp.broadcast_to(self._cst, Q1.dim)
-                        t2 = float(self._op.apply(cst).item())
-                    except Exception:
-                        pass
-        else:
-            c2 = c1 + pxo.LinFunc.from_array(
-                Q1.apply(self._cst),
-                enable_warnings=False,
-                # [enable_warnings] API users have no reason to call _quad_spec().
-                # If they choose to use `c2`, then we assume they know what they are doing.
-            )
-            t2 = float(self._op.apply(self._cst).item())
+        c2 = c1 + pxo.LinFunc.from_array(
+            A=Q1.apply(cst)[np.newaxis, ...],
+            dim_rank=self._op.dim_rank,
+            enable_warnings=False,
+            # [enable_warnings] API users have no reason to call _quad_spec().
+            # If they choose to use `c2`, then we assume they know what they are doing.
+        )
+        t2 = float(self._op.apply(cst)[0])
 
         return (Q2, c2, t2)
 
