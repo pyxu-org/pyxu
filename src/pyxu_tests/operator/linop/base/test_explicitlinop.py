@@ -1,178 +1,234 @@
+import collections.abc as cabc
 import itertools
 
 import numpy as np
 import pytest
 
 import pyxu.info.deps as pxd
+import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
 import pyxu_tests.operator.conftest as conftest
 
 
-# We disable PrecisionWarnings since ExplicitLinOp() is not precision-agnostic, but the outputs
-# computed must still be valid.
-@pytest.mark.filterwarnings("ignore::pyxu.info.warning.PrecisionWarning")
-class ExplicitOpMixin:
-    # Mixin class which must be inherited from by each concrete ExplicitLinOp sub-class.
-    # Reason: sets all parameters such that users only need to provide the linear operator (in array
-    # form) being tested: `matrix`.
-
-    # Internal Helpers --------------------------------------------------------
+class ExplicitLinOpMixin:
+    # Helpers -----------------------------------------------------------------
     @staticmethod
-    def spec_data() -> list[tuple[callable, pxd.NDArrayInfo, pxrt.Width]]:
+    def configs() -> list[tuple[pxd.NDArrayInfo, bool, cabc.Callable]]:
         N = pxd.NDArrayInfo
         S = pxd.SparseArrayInfo
-        data = []  # (array_initializer, *accepted input backend/width)
+        cfg = []  # (backend, only_2D, array_initializer)
 
-        # NUMPY inputs ------------------------
-        data.extend(
-            itertools.product(
-                [
-                    N.NUMPY.module().array,
-                    S.SCIPY_SPARSE.module().bsr_matrix,
-                    S.SCIPY_SPARSE.module().coo_matrix,
-                    S.SCIPY_SPARSE.module().csc_matrix,
-                    S.SCIPY_SPARSE.module().csr_matrix,
-                ],
-                (N.NUMPY,),
-                pxrt.Width,
-            )
-        )
+        cfg += [  # NUMPY inputs ------------------------
+            (N.NUMPY, False, N.NUMPY.module().array),
+            (N.NUMPY, True, S.SCIPY_SPARSE.module().bsr_matrix),
+            (N.NUMPY, True, S.SCIPY_SPARSE.module().coo_matrix),
+            (N.NUMPY, True, S.SCIPY_SPARSE.module().csc_matrix),
+            (N.NUMPY, True, S.SCIPY_SPARSE.module().csr_matrix),
+        ]
+        cfg += [  # DASK inputs -------------------------
+            (N.DASK, False, N.DASK.module().array),
+        ]
+        if pxd.CUPY_ENABLED:  # CUPY inputs -------------
+            cfg += [
+                (N.CUPY, False, N.CUPY.module().array),
+                (N.CUPY, True, S.CUPY_SPARSE.module().coo_matrix),
+                (N.CUPY, True, S.CUPY_SPARSE.module().csc_matrix),
+                (N.CUPY, True, S.CUPY_SPARSE.module().csr_matrix),
+            ]
+        return cfg
 
-        # DASK inputs -------------------------
-        data.extend(
-            itertools.product(
-                (N.DASK.module().array,),
-                (N.DASK,),
-                pxrt.Width,
-            )
-        )
-
-        # CUPY inputs -------------------------
-        if pxd.CUPY_ENABLED:
-            cp_t = N.CUPY.module().array
-            data.extend(
-                itertools.product(
-                    [
-                        cp_t,
-                        lambda _: S.CUPY_SPARSE.module().coo_matrix(cp_t(_)),
-                        lambda _: S.CUPY_SPARSE.module().csc_matrix(cp_t(_)),
-                        lambda _: S.CUPY_SPARSE.module().csr_matrix(cp_t(_)),
-                    ],
-                    (N.CUPY,),
-                    pxrt.Width,
-                )
-            )
-
-        return data
-
-    # Fixtures ----------------------------------------------------------------
+    # Fixtures (Public-Facing; override in sub-classes) -----------------------
     @pytest.fixture
-    def matrix(self) -> np.ndarray:
+    def op_orig(self) -> pxt.OpT:
+        # Ground-truth matrix-free operator. (Any dim/codim-shape allowed.)
         raise NotImplementedError
 
-    @pytest.fixture(params=spec_data())
-    def _spec(self, matrix, request):
-        init, ndi, width = request.param
-        A = init(matrix).astype(width.value)
-        op = self.base.from_array(A=A)
-        return A, (op, ndi, width)
+    # Fixtures (Public-Facing; auto-inferred) ---------------------------------
+    @pytest.fixture
+    def dim_shape(self, op_orig) -> pxt.NDArrayShape:
+        return op_orig.dim_shape
 
     @pytest.fixture
-    def raw_init_input(self, _spec):
-        return _spec[0]
+    def codim_shape(self, op_orig) -> pxt.NDArrayShape:
+        return op_orig.codim_shape
 
     @pytest.fixture
-    def spec(self, _spec):
-        return _spec[1]
-
-    @pytest.fixture
-    def data_shape(self, matrix):
-        return matrix.shape
-
-    @pytest.fixture
-    def data_apply(self, matrix):
-        N = matrix.shape[1]
-        arr = self._random_array((N,))
-        out = matrix @ arr
+    def data_apply(self, op_orig) -> conftest.DataLike:
+        x = self._random_array(op_orig.dim_shape)
+        y = op_orig.apply(x)
         return dict(
-            in_=dict(arr=arr),
-            out=out,
+            in_=dict(arr=x),
+            out=y,
         )
 
-    # Tests -------------------------------------------------------------------
-    def test_array_not_modified(self, op, raw_init_input):
-        # Ensure ExplicitLinOp is using the raw array provided to __init__().
-        # The user is expected to know what he is doing.
-        assert op.mat is raw_init_input
+    @pytest.fixture(
+        params=itertools.product(
+            pxrt.Width,
+            configs(),
+        )
+    )
+    def spec(self, op_orig, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
+        width, (ndi, only_2d, initialize) = request.param
+        self._skip_if_unsupported(ndi)
+        if only_2d:
+            self._skip_unless_2D(op_orig)
+
+        mat = initialize(
+            op_orig.asarray(
+                xp=ndi.module(),
+                dtype=width.value,
+            )
+        )
+        assert mat.dtype == width.value
+
+        op = self.base.from_array(
+            A=mat,
+            dim_rank=op_orig.dim_rank,
+            enable_warnings=False,
+        )
+        return op, ndi, width
 
 
-class TestExplicitLinOp(ExplicitOpMixin, conftest.LinOpT):
-    @pytest.fixture
-    def matrix(self):
-        import pyxu_tests.operator.examples.test_linop as tc
+class TestExplicitLinOp(ExplicitLinOpMixin, conftest.LinOpT):
+    @pytest.fixture(
+        params=[
+            ((1,), (5,)),
+            ((5,), (3, 5)),
+        ]
+    )
+    def op_orig(self, request) -> pxt.OpT:
+        from pyxu.operator import BroadcastAxes
 
-        return tc.Tile(N=10, M=5).asarray()
-
-
-class TestExplicitSquareOp(ExplicitOpMixin, conftest.SquareOpT):
-    @pytest.fixture
-    def matrix(self):
-        import pyxu_tests.operator.examples.test_squareop as tc
-
-        return tc.CumSum(N=19).asarray()
-
-
-class TestExplicitProjOp(ExplicitOpMixin, conftest.ProjOpT):
-    @pytest.fixture
-    def matrix(self):
-        import pyxu_tests.operator.examples.test_projop as tc
-
-        return tc.Oblique(N=19, alpha=np.pi / 4).asarray()
+        dim_shape, codim_shape = request.param
+        op = BroadcastAxes(
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
+        return op
 
 
-class TestExplicitOrthProjOp(ExplicitOpMixin, conftest.OrthProjOpT):
-    @pytest.fixture
-    def matrix(self):
-        import pyxu_tests.operator.examples.test_orthprojop as tc
+class TestExplicitSquareOp(ExplicitLinOpMixin, conftest.SquareOpT):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
+    def op_orig(self, request) -> pxt.OpT:
+        from pyxu_tests.operator.examples.test_squareop import CumSum
 
-        return tc.ScaleDown(N=19).asarray()
+        dim_shape = request.param
+        op = CumSum(dim_shape=dim_shape)
+        return op
 
 
-class TestExplicitNormalOp(ExplicitOpMixin, conftest.NormalOpT):
-    @pytest.fixture
-    def matrix(self):
+class TestExplicitNormalOp(ExplicitLinOpMixin, conftest.NormalOpT):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (3, 4, 5),
+        ]
+    )
+    def op_orig(self, request) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_normalop as tc
 
-        return tc.CircularConvolution(h=np.ones(20)).asarray()
+        dim_shape = request.param
+        conv_filter = self._random_array(dim_shape[-1])
+        op = tc.CircularConvolution(
+            dim_shape=dim_shape,
+            h=conv_filter,
+        )
+        return op
 
 
-class TestExplicitUnitOp(ExplicitOpMixin, conftest.UnitOpT):
-    @pytest.fixture
-    def matrix(self):
-        import pyxu_tests.operator.examples.test_unitop as tc
+class TestExplicitUnitOp(ExplicitLinOpMixin, conftest.UnitOpT):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (3, 4, 5),
+        ]
+    )
+    def op_orig(self, request) -> pxt.OpT:
+        from pyxu_tests.operator.examples.test_unitop import Permutation
 
-        return tc.Permutation(N=19).asarray()
+        dim_shape = request.param
+        op = Permutation(dim_shape=dim_shape)
+        return op
 
 
-class TestExplicitSelfAdjointOp(ExplicitOpMixin, conftest.SelfAdjointOpT):
-    @pytest.fixture
-    def matrix(self):
+class TestExplicitSelfAdjointOp(ExplicitLinOpMixin, conftest.SelfAdjointOpT):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (3, 4, 5),
+        ]
+    )
+    def op_orig(self, request) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_selfadjointop as tc
 
-        return tc.SelfAdjointConvolution(N=19).asarray()
+        dim_shape = request.param
+        op = tc.SelfAdjointConvolution(dim_shape=dim_shape)
+        return op
 
 
-class TestExplicitPosDefOp(ExplicitOpMixin, conftest.PosDefOpT):
-    @pytest.fixture
-    def matrix(self):
-        import pyxu_tests.operator.examples.test_posdefop as tc
+class TestExplicitPosDefOp(ExplicitLinOpMixin, conftest.PosDefOpT):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (3, 4, 5),
+        ]
+    )
+    def op_orig(self, request) -> pxt.OpT:
+        from pyxu_tests.operator.examples.test_posdefop import PSDConvolution
 
-        return tc.PSDConvolution(N=19).asarray()
+        dim_shape = request.param
+        op = PSDConvolution(dim_shape=dim_shape)
+        return op
 
 
-class TestExplicitLinFunc(ExplicitOpMixin, conftest.LinFuncT):
-    @pytest.fixture
-    def matrix(self):
-        import pyxu_tests.operator.examples.test_linfunc as tc
+class TestExplicitProjOp(ExplicitLinOpMixin, conftest.ProjOpT):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (3, 4, 5),
+        ]
+    )
+    def op_orig(self, request) -> pxt.OpT:
+        from pyxu_tests.operator.examples.test_projop import Oblique
 
-        return tc.ScaledSum(N=19).asarray()
+        dim_shape = request.param
+        op = Oblique(
+            dim_shape=dim_shape,
+            alpha=np.pi / 4,
+        )
+        return op
+
+
+class TestExplicitOrthProjOp(ExplicitLinOpMixin, conftest.OrthProjOpT):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (3, 4, 5),
+        ]
+    )
+    def op_orig(self, request) -> pxt.OpT:
+        from pyxu_tests.operator.examples.test_orthprojop import ScaleDown
+
+        dim_shape = request.param
+        op = ScaleDown(dim_shape=dim_shape)
+        return op
+
+
+class TestExplicitLinFunc(ExplicitLinOpMixin, conftest.LinFuncT):
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3, 4),
+        ]
+    )
+    def op_orig(self, request) -> pxt.OpT:
+        from pyxu_tests.operator.examples.test_linfunc import Sum
+
+        dim_shape = request.param
+        op = Sum(dim_shape=dim_shape)
+        return op

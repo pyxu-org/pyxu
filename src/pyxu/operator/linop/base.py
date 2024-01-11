@@ -26,8 +26,11 @@ class IdentityOp(pxa.OrthProjOp):
     Identity operator.
     """
 
-    def __init__(self, dim: pxt.Integer):
-        super().__init__(shape=(dim, dim))
+    def __init__(self, dim_shape: pxt.NDArrayShape):
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=dim_shape,
+        )
         self.lipschitz = 1
 
     @pxrt.enforce_precision(i="arr")
@@ -44,8 +47,9 @@ class IdentityOp(pxa.OrthProjOp):
     def asarray(self, **kwargs) -> pxt.NDArray:
         xp = kwargs.get("xp", pxd.NDArrayInfo.default().module())
         dtype = kwargs.get("dtype", pxrt.getPrecision().value)
-        A = xp.eye(N=self.dim, dtype=dtype)
-        return A
+        A = xp.eye(N=self.dim_size, dtype=dtype)
+        B = A.reshape(*self.codim_shape, *self.dim_shape)
+        return B
 
     @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
@@ -54,13 +58,15 @@ class IdentityOp(pxa.OrthProjOp):
         return out
 
     def dagger(self, damp: pxt.Real, **kwargs) -> pxt.OpT:
-        cst = 1 / (1 + damp)
-        op = HomothetyOp(cst=cst, dim=self.dim)
+        op = HomothetyOp(
+            cst=1 / (1 + damp),
+            dim_shape=self.dim_shape,
+        )
         return op
 
     @pxrt.enforce_precision()
     def trace(self, **kwargs) -> pxt.Real:
-        return self.dim
+        return self.dim_size
 
 
 class NullOp(pxa.LinOp):
@@ -70,24 +76,47 @@ class NullOp(pxa.LinOp):
     This operator maps any input vector on the null vector.
     """
 
-    def __init__(self, shape: pxt.OpShape):
-        super().__init__(shape=shape)
+    def __init__(
+        self,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
+    ):
+        super().__init__(
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
+        )
         self.lipschitz = 0
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        xp = pxu.get_array_module(arr)
+        ndi = pxd.NDArrayInfo.from_obj(arr)
+        kwargs = dict()
+        if ndi == pxd.NDArrayInfo.DASK:
+            stack_chunks = arr.chunks[: -self.dim_rank]
+            core_chunks = ("auto",) * self.codim_rank
+            kwargs.update(chunks=stack_chunks + core_chunks)
+
+        xp = ndi.module()
         return xp.broadcast_to(
             xp.array(0, arr.dtype),
-            (*arr.shape[:-1], self.codim),
+            (*arr.shape[: -self.dim_rank], *self.codim_shape),
+            **kwargs,
         )
 
     @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
-        xp = pxu.get_array_module(arr)
+        ndi = pxd.NDArrayInfo.from_obj(arr)
+        kwargs = dict()
+        if ndi == pxd.NDArrayInfo.DASK:
+            stack_chunks = arr.chunks[: -self.codim_rank]
+            core_chunks = ("auto",) * self.dim_rank
+            kwargs.update(chunks=stack_chunks + core_chunks)
+
+        xp = ndi.module()
         return xp.broadcast_to(
             xp.array(0, arr.dtype),
-            (*arr.shape[:-1], self.dim),
+            (*arr.shape[: -self.codim_rank], *self.dim_shape),
+            **kwargs,
         )
 
     def svdvals(self, **kwargs) -> pxt.NDArray:
@@ -99,17 +128,26 @@ class NullOp(pxa.LinOp):
         return D
 
     def gram(self) -> pxt.OpT:
-        op = NullOp(shape=(self.dim, self.dim))
-        return op.asop(pxa.SelfAdjointOp).squeeze()
+        op = NullOp(
+            dim_shape=self.dim_shape,
+            codim_shape=self.dim_shape,
+        )
+        return op.asop(pxa.SelfAdjointOp)
 
     def cogram(self) -> pxt.OpT:
-        op = NullOp(shape=(self.codim, self.codim))
-        return op.asop(pxa.SelfAdjointOp).squeeze()
+        op = NullOp(
+            dim_shape=self.codim_shape,
+            codim_shape=self.codim_shape,
+        )
+        return op.asop(pxa.SelfAdjointOp)
 
     def asarray(self, **kwargs) -> pxt.NDArray:
         xp = kwargs.get("xp", pxd.NDArrayInfo.default().module())
         dtype = kwargs.get("dtype", pxrt.getPrecision().value)
-        A = xp.zeros(self.shape, dtype=dtype)
+        A = xp.broadcast_to(
+            xp.array(0, dtype=dtype),
+            (*self.codim_shape, *self.dim_shape),
+        )
         return A
 
     @pxrt.enforce_precision()
@@ -117,32 +155,33 @@ class NullOp(pxa.LinOp):
         return 0
 
 
-def NullFunc(dim: pxt.Integer) -> pxt.OpT:
+def NullFunc(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
     """
     Null functional.
 
     This functional maps any input vector on the null scalar.
     """
-    op = NullOp(shape=(1, dim)).squeeze()
+    op = NullOp(
+        dim_shape=dim_shape,
+        codim_shape=1,
+    ).asop(pxa.LinFunc)
     op._name = "NullFunc"
     return op
 
 
-def HomothetyOp(dim: pxt.Integer, cst: pxt.Real) -> pxt.OpT:
+def HomothetyOp(dim_shape: pxt.NDArrayShape, cst: pxt.Real) -> pxt.OpT:
     """
     Constant scaling operator.
 
     Parameters
     ----------
-    dim: Integer
-        Dimension of the domain.
     cst: Real
         Scaling factor.
 
     Returns
     -------
     op: OpT
-        (dim, dim) scaling operator.
+        Scaling operator.
 
     Note
     ----
@@ -151,9 +190,12 @@ def HomothetyOp(dim: pxt.Integer, cst: pxt.Real) -> pxt.OpT:
     assert isinstance(cst, pxt.Real), f"cst: expected real, got {cst}."
 
     if np.isclose(cst, 0):
-        op = NullOp(shape=(dim, dim))
+        op = NullOp(
+            dim_shape=dim_shape,
+            codim_shape=dim_shape,
+        )
     elif np.isclose(cst, 1):
-        op = IdentityOp(dim=dim)
+        op = IdentityOp(dim_shape=dim_shape)
     else:  # build PosDef or SelfAdjointOp
 
         @pxrt.enforce_precision(i="arr")
@@ -177,29 +219,40 @@ def HomothetyOp(dim: pxt.Integer, cst: pxt.Real) -> pxt.OpT:
         @pxrt.enforce_precision(i=("arr", "damp"))
         def op_pinv(_, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
             out = arr.copy()
-            scale = _._cst / (_._cst**2 + damp)
-            out *= scale
+            out *= _._cst / (_._cst**2 + damp)
             return out
 
         def op_dagger(_, damp: pxt.Real, **kwargs) -> pxt.OpT:
-            scale = _._cst / (_._cst**2 + damp)
-            op = HomothetyOp(cst=scale, dim=_.dim)
+            op = HomothetyOp(
+                cst=_._cst / (_._cst**2 + damp),
+                dim_shape=_.dim_shape,
+            )
             return op
 
         def op_gram(_):
-            return HomothetyOp(cst=_._cst**2, dim=_.dim)
+            op = HomothetyOp(
+                cst=_._cst**2,
+                dim_shape=_.dim_shape,
+            )
+            return op
+
+        def op_estimate_lipschitz(_, **kwargs) -> pxt.Real:
+            L = abs(_._cst)
+            return L
 
         @pxrt.enforce_precision()
         def op_trace(_, **kwargs):
-            out = _._cst * _.codim
+            out = _._cst * _.dim_size
             return out
 
         op = px_src.from_source(
             cls=pxa.PosDefOp if (cst > 0) else pxa.SelfAdjointOp,
-            shape=(dim, dim),
+            dim_shape=dim_shape,
+            codim_shape=dim_shape,
             embed=dict(
                 _name="HomothetyOp",
                 _cst=cst,
+                _lipschitz=float(abs(cst)),
             ),
             apply=op_apply,
             svdvals=op_svdvals,
@@ -207,14 +260,15 @@ def HomothetyOp(dim: pxt.Integer, cst: pxt.Real) -> pxt.OpT:
             gram=op_gram,
             cogram=op_gram,
             trace=op_trace,
+            estimate_lipschitz=op_estimate_lipschitz,
         )
         op.dagger = types.MethodType(op_dagger, op)
-        op.lipschitz = abs(cst)
-    return op.squeeze()
+    return op
 
 
 def DiagonalOp(
     vec: pxt.NDArray,
+    dim_shape: pxt.NDArrayShape = None,
     enable_warnings: bool = True,
 ) -> pxt.OpT:
     r"""
@@ -222,156 +276,174 @@ def DiagonalOp(
 
     Note
     ----
-    :py:func:`~pyxu.operator.DiagonalOp` instances are **not arraymodule-agnostic**:
-    they will only work with NDArrays belonging to the same array module as `vec`.  Moreover, inner computations may
-    cast input arrays when the precision of `vec` does not match the user-requested precision.  If such a situation
-    occurs, a warning is raised.
+    * :py:func:`~pyxu.operator.DiagonalOp` instances are **not arraymodule-agnostic**: they will only work with NDArrays
+      belonging to the same array module as `vec`.  Moreover, inner computations may cast input arrays when the
+      precision of `vec` does not match the user-requested precision.  If such a situation occurs, a warning is raised.
+    * If `vec` is a DASK array, the operator will be a :py:class:`~pyxu.abc.SelfAdjointOp`.  If `vec` is a NUMPY/CUPY
+      array, the created operator specializes to :py:class:`~pyxu.abc.PosDefOp` when possible.  Specialization is not
+      automatic for DASK inputs because operators should be quick to build under all circumstances, and this is not
+      guaranteed if we have to check that all entries are positive for out-of-core arrays.  Users who know that all
+      `vec` entries are positive can manually cast to :py:class:`~pyxu.abc.PosDefOp` afterwards if required.
 
     Parameters
     ----------
+    dim_shape: NDArrayShape
+        (M1,...,MD) shape of operator's domain.
+        Defaults to the shape of `vec` when omitted.
     vec: NDArray
-        (N,) diagonal scale factors.
+        Scale factors. If `dim_shape` is provided, then `vec` must be broadcastable with arrays of size `dim_shape`.
     enable_warnings: bool
         If ``True``, emit a warning in case of precision mis-match issues.
     """
-    assert len(vec) == np.prod(vec.shape), f"vec: {vec.shape} is not a DiagonalOp generator."
-    if (dim := vec.size) == 1:  # Module-agnostic
-        return HomothetyOp(cst=float(vec), dim=1)
+    if dim_shape is None:
+        dim_shape = vec.shape
     else:
-        xp = pxu.get_array_module(vec)
-        if pxu.compute(xp.allclose(vec, 0)):
-            op = NullOp(shape=(dim, dim))
-        elif pxu.compute(xp.allclose(vec, 1)):
-            op = IdentityOp(dim=dim)
-        else:  # build PosDef or SelfAdjointOp
+        dim_shape = pxu.as_canonical_shape(dim_shape)
+        sh = np.broadcast_shapes(vec.shape, dim_shape)
 
-            @pxrt.enforce_precision(i="arr")
-            def op_apply(_, arr):
-                if (_._vec.dtype != arr.dtype) and _._enable_warnings:
-                    msg = "Computation may not be performed at the requested precision."
-                    warnings.warn(msg, pxw.PrecisionWarning)
-                out = arr.copy()
-                out *= _._vec
-                return out
+        # Getting here means `vec` and `dim_shape` are broadcastable, but we don't know yet
+        # which one defines the upper bound.
+        assert all(s <= d for (s, d) in zip(sh, dim_shape)), "vec and dim_shape are incompatible."
 
-            def op_asarray(_, **kwargs) -> pxt.NDArray:
-                xp = kwargs.get("xp", pxd.NDArrayInfo.default().module())
-                dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+    @pxrt.enforce_precision(i="arr")
+    def op_apply(_, arr):
+        if (_._vec.dtype != arr.dtype) and _._enable_warnings:
+            msg = "Computation may not be performed at the requested precision."
+            warnings.warn(msg, pxw.PrecisionWarning)
+        out = arr.copy()
+        out *= _._vec
+        return out
 
-                v = pxu.compute(_._vec.astype(dtype=dtype, copy=False))
-                v = pxu.to_NUMPY(v)
-                A = xp.diag(v)
-                return A
+    def op_asarray(_, **kwargs) -> pxt.NDArray:
+        xp = pxu.get_array_module(_._vec)
+        vec = xp.broadcast_to(_._vec, _.dim_shape)
+        A = xp.diag(vec.reshape(-1)).reshape((*_.codim_shape, *_.dim_shape))
 
-            def op_gram(_):
-                return DiagonalOp(
-                    vec=_._vec**2,
-                    enable_warnings=_._enable_warnings,
-                )
+        xp = kwargs.get("xp", pxd.NDArrayInfo.default().module())
+        dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+        B = xp.array(pxu.to_NUMPY(A), dtype=dtype)
+        return B
 
-            def op_svdvals(_, **kwargs):
-                gpu = kwargs.get("gpu", False)
-                xp = pxd.NDArrayInfo.from_flag(gpu).module()
-                width = pxrt.getPrecision()
+    def op_gram(_):
+        return DiagonalOp(
+            vec=_._vec**2,
+            dim_shape=_.dim_shape,
+            enable_warnings=_._enable_warnings,
+        )
 
-                k = kwargs["k"]
+    def op_svdvals(_, **kwargs):
+        gpu = kwargs.get("gpu", False)
+        xp = pxd.NDArrayInfo.from_flag(gpu).module()
+        k = kwargs["k"]
+        width = pxrt.getPrecision()
 
-                D = xp.abs(pxu.compute(_._vec))
-                D = D[xp.argsort(D)]
-                D = D.astype(width.value, copy=False)
-                return D[-k:]
+        vec = xp.broadcast_to(
+            xp.abs(_._vec),
+            _.dim_shape,
+        ).reshape(-1)
+        if ndi == pxd.NDArrayInfo.DASK:
+            D = xp.topk(vec, k)
+        else:
+            vec = vec[vec.argsort()]
+            D = vec[-k:]
+        return D.astype(width.value)
 
-            @pxrt.enforce_precision(i=("arr", "damp"))
-            def op_pinv(_, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    scale = _._vec / (_._vec**2 + damp)
-                    scale[xp.isnan(scale)] = 0
-                out = arr.copy()
-                out *= scale
-                return out
+    @pxrt.enforce_precision(i=("arr", "damp"))
+    def op_pinv(_, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
+        xp = pxu.get_array_module(arr)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            scale = _._vec / (_._vec**2 + damp)
+            scale[xp.isnan(scale)] = 0
+        out = arr.copy()
+        out *= scale
+        return out
 
-            def op_dagger(_, damp: pxt.Real, **kwargs) -> pxt.OpT:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    scale = _._vec / (_._vec**2 + damp)
-                    scale[xp.isnan(scale)] = 0
-                return DiagonalOp(
-                    vec=scale,
-                    enable_warnings=_._enable_warnings,
-                )
+    def op_dagger(_, damp: pxt.Real, **kwargs) -> pxt.OpT:
+        xp = pxu.get_array_module(_._vec)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            scale = _._vec / (_._vec**2 + damp)
+            scale[xp.isnan(scale)] = 0
+        return DiagonalOp(
+            vec=scale,
+            dim_shape=_.dim_shape,
+            enable_warnings=_._enable_warnings,
+        )
 
-            @pxrt.enforce_precision()
-            def op_trace(_, **kwargs):
-                return float(_._vec.sum())
+    @pxrt.enforce_precision()
+    def op_trace(_, **kwargs):
+        xp = pxu.get_array_module(_._vec)
+        vec = xp.broadcast_to(_._vec, _.dim_shape)
+        return float(vec.sum())
 
-            def op_estimate_lipschitz(_, **kwargs):
-                # Calling LinOp's generic method=svd solver may fail since it relies on LinearOperator.
-                # We insead use the fact that _lipschitz is computed exactly at construction time.
-                return _._lipschitz
+    def op_estimate_lipschitz(_, **kwargs):
+        xp = pxu.get_array_module(_._vec)
+        _.lipschitz = float(xp.fabs(vec).max())
+        return _.lipschitz
 
-            op = px_src.from_source(
-                cls=pxa.PosDefOp if pxu.compute(xp.all(vec > 0)) else pxa.SelfAdjointOp,
-                shape=(dim, dim),
-                embed=dict(
-                    _name="DiagonalOp",
-                    _vec=vec,
-                    _enable_warnings=bool(enable_warnings),
-                ),
-                apply=op_apply,
-                estimate_lipschitz=op_estimate_lipschitz,
-                asarray=op_asarray,
-                gram=op_gram,
-                cogram=op_gram,
-                svdvals=op_svdvals,
-                pinv=op_pinv,
-                trace=op_trace,
-            )
-            op.dagger = types.MethodType(op_dagger, op)
-            op.lipschitz = float(abs(vec).max())
-        return op.squeeze()
+    ndi = pxd.NDArrayInfo.from_obj(vec)
+    if ndi == pxd.NDArrayInfo.DASK:
+        klass = pxa.SelfAdjointOp
+    else:
+        positive = (vec > 0).all()
+        klass = pxa.PosDefOp if positive else pxa.SelfAdjointOp
+    op = px_src.from_source(
+        cls=klass,
+        dim_shape=dim_shape,
+        codim_shape=dim_shape,
+        embed=dict(
+            _name="DiagonalOp",
+            _vec=vec,
+            _enable_warnings=bool(enable_warnings),
+        ),
+        apply=op_apply,
+        estimate_lipschitz=op_estimate_lipschitz,
+        asarray=op_asarray,
+        gram=op_gram,
+        cogram=op_gram,
+        svdvals=op_svdvals,
+        pinv=op_pinv,
+        trace=op_trace,
+    )
+    op.dagger = types.MethodType(op_dagger, op)
+    return op
 
 
 def _ExplicitLinOp(
     cls: pxt.OpC,
     mat: typ.Union[pxt.NDArray, pxt.SparseArray],
+    dim_rank: pxt.Integer = None,
     enable_warnings: bool = True,
 ) -> pxt.OpT:
     r"""
     Build a linear operator from its matrix representation.
 
-    Given a matrix :math:`\mathbf{A} \in \mathbb{R}^{N \times M}`, the *explicit linear operator* associated to
-    :math:`\mathbf{A}` is defined as
+    Given an array :math:`\mathbf{A} \in \mathbb{R}^{N_{1} \times\cdots\times N_{K} \times M_{1} \times\cdots\times
+    M_{D}}`, the *explicit linear operator* associated to :math:`\mathbf{A}` is defined as
 
     .. math::
 
-       f_\mathbf{A}(\mathbf{x})
+       [\mathbf{A}\mathbf{x}]_{n_{1},\ldots,n_{K}}
        =
-       \mathbf{A}\mathbf{x},
+       \langle \mathbf{A}[n_{1},\ldots,n_{K},\ldots], \mathbf{x} \rangle
        \qquad
-       \forall \mathbf{x} \in \mathbb{R}^{M},
-
-    with adjoint given by:
-
-    .. math::
-
-       f^{\ast}_{\mathbf{A}}(\mathbf{z})
-       =
-       \mathbf{A}^{T}\mathbf{z},
-       \qquad
-       \forall \mathbf{z} \in \mathbb{R}^{N}.
+       \forall \mathbf{x} \in \mathbb{R}^{M_{1} \times\cdots\times M_{D}}.
 
     Parameters
     ----------
     cls: OpC
         LinOp sub-class to instantiate.
     mat: NDArray, SparseArray
-        (M, N) matrix generator.
+        (N1,...,NK, M1,...,MD) matrix generator.
         The input array can be *dense* or *sparse*.
-        Accepted sparse arrays are:
+        Accepted 2D sparse arrays are:
 
         * CPU: COO/CSC/CSR/BSR
         * GPU: COO/CSC/CSR
+    dim_rank: Integer
+        Rank of operator's domain. (D)
+        It can be omitted if `mat` is 2D since auto-inferred to 1.
     enable_warnings: bool
         If ``True``, emit a warning in case of precision mis-match issues.
 
@@ -386,105 +458,177 @@ def _ExplicitLinOp(
       ``.mat``.
     """
 
-    def _standard_form(A):
+    def is_dense(A) -> bool:
+        # Ensure `A` is a supported array format, then return
+        #    `True` if  `A` is dense
+        #    `False` if `A` is sparse
         fail_dense = False
         try:
             pxd.NDArrayInfo.from_obj(A)
+            return True
         except Exception:
             fail_dense = True
 
         fail_sparse = False
         try:
             pxd.SparseArrayInfo.from_obj(A)
+            return False
         except Exception:
             fail_sparse = True
 
         if fail_dense and fail_sparse:
             raise ValueError("mat: format could not be inferred.")
-        else:
-            return A
 
-    def _matmat(A, b, warn: bool) -> pxt.NDArray:
-        # A: (M, N) dense/sparse
-        # b: (..., N) dense
-        # out: (..., M) dense
+    def tensordot(A, b, dim_rank, warn: bool):
+        # Parameters
+        # ----------
+        # A: (N1,...,NK, M1,...,MD) dense or sparse (2D)
+        # b: (S1,...,SL, M1,...,MD) dense
+        # dim_rank: D
+        # warn: bool
+        #
+        # Returns
+        # -------
+        # out: (S1,...,SL, N1,...,NK) dense
         if (A.dtype != b.dtype) and warn:
             msg = "Computation may not be performed at the requested precision."
             warnings.warn(msg, pxw.PrecisionWarning)
 
-        M, N = A.shape
-        sh_out = (*b.shape[:-1], M)
-        b = b.reshape((-1, N)).T  # (N, (...).prod)
-        out = A.dot(b)  # (M, (...).prod)
-        return out.T.reshape(sh_out)
+        dim_shape = A.shape[-dim_rank:]
+        dim_size = np.prod(dim_shape)
+        codim_shape = A.shape[:-dim_rank]
+        codim_size = np.prod(codim_shape)
+
+        sh = b.shape[:-dim_rank]
+        if not is_dense(A):  # sparse matrix -> necessarily 2D
+            b = b.reshape(-1, dim_size)
+            out = A.dot(b.T).T  # (prod(sh), codim_size)
+            out = out.reshape(*sh, codim_size)
+        else:  # ND dense array
+            N = pxd.NDArrayInfo  # short-hand
+            ndi = N.from_obj(A)
+            xp = ndi.module()
+
+            if ndi != N.DASK:
+                # NUMPY/CUPY.tensordot() works -> use it.
+                out = xp.tensordot(  # (S1,...,SL, N1,...,NK)
+                    b,  # (S1,...,SL, M1,...,MD)
+                    A,  # (N1,...,NK, M1,...,MD)
+                    axes=[
+                        list(range(-dim_rank, 0)),
+                        list(range(-dim_rank, 0)),
+                    ],
+                )
+            else:  # DASK-backed `mat`
+                # DASK.tensordot() broken -> use 2D-ops instead
+                msg = "[2023.12] DASK's tensordot() is broken. -> fallback onto 2D-shaped ops."
+                pxw.warn_dask_perf(msg)
+
+                A_2D = A.reshape(codim_size, dim_size)
+                b = b.reshape(-1, dim_size)
+                out = A_2D.dot(b.T).T  # (prod(sh), codim_size)
+                out = out.reshape(*sh, *codim_shape)
+        return out
 
     @pxrt.enforce_precision(i="arr")
     def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
-        return _matmat(_.mat, arr, warn=_._enable_warnings)
+        out = tensordot(
+            A=_.mat,
+            b=arr,
+            dim_rank=_.dim_rank,
+            warn=_._enable_warnings,
+        )
+        return out
 
     @pxrt.enforce_precision(i="arr")
     def op_adjoint(_, arr: pxt.NDArray) -> pxt.NDArray:
-        return _matmat(_.mat.T, arr, warn=_._enable_warnings)
+        if is_dense(_.mat):
+            axes = (
+                *tuple(range(-_.dim_rank, 0)),
+                *tuple(range(_.codim_rank)),
+            )
+        else:
+            axes = None  # transposes all axes for 2D sparse arrays
+        out = tensordot(
+            A=_.mat.transpose(axes),
+            b=arr,
+            dim_rank=_.codim_rank,
+            warn=_._enable_warnings,
+        )
+        return out
 
     def op_estimate_lipscthitz(_, **kwargs) -> pxt.Real:
         N = pxd.NDArrayInfo
         S = pxd.SparseArrayInfo
 
-        try:  # Sparse arrays
+        if is_dense(_.mat):
+            ndi = N.from_obj(_.mat)
+        else:
             sdi = S.from_obj(_.mat)
             if sdi == S.SCIPY_SPARSE:
                 ndi = N.NUMPY
             elif sdi == S.CUPY_SPARSE:
                 ndi = N.CUPY
-        except Exception:  # Dense arrays
-            ndi = N.from_obj(_.mat)
+            else:
+                raise NotImplementedError
 
-        kwargs.update(xp=ndi.module())
+        kwargs.update(
+            xp=ndi.module(),
+            gpu=ndi == N.CUPY,
+            dtype=_.mat.dtype,
+        )
         klass = _.__class__
         return klass.estimate_lipschitz(_, **kwargs)
 
     def op_asarray(_, **kwargs) -> pxt.NDArray:
         N = pxd.NDArrayInfo
-        S = pxd.SparseArrayInfo
-        xp = kwargs.get("xp", pxd.NDArrayInfo.default().module())
+        xp = kwargs.get("xp", N.default().module())
         dtype = kwargs.get("dtype", pxrt.getPrecision().value)
 
-        try:  # Sparse arrays
-            S.from_obj(_.mat)
+        if is_dense(_.mat):
+            A = _.mat.astype(dtype, copy=False)
+        else:
             A = _.mat.astype(dtype).toarray()  # `copy field not ubiquitous`
-        except Exception:  # Dense arrays
-            info = N.from_obj(_.mat)
-            A = pxu.compute(_.mat.astype(dtype, copy=False))
-
-            if info == N.DASK:
-                # Chunks may have been mapped to sparse arrays.
-                # Call .asarray() again for a 2nd pass.
-                _op = _ExplicitLinOp(_.__class__, mat=A)
-                A = _op.asarray(xp=N.NUMPY.module(), dtype=A.dtype)
-        finally:
-            A = pxu.to_NUMPY(A)
-
-        return xp.array(A, dtype=dtype)
+        B = xp.array(pxu.to_NUMPY(A), dtype=dtype)
+        return B
 
     @pxrt.enforce_precision()
     def op_trace(_, **kwargs) -> pxt.Real:
-        if _.dim != _.codim:
+        if _.dim_size != _.codim_size:
             raise NotImplementedError
-        else:
-            try:  # Dense Arrays
-                pxd.NDArrayInfo.from_obj(_.mat)
+        elif len(_.mat.shape) == 2:  # dense or sparse
+            try:
                 tr = _.mat.trace()
-            except Exception:  # Sparse Arrays
-                pxd.SparseArrayInfo.from_obj(_.mat)
+            except AttributeError:
+                # Not all sparse types have a .trace() method ...
                 tr = _.mat.diagonal().sum()
-            return float(tr)
+        else:  # ND dense arrays only
+            # We don't want to reshape `mat` if DASK-backed for performance reasons, so the trace is built by indexing
+            # the "diagonal" manually.
+            tr = 0
+            for idx in range(_.dim_size):
+                dim_idx = np.unravel_index(idx, _.dim_shape)
+                codim_idx = np.unravel_index(idx, _.codim_shape)
+                tr += _.mat[*codim_idx, *dim_idx]
+        return float(tr)
+
+    is_dense(mat)  # We were given a dense/sparse array ...
+    # ... but is dim_rank correctly specified?
+    assert len(mat.shape) >= 2, "Only 2D+ arrays are supported."
+    if len(mat.shape) == 2:
+        dim_rank = 1  # doesn't matter what the user specified.
+    else:  # rank > 2
+        # if ND -> mandatory supplied & (1 <= dim_rank < mat.ndim)
+        assert dim_rank is not None, "Dimension rank must be specified for ND operators."
+        assert 1 <= dim_rank < len(mat.shape)
 
     op = px_src.from_source(
         cls=cls,
-        shape=mat.shape,
+        dim_shape=mat.shape[-dim_rank:],
+        codim_shape=mat.shape[:-dim_rank],
         embed=dict(
             _name="_ExplicitLinOp",
-            mat=_standard_form(mat),
+            mat=mat,
             _enable_warnings=bool(enable_warnings),
         ),
         apply=op_apply,

@@ -1,30 +1,45 @@
 import itertools
 
-import numpy as np
 import pytest
 
 import pyxu.info.deps as pxd
+import pyxu.info.ptype as pxt
 import pyxu.operator as pxo
 import pyxu.runtime as pxrt
-import pyxu.util as pxu
 import pyxu_tests.operator.conftest as conftest
 
 
-# We disable PrecisionWarnings since DiagonalOp() is not precision-agnostic, but the outputs
-# computed must still be valid.
-@pytest.mark.filterwarnings("ignore::pyxu.info.warning.PrecisionWarning")
 class TestDiagonalOp(conftest.PosDefOpT):
-    @pytest.fixture
-    def dim(self):
-        return 20
+    @pytest.fixture(
+        params=[
+            (5,),
+            (5, 3),
+            (5, 3, 4, 2),
+        ]
+    )
+    def dim_shape(self, request) -> pxt.NDArrayShape:
+        return request.param
+
+    @pytest.fixture(params=[True, False])
+    def broadcasted(self, request) -> bool:
+        return request.param
+
+    @pytest.fixture(params=[True, False])
+    def posdef(self, request) -> bool:
+        return request.param
 
     @pytest.fixture
-    def data_shape(self, dim):
-        return (dim, dim)
+    def vec(self, dim_shape, broadcasted, posdef) -> pxt.NDArray:
+        # NUMPY version of `vec` supplied to DiagonalOp()
+        v = self._random_array(dim_shape)
 
-    @pytest.fixture(params=range(5))
-    def vec(self, dim, request):
-        v = self._random_array((dim,), seed=request.param)
+        if posdef:
+            v -= v.min() + 1e-3  # guaranteed to be positive
+
+        if broadcasted:
+            ax = v.ndim // 2
+            v = v.sum(axis=ax, keepdims=True)
+
         return v
 
     @pytest.fixture(
@@ -33,27 +48,39 @@ class TestDiagonalOp(conftest.PosDefOpT):
             pxrt.Width,
         )
     )
-    def spec(self, vec, request):
-        ndi = request.param[0]
+    def spec(self, dim_shape, vec, broadcasted, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
+        ndi, width = request.param
         self._skip_if_unsupported(ndi)
         xp = ndi.module()
-        width = request.param[1]
 
-        vec = xp.array(vec, dtype=width.value)
-        op = pxo.DiagonalOp(vec=vec)
-        return op, *request.param
+        v = xp.array(vec, dtype=width.value)
+        if broadcasted:
+            op = pxo.DiagonalOp(
+                vec=v,
+                dim_shape=dim_shape,
+                enable_warnings=False,
+            )
+        else:
+            op = pxo.DiagonalOp(
+                vec=v,
+                # omit dim_shape to see if inference correct
+                enable_warnings=False,
+            )
+
+        return op, ndi, width
 
     @pytest.fixture
-    def data_apply(self, vec):
-        arr = 15 + np.arange(vec.size)
-        out = vec * arr
+    def data_apply(self, dim_shape, vec) -> conftest.DataLike:
+        x = self._random_array(dim_shape)
+        y = x * vec
         return dict(
-            in_=dict(arr=arr),
-            out=out,
+            in_=dict(arr=x),
+            out=y,
         )
 
-    def test_math_posdef(self, op, xp, width, vec):
-        if np.any(pxu.compute(vec < 0)):
-            pytest.skip("disabled since operator is not positive-definite.")
-        else:
+    # Tests -------------------------------------------------------------------
+    def test_math_posdef(self, op, xp, width, posdef):
+        if posdef:
             super().test_math_posdef(op, xp, width)
+        else:
+            pytest.skip("disabled since operator is not positive-definite.")
