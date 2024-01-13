@@ -50,7 +50,6 @@ class JaxMixin:
         "test_prec_pinv",
         "test_prec_call_dagger",
         "test_prec_apply_dagger",
-        "test_interface_asloss",  # not worth modifying test architecture specifically for this test.
     }
 
     # Internal helpers --------------------------------------------------------

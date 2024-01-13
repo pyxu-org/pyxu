@@ -22,8 +22,6 @@ Norms & Loss Functions
    :members: prox
    :special-members: __init__
 
-.. autofunction:: pyxu.operator.shift_loss
-
 .. autoclass:: pyxu.operator.KLDivergence
    :no-members:
    :special-members: __init__

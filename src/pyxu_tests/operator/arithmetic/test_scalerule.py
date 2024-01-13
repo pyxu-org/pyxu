@@ -128,18 +128,6 @@ class ScaleRuleMixin:
         x = self._random_array((N_test, *op.dim_shape))
         return x
 
-    # Tests -------------------------------------------------------------------
-    def test_interface_asloss(self, op, xp, width, op_orig):
-        self._skip_if_disabled()
-        if not op_orig.has(pxa.Property.FUNCTIONAL):
-            pytest.skip("asloss() unavailable for non-functionals.")
-
-        try:
-            op_orig.asloss()  # detect if fails
-            super().test_interface_asloss(op, xp, width)
-        except NotImplementedError:
-            pytest.skip("asloss() unsupported by base operator.")
-
 
 # Test classes (Maps) ---------------------------------------------------------
 class TestScaleRuleMap(ScaleRuleMixin, conftest.MapT):

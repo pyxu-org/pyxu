@@ -51,7 +51,6 @@ class Property(enum.Enum):
                 "_expr",
             ]
         )
-        data[self.FUNCTIONAL].append("asloss")
         data[self.PROXIMABLE].append("prox")
         data[self.DIFFERENTIABLE].extend(
             [
@@ -773,26 +772,6 @@ class Func(Map):
         )
         assert (self.codim_size == 1) and (self.codim_rank == 1)
 
-    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        """
-        Transform a functional into a loss functional.
-
-        The meaning of :py:meth:`~pyxu.abc.Func.asloss` is operator-dependent: always examine the output of
-        :py:meth:`~pyxu.abc.Operator.expr` to determine the loss-notion involved.
-
-        Parameters
-        ----------
-        data: NDArray
-            (M1,...,MD) input.
-
-        Returns
-        -------
-        op: OpT
-            Loss function.
-            If `data` is unspecified, returns ``self``.
-        """
-        raise NotImplementedError
-
 
 class DiffMap(Map):
     r"""
@@ -1416,12 +1395,6 @@ class QuadraticFunc(ProxDiffFunc):
 
         slvr.fit(b=b, stop_crit=stop_crit)
         return slvr.solution()
-
-    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        from pyxu.operator import shift_loss
-
-        op = shift_loss(op=self, data=data)
-        return op
 
     def estimate_diff_lipschitz(self, **kwargs) -> pxt.Real:
         Q, *_ = self._quad_spec()

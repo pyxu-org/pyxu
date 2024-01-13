@@ -40,12 +40,6 @@ class SquaredL2Norm(pxa.ProxDiffFunc):
         y /= 2 * tau + 1
         return y
 
-    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        from pyxu.operator import shift_loss
-
-        op = shift_loss(op=self, data=data)
-        return op
-
 
 class TestSquaredL2Norm(conftest.ProxDiffFuncT):
     @pytest.fixture(

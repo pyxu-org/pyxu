@@ -35,13 +35,6 @@ class Median(pxa.Func):
 
 
 class TestMedian(conftest.FuncT):
-    disable_test = frozenset(
-        conftest.FuncT.disable_test
-        | {
-            "test_interface_asloss",  # does not make sense for Median().
-        }
-    )
-
     @pytest.fixture(
         params=itertools.product(
             pxd.NDArrayInfo,

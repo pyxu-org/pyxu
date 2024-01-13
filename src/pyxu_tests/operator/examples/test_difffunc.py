@@ -34,12 +34,6 @@ class SquaredL2Norm(pxa.DiffFunc):
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         return 2 * arr
 
-    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        from pyxu.operator import shift_loss
-
-        op = shift_loss(op=self, data=data)
-        return op
-
 
 class TestSquaredL2Norm(conftest.DiffFuncT):
     @pytest.fixture(

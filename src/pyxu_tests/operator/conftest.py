@@ -584,7 +584,6 @@ class MapT(ct.DisableTestMixin):
 class FuncT(MapT):
     # Class Properties --------------------------------------------------------
     base = pxa.Func
-    interface = frozenset(MapT.interface | {"asloss"})
 
     # Fixtures (Public-Facing; auto-inferred) ---------------------------------
     #           but can be overidden manually if desired ----------------------
@@ -604,19 +603,6 @@ class FuncT(MapT):
     def test_codim_rank(self, op):
         self._skip_if_disabled()
         assert op.codim_rank == 1
-
-    def test_interface_asloss(self, op, xp, width):
-        # op.asloss() sub-classes Func if data provided, transparent otherwise.
-        # Disable this test if asloss() not defined for a functional.
-        self._skip_if_disabled()
-
-        data = self._random_array(op.dim_shape, xp=xp, width=width)
-        try:
-            assert op.asloss() is op
-            self._check_has_interface(op.asloss(data), self.__class__)
-        except NotImplementedError:
-            msg = f"{op.asloss} is undefined, but `test_interface_asloss()` was not disabled."
-            assert False, msg
 
 
 class DiffMapT(MapT):
@@ -1672,11 +1658,6 @@ class LinFuncT(ProxDiffFuncT, LinOpT):
             ),
             out=y,
         )
-
-    # Tests -------------------------------------------------------------------
-    @pytest.mark.skip("Notion of loss undefined for LinFuncs.")
-    def test_interface_asloss(self, op, xp, width):
-        super().test_interface_asloss(op, xp, width)
 
 
 class SquareOpT(LinOpT):

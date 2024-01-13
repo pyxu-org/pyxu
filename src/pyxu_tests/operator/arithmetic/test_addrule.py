@@ -313,19 +313,6 @@ class AddRuleMixin:
         x = self._random_array((N_test, *op.dim_shape))
         return x
 
-    # Tests -------------------------------------------------------------------
-    def test_interface_asloss(self, op, xp, width, op_lhs, op_rhs):
-        self._skip_if_disabled()
-        if pxa.Property.FUNCTIONAL not in (op_lhs.properties() & op_rhs.properties()):
-            pytest.skip("asloss() unavailable for non-functionals.")
-
-        try:
-            op_lhs.asloss()  # detect if fails
-            op_rhs.asloss()  # detect if fails
-            super().test_interface_asloss(op, xp, width)
-        except NotImplementedError:
-            pytest.skip("asloss() unsupported by LHS/RHS operator(s).")
-
 
 # Test classes (Maps) ---------------------------------------------------------
 class TestAddRuleMap(AddRuleMixin, conftest.MapT):

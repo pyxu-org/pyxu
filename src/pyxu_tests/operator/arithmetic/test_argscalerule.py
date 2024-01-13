@@ -118,11 +118,6 @@ class ArgScaleRuleMixin:
         x = self._random_array((N_test, *op.dim_shape))
         return x
 
-    # Tests -------------------------------------------------------------------
-    @pytest.mark.skip("undefined for argscale.")
-    def test_interface_asloss(self, op, xp, width):
-        pass
-
 
 # Test classes (Maps) ---------------------------------------------------------
 class TestArgScaleRuleMap(ArgScaleRuleMixin, conftest.MapT):

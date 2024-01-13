@@ -15,7 +15,6 @@ py:class numpy\._typing\._dtype_like\._SupportsDType
 # Private/Protected Pyxu references
 py:class pyxu\.operator\.blocks\._COOBlock
 py:class pyxu\.operator\.func\.indicator\._IndicatorFunction
-py:class pyxu\.operator\.func\.norm\._ShiftLossMixin
 py:class pyxu\.opt\.solver\.pds\._PrimalDualSplitting
 py:class pyxu\.abc\.Operator\._expr
 

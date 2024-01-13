@@ -44,7 +44,6 @@ pyxu.abc.operator
 
 .. autoclass:: pyxu.abc.Func
    :no-members:
-   :members: asloss
 
 .. autoclass:: pyxu.abc.DiffMap
    :no-members:

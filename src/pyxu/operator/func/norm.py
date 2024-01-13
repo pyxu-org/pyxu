@@ -18,15 +18,7 @@ __all__ = [
 ]
 
 
-class _ShiftLossMixin:
-    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        from pyxu.operator.func.loss import shift_loss
-
-        op = shift_loss(op=self, data=data)
-        return op
-
-
-class L1Norm(_ShiftLossMixin, pxa.ProxFunc):
+class L1Norm(pxa.ProxFunc):
     r"""
     :math:`\ell_{1}`-norm, :math:`\Vert\mathbf{x}\Vert_{1} := \sum_{i} |x_{i}|`.
     """
@@ -53,7 +45,7 @@ class L1Norm(_ShiftLossMixin, pxa.ProxFunc):
         return y
 
 
-class L2Norm(_ShiftLossMixin, pxa.ProxFunc):
+class L2Norm(pxa.ProxFunc):
     r"""
     :math:`\ell_{2}`-norm, :math:`\Vert\mathbf{x}\Vert_{2} := \sqrt{\sum_{i} |x_{i}|^{2}}`.
     """
@@ -122,7 +114,7 @@ class SquaredL2Norm(pxa.QuadraticFunc):
         return (Q, c, t)
 
 
-class SquaredL1Norm(_ShiftLossMixin, pxa.ProxFunc):
+class SquaredL1Norm(pxa.ProxFunc):
     r"""
     :math:`\ell^{2}_{1}`-norm, :math:`\Vert\mathbf{x}\Vert^{2}_{1} := (\sum_{i} |x_{i}|)^{2}`.
 
@@ -186,7 +178,7 @@ class SquaredL1Norm(_ShiftLossMixin, pxa.ProxFunc):
         return y
 
 
-class LInfinityNorm(_ShiftLossMixin, pxa.ProxFunc):
+class LInfinityNorm(pxa.ProxFunc):
     r"""
     :math:`\ell_{\infty}`-norm, :math:`\Vert\mathbf{x}\Vert_{\infty} := \max_{i} |x_{i}|`.
 
@@ -239,7 +231,7 @@ class LInfinityNorm(_ShiftLossMixin, pxa.ProxFunc):
         return y
 
 
-class L21Norm(_ShiftLossMixin, pxa.ProxFunc):
+class L21Norm(pxa.ProxFunc):
     r"""
     Mixed :math:`\ell_{2}-\ell_{1}` norm, :math:`\Vert\mathbf{x}\Vert_{2, 1} := \sum_{i} \sqrt{\sum_{j} x_{i, j}^{2}}`.
     """
@@ -297,7 +289,7 @@ class L21Norm(_ShiftLossMixin, pxa.ProxFunc):
         return out
 
 
-class PositiveL1Norm(_ShiftLossMixin, pxa.ProxFunc):
+class PositiveL1Norm(pxa.ProxFunc):
     r"""
     :math:`\ell_{1}`-norm, with a positivity constraint.
 

@@ -16,7 +16,7 @@ __all__ = [
 ]
 
 
-class _IndicatorFunction(pxf._ShiftLossMixin, pxa.ProxFunc):
+class _IndicatorFunction(pxa.ProxFunc):
     def __init__(self, dim_shape: pxt.NDArrayShape):
         super().__init__(
             dim_shape=dim_shape,

@@ -233,7 +233,6 @@ Norms & Loss Functions
    ~pyxu.operator.L2Norm
    ~pyxu.operator.LInfinityNorm
    ~pyxu.operator.PositiveL1Norm
-   ~pyxu.operator.shift_loss
    ~pyxu.operator.SquaredL1Norm
    ~pyxu.operator.SquaredL2Norm
 

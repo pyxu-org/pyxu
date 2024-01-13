@@ -1,14 +1,12 @@
 # Arithmetic Rules
 
 import types
-import warnings
 
 import numpy as np
 
 import pyxu.abc.operator as pxo
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.info.warning as pxw
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -82,7 +80,7 @@ class ScaleRule(Rule):
         | CAN_EVAL                 | yes         | op_new.apply(arr) = op_old.apply(arr) * \alpha                     |
         |                          |             | op_new.lipschitz = op_old.lipschitz * abs(\alpha)                  |
         |--------------------------|-------------|--------------------------------------------------------------------|
-        | FUNCTIONAL               | yes         | op_new.asloss(\beta) = op_old.asloss(\beta) * \alpha               |
+        | FUNCTIONAL               | yes         |                                                                    |
         |--------------------------|-------------|--------------------------------------------------------------------|
         | PROXIMABLE               | \alpha > 0  | op_new.prox(arr, tau) = op_old.prox(arr, tau * \alpha)             |
         |--------------------------|-------------|--------------------------------------------------------------------|
@@ -258,16 +256,6 @@ class ScaleRule(Rule):
         tr = self._op.trace(**kwargs) * self._cst
         return tr
 
-    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        if self.has(pxo.Property.FUNCTIONAL):
-            if data is None:
-                op = self
-            else:
-                op = self._op.asloss(data) * self._cst
-            return op
-        else:
-            raise NotImplementedError
-
 
 class ArgScaleRule(Rule):
     r"""
@@ -286,7 +274,7 @@ class ArgScaleRule(Rule):
         | CAN_EVAL                 | yes         | op_new.apply(arr) = op_old.apply(arr * \alpha)                              |
         |                          |             | op_new.lipschitz = op_old.lipschitz * abs(\alpha)                           |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
-        | FUNCTIONAL               | yes         | op_new.asloss(\beta) = AMBIGUOUS -> DISABLED                                |
+        | FUNCTIONAL               | yes         |                                                                             |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
         | PROXIMABLE               | yes         | op_new.prox(arr, tau) = op_old.prox(\alpha * arr, \alpha**2 * tau) / \alpha |
         |--------------------------|-------------|-----------------------------------------------------------------------------|
@@ -479,18 +467,6 @@ class ArgScaleRule(Rule):
         tr = self._op.trace(**kwargs) * self._cst
         return tr
 
-    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        if self.has(pxo.Property.FUNCTIONAL):
-            msg = "\n".join(
-                [
-                    "The meaning of op.argscale().asloss() is ambiguous.",
-                    "Rewrite the expression differently to clarify the intent.",
-                ]
-            )
-            raise ArithmeticError(msg)
-        else:
-            raise NotImplementedError
-
 
 class ArgShiftRule(Rule):
     r"""
@@ -510,7 +486,7 @@ class ArgShiftRule(Rule):
         | CAN_EVAL                 | yes        | op_new.apply(arr) = op_old.apply(arr + \shift)                  |
         |                          |            | op_new.lipschitz = op_old.lipschitz                             |
         |--------------------------|------------|-----------------------------------------------------------------|
-        | FUNCTIONAL               | yes        | op_new.asloss(\beta) = AMBIGUOUS -> DISABLED                    |
+        | FUNCTIONAL               | yes        |                                                                 |
         |--------------------------|------------|-----------------------------------------------------------------|
         | PROXIMABLE               | yes        | op_new.prox(arr, tau) = op_old.prox(arr + \shift, tau) - \shift |
         |--------------------------|------------|-----------------------------------------------------------------|
@@ -657,18 +633,6 @@ class ArgShiftRule(Rule):
         out = self._op.grad(x)
         return out
 
-    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        if self.has(pxo.Property.FUNCTIONAL):
-            msg = "\n".join(
-                [
-                    "The meaning of op.argshift().asloss() is ambiguous.",
-                    "Rewrite the expression differently to clarify the intent.",
-                ]
-            )
-            raise ArithmeticError(msg)
-        else:
-            raise NotImplementedError
-
 
 class AddRule(Rule):
     r"""
@@ -704,10 +668,6 @@ class AddRule(Rule):
             op.lipschitz = _lhs.lipschitz + _rhs.lipschitz
             IMPORTANT: if range-broadcasting takes place (ex: LHS(1,) + RHS(M,)), then the broadcasted
                        operand's Lipschitz constant must be magnified by \sqrt{M}.
-
-        * FUNCTIONAL
-            op.asloss(\beta) = _lhs.asloss(\beta) + _rhs.asloss(\beta)
-                               may be ambiguous -> warning
 
         * PROXIMABLE
             op.prox(arr, tau) = _lhs.prox(arr - tau * _rhs.grad(arr), tau)
@@ -991,27 +951,6 @@ class AddRule(Rule):
             tr += side.trace(**kwargs)
         return float(tr)
 
-    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        if self.has(pxo.Property.FUNCTIONAL):
-            msg = "\n".join(
-                [
-                    "The meaning of (lhs + rhs).asloss() may be ambiguous if the loss-notion differs among functionals involved.",
-                    "It is recommended to call asloss() prior to adding functionals instead:",
-                    "    lhs.asloss(data) + rhs.asloss(data)",
-                ]
-            )
-            warnings.warn(msg, pxw.AutoInferenceWarning)
-
-            if data is None:
-                op = self
-            else:
-                op_lhs = self._lhs.asloss(data=data)
-                op_rhs = self._rhs.asloss(data=data)
-                op = op_lhs + op_rhs
-            return op
-        else:
-            raise NotImplementedError
-
 
 class ChainRule(Rule):
     r"""
@@ -1045,9 +984,6 @@ class ChainRule(Rule):
         * CAN_EVAL
             op.apply(arr) = _lhs.apply(_rhs.apply(arr))
             op.lipschitz = _lhs.lipschitz * _rhs.lipschitz
-
-        * FUNCTIONAL
-            op.asloss(\beta) = ambiguous -> disabled
 
         * PROXIMABLE (RHS Unitary only)
             op.prox(arr, tau) = _rhs.adjoint(_lhs.prox(_rhs.apply(arr), tau))
@@ -1348,20 +1284,6 @@ class ChainRule(Rule):
         op = self._lhs * self._rhs.cogram() * self._lhs.T
         return op.asop(pxo.SelfAdjointOp)
 
-    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        if self.has(pxo.Property.FUNCTIONAL):
-            msg = "\n".join(
-                [
-                    "The meaning of (lhs * rhs).asloss() is ambiguous:",
-                    "    (1) (lhs * rhs).asloss(data) ?= lhs.asloss(data) * rhs",
-                    "    (2) (lhs * rhs).asloss(data) ?= lhs * g.[unknown_transform](data)",
-                    "Rewrite the expression differently to clarify the intent.",
-                ]
-            )
-            raise ArithmeticError(msg)
-        else:
-            raise NotImplementedError
-
 
 class TransposeRule(Rule):
     # Not strictly-speaking an arithmetic method, but the logic behind constructing transposed
@@ -1375,9 +1297,6 @@ class TransposeRule(Rule):
         * CAN_EVAL
             opT.apply(arr) = op.adjoint(arr)
             opT.lipschitz = op.lipschitz
-
-        * FUNCTIONAL
-            opT.asloss(\beta) = UNDEFINED
 
         * PROXIMABLE
             opT.prox(arr, tau) = LinFunc.prox(arr, tau)
@@ -1456,9 +1375,6 @@ class TransposeRule(Rule):
         else:
             L = self._op.estimate_lipschitz(**kwargs)
         return L
-
-    def asloss(self, data: pxt.NDArray = None) -> pxt.OpT:
-        raise NotImplementedError
 
     @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:

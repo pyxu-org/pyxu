@@ -7,37 +7,8 @@ import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
-    "shift_loss",
     "KLDivergence",
 ]
-
-
-def shift_loss(
-    op: pxt.OpT,
-    data: pxt.NDArray = None,
-) -> pxt.OpT:
-    r"""
-    Shift a functional :math:`f(x)` to a loss functional.
-
-    .. math::
-
-       g(x; c) = f(x - c)
-
-    Parameters
-    ----------
-    data: NDArray
-        (M1,...,MD) input data.
-
-    Returns
-    -------
-    op: OpT
-        Loss functionial :math:`g(x)`.
-        If `data` is omitted, then this function is a no-op.
-    """
-    if data is None:
-        return op
-    else:
-        return op.argshift(-data)
 
 
 class KLDivergence(pxa.ProxFunc):

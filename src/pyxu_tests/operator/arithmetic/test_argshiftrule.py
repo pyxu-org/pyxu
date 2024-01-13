@@ -136,11 +136,6 @@ class ArgShiftRuleMixin:
         x = self._random_array((N_test, *op.dim_shape))
         return x
 
-    # Tests -------------------------------------------------------------------
-    @pytest.mark.skip("undefined for argshift.")
-    def test_interface_asloss(self, op, xp, width):
-        pass
-
 
 # Test classes (Maps) ---------------------------------------------------------
 class TestArgShiftRuleMap(ArgShiftRuleMixin, conftest.MapT):

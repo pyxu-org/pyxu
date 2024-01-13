@@ -321,11 +321,6 @@ class ChainRuleMixin:
         x = self._random_array((N_test, *op.dim_shape))
         return x
 
-    # Tests -------------------------------------------------------------------
-    @pytest.mark.skip("undefined for composition.")
-    def test_interface_asloss(self, op_lhs):
-        pass
-
 
 # Test classes (Maps) ---------------------------------------------------------
 class TestChainRuleMap(ChainRuleMixin, conftest.MapT):

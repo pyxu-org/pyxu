@@ -21,7 +21,6 @@ class TestKLDivergence(conftest.ProxFuncT):
         # for KLDivergence(), so this test is meaningless anyway.
         "test_math_lipschitz",
         # ---------------------------------------------------------------------
-        "test_interface_asloss",  # KLDivergence() is already a loss.
     }
 
     @pytest.fixture(
