@@ -24,89 +24,105 @@ import pyxu_tests.operator.conftest as conftest
 def spec_op(klass: pxt.OpC, N: int = 2) -> list[list[pxt.OpT]]:
     # create all possible (op1, ..., opN) tuples which, when used to create a block-diagonal
     # operator, produce an operator of type `klass`.
-    def op_map(dim: int):
+    def op_map(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_map as tc
 
-        return tc.ReLU(M=dim)
+        return tc.ReLU(dim_shape=dim_shape)
 
-    def op_diffmap(dim: int):
+    def op_func(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
+        import pyxu_tests.operator.examples.test_func as tc
+
+        return tc.Median(dim_shape=dim_shape)
+
+    def op_diffmap(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_diffmap as tc
 
-        return tc.Sin(M=dim)
+        return tc.Sin(dim_shape=dim_shape)
 
-    def op_difffunc(dim: int):
+    def op_difffunc(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_difffunc as tc
 
-        return tc.SquaredL2Norm(M=dim)
+        return tc.SquaredL2Norm(dim_shape=dim_shape)
 
-    def op_proxfunc(dim: int):
+    def op_proxfunc(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_proxfunc as tc
 
-        return tc.L1Norm(M=dim)
+        return tc.L1Norm(dim_shape=dim_shape)
 
-    def op_proxdifffunc(dim: int):
+    def op_proxdifffunc(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_proxdifffunc as tc
 
-        return tc.SquaredL2Norm(M=dim)
+        return tc.SquaredL2Norm(dim_shape=dim_shape)
 
-    def op_quadraticfunc(dim: int):
-        from pyxu_tests.operator.examples.test_linfunc import ScaledSum
-        from pyxu_tests.operator.examples.test_posdefop import PSDConvolution
+    def op_quadraticfunc(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
+        # QuadraticFunc may be defined for dim=1.
+        # In this case we cannot use PSDConvolution (examples/test_posdefop.py) due to minimal domain-size restrictions.
+        # We therefore use HomothetyOp without loss of generality.
+
+        from pyxu.operator import HomothetyOp
+        from pyxu_tests.operator.examples.test_linfunc import Sum
 
         return pxa.QuadraticFunc(
-            shape=(1, dim),
-            Q=PSDConvolution(N=dim),
-            c=ScaledSum(N=dim),
+            dim_shape=dim_shape,
+            codim_shape=1,
+            Q=HomothetyOp(dim_shape=dim_shape, cst=3),
+            c=Sum(dim_shape=dim_shape),
             t=1,
         )
 
-    def op_linop(dim: int, codim_scale: int):
+    def op_linop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_linop as tc
 
-        return tc.Tile(N=dim, M=codim_scale)
+        return tc.Sum(dim_shape=dim_shape)
 
-    def op_linfunc(dim: int):
+    def op_linfunc(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_linfunc as tc
 
-        op = tc.ScaledSum(N=dim)
+        op = tc.Sum(dim_shape=dim_shape)
         return op
 
-    def op_squareop(dim: int):
+    def op_squareop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_squareop as tc
 
-        return tc.CumSum(N=dim)
+        return tc.CumSum(dim_shape=dim_shape)
 
-    def op_normalop(dim: int):
+    def op_normalop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_normalop as tc
 
         rng = np.random.default_rng(seed=2)
-        h = rng.normal(size=(dim,))
-        return tc.CircularConvolution(h=h)
+        conv_filter = rng.normal(size=dim_shape[-1])
+        return tc.CircularConvolution(
+            dim_shape=dim_shape,
+            h=conv_filter,
+        )
 
-    def op_unitop(dim: int):
+    def op_unitop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_unitop as tc
 
-        return tc.Permutation(N=dim)
+        return tc.Permutation(dim_shape=dim_shape)
 
-    def op_selfadjointop(dim: int):
+    def op_selfadjointop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_selfadjointop as tc
 
-        return tc.SelfAdjointConvolution(N=dim)
+        return tc.SelfAdjointConvolution(dim_shape=dim_shape)
 
-    def op_posdefop(dim: int):
+    def op_posdefop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_posdefop as tc
 
-        return tc.PSDConvolution(N=dim)
+        return tc.PSDConvolution(dim_shape=dim_shape)
 
-    def op_projop(dim: int):
+    def op_projop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_projop as tc
 
-        return tc.Oblique(N=dim, alpha=np.pi / 4)
+        return tc.Oblique(
+            dim_shape=dim_shape,
+            alpha=np.pi / 4,
+        )
 
-    def op_orthprojop(dim: int):
+    def op_orthprojop(dim_shape: pxt.NDArrayShape) -> pxt.OpT:
         import pyxu_tests.operator.examples.test_orthprojop as tc
 
-        return tc.ScaleDown(N=dim)
+        return tc.ScaleDown(dim_shape=dim_shape)
 
     def condition(ops: list[pxt.OpT], klass: pxt.OpC) -> bool:
         # Return true if block_diag(ops) forms a klass object. [Not a sub-type]
@@ -122,39 +138,30 @@ def spec_op(klass: pxt.OpC, N: int = 2) -> list[list[pxt.OpT]]:
         return _klass == klass
 
     ops = []
-    for _ops in itertools.combinations(
+    for _ops in itertools.combinations_with_replacement(
         [
-            # this list should contain operators of each type with at least 2 different sizes.
-            op_map(3),
-            op_map(4),
-            op_diffmap(3),
-            op_diffmap(4),
-            op_difffunc(4),
-            op_difffunc(5),
-            op_proxfunc(5),
-            op_proxfunc(6),
-            op_proxdifffunc(5),
-            op_proxdifffunc(6),
-            op_quadraticfunc(5),
-            op_quadraticfunc(7),
-            op_linop(3, 2),
-            op_linop(3, 3),
-            op_linfunc(5),
-            op_linfunc(10),
-            op_squareop(4),
-            op_squareop(5),
-            op_normalop(5),
-            op_normalop(6),
-            op_unitop(6),
-            op_unitop(7),
-            op_selfadjointop(5),
-            op_selfadjointop(7),
-            op_posdefop(5),
-            op_posdefop(7),
-            op_projop(4),
-            op_projop(5),
-            op_orthprojop(3),
-            op_orthprojop(4),
+            op_func((5, 3, 5)),
+            op_difffunc((5, 3, 5)),
+            op_proxfunc((5, 3, 5)),
+            op_proxdifffunc((5, 3, 5)),
+            op_linfunc((5, 3, 5)),
+            op_quadraticfunc((5, 3, 5)),
+        ],
+        N,
+    ):
+        if condition(_ops, klass):
+            ops.append(_ops)
+    for _ops in itertools.combinations_with_replacement(
+        [
+            op_map((5, 3, 5)),
+            op_diffmap((5, 3, 5)),
+            op_squareop((5, 3, 5)),
+            op_normalop((5, 3, 5)),
+            op_unitop((5, 3, 5)),
+            op_selfadjointop((5, 3, 5)),
+            op_posdefop((5, 3, 5)),
+            op_projop((5, 3, 5)),
+            op_orthprojop((5, 3, 5)),
         ],
         N,
     ):
@@ -183,55 +190,56 @@ class BlockDiagMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_all) -> pxt.OpShape:
-        dim = sum(op.dim for op in op_all)
-        codim = sum(op.codim for op in op_all)
-        sh = (codim, dim)
-        return sh
+    def dim_shape(self, op_all) -> pxt.NDArrayShape:
+        N_op = len(op_all)
+        dim_shape0 = op_all[0].dim_shape
+        return (N_op, *dim_shape0)
 
     @pytest.fixture
-    def data_apply(self, op_all) -> conftest.DataLike:
-        parts_arr = []
-        parts_out = []
-        for op in op_all:
-            p_arr = self._random_array((op.dim,), seed=3)  # random seed for reproducibility
-            parts_arr.append(p_arr)
+    def codim_shape(self, op_all) -> pxt.NDArrayShape:
+        N_op = len(op_all)
+        codim_shape0 = op_all[0].codim_shape
+        return (N_op, *codim_shape0)
 
-            p_out = op.apply(p_arr)
-            parts_out.append(p_out)
-        arr = np.concatenate(parts_arr)
-        out = np.concatenate(parts_out)
+    @pytest.fixture
+    def data_apply(self, dim_shape, op_all) -> conftest.DataLike:
+        x = self._random_array(dim_shape)
+
+        y = [None] * len(op_all)
+        for i in range(len(op_all)):
+            y[i] = op_all[i].apply(x[i])
+        y = np.stack(y, axis=0)
+
         return dict(
-            in_=dict(arr=arr),
-            out=out,
+            in_=dict(arr=x),
+            out=y,
         )
 
     @pytest.fixture
-    def data_adjoint(self, op_all) -> conftest.DataLike:
-        parts_arr = []
-        parts_out = []
-        for op in op_all:
-            p_arr = self._random_array((op.codim,), seed=3)  # random seed for reproducibility
-            parts_arr.append(p_arr)
+    def data_adjoint(self, codim_shape, op_all) -> conftest.DataLike:
+        x = self._random_array(codim_shape)
 
-            p_out = op.adjoint(p_arr)
-            parts_out.append(p_out)
-        arr = np.concatenate(parts_arr)
-        out = np.concatenate(parts_out)
+        y = [None] * len(op_all)
+        for i in range(len(op_all)):
+            y[i] = op_all[i].adjoint(x[i])
+        y = np.stack(y, axis=0)
+
         return dict(
-            in_=dict(arr=arr),
-            out=out,
+            in_=dict(arr=x),
+            out=y,
         )
 
     @pytest.fixture
-    def data_math_lipschitz(self, data_shape) -> cabc.Collection[np.ndarray]:
-        N_test, dim = 5, data_shape[1]
-        return self._random_array((N_test, dim))
+    def data_math_lipschitz(self, dim_shape) -> cabc.Collection[np.ndarray]:
+        N_test = 20
+        x = self._random_array((N_test, *dim_shape))
+        return x
 
     @pytest.fixture
-    def data_math_diff_lipschitz(self, data_shape) -> cabc.Collection[np.ndarray]:
-        N_test, dim = 5, data_shape[1]
-        return self._random_array((N_test, dim))
+    def data_math_diff_lipschitz(self, dim_shape) -> cabc.Collection[np.ndarray]:
+        N_test = 20
+        x = self._random_array((N_test, *dim_shape))
+        return x
 
     # Tests -------------------------------------------------------------------
 
