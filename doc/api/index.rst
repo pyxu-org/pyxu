@@ -343,12 +343,8 @@ Block-defined Operators
 
 .. autosummary::
 
-   ~pyxu.operator.block
    ~pyxu.operator.block_diag
-   ~pyxu.operator.coo_block
-   ~pyxu.operator.hstack
    ~pyxu.operator.stack
-   ~pyxu.operator.vstack
 
 Element-wise Operators
 ^^^^^^^^^^^^^^^^^^^^^^
