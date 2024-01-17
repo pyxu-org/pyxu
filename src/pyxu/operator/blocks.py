@@ -8,14 +8,11 @@ import pyxu.info.ptype as pxt
 import pyxu.operator.interop.source as px_src
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
-from pyxu.info.plugin import _load_entry_points
 
 __all__ = [
     "stack",
     "block_diag",
 ]
-
-__all__ = _load_entry_points(globals(), group="pyxu.opt.blocks", names=__all__)
 
 
 def stack(ops: cabc.Sequence[pxt.OpT]) -> pxt.OpT:
