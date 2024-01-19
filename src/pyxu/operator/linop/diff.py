@@ -43,7 +43,7 @@ PDMetaGD = collections.namedtuple("GaussianDerivativeMeta", "sampling sigma trun
 
 def _sanitize_init_kwargs(
     order: typ.Union[pxt.Integer, cabc.Sequence[pxt.Integer, ...]],
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     sampling: typ.Union[pxt.Real, cabc.Sequence[pxt.Real, ...]],
     diff_method: str,
     diff_kwargs: dict,
@@ -61,20 +61,20 @@ def _sanitize_init_kwargs(
 
     def _ensure_tuple(param, param_name: str) -> typ.Union[tuple[pxt.Integer, ...], tuple[str, ...]]:
         r"""
-        Enforces the input parameters to be tuples of the same size as `arg_shape`.
+        Enforces the input parameters to be tuples of the same size as `dim_shape`.
         """
         if not isinstance(param, cabc.Sequence) or isinstance(param, str):
             param = (param,)
-        assert (len(param) == 1) | (len(param) <= len(arg_shape)), (
+        assert (len(param) == 1) | (len(param) <= len(dim_shape)), (
             f"The length of {param_name} cannot be larger than the"
-            f"number of dimensions ({len(arg_shape)}) defined by `arg_shape`"
+            f"number of dimensions ({len(dim_shape)}) defined by `dim_shape`"
         )
         return param
 
     order = _ensure_tuple(order, param_name="order")
     sampling = _ensure_tuple(sampling, param_name="sampling")
     if len(sampling) == 1:
-        sampling = sampling * len(arg_shape)
+        sampling = sampling * len(dim_shape)
     assert all([_ >= 0 for _ in order]), "Order must be positive"
     assert all([_ > 0 for _ in sampling]), "Sampling must be strictly positive"
 
@@ -101,9 +101,9 @@ def _sanitize_init_kwargs(
     elif param2_name == "truncate":
         assert all([p > 0 for p in _param2]), "Truncate must be strictly positive"
 
-    if len(order) != len(arg_shape):
+    if len(order) != len(dim_shape):
         assert axes is not None, (
-            "If `order` is not a tuple with size of arg_shape, then `axes` must be" " specified. Got `axes=None`"
+            "If `order` is not a tuple with size of dim_shape, then `axes` must be" " specified. Got `axes=None`"
         )
         axes = _ensure_tuple(axes, param_name="axes")
         assert len(axes) == len(order), "`axes` must have the same number of elements as `order`"
@@ -112,19 +112,19 @@ def _sanitize_init_kwargs(
             axes = _ensure_tuple(axes, param_name="axes")
             assert len(axes) == len(order), "`axes` must have the same number of elements as `order`"
         else:
-            axes = tuple([i for i in range(len(arg_shape))])
+            axes = tuple([i for i in range(len(dim_shape))])
 
     if not (len(_param1) == len(order)):
         assert len(_param1) == 1, (
             f"Parameter `{param1_name}` inconsistent with the number of elements in " "parameter `order`."
         )
-        _param1 = _param1 * len(arg_shape)
+        _param1 = _param1 * len(dim_shape)
 
     if not (len(_param2) == len(order)):
         assert len(_param2) == 1, (
             f"Parameter `{param2_name}` inconsistent with the number of elements in " "parameter `order`."
         )
-        _param2 = _param2 * len(arg_shape)
+        _param2 = _param2 * len(dim_shape)
 
     return (
         order,
@@ -136,16 +136,16 @@ def _sanitize_init_kwargs(
 
 
 def _create_kernel(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     axes: pxt.NDArrayAxis,
     _fill_coefs: typ.Callable,
 ) -> tuple[cabc.Sequence[pxt.NDArray], pxt.NDArray]:
     r"""
     Creates kernel for stencil.
     """
-    stencil_ids = [np.array([0])] * len(arg_shape)
-    stencil_coefs = [np.array([1.0])] * len(arg_shape)
-    center = np.zeros(len(arg_shape), dtype=int)
+    stencil_ids = [np.array([0])] * len(dim_shape)
+    stencil_coefs = [np.array([1.0])] * len(dim_shape)
+    center = np.zeros(len(dim_shape), dtype=int)
 
     # Create finite difference coefficients for each dimension
     for i, ax in enumerate(axes):
@@ -156,7 +156,7 @@ def _create_kernel(
 
 def _FiniteDifference(
     order: typ.Union[pxt.Integer, cabc.Sequence[pxt.Integer, ...]],
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     scheme: typ.Union[str, cabc.Sequence[str, ...]] = "forward",
     axes: pxt.NDArrayAxis = None,
     accuracy: typ.Union[pxt.Integer, cabc.Sequence[pxt.Integer, ...]] = 1,
@@ -181,8 +181,8 @@ def _FiniteDifference(
     order: Integer, list[Integer]
         Derivative order. If a single integer value is provided, then `axes` should be provided to
         indicate which dimension should be differentiated.
-        If a tuple is provided, it should contain as many elements as `arg_shape`.
-    arg_shape: pxt.NDArrayShape
+        If a tuple is provided, it should contain as many elements as `dim_shape`.
+    dim_shape: pxt.NDArrayShape
         Shape of the input array.
     scheme: str, list[str]
         Type of finite differences: ["forward", "backward", "central"].
@@ -197,7 +197,7 @@ def _FiniteDifference(
         (see `Notes`).
         Defaults to 1.
         If an int is provided, the same `accuracy` is assumed for all dimensions.
-        If a tuple is provided, it should have as many elements as `arg_shape`.
+        If a tuple is provided, it should have as many elements as `dim_shape`.
     sampling: pxt.Real, list[Real]
         Sampling step (i.e. distance between two consecutive elements of an array).
         Defaults to 1.
@@ -207,7 +207,7 @@ def _FiniteDifference(
         order=order,
         diff_method="fd",
         diff_kwargs=diff_kwargs,
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         axes=axes,
         sampling=sampling,
     )
@@ -257,13 +257,13 @@ def _FiniteDifference(
         center = stencil_ids.index(0)
         return stencil_ids, stencil_coefs, center
 
-    kernel, center = _create_kernel(arg_shape, axes, _fill_coefs)
+    kernel, center = _create_kernel(dim_shape, axes, _fill_coefs)
     return kernel, center
 
 
 def _GaussianDerivative(
     order: typ.Union[pxt.Integer, cabc.Sequence[pxt.Integer, ...]],
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     sigma: typ.Union[pxt.Real, cabc.Sequence[pxt.Real, ...]],
     axes: pxt.NDArrayAxis = None,
     truncate: typ.Union[pxt.Real, cabc.Sequence[pxt.Real, ...]] = 3.0,
@@ -292,7 +292,7 @@ def _GaussianDerivative(
         dimension should be used for differentiation.
         If a tuple is provided, it should contain as many elements as number of dimensions in
         `axes`.
-    arg_shape: pxt.NDArrayShape
+    dim_shape: pxt.NDArrayShape
         Shape of the input array.
     sigma: Real, list[Real]
         Standard deviation of the Gaussian kernel.
@@ -313,7 +313,7 @@ def _GaussianDerivative(
         order=order,
         diff_method="gd",
         diff_kwargs=diff_kwargs,
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         axes=axes,
         sampling=sampling,
     )
@@ -344,14 +344,14 @@ def _GaussianDerivative(
         coefs /= sampling**order
         return coefs
 
-    kernel, center = _create_kernel(arg_shape, axes, _fill_coefs)
+    kernel, center = _create_kernel(dim_shape, axes, _fill_coefs)
     return kernel, center
 
 
 def _PartialDerivative(
     kernel: KernelSpec,
     center: KernelSpec,
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     mode: ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pxt.DType] = None,
@@ -390,7 +390,7 @@ def _PartialDerivative(
            x[i_{1} - c_{1} + q_{1},\ldots,i_{D} - c_{D} + q_{D}]
            \,\cdot\,
            k[q_{1},\ldots,q_{D}]
-    arg_shape: pxt.NDArrayShape
+    dim_shape: pxt.NDArrayShape
         Shape of the input array.
     mode: str, list[str]
         Boundary conditions.
@@ -436,7 +436,7 @@ def _PartialDerivative(
     else:
         kernel = xp.array(kernel, dtype=dtype)
 
-    op = pxls.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode)
+    op = pxls.Stencil(dim_shape=dim_shape, kernel=kernel, center=center, mode=mode)
     setattr(op, "meta", meta)
 
     return op
@@ -499,7 +499,7 @@ class PartialDerivative:
 
     @staticmethod
     def finite_difference(
-        arg_shape: pxt.NDArrayShape,
+        dim_shape: pxt.NDArrayShape,
         order: cabc.Sequence[pxt.Integer, ...],
         scheme: typ.Union[str, cabc.Sequence[str, ...]] = "forward",
         accuracy: typ.Union[pxt.Integer, cabc.Sequence[pxt.Integer, ...]] = 1,
@@ -513,7 +513,7 @@ class PartialDerivative:
 
         Parameters
         ----------
-        arg_shape: NDArrayShape
+        dim_shape: NDArrayShape
             Shape of the input array.
         order: list[Integer]
             Derivative order for each dimension.
@@ -528,7 +528,7 @@ class PartialDerivative:
             Determines the number of points used to approximate the derivative with finite differences (see `Notes`).
             Defaults to 1.
             If an int is provided, the same `accuracy` is assumed for all dimensions.
-            If a tuple is provided, it should have as many elements as `arg_shape`.
+            If a tuple is provided, it should have as many elements as `dim_shape`.
         mode: str, list[str]
             Boundary conditions.
             Multiple forms are accepted:
@@ -665,19 +665,19 @@ class PartialDerivative:
            x = np.linspace(-2.5, 2.5, 25)
            xx, yy = np.meshgrid(x, x)
            image = peaks(xx, yy)
-           arg_shape = image.shape  # Shape of our image
+           dim_shape = image.shape  # Shape of our image
            # Specify derivative order at each direction
            df_dx = (1, 0)  # Compute derivative of order 1 in first dimension
            d2f_dy2 = (0, 2)  # Compute derivative of order 2 in second dimension
            d3f_dxdy2 = (1, 2)  # Compute derivative of order 1 in first dimension and der. of order 2 in second dimension
            # Instantiate derivative operators
            sigma = 2.0
-           diff1 = PartialDerivative.gaussian_derivative(order=df_dx, arg_shape=arg_shape, sigma=sigma / np.sqrt(2))
-           diff2 = PartialDerivative.gaussian_derivative(order=d2f_dy2, arg_shape=arg_shape, sigma=sigma / np.sqrt(2))
-           diff = PartialDerivative.gaussian_derivative(order=d3f_dxdy2, arg_shape=arg_shape, sigma=sigma)
+           diff1 = PartialDerivative.gaussian_derivative(order=df_dx, dim_shape=dim_shape, sigma=sigma / np.sqrt(2))
+           diff2 = PartialDerivative.gaussian_derivative(order=d2f_dy2, dim_shape=dim_shape, sigma=sigma / np.sqrt(2))
+           diff = PartialDerivative.gaussian_derivative(order=d3f_dxdy2, dim_shape=dim_shape, sigma=sigma)
            # Compute derivatives
-           out1 = (diff1 * diff2)(image.ravel()).reshape(arg_shape)
-           out2 = diff(image.ravel()).reshape(arg_shape)
+           out1 = (diff1 * diff2)(image.ravel()).reshape(dim_shape)
+           out2 = diff(image.ravel()).reshape(dim_shape)
            # Plot derivatives
            fig, axs = plt.subplots(1, 3, figsize=(15, 4))
            im = axs[0].imshow(image)
@@ -700,24 +700,24 @@ class PartialDerivative:
 
         """
         assert isinstance(order, cabc.Sequence), "`order` should be a tuple / list"
-        assert len(order) == len(arg_shape)
+        assert len(order) == len(dim_shape)
         diff_kwargs = {"scheme": scheme, "accuracy": accuracy}
         order, sampling, scheme, accuracy, _ = _sanitize_init_kwargs(
             order=order,
             diff_method="fd",
             diff_kwargs=diff_kwargs,
-            arg_shape=arg_shape,
+            dim_shape=dim_shape,
             sampling=sampling,
         )
 
         # Compute a kernel for each axis
-        kernel = [np.array(1)] * len(arg_shape)
-        center = np.zeros(len(arg_shape), dtype=int)
-        for ax in range(len(arg_shape)):
+        kernel = [np.array(1)] * len(dim_shape)
+        center = np.zeros(len(dim_shape), dtype=int)
+        for ax in range(len(dim_shape)):
             if order[ax] > 0:
                 k, c = _FiniteDifference(
                     order=order[ax],
-                    arg_shape=arg_shape,
+                    dim_shape=dim_shape,
                     scheme=scheme[ax],
                     axes=ax,
                     accuracy=accuracy[ax],
@@ -731,7 +731,7 @@ class PartialDerivative:
         return _PartialDerivative(
             kernel=kernel,
             center=center,
-            arg_shape=arg_shape,
+            dim_shape=dim_shape,
             mode=mode,
             gpu=gpu,
             dtype=dtype,
@@ -740,7 +740,7 @@ class PartialDerivative:
 
     @staticmethod
     def gaussian_derivative(
-        arg_shape: pxt.NDArrayShape,
+        dim_shape: pxt.NDArrayShape,
         order: cabc.Sequence[pxt.Integer, ...],
         sigma: typ.Union[pxt.Real, cabc.Sequence[pxt.Real, ...]] = 1.0,
         truncate: typ.Union[pxt.Real, cabc.Sequence[pxt.Real, ...]] = 3.0,
@@ -754,7 +754,7 @@ class PartialDerivative:
 
         Parameters
         ----------
-        arg_shape: NDArrayShape
+        dim_shape: NDArrayShape
             Shape of the input array.
         order: list[Integer]
             Derivative order for each dimension.
@@ -853,18 +853,18 @@ class PartialDerivative:
            x = np.linspace(-2.5, 2.5, 25)
            xx, yy = np.meshgrid(x, x)
            image = peaks(xx, yy)
-           arg_shape = image.shape  # Shape of our image
+           dim_shape = image.shape  # Shape of our image
            # Specify derivative order at each direction
            df_dx = (1, 0) # Compute derivative of order 1 in first dimension
            d2f_dy2 = (0, 2) # Compute derivative of order 2 in second dimension
            d3f_dxdy2 = (1, 2) # Compute derivative of order 1 in first dimension and der. of order 2 in second dimension
            # Instantiate derivative operators
-           diff1 = PartialDerivative.gaussian_derivative(order=df_dx, arg_shape=arg_shape, sigma=2.0)
-           diff2 = PartialDerivative.gaussian_derivative(order=d2f_dy2, arg_shape=arg_shape, sigma=2.0)
-           diff = PartialDerivative.gaussian_derivative(order=d3f_dxdy2, arg_shape=arg_shape, sigma=2.0)
+           diff1 = PartialDerivative.gaussian_derivative(order=df_dx, dim_shape=dim_shape, sigma=2.0)
+           diff2 = PartialDerivative.gaussian_derivative(order=d2f_dy2, dim_shape=dim_shape, sigma=2.0)
+           diff = PartialDerivative.gaussian_derivative(order=d3f_dxdy2, dim_shape=dim_shape, sigma=2.0)
            # Compute derivatives
-           out1 = (diff1 * diff2)(image.ravel()).reshape(arg_shape)
-           out2 = diff(image.ravel()).reshape(arg_shape)
+           out1 = (diff1 * diff2)(image.ravel()).reshape(dim_shape)
+           out2 = diff(image.ravel()).reshape(dim_shape)
            plt.figure()
            plt.imshow(image),
            plt.axis('off')
@@ -881,24 +881,24 @@ class PartialDerivative:
 
         """
         assert isinstance(order, cabc.Sequence), "`order` should be a tuple / list"
-        assert len(order) == len(arg_shape)
+        assert len(order) == len(dim_shape)
 
         diff_kwargs = {"sigma": sigma, "truncate": truncate}
         order, sampling, sigma, truncate, _ = _sanitize_init_kwargs(
             order=order,
             diff_method="gd",
             diff_kwargs=diff_kwargs,
-            arg_shape=arg_shape,
+            dim_shape=dim_shape,
             sampling=sampling,
         )
 
         # Compute a kernel for each axes
-        kernel = [np.array(1)] * len(arg_shape)
-        center = np.zeros(len(arg_shape), dtype=int)
-        for ax in range(len(arg_shape)):
+        kernel = [np.array(1)] * len(dim_shape)
+        center = np.zeros(len(dim_shape), dtype=int)
+        for ax in range(len(dim_shape)):
             k, c = _GaussianDerivative(
                 order=order[ax],
-                arg_shape=arg_shape,
+                dim_shape=dim_shape,
                 sigma=sigma[ax],
                 axes=ax,
                 truncate=truncate[ax],
@@ -912,7 +912,7 @@ class PartialDerivative:
         return _PartialDerivative(
             kernel=kernel,
             center=center,
-            arg_shape=arg_shape,
+            dim_shape=dim_shape,
             mode=mode,
             gpu=gpu,
             dtype=dtype,
@@ -920,15 +920,15 @@ class PartialDerivative:
         )
 
 
-def _make_unravelable(op: pxt.OpT, arg_shape: typ.Optional[pxt.NDArrayShape] = None) -> pxt.OpT:
+def _make_unravelable(op: pxt.OpT, dim_shape: typ.Optional[pxt.NDArrayShape] = None) -> pxt.OpT:
     def unravel(self, arr: pxt.NDArray) -> pxt.NDArray:
-        return arr.reshape(*arr.shape[:-1], -1, *self.arg_shape)
+        return arr.reshape(*arr.shape[:-1], -1, *self.dim_shape)
 
     def ravel(self, arr: pxt.NDArray) -> pxt.NDArray:
-        return arr.reshape(*arr.shape[: -1 - len(self.arg_shape)], -1)
+        return arr.reshape(*arr.shape[: -1 - len(self.dim_shape)], -1)
 
-    if arg_shape is not None:
-        setattr(op, "arg_shape", arg_shape)
+    if dim_shape is not None:
+        setattr(op, "dim_shape", dim_shape)
 
     setattr(op, "unravel", types.MethodType(unravel, op))
     setattr(op, "ravel", types.MethodType(ravel, op))
@@ -950,7 +950,7 @@ class _StackDiffHelper:
 
     @staticmethod
     def _stack_diff_ops(
-        arg_shape: pxt.NDArrayShape,
+        dim_shape: pxt.NDArrayShape,
         directions: pxt.NDArrayAxis,
         diff_method: str,
         order: typ.Union[pxt.Integer, cabc.Sequence[pxt.Integer, ...]],
@@ -960,27 +960,26 @@ class _StackDiffHelper:
         gpu: bool = False,
         dtype: typ.Optional[pxt.DType] = None,
         sampling: typ.Union[pxt.Real, cabc.Sequence[pxt.Real, ...]] = 1,
-        parallel: bool = False,
     ) -> pxt.OpT:
         if isinstance(mode, str):
             mode = (mode,)
         if isinstance(mode, cabc.Sequence):
-            if len(mode) != len(arg_shape):
+            if len(mode) != len(dim_shape):
                 assert len(mode) == 1
-                mode = mode * len(arg_shape)
+                mode = mode * len(dim_shape)
 
         else:
             raise ValueError("mode has to be a string or a tuple")
         dif_op = []
         for i in range(0, len(directions)):
-            _order = np.zeros_like(arg_shape)
+            _order = np.zeros_like(dim_shape)
             _order[directions[i]] = order[i]
             _param1 = param1 if not isinstance(param1[0], (list, tuple)) else param1[i]
             _param2 = param2 if not isinstance(param2[0], (list, tuple)) else param2[i]
             if diff_method == "fd":
                 dif_op.append(
                     PartialDerivative.finite_difference(
-                        arg_shape=arg_shape,
+                        dim_shape=dim_shape,
                         order=tuple(_order),
                         scheme=_param1,
                         accuracy=_param2,
@@ -994,7 +993,7 @@ class _StackDiffHelper:
             elif diff_method == "gd":
                 dif_op.append(
                     PartialDerivative.gaussian_derivative(
-                        arg_shape=arg_shape,
+                        dim_shape=dim_shape,
                         order=tuple(_order),
                         sigma=param1,
                         truncate=param2,
@@ -1018,7 +1017,7 @@ class _StackDiffHelper:
                from pyxu.operator import Hessian
 
                H = hessian(
-                    arg_shape=(5, 6),
+                    dim_shape=(5, 6),
                     diff_method="fd",
                )
                print(H.visualize())  # Direction (0, 0)
@@ -1050,14 +1049,14 @@ class _StackDiffHelper:
                 sigma=[op.meta.sigma for op in dif_op],
                 truncate=[op.meta.truncate for op in dif_op],
             )
-        op = _make_unravelable(pxb.vstack(dif_op, parallel=parallel), arg_shape)
+        op = _make_unravelable(pxb.stack(dif_op), dim_shape)
         setattr(op, "visualize", types.MethodType(visualize, op))
         setattr(op, "meta", meta)
         return op
 
     @staticmethod
     def _check_directions_and_order(
-        arg_shape: pxt.NDArrayShape,
+        dim_shape: pxt.NDArrayShape,
         directions: typ.Union[
             str,
             pxt.NDArrayAxis,
@@ -1066,8 +1065,8 @@ class _StackDiffHelper:
     ) -> cabc.Sequence[cabc.Sequence[pxt.NDArrayAxis, ...], pxt.NDArrayAxis]:
         # Convert directions to canonical form
         def _check_directions(_directions):
-            assert all(0 <= _ <= (len(arg_shape) - 1) for _ in _directions), (
-                "Direction values must be between 0 and " "the number of dimensions in `arg_shape`."
+            assert all(0 <= _ <= (len(dim_shape) - 1) for _ in _directions), (
+                "Direction values must be between 0 and " "the number of dimensions in `dim_shape`."
             )
 
         if not isinstance(directions, cabc.Sequence):
@@ -1083,7 +1082,7 @@ class _StackDiffHelper:
                     "int, tuple or a str with the value `all`."
                 )
                 directions = tuple(
-                    list(_) for _ in itertools.combinations_with_replacement(np.arange(len(arg_shape)).astype(int), 2)
+                    list(_) for _ in itertools.combinations_with_replacement(np.arange(len(dim_shape)).astype(int), 2)
                 )
             elif not isinstance(directions[0], cabc.Sequence):
                 # This corresponds to [mode 1] in Hessian  `Notes`
@@ -1111,13 +1110,12 @@ class _StackDiffHelper:
 
 
 def Gradient(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     directions: typ.Optional[pxt.NDArrayAxis] = None,
     diff_method: str = "fd",
     mode: ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pxt.DType] = None,
-    parallel: bool = False,
     **diff_kwargs,
 ) -> pxt.OpT:
     r"""
@@ -1150,7 +1148,7 @@ def Gradient(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     directions: Integer, list[Integer], None
         Gradient directions.
@@ -1181,8 +1179,6 @@ def Gradient(
         Defaults to `False`.
     dtype: DType
         Working precision of the linear operator.
-    parallel: bool
-        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
         :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
@@ -1208,9 +1204,9 @@ def Gradient(
        x = np.linspace(-3, 3, n)
        xx, yy = np.meshgrid(x, x)
        image = peaks(xx, yy)
-       arg_shape = image.shape  # (1000, 1000)
+       dim_shape = image.shape  # (1000, 1000)
        # Instantiate gradient operator
-       grad = Gradient(arg_shape=arg_shape)
+       grad = Gradient(dim_shape=dim_shape)
 
        # Compute gradients
        output = grad(image.ravel()) # shape = (2000000, )
@@ -1238,18 +1234,18 @@ def Gradient(
     :py:func:`~pyxu.operator.PartialDerivative`,
     :py:func:`~pyxu.operator.Jacobian`.
     """
-    directions = tuple([i for i in range(len(arg_shape))]) if directions is None else directions
-    axes = tuple([i for i in range(len(arg_shape)) if i in directions])
+    directions = tuple([i for i in range(len(dim_shape))]) if directions is None else directions
+    axes = tuple([i for i in range(len(dim_shape)) if i in directions])
     order, sampling, param1, param2, _ = _sanitize_init_kwargs(
         order=(1,) * len(directions),
         axes=axes,
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         sampling=diff_kwargs.get("sampling", 1.0),
         diff_method=diff_method,
         diff_kwargs=diff_kwargs,
     )
     op = _StackDiffHelper._stack_diff_ops(
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         directions=directions,
         diff_method=diff_method,
         order=order,
@@ -1259,21 +1255,19 @@ def Gradient(
         gpu=gpu,
         dtype=dtype,
         sampling=sampling,
-        parallel=parallel,
     )
     op._name = "Gradient"
     return op
 
 
 def Jacobian(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     n_channels: pxt.Integer,
     directions: typ.Optional[pxt.NDArrayAxis] = None,
     diff_method: str = "fd",
     mode: ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pxt.DType] = None,
-    parallel: bool = False,
     **diff_kwargs,
 ) -> pxt.OpT:
     r"""
@@ -1316,7 +1310,7 @@ def Jacobian(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     n_channels: Integer
         Number of channels or variables of the input vector-valued signal.
@@ -1350,8 +1344,6 @@ def Jacobian(
         Defaults to `False`.
     dtype: DType
         Working precision of the linear operator.
-    parallel: bool
-        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
         :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
@@ -1375,7 +1367,7 @@ def Jacobian(
        x = np.linspace(-2.5, 2.5, 25)
        xx, yy = np.meshgrid(x, x)
        image = np.tile(peaks(xx, yy), (3, 1, 1))
-       jac = Jacobian(arg_shape=image.shape[1:], n_channels=image.shape[0])
+       jac = Jacobian(dim_shape=image.shape[1:], n_channels=image.shape[0])
        out = jac.unravel(jac(image.ravel()))
        fig, axes = plt.subplots(3, 2, figsize=(10, 15))
        for i in range(3):
@@ -1391,13 +1383,12 @@ def Jacobian(
     :py:func:`~pyxu.operator.PartialDerivative`.
     """
     init_kwargs = dict(
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         directions=directions,
         diff_method=diff_method,
         mode=mode,
         gpu=gpu,
         dtype=dtype,
-        parallel=parallel,
         **diff_kwargs,
     )
 
@@ -1412,17 +1403,16 @@ def Jacobian(
     else:
         op = grad
     op._name = "Jacobian"
-    return _make_unravelable(op, (grad.codim // grad.dim, *arg_shape))
+    return _make_unravelable(op, (grad.codim // grad.dim, *dim_shape))
 
 
 def Divergence(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     directions: typ.Optional[pxt.NDArrayAxis] = None,
     diff_method: str = "fd",
     mode: ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pxt.DType] = None,
-    parallel: bool = False,
     **diff_kwargs,
 ) -> pxt.OpT:
     r"""
@@ -1468,7 +1458,7 @@ def Divergence(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     directions: Integer, list[Integer], None
         Divergence directions.
@@ -1499,8 +1489,6 @@ def Divergence(
         Defaults to `False`.
     dtype: DType
         Working precision of the linear operator.
-    parallel: bool
-        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
         :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
@@ -1525,20 +1513,20 @@ def Divergence(
        x = np.linspace(-3, 3, n)
        xx, yy = np.meshgrid(x, x)
        image = peaks(xx, yy)
-       arg_shape = image.shape  # (1000, 1000)
-       grad = Gradient(arg_shape=arg_shape)
-       div = Divergence(arg_shape=arg_shape)
+       dim_shape = image.shape  # (1000, 1000)
+       grad = Gradient(dim_shape=dim_shape)
+       div = Divergence(dim_shape=dim_shape)
        # Construct Laplacian via composition
        laplacian1 = div * grad
        # Compare to default Laplacian
-       laplacian2 = Laplacian(arg_shape=arg_shape)
+       laplacian2 = Laplacian(dim_shape=dim_shape)
        output1 = laplacian1(image.ravel())
        output2 = laplacian2(image.ravel())
        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-       im = axes[0].imshow(np.log(abs(output1)).reshape(*arg_shape))
+       im = axes[0].imshow(np.log(abs(output1)).reshape(*dim_shape))
        axes[0].set_title("Laplacian via composition")
        plt.colorbar(im, ax=axes[0])
-       im = axes[1].imshow(np.log(abs(output1)).reshape(*arg_shape))
+       im = axes[1].imshow(np.log(abs(output1)).reshape(*dim_shape))
        axes[1].set_title("Default Laplacian")
        plt.colorbar(im, ax=axes[1])
 
@@ -1576,20 +1564,19 @@ def Divergence(
                 param.insert(0, "dummy")
         init_kwargs.update({key: param})
 
-    directions = tuple([i for i in range(len(arg_shape))]) if directions is None else directions
+    directions = tuple([i for i in range(len(dim_shape))]) if directions is None else directions
     n_dir = len(directions)
 
     pds = pxb.block_diag(
-        [Gradient(arg_shape=arg_shape, directions=(direction,), **init_kwargs) for direction in directions],
-        parallel=parallel,
+        [Gradient(dim_shape=dim_shape, directions=(direction,), **init_kwargs) for direction in directions],
     )
-    op = pxlr.Sum(arg_shape=(n_dir,) + arg_shape, axis=0) * pds
+    op = pxlr.Sum(dim_shape=(n_dir,) + dim_shape, axis=0) * pds
     op._name = "Divergence"
-    return _make_unravelable(op, arg_shape[1:])
+    return _make_unravelable(op, dim_shape[1:])
 
 
 def Hessian(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     directions: typ.Union[
         str,
         cabc.Sequence[pxt.Integer, pxt.Integer],
@@ -1599,7 +1586,6 @@ def Hessian(
     mode: ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pxt.DType] = None,
-    parallel: bool = False,
     **diff_kwargs,
 ) -> pxt.OpT:
     r"""
@@ -1666,7 +1652,7 @@ def Hessian(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     directions: Integer, (Integer, Integer), ((Integer, Integer), ..., (Integer, Integer)), 'all'
         Hessian directions.
@@ -1697,8 +1683,6 @@ def Hessian(
         Defaults to `False`.
     dtype: DType
         Working precision of the linear operator.
-    parallel: bool
-        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
         :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
@@ -1723,10 +1707,10 @@ def Hessian(
        x = np.linspace(-3, 3, n)
        xx, yy = np.meshgrid(x, x)
        image = peaks(xx, yy)
-       arg_shape = image.shape  # (1000, 1000)
+       dim_shape = image.shape  # (1000, 1000)
 
        # Instantiate Hessian operator
-       hessian = Hessian(arg_shape=arg_shape, directions="all")
+       hessian = Hessian(dim_shape=dim_shape, directions="all")
        # Compute Hessian
        output = hessian(image.ravel()) # shape = (300000,)
        d2f_dx2, d2f_dxdy, d2f_dy2 = hessian.unravel(output)
@@ -1766,21 +1750,21 @@ def Hessian(
     # Hessian components via the `directions` 2nd mode (see ``Notes``).
 
     order, sampling, param1, param2, _ = _sanitize_init_kwargs(
-        order=(1,) * len(arg_shape),
+        order=(1,) * len(dim_shape),
         diff_method=diff_method,
         diff_kwargs=diff_kwargs,
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         sampling=diff_kwargs.get("sampling", 1.0),
     )
 
-    directions, order = _StackDiffHelper._check_directions_and_order(arg_shape, directions)
+    directions, order = _StackDiffHelper._check_directions_and_order(dim_shape, directions)
 
     # If diff_method is "fd" default to "central" for diag components and "forward" for off-diag.
     if (diff_method == "fd") and (diff_kwargs.get("scheme", None) is None):
         param1 = [("central", "central") if o == 2 else param1 for o in order]
 
     op = _StackDiffHelper._stack_diff_ops(
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         directions=directions,
         diff_method=diff_method,
         order=order,
@@ -1790,20 +1774,18 @@ def Hessian(
         gpu=gpu,
         dtype=dtype,
         sampling=sampling,
-        parallel=parallel,
     )
     op._name = "Hessian"
     return op
 
 
 def Laplacian(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     directions: typ.Optional[pxt.NDArrayAxis] = None,
     diff_method: str = "fd",
     mode: ModeSpec = "constant",
     gpu: bool = False,
     dtype: typ.Optional[pxt.DType] = None,
-    parallel: bool = False,
     **diff_kwargs,
 ) -> pxt.OpT:
     r"""
@@ -1834,7 +1816,7 @@ def Laplacian(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     directions: Integer, list[Integer], None
         Laplacian directions. Defaults to `None`, which computes the Laplacian with all directions.
@@ -1864,8 +1846,6 @@ def Laplacian(
         Defaults to `False`.
     dtype: DType
         Working precision of the linear operator.
-    parallel: bool
-        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
         :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
@@ -1892,9 +1872,9 @@ def Laplacian(
        xx, yy = np.meshgrid(x, x)
        image = peaks(xx, yy)
 
-       arg_shape = image.shape  # (1000, 1000)
+       dim_shape = image.shape  # (1000, 1000)
        # Compute Laplacian
-       laplacian = Laplacian(arg_shape=arg_shape)
+       laplacian = Laplacian(dim_shape=dim_shape)
        output = laplacian(image.ravel())
        output = laplacian.unravel(output) # shape = (1, 1000, 1000)
        # Plot
@@ -1917,31 +1897,29 @@ def Laplacian(
     :py:class:`~pyxu.operator.Gradient`,
     :py:class:`~pyxu.operator.Hessian`.
     """
-    ndims = len(arg_shape)
-    directions = tuple([i for i in range(len(arg_shape))]) if directions is None else directions
+    ndims = len(dim_shape)
+    directions = tuple([i for i in range(len(dim_shape))]) if directions is None else directions
     directions = [(i, i) for i in range(ndims) if i in directions]
     pds = Hessian(
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         directions=directions,
         diff_method=diff_method,
         mode=mode,
         gpu=gpu,
         dtype=dtype,
-        parallel=parallel,
         **diff_kwargs,
     )
-    op = pxlr.Sum(arg_shape=(ndims,) + arg_shape, axis=0) * pds
+    op = pxlr.Sum(dim_shape=(ndims,) + dim_shape, axis=0) * pds
     op._name = "Laplacian"
-    return _make_unravelable(op, arg_shape[1:])
+    return _make_unravelable(op, dim_shape[1:])
 
 
 def DirectionalDerivative(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     order: pxt.Integer,
     directions: typ.Union[pxt.NDArray, typ.Sequence[pxt.NDArray]],
     diff_method: str = "fd",
     mode: ModeSpec = "constant",
-    parallel: bool = False,
     **diff_kwargs,
 ) -> pxt.OpT:
     r"""
@@ -2005,7 +1983,7 @@ def DirectionalDerivative(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     order: Integer
         Which directional derivative (restricted to 1: First or 2: Second, see ``Notes``).
@@ -2044,8 +2022,6 @@ def DirectionalDerivative(
         * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
-    parallel: bool
-        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
         :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
@@ -2072,9 +2048,9 @@ def DirectionalDerivative(
        directions = np.zeros(shape=(2, z.size))
        directions[0, : z.size // 2] = 1
        directions[1, z.size // 2:] = 1
-       dop = DirectionalDerivative(arg_shape=z.shape, order=1, directions=directions)
+       dop = DirectionalDerivative(dim_shape=z.shape, order=1, directions=directions)
        out = dop.unravel(dop(z.ravel()))
-       dop2 = DirectionalDerivative(arg_shape=z.shape, order=2, directions=directions)
+       dop2 = DirectionalDerivative(dim_shape=z.shape, order=2, directions=directions)
        out2 = dop2.unravel(dop2(z.ravel()))
        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
        axs = np.ravel(axs)
@@ -2097,7 +2073,7 @@ def DirectionalDerivative(
     :py:func:`~pyxu.operator.DirectionalGradient`
     """
 
-    ndim = len(arg_shape)
+    ndim = len(dim_shape)
     # For first directional derivative, ndim_diff == number of elements in gradient
     # For second directional derivative, ndim_diff == number of unique elements in Hessian
     ndim_diff = ndim if order == 1 else ndim * (ndim + 1) // 2
@@ -2123,7 +2099,7 @@ def DirectionalDerivative(
             directions2 = directions
         diff_op = Hessian
 
-    assert directions.shape[0] == ndim, "The length of `directions` should match `len(arg_shape)`"
+    assert directions.shape[0] == ndim, "The length of `directions` should match `len(dim_shape)`"
 
     xp = pxu.get_array_module(directions)
     gpu = xp == pxd.NDArrayInfo.CUPY.module()
@@ -2131,12 +2107,11 @@ def DirectionalDerivative(
     dtype = directions.dtype
 
     diff = diff_op(
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         diff_method=diff_method,
         mode=mode,
         gpu=gpu,
         dtype=dtype,
-        parallel=parallel,
         **diff_kwargs,
     )
     # normalize directions to unit norm
@@ -2163,13 +2138,13 @@ def DirectionalDerivative(
             norm_dirs = norm_dirs.ravel()
 
     if directions.ndim == 1:
-        diag = xp.tile(norm_dirs, arg_shape + (1,)).transpose().ravel()
+        diag = xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()
 
     else:
         diag = norm_dirs.ravel()
 
     dop = pxlb.DiagonalOp(diag)
-    sop = pxlr.Sum(arg_shape=(ndim_diff,) + arg_shape, axis=0)
+    sop = pxlr.Sum(dim_shape=(ndim_diff,) + dim_shape, axis=0)
     op = sop * dop * diff
 
     dop_compute = pxlb.DiagonalOp(pxu.compute(diag))
@@ -2180,15 +2155,14 @@ def DirectionalDerivative(
 
     setattr(op, "svdvals", types.MethodType(op_svdvals, op))
     op._name = op_name
-    return _make_unravelable(op, arg_shape=arg_shape)
+    return _make_unravelable(op, dim_shape=dim_shape)
 
 
 def DirectionalGradient(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     directions: cabc.Sequence[pxt.NDArray],
     diff_method: str = "fd",
     mode: ModeSpec = "constant",
-    parallel: bool = False,
     **diff_kwargs,
 ) -> pxt.OpT:
     r"""
@@ -2221,7 +2195,7 @@ def DirectionalGradient(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     directions: list[NDArray]
         List of directions, either constant (array of size :math:`(D,)`) or spatially-varying (array of size :math:`(D,
@@ -2246,8 +2220,6 @@ def DirectionalGradient(
         * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
-    parallel: bool
-        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
         :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
@@ -2278,13 +2250,13 @@ def DirectionalGradient(
        directions2 = np.zeros(shape=(2, z.size))
        directions2[1, :z.size // 2] = -1
        directions2[0, z.size // 2:] = -1
-       arg_shape = z.shape
-       dop = DirectionalGradient(arg_shape=arg_shape, directions=[directions1, directions2])
+       dim_shape = z.shape
+       dop = DirectionalGradient(dim_shape=dim_shape, directions=[directions1, directions2])
        out = dop.unravel(dop(z.ravel()))
        plt.figure()
        h = plt.pcolormesh(xx, yy, z, shading='auto')
-       plt.quiver(x, x, directions1[1].reshape(arg_shape), directions1[0].reshape(xx.shape))
-       plt.quiver(x, x, directions2[1].reshape(arg_shape), directions2[0].reshape(xx.shape), color='red')
+       plt.quiver(x, x, directions1[1].reshape(dim_shape), directions1[0].reshape(xx.shape))
+       plt.quiver(x, x, directions2[1].reshape(dim_shape), directions2[0].reshape(xx.shape), color='red')
        plt.colorbar(h)
        plt.title(r'Signal $\mathbf{f}$ and directions of derivatives')
        plt.figure()
@@ -2305,7 +2277,7 @@ def DirectionalGradient(
     diag_ops = []
     diag_ops_compute = []
 
-    ndim = len(arg_shape)
+    ndim = len(dim_shape)
     assert isinstance(directions, cabc.Sequence)
 
     xp = pxu.get_array_module(directions[0])
@@ -2313,35 +2285,34 @@ def DirectionalGradient(
     dtype = directions[0].dtype
 
     grad = Gradient(
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         diff_method=diff_method,
         mode=mode,
         gpu=gpu,
         dtype=dtype,
-        parallel=parallel,
         **diff_kwargs,
     )
     sop = pxlr.Sum(
-        arg_shape=(
+        dim_shape=(
             len(directions),
             ndim,
         )
-        + arg_shape,
+        + dim_shape,
         axis=1,
     )
     for direction in directions:
         # normalize directions to unit norm
         norm_dirs = (direction / xp.linalg.norm(direction, axis=0, keepdims=True)).astype(dtype)
         if direction.ndim == 1:
-            diag = xp.tile(norm_dirs, arg_shape + (1,)).transpose().ravel()
+            diag = xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()
         else:
             diag = norm_dirs.ravel()
 
         diag_ops.append(pxlb.DiagonalOp(diag))
         diag_ops_compute.append(pxlb.DiagonalOp(pxu.compute(diag)))
 
-    dop = pxb.vstack(diag_ops)
-    dop_compute = pxb.vstack(diag_ops_compute)
+    dop = pxb.stack(diag_ops)
+    dop_compute = pxb.stack(diag_ops_compute)
 
     op = sop * dop * grad
     op_compute = sop * dop_compute * grad
@@ -2352,16 +2323,15 @@ def DirectionalGradient(
     setattr(op, "svdvals", types.MethodType(op_svdvals, op))
 
     op._name = "DirectionalGradient"
-    return _make_unravelable(op, arg_shape=arg_shape)
+    return _make_unravelable(op, dim_shape=dim_shape)
 
 
 def DirectionalLaplacian(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     directions: cabc.Sequence[pxt.NDArray],
     weights: typ.Iterable = None,
     diff_method: str = "fd",
     mode: ModeSpec = "constant",
-    parallel: bool = False,
     **diff_kwargs,
 ) -> pxt.OpT:
     r"""
@@ -2393,7 +2363,7 @@ def DirectionalLaplacian(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     directions: list[NDArray]
         List of directions, either constant (array of size :math:`(D,)`) or spatially-varying (array of size
@@ -2420,8 +2390,6 @@ def DirectionalLaplacian(
         * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
-    parallel: bool
-        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
         :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
@@ -2451,13 +2419,13 @@ def DirectionalLaplacian(
        directions2 = np.zeros(shape=(2, z.size))
        directions2[1, :z.size // 2] = -1
        directions2[0, z.size // 2:] = -1
-       arg_shape = z.shape
-       dop = DirectionalLaplacian(arg_shape=arg_shape, directions=[directions1, directions2])
+       dim_shape = z.shape
+       dop = DirectionalLaplacian(dim_shape=dim_shape, directions=[directions1, directions2])
        out = dop.unravel(dop(z.ravel()))
        plt.figure()
        h = plt.pcolormesh(xx, yy, z, shading='auto')
-       plt.quiver(x, x, directions1[1].reshape(arg_shape), directions1[0].reshape(xx.shape))
-       plt.quiver(x, x, directions2[1].reshape(arg_shape), directions2[0].reshape(xx.shape), color='red')
+       plt.quiver(x, x, directions1[1].reshape(dim_shape), directions1[0].reshape(xx.shape))
+       plt.quiver(x, x, directions2[1].reshape(dim_shape), directions2[0].reshape(xx.shape), color='red')
        plt.colorbar(h)
        plt.title('Signal and directions of derivatives')
        plt.figure()
@@ -2483,16 +2451,15 @@ def DirectionalLaplacian(
     dtype = directions[0].dtype
 
     hess = Hessian(
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         diff_method=diff_method,
         mode=mode,
         gpu=gpu,
         dtype=dtype,
-        parallel=parallel,
         **diff_kwargs,
     )
 
-    ndim = len(arg_shape)
+    ndim = len(dim_shape)
     ndim_diff = ndim * (ndim + 1) // 2
     dop = []
     dop_compute = []
@@ -2513,22 +2480,22 @@ def DirectionalLaplacian(
             norm_dirs = norm_dirs.ravel()
 
         if direction.ndim == 1:
-            dop.append(pxlb.DiagonalOp(weight * xp.tile(norm_dirs, arg_shape + (1,)).transpose().ravel()))
+            dop.append(pxlb.DiagonalOp(weight * xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()))
             dop_compute.append(
-                pxlb.DiagonalOp(pxu.compute(weight * xp.tile(norm_dirs, arg_shape + (1,)).transpose().ravel()))
+                pxlb.DiagonalOp(pxu.compute(weight * xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()))
             )
         else:
             dop.append(pxlb.DiagonalOp(weight * norm_dirs.ravel()))
             dop_compute.append(pxlb.DiagonalOp(pxu.compute(weight * norm_dirs.ravel())))
 
-    dop = pxb.vstack(dop)
-    dop_compute = pxb.vstack(dop_compute)
+    dop = pxb.stack(dop)
+    dop_compute = pxb.stack(dop_compute)
     sop = pxlr.Sum(
-        arg_shape=(
+        dim_shape=(
             len(directions),
             ndim_diff,
         )
-        + arg_shape,
+        + dim_shape,
         axis=(0, 1),
     )
     op = sop * dop * hess
@@ -2540,15 +2507,14 @@ def DirectionalLaplacian(
     setattr(op, "svdvals", types.MethodType(op_svdvals, op))
 
     op._name = "DirectionalLaplacian"
-    return _make_unravelable(op, arg_shape=arg_shape)
+    return _make_unravelable(op, dim_shape=dim_shape)
 
 
 def DirectionalHessian(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     directions: cabc.Sequence[pxt.NDArray],
     diff_method="gd",
     mode: ModeSpec = "constant",
-    parallel: bool = False,
     **diff_kwargs,
 ) -> pxt.OpT:
     r"""
@@ -2591,7 +2557,7 @@ def DirectionalHessian(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     directions: list[NDArray]
         List of directions, either constant (array of size :math:`(D,)`) or spatially-varying (array of size :math:`(D,
@@ -2616,8 +2582,6 @@ def DirectionalHessian(
         * tuple[str, ...]: the `d`-th dimension uses ``mode[d]`` as boundary condition.
 
         (See :py:func:`numpy.pad` for details.)
-    parallel: bool
-        If ``True``, use Dask to evaluate the different partial derivatives in parallel.
     diff_kwargs: dict
         Keyword arguments to parametrize partial derivatives (see
         :py:meth:`~pyxu.operator.PartialDerivative.finite_difference` and
@@ -2647,13 +2611,13 @@ def DirectionalHessian(
        directions2 = np.zeros(shape=(2, z.size))
        directions2[1, :z.size // 2] = -1
        directions2[0, z.size // 2:] = -1
-       arg_shape = z.shape
-       d_hess = DirectionalHessian(arg_shape=arg_shape, directions=[directions1, directions2])
+       dim_shape = z.shape
+       d_hess = DirectionalHessian(dim_shape=dim_shape, directions=[directions1, directions2])
        out = d_hess.unravel(d_hess(z.ravel()))
        plt.figure()
        h = plt.pcolormesh(xx, yy, z, shading='auto')
-       plt.quiver(x, x, directions1[1].reshape(arg_shape), directions1[0].reshape(xx.shape))
-       plt.quiver(x, x, directions2[1].reshape(arg_shape), directions2[0].reshape(xx.shape), color='red')
+       plt.quiver(x, x, directions1[1].reshape(dim_shape), directions1[0].reshape(xx.shape))
+       plt.quiver(x, x, directions2[1].reshape(dim_shape), directions2[0].reshape(xx.shape), color='red')
        plt.colorbar(h)
        plt.title(r'Signal $\mathbf{f}$ and directions of derivatives')
        plt.figure()
@@ -2675,20 +2639,6 @@ def DirectionalHessian(
     :py:func:`~pyxu.operator.DirectionalDerivative`
     """
 
-    # dir_deriv = []
-    # kwargs = {
-    #     "arg_shape": arg_shape,
-    #     "diff_method": diff_method,
-    #     "mode": mode,
-    #     "parallel": parallel,
-    #     **diff_kwargs,
-    # }
-    # for i, dir1 in enumerate(directions):
-    #     for dir2 in directions[i:]:
-    #         dir_deriv.append(DirectionalDerivative(order=2, directions=(dir1, dir2), **kwargs))
-    #
-    # op = pxb.vstack(dir_deriv)
-
     assert isinstance(directions, cabc.Sequence)
 
     xp = pxu.get_array_module(directions[0])
@@ -2696,16 +2646,15 @@ def DirectionalHessian(
     dtype = directions[0].dtype
 
     hess = Hessian(
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         diff_method=diff_method,
         mode=mode,
         gpu=gpu,
         dtype=dtype,
-        parallel=parallel,
         **diff_kwargs,
     )
 
-    ndim = len(arg_shape)
+    ndim = len(dim_shape)
     ndim_diff = ndim * (ndim + 1) // 2
     dop = []
     dop_compute = []
@@ -2728,23 +2677,23 @@ def DirectionalHessian(
                 norm_dirs = norm_dirs.ravel()
 
             if norm_dirs.ndim == 1:
-                dop.append(pxlb.DiagonalOp(xp.tile(norm_dirs, arg_shape + (1,)).transpose().ravel()))
+                dop.append(pxlb.DiagonalOp(xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()))
                 dop_compute.append(
-                    pxlb.DiagonalOp(pxu.compute(xp.tile(norm_dirs, arg_shape + (1,)).transpose().ravel()))
+                    pxlb.DiagonalOp(pxu.compute(xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()))
                 )
             else:
                 dop.append(pxlb.DiagonalOp(norm_dirs.ravel()))
                 dop_compute.append(pxlb.DiagonalOp(pxu.compute(norm_dirs.ravel())))
 
-    dop = pxb.vstack(dop)
-    dop_compute = pxb.vstack(dop_compute)
+    dop = pxb.stack(dop)
+    dop_compute = pxb.stack(dop_compute)
     ndim_hess = len(directions) * (len(directions) + 1) // 2
     sop = pxlr.Sum(
-        arg_shape=(
+        dim_shape=(
             ndim_hess,
             ndim_diff,
         )
-        + arg_shape,
+        + dim_shape,
         axis=1,
     )
     op = sop * dop * hess
@@ -2756,4 +2705,4 @@ def DirectionalHessian(
     setattr(op, "svdvals", types.MethodType(op_svdvals, op))
 
     op._name = "DirectionalHessian"
-    return _make_unravelable(op, arg_shape=arg_shape)
+    return _make_unravelable(op, dim_shape=dim_shape)

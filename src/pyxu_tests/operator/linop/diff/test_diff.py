@@ -129,14 +129,14 @@ def diff_params_gd(sigma, truncate, sampling):  # Gaussian Derivative
     return diff_params, gt_diffs
 
 
-def apply_derivative(arr, arg_shape, axis, gt_diffs, order, mode="constant"):
+def apply_derivative(arr, dim_shape, axis, gt_diffs, order, mode="constant"):
     # Apply derivative based on ground truth kernel
 
-    axis = len(arg_shape) if axis == -1 else axis
+    axis = len(dim_shape) if axis == -1 else axis
     coefs = gt_diffs[order]["coefs"]
-    origin = np.zeros(len(arg_shape) + 1, dtype="int8")
+    origin = np.zeros(len(dim_shape) + 1, dtype="int8")
     origin[axis + 1] = gt_diffs[order]["origin"] - (len(coefs) // 2)
-    kernel = np.array(coefs).reshape(*((1,) * len(arg_shape)), -1).swapaxes(axis + 1, -1)
+    kernel = np.array(coefs).reshape(*((1,) * len(dim_shape)), -1).swapaxes(axis + 1, -1)
 
     # Scipy and numpy padding modes have different names.
     mode = mode if mode != "reflect" else "mirror"
@@ -144,44 +144,44 @@ def apply_derivative(arr, arg_shape, axis, gt_diffs, order, mode="constant"):
     mode = mode if mode != "edge" else "nearest"
 
     return scimage.correlate(
-        arr.reshape(-1, *arg_shape),
+        arr.reshape(1, *dim_shape),
         kernel,
         mode=mode,
         origin=origin,
         cval=0.0,
-    )
+    )[0]
 
 
-def apply_gradient(arr, arg_shape, gt_diffs, directions, diff_method, mode="constant"):
+def apply_gradient(arr, dim_shape, gt_diffs, directions, diff_method, mode="constant"):
     if diff_method == "fd":
-        pd = [apply_derivative(arr, arg_shape, axis, gt_diffs, 1, mode) for axis in directions]
+        pd = [apply_derivative(arr, dim_shape, axis, gt_diffs, 1, mode) for axis in directions]
     else:
         # diff_method == "gd"
         pd = []
         for axis in directions:
-            out = apply_derivative(arr, arg_shape, axis, gt_diffs, 1, mode)
+            out = apply_derivative(arr, dim_shape, axis, gt_diffs, 1, mode)
             # for smooth_axis in directions:
-            for smooth_axis in range(len(arg_shape)):
+            for smooth_axis in range(len(dim_shape)):
                 if smooth_axis != axis:
-                    out = apply_derivative(out, arg_shape, smooth_axis, gt_diffs, 0, mode)
+                    out = apply_derivative(out, dim_shape, smooth_axis, gt_diffs, 0, mode)
             pd.append(out)
     return np.stack(pd)
 
 
-def apply_hessian(arr, arg_shape, gt_diffs, directions, diff_method, mode="constant"):
+def apply_hessian(arr, dim_shape, gt_diffs, directions, diff_method, mode="constant"):
     pd = []
     for ax1, ax2 in directions:
         if ax1 == ax2:
-            out = apply_derivative(arr, arg_shape, ax1, gt_diffs, 2, mode)
+            out = apply_derivative(arr, dim_shape, ax1, gt_diffs, 2, mode)
         else:
-            out = apply_derivative(arr, arg_shape, ax1, gt_diffs, 1, mode)
-            out = apply_derivative(out, arg_shape, ax2, gt_diffs, 1, mode)
+            out = apply_derivative(arr, dim_shape, ax1, gt_diffs, 1, mode)
+            out = apply_derivative(out, dim_shape, ax2, gt_diffs, 1, mode)
 
         if diff_method == "gd":
             # for smooth_axis in directions:
-            for smooth_axis in range(len(arg_shape)):
+            for smooth_axis in range(len(dim_shape)):
                 if smooth_axis not in [ax1, ax2]:
-                    out = apply_derivative(out, arg_shape, smooth_axis, gt_diffs, 0, mode)
+                    out = apply_derivative(out, dim_shape, smooth_axis, gt_diffs, 0, mode)
         pd.append(out)
     return np.stack(pd)
 
@@ -267,7 +267,7 @@ class DiffOpMixin(conftest.LinOpT):
 class TestPartialDerivative(DiffOpMixin):
     @pytest.fixture(
         params=[
-            # (arg_shape, order, mode)
+            # (dim_shape, order, mode)
             ((10,), (1,), "constant"),
             ((10, 10), (2, 1), ("edge", "constant")),
             (
@@ -281,15 +281,15 @@ class TestPartialDerivative(DiffOpMixin):
         ]
     )
     def _spec(self, request):
-        # (arg_shape, order, mode) configs to test
+        # (dim_shape, order, mode) configs to test
         # * `request.param[0]` corresponds to raw inputs users provide to DiffOp().
         # * `request.param[1]` corresponds to their ground-truth canonical parameterization.
         return request.param
 
     @pytest.fixture
-    def arg_shape(self, _spec):  # canonical representation
-        arg_shape, _, _ = _spec
-        return arg_shape
+    def dim_shape(self, _spec):  # canonical representation
+        dim_shape, _, _ = _spec
+        return dim_shape
 
     @pytest.fixture
     def order(self, _spec):  # canonical representation (NumPy)
@@ -302,8 +302,8 @@ class TestPartialDerivative(DiffOpMixin):
         return mode
 
     @pytest.fixture
-    def data_shape(self, arg_shape) -> pxt.NDArrayShape:
-        size = np.prod(arg_shape).item()
+    def data_shape(self, dim_shape) -> pxt.NDArrayShape:
+        size = np.prod(dim_shape).item()
         sh = (size, size)
         return sh
 
@@ -326,10 +326,10 @@ class TestPartialDerivative(DiffOpMixin):
             return diff_params_gd(params_gd[0], params_gd[1], sampling)
 
     @pytest.fixture
-    def diff_kwargs(self, order, arg_shape, mode, ndi, width, sampling):
+    def diff_kwargs(self, order, dim_shape, mode, ndi, width, sampling):
         return {
             "order": order,
-            "arg_shape": arg_shape,
+            "dim_shape": dim_shape,
             "mode": mode,
             "gpu": ndi == pxd.NDArrayInfo.CUPY,
             "dtype": width.value,
@@ -337,19 +337,19 @@ class TestPartialDerivative(DiffOpMixin):
         }
 
     @pytest.fixture
-    def data_apply(self, op, gt_diffs, order, arg_shape, mode) -> conftest.DataLike:
-        arr = self._random_array((op.dim,), seed=20)
+    def data_apply(self, op, gt_diffs, order, dim_shape, mode) -> conftest.DataLike:
+        arr = self._random_array(op.dim_shape, seed=20)
 
         order = (order,) if not isinstance(order, tuple) else order
-        mode = (mode,) * len(arg_shape) if not isinstance(mode, tuple) else mode
+        mode = (mode,) * len(dim_shape) if not isinstance(mode, tuple) else mode
 
         out = arr.copy()
         for ax, ord_ in enumerate(order):
-            out = apply_derivative(out, arg_shape, ax, gt_diffs, ord_, mode[ax])
+            out = apply_derivative(out, dim_shape, ax, gt_diffs, ord_, mode[ax])
 
         return dict(
-            in_=dict(arr=arr.reshape(-1)),
-            out=out.reshape(-1),
+            in_=dict(arr=arr),
+            out=out,
         )
 
     @pytest.fixture
@@ -363,7 +363,7 @@ class TestPartialDerivative(DiffOpMixin):
 class TestGradient(DiffOpMixin):
     @pytest.fixture(
         params=[
-            #          (arg_shape, directions)
+            #          (dim_shape, directions)
             (
                 (5,),
                 (0,),
@@ -383,11 +383,11 @@ class TestGradient(DiffOpMixin):
         ]
     )
     def _spec(self, request):
-        # (arg_shape, directions) configs to test
+        # (dim_shape, directions) configs to test
         return request.param
 
     @pytest.fixture
-    def arg_shape(self, _spec):
+    def dim_shape(self, _spec):
         return _spec[0]
 
     @pytest.fixture
@@ -395,9 +395,9 @@ class TestGradient(DiffOpMixin):
         return _spec[1]
 
     @pytest.fixture
-    def data_shape(self, arg_shape, directions) -> pxt.NDArrayShape:
-        size = np.prod(arg_shape).item()
-        n_derivatives = len(directions) if directions is not None else len(arg_shape)
+    def data_shape(self, dim_shape, directions) -> pxt.NDArrayShape:
+        size = np.prod(dim_shape).item()
+        n_derivatives = len(directions) if directions is not None else len(dim_shape)
         sh = (size * n_derivatives, size)
         return sh
 
@@ -406,9 +406,9 @@ class TestGradient(DiffOpMixin):
         return pxo.Gradient
 
     @pytest.fixture()
-    def diff_kwargs(self, arg_shape, directions, ndi, width, sampling, diff_method):
+    def diff_kwargs(self, dim_shape, directions, ndi, width, sampling, diff_method):
         return {
-            "arg_shape": arg_shape,
+            "dim_shape": dim_shape,
             "directions": directions,
             "mode": "constant",
             "gpu": ndi == pxd.NDArrayInfo.CUPY,
@@ -418,26 +418,26 @@ class TestGradient(DiffOpMixin):
         }
 
     @pytest.fixture
-    def data_apply(self, op, arg_shape, diff_method, gt_diffs, directions) -> conftest.DataLike:
-        arr = self._random_array(arg_shape, seed=20)
-        directions = np.arange(len(arg_shape)) if directions is None else directions
+    def data_apply(self, op, dim_shape, diff_method, gt_diffs, directions) -> conftest.DataLike:
+        arr = self._random_array(dim_shape, seed=20)
+        directions = np.arange(len(dim_shape)) if directions is None else directions
         out = apply_gradient(
             arr,
-            arg_shape=arg_shape,
+            dim_shape=dim_shape,
             gt_diffs=gt_diffs,
             directions=directions,
             diff_method=diff_method,
         )
         return dict(
-            in_=dict(arr=arr.reshape(-1)),
-            out=out.reshape(-1),
+            in_=dict(arr=arr),
+            out=out,
         )
 
 
 class TestHessian(DiffOpMixin):
     @pytest.fixture(
         params=[
-            #       (arg_shape, directions)
+            #       (dim_shape, directions)
             #       (canonical directions)
             # 1D
             (((5,), 0), ((0, 0),)),  # Mode 0 (See Hessian Notes)
@@ -452,11 +452,11 @@ class TestHessian(DiffOpMixin):
         ]
     )
     def _spec(self, request):
-        # (arg_shape, directions) configs to test
+        # (dim_shape, directions) configs to test
         return request.param
 
     @pytest.fixture
-    def arg_shape(self, _spec):
+    def dim_shape(self, _spec):
         return _spec[0][0]
 
     @pytest.fixture
@@ -468,13 +468,13 @@ class TestHessian(DiffOpMixin):
         return _spec[1]
 
     @pytest.fixture
-    def data_shape(self, arg_shape, directions) -> pxt.NDArrayShape:
-        size = np.prod(arg_shape).item()
+    def data_shape(self, dim_shape, directions) -> pxt.NDArrayShape:
+        size = np.prod(dim_shape).item()
         if isinstance(directions, int):  # Case 0
             sh = (size, size)
         elif isinstance(directions, cabc.Sequence):
             if isinstance(directions, str):  # case 3
-                n_derivatives = len(arg_shape) * (len(arg_shape) + 1) // 2
+                n_derivatives = len(dim_shape) * (len(dim_shape) + 1) // 2
                 sh = (size * n_derivatives, size)
             elif isinstance(directions[0], int):  # Case 1
                 sh = (size, size)
@@ -487,9 +487,9 @@ class TestHessian(DiffOpMixin):
         return pxo.Hessian
 
     @pytest.fixture
-    def diff_kwargs(self, arg_shape, directions, ndi, width, sampling, diff_method):
+    def diff_kwargs(self, dim_shape, directions, ndi, width, sampling, diff_method):
         return {
-            "arg_shape": arg_shape,
+            "dim_shape": dim_shape,
             "directions": directions,
             "mode": "constant",
             "gpu": ndi == pxd.NDArrayInfo.CUPY,
@@ -499,26 +499,26 @@ class TestHessian(DiffOpMixin):
         }
 
     @pytest.fixture
-    def data_apply(self, op, arg_shape, diff_method, gt_diffs, canonical_directions) -> conftest.DataLike:
-        arr = self._random_array(arg_shape, seed=20)  # random seed for reproducibility
+    def data_apply(self, op, dim_shape, diff_method, gt_diffs, canonical_directions) -> conftest.DataLike:
+        arr = self._random_array(dim_shape, seed=20)  # random seed for reproducibility
 
         out = apply_hessian(
             arr,
-            arg_shape=arg_shape,
+            dim_shape=dim_shape,
             gt_diffs=gt_diffs,
             directions=canonical_directions,
             diff_method=diff_method,
         )
         return dict(
-            in_=dict(arr=arr.reshape(-1)),
-            out=out.reshape(-1),
+            in_=dict(arr=arr),
+            out=out,
         )
 
 
 class TestJacobian(DiffOpMixin):
     @pytest.fixture(
         params=[
-            #          (arg_shape, directions)
+            #          (dim_shape, directions)
             (
                 (5,),
                 (0,),
@@ -538,11 +538,11 @@ class TestJacobian(DiffOpMixin):
         ]
     )
     def _spec(self, request):
-        # (arg_shape, directions) configs to test
+        # (dim_shape, directions) configs to test
         return request.param
 
     @pytest.fixture
-    def arg_shape(self, _spec):
+    def dim_shape(self, _spec):
         return _spec[0]
 
     @pytest.fixture
@@ -554,9 +554,9 @@ class TestJacobian(DiffOpMixin):
         return request.param
 
     @pytest.fixture
-    def data_shape(self, arg_shape, n_channels, directions) -> pxt.NDArrayShape:
-        size = np.prod(arg_shape).item()
-        n_derivatives = len(directions) if directions is not None else len(arg_shape)
+    def data_shape(self, dim_shape, n_channels, directions) -> pxt.NDArrayShape:
+        size = np.prod(dim_shape).item()
+        n_derivatives = len(directions) if directions is not None else len(dim_shape)
         sh = (size * n_derivatives * n_channels, size * n_channels)
         return sh
 
@@ -565,9 +565,9 @@ class TestJacobian(DiffOpMixin):
         return pxo.Jacobian
 
     @pytest.fixture
-    def diff_kwargs(self, arg_shape, n_channels, directions, ndi, width, sampling, diff_method):
+    def diff_kwargs(self, dim_shape, n_channels, directions, ndi, width, sampling, diff_method):
         return {
-            "arg_shape": arg_shape,
+            "dim_shape": dim_shape,
             "n_channels": n_channels,
             "directions": directions,
             "mode": "constant",
@@ -578,15 +578,15 @@ class TestJacobian(DiffOpMixin):
         }
 
     @pytest.fixture
-    def data_apply(self, op, arg_shape, n_channels, diff_method, gt_diffs, directions) -> conftest.DataLike:
-        arr = self._random_array((n_channels,) + arg_shape, seed=20)  # random seed for reproducibility
-        directions = np.arange(len(arg_shape)) if directions is None else directions
+    def data_apply(self, op, dim_shape, n_channels, diff_method, gt_diffs, directions) -> conftest.DataLike:
+        arr = self._random_array((n_channels,) + dim_shape, seed=20)  # random seed for reproducibility
+        directions = np.arange(len(dim_shape)) if directions is None else directions
         out = []
         for ch in range(n_channels):
             out.append(
                 apply_gradient(
                     arr[ch],
-                    arg_shape=arg_shape,
+                    dim_shape=dim_shape,
                     gt_diffs=gt_diffs,
                     directions=directions,
                     diff_method=diff_method,
@@ -594,15 +594,15 @@ class TestJacobian(DiffOpMixin):
             )
         out = np.concatenate(out)
         return dict(
-            in_=dict(arr=arr.reshape(-1)),
-            out=out.reshape(-1),
+            in_=dict(arr=arr),
+            out=out,
         )
 
 
 class TestDivergence(DiffOpMixin):
     @pytest.fixture(
         params=[
-            #          (arg_shape, directions)
+            #          (dim_shape, directions)
             (
                 (5,),
                 (0,),
@@ -622,11 +622,11 @@ class TestDivergence(DiffOpMixin):
         ]
     )
     def _spec(self, request):
-        # (arg_shape, directions) configs to test
+        # (dim_shape, directions) configs to test
         return request.param
 
     @pytest.fixture
-    def arg_shape(self, _spec):
+    def dim_shape(self, _spec):
         return _spec[0]
 
     @pytest.fixture
@@ -634,9 +634,9 @@ class TestDivergence(DiffOpMixin):
         return _spec[1]
 
     @pytest.fixture
-    def data_shape(self, arg_shape, directions) -> pxt.NDArrayShape:
-        size = np.prod(arg_shape).item()
-        n_derivatives = len(directions) if directions is not None else len(arg_shape)
+    def data_shape(self, dim_shape, directions) -> pxt.NDArrayShape:
+        size = np.prod(dim_shape).item()
+        n_derivatives = len(directions) if directions is not None else len(dim_shape)
         sh = (size, size * n_derivatives)
         return sh
 
@@ -645,9 +645,9 @@ class TestDivergence(DiffOpMixin):
         return pxo.Divergence
 
     @pytest.fixture
-    def diff_kwargs(self, arg_shape, directions, ndi, width, sampling, diff_method):
+    def diff_kwargs(self, dim_shape, directions, ndi, width, sampling, diff_method):
         return {
-            "arg_shape": arg_shape,
+            "dim_shape": dim_shape,
             "directions": directions,
             "mode": "constant",
             "gpu": ndi == pxd.NDArrayInfo.CUPY,
@@ -657,13 +657,13 @@ class TestDivergence(DiffOpMixin):
         }
 
     @pytest.fixture
-    def data_apply(self, op, arg_shape, gt_diffs, directions, diff_method) -> conftest.DataLike:
-        directions = np.arange(len(arg_shape)) if directions is None else directions
-        arr = self._random_array((len(directions),) + arg_shape, seed=20)
+    def data_apply(self, op, dim_shape, gt_diffs, directions, diff_method) -> conftest.DataLike:
+        directions = np.arange(len(dim_shape)) if directions is None else directions
+        arr = self._random_array((len(directions),) + dim_shape, seed=20)
         out = [
             apply_gradient(
                 arr[i],
-                arg_shape=arg_shape,
+                dim_shape=dim_shape,
                 gt_diffs=gt_diffs,
                 directions=(ax,),
                 diff_method=diff_method,
@@ -672,19 +672,19 @@ class TestDivergence(DiffOpMixin):
         ]
         out = np.stack(out).sum(axis=0)
         return dict(
-            in_=dict(arr=arr.reshape(-1)),
-            out=out.reshape(-1),
+            in_=dict(arr=arr),
+            out=out,
         )
 
 
 class TestLaplacian(DiffOpMixin):
     @pytest.fixture(params=[(5,), (5, 5, 5)])
-    def arg_shape(self, request):
+    def dim_shape(self, request):
         return request.param
 
     @pytest.fixture
-    def data_shape(self, arg_shape) -> pxt.NDArrayShape:
-        size = np.prod(arg_shape).item()
+    def data_shape(self, dim_shape) -> pxt.NDArrayShape:
+        size = np.prod(dim_shape).item()
         sh = (size, size)
         return sh
 
@@ -693,9 +693,9 @@ class TestLaplacian(DiffOpMixin):
         return pxo.Laplacian
 
     @pytest.fixture
-    def diff_kwargs(self, arg_shape, ndi, width, sampling, diff_method):
+    def diff_kwargs(self, dim_shape, ndi, width, sampling, diff_method):
         return {
-            "arg_shape": arg_shape,
+            "dim_shape": dim_shape,
             "mode": "constant",
             "gpu": ndi == pxd.NDArrayInfo.CUPY,
             "dtype": width.value,
@@ -704,18 +704,18 @@ class TestLaplacian(DiffOpMixin):
         }
 
     @pytest.fixture
-    def data_apply(self, op, arg_shape, gt_diffs, diff_method) -> conftest.DataLike:
-        arr = self._random_array(arg_shape, seed=20)  # random seed for reproducibility
-        directions = tuple([(i, i) for i in range(len(arg_shape))])
+    def data_apply(self, op, dim_shape, gt_diffs, diff_method) -> conftest.DataLike:
+        arr = self._random_array(dim_shape, seed=20)  # random seed for reproducibility
+        directions = tuple([(i, i) for i in range(len(dim_shape))])
         out = apply_hessian(
             arr,
-            arg_shape=arg_shape,
+            dim_shape=dim_shape,
             gt_diffs=gt_diffs,
             directions=directions,
             diff_method=diff_method,
         ).sum(axis=0)
 
         return dict(
-            in_=dict(arr=arr.reshape(-1)),
-            out=out.reshape(-1),
+            in_=dict(arr=arr),
+            out=out,
         )
