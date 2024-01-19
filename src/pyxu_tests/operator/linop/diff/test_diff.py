@@ -292,6 +292,11 @@ class TestPartialDerivative(DiffOpMixin):
         return dim_shape
 
     @pytest.fixture
+    def codim_shape(self, _spec):  # canonical representation
+        dim_shape, _, _ = _spec
+        return dim_shape
+
+    @pytest.fixture
     def order(self, _spec):  # canonical representation (NumPy)
         _, order, _ = _spec
         return order
@@ -300,12 +305,6 @@ class TestPartialDerivative(DiffOpMixin):
     def mode(self, _spec):  # canonical representation
         _, _, mode = _spec
         return mode
-
-    @pytest.fixture
-    def data_shape(self, dim_shape) -> pxt.NDArrayShape:
-        size = np.prod(dim_shape).item()
-        sh = (size, size)
-        return sh
 
     @pytest.fixture(
         params=[

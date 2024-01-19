@@ -676,8 +676,8 @@ class PartialDerivative:
            diff2 = PartialDerivative.gaussian_derivative(order=d2f_dy2, dim_shape=dim_shape, sigma=sigma / np.sqrt(2))
            diff = PartialDerivative.gaussian_derivative(order=d3f_dxdy2, dim_shape=dim_shape, sigma=sigma)
            # Compute derivatives
-           out1 = (diff1 * diff2)(image.ravel()).reshape(dim_shape)
-           out2 = diff(image.ravel()).reshape(dim_shape)
+           out1 = (diff1 * diff2)(image)
+           out2 = diff(image)
            # Plot derivatives
            fig, axs = plt.subplots(1, 3, figsize=(15, 4))
            im = axs[0].imshow(image)
@@ -863,8 +863,8 @@ class PartialDerivative:
            diff2 = PartialDerivative.gaussian_derivative(order=d2f_dy2, dim_shape=dim_shape, sigma=2.0)
            diff = PartialDerivative.gaussian_derivative(order=d3f_dxdy2, dim_shape=dim_shape, sigma=2.0)
            # Compute derivatives
-           out1 = (diff1 * diff2)(image.ravel()).reshape(dim_shape)
-           out2 = diff(image.ravel()).reshape(dim_shape)
+           out1 = (diff1 * diff2)(image)
+           out2 = diff(image)
            plt.figure()
            plt.imshow(image),
            plt.axis('off')
