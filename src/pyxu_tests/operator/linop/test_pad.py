@@ -67,6 +67,27 @@ class TestPad(conftest.LinOpT):
                 ((5, 3, 4), ((0, 2), (1, 3), (3, 2)), ("constant", "edge", "wrap")),
                 ((5, 3, 4), ((0, 2), (1, 3), (3, 2)), ("constant", "edge", "wrap")),
             ),
+            # Special case of padding with zeros ---------------
+            (
+                ((5,), 0, "constant"),
+                ((5,), ((0, 0),), ("constant",)),
+            ),
+            (
+                ((5,), 0, "wrap"),
+                ((5,), ((0, 0),), ("wrap",)),
+            ),
+            (
+                ((5,), 0, "reflect"),
+                ((5,), ((0, 0),), ("reflect",)),
+            ),
+            (
+                ((5,), 0, "symmetric"),
+                ((5,), ((0, 0),), ("symmetric",)),
+            ),
+            (
+                ((5,), 0, "edge"),
+                ((5,), ((0, 0),), ("edge",)),
+            ),
         ]
     )
     def _spec(self, request):

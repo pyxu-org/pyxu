@@ -259,35 +259,35 @@ class Pad(pxa.LinOp):
                 # no border effects
                 pass
             elif mode == "wrap":
-                # Fix LHS
-                r_s[-i] = slice(N - rhs - lhs, N - rhs)
-                w_s[-i] = slice(0, lhs)
-                out[tuple(w_s)] = out[tuple(r_s)]
+                if lhs > 0:  # Fix LHS
+                    r_s[-i] = slice(N - rhs - lhs, N - rhs)
+                    w_s[-i] = slice(0, lhs)
+                    out[tuple(w_s)] = out[tuple(r_s)]
 
-                # Fix RHS
-                r_s[-i] = slice(lhs, lhs + rhs)
-                w_s[-i] = slice(N - rhs, N)
-                out[tuple(w_s)] = out[tuple(r_s)]
+                if rhs > 0:  # Fix RHS
+                    r_s[-i] = slice(lhs, lhs + rhs)
+                    w_s[-i] = slice(N - rhs, N)
+                    out[tuple(w_s)] = out[tuple(r_s)]
             elif mode == "reflect":
-                # Fix LHS
-                r_s[-i] = slice(2 * lhs, lhs, -1)
-                w_s[-i] = slice(0, lhs)
-                out[tuple(w_s)] = out[tuple(r_s)]
+                if lhs > 0:  # Fix LHS
+                    r_s[-i] = slice(2 * lhs, lhs, -1)
+                    w_s[-i] = slice(0, lhs)
+                    out[tuple(w_s)] = out[tuple(r_s)]
 
-                # Fix RHS
-                r_s[-i] = slice(N - rhs - 2, N - 2 * rhs - 2, -1)
-                w_s[-i] = slice(N - rhs, N)
-                out[tuple(w_s)] = out[tuple(r_s)]
+                if rhs > 0:  # Fix RHS
+                    r_s[-i] = slice(N - rhs - 2, N - 2 * rhs - 2, -1)
+                    w_s[-i] = slice(N - rhs, N)
+                    out[tuple(w_s)] = out[tuple(r_s)]
             elif mode == "symmetric":
-                # Fix LHS
-                r_s[-i] = slice(2 * lhs - 1, lhs - 1, -1)
-                w_s[-i] = slice(0, lhs)
-                out[tuple(w_s)] = out[tuple(r_s)]
+                if lhs > 0:  # Fix LHS
+                    r_s[-i] = slice(2 * lhs - 1, lhs - 1, -1)
+                    w_s[-i] = slice(0, lhs)
+                    out[tuple(w_s)] = out[tuple(r_s)]
 
-                # Fix RHS
-                r_s[-i] = slice(N - rhs - 1, N - 2 * rhs - 1, -1)
-                w_s[-i] = slice(N - rhs, N)
-                out[tuple(w_s)] = out[tuple(r_s)]
+                if rhs > 0:  # Fix RHS
+                    r_s[-i] = slice(N - rhs - 1, N - 2 * rhs - 1, -1)
+                    w_s[-i] = slice(N - rhs, N)
+                    out[tuple(w_s)] = out[tuple(r_s)]
             elif mode == "edge":
                 if lhs > 0:  # Fix LHS
                     r_s[-i] = slice(lhs, lhs + 1)
@@ -319,35 +319,35 @@ class Pad(pxa.LinOp):
                 # no correction required
                 pass
             elif mode == "wrap":
-                # Fix LHS
-                r_s[-i] = slice(0, lhs)
-                w_s[-i] = slice(N - rhs - lhs, N - rhs)
-                out[tuple(w_s)] += out[tuple(r_s)]
+                if lhs > 0:  # Fix LHS
+                    r_s[-i] = slice(0, lhs)
+                    w_s[-i] = slice(N - rhs - lhs, N - rhs)
+                    out[tuple(w_s)] += out[tuple(r_s)]
 
-                # Fix RHS
-                r_s[-i] = slice(N - rhs, N)
-                w_s[-i] = slice(lhs, lhs + rhs)
-                out[tuple(w_s)] += out[tuple(r_s)]
+                if rhs > 0:  # Fix RHS
+                    r_s[-i] = slice(N - rhs, N)
+                    w_s[-i] = slice(lhs, lhs + rhs)
+                    out[tuple(w_s)] += out[tuple(r_s)]
             elif mode == "reflect":
                 if lhs > 0:  # Fix LHS
                     r_s[-i] = slice(lhs - 1, None, -1)
                     w_s[-i] = slice(lhs + 1, 2 * lhs + 1)
                     out[tuple(w_s)] += out[tuple(r_s)]
 
-                # Fix RHS
-                r_s[-i] = slice(N - 1, N - rhs - 1, -1)
-                w_s[-i] = slice(N - 2 * rhs - 1, N - rhs - 1)
-                out[tuple(w_s)] += out[tuple(r_s)]
+                if rhs > 0:  # Fix RHS
+                    r_s[-i] = slice(N - 1, N - rhs - 1, -1)
+                    w_s[-i] = slice(N - 2 * rhs - 1, N - rhs - 1)
+                    out[tuple(w_s)] += out[tuple(r_s)]
             elif mode == "symmetric":
                 if lhs > 0:  # Fix LHS
                     r_s[-i] = slice(lhs - 1, None, -1)
                     w_s[-i] = slice(lhs, 2 * lhs)
                     out[tuple(w_s)] += out[tuple(r_s)]
 
-                # Fix RHS
-                r_s[-i] = slice(N - 1, N - rhs - 1, -1)
-                w_s[-i] = slice(N - 2 * rhs, N - rhs)
-                out[tuple(w_s)] += out[tuple(r_s)]
+                if rhs > 0:  # Fix RHS
+                    r_s[-i] = slice(N - 1, N - rhs - 1, -1)
+                    w_s[-i] = slice(N - 2 * rhs, N - rhs)
+                    out[tuple(w_s)] += out[tuple(r_s)]
             elif mode == "edge":
                 if lhs > 0:  # Fix LHS
                     r_s[-i] = slice(0, lhs)
