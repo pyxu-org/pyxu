@@ -23,7 +23,7 @@ upstream. A link to an issue-tracker entry is provided if already reported.
      >>> np_z.shape, da_z.shape
      ((30, 20), (30, 1))
 
-* ``cupyx.scipy.sparse.linalg.svds()`` returns wrong results.
+* ``cupyx.scipy.sparse.linalg.svds()`` returns wrong results (https://github.com/cupy/cupy/issues/6446).
 
   .. code::
 
