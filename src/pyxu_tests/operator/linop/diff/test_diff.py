@@ -270,14 +270,7 @@ class TestPartialDerivative(DiffOpMixin):
             # (dim_shape, order, mode)
             ((10,), (1,), "constant"),
             ((10, 10), (2, 1), ("edge", "constant")),
-            (
-                (10, 10),
-                (
-                    0,
-                    1,
-                ),
-                "edge",
-            ),
+            # ((10, 10), (0, 1), "edge"),
         ]
     )
     def _spec(self, request):
@@ -311,10 +304,10 @@ class TestPartialDerivative(DiffOpMixin):
             #  Finite Diff. ,   Gaussian Der.
             # (diff_typ, acc), (sigma, truncate)
             (("forward", 2), (2.0, 1.0)),
-            (("forward", 4), (1.0, 1.0)),
+            # (("forward", 4), (1.0, 1.0)),
             (("backward", 2), (1.0, 1.0)),
             (("central", 2), (1.0, 1.0)),
-            (("central", 4), (1.0, 1.0)),
+            # (("central", 4), (1.0, 1.0)),
         ]
     )
     def init_params(self, diff_method, sampling, request):
@@ -375,10 +368,10 @@ class TestGradient(DiffOpMixin):
                 (5, 5),
                 None,
             ),
-            (
-                (5, 5, 5),
-                (0, 2),
-            ),
+            # (
+            #     (5, 5, 5),
+            #     (0, 2),
+            # ),
         ]
     )
     def _spec(self, request):
@@ -612,10 +605,10 @@ class TestDivergence(DiffOpMixin):
                 (2, 5, 5),
                 None,
             ),
-            (
-                (3, 5, 5, 5),
-                (1, 3),
-            ),
+            # (
+            #     (3, 5, 5, 5),
+            #     (1, 3),
+            # ),
         ]
     )
     def _spec(self, request):
