@@ -390,15 +390,14 @@ class TestGradient(DiffOpMixin):
         return _spec[0]
 
     @pytest.fixture
-    def directions(self, _spec):
-        return _spec[1]
+    def codim_shape(self, _spec):  # canonical representation
+        dim_shape, directions = _spec
+        n_directions = len(directions) if directions is not None else (len(dim_shape))
+        return (n_directions, *dim_shape)
 
     @pytest.fixture
-    def data_shape(self, dim_shape, directions) -> pxt.NDArrayShape:
-        size = np.prod(dim_shape).item()
-        n_derivatives = len(directions) if directions is not None else len(dim_shape)
-        sh = (size * n_derivatives, size)
-        return sh
+    def directions(self, _spec):
+        return _spec[1]
 
     @pytest.fixture
     def diff_op(self):
