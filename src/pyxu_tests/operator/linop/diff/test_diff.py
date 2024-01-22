@@ -677,12 +677,6 @@ class TestLaplacian(DiffOpMixin):
         return request.param
 
     @pytest.fixture
-    def data_shape(self, dim_shape) -> pxt.NDArrayShape:
-        size = np.prod(dim_shape).item()
-        sh = (size, size)
-        return sh
-
-    @pytest.fixture
     def diff_op(self):
         return pxo.Laplacian
 
