@@ -920,21 +920,6 @@ class PartialDerivative:
         )
 
 
-def _make_unravelable(op: pxt.OpT, dim_shape: typ.Optional[pxt.NDArrayShape] = None) -> pxt.OpT:
-    def unravel(self, arr: pxt.NDArray) -> pxt.NDArray:
-        return arr.reshape(*arr.shape[:-1], -1, *self.dim_shape)
-
-    def ravel(self, arr: pxt.NDArray) -> pxt.NDArray:
-        return arr.reshape(*arr.shape[: -1 - len(self.dim_shape)], -1)
-
-    if dim_shape is not None:
-        setattr(op, "dim_shape", dim_shape)
-
-    setattr(op, "unravel", types.MethodType(unravel, op))
-    setattr(op, "ravel", types.MethodType(ravel, op))
-    return op
-
-
 class _StackDiffHelper:
     r"""
     Helper class for Gradient and Hessian.
@@ -1016,24 +1001,24 @@ class _StackDiffHelper:
 
                from pyxu.operator import Hessian
 
-               H = hessian(
+               H = Hessian(
                     dim_shape=(5, 6),
                     diff_method="fd",
                )
-               print(H.visualize())  # Direction (0, 0)
-                                     # [[(1.0)]
-                                     #  [-2.0]
+               print(H.visualize())  # Direction 0
+                                     # [[1.0]
+                                     #  [(-2.0)]
                                      #  [1.0]]
                                      #
-                                     # Direction (1, 0)
+                                     # Direction 1
                                      # [[(1.0) -1.0]
                                      #  [-1.0 1.0]]
                                      #
-                                     # Direction (2, 0)
-                                     # [[(1.0) -2.0 1.0]]
+                                     # Direction 2
+                                     # [[1.0 (-2.0) 1.0]]
             """
             kernels = []
-            for direction, stencil in _._block.items():
+            for direction, stencil in enumerate(_._ops):
                 kernels.append(f"\nDirection {direction} \n" + stencil.visualize())
             return "\n".join(kernels)
 
@@ -1049,7 +1034,7 @@ class _StackDiffHelper:
                 sigma=[op.meta.sigma for op in dif_op],
                 truncate=[op.meta.truncate for op in dif_op],
             )
-        op = _make_unravelable(pxb.stack(dif_op), dim_shape)
+        op = pxb.stack(dif_op)
         setattr(op, "visualize", types.MethodType(visualize, op))
         setattr(op, "meta", meta)
         return op
@@ -1143,13 +1128,10 @@ def Gradient(
     The parametrization of the partial derivatives can be done via the keyword arguments `\*\*diff_kwargs`, which will
     default to the same values as the :py:class:`~pyxu.operator.PartialDerivative` constructor.
 
-    The gradient operator's method :py:meth:`~pyxu.operator.Gradient.unravel` allows reshaping the vectorized
-    output gradient to ``[n_dirs, N0, ..., ND]`` (see the example below).
-
     Parameters
     ----------
     dim_shape: NDArrayShape
-        Shape of the input array.
+        (N_1,...,N_D) input dimensions.
     directions: Integer, list[Integer], None
         Gradient directions.
         Defaults to `None`, which computes the gradient for all directions.
@@ -1209,8 +1191,7 @@ def Gradient(
        grad = Gradient(dim_shape=dim_shape)
 
        # Compute gradients
-       output = grad(image.ravel()) # shape = (2000000, )
-       df_dx, df_dy = grad.unravel(output) # shape = (2, 1000, 1000)
+       df_dx, df_dy = grad(image) # shape = (2, 1000, 1000)
 
        # Plot image
        fig, axs = plt.subplots(1, 3, figsize=(15, 4))
@@ -1298,15 +1279,11 @@ def Jacobian(
     The parametrization of the partial derivatives can be done via the keyword arguments `\*\*diff_kwargs`, which will
     default to the same values as the :py:class:`~pyxu.operator.PartialDerivative` constructor.
 
-    The Jacobian operator's method :py:meth:`~pyxu.operator.Jacobian.unravel` allows reshaping the vectorized
-    output Jacobian to ``[..., n_channels, n_dirs, N0, ..., ND]`` (see the example below).
-
     **Remark**
 
     Pyxu's convention when it comes to field-vectors, is to work with vectorized arrays.  However, the memory order of
-    these arrays before raveling should be `[S_0, ..., S_D, C, N]` shape, with `S_0, ..., S_D` being stacking
-    dimensions, `C` being the number of variables or channels, and `N` being the size of the domain (for example, `N =
-    npixels_x * npixels_y` for a 2D image).
+    these arrays should be `[S_0, ..., S_B, C, N_1, ..., N_D]` shape, with `S_0, ..., S_B` being stacking or batching
+    dimensions, `C` being the number of variables or channels, and `N_i` being the size of the `i`-th axis of the domain.
 
     Parameters
     ----------
@@ -1367,8 +1344,8 @@ def Jacobian(
        x = np.linspace(-2.5, 2.5, 25)
        xx, yy = np.meshgrid(x, x)
        image = np.tile(peaks(xx, yy), (3, 1, 1))
-       jac = Jacobian(dim_shape=image.shape[1:], n_channels=image.shape[0])
-       out = jac.unravel(jac(image.ravel()))
+       jac = Jacobian(dim_shape=image.shape)
+       out = jac(image)
        fig, axes = plt.subplots(3, 2, figsize=(10, 15))
        for i in range(3):
            for j in range(2):
@@ -1403,7 +1380,7 @@ def Jacobian(
     else:
         op = grad
     op._name = "Jacobian"
-    return _make_unravelable(op, (grad.codim // grad.dim, *dim_shape))
+    return op
 
 
 def Divergence(
@@ -1452,14 +1429,11 @@ def Divergence(
     For ``central`` type divergence, and for the Gaussian derivative method (i.e., ``diff_method = "gd"``), the adjoint
     of the gradient of "central" type is used (no reversed order).
 
-    The divergence operator's method :py:meth:`~pyxu.operator.Divergence.unravel` allows reshaping the
-    vectorized output divergence to ``[..., N0, ..., ND]``.
-
 
     Parameters
     ----------
     dim_shape: NDArrayShape
-        Shape of the input array.
+        (C, N_1,...,N_D) input dimensions.
     directions: Integer, list[Integer], None
         Divergence directions.
         Defaults to `None`, which computes the divergence for all directions.
@@ -1520,8 +1494,8 @@ def Divergence(
        laplacian1 = div * grad
        # Compare to default Laplacian
        laplacian2 = Laplacian(dim_shape=dim_shape)
-       output1 = laplacian1(image.ravel())
-       output2 = laplacian2(image.ravel())
+       output1 = laplacian1(image)
+       output2 = laplacian2(image)
        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
        im = axes[0].imshow(np.log(abs(output1)).reshape(*dim_shape))
        axes[0].set_title("Laplacian via composition")
@@ -1572,7 +1546,7 @@ def Divergence(
     )
     op = pxlr.Sum(dim_shape=(n_dir,) + dim_shape, axis=0) * pds
     op._name = "Divergence"
-    return _make_unravelable(op, dim_shape[1:])
+    return op.reshape(dim_shape[1:])
 
 
 def Hessian(
@@ -1647,13 +1621,11 @@ def Hessian(
     default (all directions), we have :math:`\mathbf{H} \mathbf{f} \in \mathbb{R}^{\frac{D(D-1)}{2} \times N_0 \times
     \cdots \times N_{D-1}}`.
 
-    The Hessian operator's :py:meth:`~pyxu.operator.Hessian.unravel` method allows reshaping the vectorized
-    output Hessian to `[n_dirs, N0, ..., ND]` (see the example below).
 
     Parameters
     ----------
     dim_shape: NDArrayShape
-        Shape of the input array.
+        (N_1,...,N_D) input dimensions.
     directions: Integer, (Integer, Integer), ((Integer, Integer), ..., (Integer, Integer)), 'all'
         Hessian directions.
         Defaults to `all`, which computes the Hessian for all directions. (See ``Notes``.)
@@ -1712,8 +1684,7 @@ def Hessian(
        # Instantiate Hessian operator
        hessian = Hessian(dim_shape=dim_shape, directions="all")
        # Compute Hessian
-       output = hessian(image.ravel()) # shape = (300000,)
-       d2f_dx2, d2f_dxdy, d2f_dy2 = hessian.unravel(output)
+       d2f_dx2, d2f_dxdy, d2f_dy2 = hessian(image)
 
        # Plot
        fig, axs = plt.subplots(1, 4, figsize=(20, 4))
@@ -1811,13 +1782,10 @@ def Laplacian(
     the :py:class:`~pyxu.operator.PartialDerivative` constructor for `diff_method='gd'` (gaussian
     derivative).
 
-    The Laplacian operator's method :py:meth:`~pyxu.operator.Laplacian.unravel` allows reshaping the
-    vectorized output Laplacian to ``[..., N0, ..., ND]`` (see the example below).
-
     Parameters
     ----------
     dim_shape: NDArrayShape
-        Shape of the input array.
+        (N_1,...,N_D) input dimensions.
     directions: Integer, list[Integer], None
         Laplacian directions. Defaults to `None`, which computes the Laplacian with all directions.
     diff_method: "gd", "fd"
@@ -1875,8 +1843,8 @@ def Laplacian(
        dim_shape = image.shape  # (1000, 1000)
        # Compute Laplacian
        laplacian = Laplacian(dim_shape=dim_shape)
-       output = laplacian(image.ravel())
-       output = laplacian.unravel(output) # shape = (1, 1000, 1000)
+       output = laplacian(image) # shape = (1, 1000, 1000)
+
        # Plot
        fig, axs = plt.subplots(1, 2, figsize=(10, 4))
        im = axs[0].imshow(image)
@@ -1911,7 +1879,7 @@ def Laplacian(
     )
     op = pxlr.Sum(dim_shape=(ndims,) + dim_shape, axis=0) * pds
     op._name = "Laplacian"
-    return _make_unravelable(op, dim_shape[1:])
+    return op.reshape(op.dim_shape)
 
 
 def DirectionalDerivative(
@@ -1970,8 +1938,6 @@ def DirectionalDerivative(
     Higher-order ``DirectionalDerivative`` :math:`\boldsymbol{\nabla}^{N}_\mathbf{v}` can be obtained by composing the
     first-order directional derivative :math:`\boldsymbol{\nabla}_\mathbf{v}` :math:`N` times.
 
-    The directional derivative operator's method :py:meth:`~pyxu.operator.DirectionalDerivative.unravel`
-    allows reshaping the vectorized output directional derivative to ``[..., N0, ..., ND]`` (see the example below).
 
     .. warning::
 
@@ -2049,9 +2015,9 @@ def DirectionalDerivative(
        directions[0, : z.size // 2] = 1
        directions[1, z.size // 2:] = 1
        dop = DirectionalDerivative(dim_shape=z.shape, order=1, directions=directions)
-       out = dop.unravel(dop(z.ravel()))
+       out = dop(z)
        dop2 = DirectionalDerivative(dim_shape=z.shape, order=2, directions=directions)
-       out2 = dop2.unravel(dop2(z.ravel()))
+       out2 = dop2(z)
        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
        axs = np.ravel(axs)
        h = axs[0].pcolormesh(xx, yy, z, shading="auto")
@@ -2155,7 +2121,7 @@ def DirectionalDerivative(
 
     setattr(op, "svdvals", types.MethodType(op_svdvals, op))
     op._name = op_name
-    return _make_unravelable(op, dim_shape=dim_shape)
+    return op
 
 
 def DirectionalGradient(
@@ -2189,9 +2155,6 @@ def DirectionalGradient(
 
     Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th canonical
     basis vector) amounts to the :py:func:`~pyxu.operator.Gradient` operator.
-
-    The directional gradient operator's method :py:meth:`~pyxu.operator.DirectionalGradient.unravel` allows
-    reshaping the vectorized output directional derivative to ``[..., n_dirs, N0, ..., ND]`` (see the example below).
 
     Parameters
     ----------
@@ -2252,7 +2215,7 @@ def DirectionalGradient(
        directions2[0, z.size // 2:] = -1
        dim_shape = z.shape
        dop = DirectionalGradient(dim_shape=dim_shape, directions=[directions1, directions2])
-       out = dop.unravel(dop(z.ravel()))
+       out = dop(z)
        plt.figure()
        h = plt.pcolormesh(xx, yy, z, shading='auto')
        plt.quiver(x, x, directions1[1].reshape(dim_shape), directions1[0].reshape(xx.shape))
@@ -2323,7 +2286,7 @@ def DirectionalGradient(
     setattr(op, "svdvals", types.MethodType(op_svdvals, op))
 
     op._name = "DirectionalGradient"
-    return _make_unravelable(op, dim_shape=dim_shape)
+    return op
 
 
 def DirectionalLaplacian(
@@ -2357,9 +2320,6 @@ def DirectionalLaplacian(
 
     Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th canonical
     basis vector) amounts to the :py:func:`~pyxu.operator.Laplacian` operator.
-
-    The directional Laplacian operator's method :py:meth:`~pyxu.operator.DirectionalLaplacian.unravel` allows
-    reshaping the vectorized output directional Laplacian to ``[..., N0, ..., ND]`` (see the example below).
 
     Parameters
     ----------
@@ -2421,7 +2381,7 @@ def DirectionalLaplacian(
        directions2[0, z.size // 2:] = -1
        dim_shape = z.shape
        dop = DirectionalLaplacian(dim_shape=dim_shape, directions=[directions1, directions2])
-       out = dop.unravel(dop(z.ravel()))
+       out = dop(z)
        plt.figure()
        h = plt.pcolormesh(xx, yy, z, shading='auto')
        plt.quiver(x, x, directions1[1].reshape(dim_shape), directions1[0].reshape(xx.shape))
@@ -2507,7 +2467,7 @@ def DirectionalLaplacian(
     setattr(op, "svdvals", types.MethodType(op_svdvals, op))
 
     op._name = "DirectionalLaplacian"
-    return _make_unravelable(op, dim_shape=dim_shape)
+    return op
 
 
 def DirectionalHessian(
@@ -2551,9 +2511,6 @@ def DirectionalHessian(
 
     Note that choosing :math:`m=D` and :math:`\mathbf{v}_i = \mathbf{e}_i \in \mathbb{R}^D` (the :math:`i`-th canonical
     basis vector) amounts to the :py:func:`~pyxu.operator.Hessian` operator.
-
-    The directional Hessian operator's method :py:meth:`~pyxu.operator.DirectionalHessian.unravel` allows
-    reshaping the vectorized output directional Hessian to ``[..., n_dirs, N0, ..., ND]`` (see the example below).
 
     Parameters
     ----------
@@ -2613,7 +2570,7 @@ def DirectionalHessian(
        directions2[0, z.size // 2:] = -1
        dim_shape = z.shape
        d_hess = DirectionalHessian(dim_shape=dim_shape, directions=[directions1, directions2])
-       out = d_hess.unravel(d_hess(z.ravel()))
+       out = d_hess(z)
        plt.figure()
        h = plt.pcolormesh(xx, yy, z, shading='auto')
        plt.quiver(x, x, directions1[1].reshape(dim_shape), directions1[0].reshape(xx.shape))
@@ -2705,4 +2662,4 @@ def DirectionalHessian(
     setattr(op, "svdvals", types.MethodType(op_svdvals, op))
 
     op._name = "DirectionalHessian"
-    return _make_unravelable(op, dim_shape=dim_shape)
+    return op

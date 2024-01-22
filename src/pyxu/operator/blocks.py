@@ -150,8 +150,6 @@ def block_diag(ops: cabc.Sequence[pxt.OpT]) -> pxt.OpT:
 class _BlockDiag:
     # See block_diag() docstrings.
     def __init__(self, ops: cabc.Sequence[pxt.OpT]):
-        assert len(ops) > 1
-
         dim_shape = ops[0].dim_shape
         codim_shape = ops[0].codim_shape
 
@@ -324,8 +322,6 @@ class _BlockDiag:
 class _Stack:
     # See stack() docstrings.
     def __init__(self, ops: cabc.Sequence[pxt.OpT]):
-        assert len(ops) > 1
-
         dim_shape = ops[0].dim_shape
         codim_shape = ops[0].codim_shape
 
