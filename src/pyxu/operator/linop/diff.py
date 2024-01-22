@@ -1548,13 +1548,16 @@ def Divergence(
                 param.insert(0, "dummy")
         init_kwargs.update({key: param})
 
-    directions = tuple([i for i in range(len(dim_shape))]) if directions is None else directions
+    directions = tuple([i for i in range(1, len(dim_shape))]) if directions is None else directions
+    assert all(
+        [direction > 0 for direction in directions]
+    ), "The first direction corresponds to the vector values, see Documentation."
     n_dir = len(directions)
 
     pds = pxb.block_diag(
-        [Gradient(dim_shape=dim_shape, directions=(direction,), **init_kwargs) for direction in directions],
+        [Gradient(dim_shape=dim_shape[1:], directions=(direction - 1,), **init_kwargs) for direction in directions],
     )
-    op = pxlr.Sum(dim_shape=(n_dir,) + dim_shape, axis=0) * pds
+    op = pxlr.Sum(dim_shape=(n_dir,) + dim_shape[1:], axis=0) * pds.reshape((n_dir,) + dim_shape[1:])
     op._name = "Divergence"
     return op.reshape(dim_shape[1:])
 

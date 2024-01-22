@@ -599,20 +599,23 @@ class TestDivergence(DiffOpMixin):
         params=[
             #          (dim_shape, directions)
             (
-                (5,),
-                (0,),
+                (
+                    1,
+                    5,
+                ),
+                (1,),
             ),
             (
-                (5, 5),
-                (0, 1),
+                (2, 5, 5),
+                (1, 2),
             ),
             (
-                (5, 5),
+                (2, 5, 5),
                 None,
             ),
             (
-                (5, 5, 5),
-                (0, 2),
+                (3, 5, 5, 5),
+                (1, 3),
             ),
         ]
     )
@@ -629,11 +632,8 @@ class TestDivergence(DiffOpMixin):
         return _spec[1]
 
     @pytest.fixture
-    def data_shape(self, dim_shape, directions) -> pxt.NDArrayShape:
-        size = np.prod(dim_shape).item()
-        n_derivatives = len(directions) if directions is not None else len(dim_shape)
-        sh = (size, size * n_derivatives)
-        return sh
+    def codim_shape(self, dim_shape) -> pxt.NDArrayShape:
+        return dim_shape
 
     @pytest.fixture
     def diff_op(self):
@@ -653,16 +653,16 @@ class TestDivergence(DiffOpMixin):
 
     @pytest.fixture
     def data_apply(self, op, dim_shape, gt_diffs, directions, diff_method) -> conftest.DataLike:
-        directions = np.arange(len(dim_shape)) if directions is None else directions
-        arr = self._random_array((len(directions),) + dim_shape, seed=20)
+        directions = np.arange(0, len(dim_shape) - 1) if directions is None else tuple(np.array(directions) - 1)
+        arr = self._random_array(dim_shape, seed=20)
         out = [
             apply_gradient(
                 arr[i],
-                dim_shape=dim_shape,
+                dim_shape=dim_shape[1:],
                 gt_diffs=gt_diffs,
                 directions=(ax,),
                 diff_method=diff_method,
-            )
+            ).squeeze()
             for i, ax in enumerate(directions)
         ]
         out = np.stack(out).sum(axis=0)
