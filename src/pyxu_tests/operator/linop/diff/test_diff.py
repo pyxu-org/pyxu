@@ -518,20 +518,23 @@ class TestJacobian(DiffOpMixin):
         params=[
             #          (dim_shape, directions)
             (
-                (5,),
-                (0,),
+                (
+                    2,
+                    5,
+                ),
+                (1,),
             ),
             (
-                (5, 5),
-                (0, 1),
+                (3, 5, 5),
+                (1, 2),
             ),
             (
-                (5, 5),
+                (3, 5, 5),
                 None,
             ),
             (
-                (5, 5, 5),
-                (0, 2),
+                (2, 5, 5, 5),
+                (1, 3),
             ),
         ]
     )
@@ -547,15 +550,10 @@ class TestJacobian(DiffOpMixin):
     def directions(self, _spec):
         return _spec[1]
 
-    @pytest.fixture(params=[1, 3])
-    def n_channels(self, request):
-        return request.param
-
     @pytest.fixture
-    def data_shape(self, dim_shape, n_channels, directions) -> pxt.NDArrayShape:
-        size = np.prod(dim_shape).item()
+    def codim_shape(self, dim_shape, directions) -> pxt.NDArrayShape:
         n_derivatives = len(directions) if directions is not None else len(dim_shape)
-        sh = (size * n_derivatives * n_channels, size * n_channels)
+        sh = (dim_shape[0], n_derivatives, *dim_shape[1:])
         return sh
 
     @pytest.fixture
@@ -563,10 +561,9 @@ class TestJacobian(DiffOpMixin):
         return pxo.Jacobian
 
     @pytest.fixture
-    def diff_kwargs(self, dim_shape, n_channels, directions, ndi, width, sampling, diff_method):
+    def diff_kwargs(self, dim_shape, directions, ndi, width, sampling, diff_method):
         return {
             "dim_shape": dim_shape,
-            "n_channels": n_channels,
             "directions": directions,
             "mode": "constant",
             "gpu": ndi == pxd.NDArrayInfo.CUPY,
@@ -576,21 +573,21 @@ class TestJacobian(DiffOpMixin):
         }
 
     @pytest.fixture
-    def data_apply(self, op, dim_shape, n_channels, diff_method, gt_diffs, directions) -> conftest.DataLike:
-        arr = self._random_array((n_channels,) + dim_shape, seed=20)  # random seed for reproducibility
-        directions = np.arange(len(dim_shape)) if directions is None else directions
+    def data_apply(self, op, dim_shape, diff_method, gt_diffs, directions) -> conftest.DataLike:
+        arr = self._random_array(dim_shape, seed=20)  # random seed for reproducibility
+        directions = np.arange(len(dim_shape[1:])) if directions is None else tuple(np.array(directions) - 1)
         out = []
-        for ch in range(n_channels):
+        for ch in range(dim_shape[0]):
             out.append(
                 apply_gradient(
                     arr[ch],
-                    dim_shape=dim_shape,
+                    dim_shape=dim_shape[1:],
                     gt_diffs=gt_diffs,
                     directions=directions,
                     diff_method=diff_method,
                 )
             )
-        out = np.concatenate(out)
+        out = np.stack(out)
         return dict(
             in_=dict(arr=arr),
             out=out,

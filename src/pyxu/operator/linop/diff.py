@@ -1243,7 +1243,6 @@ def Gradient(
 
 def Jacobian(
     dim_shape: pxt.NDArrayShape,
-    n_channels: pxt.Integer,
     directions: typ.Optional[pxt.NDArrayAxis] = None,
     diff_method: str = "fd",
     mode: ModeSpec = "constant",
@@ -1288,10 +1287,7 @@ def Jacobian(
     Parameters
     ----------
     dim_shape: NDArrayShape
-        Shape of the input array.
-    n_channels: Integer
-        Number of channels or variables of the input vector-valued signal.
-        The Jacobian with `n_channels==1` yields the gradient.
+        (C, N_1,...,N_D) input dimensions.
     directions: Integer, list[Integer], None
         Gradient directions.
         Defaults to `None`, which computes the gradient for all directions.
@@ -1348,9 +1344,9 @@ def Jacobian(
        out = jac(image)
        fig, axes = plt.subplots(3, 2, figsize=(10, 15))
        for i in range(3):
-           for j in range(2):
-               axes[i, j].imshow(out[i, j].T, cmap=["Reds", "Greens", "Blues"][j])
-               axes[i, j].set_title(f"$\partial I_{{{['R', 'G', 'B'][j]}}}/\partial{{{['x', 'y'][j]}}}$")
+          for j in range(2):
+              axes[i, j].imshow(out[i, j].T, cmap=["Reds", "Greens", "Blues"][i])
+              axes[i, j].set_title(f"$\partial I_{{{['R', 'G', 'B'][j]}}}/\partial{{{['x', 'y'][j]}}}$")
        plt.suptitle("Jacobian")
 
 
@@ -1359,8 +1355,21 @@ def Jacobian(
     :py:func:`~pyxu.operator.Gradient`,
     :py:func:`~pyxu.operator.PartialDerivative`.
     """
+
+    from collections.abc import Iterable
+
+    if directions is not None:
+        if not isinstance(directions, Iterable):
+            directions = [
+                directions,
+            ]
+        else:
+            if isinstance(directions, tuple):
+                directions = list(directions)
+        directions = tuple([d - 1 for d in directions])
+
     init_kwargs = dict(
-        dim_shape=dim_shape,
+        dim_shape=dim_shape[1:],
         directions=directions,
         diff_method=diff_method,
         mode=mode,
@@ -1370,6 +1379,7 @@ def Jacobian(
     )
 
     grad = Gradient(**init_kwargs)
+    n_channels = dim_shape[0]
     if n_channels > 1:
         op = pxb.block_diag(
             [
