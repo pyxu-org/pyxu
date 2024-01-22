@@ -466,18 +466,17 @@ class TestHessian(DiffOpMixin):
         return _spec[1]
 
     @pytest.fixture
-    def data_shape(self, dim_shape, directions) -> pxt.NDArrayShape:
-        size = np.prod(dim_shape).item()
+    def codim_shape(self, dim_shape, directions) -> pxt.NDArrayShape:
         if isinstance(directions, int):  # Case 0
-            sh = (size, size)
+            sh = dim_shape
         elif isinstance(directions, cabc.Sequence):
             if isinstance(directions, str):  # case 3
                 n_derivatives = len(dim_shape) * (len(dim_shape) + 1) // 2
-                sh = (size * n_derivatives, size)
+                sh = (n_derivatives, *dim_shape)
             elif isinstance(directions[0], int):  # Case 1
-                sh = (size, size)
+                sh = dim_shape
             elif isinstance(directions[0], cabc.Sequence):  # Case 2
-                sh = (size * len(directions), size)
+                sh = (len(directions), *dim_shape)
         return sh
 
     @pytest.fixture
