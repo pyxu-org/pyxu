@@ -514,7 +514,7 @@ class PartialDerivative:
         Parameters
         ----------
         dim_shape: NDArrayShape
-            Shape of the input array.
+            (N_1,...,N_D) input dimensions.
         order: list[Integer]
             Derivative order for each dimension.
             The total order of the partial derivative is the sum of the elements of the tuple.
@@ -755,7 +755,7 @@ class PartialDerivative:
         Parameters
         ----------
         dim_shape: NDArrayShape
-            Shape of the input array.
+            (N_1,...,N_D) input dimensions.
         order: list[Integer]
             Derivative order for each dimension.
             The total order of the partial derivative is the sum of the elements of the tuple.
