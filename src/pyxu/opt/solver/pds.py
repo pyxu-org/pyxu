@@ -49,29 +49,29 @@ class _PrimalDualSplitting(pxa.Solver):
             raise ValueError(msg)
 
         if f is not None:
-            primal_dim = f.dim
+            primal_dim_shape = f.dim_shape
         elif g is not None:
-            primal_dim = g.dim
+            primal_dim_shape = g.dim_shape
         else:
-            primal_dim = h.dim
+            primal_dim_shape = h.dim_shape
 
         if h is not None:
-            dual_dim = h.dim
+            dual_dim_shape = h.dim_shape
         elif K is not None:  # todo: isn't this elif-clause useless? For which solver is it triggered?
-            dual_dim = K.shape[0]  # todo: K.codim?
+            dual_dim_shape = K.codim_shape
         else:
-            dual_dim = primal_dim
+            dual_dim_shape = primal_dim_shape
 
-        self._f = pxo.NullFunc(dim=primal_dim) if (f is None) else f
-        self._g = pxo.NullFunc(dim=primal_dim) if (g is None) else g
-        self._h = pxo.NullFunc(dim=dual_dim) if (h is None) else h
+        self._f = pxo.NullFunc(dim_shape=primal_dim_shape) if (f is None) else f
+        self._g = pxo.NullFunc(dim_shape=primal_dim_shape) if (g is None) else g
+        self._h = pxo.NullFunc(dim_shape=dual_dim_shape) if (h is None) else h
         self._beta = self._set_beta(beta)
         if h is not None:
-            self._K = pxo.IdentityOp(dim=h.dim) if (K is None) else K
+            self._K = pxo.IdentityOp(dim_shape=h.dim_shape) if (K is None) else K
         else:
             if K is None:
-                K_dim = f.dim if f is not None else g.dim
-                self._K = pxo.NullOp(shape=(K_dim, K_dim))
+                K_dim_shape = f.dim_shape if f is not None else g.dim_shape
+                self._K = pxo.NullOp(dim_shape=K_dim_shape, codim_shape=K_dim_shape)
             else:
                 raise ValueError("Optional argument ``h`` mut be specified if ``K`` is not None.")
         self._objective_func = self._f + self._g + (self._h * self._K)
@@ -1593,10 +1593,13 @@ class ADMM(_PDS):
                     )
                     raise ValueError(msg)
                 if K is None:  # Prox scenario (classical ADMM)
-                    f = pxo.NullFunc(h.dim)
+                    f = pxo.NullFunc(h.dim_shape)
                 else:  # Sub-iterative CG scenario
                     f = pxa.QuadraticFunc(
-                        shape=(1, h.dim), Q=pxo.NullOp(shape=(h.dim, h.dim)), c=pxo.NullFunc(dim=h.dim)
+                        dim_shape=h.dim_shape,
+                        codim_shape=(1,),
+                        Q=pxo.NullOp(dim_shape=h.dim_shape, codim_shape=h.dim_shape),
+                        c=pxo.NullFunc(dim_shape=h.dim_shape),
                     )
             if f.has(pxa.Property.PROXIMABLE) and K is None:
                 x_update_solver = "prox"
@@ -1689,7 +1692,7 @@ class ADMM(_PDS):
             from pyxu.opt.solver import NLCG
 
             c = pxa.LinFunc.from_array(-self._K.adjoint(arr))
-            quad_func = pxa.QuadraticFunc(shape=(1, self._f.dim), Q=2 * self._K_gram, c=c)
+            quad_func = pxa.QuadraticFunc(dim_shape=self._f.dim_shape, codim_shape=(1,), Q=2 * self._K_gram, c=c)
             slvr = NLCG(f=self._f + (1 / tau) * quad_func, **self._init_kwargs)
             slvr.fit(x0=self._mstate["x"].copy(), **self._fit_kwargs)  # Initialize NLCG with previous iterate
             return slvr.solution()

@@ -59,14 +59,14 @@ class MixinPDS(conftest.SolverT):
         "test_value_fit",
     }
 
-    dim = 5  # Dimension of input vector for tests
+    dim_shape = (5,)  # Dimension of input vector for tests
 
     @classmethod
     def generate_init_kwargs(cls, has_f: bool, has_g: bool, has_h: bool, has_K: bool) -> list[dict]:
         # Returns a stream of dictionaries for the init_kwargs fixture of the solver based on whether that solver has
         # arguments f, g, h and K. All possible combinations of the output of `funcs` are tested.
 
-        funcs = conftest.funcs(cls.dim)
+        funcs = conftest.funcs(cls.dim_shape)
         stream1 = conftest.generate_funcs(funcs, N_term=1)
         stream2 = conftest.generate_funcs(funcs, N_term=2)
 
@@ -104,7 +104,7 @@ class MixinPDS(conftest.SolverT):
         Q, c, _ = quad_func._quad_spec()
         Q_fench = Q.dagger()
         c_fench = -c * Q_fench
-        return pxa.QuadraticFunc(shape=quad_func.shape, Q=Q_fench, c=c_fench)
+        return pxa.QuadraticFunc(dim_shape=quad_func.dim_shape, codim_shape=quad_func.codim_shape, Q=Q_fench, c=c_fench)
 
     @pytest.fixture
     def spec(self, klass, init_kwargs, fit_kwargs) -> tuple[pxt.SolverC, dict, dict]:
@@ -122,7 +122,7 @@ class MixinPDS(conftest.SolverT):
     @pytest.fixture(params=["1d", "nd"])
     def x0(self, request) -> dict:
         # Multiple initial points
-        return {"1d": np.full((self.dim,), 3.0), "nd": np.full((2, self.dim), 15.0)}[request.param]
+        return {"1d": np.full(self.dim_shape, 3.0), "nd": np.full((2, *self.dim_shape), 15.0)}[request.param]
 
     @pytest.fixture
     def klass(self) -> pxt.SolverC:
@@ -142,13 +142,13 @@ class MixinPDS(conftest.SolverT):
 
     @pytest.fixture
     def cost_function(self, init_kwargs) -> dict[str, pxt.OpT]:
-        kwargs = [init_kwargs.get(k, pxo.NullFunc(dim=self.dim)) for k in ("f", "g")]
+        kwargs = [init_kwargs.get(k, pxo.NullFunc(dim_shape=self.dim_shape)) for k in ("f", "g")]
         func = kwargs[0] + kwargs[1]
         out = dict()
         if init_kwargs.get("h") is not None:
             if func._name != "NullFunc":
                 h = init_kwargs.get("h")
-                K = init_kwargs.get("K", pxo.IdentityOp(dim=self.dim))
+                K = init_kwargs.get("K", pxo.IdentityOp(dim_shape=self.dim_shape))
                 if isinstance(h, pxa.QuadraticFunc) and isinstance(func, pxa.QuadraticFunc):
                     Q_h, _, _ = h._quad_spec()
                     Q_f, _, _ = func._quad_spec()
@@ -231,7 +231,7 @@ class TestADMM(MixinPDS):
     @staticmethod
     def nlcg_init_kwargs():
         # Returns init_kwargs to test the (otherwise untested) NLCG scenario
-        funcs = conftest.funcs(MixinPDS.dim)
+        funcs = conftest.funcs(MixinPDS.dim_shape)
 
         def chain(x, y):
             comp = x * y
@@ -240,7 +240,9 @@ class TestADMM(MixinPDS):
 
         f = chain(*funcs.pop(2))  # f is a LinFunc (and not a QuadraticFunc) -> avoids CG scenario
         h = functools.reduce(operator.add, [chain(*ff) for ff in funcs])
-        K = pxo.IdentityOp(dim=MixinPDS.dim)  # Hack to force NLCG scenario (if K = None, then classical ADMM)
+        K = pxo.IdentityOp(
+            dim_shape=MixinPDS.dim_shape
+        )  # Hack to force NLCG scenario (if K = None, then classical ADMM)
         return dict(f=f, h=h, K=K)
 
     @pytest.fixture
@@ -257,7 +259,7 @@ class TestADMM(MixinPDS):
     def spec(self, klass, init_kwargs, fit_kwargs) -> tuple[pxt.SolverC, dict, dict]:
         # Overriden from base class
         isNLCG = (init_kwargs.get("K") is not None) and (not isinstance(init_kwargs.get("f"), pxa.QuadraticFunc))
-        if (fit_kwargs["x0"].squeeze().ndim > 1) and isNLCG:
+        if (fit_kwargs["x0"].squeeze().dim_rank > 1) and isNLCG:
             pytest.skip("NLCG scenario with multiple initial points not supported.")
         return klass, init_kwargs, fit_kwargs
 
