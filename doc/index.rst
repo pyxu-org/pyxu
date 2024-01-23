@@ -519,24 +519,6 @@ members:
             :shadow: none
             :class-card: sd-border-0
 
-            .. image:: _static/simeoni.png
-               :width: 40%
-               :align: center
-               :target: https://github.com/matthieumeo
-
-
-            .. raw:: html
-
-                <p style="text-align: center;">
-                <strong> Matthieu Simeoni </strong> <br/>
-                Pyxu's creator/architect, project manager & team lead
-                </p>
-
-
-    .. grid-item-card::
-            :shadow: none
-            :class-card: sd-border-0
-
             .. image:: _static/kashani.png
                :width: 40%
                :align: center
@@ -547,7 +529,7 @@ members:
 
                 <p style="text-align: center;">
                 <strong> Sepand Kashani </strong> <br/>
-                Technical lead, software architect & tests
+                Core architect, maintainer
                 </p>
 
     .. grid-item-card::
@@ -564,118 +546,30 @@ members:
 
                 <p style="text-align: center;">
                 <strong> Joan Rué-Queralt </strong> <br/>
-                Technical lead, solution architect & plugins
+                Core architect, maintainer
+                </p>
+
+    .. grid-item-card::
+            :shadow: none
+            :class-card: sd-border-0
+
+            .. image:: _static/simeoni.png
+               :width: 40%
+               :align: center
+               :target: https://github.com/matthieumeo
+
+
+            .. raw:: html
+
+                <p style="text-align: center;">
+                <strong> Matthieu Simeoni </strong> <br/>
+                Core architect, creator
                 </p>
 
 Contributors
 ------------
-In addition to the steering council, the following people are currently (or have been in the past) core contributors to
-Pyxu's development and/or maintenance (alphabetical order, full list available on GitHub):
 
-.. grid:: 2 2 3 3
-    :gutter: 3
-
-    .. grid-item-card::
-            :shadow: none
-            :class-card: sd-border-0
-
-            .. image:: _static/debarre.png
-               :width: 40%
-               :align: center
-               :target: https://github.com/ThomasDeb
-
-
-            .. raw:: html
-
-                <p style="text-align: center;">
-                <strong> Thomas Debarre </strong> <br>
-                Core contributor (Emeritus)
-                </p>
-
-    .. grid-item-card::
-            :shadow: none
-            :class-card: sd-border-0
-
-            .. image:: _static/flowers.png
-               :width: 40%
-               :align: center
-               :target: https://github.com/alec-flowers
-
-
-            .. raw:: html
-
-                <p style="text-align: center;">
-                <strong> Alec Flowers </strong> <br/>
-                Contributor (Emeritus)
-                </p>
-
-    .. grid-item-card::
-            :shadow: none
-            :class-card: sd-border-0
-
-            .. image:: _static/hamm.png
-               :width: 40%
-               :align: center
-               :target: https://github.com/dhamm97
-
-
-            .. raw:: html
-
-                <p style="text-align: center;">
-                <strong> Daniele Hamm </strong> <br/>
-                Contributor
-                </p>
-
-    .. grid-item-card::
-            :shadow: none
-            :class-card: sd-border-0
-
-            .. image:: _static/jarret.png
-               :width: 40%
-               :align: center
-               :target: https://github.com/AdriaJ
-
-
-            .. raw:: html
-
-                <p style="text-align: center;">
-                <strong> Adrian Jarret </strong><br/>
-                Contributor
-                </p>
-
-    .. grid-item-card::
-            :shadow: none
-            :class-card: sd-border-0
-
-            .. image:: _static/salim.png
-               :width: 40%
-               :align: center
-               :target: https://github.com/Dicedead
-
-
-            .. raw:: html
-
-                <p style="text-align: center;">
-                <strong> Salim Najib </strong><br/>
-                Contributor
-                </p>
-
-    .. grid-item-card::
-            :shadow: none
-            :class-card: sd-border-0
-
-            .. image:: _static/okumus.png
-               :width: 40%
-               :align: center
-               :target: https://github.com/okumuskaan
-
-
-            .. raw:: html
-
-                <p style="text-align: center;">
-                <strong> Kaan Okumus </strong> <br/>
-                Contributor (Emeritus)
-                </p>
+In addition to the steering council, you can also check the `full list of contributors <https://github.com/pyxu-org/pyxu/graphs/contributors>`_.
 
 Partners & Sponsors
 ===================
