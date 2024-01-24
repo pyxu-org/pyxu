@@ -56,7 +56,7 @@ optimization.  The feature set is robust and mature, positioning it as a leader 
       - Remarks 💬
 
     * - PyLops
-      - 🔴 Linear oeprators
+      - 🔴 Linear operators
       - 🟡 Partial
       - 🔴 Least-squares & sparse reconstructions
       - 🟡 Wave-processing, geophysics
