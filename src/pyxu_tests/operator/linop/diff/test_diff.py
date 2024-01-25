@@ -461,13 +461,13 @@ class TestHessian(DiffOpMixin):
     @pytest.fixture
     def codim_shape(self, dim_shape, directions) -> pxt.NDArrayShape:
         if isinstance(directions, int):  # Case 0
-            sh = dim_shape
+            sh = (1, *dim_shape)
         elif isinstance(directions, cabc.Sequence):
             if isinstance(directions, str):  # case 3
                 n_derivatives = len(dim_shape) * (len(dim_shape) + 1) // 2
                 sh = (n_derivatives, *dim_shape)
             elif isinstance(directions[0], int):  # Case 1
-                sh = dim_shape
+                sh = (1, *dim_shape)
             elif isinstance(directions[0], cabc.Sequence):  # Case 2
                 sh = (len(directions), *dim_shape)
         return sh
@@ -544,7 +544,7 @@ class TestJacobian(DiffOpMixin):
 
     @pytest.fixture
     def codim_shape(self, dim_shape, directions) -> pxt.NDArrayShape:
-        n_derivatives = len(directions) if directions is not None else len(dim_shape)
+        n_derivatives = len(directions) if directions is not None else len(dim_shape) - 1
         sh = (dim_shape[0], n_derivatives, *dim_shape[1:])
         return sh
 
@@ -625,7 +625,7 @@ class TestDivergence(DiffOpMixin):
 
     @pytest.fixture
     def codim_shape(self, dim_shape) -> pxt.NDArrayShape:
-        return dim_shape
+        return dim_shape[1:]
 
     @pytest.fixture
     def diff_op(self):
