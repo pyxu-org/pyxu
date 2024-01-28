@@ -170,6 +170,11 @@ class ReshapeAxes(pxa.UnitOp):
         out = arr.reshape(*sh, *self.dim_shape)
         return out
 
+    def cogram(self) -> pxt.OpT:
+        from pyxu.operator import IdentityOp
+
+        return IdentityOp(dim_shape=self.codim_shape)
+
 
 class BroadcastAxes(pxa.LinOp):
     """
