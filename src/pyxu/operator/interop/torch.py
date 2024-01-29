@@ -108,7 +108,8 @@ class _FromTorch(px_src._FromSource):
     def __init__(  # See from_torch() for a detailed description.
         self,
         apply: cabc.Callable,
-        shape: pxt.OpShape,
+        dim_shape: pxt.NDArrayShape,
+        codim_shape: pxt.NDArrayShape,
         cls: pxt.OpC = pxa.Map,
         vectorize: frozenset[str] = frozenset(),
         batch_size: typ.Optional[int] = None,
@@ -121,10 +122,10 @@ class _FromTorch(px_src._FromSource):
     ):
         super().__init__(
             cls=cls,
-            shape=shape,
+            dim_shape=dim_shape,
+            codim_shape=codim_shape,
             embed=dict(),
             vectorize=vectorize,
-            vmethod=None,  # pyxu.util.vectorize() not used for torch-funcs
             apply=apply,
             enforce_precision=frozenset(),  # will be applied manually
             **kwargs,
@@ -160,7 +161,8 @@ class _FromTorch(px_src._FromSource):
 
         _op = px_src.from_source(
             cls=self._op.__class__,
-            shape=self._op.shape,
+            dim_shape=self._op.dim_shape,
+            codim_shape=self._op.codim_shape,
             embed=dict(
                 _batch_size=self._batch_size,
                 _dtype=self._dtype,
@@ -172,7 +174,6 @@ class _FromTorch(px_src._FromSource):
                 _torch=t_state,
             ),
             # vectorize=None,  # see top-level comment.
-            # vmethod=None,    #
             **kwargs,
         )
         return _op
@@ -216,7 +217,7 @@ class _FromTorch(px_src._FromSource):
             def f_adjoint(tensor: TorchTensor) -> TorchTensor:
                 # codim -> dim
                 f = self._kwargs["apply"]
-                primal = torch.zeros_like(tensor, shape=(self._op.dim,))
+                primal = torch.zeros_like(tensor, shape=self._op.dim_shape)
                 _, f_vjp = functorch.vjp(f, primal)
                 out = f_vjp(tensor)[0]  # f_vjp returns a tuple
                 return out  # size dim
@@ -305,39 +306,39 @@ class _FromTorch(px_src._FromSource):
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         arr = self._coerce(arr)
-        tensor = _to_torch(arr.reshape(-1, self.dim))
+        tensor = _to_torch(arr)
         func = self._torch["apply"]
-        out = _from_torch(func(tensor)).reshape(arr.shape[:-1] + (-1,))
+        out = _from_torch(func(tensor))
         return out
 
     @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         arr = self._coerce(arr)
-        tensor = _to_torch(arr.reshape(-1, +self.dim))
+        tensor = _to_torch(arr)
         func = self._torch["grad"]
-        return _from_torch(func(tensor)).reshape(arr.shape[:-1] + (-1,))
+        return _from_torch(func(tensor))
 
     @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         arr = self._coerce(arr)
-        tensor = _to_torch(arr.reshape(-1, +self.codim))
+        tensor = _to_torch(arr)
         func = self._torch["adjoint"]
-        return _from_torch(func(tensor)).reshape(arr.shape[:-1] + (-1,))
+        return _from_torch(func(tensor))
 
     @pxrt.enforce_precision(i=["arr", "tau"])
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         arr = self._coerce(arr)
-        tensor = _to_torch(arr.reshape(-1, +self.dim))
+        tensor = _to_torch(arr)
         func = self._torch["prox"]
-        return _from_torch(func(tensor, tau)).reshape(arr.shape[:-1] + (-1,))
+        return _from_torch(func(tensor, tau))
 
     @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         arr = self._coerce(arr)
-        tensor = _to_torch(arr.reshape(-1, +self.codim))
+        tensor = _to_torch(arr)
         func = self._torch["pinv"]
         out = func(tensor, damp)  # positional args only if auto-vectorized.
-        return _from_torch(out).reshape(arr.shape[:-1] + (-1,))
+        return _from_torch(out)
 
     @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
@@ -362,7 +363,8 @@ class _FromTorch(px_src._FromSource):
             klass = pxa.LinFunc if (self.codim == 1) else pxa.LinOp
             op = from_torch(
                 apply=jf_apply,
-                shape=self.shape,
+                dim_shape=self.dim_shape,
+                codim_shape=self.codim_shape,
                 cls=klass,
                 vectorize=("apply", "adjoint"),
                 batch_size=self._batch_size,
@@ -395,7 +397,8 @@ class _FromTorch(px_src._FromSource):
 
             Q = from_torch(
                 apply=Q_apply,
-                shape=(self.dim, self.dim),
+                dim_shape=self.dim_shape,
+                codim_shape=self.dim_shape,
                 cls=pxa.PosDefOp,
                 vectorize="apply",
                 batch_size=self._batch_size,
@@ -408,7 +411,8 @@ class _FromTorch(px_src._FromSource):
 
             c = from_torch(
                 apply=c_apply,
-                shape=(1, self.dim),
+                dim_shape=self.dim_shape,
+                codim_shape=1,
                 cls=pxa.LinFunc,
                 vectorize="apply",
                 batch_size=self._batch_size,
@@ -446,7 +450,8 @@ class _FromTorch(px_src._FromSource):
 
 def from_torch(
     apply: cabc.Callable,
-    shape: pxt.OpShape,
+    dim_shape: pxt.NDArrayShape,
+    codim_shape: pxt.NDArrayShape,
     cls: pxt.OpC = pxa.Map,
     vectorize: pxt.VarName = frozenset(),
     batch_size: typ.Optional[int] = None,
@@ -465,9 +470,10 @@ def from_torch(
     apply: ~collections.abc.Callable
         A Python function with single-element Tensor input/output. Defines the :py:meth:`~pyxu.abc.Map.apply` method of
         the operator: ``apply(x)==op.apply(x)``.
-    shape: OpShape
-        (N,M) shape of the operator, where N and M are the sizes of the output and input Tensors of ``apply``
-        respectively.
+    dim_shape: NDArrayShape
+        Operator domain shape (M1,...,MD).
+    codim_shape: NDArrayShape
+        Operator co-domain shape (N1,...,NK).
     cls: OpT
         Pyxu abstract base class to instantiate from.
     vectorize: VarName
@@ -557,7 +563,8 @@ def from_torch(
 
     src = _FromTorch(
         apply=apply,
-        shape=shape,
+        dim_shape=dim_shape,
+        codim_shape=codim_shape,
         cls=cls,
         vectorize=vectorize,
         batch_size=batch_size,
