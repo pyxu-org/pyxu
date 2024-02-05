@@ -71,6 +71,8 @@ Stencils & Convolutions
 
 .. autoclass:: pyxu.operator.FFTConvolve
 
+.. autoclass:: pyxu.operator.UniformSpread
+
 Filters
 -------
 

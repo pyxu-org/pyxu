@@ -286,6 +286,7 @@ Stencils & Convolutions
    ~pyxu.operator.FFTCorrelate
    ~pyxu.operator.Stencil
    ~pyxu.operator._Stencil
+   ~pyxu.operator.UniformSpread
 
 Filters
 +++++++
