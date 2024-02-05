@@ -1,4 +1,5 @@
 import collections.abc as cabc
+import itertools
 import warnings
 
 import numpy as np
@@ -308,3 +309,43 @@ class TestAsRealOp:
         ip_C_r = pxu.view_as_real(ip_C)
 
         assert np.allclose(ip_C_r, ip_R)
+
+
+class TestRequireViewable:
+    @pytest.mark.parametrize("ndim", [1, 2, 3])
+    def test_dask_noop(self, ndim, width):
+        xp = pxd.NDArrayInfo.DASK.module()
+        rng = xp.random.default_rng()
+
+        x = rng.standard_normal(size=(10,) * ndim, dtype=width.value)
+        y = pxu.require_viewable(x)
+
+        assert x is y
+
+    @pytest.mark.parametrize(
+        "ndi",
+        [
+            pxd.NDArrayInfo.NUMPY,
+            pxd.NDArrayInfo.CUPY,
+        ],
+    )
+    @pytest.mark.parametrize("ndim", [1, 2, 3])
+    def test_inmemory_copy(self, ndim, ndi, width):
+        if ndi.module() is None:
+            pytest.skip(f"{ndi} unsupported on this machine.")
+
+        xp = ndi.module()
+        rng = xp.random.default_rng()
+
+        axes = itertools.permutations(range(ndim))
+        for order in axes:
+            x = rng.standard_normal(size=(10,) * ndim, dtype=width.value)
+            xT = x.transpose(order)
+            y = pxu.require_viewable(xT)
+
+            if order[-1] == ndim - 1:
+                # Last axis stayed at original position -> no copy required
+                assert y is xT
+            else:
+                # Last axis moved -> not contiguous -> copy required
+                assert y is not xT

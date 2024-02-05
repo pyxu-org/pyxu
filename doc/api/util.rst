@@ -21,6 +21,8 @@ pyxu.util.complex
 
 .. autofunction:: pyxu.util.as_real_op
 
+.. autofunction:: pyxu.util.require_viewable
+
 .. autofunction:: pyxu.util.view_as_complex
 
 .. autofunction:: pyxu.util.view_as_real

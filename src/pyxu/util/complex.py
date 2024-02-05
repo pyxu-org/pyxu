@@ -3,10 +3,41 @@ import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
 
 __all__ = [
+    "as_real_op",
+    "require_viewable",
     "view_as_real",
     "view_as_complex",
-    "as_real_op",
 ]
+
+
+def require_viewable(x: pxt.NDArray) -> pxt.NDArray:
+    """
+    Copy array if required to do real/complex view manipulations.
+
+    Real/complex view manipulations are feasible if the last axis is contiguous.
+
+    Parameters
+    ----------
+    x: NDArray
+
+    Returns
+    -------
+    y: NDArray
+    """
+    N = pxd.NDArrayInfo
+    ndi = N.from_obj(x)
+    if ndi == N.DASK:
+        # No notion of contiguity for Dask graphs -> always safe.
+        y = x
+    elif ndi in (N.NUMPY, N.CUPY):
+        if x.strides[-1] == x.dtype.itemsize:
+            y = x
+        else:
+            y = x.copy(order="C")
+    else:
+        msg = f"require_viewable() not yet defined for {ndi}."
+        raise NotImplementedError(msg)
+    return y
 
 
 def view_as_complex(x: pxt.NDArray) -> pxt.NDArray:
