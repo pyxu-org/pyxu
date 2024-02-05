@@ -42,6 +42,11 @@ Transforms
    :members: apply, adjoint
    :special-members: __init__
 
+.. autoclass:: pyxu.operator.CZT
+   :no-members:
+   :members: apply, adjoint
+   :special-members: __init__
+
 .. autoclass:: pyxu.operator.NUFFT
    :no-members:
    :members: type1, type2, type3, apply, adjoint, ascomplexarray, mesh, plot_kernel, params, auto_chunk, allocate, diagnostic_plot, stats

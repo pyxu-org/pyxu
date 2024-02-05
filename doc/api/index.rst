@@ -272,6 +272,7 @@ Transforms
 .. autosummary::
 
    ~pyxu.operator.FFT
+   ~pyxu.operator.CZT
    ~pyxu.operator.NUFFT
 
 Stencils & Convolutions
