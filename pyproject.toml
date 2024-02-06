@@ -36,6 +36,7 @@ dependencies = [
     "dask[array,diagnostics,distributed] >= 2023.12, <= 2023.12",
     "numba >= 0.57, < 1",
     "numpy >= 1.24, < 2",
+    "opt-einsum >= 3.3.0, < 4",
     "packaging >= 23.1",
     "scipy >= 1.11, < 2",
 ]
