@@ -14,9 +14,9 @@ readme = "README.rst"
 requires-python = ">= 3.10, < 3.13"
 license = "MIT"
 authors = [
-    { name = "M. Simeoni" },
     { name = "S. Kashani" },
     { name = "J. Rué-Queralt" },
+    { name = "M. Simeoni" },
     { name = "Pyxu Developers" },
     { name = "", email = "contact@pyxu.org" },
 ]
