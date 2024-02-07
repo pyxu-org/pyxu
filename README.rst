@@ -11,9 +11,9 @@ Pyxu: Modular and Scalable Computational Imaging
 .. image:: https://badge.fury.io/py/pyxu.svg
    :target: https://pypi.org/project/pyxu/
    :alt: PyPI Version
-.. image:: https://img.shields.io/badge/Python-3.9%20|%203.10%20|%203.11-blue
+.. image:: https://img.shields.io/badge/Python-3.10%20|%203.11%20|%203.12-blue
    :target: https://www.python.org/downloads/
-   :alt: Python 3.9 | 3.10 | 3.11
+   :alt: Python 3.10 | 3.11 | 3.12
 .. image:: https://img.shields.io/badge/Part%20of-PyData-orange
    :target: https://pydata.org/
    :alt: Part of PyData
@@ -111,7 +111,7 @@ Python enthusiasts 🐍.
 Basic Installation
 ------------------
 
-The core of **Pyxu** is lightweight and straightforward to install. You'll need Python (>= 3.9, < 3.12) and a few
+The core of **Pyxu** is lightweight and straightforward to install. You'll need Python (>= 3.10, < 3.13) and a few
 mandatory dependencies. While these dependencies will be automatically installed via ``pip``, we highly recommend
 installing NumPy and SciPy via ``conda`` to benefit from optimized math libraries.
 

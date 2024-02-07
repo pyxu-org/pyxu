@@ -15,7 +15,7 @@ tested on the latter.
 Basic Installation
 ------------------
 
-The core of **Pyxu** is lightweight and straightforward to install. You'll need Python (>= 3.9, < 3.12) and a few
+The core of **Pyxu** is lightweight and straightforward to install. You'll need Python (>= 3.10, < 3.13) and a few
 mandatory Python packages. While these dependencies will be automatically installed via ``pip``, we highly recommend
 installing NumPy and SciPy via ``conda`` to benefit from optimized math libraries.
 

@@ -11,7 +11,7 @@ name = "pyxu"
 dynamic = ["version"]
 description = "Modular and scalable computational imaging in Python with support for GPU/out-of-core computing."
 readme = "README.rst"
-requires-python = ">= 3.9, < 3.12"
+requires-python = ">= 3.10, < 3.13"
 license = "MIT"
 authors = [
     { name = "M. Simeoni" },
@@ -26,15 +26,15 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 urls.download = "https://github.com/pyxu-org/pyxu"
 urls.homepage = "https://pyxu-org.github.io/"
 dependencies = [
     "dask[array,diagnostics,distributed] >= 2023.12, <= 2023.12",
-    "numba >= 0.57, < 1",
+    "numba >= 0.59, < 1",
     "numpy >= 1.24, < 2",
     "opt-einsum >= 3.3.0, < 4",
     "packaging >= 23.1",
