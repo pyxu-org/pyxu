@@ -1,90 +1,224 @@
-Sepand
-  * Solver Tests
-      Remaining: opt/solver/pds.py
-  * Refactor docstrings, type hints, etc.
-      Remaining: opt/solver/pds.py
-  * Known Bugs
-    * General
-      * test_svdvals[SM, non-rectangular operators]
-        Returned values always wrong (esp. for fat arrays).
-        Probable cause: np.linalg.svd does not return the "true" singular values.
-    * Stencil
-      * test_value1D_svdvals[SM]
-        Always incorrect for ND kernels (seperable & non-seperable)
-        Did an experiment on NumPy backend:
-          Changing svds() seed gives different results.
-          Hunch: obtaining one of the smallest singular values, but not the smallest.
-        Values are not extravagant however: the failure is acceptable.
-    * KLDivergence()
-      * fails asloss() I think. Need to investigate.
-    * Kron
-      * test_interface_jacobian() fails if kron(A, B) == LinFunc
-        and A (or B) is IdentityOp.
-        Reason: corner case where kr(A, B) is IdentityOp(dim=1).
-        Not a problem in practice.
-    * NUFFT
-      * test_value1D_svdvals() fails sometimes when k > 1.
-        Reason unknown.
-      * type[123]()
-        Some tests fail only with DASK inputs.
-        Reason unknown.
-      * test_math(\d*)_lipschitz() fails when calling hutchpp(): non-contiguous axis.
-    * Adam
-      * test_value_fit() fails.
-        This is expected since stochastic gradient estimate not guaranteed to always decrease the cost function.
-        If running the solver until convergence, we notice the cost function increases, then decreases.
-        Need to disable test_value_fit(), or xfail with error message?
-    * JAX interop
-      * The following tests fail with CuPy inputs (f32/f64), with mentioned errors. [Reason unknown.]
-        - TestJaxScaledSum::test_math_adjoint()
-            Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[20,1]{1,0} for argument 0 but got incompatible shape f32[20,1]{0,1}
-            Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[20,1]{1,0} for argument 1 but got incompatible shape f32[20,1]{0,1}
-            Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f64[20,1]{1,0} for argument 0 but got incompatible shape f64[20,1]{0,1}
-        - TestJaxScaledSum::test_math_cogram()
-            Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[30,1]{1,0} for argument 0 but got incompatible shape f32[30,1]{0,1}
-            Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f32[30,1]{1,0} for argument 1 but got incompatible shape f32[30,1]{0,1}
-            Execution of replica 0 failed: INVALID_ARGUMENT: Executable expected shape f64[30,1]{1,0} for argument 0 but got incompatible shape f64[30,1]{0,1}
-        - TestJaxSin::test_math_diff_lipschitz()
-        - TestJaxSquaredL2Norm::test_math_diff_lipschitz()
-        - TestJaxSquaredL2Norm2::test_math_diff_lipschitz()
-            Execution of replica 0 failed: INTERNAL: Address of buffer 0 must be a multiple of 10, but was 0x...
-            Execution of replica 0 failed: INTERNAL: Address of buffer 1 must be a multiple of 10, but was 0x...
+pyxu.info.deps
+    CuPy support is temporarily locked to v12.x max.
 
-  * Test Suite Enhancements
-    * General
-      * Add DASK_CUPY mode. [Only to the test suite.]
-        >>> with dask.config.set({"array.backend": "cupy"}):  # "numpy"
-        ...     darr = da.ones(10, chunks=(5,))  # Get cupy-backed collection
-    * NUFFT
-      * CuPy backend currently not tested since only kicks in/works when eps=0.
-        Enable CuPy backend once eps>0 case also becomes CuPy-capable.
+    Reason: v13.0 no longer triggers ImportError if CUDA is not available on the system.
+    This has implications on how pyxu.info.deps.CUDA_ENABLED and the NDArrayInfo.CUPY.
+    Until this is sorted out, we support until CuPy 12.x only.
 
+doc/
+    api/ has/is-being updated to ND API interactively.
+    All non-api/ pages need to be updated to use ND API directly.
+    Remove all pictures and update steering council order + roles?
 
-[HTML Documentation] Towards Pyxu v2 Public Release
-  [TBD] Tutorials Section
+pyxu.abc.solver
+    Allow not writing data to disk at end.
+        writeback_rate = None -> don't write (ever)
+                         -1   -> only at convergence
+                          N   -> every N-th iteration
+    Replace .npz file storage with ZARR format.
+        Changes to be made in solver.py (only these!)
+            def datafile(): change filename extension
+            def writeback(): create a ZARR file at `datafile`, then populate each array into a group.
+        Changes to be made to solver/conftest.py
+            test_disk_prec_matches_memory(): disk-load using ZARR API.
+            test_disk_value_matches_memory(): disk-load using ZARR API.
 
-  How-To Section
-    [Sepand] GPU support
-    [Sepand] DASK support
-      Includes GPU on DASK
-    [Sepand] Controlling Precision
-    [Sepand] Building Block Operators
-    [Sepand] Vectorization
-    [Joan] Stencils / JIT
-    [Joan] Working with DiffOps
-    [Sepand] Working with (NU)FFTs
-    [Thomas] Perform Uncertainty Quantification
-    [Sepand] Dealing with Complex Numbers
-    [Sepand] Interoperability with Deep-Learning Frameworks
+            Add test_disk_chunk_matches_memory() [but this will never be tested since we disabled DASK solvers?]
+                We should instantiate only one solver to verify this.
 
-  Being a Developer
-    [Joan] Extending Pyxu
-      Using the cookie-cutter
-      Discovering extensions -> Pyxu FAIR
+pyxu.opt.nlcg
+    Refactor to ND API. (2023.12.29: not started yet.)
+        Update test_nlcg.py
+    Need to ensure math.backtracking_linesearch() works beforehand.
+        Fix first. (See associated issue below.)
 
-    Roadmap
-    [TBD] How to contribute
-    Governance
-    Obtaining support
-    Subscribe to Mailing list
-    Geting a developer install
+pyxu.math.backtracking_linesearch()
+    Add test suite under math/linesearch/test_backtrack.py
+        Testing this function requires similar code to conftest.FuncT().
+            Wrap it into a Func() and piggy-back on FuncT().
+                Extra args go into __init__()
+            Disable all irrelevant tests as required.
+    Known to be broken for DASK inputs ... and maybe for NUMPY/CUPY too.
+        Fix it guided by test suite.
+    Known to be algorithmically inefficient for DASK inputs.
+        Call pxw.warn_dask_perf()
+
+pyxu.opt.adam
+    Refactor to ND API. (2023.12.29: not started yet.)
+        Update test_adam.py
+
+pyxu.opt.pds
+    Refactor to ND API. (2023.12.29: not started yet.)
+        Update test_pds.py
+
+    Background
+        The API here is not in sync with PGD/CG/etc: why is \beta provided in __init__()?
+        Module logic is also awkward.
+        Simplify design by retaining only (_PDS / CV / PD3O) top-level
+            __init__(f, g, h, K, **kwargs)
+            m_init(x0, z0, tau, sigma, rho, tuning_strategy, **kwargs)
+
+pyxu.operator.interop.jax
+    Code + test suite has been ported to ND API.
+    [2023.12.29] CPU tests mostly pass, except a few items in
+        TestJax[PSD,SelfAdjoint]Convolution
+            Hypothesis: when porting to Jax, convolution implemented incorrectly.
+            We copied what was done in CircularConvolution, but an error may have been introduced in the process.
+        TestJaxScaleDown
+            svdvals()-errors?
+    Implementations of asarray() and _quad_spec() were simplified, but not sure if it broke anything.
+        Correctness of asarray() is simple to verify via the test suite.
+        Correctness of _quad_spec() is not assessed since a suitable test structure differs significantly from the other Operator classes.
+            Assess correctness on small instantiations.
+
+    Implement to_jax(Operator) to make Pyxu operators available to the JAX ecosystem.
+        Idea: to_jax() returns a NamedTuple of following fields (subset of arithmetic methods):
+            def apply(arr: jax.Array) -> jax.Array                  # (..., M1,...,MD) -> (..., N1,...,NK)
+            def grad(arr: jax.Array) -> jax.Array                   # (..., M1,...,MD) -> (..., M1,...,MD)
+            def adjoint(arr: jax.Array) -> jax.Array                # (..., N1,...,NK) -> (..., M1,...,MD)
+            def prox(arr: jax.Array, tau: pxt.Real) -> jax.Array    # (..., M1,...,MD) -> (..., M1,...,MD)
+            def pinv(arr: jax.Array, damp: pxt.Real) -> jax.Array   # (..., N1,...,NK) -> (..., M1,...,MD)
+        Need to create these methods by encapsulating Pyxu functions.
+
+pyxu.operator.interop.torch
+    Refactor to ND API. (2023.12.29: not started yet.)
+
+    The PyTorch interface is slightly different from the JAX interface; it would be ideal to homogenize them.
+    Add a test suite similar to test_jax.py
+
+pyxu.util.make_dask_aware() [maybe; TBD]
+    Some functions cannot be computed efficiently if their core-dimensions are chunked.
+    Nevertheless we may want to evaluate them in many times in parallel where stacked-dimensions are chunked.
+    This is not achievable with vectorize() since the former assumes the decorated function is accepts DASK-inputs to start with.
+
+    Add this function to API.
+        def make_dask_aware( [in same file as vectorize()]
+            i: VarName,
+            dim_shape: NDArrayShape,
+            codim_shape: NDArrayShape,
+            warn: bool,
+        ) -> Callable
+            # Uses dask.delayed() and from_delayed()
+            # dtype is inferred as in vectorize()
+
+pyxu.operator.linop.[diff, filter]
+    Refactor to ND API. (2024.01.01: not started yet.)
+        Update test_[diff, dir, filter].py
+    Allow use of FFT backend for large kernels?
+
+pyxu.operator.blocks
+    Long-term plan for blocks:
+        Pyxu is 2 things:
+            * A collection of efficient *scalable* operators to work on NDArrays.
+            * A collection of solvers and other niceities to solve optimization problems.
+
+        We already achieve both these goals with the current API.
+
+        One downside however is that the operator arithmetic is strongly tied to the (array-in -> array-out) assumption.
+        This means:
+            * we cannot have operators which take multiple inputs and return multiple outputs; instead one needs
+              currently to flatten/stack input/outputs to feed them to operators.
+            * solvers return ONE output: it is not possible to optimize different parameters simultaneously without
+              flat/stack-ing them all. (Consequence of former point.)
+
+        One solution would be to replace arithmetic methods in the Operator API to instead accept list[NDArray] inputs and output list[NDArray].
+        Solvers would then accept list[NDArray] initial points & save list[NDArray] to disk.
+        The issue with this solution is that most (if not all) core operators have no meaning on list[NDArray] inputs. (Ex: FFT of a list; what does that mean exactly? etc.)
+        Therefore list[NDArray] in/outputs are a consequence of operator arithmetic only, and solvers need to be able to handle these in/output pairs.
+
+        [Proposition] introduce a CompositeOperator class with the following interface:
+
+            class CompositeOp(Operator):
+                def __init__(ops)
+                    ops: CompositeOp -> no-op
+                    ops: list[Operator] -> see op()
+
+                def op() -> Namespace()
+                    Identify all operators involved in creating `ops`.
+                        Form the full operator chain, then prune nodes which are not required to compute the desired outputs.
+                    Infer global operator type (LinOp, etc.) based on the global graph.
+                    Redefine arithmetic methods to eval all terms in parallel via
+                        [NUMPY/CUPY] concurrent.futures
+                        [DASK] Its own task graph
+                    Arithmetic methods now all take/return a special Array() class.
+                        Array = thin layer around dict[str, NDArray] with simple rules for +/-/*[for scaling]
+
+            This interface requires ZERO changes to the current arithmetic API.
+            The only difference is that solvers can take either Operator or CompositeOp as input and handle outputs accordingly.
+            Concretely all Operators should be cast to CompositeOperator instances; and solver m_init/m_step handle composite operators only.
+            Solver must be updated to write multiple arrays to disk.
+
+            Composite op completely replaces blocks.py and will be part of abc/.
+
+pyxu.operator.linop.kron
+    Refactor to ND API. (2024.01.01: not started yet.)
+        Update test_kron.py
+
+pyxu.operator.linop.fft.czt
+    There are known closed forms for gram()/cogram(), hence pinv(): implement them.
+
+Known Issues: Cause Unknown (Investigate)
+    TestTan::test_transparent_call
+    TestTanh::test_math_diff_lipschitz
+    TestArcCosh::test_math_lipschitz
+    TestArcCosh::test_math_diff_lipschitz
+    TestSign::test_math_lipschitz
+    TestHyperSlab::test_math_prox
+    TestL1Ball::test_backend_fenchel_prox
+    TestL1Ball::test_backend_prox
+    TestL1Ball::test_chunk_fenchel_prox
+    TestL1Ball::test_chunk_prox
+    TestL1Ball::test_math_prox
+    TestL1Ball::test_math1_moreau_envelope
+    TestL1Ball::test_math2_moreau_envelope
+    TestL1Ball::test_prec_fenchel_prox
+    TestL1Ball::test_prec_prox
+    TestL1Ball::test_precCM_fenchel_prox
+    TestL1Ball::test_precCM_prox
+    TestL1Ball::test_transparent_fenchel_prox
+    TestL1Ball::test_transparent_prox
+    TestL1Ball::test_value1D_fenchel_prox
+    TestL1Ball::test_value1D_prox
+    TestL1Ball::test_valueND_fenchel_prox
+    TestL1Ball::test_valueND_prox
+    TestRangeSet::test_chunk_prox
+    TestRangeSet::test_transparent_apply
+    TestRangeSet::test_transparent_call
+    TestRangeSet::test_value1D_apply
+    TestRangeSet::test_value1D_call
+    TestRangeSet::test_valueND_apply
+    TestRangeSet::test_valueND_call
+    TestCZT::test_chunk_pinv [hangs for DASK inputs]
+Known Issues: Cause Known (& Fixable?)
+    [OK] Due to DASK-suboptimal tensordot()
+        TestExplicitLinXX::test_chunk_adjoint
+        TestExplicitLinXX::test_chunk_apply
+        TestExplicitLinXX::test_chunk_call
+        TestExplicitLinXX::test_chunk_fenchel_prox
+        TestExplicitLinXX::test_chunk_grad
+        TestExplicitLinXX::test_chunk_pinv
+    [OK] DASK-case: Fixture[_op_array] cannot instantiate due to chunk-size mismatch.
+         Can be fixed but complicated, so we accept the failure (for now)
+         We know from manual tests that asarray() is correct for all backends.
+        TestUniformSpread::test_backend_asarray
+        TestUniformSpread::test_prec_asarray
+        TestUniformSpread::test_value_asarray
+        TestNUFFT1::test_backend_asarray [NUFFT1 errors are due to UniformSpread]
+        TestNUFFT1::test_prec_asarray
+        TestNUFFT1::test_value_asarray
+    [OK] DASK-case: Fixture[_op_asarray, width=DOUBLE] does not denote the true ground-truth due to DASK-based FFT()
+         error accumulation.  Not really a problem because errors are in 1e-7 range, but did not look into how to fix
+         them yet.
+        TestFFT::test_value_asarray
+        TestCZT::test_value_asarray
+        TestFFS::test_value_asarray
+    [OK] DASK-case: fails because generated test data does not match chunking structure of `op._x`.
+         These tests were not designed with chunk-size restrictions in mind. Can probably make then chunk-aware,
+         but not a priority at the moment.
+         We note that these tests work on NUMPY inputs, so the operators are correct.
+        TestNUFFT1::test_math_adjoint
+        TestNUFFT1::test_math_gram
+        TestNUFFT1::test_math_lipschitz
+        TestNUFFT1::test_math2_lipschitz
+        TestNUFFT1::test_math3_lipschitz
+        TestNUFFT1::test_value1D_svdvals
