@@ -1,9 +1,11 @@
 import collections
 import collections.abc as cabc
 import concurrent.futures as cf
+import itertools
 import warnings
 
 import numpy as np
+import opt_einsum as oe
 
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
@@ -106,7 +108,7 @@ class UniformSpread(pxa.LinOp):
 
                \phi(\mathbf{x}) = \prod_{d=1}^{D} \phi_{d}(x_{d}).
 
-            Functions should be ufuncs with same semantics as :py:class:`~pyxu.abc.Map`, i.e. have an
+            Functions should be ufuncs with same semantics as :py:class:`~pyxu.abc.Map`, i.e. have a
             :py:meth:`~pyxu.abc.Map.__call__` method.  In addition each kernel should have a ``support()`` method with
             the following signature:
 
@@ -396,7 +398,7 @@ class UniformSpread(pxa.LinOp):
         xp = pxu.get_array_module(self._x)
         dtype = self._x.dtype
 
-        lattice = self._lattice(xp, dtype)
+        lattice = self._lattice(xp, dtype, flatten=False)
 
         A = xp.ones((*self.codim_shape, *self.dim_shape), dtype=dtype)  # (N1,...,ND, M)
         for d in range(self.codim_rank):
@@ -542,6 +544,7 @@ class UniformSpread(pxa.LinOp):
         xp: pxt.ArrayModule,
         dtype: pxt.DType,
         roi: tuple[slice] = None,
+        flatten: bool = True,
     ) -> tuple[pxt.NDArray]:
         # Create sparse lattice mesh.
         #
@@ -554,11 +557,13 @@ class UniformSpread(pxa.LinOp):
         # roi: tuple[slice]
         #     If provided, the lattice is restricted to a specific region-of-interest.
         #     The full lattice is returned by default.
+        # flatten: bool
         #
         # Returns
         # -------
         # lattice: tuple[NDArray]
-        #     (D,) sparse meshgrid of lattice nodes.
+        #     * flatten=True : (D,) 1D lattice nodes.
+        #     * flatten=False: (D,) sparse ND-meshgrid of lattice nodes.
         if roi is None:
             roi = (slice(None),) * self.codim_rank
 
@@ -570,11 +575,12 @@ class UniformSpread(pxa.LinOp):
             step = 0 if (N == 1) else (beta - alpha) / (N - 1)
             _roi = roi[d]
             lattice[d] = (alpha + xp.arange(N)[_roi] * step).astype(dtype)
-        lattice = xp.meshgrid(
-            *lattice,
-            indexing="ij",
-            sparse=True,
-        )
+        if not flatten:
+            lattice = xp.meshgrid(
+                *lattice,
+                indexing="ij",
+                sparse=True,
+            )
         return lattice
 
     def _spread(self, w: pxt.NDArray, cluster_info: dict) -> pxt.NDArray:
@@ -592,9 +598,8 @@ class UniformSpread(pxa.LinOp):
         # v: NDArray[float]
         #     (..., S1,...,SD) sub-lattice weights.
         xp = pxu.get_array_module(w)
-        dtype = w.dtype
 
-        # Build sparse lattice mesh on RoI
+        # Build lattice mesh on RoI
         roi = [
             slice(n0, n0 + num)
             for (n0, num) in zip(
@@ -602,24 +607,31 @@ class UniformSpread(pxa.LinOp):
                 cluster_info["z_num"],
             )
         ]
-        lattice = self._lattice(xp, dtype, roi)
+        lattice = self._lattice(xp, w.dtype, roi)  # (S1,),...,(SD,)
 
         # Sub-sample (x, w)
         x_idx = cluster_info["x_idx"]  # (Mq,)
         x = self._x[x_idx]  # (Mq, D)
         w = w[..., x_idx]  # (..., Mq)
 
-        # Spread onto lattice.
-        Mq, S = len(x), cluster_info["z_num"]
-        expand = (np.newaxis,) * self.codim_rank
-        A = xp.ones((Mq, *S), dtype=dtype)  # (Mq, S1,...,SD)
-        for d in range(self.codim_rank):
-            _l = lattice[d]  # (1,...,1,Sd,1,...,1)
-            _phi = self._kernel[d]
-            _A = _phi(_l[np.newaxis] - x[:, d, *expand])  # (Mq, 1,...,1,Sd,1,...,1)
-            A *= _A
-        v = xp.tensordot(w, A, axes=1)
+        # Evaluate 1D kernel weights per support point
+        D = len(self._kernel)
+        K_args = itertools.chain.from_iterable(
+            # equivalent to (K[0], K_ind[0], ..., K[D-1], K_ind[D-1])
+            zip(
+                [self._kernel[d](lattice[d] - x[:, [d]]) for d in range(D)],  # K: (Mq, S1),...,(Mq, SD)
+                [(D, idx) for idx in range(D)],  # K_ind
+            )
+        )
 
+        # Spread onto lattice
+        v = oe.contract(
+            *(w, [Ellipsis, D]),
+            *list(K_args),
+            [Ellipsis, *range(D)],
+            use_blas=True,
+            optimize="auto",
+        )
         return v
 
     def _blockwise_spread(self, x: pxt.NDArray, w: pxt.NDArray, z_spec: pxt.NDArray) -> pxt.NDArray:
@@ -651,8 +663,8 @@ class UniformSpread(pxa.LinOp):
             roi=[slice(start, stop) for (start, stop) in z_spec],
         )
         z_spec = dict(
-            start=[_l.ravel()[0] for _l in lattice],
-            stop=[_l.ravel()[-1] for _l in lattice],
+            start=[_l[0] for _l in lattice],
+            stop=[_l[-1] for _l in lattice],
             num=[_l.size for _l in lattice],
         )
 
@@ -681,9 +693,8 @@ class UniformSpread(pxa.LinOp):
         # w: NDArray[float]
         #     (..., Mq) cluster support weights.
         xp = pxu.get_array_module(v)
-        dtype = v.dtype
 
-        # Build sparse lattice mesh on RoI
+        # Build lattice mesh on RoI
         roi = [
             slice(n0, n0 + num)
             for (n0, num) in zip(
@@ -691,23 +702,31 @@ class UniformSpread(pxa.LinOp):
                 cluster_info["z_num"],
             )
         ]
-        lattice = self._lattice(xp, dtype, roi)
+        lattice = self._lattice(xp, v.dtype, roi)  # (S1,),...,(SD,)
 
         # Sub-sample (x, v)
         x_idx = cluster_info["x_idx"]  # (Mq,)
         x = self._x[x_idx]  # (Mq, D)
         v = v[..., *roi]  # (..., S1,...,SD)
 
-        # Interpolate onto support points.
-        Mq, S = len(x), v.shape[-self.codim_rank :]
-        A = xp.ones((*S, Mq), dtype=dtype)  # (S1,...,SD, Mq)
-        for d in range(self.codim_rank):
-            _l = lattice[d]  # (1,...,1,Sd,1,...,1)
-            _phi = self._kernel[d]
-            _A = _phi(_l[..., np.newaxis] - x[:, d])  # (1,...,1,Sd,1,...,1, Mq)
-            A *= _A
-        w = xp.tensordot(v, A, axes=self.codim_rank)
+        # Evaluate 1D kernel weights per support point
+        D = len(self._kernel)
+        K_args = itertools.chain.from_iterable(
+            # equivalent to (K[0], K_ind[0], ..., K[D-1], K_ind[D-1])
+            zip(
+                [self._kernel[d](lattice[d] - x[:, [d]]) for d in range(D)],  # K: (Mq, S1),...,(Mq, SD)
+                [(D, idx) for idx in range(D)],  # K_ind
+            )
+        )
 
+        # Interpolate onto support points
+        w = oe.contract(
+            *(v, [Ellipsis, *range(D)]),
+            *list(K_args),
+            [Ellipsis, D],
+            use_blas=True,
+            optimize="auto",
+        )
         return w
 
     def _blockwise_interpolate(self, x: pxt.NDArray, v: pxt.NDArray, z_spec: pxt.NDArray) -> pxt.NDArray:
@@ -739,8 +758,8 @@ class UniformSpread(pxa.LinOp):
             roi=[slice(start, stop) for (start, stop) in z_spec],
         )
         z_spec = dict(
-            start=[_l.ravel()[0] for _l in lattice],
-            stop=[_l.ravel()[-1] for _l in lattice],
+            start=[_l[0] for _l in lattice],
+            stop=[_l[-1] for _l in lattice],
             num=[_l.size for _l in lattice],
         )
 
