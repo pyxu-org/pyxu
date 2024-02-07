@@ -33,7 +33,7 @@ classifiers = [
 urls.download = "https://github.com/pyxu-org/pyxu"
 urls.homepage = "https://pyxu-org.github.io/"
 dependencies = [
-    "dask[array,diagnostics,distributed] >= 2023.12, <= 2023.12",
+    "dask[array,diagnostics,distributed] >= 2023.12, < 2024.3",
     "numba >= 0.59, < 1",
     "numpy >= 1.24, < 2",
     "opt-einsum >= 3.3.0, < 4",
