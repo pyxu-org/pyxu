@@ -1145,9 +1145,9 @@ class NUFFT3(pxa.LinOp):
         # v_cl: ClusterMapping
         #     (cluster_id, index) pairs.
         #     `index` contains indices of `v` which lie in cluster `cluster_id`.
-        x_cl = {0: slice(None)}
-        v_cl = {0: slice(None)}
-        if chunked:
+        M, x_cl = len(x), {0: slice(None)}
+        N, v_cl = len(v), {0: slice(None)}
+        if chunked and (M > 1) and (N > 1):
             x_bbox_dim, v_bbox_dim = NUFFT3._infer_bbox_dims(
                 x_ptp=x.ptp(axis=0),
                 v_ptp=v.ptp(axis=0),
@@ -1397,6 +1397,7 @@ class NUFFT3(pxa.LinOp):
         from pyxu.operator.linop.fft._ffs import _FFS
 
         _, D = x.shape
+        Xd_min = Vd_min = 1e-6
 
         # Kernel parameters (part 1)
         if eps is not None:  # infer `kernel_spp` approximately
@@ -1416,6 +1417,7 @@ class NUFFT3(pxa.LinOp):
             Vc[cl_idx] = (_v_max + _v_min) / 2
             Vd[cl_idx] = _v_max - _v_min
         Vd = Vd.max(axis=0)  # (D,)
+        Vd += Vd_min
 
         # X-domain parameters
         Nx_blk = len(x_cl)
@@ -1428,6 +1430,7 @@ class NUFFT3(pxa.LinOp):
             Xc[cl_idx] = (_x_max + _x_min) / 2
             Xd[cl_idx] = _x_max - _x_min + 2 * s_max
         Xd = Xd.max(axis=0)  # (D,)
+        Xd += Xd_min
 
         # FFT parameters
         sigma_x = np.r_[(1.05,) * D]  # sufficient; all effort should be placed instead into sigma_v, i.e. `upsampfac`
