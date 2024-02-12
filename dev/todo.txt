@@ -157,6 +157,18 @@ pyxu.operator.linop.kron
 pyxu.operator.linop.fft.czt
     There are known closed forms for gram()/cogram(), hence pinv(): implement them.
 
+pyxu.operator.linop.fft.nufft
+    Move old FINUFFT-based NUFFT implementations to an extension module.
+
+    The new NUFFT implementations based on opt_einsum.contract() spread/interpolation accounts for 90% of the runtime for non-toy problems.
+    Memory consumption, while greatly reduced w.r.t tensordot()-based spread/interpolate, is still significant compared to FINUFFT, and depends strongly on `max_window_ratio`.
+    This shows that a loop-based spreadder is a must to decrease the gap with FINUFFT. As it stands now we have a ~6-10x overhead in spread/interpolate time compared to FINUFFT (non-chunked case), which is not bad already.
+
+    Type-1/2: CuPy backend works, but asarray() may fail on the GPU since self.cfg holds NumPy arrays only. (Easy to fix.)
+    Type-3: CuPy backend currently disabled.
+        At the implementation level, the code is GPU-compatible.  The issue is just _partition_domain() and _init_metadata() which need updates to output CuPy arrays in some places.
+
+
 Known Issues: Cause Unknown (Investigate)
     TestTan::test_transparent_call
     TestTanh::test_math_diff_lipschitz
@@ -212,7 +224,7 @@ Known Issues: Cause Known (& Fixable?)
         TestFFT::test_value_asarray
         TestCZT::test_value_asarray
         TestFFS::test_value_asarray
-    [OK] DASK-case: fails because generated test data does not match chunking structure of `op._x`.
+    [OK] DASK-case: fails because generated test data does not match chunking structure of (`op._x`, `op._v`).
          These tests were not designed with chunk-size restrictions in mind. Can probably make then chunk-aware,
          but not a priority at the moment.
          We note that these tests work on NUMPY inputs, so the operators are correct.
@@ -222,3 +234,9 @@ Known Issues: Cause Known (& Fixable?)
         TestNUFFT1::test_math2_lipschitz
         TestNUFFT1::test_math3_lipschitz
         TestNUFFT1::test_value1D_svdvals
+        TestNUFFT3::test_math_adjoint
+        TestNUFFT3::test_math_gram
+        TestNUFFT3::test_math_lipschitz
+        TestNUFFT3::test_math2_lipschitz
+        TestNUFFT3::test_math3_lipschitz
+        TestNUFFT3::test_value1D_svdvals
