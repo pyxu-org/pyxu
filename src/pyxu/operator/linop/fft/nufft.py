@@ -780,6 +780,10 @@ class NUFFT3(pxa.LinOp):
             # Build data structures at runtime; just validate (x, v).
             assert self._x.chunks[1] == (D,), "[x] Chunking along last dimension unsupported."
             assert self._v.chunks[1] == (D,), "[v] Chunking along last dimension unsupported."
+        elif ndi == pxd.NDArrayInfo.CUPY:
+            # At the implementation level, the code is GPU-compatible.  The issue is just _partition_domain() and
+            # _init_metadata() which need updates to output CuPy arrays in some places.
+            raise NotImplementedError
         else:  # init-time instantiation
             # Chunk (x,v) domains
             self._x_cl, self._v_cl = self._partition_domain(
