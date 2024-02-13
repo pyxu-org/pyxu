@@ -150,9 +150,9 @@ class RayXRT(pxa.LinOp):
         if ndi == pxd.NDArrayInfo.DASK:
             # Build data structures at runtime; just validate (n_spec, t_spec)
             assert self._n_spec.chunks == self._t_spec.chunks, "[n_spec,t_spec] Must have same chunk sizes."
-            assert self._n_spec.chunks[1] == self.dim_rank, "[n_spec,t_spec] Chunking along last dimension unsupported."
-
-            raise NotImplementedError  # TODO
+            assert self._n_spec.chunks[1] == (
+                self.dim_rank,
+            ), "[n_spec,t_spec] Chunking along last dimension unsupported."
         else:  # init-time instantiation: create drjit variables
             self._dr = self._init_dr_metadata()
 
@@ -174,7 +174,63 @@ class RayXRT(pxa.LinOp):
         xp = ndi.module()
 
         if ndi == pxd.NDArrayInfo.DASK:
-            raise NotImplementedError
+            # High-level idea:
+            # 1. foreach (nt_spec, I-chunk) pair: compute projections.
+            # 2. collapse projections across all I-chunks.
+            #
+            # Concretely, we rely on DASK.blockwise() to achieve this.
+            #
+            # For each sub-problem to compute the right outputs, it must know "where" the I-chunk is located in space,
+            # i.e. what `origin` is for that chunk.  As such we need to encode the chunk origins as an array and give
+            # them to blockwise(). This is encoded in `origin` below.
+            #
+            # Reminder of array shape/block structures that blockwise() will use:
+            # [legend] array: shape, blocks/dim, dimension index {see blockwise().}]
+            # * I: (N1,...,ND), (Bi1,...,BiD), (1,...,D)
+            # * n_spec: (N_ray, D), (Bp, 1), (0, D+1)
+            # * t_spec: (N_ray, D), (Bp, 1), (0, D+1)
+            # * origin: (Bi1,...,BiD, D), (Bi1,...,BiD, 1), (1,...,D, D+2)
+            # * parts: [ this is the output of blockwise() ]
+            #       (N_ray, Bi1,...,BiD),
+            #       (Bp,    Bi1,...,BiD), -> we 'sumed' over the single-block axes (D+1, D+2)
+            #       ( 0,      1,...,  D)
+            # * out [ = parts.sum(axis=(-D,...,-1)) ]
+            #       (N_ray,), (Bp,)
+
+            # Compute `origin` info.
+            offset = [np.r_[0, chks].cumsum()[:-1] for chks in arr.chunks]
+            offset = np.stack(  # (Bi1,...,BiD, D)
+                np.meshgrid(*offset, indexing="ij"),
+                axis=-1,
+            )
+            origin = xp.asarray(  # (Bi1,...,BiD, D)
+                np.r_[self._origin] + np.r_[self._pitch] * offset,
+                chunks=(1,) * self.dim_rank + (self.dim_rank,),
+            )
+
+            # Compute (I,n,t,orig,o)_ind & output chunks
+            I_ind = tuple(range(1, self.dim_rank + 1))
+            n_ind = (0, self.dim_rank + 1)
+            t_ind = (0, self.dim_rank + 1)
+            orig_ind = (*range(1, self.dim_rank + 1), self.dim_rank + 2)
+            o_ind = tuple(range(self.dim_rank + 1))
+            o_chunks = {d: 1 for d in range(1, self.dim_rank + 1)}
+
+            parts = xp.blockwise(
+                # shape:  (N_ray | Bi1,...,BiD)
+                # bcount: (Bp    | Bi1,...,BiD)
+                *(self._blockwise_apply, o_ind),
+                *(arr, I_ind),
+                *(self._n_spec, n_ind),
+                *(self._t_spec, t_ind),
+                *(origin, orig_ind),
+                dtype=dtype,
+                adjust_chunks=o_chunks,
+                align_arrays=False,
+                concatenate=True,
+                meta=arr._meta,
+            )
+            out = parts.sum(axis=tuple(range(-self.dim_rank, 0)))  # (N_ray,)
         else:  # NUMPY/CUPY
             from . import _drjit as drh
 
@@ -448,3 +504,41 @@ class RayXRT(pxa.LinOp):
             ),
         )
         return meta
+
+    def _blockwise_apply(self, I, n_spec, t_spec, origin) -> pxt.NDArray:
+        # Project rays through sub-volume.
+        # [All arrays are NUMPY/CUPY.]
+        #
+        # Parameters
+        # ----------
+        # I: NDArray[float32]
+        #     (S1,...,SD) sub-volume entries.
+        # n_spec: NDArray[float32]
+        #     (L, D) ray directions :math:`\mathbf{n} \in \mathbb{S}^{D-1}`.
+        # t_spec: NDArray[float32]
+        #     (L, D) offset specifiers :math:`\mathbf{t} \in \mathbb{R}^{D}`.
+        # origin: NDArray[float]
+        #     (<D 1s>, D) bottom-left coordinate of sub-volume.
+        #
+        # Returns
+        # -------
+        # P: NDArray[float32]
+        #     (L, <D 1s>) projection weights.
+        #
+        #     [Note the trailing size-1 dims; these are required since blockwise() expects to
+        #      stack these outputs given how it was called.]
+        select = (0,) * self.dim_rank
+        origin = origin[*select]  # (D,)
+
+        op = RayXRT(
+            dim_shape=I.shape,
+            n_spec=n_spec,
+            t_spec=t_spec,
+            origin=origin,
+            pitch=self._pitch,
+            enable_warnings=self._enable_warnings,
+        )
+        P = op.apply(I)  # (L,)
+
+        expand = (np.newaxis,) * self.dim_rank
+        return P[..., *expand]  # (L, <D 1s>)
