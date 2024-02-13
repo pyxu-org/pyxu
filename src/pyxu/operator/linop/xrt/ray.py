@@ -288,7 +288,6 @@ class RayXRT(pxa.LinOp):
         from . import _drjit as drh
 
         dr = pxu.import_module("drjit")
-
         plt = pxu.import_module("matplotlib.pyplot")
         collections = pxu.import_module("matplotlib.collections")
         patches = pxu.import_module("matplotlib.patches")
@@ -320,8 +319,8 @@ class RayXRT(pxa.LinOp):
             ray_idx = slice(None)
         active, a1, a2 = map(lambda _: _.numpy()[ray_idx], [active, a1, a2])  # (Q,)
         a12 = np.stack([a1, a2], axis=-1)[active]  # (N_active, 2)
-        ray_n = self._n_spec[ray_idx][active]  # (N_active, D)
-        ray_t = self._t_spec[ray_idx][active]  # (N_active, D)
+        ray_n = pxu.to_NUMPY(self._n_spec[ray_idx][active])  # (N_active, D)
+        ray_t = pxu.to_NUMPY(self._t_spec[ray_idx][active])  # (N_active, D)
 
         for _ax, dim_idx, dim_label in data:
             # Subsample right dimensions ======================================
