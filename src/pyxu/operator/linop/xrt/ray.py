@@ -296,7 +296,11 @@ class RayXRT(pxa.LinOp):
         B = xp.array(pxu.to_NUMPY(A), dtype=dtype)
         return B
 
-    def diagnostic_plot(self, ray_idx: pxt.NDArray = None):
+    def diagnostic_plot(
+        self,
+        ray_idx: pxt.NDArray = None,
+        show_grid: bool = False,
+    ):
         r"""
         Plot ray trajectories.
 
@@ -304,6 +308,8 @@ class RayXRT(pxa.LinOp):
         ----------
         ray_idx: NDArray
             (Q,) indices of rays to plot. (Default: show all rays.)
+        show_grid: bool
+            If true, overlay the pixel grid.
 
         Returns
         -------
@@ -438,6 +444,17 @@ class RayXRT(pxa.LinOp):
                 color="g",
                 marker=".",
             )
+
+            # Draw Overlay Grid ===============================================
+            if show_grid:
+                x_ticks = origin[0] + pitch[0] * np.arange(dim_shape[0])
+                y_ticks = origin[1] + pitch[1] * np.arange(dim_shape[1])
+                _ax.set_xticks(x_ticks)
+                _ax.set_yticks(y_ticks)
+                _ax.grid(
+                    linestyle="--",
+                    color="gray",
+                )
 
             # Misc Details ====================================================
             pad_width = 0.1 * bbox_dim  # 10% axial pad
