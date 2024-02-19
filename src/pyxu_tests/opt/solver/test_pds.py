@@ -259,7 +259,8 @@ class TestADMM(MixinPDS):
     def spec(self, klass, init_kwargs, fit_kwargs) -> tuple[pxt.SolverC, dict, dict]:
         # Overriden from base class
         isNLCG = (init_kwargs.get("K") is not None) and (not isinstance(init_kwargs.get("f"), pxa.QuadraticFunc))
-        if (fit_kwargs["x0"].squeeze().dim_rank > 1) and isNLCG:
+        dim_rank = next(iter(init_kwargs.values())).dim_rank
+        if (fit_kwargs["x0"].squeeze().ndim > dim_rank) and isNLCG:
             pytest.skip("NLCG scenario with multiple initial points not supported.")
         return klass, init_kwargs, fit_kwargs
 
