@@ -47,9 +47,11 @@ Transforms
    :members: apply, adjoint
    :special-members: __init__
 
-.. autoclass:: pyxu.operator.NUFFT
+.. autoclass:: pyxu.operator.NUFFT1
    :no-members:
-   :members: type1, type2, type3, apply, adjoint, ascomplexarray, mesh, plot_kernel, params, auto_chunk, allocate, diagnostic_plot, stats
+   :members: apply, adjoint, config
+
+.. autofunction:: pyxu.operator.NUFFT2
 
 Stencils & Convolutions
 -----------------------

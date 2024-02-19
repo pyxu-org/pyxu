@@ -4,123 +4,169 @@ import numpy as np
 import pytest
 
 import pyxu.info.deps as pxd
+import pyxu.info.ptype as pxt
 import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
+import pyxu_tests.conftest as ct
 import pyxu_tests.operator.conftest as conftest
-import pyxu_tests.operator.linop.fft.conftest_nufft as conftest_nufft
 
 
-class TestNUFFT1(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
-    # (Extra) Fixtures which parametrize operator -----------------------------
-    @pytest.fixture(params=[10, 13])
-    def transform_x(self, transform_dimension, request) -> np.ndarray:
-        # (M, D) D-dimensional sample points :math:`\mathbf{x}_{j} \in [-\pi, \pi)^{D}`.
-        rng = np.random.default_rng(0)
-        _x = rng.normal(size=(request.param, transform_dimension))
-        x = np.fmod(_x, 2 * np.pi)
-        return x
+class TestNUFFT1(conftest.LinOpT):
+    @classmethod
+    def _metric(
+        cls,
+        a: pxt.NDArray,
+        b: pxt.NDArray,
+        as_dtype: pxt.DType,
+    ) -> bool:
+        # NUFFT is an approximate transform.
+        # Based on [FINUFFT], results hold up to a small relative error.
+        #
+        # We choose a conservative threshold, irrespective of the `eps` parameter chosen by the
+        # user. Additional tests below test explicitly if computed values correctly obey `eps`.
+        eps_default = 1e-3
 
-    @pytest.fixture(params=[1, 10])
-    def transform_N(self, transform_dimension, request) -> tuple[int]:
-        # (D,) mesh size in each dimension :math:`(N_1, \ldots, N_{D})`.
-        rng = np.random.default_rng(1)
-        N = rng.integers(
-            low=1,
-            high=request.param,
-            size=(transform_dimension,),
-            endpoint=True,
-        )
-        return tuple(N)
+        cast = lambda x: pxu.compute(x)
+        lhs = np.linalg.norm(pxu.to_NUMPY(cast(a) - cast(b)).ravel())
+        rhs = np.linalg.norm(pxu.to_NUMPY(cast(b)).ravel())
+        return ct.less_equal(lhs, eps_default * rhs, as_dtype=as_dtype).all()
 
-    @pytest.fixture
-    def _transform_cArray(
-        self,
-        transform_x,
-        transform_N,
-        transform_dimension,
-        transform_sign,
-        transform_modeord,
-    ) -> np.ndarray:
-        # Ground-truth LinOp A: \bC^{M} -> \bC^{N.prod()} which encodes the type-1 transform.
-        mesh = np.stack(  # (D, N1, ..., Nd)
-            np.meshgrid(
-                *[np.arange(-(n // 2), (n - 1) // 2 + 1) for n in transform_N],
-                indexing="ij",
-            ),
-            axis=0,
-        )
-        if transform_modeord == 1:  # FFT order
-            mesh = np.fft.ifftshift(mesh, axes=-(1 + np.arange(len(transform_N))))
-        mesh = mesh.reshape((transform_dimension, -1))  # (D, N.prod())
-
-        A = np.exp(1j * transform_sign * mesh.T @ transform_x.T)  # (N.prod(), M)
-        return A
-
-    # Fixtures from conftest.LinOpT -------------------------------------------
     @pytest.fixture(
         params=itertools.product(
-            [
-                pxd.NDArrayInfo.NUMPY,
-                pxd.NDArrayInfo.DASK,
-            ],
-            pxrt.Width,
+            pxd.NDArrayInfo,
+            pxrt.CWidth,
         )
     )
     def spec(
         self,
-        transform_x,
-        transform_N,
-        transform_sign,
-        transform_eps,
-        transform_real,
-        transform_ntrans,
-        transform_nthreads,
-        transform_modeord,
+        x_spec,
+        N,
+        isign,
+        upsampfac,
+        T,
+        Tc,
         request,
-    ):
+    ) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
-        xp, dtype = ndi.module(), width.value
-        with pxrt.Precision(width):
-            op = pxo.NUFFT.type1(
-                x=xp.array(transform_x, dtype=dtype),
-                N=transform_N,
-                isign=transform_sign,
-                eps=transform_eps,
-                real=transform_real,
+        self._skip_if_unsupported(ndi)
+
+        xp = ndi.module()
+        x_spec = ct.chunk_array(
+            xp.array(
+                x_spec,
+                dtype=width.real.value,
+            ),
+            # `x` is not a complex view, but its last axis cannot be chunked.
+            # [See UniformSpread() as to why.]
+            # We emulate this by setting `complex_view=True`.
+            complex_view=True,
+        )
+
+        with pxrt.Precision(width.real):
+            op = pxo.NUFFT1(
+                x=x_spec,
+                N=N,
+                isign=isign,
+                eps=1e-9,  # tested manually -> works
+                spp=None,  # tested manually -> works
+                upsampfac=upsampfac,
+                T=T,
+                Tc=Tc,
                 enable_warnings=False,
-                n_trans=transform_ntrans,
-                nthreads=transform_nthreads,
-                modeord=transform_modeord,
             )
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(
-        self,
-        transform_x,
-        transform_N,
-        transform_real,
-    ):
-        dim = len(transform_x) * (1 if transform_real else 2)
-        codim = 2 * np.prod(transform_N)
-        return (codim, dim)
+    def dim_shape(self, x_spec) -> pxt.NDArrayShape:
+        # size of inputs, and not the transform dimensions!
+        return (len(x_spec), 2)
+
+    @pytest.fixture
+    def codim_shape(self, N) -> pxt.NDArrayShape:
+        return (*(2 * N + 1), 2)
 
     @pytest.fixture
     def data_apply(
         self,
-        _transform_cArray,
-        transform_real,
-    ):
-        N, M = _transform_cArray.shape
+        x_spec,
+        N,
+        isign,
+        T,
+    ) -> conftest.DataLike:
+        M = len(x_spec)
+        x = self._random_array((M,)) + 1j * self._random_array((M,))
 
-        rng = np.random.default_rng(3)
-        w = rng.normal(size=(M,)) + 1j * rng.normal(size=(M,))
-        if transform_real:
-            w = w.real
-        v = _transform_cArray @ w
+        A = np.stack(  # (L1,...,LD, D)
+            np.meshgrid(
+                *[np.arange(-n, n + 1) for n in N],
+                indexing="ij",
+            ),
+            axis=-1,
+        )
+        B = np.exp(  # (L1,...,LD, M)
+            (2j * isign * np.pi)
+            * np.tensordot(
+                A,
+                x_spec / T,
+                axes=[[-1], [-1]],
+            )
+        )
+        y = np.tensordot(B, x, axes=1)  # (L1,...,LD)
 
         return dict(
-            in_=dict(arr=w if transform_real else pxu.view_as_real(w)),
-            out=pxu.view_as_real(v),
+            in_=dict(arr=pxu.view_as_real(x)),
+            out=pxu.view_as_real(y),
         )
+
+    # Fixtures (internal) -----------------------------------------------------
+    @pytest.fixture(params=[1, 3])
+    def space_dim(self, request) -> int:
+        # space dimension D
+        return request.param
+
+    @pytest.fixture
+    def N(self, space_dim) -> np.ndarray:
+        # guarantees having different modes/dim
+        N = 27 + np.arange(space_dim) * 3
+        return N
+
+    @pytest.fixture
+    def x_spec(self, space_dim, T, Tc) -> np.ndarray:
+        # (M, D) canonical point cloud [NUMPY]
+        M = 150
+        rng = np.random.default_rng()
+
+        x = np.zeros((M, space_dim))
+        for d in range(space_dim):
+            x[:, d] = rng.uniform(Tc[d] - T[d] / 2, Tc[d] + T[d] / 2, size=M)
+        return x
+
+    @pytest.fixture(params=[1, -1])
+    def isign(self, request) -> int:
+        return request.param
+
+    @pytest.fixture(params=[1.25, 2])
+    def upsampfac(self, space_dim, request) -> np.ndarray:
+        # We force upsampfac to be slightly different per dimension
+        base = request.param
+
+        rng = np.random.default_rng()
+        extra = rng.uniform(0.1, 0.5, size=space_dim)
+
+        upsampfac = base + extra
+        return upsampfac
+
+    @pytest.fixture
+    def T(self, space_dim) -> np.ndarray:
+        rng = np.random.default_rng()
+        T = rng.uniform(0.1, 10, size=space_dim)
+        return T
+
+    @pytest.fixture
+    def Tc(self, space_dim) -> np.ndarray:
+        rng = np.random.default_rng()
+        Tc = rng.standard_normal(size=space_dim)
+        return Tc
+
+    # Tests -------------------------------------------------------------------

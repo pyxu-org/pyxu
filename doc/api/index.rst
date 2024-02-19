@@ -273,7 +273,8 @@ Transforms
 
    ~pyxu.operator.FFT
    ~pyxu.operator.CZT
-   ~pyxu.operator.NUFFT
+   ~pyxu.operator.NUFFT1
+   ~pyxu.operator.NUFFT2
 
 Stencils & Convolutions
 +++++++++++++++++++++++
