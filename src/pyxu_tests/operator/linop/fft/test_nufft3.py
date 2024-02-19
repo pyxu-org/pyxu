@@ -4,156 +4,158 @@ import numpy as np
 import pytest
 
 import pyxu.info.deps as pxd
+import pyxu.info.ptype as pxt
 import pyxu.operator as pxo
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
+import pyxu_tests.conftest as ct
 import pyxu_tests.operator.conftest as conftest
-import pyxu_tests.operator.linop.fft.conftest_nufft as conftest_nufft
 
 
-class TestNUFFT3(conftest_nufft.NUFFT_Mixin, conftest.LinOpT):
-    # (Extra) Fixtures which parametrize operator -----------------------------
-    @pytest.fixture(params=[10, 13])
-    def transform_x(self, transform_dimension, request) -> np.ndarray:
-        # (M, D) D-dimensional sample points :math:`\mathbf{x}_{j} \in \mathbb{R}^{D}`.
-        rng = np.random.default_rng(0)
-        x = rng.normal(size=(request.param, transform_dimension))
-        return x
+class TestNUFFT3(conftest.LinOpT):
+    @classmethod
+    def _metric(
+        cls,
+        a: pxt.NDArray,
+        b: pxt.NDArray,
+        as_dtype: pxt.DType,
+    ) -> bool:
+        # NUFFT is an approximate transform.
+        # Based on [FINUFFT], results hold up to a small relative error.
+        #
+        # We choose a conservative threshold, irrespective of the `eps` parameter chosen by the
+        # user. Additional tests below test explicitly if computed values correctly obey `eps`.
+        eps_default = 1e-3
 
-    @pytest.fixture(params=[11, 22])
-    def transform_z(self, transform_dimension, request) -> np.ndarray:
-        # (N, D) D-dimensional query points :math:`\mathbf{z}_{k} \in \mathbb{R}^{D}`.
-        rng = np.random.default_rng(1)
-        x = rng.normal(size=(request.param, transform_dimension))
-        return x
+        cast = lambda x: pxu.compute(x)
+        lhs = np.linalg.norm(pxu.to_NUMPY(cast(a) - cast(b)).ravel())
+        rhs = np.linalg.norm(pxu.to_NUMPY(cast(b)).ravel())
+        return ct.less_equal(lhs, eps_default * rhs, as_dtype=as_dtype).all()
 
-    @pytest.fixture
-    def _transform_cArray(
-        self,
-        transform_x,
-        transform_z,
-        transform_sign,
-    ) -> np.ndarray:
-        # Ground-truth LinOp A: \bC^{M} -> \bC^{N} which encodes the type-3 transform.
-        A = np.exp(1j * transform_sign * transform_z @ transform_x.T)  # (N, M)
-        return A
-
-    # Fixtures from conftest.LinOpT -------------------------------------------
     @pytest.fixture(
         params=itertools.product(
-            [
-                pxd.NDArrayInfo.NUMPY,
-                pxd.NDArrayInfo.DASK,
-            ],
-            pxrt.Width,
+            pxd.NDArrayInfo,
+            pxrt.CWidth,
         )
     )
     def spec(
         self,
-        transform_x,
-        transform_z,
-        transform_sign,
-        transform_eps,
-        transform_real,
-        transform_ntrans,
-        transform_nthreads,
-        transform_modeord,
+        x_spec,
+        v_spec,
+        isign,
+        upsampfac,
+        chunked,
         request,
-    ):
+    ) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
-        xp, dtype = ndi.module(), width.value
-        with pxrt.Precision(width):
-            op = pxo.NUFFT.type3(
-                x=xp.array(transform_x, dtype=dtype),
-                z=xp.array(transform_z, dtype=dtype),
-                isign=transform_sign,
-                eps=transform_eps,
-                real=transform_real,
+        self._skip_if_unsupported(ndi)
+
+        xp = ndi.module()
+        x_spec = ct.chunk_array(
+            xp.array(
+                x_spec,
+                dtype=width.real.value,
+            ),
+            # `x` is not a complex view, but its last axis cannot be chunked.
+            # [See UniformSpread() as to why.]
+            # We emulate this by setting `complex_view=True`.
+            complex_view=True,
+        )
+        v_spec = ct.chunk_array(
+            xp.array(
+                v_spec,
+                dtype=width.real.value,
+            ),
+            # `v` is not a complex view, but its last axis cannot be chunked.
+            # [See UniformSpread() as to why.]
+            # We emulate this by setting `complex_view=True`.
+            complex_view=True,
+        )
+
+        with pxrt.Precision(width.real):
+            op = pxo.NUFFT3(
+                x=x_spec,
+                v=v_spec,
+                isign=isign,
+                eps=1e-9,  # tested manually -> works
+                spp=None,  # tested manually -> works
+                upsampfac=upsampfac,
+                chunked=chunked,
+                domain="xv",  # if 'xv' works, then so should ('x', 'v')
+                max_fft_mem=1e-3,  # to force chunking when enabled
                 enable_warnings=False,
-                n_trans=transform_ntrans,
-                nthreads=transform_nthreads,
-                modeord=transform_modeord,
             )
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(
-        self,
-        transform_x,
-        transform_z,
-        transform_real,
-    ):
-        dim = len(transform_x) * (1 if transform_real else 2)
-        codim = 2 * len(transform_z)
-        return (codim, dim)
+    def dim_shape(self, x_spec) -> pxt.NDArrayShape:
+        # size of inputs, and not the transform dimensions!
+        return (len(x_spec), 2)
+
+    @pytest.fixture
+    def codim_shape(self, v_spec) -> pxt.NDArrayShape:
+        return (len(v_spec), 2)
 
     @pytest.fixture
     def data_apply(
         self,
-        _transform_cArray,
-        transform_real,
-    ):
-        N, M = _transform_cArray.shape
+        x_spec,
+        v_spec,
+        isign,
+    ) -> conftest.DataLike:
+        M = len(x_spec)
+        w = self._random_array((M,)) + 1j * self._random_array((M,))
 
-        rng = np.random.default_rng(3)
-        w = rng.normal(size=(M,)) + 1j * rng.normal(size=(M,))
-        if transform_real:
-            w = w.real
-        v = _transform_cArray @ w
+        A = np.exp((isign * 2j * np.pi) * (v_spec @ x_spec.T))  # (N, M)
+        z = A @ w  # (N,)
 
         return dict(
-            in_=dict(arr=w if transform_real else pxu.view_as_real(w)),
-            out=pxu.view_as_real(v),
+            in_=dict(arr=pxu.view_as_real(w)),
+            out=pxu.view_as_real(z),
         )
 
-
-class TestNUFFT3Chunked(TestNUFFT3):
-    # (Extra) Fixtures which parametrize operator -----------------------------
-    @pytest.fixture(params=[True, False])
-    def transform_parallel(self, request) -> bool:
+    # Fixtures (internal) -----------------------------------------------------
+    @pytest.fixture(params=[1, 3])
+    def space_dim(self, request) -> int:
+        # space dimension D
         return request.param
 
-    # Fixtures from conftest.LinOpT -------------------------------------------
-    @pytest.fixture(
-        params=itertools.product(
-            [
-                pxd.NDArrayInfo.NUMPY,
-                pxd.NDArrayInfo.DASK,
-            ],
-            pxrt.Width,
-        )
-    )
-    def spec(
-        self,
-        transform_x,
-        transform_z,
-        transform_sign,
-        transform_eps,
-        transform_real,
-        transform_ntrans,
-        transform_nthreads,
-        transform_modeord,
-        transform_parallel,
-        request,
-    ):
-        ndi, width = request.param
-        xp, dtype = ndi.module(), width.value
-        with pxrt.Precision(width):
-            op = pxo.NUFFT.type3(
-                x=xp.array(transform_x, dtype=dtype),
-                z=xp.array(transform_z, dtype=dtype),
-                isign=transform_sign,
-                eps=transform_eps,
-                real=transform_real,
-                enable_warnings=False,
-                n_trans=transform_ntrans,
-                nthreads=transform_nthreads,
-                modeord=transform_modeord,
-                chunked=True,
-                parallel=transform_parallel,
-            )
+    @pytest.fixture
+    def x_spec(self, space_dim) -> np.ndarray:
+        # (M, D) canonical point cloud [NUMPY]
+        M = 150
+        rng = np.random.default_rng()
 
-            # Extra initialization steps for chunked transforms
-            x_chunks, z_chunks = op.auto_chunk()
-            op.allocate(x_chunks, z_chunks)
-        return op, ndi, width
+        x = rng.uniform(-1, 1, size=(M, space_dim))
+        return x
+
+    @pytest.fixture
+    def v_spec(self, space_dim) -> np.ndarray:
+        # (N, D) canonical point cloud [NUMPY]
+        N = 151
+        rng = np.random.default_rng()
+
+        v = rng.uniform(-1, 1, size=(N, space_dim))
+        return v
+
+    @pytest.fixture(params=[1, -1])
+    def isign(self, request) -> int:
+        return request.param
+
+    @pytest.fixture(params=[1.25, 2])
+    def upsampfac(self, space_dim, request) -> np.ndarray:
+        # We force upsampfac to be slightly different per dimension
+        base = request.param
+
+        rng = np.random.default_rng()
+        extra = rng.uniform(0.1, 0.5, size=space_dim)
+
+        upsampfac = base + extra
+        return upsampfac
+
+    @pytest.fixture(params=[True, False])
+    def chunked(self, request) -> bool:
+        # Perform chunked evaluation
+        return request.param
+
+    # Tests -------------------------------------------------------------------
