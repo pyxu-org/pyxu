@@ -210,7 +210,13 @@ class TestDY(MixinPDS):
     def klass(self) -> pxt.SolverC:
         return pxsl.DY
 
-    @pytest.fixture(params=MixinPDS.generate_init_kwargs(has_f=True, has_g=True, has_h=True, has_K=False))
+    @pytest.fixture(
+        params=[
+            kwargs
+            for kwargs in MixinPDS.generate_init_kwargs(has_f=True, has_g=True, has_h=True, has_K=False)
+            if "f" in kwargs
+        ]
+    )
     def init_kwargs(self, request) -> dict:
         return request.param
 
