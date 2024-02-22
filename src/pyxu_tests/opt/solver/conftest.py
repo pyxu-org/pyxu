@@ -453,7 +453,7 @@ class SolverT(ct.DisableTestMixin):
 
         solver.fit(**self.as_early_stop(kwargs_fit))
 
-        disk = np.load(solver.datafile)
+        disk = pxu.load_zarr(solver.datafile)
         data_disk = {k: v for (k, v) in disk.items() if k != "history"}
         hist_disk = disk["history"]
         data_mem, hist_mem = solver.stats()
@@ -472,7 +472,7 @@ class SolverT(ct.DisableTestMixin):
         with pxrt.Precision(width):
             solver.fit(**self.as_early_stop(kwargs_fit))
 
-            disk = np.load(solver.datafile)
+            disk = pxu.load_zarr(solver.datafile)
             data_disk = {k: v for (k, v) in disk.items() if k != "history"}
             data_mem, _ = solver.stats()
 
