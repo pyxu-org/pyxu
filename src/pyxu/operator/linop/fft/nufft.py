@@ -63,10 +63,11 @@ class NUFFT1(pxa.LinOp):
 
     .. rubric:: Implementation Notes
 
-    * :py:func:`~pyxu.operator.NUFFT1` instances are **not arraymodule-agnostic**: they will only work with NDArrays
-      belonging to the same array module as `x`.
     * :py:class:`~pyxu.operator.NUFFT1` is not **precision-agnostic**: it will only work on NDArrays with the
       same dtype as `x`.  A warning is emitted if inputs must be cast to the support dtype.
+    * :py:class:`~pyxu.operator.NUFFT1` instances are **not arraymodule-agnostic**: they will only work with NDArrays
+      belonging to the same array module as `x`. Currently only NUMPY/DASK backends are supported (because
+      :py:class:`~pyxu.operator.UniformSpread` is NUMPY/DASK-limited as of 2024.02.)
     """
 
     def __init__(
@@ -115,7 +116,7 @@ class NUFFT1(pxa.LinOp):
             kwargs forwarded to :py:class:`~pyxu.operator.UniformSpread`.
         """
         # Put all variables in canonical form & validate ----------------------
-        #   x: (M, D) array (NUMPY/CUPY/DASK)
+        #   x: (M, D) array (NUMPY/DASK)
         #   N: (D,) int
         #   isign: {-1, +1}
         #   eps: float
@@ -161,6 +162,11 @@ class NUFFT1(pxa.LinOp):
         self._enable_warnings = bool(enable_warnings)
         self.lipschitz = np.sqrt(self.cfg.L.prod() * M)
         self._init_ops(fft_kwargs, spread_kwargs)
+
+        ndi = pxd.NDArrayInfo.from_obj(self._x)
+        if ndi == pxd.NDArrayInfo.CUPY:
+            # [2024.02] CUPY not supported until UniformSpread() gains CUPY-compatibility.
+            raise NotImplementedError
 
     @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
@@ -534,10 +540,11 @@ def NUFFT2(
 
     .. rubric:: Implementation Notes
 
-    * :py:func:`~pyxu.operator.NUFFT2` instances are **not arraymodule-agnostic**: they will only work with NDArrays
-      belonging to the same array module as `x`.
     * :py:func:`~pyxu.operator.NUFFT2` is not **precision-agnostic**: it will only work on NDArrays with the
       same dtype as `x`.  A warning is emitted if inputs must be cast to the support dtype.
+    * :py:func:`~pyxu.operator.NUFFT2` instances are **not arraymodule-agnostic**: they will only work with NDArrays
+      belonging to the same array module as `x`. Currently only NUMPY/DASK backends are supported (because
+      :py:class:`~pyxu.operator.UniformSpread` is NUMPY/DASK-limited as of 2024.02.)
 
 
     Parameters
