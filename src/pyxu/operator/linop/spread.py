@@ -1,11 +1,11 @@
 import collections
 import collections.abc as cabc
 import concurrent.futures as cf
-import itertools
+import string
+import threading
 import warnings
 
 import numpy as np
-import opt_einsum as oe
 
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
@@ -56,16 +56,16 @@ class UniformSpread(pxa.LinOp):
 
     .. rubric:: Implementation Notes
 
-    * Spread/interpolation are performed efficiently via the algorithm described in [FINUFFT]_, i.e. partition
-      :math:`\{\mathbf{x}_{m}\}` into sub-grids, spread onto each sub-grid, then add the results to the global grid.
-    * The domain is partitioned using a kd-tree from SciPy. The SciPy implementation is CPU-only however, so building
-      the data structure will induce a device -> host -> device transfer.
-    * The kd-tree is built at init-time only when `x` is a NUMPY/CUPY array.
-      For DASK arrays, the tree is built online on subsets of the data to be spreaded.
-    * :py:class:`~pyxu.operator.UniformSpread` instances are **not arraymodule-agnostic**: they will only work with
-      NDArrays belonging to the same array module as `x`.
     * :py:class:`~pyxu.operator.UniformSpread` is not **precision-agnostic**: it will only work on NDArrays with the
       same dtype as `x`.  A warning is emitted if inputs must be cast to the support dtype.
+    * :py:class:`~pyxu.operator.UniformSpread` instances are **not arraymodule-agnostic**: they will only work with
+      NDArrays belonging to the same array module as `x`. Only NUMPY/DASK backends are currently supported.
+    * Spread/interpolation are performed efficiently via the algorithm described in [FINUFFT]_, i.e. partition
+      :math:`\{\mathbf{x}_{m}\}` into sub-grids, spread onto each sub-grid, then add the results to the global grid.
+      This approach works best when the kernel is *localized*. For kernels with huge support (w.r.t the full grid), spreading via a tensor contraction is preferable.
+    * The domain is partitioned using a kd-tree from SciPy.
+    * The kd-tree is built at init-time only when `x` is a NUMPY array.
+      For DASK arrays, the tree is built online on subsets of the data to be spreaded.
 
     """
 
@@ -127,24 +127,27 @@ class UniformSpread(pxa.LinOp):
             Extra kwargs passed to ``UniformSpread._build_info()``.
             Supported parameters are:
 
-                * max_cluster_size: int
+                * max_cluster_size: int = 10_000
                     Maximum number of support points per sub-grid/cluster.
 
-                * max_window_ratio: float
+                * max_window_ratio: float = 100
                     Maximum size of the sub-grids, expressed as multiples of the kernel's support.
 
             Default values are chosen if unspecified.
 
             Some guidelines to set these parameters:
 
-                * The pair (`max_window_ratio`, `max_cluster_size`) determines the maximum memory requirements per sub-grid.
+                * The pair (`max_window_ratio`, `max_cluster_size`) determines the maximum memory requirements per
+                  sub-grid.
                 * Sub-grids are processed in parallel.
                 * `max_cluster_size` should be chosen large enough for there to be meaningful work done by each thread.
                   If chosen too small, then many sub-grids need to be written to the global grid, which may introduce
                   overheads.
+                * `max_window_ratio` should be chosen based on the point distribution. Set it to `inf` if only cluster
+                  size matters.
         """
         # Put all internal variables in canonical form ------------------------
-        #   x: (M, D) array (NUMPY/CUPY/DASK)
+        #   x: (M, D) array (NUMPY/DASK)
         #   z: start: (D,)-float,
         #      stop : (D,)-float,
         #      num  : (D,)-int,
@@ -175,7 +178,7 @@ class UniformSpread(pxa.LinOp):
 
         kwargs = {
             "max_cluster_size": kwargs.get("max_cluster_size", 10_000),
-            "max_window_ratio": kwargs.get("max_window_ratio", 10),
+            "max_window_ratio": kwargs.get("max_window_ratio", 100),
         }
         assert kwargs["max_cluster_size"] > 0
         assert kwargs["max_window_ratio"] >= 3
@@ -196,7 +199,15 @@ class UniformSpread(pxa.LinOp):
         if ndi == pxd.NDArrayInfo.DASK:
             # Built at runtime, so just validate chunk structure of `x`.
             assert self._x.chunks[1] == (D,), "[x] Chunking along last dimension unsupported."
-        else:
+        elif ndi == pxd.NDArrayInfo.CUPY:
+            raise NotImplementedError
+        else:  # NUMPY
+            # Compile low-level spread/interp kernels.
+            code = self._gen_code(dim_rank=D, dtype=self._x.dtype)
+            exec(code, locals())
+            self._nb_spread = eval("f_spread")
+            self._nb_interpolate = eval("f_interpolate")
+
             self._cluster_info = self._build_info(
                 x=self._x,
                 z=self._z,
@@ -288,23 +299,15 @@ class UniformSpread(pxa.LinOp):
                 meta=self._x._meta,
             )
             out = parts.sum(axis=-1)  # (..., N1,...,ND)
-        else:  # NUMPY/CUPY
-            # 1) Spread each cluster onto its own sub-grid.
-            with cf.ThreadPoolExecutor() as executor:
-                func = lambda cl: self._spread(w=arr, cluster_info=cl)
-                parts = executor.map(func, self._cluster_info)
-
-            # 2) Add sub-grids to the global grid.
+        else:  # NUMPY
+            # Spread each cluster onto its own sub-grid, then add to global grid.
             out = xp.zeros((*sh, *self.codim_shape), dtype=arr.dtype)
-            for v, cl in zip(parts, self._cluster_info):
-                select = tuple(
-                    slice(a, a + n)
-                    for (a, n) in zip(
-                        cl["z_anchor"],
-                        cl["z_num"],
-                    )
-                )
-                out[..., *select] += v
+            lock = threading.Lock()
+            with cf.ThreadPoolExecutor() as executor:
+                func = lambda idx: self._spread(w=arr, out=out, out_lock=lock, cl_idx=idx)
+                parts = executor.map(func, self._cluster_info.keys())
+                for _ in parts:
+                    pass  # guarantee all sub-grids have been written
         return out
 
     @pxrt.enforce_precision(i="arr")
@@ -380,17 +383,14 @@ class UniformSpread(pxa.LinOp):
                 meta=self._x._meta,
             )
             out = parts.sum(axis=tuple(range(-self.codim_rank, 0)))  # (..., M)
-        else:  # NUMPY/CUPY
-            # 1) Interpolate each sub-grid onto support points within.
-            with cf.ThreadPoolExecutor() as executor:
-                func = lambda cl: self._interpolate(v=arr, cluster_info=cl)
-                parts = executor.map(func, self._cluster_info)
-
-            # 2) Re-order/merge support points.
+        else:  # NUMPY
+            # Interpolate each sub-grid onto support points within.
             out = xp.zeros((*sh, self.dim_size), dtype=arr.dtype)
-            for w, cl in zip(parts, self._cluster_info):
-                select = cl["x_idx"]
-                out[..., select] = w
+            with cf.ThreadPoolExecutor() as executor:
+                func = lambda idx: self._interpolate(v=arr, out=out, cl_idx=idx)
+                parts = executor.map(func, self._cluster_info.keys())
+                for _ in parts:
+                    pass  # guarantee all sub-grids have been interpolated
         return out
 
     def asarray(self, **kwargs) -> pxt.NDArray:
@@ -446,19 +446,17 @@ class UniformSpread(pxa.LinOp):
         z: dict,
         kernel: tuple[pxt.OpT],
         **kwargs,
-    ) -> tuple[dict]:
+    ) -> dict[int, dict]:
         # Build acceleration metadata.
         #
         # * Partitions the support points into Q clusters.
         # * Identifies the sub-grids onto which each cluster is spread.
         #
-        # Metadata is built on the CPU. If `x` was a CUPY array, a device->host->device
-        # transfer will take place.
         #
         # Parameters
         # ----------
-        # x: NDArray
-        #     (M, D) support points. [NUMPY/CUPY-only]
+        # x: NDArray [NUMPY]
+        #     (M, D) support points.
         # z: dict
         #     Lattice (start, stop, num) specifier.
         # kernel: tuple[OpT]
@@ -468,19 +466,15 @@ class UniformSpread(pxa.LinOp):
         #
         # Returns
         # -------
-        # info: tuple[dict]
+        # info: dict[int, dict]
         #     (Q,) cluster metadata, with fields:
         #
-        #     * x_idx: NDArray[int] (NUMPY/CUPY)
+        #     * x_idx: NDArray[int] (NUMPY)
         #         (Mq,) indices into `x` which identify support points participating in q-th sub-grid.
         #     * z_anchor: tuple[int]
         #         (D,) lower-left coordinate of the sub-grid w.r.t. global grid.
         #     * z_num: tuple[int]
         #         (D,) sub-grid size in each direction.
-
-        # Process via NUMPY. (scipy.spatial.KDTree limitation.)
-        ndi = pxd.NDArrayInfo.from_obj(x)
-        x_orig, x = x, pxu.to_NUMPY(x)
 
         # Get kernel/lattice parameters.
         s = np.array([k.support() for k in kernel])
@@ -495,7 +489,7 @@ class UniformSpread(pxa.LinOp):
 
         # Quick exit if no support points.
         if len(x) == 0:
-            return tuple()
+            return dict()
 
         # Group support points into clusters to match max window size.
         max_window_ratio = kwargs.get("max_window_ratio")
@@ -506,7 +500,7 @@ class UniformSpread(pxa.LinOp):
         N_max = kwargs.get("max_cluster_size")
         clusters = pxm_cl.bisect_cluster(x, clusters, N_max)
 
-        # Gather metadata per cluster.
+        # 1. Gather metadata per cluster (/w locks)
         info = collections.defaultdict(dict)
         for c_idx, x_idx in clusters.items():
             # 1) Compute off-grid lattice boundaries after spreading.
@@ -527,17 +521,15 @@ class UniformSpread(pxa.LinOp):
             UR_idx = np.fmin(UR_idx, N - 1).astype(int)
 
             info[c_idx]["x_idx"] = active2global[x_idx]  # indices w.r.t input `x`
-            info[c_idx]["z_anchor"] = tuple(LL_idx)
-            info[c_idx]["z_num"] = tuple(UR_idx - LL_idx + 1)
+            info[c_idx]["z_anchor"] = LL_idx
+            info[c_idx]["z_num"] = UR_idx - LL_idx + 1
 
-        # Transfer to GPU, if required.
-        if ndi == pxd.NDArrayInfo.CUPY:
-            xp = ndi.module()
-            with xp.cuda.Device(x_orig.device):
-                for cl in info.values():
-                    cl["x_idx"] = xp.asarray(cl["x_idx"])
+        # 3. Cast metadata to match docstring
+        for cl in info.values():
+            cl["z_anchor"] = tuple(cl["z_anchor"])
+            cl["z_num"] = tuple(cl["z_num"])
 
-        return tuple(info.values())
+        return info
 
     def _lattice(
         self,
@@ -583,56 +575,63 @@ class UniformSpread(pxa.LinOp):
             )
         return lattice
 
-    def _spread(self, w: pxt.NDArray, cluster_info: dict) -> pxt.NDArray:
-        # Spread (support, weight) pairs onto sub-lattice of specific cluster.
+    def _spread(
+        self,
+        w: pxt.NDArray,
+        out: pxt.NDArray,
+        out_lock: threading.Lock,
+        cl_idx: int,
+    ) -> None:
+        # Spread (support, weight) pairs onto sub-lattice of specific cluster, then add to global lattice.
         #
         # Parameters
         # ----------
         # w: NDArray[float]
-        #     (..., M) support weights. [NUMPY/CUPY]
-        # cluster_info: dict
-        #     Cluster's metadata from _build_info().
-        #
-        # Returns
-        # -------
-        # v: NDArray[float]
-        #     (..., S1,...,SD) sub-lattice weights.
+        #     (..., M) support weights. [NUMPY]
+        # out: NDArray[float]
+        #     (..., N1,...,ND) pre-allocated buffer in which to store the result.
+        # out_lock: Lock
+        #     Synchronization primitive to perform atomic writes to `out`.
+        # cl_idx: int
+        #     Cluster identifier from _build_info().
         xp = pxu.get_array_module(w)
+        dtype = w.dtype
+        cl_info = self._cluster_info[cl_idx]
 
         # Build lattice mesh on RoI
         roi = [
             slice(n0, n0 + num)
             for (n0, num) in zip(
-                cluster_info["z_anchor"],
-                cluster_info["z_num"],
+                cl_info["z_anchor"],
+                cl_info["z_num"],
             )
         ]
-        lattice = self._lattice(xp, w.dtype, roi)  # (S1,),...,(SD,)
+        lattice = self._lattice(xp, dtype, roi)  # (S1,),...,(SD,)
 
         # Sub-sample (x, w)
-        x_idx = cluster_info["x_idx"]  # (Mq,)
+        x_idx = cl_info["x_idx"]  # (Mq,)
         x = self._x[x_idx]  # (Mq, D)
         w = w[..., x_idx]  # (..., Mq)
 
         # Evaluate 1D kernel weights per support point
-        D = len(self._kernel)
-        K_args = itertools.chain.from_iterable(
-            # equivalent to (K[0], K_ind[0], ..., K[D-1], K_ind[D-1])
-            zip(
-                [self._kernel[d](lattice[d] - x[:, [d]]) for d in range(D)],  # K: (Mq, S1),...,(Mq, SD)
-                [(D, idx) for idx in range(D)],  # K_ind
-            )
+        Mq, D = x.shape
+        S = cl_info["z_num"]  # (S1,...,SD)
+        kernel = xp.zeros((Mq, D, max(S)), dtype=dtype)  # (Mq, D, S_max)
+        for d in range(D):
+            kernel[:, d, : S[d]] = self._kernel[d](lattice[d] - x[:, [d]])
+
+        # Spread onto sub-lattice
+        v = xp.zeros((*w.shape[:-1], *S), dtype=dtype)  # (..., S1,...,SD)
+        self._nb_spread(
+            w=w.reshape(-1, Mq),
+            kernel=kernel,
+            out=v.reshape(-1, *S),
         )
 
-        # Spread onto lattice
-        v = oe.contract(
-            *(w, [Ellipsis, D]),
-            *list(K_args),
-            [Ellipsis, *range(D)],
-            use_blas=True,
-            optimize="auto",
-        )
-        return v
+        # Writeback sub-lattice to global grid
+        with out_lock:
+            out[..., *roi] += v
+        return None
 
     def _blockwise_spread(self, x: pxt.NDArray, w: pxt.NDArray, z_spec: pxt.NDArray) -> pxt.NDArray:
         # Spread (support, weight) pairs onto sub-lattice.
@@ -640,9 +639,9 @@ class UniformSpread(pxa.LinOp):
         # Parameters
         # ----------
         # x: NDArray[float]
-        #     (Mq, D) support points. [NUMPY/CUPY]
+        #     (Mq, D) support points. [NUMPY]
         # w: NDArray[float]
-        #     (..., Mq) support weights. [NUMPY/CUPY]
+        #     (..., Mq) support weights. [NUMPY]
         # z_spec: NDArray[float]
         #     (<D 1s>, D, 2) start/stop lattice bounds per dimension.
         #     This parameter is identical to _lattice()'s `roi` parameter, but in array form.
@@ -678,56 +677,53 @@ class UniformSpread(pxa.LinOp):
         v = op.apply(w)  # (..., S1,...,SD)
         return v[..., np.newaxis]
 
-    def _interpolate(self, v: pxt.NDArray, cluster_info: dict) -> pxt.NDArray:
+    def _interpolate(self, v: pxt.NDArray, out: pxt.NDArray, cl_idx: int) -> None:
         # Interpolate (lattice, weight) pairs onto support points within cluster.
         #
         # Parameters
         # ----------
         # v: NDArray[float]
-        #     (..., N1,...,ND) lattice weights. [NUMPY/CUPY]
-        # cluster_info: dict
-        #     Cluster's metadata from _build_info().
-        #
-        # Returns
-        # -------
-        # w: NDArray[float]
-        #     (..., Mq) cluster support weights.
+        #     (..., N1,...,ND) lattice weights. [NUMPY]
+        # out: NDArray[float]
+        #     (..., M) pre-allocated buffer in which to store the result.
+        # cl_idx: int
+        #     Cluster identifier from _build_info().
         xp = pxu.get_array_module(v)
+        dtype = v.dtype
+        cl_info = self._cluster_info[cl_idx]
 
         # Build lattice mesh on RoI
         roi = [
             slice(n0, n0 + num)
             for (n0, num) in zip(
-                cluster_info["z_anchor"],
-                cluster_info["z_num"],
+                cl_info["z_anchor"],
+                cl_info["z_num"],
             )
         ]
-        lattice = self._lattice(xp, v.dtype, roi)  # (S1,),...,(SD,)
+        lattice = self._lattice(xp, dtype, roi)  # (S1,),...,(SD,)
 
         # Sub-sample (x, v)
-        x_idx = cluster_info["x_idx"]  # (Mq,)
+        x_idx = cl_info["x_idx"]  # (Mq,)
         x = self._x[x_idx]  # (Mq, D)
         v = v[..., *roi]  # (..., S1,...,SD)
 
         # Evaluate 1D kernel weights per support point
-        D = len(self._kernel)
-        K_args = itertools.chain.from_iterable(
-            # equivalent to (K[0], K_ind[0], ..., K[D-1], K_ind[D-1])
-            zip(
-                [self._kernel[d](lattice[d] - x[:, [d]]) for d in range(D)],  # K: (Mq, S1),...,(Mq, SD)
-                [(D, idx) for idx in range(D)],  # K_ind
-            )
-        )
+        Mq, D = x.shape
+        S = cl_info["z_num"]  # (S1,...,SD)
+        kernel = xp.zeros((Mq, D, max(S)), dtype=dtype)  # (Mq, D, S_max)
+        for d in range(D):
+            kernel[:, d, : S[d]] = self._kernel[d](lattice[d] - x[:, [d]])
 
         # Interpolate onto support points
-        w = oe.contract(
-            *(v, [Ellipsis, *range(D)]),
-            *list(K_args),
-            [Ellipsis, D],
-            use_blas=True,
-            optimize="auto",
+        w = xp.zeros((*v.shape[:-D], Mq), dtype=dtype)  # (..., Mq)
+        self._nb_interpolate(
+            v=v.reshape(-1, *S),
+            kernel=kernel,
+            out=w.reshape(-1, Mq),
         )
-        return w
+
+        out[..., x_idx] = w
+        return None
 
     def _blockwise_interpolate(self, x: pxt.NDArray, v: pxt.NDArray, z_spec: pxt.NDArray) -> pxt.NDArray:
         # Spread (lattice, weight) pairs onto support points.
@@ -735,9 +731,9 @@ class UniformSpread(pxa.LinOp):
         # Parameters
         # ----------
         # x: NDArray[float]
-        #     (Mq, D) support points. [NUMPY/CUPY]
+        #     (Mq, D) support points. [NUMPY]
         # v: NDArray[float]
-        #     (..., S1,...,SD) lattice weights. [NUMPY/CUPY]
+        #     (..., S1,...,SD) lattice weights. [NUMPY]
         # z_spec: NDArray[float]
         #     (<D 1s>, D, 2) start/stop lattice bounds per dimension.
         #     This parameter is identical to _lattice()'s `roi` parameter, but in array form.
@@ -774,3 +770,133 @@ class UniformSpread(pxa.LinOp):
 
         expand = (np.newaxis,) * self.codim_rank
         return w[..., *expand]
+
+    @staticmethod
+    def _gen_code(dim_rank: int, dtype: pxt.DType) -> str:
+        # Given the dimension rank D, generate Numba kernel codes used in _[spread,interpolate]():
+        #
+        # * void f_spread(w: (Ns, M), kernel: (M, D, S_max), out: (Ns, S1,...,SD))
+        # * void f_interpolate(v: (Ns, S1,...,SD), kernel: (M, D, S_max), out: (Ns, M))
+        template = string.Template(
+            r"""
+import numba as nb
+import numpy as np
+
+f_flags = dict(
+    nopython=True,
+    nogil=True,
+    cache=False,  # not applicable to dynamically-defined functions (https://github.com/numba/numba/issues/3501)
+    forceobj=False,
+    parallel=False,
+    error_model="numpy",
+    fastmath=True,
+    locals={},
+    boundscheck=False,
+)
+
+@nb.jit(**f_flags)
+def find_bounds(x: np.ndarray[float]) -> tuple[int, int]:
+    # Parameters:
+    #     x: (N,)
+    # Returns
+    #     a, b: indices s.t. x[a:b] contains the non-zero segment of `x`.
+    N = len(x)
+    a, a_found = N, False
+    b, b_found = N, False
+    for i in range(N):
+        lhs, rhs = x[i], x[N - 1 - i]
+        if (not a_found) and (abs(lhs) > 0):
+            a, a_found = i, True
+        if (not b_found) and (abs(rhs) > 0):
+            b, b_found = N - i, True
+        if a_found and b_found:  # early exit
+            return a, b
+    return a, b
+
+@nb.jit(
+    "${signature_spread}",
+    **f_flags,
+)
+def f_spread(
+    w: np.ndarray[float],  # (Ns, M)
+    kernel: np.ndarray[float],  # (M, D, S_max)
+    out: np.ndarray[float],  # (Ns, S1,...,SD)
+):
+    Ns, M = w.shape
+    S = out.shape[1:]
+    D = len(S)
+
+    lb = np.zeros(D, dtype=np.int64)
+    ub = np.zeros(D, dtype=np.int64)
+    for m in range(M):
+        for d in range(D):
+            lb[d], ub[d] = find_bounds(kernel[m, d, : S[d]])
+
+        support = ${support}
+        for offset in np.ndindex(support):
+            idx = ${idx}
+
+            # Compute kernel weight
+            k = 1
+            for d in range(D):
+                k *= kernel[m, d, idx[d]]
+
+            # Spread onto lattice
+            for ns in range(Ns):
+                out[ns, *idx] += k * w[ns, m]
+
+@nb.jit(
+    "${signature_interpolate}",
+    **f_flags,
+)
+def f_interpolate(
+    v: np.ndarray[float],  # (Ns, S1,...,SD)
+    kernel: np.ndarray[float],  # (M, D, S_max)
+    out: np.ndarray[float],  # (Ns, M)
+):
+    Ns, M = out.shape
+    S = v.shape[1:]
+    D = len(S)
+
+    lb = np.zeros(D, dtype=np.int64)
+    ub = np.zeros(D, dtype=np.int64)
+    for m in range(M):
+        for d in range(D):
+            lb[d], ub[d] = find_bounds(kernel[m, d, : S[d]])
+
+        support = ${support}
+        for offset in np.ndindex(support):
+            idx = ${idx}
+
+            # Compute kernel weight
+            k = 1
+            for d in range(D):
+                k *= kernel[m, d, idx[d]]
+
+            # Spread onto support point
+            for ns in range(Ns):
+                out[ns, m] += k * v[ns, *idx]
+
+"""
+        )
+
+        width = pxrt.Width(dtype)
+        _type = {
+            pxrt.Width.SINGLE: "float32",
+            pxrt.Width.DOUBLE: "float64",
+        }[width]
+        sig_w_sp = _type + "[:,:]"
+        sig_v_sp = _type + "[" + (":," * dim_rank) + "::1]"
+        sig_kernel = _type + "[:,:,::1]"
+        sig_v_int = _type + "[" + (":," * dim_rank) + ":]"
+        sig_w_int = _type + "[:,::1]"
+        support = ",".join([f"ub[{d}] - lb[{d}]" for d in range(dim_rank)])
+        idx = ",".join([f"lb[{d}] + offset[{d}]" for d in range(dim_rank)])
+
+        code = template.substitute(
+            signature_spread=f"void({sig_w_sp},{sig_kernel},{sig_v_sp})",
+            signature_interpolate=f"void({sig_v_int},{sig_kernel},{sig_w_int})",
+            support="(" + support + ",)",
+            idx="(" + idx + ",)",
+        )
+        return code

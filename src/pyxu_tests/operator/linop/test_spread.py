@@ -23,7 +23,10 @@ class TestUniformSpread(conftest.LinOpT):
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture(
         params=itertools.product(
-            pxd.NDArrayInfo,
+            [
+                pxd.NDArrayInfo.NUMPY,
+                pxd.NDArrayInfo.DASK,
+            ],
             pxrt.Width,
         )
     )
