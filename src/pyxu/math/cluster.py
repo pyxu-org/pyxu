@@ -54,7 +54,7 @@ def grid_cluster(
 
     # Compute optimal bbox_[dim, count]
     x_spread = x_max - x_min
-    N_bbox = np.ceil(x_spread / bbox_dim).astype(int)
+    N_bbox = np.maximum(1, np.ceil(x_spread / bbox_dim)).astype(int)
     bbox_dim = x_spread / N_bbox
 
     # Rescale points to have equal spread in each dimension.
