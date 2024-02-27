@@ -143,7 +143,7 @@ class FFT(pxa.NormalOp):
 
             Supported parameters for :py:func:`scipy.fft.fftn` are:
 
-                * workers: int = 1
+                * workers: int = None
 
             Supported parameters for :py:func:`cupyx.scipy.fft.fftn` are:
 
@@ -164,7 +164,7 @@ class FFT(pxa.NormalOp):
 
         self._kwargs = {
             pxd.NDArrayInfo.NUMPY: dict(
-                workers=kwargs.get("workers", 1),
+                workers=kwargs.get("workers", None),
             ),
             pxd.NDArrayInfo.CUPY: dict(),
             pxd.NDArrayInfo.DASK: dict(),
