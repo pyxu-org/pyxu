@@ -34,7 +34,6 @@ class _PrimalDualSplitting(pxa.Solver):
         g: typ.Optional[pxa.ProxFunc] = None,
         h: typ.Optional[pxa.ProxFunc] = None,
         K: typ.Optional[pxa.DiffMap] = None,
-        beta: typ.Optional[pxt.Real] = None,
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
@@ -65,7 +64,6 @@ class _PrimalDualSplitting(pxa.Solver):
         self._f = pxo.NullFunc(dim_shape=primal_dim_shape) if (f is None) else f
         self._g = pxo.NullFunc(dim_shape=primal_dim_shape) if (g is None) else g
         self._h = pxo.NullFunc(dim_shape=dual_dim_shape) if (h is None) else h
-        self._beta = self._set_beta(beta)
         if h is not None:
             self._K = pxo.IdentityOp(dim_shape=h.dim_shape) if (K is None) else K
         else:
@@ -84,12 +82,14 @@ class _PrimalDualSplitting(pxa.Solver):
         tau: typ.Optional[pxt.Real] = None,
         sigma: typ.Optional[pxt.Real] = None,
         rho: typ.Optional[pxt.Real] = None,
+        beta: typ.Optional[pxt.Real] = None,
         tuning_strategy: TuningSpec = 1,
     ):
         mst = self._mstate  # shorthand
         mst["x"] = x0
         mst["z"] = self._set_dual_variable(z0)
         self._tuning_strategy = int(tuning_strategy)
+        self._beta = self._set_beta(beta)
         gamma = self._set_gamma(tuning_strategy)
         mst["tau"], mst["sigma"], delta = self._set_step_sizes(tau, sigma, gamma)
         mst["rho"] = self._set_momentum_term(rho, delta)
@@ -288,10 +288,6 @@ class CondatVu(_PrimalDualSplitting):
     * **K** (:py:class:`~pyxu.abc.DiffMap`, :py:class:`~pyxu.abc.LinOp`, :py:obj:`None`)
       --
       Differentiable map or linear operator :math:`\mathcal{K}`.
-    * **beta** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
-      --
-      Lipschitz constant :math:`\beta` of :math:`\nabla\mathcal{F}`.
-      If not provided, it will be automatically estimated.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
       Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
@@ -314,6 +310,10 @@ class CondatVu(_PrimalDualSplitting):
     * **rho** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
       --
       Momentum parameter.
+    * **beta** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
+      --
+      Lipschitz constant :math:`\beta` of :math:`\nabla\mathcal{F}`.
+      If not provided, it will be automatically estimated.
     * **tuning_strategy** (1, 2, 3)
       --
       Strategy to be employed when setting the hyperparameters (default to 1).
@@ -606,10 +606,6 @@ class PD3O(_PrimalDualSplitting):
     * **K** (:py:class:`~pyxu.abc.DiffMap`, :py:class:`~pyxu.abc.LinOp`, :py:obj:`None`)
       --
       Differentiable map or linear operator :math:`\mathcal{K}`.
-    * **beta** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
-      --
-      Lipschitz constant :math:`\beta` of :math:`\nabla\mathcal{F}`.
-      If not provided, it will be automatically estimated.
     * **\*\*kwargs** (:py:class:`~collections.abc.Mapping`)
       --
       Other keyword parameters passed on to :py:meth:`pyxu.abc.Solver.__init__`.
@@ -632,6 +628,10 @@ class PD3O(_PrimalDualSplitting):
     * **rho** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
       --
       Momentum parameter.
+    * **beta** (:py:attr:`~pyxu.info.ptype.Real`, :py:obj:`None`)
+      --
+      Lipschitz constant :math:`\beta` of :math:`\nabla\mathcal{F}`.
+      If not provided, it will be automatically estimated.
     * **tuning_strategy** (1, 2, 3)
       --
       Strategy to be employed when setting the hyperparameters (default to 1).
