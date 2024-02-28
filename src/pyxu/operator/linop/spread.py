@@ -215,7 +215,7 @@ class UniformSpread(pxa.LinOp):
             self._nb_spread = eval("f_spread")
             self._nb_interpolate = eval("f_interpolate")
 
-            self._cluster_info = self._build_info(
+            self._cl_info = self._build_info(
                 x=self._x,
                 z=self._z,
                 kernel=self._kernel,
@@ -312,7 +312,7 @@ class UniformSpread(pxa.LinOp):
             lock = threading.Lock()
             with cf.ThreadPoolExecutor(max_workers=self._kwargs["workers"]) as executor:
                 func = lambda idx: self._spread(w=arr, out=out, out_lock=lock, cl_idx=idx)
-                parts = executor.map(func, self._cluster_info.keys())
+                parts = executor.map(func, self._cl_info.keys())
                 for _ in parts:
                     pass  # guarantee all sub-grids have been written
         return out
@@ -395,7 +395,7 @@ class UniformSpread(pxa.LinOp):
             out = xp.zeros((*sh, self.dim_size), dtype=arr.dtype)
             with cf.ThreadPoolExecutor(max_workers=self._kwargs["workers"]) as executor:
                 func = lambda idx: self._interpolate(v=arr, out=out, cl_idx=idx)
-                parts = executor.map(func, self._cluster_info.keys())
+                parts = executor.map(func, self._cl_info.keys())
                 for _ in parts:
                     pass  # guarantee all sub-grids have been interpolated
         return out
@@ -603,7 +603,7 @@ class UniformSpread(pxa.LinOp):
         #     Cluster identifier from _build_info().
         xp = pxu.get_array_module(w)
         dtype = w.dtype
-        cl_info = self._cluster_info[cl_idx]
+        cl_info = self._cl_info[cl_idx]
 
         # Build lattice mesh on RoI
         roi = [
@@ -697,7 +697,7 @@ class UniformSpread(pxa.LinOp):
         #     Cluster identifier from _build_info().
         xp = pxu.get_array_module(v)
         dtype = v.dtype
-        cl_info = self._cluster_info[cl_idx]
+        cl_info = self._cl_info[cl_idx]
 
         # Build lattice mesh on RoI
         roi = [
