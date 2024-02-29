@@ -39,6 +39,7 @@ dependencies = [
     "opt-einsum >= 3.3.0, < 4",
     "packaging >= 23.1",
     "scipy >= 1.11, < 2",
+    "zarr" >= 2.16, < 2.18",
 ]
 
 # Optional dependencies =======================================================
