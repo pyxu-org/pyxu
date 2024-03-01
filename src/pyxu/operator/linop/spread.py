@@ -124,7 +124,7 @@ class UniformSpread(pxa.LinOp):
             If ``True``, emit a warning in case of precision mis-match issues.
 
         kwargs: dict
-            Extra kwargs passed to ``UniformSpread._build_info()``.
+            Extra kwargs to configure :py:class:`~pyxu.operator.UniformSpread`.
             Supported parameters are:
 
                 * max_cluster_size: int = 10_000
@@ -133,13 +133,19 @@ class UniformSpread(pxa.LinOp):
                 * max_window_ratio: float = 100
                     Maximum size of the sub-grids, expressed as multiples of the kernel's support.
 
+                * workers: int = 2 (# virtual cores)
+                    Number of threads used to spread sub-grids.
+                    Specifying `None` uses all cores.
+
             Default values are chosen if unspecified.
 
             Some guidelines to set these parameters:
 
                 * The pair (`max_window_ratio`, `max_cluster_size`) determines the maximum memory requirements per
                   sub-grid.
-                * Sub-grids are processed in parallel.
+                * `workers` sub-grids are processed in parallel.
+                  Due to the Python GIL, the speedup is not linear with the number of workers.
+                  Choosing a small value (ex 2-4) seems to offer the best parallel efficiency.
                 * `max_cluster_size` should be chosen large enough for there to be meaningful work done by each thread.
                   If chosen too small, then many sub-grids need to be written to the global grid, which may introduce
                   overheads.
@@ -179,6 +185,7 @@ class UniformSpread(pxa.LinOp):
         kwargs = {
             "max_cluster_size": kwargs.get("max_cluster_size", 10_000),
             "max_window_ratio": kwargs.get("max_window_ratio", 100),
+            "workers": kwargs.get("workers", 2),
         }
         assert kwargs["max_cluster_size"] > 0
         assert kwargs["max_window_ratio"] >= 3
@@ -303,7 +310,7 @@ class UniformSpread(pxa.LinOp):
             # Spread each cluster onto its own sub-grid, then add to global grid.
             out = xp.zeros((*sh, *self.codim_shape), dtype=arr.dtype)
             lock = threading.Lock()
-            with cf.ThreadPoolExecutor() as executor:
+            with cf.ThreadPoolExecutor(max_workers=self._kwargs["workers"]) as executor:
                 func = lambda idx: self._spread(w=arr, out=out, out_lock=lock, cl_idx=idx)
                 parts = executor.map(func, self._cluster_info.keys())
                 for _ in parts:
@@ -386,7 +393,7 @@ class UniformSpread(pxa.LinOp):
         else:  # NUMPY
             # Interpolate each sub-grid onto support points within.
             out = xp.zeros((*sh, self.dim_size), dtype=arr.dtype)
-            with cf.ThreadPoolExecutor() as executor:
+            with cf.ThreadPoolExecutor(max_workers=self._kwargs["workers"]) as executor:
                 func = lambda idx: self._interpolate(v=arr, out=out, cl_idx=idx)
                 parts = executor.map(func, self._cluster_info.keys())
                 for _ in parts:
