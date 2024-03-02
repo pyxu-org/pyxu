@@ -215,7 +215,7 @@ class UniformSpread(pxa.LinOp):
             self._nb_spread = eval("f_spread")
             self._nb_interpolate = eval("f_interpolate")
 
-            self._cl_info = self._build_info(
+            self._cl_info = self._build_cl_info(
                 x=self._x,
                 z=self._z,
                 kernel=self._kernel,
@@ -448,9 +448,9 @@ class UniformSpread(pxa.LinOp):
             return tuple(map(_type, _x))
 
     @staticmethod
-    def _build_info(
-        x: pxt.NDArray,
-        z: dict,
+    def _build_cl_info(
+        x: np.ndarray,
+        z: dict[str, tuple],
         kernel: tuple[pxt.OpT],
         **kwargs,
     ) -> dict[int, dict]:
@@ -459,12 +459,11 @@ class UniformSpread(pxa.LinOp):
         # * Partitions the support points into Q clusters.
         # * Identifies the sub-grids onto which each cluster is spread.
         #
-        #
         # Parameters
         # ----------
-        # x: NDArray [NUMPY]
+        # x: np.ndarray[float]
         #     (M, D) support points.
-        # z: dict
+        # z: dict[str, tuple]
         #     Lattice (start, stop, num) specifier.
         # kernel: tuple[OpT]
         #     (D,) axial kernels.
@@ -473,15 +472,19 @@ class UniformSpread(pxa.LinOp):
         #
         # Returns
         # -------
-        # info: dict[int, dict]
+        # info: dict[str, np.ndarray]
         #     (Q,) cluster metadata, with fields:
         #
-        #     * x_idx: NDArray[int] (NUMPY)
-        #         (Mq,) indices into `x` which identify support points participating in q-th sub-grid.
-        #     * z_anchor: tuple[int]
-        #         (D,) lower-left coordinate of the sub-grid w.r.t. global grid.
-        #     * z_num: tuple[int]
-        #         (D,) sub-grid size in each direction.
+        #     * x_idx: np.ndarray[int64]
+        #         (M,) indices to re-order `x` s.t. points in each cluster are sequential.
+        #         Its length may be smaller than M if points do not contribute to the lattice in any way.
+        #     * cl_bound: np.ndarray[int64]
+        #         (Q+1,) indices into `x_idx` indicating where the q-th cluster's support points start/end.
+        #         Cluster `q` contains support points `x[x_idx][cl_bound[q] : cl_bound[q+1]]`.
+        #     * z_anchor: np.ndarray[int64]
+        #         (Q, D) lower-left coordinate of each sub-grid w.r.t. the global grid.
+        #     * z_num: np.ndarray[int64]
+        #         (Q, D) sub-grid sizes.
 
         # Get kernel/lattice parameters.
         s = np.array([k.support() for k in kernel])
@@ -496,22 +499,31 @@ class UniformSpread(pxa.LinOp):
 
         # Quick exit if no support points.
         if len(x) == 0:
-            return dict()
+            factory = lambda: np.array([], dtype=np.int64)
+            return collections.defaultdict(factory)
 
         # Group support points into clusters to match max window size.
         max_window_ratio = kwargs.get("max_window_ratio")
         bbox_dim = (2 * s) * max_window_ratio
         clusters = pxm_cl.grid_cluster(x, bbox_dim)
 
-        # Recursively split clusters to match max cluster size limits.
+        # Recursively split clusters to match max cluster size.
         N_max = kwargs.get("max_cluster_size")
         clusters = pxm_cl.bisect_cluster(x, clusters, N_max)
 
-        # 1. Gather metadata per cluster (/w locks)
-        info = collections.defaultdict(dict)
-        for c_idx, x_idx in clusters.items():
+        # Gather metadata per cluster
+        M, D = x.shape
+        Q = len(clusters)
+        info = dict(
+            x_idx=np.zeros(M, dtype=np.int64),
+            cl_bound=np.full(Q + 1, fill_value=M, dtype=np.int64),
+            z_anchor=np.zeros((Q, D), dtype=np.int64),
+            z_num=np.zeros((Q, D), dtype=np.int64),
+        )
+        i = 0
+        for q, x_idx in enumerate(clusters.values()):
             # 1) Compute off-grid lattice boundaries after spreading.
-            _x = x[x_idx]
+            _x = x[x_idx]  # (Mq,)
             LL = _x.min(axis=0) - s  # lower-left lattice coordinate
             UR = _x.max(axis=0) + s  # upper-right lattice coordinate
 
@@ -527,14 +539,13 @@ class UniformSpread(pxa.LinOp):
             LL_idx = np.fmax(0, LL_idx).astype(int)
             UR_idx = np.fmin(UR_idx, N - 1).astype(int)
 
-            info[c_idx]["x_idx"] = active2global[x_idx]  # indices w.r.t input `x`
-            info[c_idx]["z_anchor"] = LL_idx
-            info[c_idx]["z_num"] = UR_idx - LL_idx + 1
-
-        # 3. Cast metadata to match docstring
-        for cl in info.values():
-            cl["z_anchor"] = tuple(cl["z_anchor"])
-            cl["z_num"] = tuple(cl["z_num"])
+            # 4) Store metadata
+            Mq = len(_x)
+            info["x_idx"][i : i + Mq] = active2global[x_idx]  # indices w.r.t input `x`
+            info["cl_bound"][q] = i
+            info["z_anchor"][q] = LL_idx
+            info["z_num"][q] = UR_idx - LL_idx + 1
+            i += Mq
 
         return info
 
