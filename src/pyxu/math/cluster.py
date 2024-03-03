@@ -22,8 +22,6 @@ def grid_cluster(
     Split D-dimensional points onto lattice-aligned clusters.
     Each cluster may contain arbitrary-many points.
 
-    The clustering takes place via a kd-tree.
-
     Parameters
     ----------
     x: ndarray[float]
@@ -46,49 +44,17 @@ def grid_cluster(
         clusters = {0: np.r_[0]}
         return clusters
 
-    # Center points around origin
-    x = x.copy()
-    x_min = x.min(axis=0)
-    x_max = x.max(axis=0)
-    x -= (x_min + x_max) / 2
+    # Compute (multi,flat) cluster index of each point
+    x_min, x_max = x.min(axis=0), x.max(axis=0)
+    lattice_shape = np.maximum(1, np.ceil((x_max - x_min) / bbox_dim)).astype(int)
+    c_idx = ((x - x_min) // bbox_dim).clip(0, lattice_shape - 1).astype(int)  # (M, D)
+    cl_idx = np.ravel_multi_index(c_idx.T, lattice_shape)  # flat `c_idx`
 
-    # Compute optimal bbox_[dim, count]
-    x_spread = x_max - x_min
-    N_bbox = np.maximum(1, np.ceil(x_spread / bbox_dim)).astype(int)
-    bbox_dim = x_spread / N_bbox
-
-    # Rescale points to have equal spread in each dimension.
-    # Reason: KDTree only accepts scalar-valued radii.
-    x /= bbox_dim
-    x_min /= bbox_dim
-    x_max /= bbox_dim
-    x_spread /= bbox_dim
-    bbox_dim = np.ones_like(bbox_dim)
-
-    # Compute gridded centroids
-    range_spec = []
-    for n in N_bbox:
-        is_odd = n % 2 == 1
-        lb, ub = -(n // 2), n // 2 + (1 if is_odd else 0)
-        offset = 0 if is_odd else 1 / 2
-        s = (np.arange(lb, ub) + offset).astype(dtype)
-        range_spec.append(s)
-    centroid = np.meshgrid(*range_spec, indexing="ij")
-    centroid = np.stack(centroid, axis=-1).reshape(-1, D)
-
-    # Allocate points to gridded centroids
-    c_tree = spl.KDTree(centroid)  # centroid_tree
-    _, c_idx = c_tree.query(
-        x,
-        k=1,
-        eps=1e-2,  # approximate NN-search for speed
-        p=np.inf,  # L-infinity norm
-    )
-    idx = np.argsort(c_idx)
-    count = collections.Counter(c_idx[idx])  # sort + count occurence
+    idx = np.argsort(cl_idx)
+    count = collections.Counter(cl_idx[idx])  # sort + count occurence
     clusters, start = dict(), 0
-    for c_idx, step in sorted(count.items()):
-        clusters[c_idx] = idx[start : start + step]
+    for i, step in enumerate(count.values()):
+        clusters[i] = idx[start : start + step]
         start += step
 
     return clusters
