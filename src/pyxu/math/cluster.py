@@ -86,35 +86,40 @@ def bisect_cluster(
     """
     assert N_max > 0
 
-    def bisect(x: np.ndarray, x_idx: PointIndex, N_max: int) -> list[PointIndex]:
-        # Split cluster into sub-clusters if cardinality exceeds limits.
+    completed = []
+    to_bisect = []
+    for x_idx in clusters.values():
         if len(x_idx) <= N_max:
-            # Satisfies N_max criteria: forward as-is.
-            return [x_idx]
+            completed.append(x_idx)
         else:
-            # Split point cloud
-            _x = x[x_idx]
-            bbox_dim = _x.ptp(axis=0) / 2
-            split = grid_cluster(_x, bbox_dim)
+            to_bisect.append(x_idx)
 
-            # re-label output indices
-            for c_idx, sub_idx in split.items():
-                split[c_idx] = x_idx[sub_idx]
-            return list(split.values())
+    def _bisect(x_idx: np.ndarray) -> ClusterMapping:
+        # Split point cloud
+        _x = x[x_idx]
+        bbox_dim = _x.ptp(axis=0) / 2
+        _clusters = grid_cluster(_x, bbox_dim)
 
-    parts = []
+        # re-label output indices
+        for cl_idx, sub_idx in _clusters.items():
+            _clusters[cl_idx] = x_idx[sub_idx]
+        return _clusters
+
     with cf.ThreadPoolExecutor() as executor:
-        res = executor.map(lambda x_idx: bisect(x, x_idx, N_max), clusters.values())
-        for sub_parts in res:
-            parts += sub_parts
+        while (N_task := len(to_bisect)) > 0:
+            fs = [executor.submit(_bisect, to_bisect.pop()) for _ in range(N_task)]
 
-    # Recursive call if 1-level split was insufficient.
-    bisected = {c_idx: x_idx for (c_idx, x_idx) in enumerate(parts)}
-    bisect_again = any(len(x_idx) > N_max for x_idx in bisected.values())
-    if bisect_again:
-        return bisect_cluster(x, bisected, N_max)
-    else:
-        return bisected
+            # Schedule next hierarchy
+            for f in cf.as_completed(fs):
+                _clusters = f.result()
+                for x_idx in _clusters.values():
+                    if len(x_idx) <= N_max:
+                        completed.append(x_idx)
+                    else:
+                        to_bisect.append(x_idx)
+
+    bisected = {k: v for (k, v) in enumerate(completed)}
+    return bisected
 
 
 def fuse_cluster(
