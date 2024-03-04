@@ -228,7 +228,7 @@ def read_only(x: pxt.NDArray) -> pxt.NDArray:
     return y
 
 
-def save_zarr(filedir: pxt.Path, kw_in: typ.Dict[str, pxt.NDArray]) -> None:
+def save_zarr(filedir: pxt.Path, kw_in: dict[str, pxt.NDArray]) -> None:
     """
     Saves an array to a Zarr file. If the array is a Dask array, it is saved with a
     filename prefix "dask_". Otherwise, it is saved directly using Zarr's save function.
@@ -248,15 +248,19 @@ def save_zarr(filedir: pxt.Path, kw_in: typ.Dict[str, pxt.NDArray]) -> None:
     for filename, array in kw_in.items():
         try:
             if array is not None:
-                if pxd.NDArrayInfo.from_obj(array).name == "DASK":
-                    array.to_zarr(filedir / ("dask_" + filename), overwrite=True, compute=True)
+                if pxd.NDArrayInfo.from_obj(array) == pxd.NDArrayInfo.DASK:
+                    array.to_zarr(
+                    	filedir / ("dask_" + filename),
+                    	overwrite=True,
+                    	compute=True,
+                    )
                 else:
                     zarr.save(filedir / filename, array)
         except Exception as e:
             print(f"Failed to save {filename}: {e}")
 
 
-def load_zarr(filepath: pxt.Path) -> typ.Dict[str, pxt.NDArray]:
+def load_zarr(filepath: pxt.Path) -> dict[str, pxt.NDArray]:
     """
     Loads arrays from Zarr files within a specified directory. If a file is prefixed with "dask_",
     it is loaded as a Dask array. Otherwise, it is loaded using Zarr's load function.
@@ -268,7 +272,7 @@ def load_zarr(filepath: pxt.Path) -> typ.Dict[str, pxt.NDArray]:
 
     Returns
     -------
-    kw_out : Dict[str, NDArray]
+    kw_out : dict[str, NDArray]
         A dictionary where keys are the filenames (with "dask_" prefix removed if present)
         and values are the loaded arrays.
     """
