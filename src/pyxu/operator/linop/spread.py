@@ -129,7 +129,7 @@ class UniformSpread(pxa.LinOp):
                 * max_cluster_size: int = 10_000
                     Maximum number of support points per sub-grid/cluster.
 
-                * max_window_ratio: float = 100
+                * max_window_ratio: float = 10
                     Maximum size of the sub-grids, expressed as multiples of the kernel's support.
 
                 * workers: int = 2 (# virtual cores)
@@ -183,7 +183,7 @@ class UniformSpread(pxa.LinOp):
 
         kwargs = {
             "max_cluster_size": kwargs.get("max_cluster_size", 10_000),
-            "max_window_ratio": kwargs.get("max_window_ratio", 100),
+            "max_window_ratio": kwargs.get("max_window_ratio", 10),
             "workers": kwargs.get("workers", 2),
         }
         assert kwargs["max_cluster_size"] > 0
