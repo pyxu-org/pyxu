@@ -7,8 +7,6 @@ pyxu.info.deps
 
 doc/
     api/ has/is-being updated to ND API interactively.
-    All non-api/ pages need to be updated to use ND API directly.
-    Remove all pictures and update steering council order + roles?
 
 pyxu.abc.solver
     Allow not writing data to disk at end.
@@ -16,15 +14,8 @@ pyxu.abc.solver
                          -1   -> only at convergence
                           N   -> every N-th iteration
     Replace .npz file storage with ZARR format.
-        Changes to be made in solver.py (only these!)
-            def datafile(): change filename extension
-            def writeback(): create a ZARR file at `datafile`, then populate each array into a group.
-        Changes to be made to solver/conftest.py
-            test_disk_prec_matches_memory(): disk-load using ZARR API.
-            test_disk_value_matches_memory(): disk-load using ZARR API.
-
-            Add test_disk_chunk_matches_memory() [but this will never be tested since we disabled DASK solvers?]
-                We should instantiate only one solver to verify this.
+        Add test_disk_chunk_matches_memory() [but this will never be tested since we disabled DASK solvers?]
+            We should instantiate only one solver to verify this.
 
 pyxu.opt.nlcg
     Refactor to ND API. (2023.12.29: not started yet.)
@@ -43,20 +34,15 @@ pyxu.math.backtracking_linesearch()
     Known to be algorithmically inefficient for DASK inputs.
         Call pxw.warn_dask_perf()
 
+pyxu.math.cluster
+    [grid,bisect]_cluster() don't depend on KDTree() anymore, hence can be refactored to work with CUPY arrays too.
+
 pyxu.opt.adam
     Refactor to ND API. (2023.12.29: not started yet.)
         Update test_adam.py
 
 pyxu.opt.pds
-    Refactor to ND API. (2023.12.29: not started yet.)
-        Update test_pds.py
-
-    Background
-        The API here is not in sync with PGD/CG/etc: why is \beta provided in __init__()?
-        Module logic is also awkward.
-        Simplify design by retaining only (_PDS / CV / PD3O) top-level
-            __init__(f, g, h, K, **kwargs)
-            m_init(x0, z0, tau, sigma, rho, tuning_strategy, **kwargs)
+    Remove CP, FB, PP? They are only passing args to CV or PD3O (other solvers rely on CV or PD3O but have different step sizes).
 
 pyxu.operator.interop.jax
     Code + test suite has been ported to ND API.
@@ -81,30 +67,9 @@ pyxu.operator.interop.jax
         Need to create these methods by encapsulating Pyxu functions.
 
 pyxu.operator.interop.torch
-    Refactor to ND API. (2023.12.29: not started yet.)
-
+    [2024.03.02] Updated to ND API
     The PyTorch interface is slightly different from the JAX interface; it would be ideal to homogenize them.
     Add a test suite similar to test_jax.py
-
-pyxu.util.make_dask_aware() [maybe; TBD]
-    Some functions cannot be computed efficiently if their core-dimensions are chunked.
-    Nevertheless we may want to evaluate them in many times in parallel where stacked-dimensions are chunked.
-    This is not achievable with vectorize() since the former assumes the decorated function is accepts DASK-inputs to start with.
-
-    Add this function to API.
-        def make_dask_aware( [in same file as vectorize()]
-            i: VarName,
-            dim_shape: NDArrayShape,
-            codim_shape: NDArrayShape,
-            warn: bool,
-        ) -> Callable
-            # Uses dask.delayed() and from_delayed()
-            # dtype is inferred as in vectorize()
-
-pyxu.operator.linop.[diff, filter]
-    Refactor to ND API. (2024.01.01: not started yet.)
-        Update test_[diff, dir, filter].py
-    Allow use of FFT backend for large kernels?
 
 pyxu.operator.blocks
     Long-term plan for blocks:
@@ -160,11 +125,10 @@ pyxu.operator.linop.fft.czt
 pyxu.operator.linop.fft.nufft
     Move old FINUFFT-based NUFFT implementations to an extension module.
 
-    The new NUFFT implementations based on opt_einsum.contract() spread/interpolation accounts for 90% of the runtime for non-toy problems.
-    Memory consumption, while greatly reduced w.r.t tensordot()-based spread/interpolate, is still significant compared to FINUFFT, and depends strongly on `max_window_ratio`.
-    This shows that a loop-based spreadder is a must to decrease the gap with FINUFFT. As it stands now we have a ~6-10x overhead in spread/interpolate time compared to FINUFFT (non-chunked case), which is not bad already.
+    Pyxu-core built-in NUFFTs currently limited to NUMPY/DASK due to UniformSpread's NUMPY/DASK limitation.
+    Since _build_cl_info() no longer depends on kd-trees, adding CUPY support to type-1/2 is simple once UniformSpread becomes CUPY-compliant.
+    [It is advised to change (window_ratio, max_cluster_size) for GPU workloads though.]
 
-    Type-1/2: CuPy backend works, but asarray() may fail on the GPU since self.cfg holds NumPy arrays only. (Easy to fix.)
     Type-3: CuPy backend currently disabled.
         At the implementation level, the code is GPU-compatible.  The issue is just _partition_domain() and _init_metadata() which need updates to output CuPy arrays in some places.
 
