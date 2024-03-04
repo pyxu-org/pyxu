@@ -624,10 +624,14 @@ class NUFFT3(pxa.LinOp):
 
     Notes
     -----
-    * :py:func:`~pyxu.operator.NUFFT3` instances are **not arraymodule-agnostic**: they will only work with NDArrays
-      belonging to the same array module as (`x`, `v`).
+    .. rubric:: Implementation Notes
+
     * :py:class:`~pyxu.operator.NUFFT3` is not **precision-agnostic**: it will only work on NDArrays with the
-      same dtype as (`x`, `v`).  A warning is emitted if inputs must be cast to the support dtype.
+      same dtype as (`x`,`v`).  A warning is emitted if inputs must be cast to their dtype.
+    * :py:class:`~pyxu.operator.NUFFT3` instances are **not arraymodule-agnostic**: they will only work with NDArrays
+      belonging to the same array module as (`x`,`v`). Currently only NUMPY/DASK backends are supported (because
+      :py:class:`~pyxu.operator.UniformSpread` is NUMPY/DASK-limited as of 2024.02.)
+
 
     * **Memory footprint.**
       The complexity and memory footprint of the type-3 NUFFT can be arbitrarily large for poorly-centered data, or for
@@ -911,10 +915,10 @@ class NUFFT3(pxa.LinOp):
                 dtype=c_dtype,
             )
             with cf.ThreadPoolExecutor() as executor:
-                func = lambda cl_idx: self._fw_spread(w=w, out=gBE, Nx_idx=cl_idx)
-                parts = executor.map(func, range(self.cfg.Nx_blk))
-                for _ in parts:  # guarantee all sub-blocks have been spread
-                    pass
+                fs = [None] * self.cfg.Nx_blk
+                for cl_idx in range(self.cfg.Nx_blk):
+                    fs[cl_idx] = executor.submit(self._fw_spread, w=w, out=gBE, Nx_idx=cl_idx)
+                cf.wait(fs)  # guarantee all sub-blocks have been spread
 
             # Window signal: gBE -> h
             window = self._window(xp, r_dtype, True)
@@ -930,10 +934,10 @@ class NUFFT3(pxa.LinOp):
             # Interpolate signal: h_FS -> f_F
             f_F = xp.zeros((*sh, self.codim_shape[0]), dtype=c_dtype)  # (..., N)
             with cf.ThreadPoolExecutor() as executor:
-                func = lambda cl_idx: self._fw_interpolate(h_FS=h_FS, out=f_F, Nv_idx=cl_idx)
-                parts = executor.map(func, range(self.cfg.Nv_blk))
-                for _ in parts:  # guarantee all sub-blocks have been interpolated
-                    pass
+                fs = [None] * self.cfg.Nv_blk
+                for cl_idx in range(self.cfg.Nv_blk):
+                    fs[cl_idx] = executor.submit(self._fw_interpolate, h_FS=h_FS, out=f_F, Nv_idx=cl_idx)
+                cf.wait(fs)  # guarantee all sub-blocks have been interpolated
 
             out = f_F.conj() if (self.cfg.isign == 1) else f_F
         return out
@@ -1048,10 +1052,10 @@ class NUFFT3(pxa.LinOp):
             h_FS = buffer[..., *select]  # (Nv_blk, ..., Nx_blk, L1,...,LD)
             assert not h_FS.flags.owndata  # ensure buffer trick works
             with cf.ThreadPoolExecutor() as executor:
-                func = lambda cl_idx: self._bw_spread(z=z, out=h_FS, Nv_idx=cl_idx)
-                parts = executor.map(func, range(self.cfg.Nv_blk))
-                for _ in parts:  # guarantee all sub-blocks have been spread
-                    pass
+                fs = [None] * self.cfg.Nv_blk
+                for cl_idx in range(self.cfg.Nv_blk):
+                    fs[cl_idx] = executor.submit(self._bw_spread, z=z, out=h_FS, Nv_idx=cl_idx)
+                cf.wait(fs)  # guarantee all sub-blocks have been spread
 
             # Transpose (v,x) sub-block order
             h_FS = buffer.swapaxes(0, N_stack + 1)  # (Nx_blk, ..., Nv_blk, fft1,...,fftD)
@@ -1066,10 +1070,10 @@ class NUFFT3(pxa.LinOp):
             # Interpolate signal: gBE -> w
             w = xp.zeros((*sh, self.dim_shape[0]), dtype=c_dtype)  # (..., M)
             with cf.ThreadPoolExecutor() as executor:
-                func = lambda cl_idx: self._bw_interpolate(gBE=gBE, out=w, Nx_idx=cl_idx)
-                parts = executor.map(func, range(self.cfg.Nx_blk))
-                for _ in parts:  # guarantee all sub-blocks have been interpolated
-                    pass
+                fs = [None] * self.cfg.Nx_blk
+                for cl_idx in range(self.cfg.Nx_blk):
+                    fs[cl_idx] = executor.submit(self._bw_interpolate, gBE=gBE, out=w, Nx_idx=cl_idx)
+                cf.wait(fs)  # guarantee all sub-blocks have been interpolated
 
             out = w.conj() if (self.cfg.isign == 1) else w
         return out
@@ -1129,7 +1133,7 @@ class NUFFT3(pxa.LinOp):
     ) -> tuple[pxm_cl.ClusterMapping]:
         # Partition (x,v) into distinct clusters such that the FFTs performed are capped at a maximum size.
         #
-        # This method assumes (x,v) are NUMPY/CUPY arrays.
+        # This method assumes (x,v) are NUMPY arrays.
         #
         # Parameters
         # ----------
@@ -1523,6 +1527,12 @@ class NUFFT3(pxa.LinOp):
         from pyxu.operator import KaiserBessel, UniformSpread
         from pyxu.operator.linop.fft._ffs import _FFS
 
+        if self._kwargs["chunked"]:
+            # When performing chunking, (x,v) sub-domains are already bbox-limited, so no need to restrict window ratios.
+            # In this context spread/interp cluster formation just relies on domain bisection.
+            spread_kwargs = spread_kwargs.copy()
+            spread_kwargs["max_window_ratio"] = np.inf
+
         self._spread1 = {
             cl_idx: UniformSpread(
                 x=self._x[x_idx],
@@ -1742,7 +1752,7 @@ class NUFFT3(pxa.LinOp):
         #     X-domain cluster identifier.
         xp = pxu.get_array_module(gBE)
 
-        # Sum-sample (gBE,)
+        # Sub-sample (gBE,)
         gBE = gBE[Nx_idx]  # (..., Nv_blk, fft1,...,fftD)
 
         # Interpolate signal: gBE -> wBE
