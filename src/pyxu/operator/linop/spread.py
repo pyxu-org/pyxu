@@ -228,12 +228,12 @@ class UniformSpread(pxa.LinOp):
         Parameters
         ----------
         arr: NDArray
-            (...,  M) input weights :math:`\mathbf{w} \in \mathbb{R}^{M}`.
+            (..., M) input weights :math:`\mathbf{w} \in \mathbb{R}^{M}`.
 
         Returns
         -------
         out: NDArray
-            (...,  N1,...,ND) lattice values :math:`\mathbf{v} \in \mathbb{R}^{N_{1} \times\cdots\times N_{D}}`.
+            (..., N1,...,ND) lattice values :math:`\mathbf{v} \in \mathbb{R}^{N_{1} \times\cdots\times N_{D}}`.
         """
         arr = self._cast_warn(arr)
         ndi = pxd.NDArrayInfo.from_obj(arr)
@@ -308,11 +308,12 @@ class UniformSpread(pxa.LinOp):
             out = parts.sum(axis=-1)  # (..., N1,...,ND)
         else:  # NUMPY
             # Spread each cluster onto its own sub-grid, then add to global grid.
+            Q = len(self._cl_info["cl_bound"]) - 1
             out = xp.zeros((*sh, *self.codim_shape), dtype=arr.dtype)
             lock = threading.Lock()
             with cf.ThreadPoolExecutor(max_workers=self._kwargs["workers"]) as executor:
-                func = lambda idx: self._spread(w=arr, out=out, out_lock=lock, cl_idx=idx)
-                parts = executor.map(func, self._cl_info.keys())
+                func = lambda q: self._spread(w=arr, out=out, out_lock=lock, q=q)
+                parts = executor.map(func, range(Q))
                 for _ in parts:
                     pass  # guarantee all sub-grids have been written
         return out
@@ -328,7 +329,7 @@ class UniformSpread(pxa.LinOp):
         Returns
         -------
         out: NDArray
-            (...,  M) non-uniform weights :math:`\mathbf{w} \in \mathbb{R}^{M}`.
+            (..., M) non-uniform weights :math:`\mathbf{w} \in \mathbb{R}^{M}`.
         """
         arr = self._cast_warn(arr)
         ndi = pxd.NDArrayInfo.from_obj(arr)
@@ -392,10 +393,11 @@ class UniformSpread(pxa.LinOp):
             out = parts.sum(axis=tuple(range(-self.codim_rank, 0)))  # (..., M)
         else:  # NUMPY
             # Interpolate each sub-grid onto support points within.
+            Q = len(self._cl_info["cl_bound"]) - 1
             out = xp.zeros((*sh, self.dim_size), dtype=arr.dtype)
             with cf.ThreadPoolExecutor(max_workers=self._kwargs["workers"]) as executor:
-                func = lambda idx: self._interpolate(v=arr, out=out, cl_idx=idx)
-                parts = executor.map(func, self._cl_info.keys())
+                func = lambda q: self._interpolate(v=arr, out=out, q=q)
+                parts = executor.map(func, range(Q))
                 for _ in parts:
                     pass  # guarantee all sub-grids have been interpolated
         return out
@@ -598,7 +600,7 @@ class UniformSpread(pxa.LinOp):
         w: pxt.NDArray,
         out: pxt.NDArray,
         out_lock: threading.Lock,
-        cl_idx: int,
+        q: int,
     ) -> None:
         # Spread (support, weight) pairs onto sub-lattice of specific cluster, then add to global lattice.
         #
@@ -610,30 +612,28 @@ class UniformSpread(pxa.LinOp):
         #     (..., N1,...,ND) pre-allocated buffer in which to store the result.
         # out_lock: Lock
         #     Synchronization primitive to perform atomic writes to `out`.
-        # cl_idx: int
-        #     Cluster identifier from _build_info().
+        # q: int
+        #     Cluster index.
         xp = pxu.get_array_module(w)
         dtype = w.dtype
-        cl_info = self._cl_info[cl_idx]
+
+        # Extract relevant fields from `_cl_info`
+        a = self._cl_info["cl_bound"][q]
+        b = self._cl_info["cl_bound"][q + 1]
+        x_idx = self._cl_info["x_idx"][a:b]  # (Mq,)
+        z_anchor = self._cl_info["z_anchor"][q]  # (D,)
+        z_num = S = self._cl_info["z_num"][q]  # (S1,...,SD)
+        Mq, D = map(len, (x_idx, z_anchor))
 
         # Build lattice mesh on RoI
-        roi = [
-            slice(n0, n0 + num)
-            for (n0, num) in zip(
-                cl_info["z_anchor"],
-                cl_info["z_num"],
-            )
-        ]
+        roi = [slice(n0, n0 + num) for (n0, num) in zip(z_anchor, z_num)]
         lattice = self._lattice(xp, dtype, roi)  # (S1,),...,(SD,)
 
         # Sub-sample (x, w)
-        x_idx = cl_info["x_idx"]  # (Mq,)
         x = self._x[x_idx]  # (Mq, D)
         w = w[..., x_idx]  # (..., Mq)
 
         # Evaluate 1D kernel weights per support point
-        Mq, D = x.shape
-        S = cl_info["z_num"]  # (S1,...,SD)
         kernel = xp.zeros((Mq, D, max(S)), dtype=dtype)  # (Mq, D, S_max)
         for d in range(D):
             kernel[:, d, : S[d]] = self._kernel[d](lattice[d] - x[:, [d]])
@@ -695,7 +695,7 @@ class UniformSpread(pxa.LinOp):
         v = op.apply(w)  # (..., S1,...,SD)
         return v[..., np.newaxis]
 
-    def _interpolate(self, v: pxt.NDArray, out: pxt.NDArray, cl_idx: int) -> None:
+    def _interpolate(self, v: pxt.NDArray, out: pxt.NDArray, q: int) -> None:
         # Interpolate (lattice, weight) pairs onto support points within cluster.
         #
         # Parameters
@@ -704,30 +704,28 @@ class UniformSpread(pxa.LinOp):
         #     (..., N1,...,ND) lattice weights. [NUMPY]
         # out: NDArray[float]
         #     (..., M) pre-allocated buffer in which to store the result.
-        # cl_idx: int
-        #     Cluster identifier from _build_info().
+        # q: int
+        #     Cluster index.
         xp = pxu.get_array_module(v)
         dtype = v.dtype
-        cl_info = self._cl_info[cl_idx]
+
+        # Extract relevant fields from `_cl_info`
+        a = self._cl_info["cl_bound"][q]
+        b = self._cl_info["cl_bound"][q + 1]
+        x_idx = self._cl_info["x_idx"][a:b]  # (Mq,)
+        z_anchor = self._cl_info["z_anchor"][q]  # (D,)
+        z_num = S = self._cl_info["z_num"][q]  # (S1,...,SD)
+        Mq, D = map(len, (x_idx, z_anchor))
 
         # Build lattice mesh on RoI
-        roi = [
-            slice(n0, n0 + num)
-            for (n0, num) in zip(
-                cl_info["z_anchor"],
-                cl_info["z_num"],
-            )
-        ]
+        roi = [slice(n0, n0 + num) for (n0, num) in zip(z_anchor, z_num)]
         lattice = self._lattice(xp, dtype, roi)  # (S1,),...,(SD,)
 
         # Sub-sample (x, v)
-        x_idx = cl_info["x_idx"]  # (Mq,)
         x = self._x[x_idx]  # (Mq, D)
         v = v[..., *roi]  # (..., S1,...,SD)
 
         # Evaluate 1D kernel weights per support point
-        Mq, D = x.shape
-        S = cl_info["z_num"]  # (S1,...,SD)
         kernel = xp.zeros((Mq, D, max(S)), dtype=dtype)  # (Mq, D, S_max)
         for d in range(D):
             kernel[:, d, : S[d]] = self._kernel[d](lattice[d] - x[:, [d]])
