@@ -3,7 +3,6 @@ import importlib
 import inspect
 import os
 import types
-import typing as typ
 
 import dask.array as da
 import zarr
@@ -250,9 +249,9 @@ def save_zarr(filedir: pxt.Path, kw_in: dict[str, pxt.NDArray]) -> None:
             if array is not None:
                 if pxd.NDArrayInfo.from_obj(array) == pxd.NDArrayInfo.DASK:
                     array.to_zarr(
-                    	filedir / ("dask_" + filename),
-                    	overwrite=True,
-                    	compute=True,
+                        filedir / ("dask_" + filename),
+                        overwrite=True,
+                        compute=True,
                     )
                 else:
                     zarr.save(filedir / filename, array)
