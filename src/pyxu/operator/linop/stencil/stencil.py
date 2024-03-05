@@ -333,6 +333,13 @@ class Stencil(pxa.SquareOp):
          #  [3380  4662  4752  4842  4932  5022  5112  3090 ]
          #  [1778  2451  2496  2541  2586  2631  2676  1617 ]]
 
+    .. Warning::
+
+        For large, non-separable kernels, stencil compilation can be time-consuming. Depending on your computer's
+        architecture, using the :py:class:~pyxu.operator.FFTCorrelate operator might offer a more efficient solution.
+        However, the performance improvement varies, so we recommend evaluating this alternative in your specific
+        environment.
+
     See Also
     --------
     :py:class:`~pyxu.operator.Convolve`,
@@ -769,6 +776,13 @@ class Convolve(Stencil):
        k[K_{1}-q_{1},\ldots,K_{D}-q_{D}].
 
     This corresponds to a correlation with a flipped kernel and center.
+
+    .. Warning::
+
+       For large, non-separable kernels, stencil compilation can be time-consuming. Depending on your computer's
+       architecture, using the :py:class:~pyxu.operator.FFTConvolve operator might offer a more efficient solution.
+       However, the performance improvement varies, so we recommend evaluating this alternative in your specific
+       environment.
 
     Examples
     --------
