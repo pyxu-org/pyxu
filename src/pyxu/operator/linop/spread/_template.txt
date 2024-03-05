@@ -1,0 +1,100 @@
+# This is a template file used by UniformSpread._gen_code() to JIT-compile critical sections.
+# Dollar-enclosed variables are replaced at runtime.
+
+import numba as nb
+import numpy as np
+
+f_flags = dict(
+    nopython=True,
+    nogil=True,
+    cache=True,
+    forceobj=False,
+    parallel=False,
+    error_model="numpy",
+    fastmath=True,
+    locals={},
+    boundscheck=False,
+)
+
+@nb.jit(**f_flags)
+def find_bounds(x: np.ndarray[float]) -> tuple[int, int]:
+    # Parameters:
+    #     x: (N,)
+    # Returns
+    #     a, b: indices s.t. x[a:b] contains the non-zero segment of `x`.
+    N = len(x)
+    a, a_found = N, False
+    b, b_found = N, False
+    for i in range(N):
+        lhs, rhs = x[i], x[N - 1 - i]
+        if (not a_found) and (abs(lhs) > 0):
+            a, a_found = i, True
+        if (not b_found) and (abs(rhs) > 0):
+            b, b_found = N - i, True
+        if a_found and b_found:  # early exit
+            return a, b
+    return a, b
+
+@nb.jit(
+    "${signature_spread}",
+    **f_flags,
+)
+def f_spread(
+    w: np.ndarray[float],  # (Ns, M)
+    kernel: np.ndarray[float],  # (M, D, S_max)
+    out: np.ndarray[float],  # (Ns, S1,...,SD)
+):
+    Ns, M = w.shape
+    S = out.shape[1:]
+    D = len(S)
+
+    lb = np.zeros(D, dtype=np.int64)
+    ub = np.zeros(D, dtype=np.int64)
+    for m in range(M):
+        for d in range(D):
+            lb[d], ub[d] = find_bounds(kernel[m, d, : S[d]])
+
+        support = ${support}
+        for offset in np.ndindex(support):
+            idx = ${idx}
+
+            # Compute kernel weight
+            k = 1
+            for d in range(D):
+                k *= kernel[m, d, idx[d]]
+
+            # Spread onto lattice
+            for ns in range(Ns):
+                out[ns, *idx] += k * w[ns, m]
+
+@nb.jit(
+    "${signature_interpolate}",
+    **f_flags,
+)
+def f_interpolate(
+    v: np.ndarray[float],  # (Ns, S1,...,SD)
+    kernel: np.ndarray[float],  # (M, D, S_max)
+    out: np.ndarray[float],  # (Ns, M)
+):
+    Ns, M = out.shape
+    S = v.shape[1:]
+    D = len(S)
+
+    lb = np.zeros(D, dtype=np.int64)
+    ub = np.zeros(D, dtype=np.int64)
+    for m in range(M):
+        for d in range(D):
+            lb[d], ub[d] = find_bounds(kernel[m, d, : S[d]])
+
+        support = ${support}
+        for offset in np.ndindex(support):
+            idx = ${idx}
+
+            # Compute kernel weight
+            k = 1
+            for d in range(D):
+                k *= kernel[m, d, idx[d]]
+
+            # Spread onto support point
+            for ns in range(Ns):
+                out[ns, m] += k * v[ns, *idx]

@@ -1,7 +1,9 @@
 import collections
 import collections.abc as cabc
 import concurrent.futures as cf
+import pathlib as plib
 import string
+import types
 import warnings
 
 import numpy as np
@@ -13,6 +15,7 @@ import pyxu.info.warning as pxw
 import pyxu.math.cluster as pxm_cl
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
+import pyxu.util.cache as pxu_cache
 
 __all__ = [
     "UniformSpread",
@@ -208,12 +211,7 @@ class UniformSpread(pxa.LinOp):
         elif ndi == pxd.NDArrayInfo.CUPY:
             raise NotImplementedError
         else:  # NUMPY
-            # Compile low-level spread/interp kernels.
-            code = self._gen_code(dim_rank=D, dtype=self._x.dtype)
-            exec(code, locals())
-            self._nb_spread = eval("f_spread")
-            self._nb_interpolate = eval("f_interpolate")
-
+            self._nb = self._gen_code(dim_rank=D, dtype=self._x.dtype)
             self._cl_info = self._build_cl_info(
                 x=self._x,
                 z=self._z,
@@ -656,7 +654,7 @@ class UniformSpread(pxa.LinOp):
 
         # Spread onto sub-lattice
         v = np.zeros((*w.shape[:-1], *S), dtype=dtype)  # (..., S1,...,SD)
-        self._nb_spread(
+        self._nb.f_spread(
             w=w.reshape(-1, Mq),
             kernel=kernel,
             out=v.reshape(-1, *S),
@@ -748,7 +746,7 @@ class UniformSpread(pxa.LinOp):
 
         # Interpolate onto support points
         w = np.zeros((*v.shape[:-D], Mq), dtype=dtype)  # (..., Mq)
-        self._nb_interpolate(
+        self._nb.f_interpolate(
             v=v.reshape(-1, *S),
             kernel=kernel,
             out=w.reshape(-1, Mq),
@@ -803,114 +801,26 @@ class UniformSpread(pxa.LinOp):
         return w[..., *expand]
 
     @staticmethod
-    def _gen_code(dim_rank: int, dtype: pxt.DType) -> str:
-        # Given the dimension rank D, generate Numba kernel codes used in _[spread,interpolate]():
-        #
+    def _gen_code(dim_rank: int, dtype: pxt.DType) -> types.ModuleType:
+        # Compile Numba kernels used in _[spread,interpolate]():
         # * void f_spread(w, kernel, out)
         # * void f_interpolate(v, kernel, out)
-        template = string.Template(
-            r"""
-import numba as nb
-import numpy as np
+        #
+        # The code is compiled only if unavailable in cache beforehand.
+        #
+        # Parameters
+        # ----------
+        # dim_rank: int
+        #     Dimensionality D of the support points `x`.
+        # dtype: DType
+        #     Kernel FP precision.
+        #
+        # Returns
+        # -------
+        # jit_module: module
+        #     A (loaded) python package containing methods (f_spread, f_interpolate).
 
-f_flags = dict(
-    nopython=True,
-    nogil=True,
-    cache=False,  # not applicable to dynamically-defined functions (https://github.com/numba/numba/issues/3501)
-    forceobj=False,
-    parallel=False,
-    error_model="numpy",
-    fastmath=True,
-    locals={},
-    boundscheck=False,
-)
-
-@nb.jit(**f_flags)
-def find_bounds(x: np.ndarray[float]) -> tuple[int, int]:
-    # Parameters:
-    #     x: (N,)
-    # Returns
-    #     a, b: indices s.t. x[a:b] contains the non-zero segment of `x`.
-    N = len(x)
-    a, a_found = N, False
-    b, b_found = N, False
-    for i in range(N):
-        lhs, rhs = x[i], x[N - 1 - i]
-        if (not a_found) and (abs(lhs) > 0):
-            a, a_found = i, True
-        if (not b_found) and (abs(rhs) > 0):
-            b, b_found = N - i, True
-        if a_found and b_found:  # early exit
-            return a, b
-    return a, b
-
-@nb.jit(
-    "${signature_spread}",
-    **f_flags,
-)
-def f_spread(
-    w: np.ndarray[float],  # (Ns, M)
-    kernel: np.ndarray[float],  # (M, D, S_max)
-    out: np.ndarray[float],  # (Ns, S1,...,SD)
-):
-    Ns, M = w.shape
-    S = out.shape[1:]
-    D = len(S)
-
-    lb = np.zeros(D, dtype=np.int64)
-    ub = np.zeros(D, dtype=np.int64)
-    for m in range(M):
-        for d in range(D):
-            lb[d], ub[d] = find_bounds(kernel[m, d, : S[d]])
-
-        support = ${support}
-        for offset in np.ndindex(support):
-            idx = ${idx}
-
-            # Compute kernel weight
-            k = 1
-            for d in range(D):
-                k *= kernel[m, d, idx[d]]
-
-            # Spread onto lattice
-            for ns in range(Ns):
-                out[ns, *idx] += k * w[ns, m]
-
-@nb.jit(
-    "${signature_interpolate}",
-    **f_flags,
-)
-def f_interpolate(
-    v: np.ndarray[float],  # (Ns, S1,...,SD)
-    kernel: np.ndarray[float],  # (M, D, S_max)
-    out: np.ndarray[float],  # (Ns, M)
-):
-    Ns, M = out.shape
-    S = v.shape[1:]
-    D = len(S)
-
-    lb = np.zeros(D, dtype=np.int64)
-    ub = np.zeros(D, dtype=np.int64)
-    for m in range(M):
-        for d in range(D):
-            lb[d], ub[d] = find_bounds(kernel[m, d, : S[d]])
-
-        support = ${support}
-        for offset in np.ndindex(support):
-            idx = ${idx}
-
-            # Compute kernel weight
-            k = 1
-            for d in range(D):
-                k *= kernel[m, d, idx[d]]
-
-            # Spread onto support point
-            for ns in range(Ns):
-                out[ns, m] += k * v[ns, *idx]
-
-"""
-        )
-
+        # Generate the code which should be compiled --------------------------
         width = pxrt.Width(dtype)
         _type = {
             pxrt.Width.SINGLE: "float32",
@@ -924,10 +834,20 @@ def f_interpolate(
         support = ",".join([f"ub[{d}] - lb[{d}]" for d in range(dim_rank)])
         idx = ",".join([f"lb[{d}] + offset[{d}]" for d in range(dim_rank)])
 
+        template_file = plib.Path(__file__).parent / "_template.txt"
+        with open(template_file, mode="r") as f:
+            template = string.Template(f.read())
         code = template.substitute(
             signature_spread=f"void({sig_w_sp},{sig_kernel},{sig_v_sp})",
             signature_interpolate=f"void({sig_v_int},{sig_kernel},{sig_w_int})",
             support="(" + support + ",)",
             idx="(" + idx + ",)",
         )
-        return code
+        # ---------------------------------------------------------------------
+
+        # Store/update cached version as needed.
+        module_name = f"spread_d{dim_rank}_f{width.name}"
+        pxu_cache.cache_module(module_name, code)
+
+        jit_module = pxu.import_module(module_name)
+        return jit_module
