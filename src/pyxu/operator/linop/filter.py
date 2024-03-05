@@ -28,7 +28,7 @@ ModeSpec = pxlp.Pad.ModeSpec
 
 __all__ = [
     "MovingAverage",
-    "Gaussian",
+    "GaussianFilter",
     "DifferenceOfGaussians",
     "DoG",
     "Laplace",
@@ -39,11 +39,11 @@ __all__ = [
 ]
 
 
-def _to_canonical_form(_, arg_shape):
+def _to_canonical_form(_, dim_shape):
     if not isinstance(_, cabc.Sequence):
-        _ = (_,) * len(arg_shape)
+        _ = (_,) * len(dim_shape)
     else:
-        assert len(_) == len(arg_shape)
+        assert len(_) == len(dim_shape)
     return _
 
 
@@ -57,8 +57,8 @@ def _get_axes(axis, ndim):
     return axes
 
 
-def _sanitize_inputs(arg_shape, dtype, gpu):
-    ndim = len(arg_shape)
+def _sanitize_inputs(dim_shape, dtype, gpu):
+    ndim = len(dim_shape)
 
     if dtype is None:
         dtype = pxrt.getPrecision().value
@@ -72,7 +72,7 @@ def _sanitize_inputs(arg_shape, dtype, gpu):
 
 
 def MovingAverage(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     size: typ.Union[typ.Tuple, pxt.Integer],
     center: typ.Optional[IndexSpec] = None,
     mode: ModeSpec = "constant",
@@ -99,13 +99,13 @@ def MovingAverage(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     size: int, tuple
         Size of the moving average kernel.
 
         If a single integer value is provided, then the moving average filter will have as many dimensions as the input
-        array.  If a tuple is provided, it should contain as many elements as `arg_shape`.  For example, the ``size=(1,
+        array.  If a tuple is provided, it should contain as many elements as `dim_shape`.  For example, the ``size=(1,
         3)`` will convolve the input image with the filter ``[[1, 1, 1]] / 3``.
 
     center: ~pyxu.operator.linop.filter.IndexSpec
@@ -146,45 +146,46 @@ def MovingAverage(
     .. plot::
 
        import matplotlib.pyplot as plt
+       import numpy as np
        from pyxu.operator import MovingAverage
 
-       arg_shape = (11, 11)
-       image = np.zeros(arg_shape)
+       dim_shape = (11, 11)
+       image = np.zeros(dim_shape)
        image[5, 5] = 1.
 
-       ma = MovingAverage(arg_shape, size=5)
-       out = ma(image.ravel())
+       ma = MovingAverage(dim_shape, size=5)
+       out = ma(image)
        plt.figure(figsize=(10, 5))
        plt.subplot(121)
        plt.imshow(image)
        plt.colorbar()
        plt.subplot(122)
-       plt.imshow(out.reshape(*arg_shape))
+       plt.imshow(out)
        plt.colorbar()
 
     See Also
     --------
-    :py:class:`~pyxu.operator.Gaussian`
+    :py:class:`~pyxu.operator.GaussianFilter`
     """
-    size = _to_canonical_form(size, arg_shape)
+    size = _to_canonical_form(size, dim_shape)
     if center is None:
         assert all([s % 2 == 1 for s in size]), (
             "Can only infer center for odd `size`s. For even `size`s, please " "provide the desired `center`s."
         )
         center = [s // 2 for s in size]
 
-    ndim, dtype, xp = _sanitize_inputs(arg_shape, dtype, gpu)
+    ndim, dtype, xp = _sanitize_inputs(dim_shape, dtype, gpu)
 
     kernel = [xp.ones(s, dtype=dtype) for s in size]  # use separable filters
     scale = 1 / np.prod(size)
 
-    op = scale * pxls.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode)
+    op = scale * pxls.Stencil(dim_shape=dim_shape, kernel=kernel, center=center, mode=mode)
     op._name = "MovingAverage"
     return op
 
 
-def Gaussian(
-    arg_shape: pxt.NDArrayShape,
+def GaussianFilter(
+    dim_shape: pxt.NDArrayShape,
     sigma: typ.Union[typ.Tuple[pxt.Real], pxt.Real] = 1.0,
     truncate: typ.Union[typ.Tuple[pxt.Real], pxt.Real] = 3.0,
     order: typ.Union[typ.Tuple[pxt.Integer], pxt.Integer] = 0,
@@ -213,13 +214,13 @@ def Gaussian(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     sigma: float, tuple
         Standard deviation of the Gaussian kernel.
 
         If a scalar value is provided, then the Gaussian filter will have as many dimensions as the input array.
-        If a tuple is provided, it should contain as many elements as `arg_shape`.
+        If a tuple is provided, it should contain as many elements as `dim_shape`.
         Use ``0`` to prevent filtering in a given dimension.
         For example, the ``sigma=(0, 3)`` will convolve the input image in its last dimension.
     truncate: float, tuple
@@ -256,7 +257,7 @@ def Gaussian(
     Returns
     -------
     op: OpT
-        Gaussian
+        GaussianFilter
 
     Example
     -------
@@ -264,20 +265,21 @@ def Gaussian(
     .. plot::
 
        import matplotlib.pyplot as plt
-       from pyxu.operator import Gaussian
+       import numpy as np
+       from pyxu.operator import GaussianFilter
 
-       arg_shape = (11, 11)
-       image = np.zeros(arg_shape)
+       dim_shape = (11, 11)
+       image = np.zeros(dim_shape)
        image[5, 5] = 1.
 
-       gaussian = Gaussian(arg_shape, sigma=3)
-       out = gaussian(image.ravel())
+       gaussian = GaussianFilter(dim_shape, sigma=3)
+       out = gaussian(image)
        plt.figure(figsize=(10, 5))
        plt.subplot(121)
        plt.imshow(image)
        plt.colorbar()
        plt.subplot(122)
-       plt.imshow(out.reshape(*arg_shape))
+       plt.imshow(out)
        plt.colorbar()
 
     See Also
@@ -286,16 +288,16 @@ def Gaussian(
     :py:class:`~pyxu.operator.DifferenceOfGaussians`
     """
 
-    ndim, dtype, xp = _sanitize_inputs(arg_shape, dtype, gpu)
-    sigma = _to_canonical_form(sigma, arg_shape)
-    truncate = _to_canonical_form(truncate, arg_shape)
-    order = _to_canonical_form(order, arg_shape)
-    sampling = _to_canonical_form(sampling, arg_shape)
+    ndim, dtype, xp = _sanitize_inputs(dim_shape, dtype, gpu)
+    sigma = _to_canonical_form(sigma, dim_shape)
+    truncate = _to_canonical_form(truncate, dim_shape)
+    order = _to_canonical_form(order, dim_shape)
+    sampling = _to_canonical_form(sampling, dim_shape)
 
     kernel = [
         xp.array([1], dtype=dtype),
-    ] * len(arg_shape)
-    center = [0 for _ in range(len(arg_shape))]
+    ] * len(dim_shape)
+    center = [0 for _ in range(len(dim_shape))]
 
     for i, (sigma_, truncate_, order_, sampling_) in enumerate(zip(sigma, truncate, order, sampling)):
         if sigma_:
@@ -305,13 +307,13 @@ def Gaussian(
             kernel[i] /= sampling_**order_
             center[i] = radius
 
-    op = pxls.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode)
-    op._name = "Gaussian"
+    op = pxls.Stencil(dim_shape=dim_shape, kernel=kernel, center=center, mode=mode)
+    op._name = "GaussianFilter"
     return op
 
 
 def DifferenceOfGaussians(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     low_sigma=1.0,
     high_sigma=None,
     low_truncate=3.0,
@@ -336,13 +338,13 @@ def DifferenceOfGaussians(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     low_sigma: float, tuple
         Standard deviation of the Gaussian kernel with smaller sigmas across all axes.
 
         If a scalar value is provided, then the Gaussian filter will have as many dimensions as the input array.
-        If a tuple is provided, it should contain as many elements as `arg_shape`.
+        If a tuple is provided, it should contain as many elements as `dim_shape`.
         Use ``0`` to prevent filtering in a given dimension.
         For example, the ``low_sigma=(0, 3)`` will convolve the input image in its last dimension.
     high_sigma: float, tuple, None
@@ -388,20 +390,21 @@ def DifferenceOfGaussians(
     .. plot::
 
        import matplotlib.pyplot as plt
+       import numpy as np
        from pyxu.operator import DoG
 
-       arg_shape = (11, 11)
-       image = np.zeros(arg_shape)
+       dim_shape = (11, 11)
+       image = np.zeros(dim_shape)
        image[5, 5] = 1.
 
-       dog = DoG(arg_shape, low_sigma=3)
-       out = dog(image.ravel())
+       dog = DoG(dim_shape, low_sigma=3)
+       out = dog(image)
        plt.figure(figsize=(10, 5))
        plt.subplot(121)
        plt.imshow(image)
        plt.colorbar()
        plt.subplot(122)
-       plt.imshow(out.reshape(*arg_shape))
+       plt.imshow(out)
        plt.colorbar()
 
     See Also
@@ -413,24 +416,24 @@ def DifferenceOfGaussians(
     :py:class:`~pyxu.operator.StructureTensor`
     """
 
-    low_sigma = _to_canonical_form(low_sigma, arg_shape)
+    low_sigma = _to_canonical_form(low_sigma, dim_shape)
     if high_sigma is None:
         high_sigma = tuple(s * 1.6 for s in low_sigma)
 
-    high_sigma = _to_canonical_form(high_sigma, arg_shape)
-    low_truncate = _to_canonical_form(low_truncate, arg_shape)
-    high_truncate = _to_canonical_form(high_truncate, arg_shape)
+    high_sigma = _to_canonical_form(high_sigma, dim_shape)
+    low_truncate = _to_canonical_form(low_truncate, dim_shape)
+    high_truncate = _to_canonical_form(high_truncate, dim_shape)
 
     kwargs = {
-        "arg_shape": arg_shape,
+        "dim_shape": dim_shape,
         "order": 0,
         "mode": mode,
         "gpu": gpu,
         "dtype": dtype,
         "sampling": sampling,
     }
-    op_low = Gaussian(sigma=low_sigma, truncate=low_truncate, **kwargs)
-    op_high = Gaussian(sigma=high_sigma, truncate=high_truncate, **kwargs)
+    op_low = GaussianFilter(sigma=low_sigma, truncate=low_truncate, **kwargs)
+    op_high = GaussianFilter(sigma=high_sigma, truncate=high_truncate, **kwargs)
     op = op_low - op_high
     op._name = "DifferenceOfGaussians"
     return op
@@ -440,7 +443,7 @@ DoG = DifferenceOfGaussians  #: Alias of :py:func:`~pyxu.operator.DifferenceOfGa
 
 
 def Laplace(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     mode: ModeSpec = "constant",
     sampling: typ.Union[pxt.Real, cabc.Sequence[pxt.Real, ...]] = 1,
     gpu: bool = False,
@@ -460,7 +463,7 @@ def Laplace(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     mode: str, list[str]
         Boundary conditions.
@@ -496,20 +499,21 @@ def Laplace(
     .. plot::
 
        import matplotlib.pyplot as plt
+       import numpy as np
        from pyxu.operator import Laplace
 
-       arg_shape = (11, 11)
-       image = np.zeros(arg_shape)
+       dim_shape = (11, 11)
+       image = np.zeros(dim_shape)
        image[5, 5] = 1.
 
-       laplace = Laplace(arg_shape)
-       out = laplace(image.ravel())
+       laplace = Laplace(dim_shape)
+       out = laplace(image)
        plt.figure(figsize=(10, 5))
        plt.subplot(121)
        plt.imshow(image)
        plt.colorbar()
        plt.subplot(122)
-       plt.imshow(out.reshape(*arg_shape))
+       plt.imshow(out)
        plt.colorbar()
 
     See Also
@@ -519,21 +523,21 @@ def Laplace(
     :py:class:`~pyxu.operator.Scharr`,
     """
 
-    ndim, dtype, xp = _sanitize_inputs(arg_shape, dtype, gpu)
-    sampling = _to_canonical_form(sampling, arg_shape)
+    ndim, dtype, xp = _sanitize_inputs(dim_shape, dtype, gpu)
+    sampling = _to_canonical_form(sampling, dim_shape)
     centers = [[1 if i == dim else 0 for i in range(ndim)] for dim in range(ndim)]
     kernels = [
         xp.array([1.0, -2.0, 1.0]).reshape([-1 if i == dim else 1 for i in range(ndim)]) / sampling[dim]
         for dim in range(ndim)
     ]
-    ops = [pxls.Stencil(arg_shape=arg_shape, kernel=k, center=c, mode=mode) for (k, c) in zip(kernels, centers)]
+    ops = [pxls.Stencil(dim_shape=dim_shape, kernel=k, center=c, mode=mode) for (k, c) in zip(kernels, centers)]
     op = functools.reduce(lambda x, y: x + y, ops)
     op._name = "Laplace"
     return op
 
 
 def Sobel(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     axis: typ.Optional[typ.Tuple] = None,
     mode: ModeSpec = "constant",
     sampling: typ.Union[pxt.Real, cabc.Sequence[pxt.Real, ...]] = 1,
@@ -554,7 +558,7 @@ def Sobel(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     axis: int, tuple
         Compute the edge filter along this axis. If not provided, the edge magnitude is computed.
@@ -596,20 +600,21 @@ def Sobel(
     .. plot::
 
        import matplotlib.pyplot as plt
+       import numpy as np
        from pyxu.operator import Sobel
 
-       arg_shape = (11, 11)
-       image = np.zeros(arg_shape)
+       dim_shape = (11, 11)
+       image = np.zeros(dim_shape)
        image[5, 5] = 1.
 
-       sobel = Sobel(arg_shape)
-       out = sobel(image.ravel())
+       sobel = Sobel(dim_shape)
+       out = sobel(image)
        plt.figure(figsize=(10, 5))
        plt.subplot(121)
        plt.imshow(image)
        plt.colorbar()
        plt.subplot(122)
-       plt.imshow(out.reshape(*arg_shape))
+       plt.imshow(out)
        plt.colorbar()
 
     See Also
@@ -619,7 +624,7 @@ def Sobel(
     """
     smooth_kernel = np.array([1, 2, 1]) / 4
     return _EdgeFilter(
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         smooth_kernel=smooth_kernel,
         filter_name="SobelFilter",
         axis=axis,
@@ -631,7 +636,7 @@ def Sobel(
 
 
 def Prewitt(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     axis: typ.Optional[typ.Tuple] = None,
     mode: ModeSpec = "constant",
     sampling: typ.Union[pxt.Real, cabc.Sequence[pxt.Real, ...]] = 1,
@@ -652,7 +657,7 @@ def Prewitt(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     axis: int, tuple
         Compute the edge filter along this axis. If not provided, the edge magnitude is computed. This is defined as:
@@ -694,20 +699,21 @@ def Prewitt(
     .. plot::
 
        import matplotlib.pyplot as plt
+       import numpy as np
        from pyxu.operator import Prewitt
 
-       arg_shape = (11, 11)
-       image = np.zeros(arg_shape)
+       dim_shape = (11, 11)
+       image = np.zeros(dim_shape)
        image[5, 5] = 1.
 
-       prewitt = Prewitt(arg_shape)
-       out = prewitt(image.ravel())
+       prewitt = Prewitt(dim_shape)
+       out = prewitt(image)
        plt.figure(figsize=(10, 5))
        plt.subplot(121)
        plt.imshow(image)
        plt.colorbar()
        plt.subplot(122)
-       plt.imshow(out.reshape(*arg_shape))
+       plt.imshow(out)
        plt.colorbar()
 
     See Also
@@ -717,7 +723,7 @@ def Prewitt(
     """
     smooth_kernel = np.full((3,), 1 / 3)
     return _EdgeFilter(
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         smooth_kernel=smooth_kernel,
         filter_name="Prewitt",
         axis=axis,
@@ -729,7 +735,7 @@ def Prewitt(
 
 
 def Scharr(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     axis: typ.Optional[typ.Tuple] = None,
     mode: ModeSpec = "constant",
     sampling: typ.Union[pxt.Real, cabc.Sequence[pxt.Real, ...]] = 1,
@@ -750,7 +756,7 @@ def Scharr(
 
     Parameters
     ----------
-    arg_shape: NDArrayShape
+    dim_shape: NDArrayShape
         Shape of the input array.
     axis: int, tuple
         Compute the edge filter along this axis. If not provided, the edge magnitude is computed. This is defined as:
@@ -791,20 +797,21 @@ def Scharr(
     .. plot::
 
        import matplotlib.pyplot as plt
+       import numpy as np
        from pyxu.operator import Scharr
 
-       arg_shape = (11, 11)
-       image = np.zeros(arg_shape)
+       dim_shape = (11, 11)
+       image = np.zeros(dim_shape)
        image[5, 5] = 1.
 
-       scharr = Scharr(arg_shape)
-       out = scharr(image.ravel())
+       scharr = Scharr(dim_shape)
+       out = scharr(image)
        plt.figure(figsize=(10, 5))
        plt.subplot(121)
        plt.imshow(image)
        plt.colorbar()
        plt.subplot(122)
-       plt.imshow(out.reshape(*arg_shape))
+       plt.imshow(out)
        plt.colorbar()
 
     See Also
@@ -814,7 +821,7 @@ def Scharr(
     """
     smooth_kernel = np.array([3, 10, 3]) / 16
     return _EdgeFilter(
-        arg_shape=arg_shape,
+        dim_shape=dim_shape,
         smooth_kernel=smooth_kernel,
         filter_name="Scharr",
         axis=axis,
@@ -826,7 +833,7 @@ def Scharr(
 
 
 def _EdgeFilter(
-    arg_shape: pxt.NDArrayShape,
+    dim_shape: pxt.NDArrayShape,
     smooth_kernel: KernelSpec,
     filter_name: str,
     axis: typ.Optional[typ.Tuple] = None,
@@ -835,10 +842,13 @@ def _EdgeFilter(
     gpu: bool = False,
     dtype: typ.Optional[pxt.DType] = None,
 ):
-    from pyxu.operator.map.ufunc import sqrt, square
+    from pyxu.operator import Sqrt, Square
 
-    ndim, dtype, xp = _sanitize_inputs(arg_shape, dtype, gpu)
-    sampling = _to_canonical_form(sampling, arg_shape)
+    square = Square(dim_shape=dim_shape)
+    sqrt = Sqrt(dim_shape=dim_shape)
+
+    ndim, dtype, xp = _sanitize_inputs(dim_shape, dtype, gpu)
+    sampling = _to_canonical_form(sampling, dim_shape)
 
     axes = _get_axes(axis, ndim)
 
@@ -846,8 +856,8 @@ def _EdgeFilter(
 
     op_list = []
     for edge_dim in axes:
-        kernel = [xp.array(1)] * len(arg_shape)
-        center = np.ones(len(arg_shape), dtype=int)
+        kernel = [xp.array(1, dtype=dtype)] * len(dim_shape)
+        center = np.ones(len(dim_shape), dtype=int)
         # We define the kernel reversed compared to Scipy or Skimage because we use correlation instead of convolution
         kernel[edge_dim] = xp.array([-1, 0, 1], dtype=dtype) / sampling[edge_dim]
         smooth_axes = list(set(range(ndim)) - {edge_dim})
@@ -855,13 +865,13 @@ def _EdgeFilter(
             kernel[smooth_dim] = xp.asarray(smooth_kernel, dtype=dtype) / sampling[smooth_dim]
 
         if return_magnitude:
-            op_list.append(square(pxls.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode)))
+            op_list.append(square * pxls.Stencil(dim_shape=dim_shape, kernel=kernel, center=center, mode=mode))
         else:
-            op_list.append(pxls.Stencil(arg_shape=arg_shape, kernel=kernel, center=center, mode=mode))
+            op_list.append(pxls.Stencil(dim_shape=dim_shape, kernel=kernel, center=center, mode=mode))
 
     op = functools.reduce(lambda x, y: x + y, op_list)
     if return_magnitude:
-        op = (1 / np.sqrt(ndim)) * sqrt(op)
+        op = (1 / np.sqrt(ndim)) * (sqrt * op)
 
     op._name = filter_name
     return op
@@ -924,37 +934,34 @@ class StructureTensor(pxa.DiffMap):
        xx, yy = np.meshgrid(x, x)
        image = peaks(xx, yy)
        nsamples = 2
-       arg_shape = image.shape  # (1000, 1000)
-       images = np.tile(image, (nsamples, 1, 1)).reshape(nsamples, -1)
-       print(images.shape)  # (2, 1000000)
+       dim_shape = image.shape  # (1000, 1000)
+       images = np.tile(image, (nsamples, 1, 1))
        # Instantiate structure tensor operator
-       structure_tensor = StructureTensor(arg_shape=arg_shape)
+       structure_tensor = StructureTensor(dim_shape=dim_shape)
 
        outputs = structure_tensor(images)
-       print(outputs.shape)  # (2, 3000000)
-       # Plot
-       outputs = structure_tensor.unravel(outputs)
        print(outputs.shape)  # (2, 3, 1000, 1000)
+       # Plot
        plt.figure()
-       plt.imshow(images[0].reshape(arg_shape))
+       plt.imshow(images[0])
        plt.colorbar()
        plt.title("Image")
        plt.axis("off")
 
        plt.figure()
-       plt.imshow(outputs[0][0].reshape(arg_shape))
+       plt.imshow(outputs[0][0])
        plt.colorbar()
        plt.title(r"$\hat{S}_{xx}$")
        plt.axis("off")
 
        plt.figure()
-       plt.imshow(outputs[0][1].reshape(arg_shape))
+       plt.imshow(outputs[0][1])
        plt.colorbar()
        plt.title(r"$\hat{S}_{xy}$")
        plt.axis("off")
 
        plt.figure()
-       plt.imshow(outputs[0][2].reshape(arg_shape))
+       plt.imshow(outputs[0][2])
        plt.colorbar()
        plt.title(r"$\hat{S}_{yy}$")
        plt.axis("off")
@@ -968,7 +975,7 @@ class StructureTensor(pxa.DiffMap):
 
     def __init__(
         self,
-        arg_shape: pxt.NDArrayShape,
+        dim_shape: pxt.NDArrayShape,
         diff_method="fd",
         smooth_sigma: typ.Union[pxt.Real, tuple[pxt.Real, ...]] = 1.0,
         smooth_truncate: typ.Union[pxt.Real, tuple[pxt.Real, ...]] = 3.0,
@@ -979,31 +986,29 @@ class StructureTensor(pxa.DiffMap):
         parallel: bool = False,
         **diff_kwargs,
     ):
-        self.arg_shape = arg_shape
-        size = int(np.prod(arg_shape))
-        ndim = len(arg_shape)
+        ndim = len(dim_shape)
         ntriu = (ndim * (ndim + 1)) // 2
-        super().__init__(shape=(ntriu * size, size))
+        super().__init__(dim_shape=dim_shape, codim_shape=(ntriu,) + dim_shape)
         self.directions = tuple(
-            list(_) for _ in itertools.combinations_with_replacement(np.arange(len(arg_shape)).astype(int), 2)
+            list(_) for _ in itertools.combinations_with_replacement(np.arange(len(dim_shape)).astype(int), 2)
         )
 
         if diff_method == "fd":
             diff_kwargs.update({"scheme": diff_kwargs.pop("scheme", "central")})
-        self.grad = pxld.Gradient(
-            arg_shape=arg_shape,
-            directions=None,
-            mode=mode,
-            gpu=gpu,
-            dtype=dtype,
-            sampling=sampling,
-            parallel=parallel,
-            **diff_kwargs,
-        )
+            self.grad = pxld.Gradient(
+                dim_shape=dim_shape,
+                directions=None,
+                mode=mode,
+                gpu=gpu,
+                dtype=dtype,
+                sampling=sampling,
+                parallel=parallel,
+                **diff_kwargs,
+            )
 
         if smooth_sigma:
-            self.smooth = Gaussian(
-                arg_shape=arg_shape,
+            self.smooth = GaussianFilter(
+                dim_shape=dim_shape,
                 sigma=smooth_sigma,
                 truncate=smooth_truncate,
                 order=0,
@@ -1013,26 +1018,17 @@ class StructureTensor(pxa.DiffMap):
                 dtype=dtype,
             )
         else:
-            self.smooth = pxlb.IdentityOp(dim=np.prod(arg_shape).item())
-
-    def unravel(self, arr):
-        return arr.reshape(*arr.shape[:-1], -1, *self.arg_shape)
-
-    def ravel(self, arr):
-        return arr.reshape(*arr.shape[: -1 - len(self.arg_shape)], -1)
+            self.smooth = pxlb.IdentityOp(dim_shape=dim_shape)
 
     def apply(self, arr):
         xp = pxu.get_array_module(arr)
-        sh = arr.shape[:-1]
-        grad = self.grad.unravel(self.grad(arr))
+        sh = arr.shape[: -self.dim_rank]
+        grad = self.grad(arr)
 
         def slice_(ax):
             return (slice(None),) * len(sh) + (slice(ax, ax + 1),)
 
         return xp.concatenate(
-            [
-                self.grad.unravel(self.smooth((grad[slice_(i)] * grad[slice_(j)]).reshape(*sh, -1)))
-                for i, j in self.directions
-            ],
+            [self.smooth((grad[slice_(i)] * grad[slice_(j)])) for i, j in self.directions],
             axis=len(sh),
-        ).reshape(*sh, -1)
+        ).reshape(*sh, len(self.directions), *self.dim_shape)
