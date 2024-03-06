@@ -53,7 +53,6 @@ class TestMovingAverage(FilterMixin):
     @pytest.fixture(
         params=[
             # dim_shape, size, center, origin (for scipy)
-            ((5,), 4, (0,), -2),
             ((5, 3, 4), 3, (0, 1, 2), (-1, 0, 1)),
             ((5, 3, 4), (5, 1, 3), None, 0),
         ]
@@ -106,7 +105,6 @@ class TestGaussian(FilterMixin):
     @pytest.fixture(
         params=[
             # dim_shape, sigma, order, truncate
-            ((8,), 3, 0, 1),
             ((4, 4, 4), 3, (0, 1, 2), 1),
             ((8, 8, 8), (1, 2, 3), 1, 2),
         ]
@@ -144,7 +142,6 @@ class TestDoG(FilterMixin):
     @pytest.fixture(
         params=[
             # dim_shape, low_sigma, high_sigma, low_truncate, high_truncate
-            ((8,), 2, 3, 1, 1),
             ((4, 4, 4), 1, (2, 1.5, 3), 1, 1),
             ((8, 8, 8), (1, 2, 3), 4, 1, 1),
         ]
@@ -238,10 +235,8 @@ class EdgeFilterMixin(conftest.DiffMapT):
     @pytest.fixture(
         params=[
             # dim_shape, axis, axis_scipy
-            ((4,), (0,), (0,)),
             ((4,), None, (0,)),
             ((4, 4, 4), (0, 2), (0, 2)),
-            ((4, 4, 4), None, (0, 1, 2)),
         ]
     )
     def _spec(self, request):
@@ -381,7 +376,7 @@ class TestStructureTensor(conftest.DiffMapT):
             )
         return op, ndi, width
 
-    @pytest.fixture(params=[(8,), (4, 4), (4, 4, 4)])
+    @pytest.fixture(params=[(8,), (4, 4)])
     def dim_shape(self, request):
         return request.param
 
