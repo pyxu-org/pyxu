@@ -16,9 +16,8 @@ import pyxu_tests.operator.linop.diff.test_diff as test_diff
 @pytest.mark.filterwarnings("ignore::numba.core.errors.NumbaPerformanceWarning")
 class FilterMixin(conftest.SquareOpT):
     @pytest.fixture
-    def data_shape(self, dim_shape) -> pxt.NDArrayShape:
-        dim = np.prod(dim_shape).item()
-        return (dim, dim)
+    def codim_shape(self, dim_shape) -> pxt.NDArrayShape:
+        return dim_shape
 
     @pytest.fixture
     def mode(self):
@@ -208,9 +207,8 @@ class TestLaplace(FilterMixin):
 @pytest.mark.filterwarnings("ignore::numba.core.errors.NumbaPerformanceWarning")
 class EdgeFilterMixin(conftest.DiffMapT):
     @pytest.fixture
-    def data_shape(self, dim_shape) -> pxt.NDArrayShape:
-        dim = np.prod(dim_shape).item()
-        return (dim, dim)
+    def codim_shape(self, dim_shape) -> pxt.NDArrayShape:
+        return dim_shape
 
     @pytest.fixture
     def mode(self):
@@ -361,14 +359,12 @@ class TestStructureTensor(conftest.DiffMapT):
         return init_params[1]
 
     @pytest.fixture
-    def data_shape(self, dim_shape) -> pxt.NDArrayShape:
+    def codim_shape(self, dim_shape) -> pxt.NDArrayShape:
         ndim = len(dim_shape)
-        dim = np.prod(dim_shape).item()
         if ndim > 1:
-            codim = (ndim * (ndim + 1) / 2) * dim
+            return (ndim * (ndim + 1) / 2,) + dim_shape
         else:
-            codim = dim
-        return (codim, dim)
+            return dim_shape
 
     @pytest.fixture
     def mode(self):
