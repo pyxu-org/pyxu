@@ -58,14 +58,14 @@ where:
 
 Common examples of computational imaging tasks include:
 
-<img src="../doc/_static/tutorial/recon_examples.jpg" alt="Computational imaging Examples." style="width: 80%;">
+<img src="../../doc/_static/tutorial/recon_examples.jpg" alt="Computational imaging Examples." style="width: 80%;">
 
 
 - **Image Denoising**: The process of eliminating noise artifacts to create a cleaner, crisper image.
 - **Image Deblurring**: Restoration of a sharp image from a blurry input, enhancing focus and detail.
 - **Image Inpainting**: Reconstructing missing or damaged regions within an image, often used for tasks like replacing lost blocks during coding and transmission or erasing watermark/logo overlays.
 - **Image Super-Resolution**: Elevating the resolution of an image or an imaging system to provide finer detail.
-- **Image Fusion**: The merging of sevaral degraded images of the same object into a single image that exceeds the quality of any individual input.
+- **Image Fusion**: The merging of several degraded images of the same object into a single image that exceeds the quality of any individual input.
 - **Image Filtering**: Modifying an image to promote particular features of interest, such as points, lines, or shapes.
 - **Tomographic Reconstruction**: Rebuilding an image from its lower-dimensional projections, known as sinograms in the context of CT or PET scans.
 
@@ -93,7 +93,7 @@ Instead of rebuilding the wheel multiple times per domain, it makes sense to abs
 Pyxu is Python-based framework designed from the ground-up to meet these advanced demands. It extends beyond the capabilities of specialized frameworks by offering a comprehensive, modular solution tailored to the broad and varied needs of the computational imaging community at large. It aims to speed up the development and deployment of complex imaging pipelines, incorporating cutting-edge features such as operator algebra logic, seamless hardware acceleration, deep learning interoperability, and out-of-core compute, while being maintainable and easy to extend [plugins].
 It is distinguished by its comprehensive support for hardware acceleration and distributed computing, encapsulating a suite of features designed to streamline the development and execution of computational imaging tasks across various modalities. Below, we highlight its key features:
 
-<img src="../doc/_static/microservice_hero.png" alt="Microservice architecture." style="width: 60%;">
+<img src="../../doc/_static/microservice_hero.png" alt="Microservice architecture." style="width: 60%;">
 
 
 ### Operator Algebra Logic:
