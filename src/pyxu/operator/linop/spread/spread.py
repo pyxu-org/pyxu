@@ -15,7 +15,6 @@ import pyxu.info.warning as pxw
 import pyxu.math.cluster as pxm_cl
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
-import pyxu.util.cache as pxu_cache
 
 __all__ = [
     "UniformSpread",
@@ -847,7 +846,7 @@ class UniformSpread(pxa.LinOp):
 
         # Store/update cached version as needed.
         module_name = f"spread_d{dim_rank}_f{width.name}"
-        pxu_cache.cache_module(module_name, code)
+        pxu.cache_module(module_name, code)
 
         jit_module = pxu.import_module(module_name)
         return jit_module

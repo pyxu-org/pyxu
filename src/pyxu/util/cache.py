@@ -1,7 +1,8 @@
-# This is a low-level module for interacting with JIT-generated cached modules.
-# Not loaded by default on `import pyxu.util` calls.
-
 import pyxu.info.config as config
+
+__all__ = [
+    "cache_module",
+]
 
 
 def cache_module(name: str, code: str):
