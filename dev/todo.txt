@@ -1,10 +1,3 @@
-pyxu.info.deps
-    CuPy support is temporarily locked to v12.x max.
-
-    Reason: v13.0 no longer triggers ImportError if CUDA is not available on the system.
-    This has implications on how pyxu.info.deps.CUDA_ENABLED and the NDArrayInfo.CUPY.
-    Until this is sorted out, we support until CuPy 12.x only.
-
 doc/
     api/ has/is-being updated to ND API interactively.
 
@@ -36,6 +29,9 @@ pyxu.math.backtracking_linesearch()
 
 pyxu.math.cluster
     [grid,bisect]_cluster() don't depend on KDTree() anymore, hence can be refactored to work with CUPY arrays too.
+
+    CuPy v14 will add support for KDTree [https://github.com/cupy/cupy/pull/7671]
+        This module can hence be made NP/CP-compatible in 2024.H2.
 
 pyxu.opt.adam
     Refactor to ND API. (2023.12.29: not started yet.)
