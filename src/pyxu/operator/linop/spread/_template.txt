@@ -40,19 +40,19 @@ def find_bounds(x: np.ndarray[float]) -> tuple[int, int]:
     **f_flags,
 )
 def f_spread(
-    w: np.ndarray[float],  # (Ns, M)
-    kernel: np.ndarray[float],  # (M, D, S_max)
-    out: np.ndarray[float],  # (Ns, S1,...,SD)
+    w: np.ndarray[float],  # C-(M, Ns)
+    kernel: np.ndarray[float],  # C-(M, S_max, D)
+    out: np.ndarray[float],  # C-(S1,...,SD, Ns)
 ):
-    Ns, M = w.shape
-    S = out.shape[1:]
-    D = len(S)
+    M, Ns = w.shape
+    D = out.ndim - 1
+    S = out.shape[:${dim_rank}]
 
     lb = np.zeros(D, dtype=np.int64)
     ub = np.zeros(D, dtype=np.int64)
     for m in range(M):
         for d in range(D):
-            lb[d], ub[d] = find_bounds(kernel[m, d, : S[d]])
+            lb[d], ub[d] = find_bounds(kernel[m, : S[d], d])
 
         support = ${support}
         for offset in np.ndindex(support):
@@ -61,30 +61,30 @@ def f_spread(
             # Compute kernel weight
             k = 1
             for d in range(D):
-                k *= kernel[m, d, idx[d]]
+                k *= kernel[m, idx[d], d]
 
             # Spread onto lattice
             for ns in range(Ns):
-                out[ns, *idx] += k * w[ns, m]
+                out[*idx, ns] += k * w[m, ns]
 
 @nb.jit(
     "${signature_interpolate}",
     **f_flags,
 )
 def f_interpolate(
-    v: np.ndarray[float],  # (Ns, S1,...,SD)
-    kernel: np.ndarray[float],  # (M, D, S_max)
-    out: np.ndarray[float],  # (Ns, M)
+    v: np.ndarray[float],  # C-(S1,...,SD, Ns)
+    kernel: np.ndarray[float],  # C-(M, S_max, D)
+    out: np.ndarray[float],  # C-(M, Ns)
 ):
-    Ns, M = out.shape
-    S = v.shape[1:]
-    D = len(S)
+    M, Ns = out.shape
+    D = v.ndim - 1
+    S = v.shape[:${dim_rank}]
 
     lb = np.zeros(D, dtype=np.int64)
     ub = np.zeros(D, dtype=np.int64)
     for m in range(M):
         for d in range(D):
-            lb[d], ub[d] = find_bounds(kernel[m, d, : S[d]])
+            lb[d], ub[d] = find_bounds(kernel[m, : S[d], d])
 
         support = ${support}
         for offset in np.ndindex(support):
@@ -93,8 +93,8 @@ def f_interpolate(
             # Compute kernel weight
             k = 1
             for d in range(D):
-                k *= kernel[m, d, idx[d]]
+                k *= kernel[m, idx[d], d]
 
             # Spread onto support point
             for ns in range(Ns):
-                out[ns, m] += k * v[ns, *idx]
+                out[m, ns] += k * v[*idx, ns]

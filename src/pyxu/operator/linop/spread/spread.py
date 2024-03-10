@@ -303,10 +303,11 @@ class UniformSpread(pxa.LinOp):
             )
             out = parts.sum(axis=-1)  # (..., N1,...,ND)
         else:  # NUMPY
-            # Re-order (x, w)
+            # Re-order/shape (x, w)
+            Ns = int(np.prod(sh))
             x_idx = self._cl_info["x_idx"]
             x = self._x[x_idx]
-            w = arr[..., x_idx]
+            w = arr[..., x_idx].reshape(Ns, -1)  # (Ns, M)
 
             # Spread each cluster onto its own sub-grid
             Q = len(self._cl_info["cl_bound"]) - 1
@@ -322,7 +323,7 @@ class UniformSpread(pxa.LinOp):
                 z_num = self._cl_info["z_num"][q]
                 roi = [slice(n0, n0 + num) for (n0, num) in zip(z_anchor, z_num)]
 
-                out[..., *roi] += v
+                out[..., *roi] += v.reshape(*sh, *z_num)
         return out
 
     @pxrt.enforce_precision(i="arr")
@@ -399,14 +400,16 @@ class UniformSpread(pxa.LinOp):
             )
             out = parts.sum(axis=tuple(range(-self.codim_rank, 0)))  # (..., M)
         else:  # NUMPY
-            # Re-order (x,)
+            # Re-order/shape (x, v)
+            Ns = int(np.prod(sh))
             x_idx = self._cl_info["x_idx"]
             x = self._x[x_idx]
+            v = arr.reshape(Ns, *self.codim_shape)  # (Ns, N1,...,ND)
 
             # Interpolate each sub-grid onto support points within.
             Q = len(self._cl_info["cl_bound"]) - 1
             with cf.ThreadPoolExecutor(max_workers=self._kwargs["workers"]) as executor:
-                fs = [executor.submit(self._interpolate, x=x, v=arr, q=q) for q in range(Q)]
+                fs = [executor.submit(self._interpolate, x=x, v=v, q=q) for q in range(Q)]
 
             # Update global support
             out = xp.zeros((*sh, self.dim_size), dtype=arr.dtype)
@@ -417,7 +420,7 @@ class UniformSpread(pxa.LinOp):
                 b = self._cl_info["cl_bound"][q + 1]
                 idx = x_idx[a:b]
 
-                out[..., idx] = w
+                out[..., idx] = w.reshape(*sh, b - a)
         return out
 
     def asarray(self, **kwargs) -> pxt.NDArray:
@@ -621,7 +624,7 @@ class UniformSpread(pxa.LinOp):
         # x: NDArray[float]
         #     (M, D) support points. [NUMPY, canonical order]
         # w: NDArray[float]
-        #     (..., M) support weights. [NUMPY, canonical order]
+        #     (Ns, M) support weights. [NUMPY, canonical order]
         # q: int
         #     Cluster index.
         #
@@ -630,7 +633,7 @@ class UniformSpread(pxa.LinOp):
         # q: int
         #     Cluster index.
         # v: NDArray[float]
-        #     (..., S1,...,SD) q-th spreaded sub-lattice.
+        #     (Ns, S1,...,SD) q-th spreaded sub-lattice.
         dtype = w.dtype
 
         # Extract relevant fields from `_cl_info`
@@ -643,23 +646,24 @@ class UniformSpread(pxa.LinOp):
 
         # Sub-sample (x, w)
         x = x[a:b]  # (Mq, D)
-        w = w[..., a:b]  # (..., Mq)
+        w = w[:, a:b]  # (Ns, Mq)
 
         # Evaluate 1D kernel weights per support point
         lattice = self._lattice(np, dtype, roi)  # (S1,),...,(SD,)
-        kernel = np.zeros((Mq, D, max(S)), dtype=dtype)  # (Mq, D, S_max)
+        kernel = np.zeros((Mq, max(S), D), dtype=dtype)  # (Mq, S_max, D)
         for d, kern in enumerate(self._kernel):
-            kernel[:, d, : S[d]] = kern(lattice[d] - x[:, [d]])
+            kernel[:, : S[d], d] = kern(lattice[d] - x[:, [d]])
 
         # Spread onto sub-lattice
-        v = np.zeros((*w.shape[:-1], *S), dtype=dtype)  # (..., S1,...,SD)
+        v = np.zeros((*S, w.shape[0]), dtype=dtype)  # (S1,...,SD, Ns)
         self._nb.f_spread(
-            w=w.reshape(-1, Mq),
+            w=np.require(w.T, requirements="C"),
             kernel=kernel,
-            out=v.reshape(-1, *S),
+            out=v,
         )
 
-        return (q, v)
+        axes = (-1, *range(self.codim_rank))
+        return (q, v.transpose(axes))
 
     def _blockwise_spread(self, x: pxt.NDArray, w: pxt.NDArray, z_spec: pxt.NDArray) -> pxt.NDArray:
         # Spread (support, weight) pairs onto sub-lattice.
@@ -713,7 +717,7 @@ class UniformSpread(pxa.LinOp):
         # x: NDArray[float]
         #     (M, D) support points. [NUMPY, canonical order]
         # v: NDArray[float]
-        #     (..., N1,...,ND) lattice weights. [NUMPY]
+        #     (Ns, N1,...,ND) lattice weights. [NUMPY]
         # q: int
         #     Cluster index.
         #
@@ -722,7 +726,7 @@ class UniformSpread(pxa.LinOp):
         # q: int
         #     Cluster index.
         # w: NDArray[float]
-        #     (..., Mq) interpolated support weights of q-th cluster.
+        #     (Ns, Mq) interpolated support weights of q-th cluster.
         dtype = v.dtype
 
         # Extract relevant fields from `_cl_info`
@@ -735,23 +739,24 @@ class UniformSpread(pxa.LinOp):
 
         # Sub-sample (x, v)
         x = x[a:b]  # (Mq, D)
-        v = v[..., *roi]  # (..., S1,...,SD)
+        v = v[:, *roi]  # (Ns, S1,...,SD)
 
         # Evaluate 1D kernel weights per support point
         lattice = self._lattice(np, dtype, roi)  # (S1,),...,(SD,)
-        kernel = np.zeros((Mq, D, max(S)), dtype=dtype)  # (Mq, D, S_max)
+        kernel = np.zeros((Mq, max(S), D), dtype=dtype, order="C")  # (Mq, S_max, D)
         for d, kern in enumerate(self._kernel):
-            kernel[:, d, : S[d]] = kern(lattice[d] - x[:, [d]])
+            kernel[:, : S[d], d] = kern(lattice[d] - x[:, [d]])
 
         # Interpolate onto support points
-        w = np.zeros((*v.shape[:-D], Mq), dtype=dtype)  # (..., Mq)
+        w = np.zeros((Mq, v.shape[0]), dtype=dtype)  # (Mq, Ns)
+        axes = (*range(1, self.codim_rank + 1), 0)
         self._nb.f_interpolate(
-            v=v.reshape(-1, *S),
+            v=np.require(v.transpose(axes), requirements="C"),
             kernel=kernel,
-            out=w.reshape(-1, Mq),
+            out=w,
         )
 
-        return (q, w)
+        return (q, w.T)
 
     def _blockwise_interpolate(self, x: pxt.NDArray, v: pxt.NDArray, z_spec: pxt.NDArray) -> pxt.NDArray:
         # Spread (lattice, weight) pairs onto support points.
@@ -825,22 +830,48 @@ class UniformSpread(pxa.LinOp):
             pxrt.Width.SINGLE: "float32",
             pxrt.Width.DOUBLE: "float64",
         }[width]
-        sig_w_sp = _type + "[:,:]"
-        sig_v_sp = _type + "[" + (":," * dim_rank) + "::1]"
-        sig_kernel = _type + "[:,:,::1]"
-        sig_v_int = _type + "[" + (":," * dim_rank) + ":]"
-        sig_w_int = _type + "[:,::1]"
-        support = ",".join([f"ub[{d}] - lb[{d}]" for d in range(dim_rank)])
-        idx = ",".join([f"lb[{d}] + offset[{d}]" for d in range(dim_rank)])
+        sig_spread = "".join(
+            [
+                "void(",
+                f"{_type}[:,::1],",  # w C-(M, Ns)
+                f"{_type}[:,:,::1],",  # kernel C-(M, S_max, D)
+                f"{_type}[" + (":," * dim_rank) + "::1]",  # out C-(S1,...,SD, Ns)
+                ")",
+            ]
+        )
+        sig_interpolate = "".join(
+            [
+                "void(",
+                f"{_type}[" + (":," * dim_rank) + "::1],",  # v C-(S1,...,SD, Ns)
+                f"{_type}[:,:,::1],",  # kernel C-(M, S_max, D)
+                f"{_type}[:,::1]",  # out C-(M, Ns)
+                ")",
+            ]
+        )
+        support = "".join(
+            [
+                "(",
+                ",".join([f"ub[{d}] - lb[{d}]" for d in range(dim_rank)]),
+                ",)",
+            ]
+        )
+        idx = "".join(
+            [
+                "(",
+                ",".join([f"lb[{d}] + offset[{d}]" for d in range(dim_rank)]),
+                ",)",
+            ]
+        )
 
         template_file = plib.Path(__file__).parent / "_template.txt"
         with open(template_file, mode="r") as f:
             template = string.Template(f.read())
         code = template.substitute(
-            signature_spread=f"void({sig_w_sp},{sig_kernel},{sig_v_sp})",
-            signature_interpolate=f"void({sig_v_int},{sig_kernel},{sig_w_int})",
-            support="(" + support + ",)",
-            idx="(" + idx + ",)",
+            signature_spread=sig_spread,
+            signature_interpolate=sig_interpolate,
+            support=support,
+            idx=idx,
+            dim_rank=dim_rank,
         )
         # ---------------------------------------------------------------------
 
