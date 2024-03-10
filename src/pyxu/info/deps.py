@@ -15,8 +15,9 @@ if CUPY_ENABLED:
         import cupy
         import cupyx.scipy.sparse
         import cupyx.scipy.sparse.linalg
-    except ImportError:
-        # CuPy is installed, but GPU drivers probably missing.
+
+        cupy.is_available()  # will fail if hardware/drivers/runtime missing
+    except Exception:
         CUPY_ENABLED = False
 
 
