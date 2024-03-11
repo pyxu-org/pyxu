@@ -631,34 +631,6 @@ class TestTriangle(MixinFSSPulse):
         )
 
 
-class TestTruncatedGaussian(MixinFSSPulse):
-    @pytest.fixture(params=[0.3, 1])
-    def gaussian_sigma(self, request) -> float:
-        return request.param
-
-    @pytest.fixture
-    def spec(self, gaussian_sigma, dim_shape, _spec):
-        op = pxo.TruncatedGaussian(
-            dim_shape=dim_shape,
-            sigma=gaussian_sigma,
-        )
-        return op, _spec[0], _spec[1]
-
-    @pytest.fixture
-    def data_apply(self, gaussian_sigma, dim_shape):
-        rng = np.random.default_rng()
-        dim_size = np.prod(dim_shape)
-
-        x = rng.uniform(-1.5, 1.5, dim_size)
-        y = np.exp(-0.5 * (x / gaussian_sigma) ** 2)
-        y[np.fabs(x) > 1] = 0
-
-        return dict(
-            in_=dict(arr=x.reshape(dim_shape)),
-            out=y.reshape(dim_shape),
-        )
-
-
 class TestKaiserBessel(MixinFSSPulse):
     @pytest.fixture(params=[0.3, 1])
     def kb_beta(self, request) -> float:

@@ -41,7 +41,6 @@ __all__ = [
     "FSSPulse",
     "Box",
     "Triangle",
-    "TruncatedGaussian",
     "KaiserBessel",
 ]
 
@@ -1295,53 +1294,6 @@ class Triangle(FSSPulse):
         y **= 2
         y *= self.support()
         return y
-
-
-class TruncatedGaussian(FSSPulse):
-    r"""
-    Truncated Gaussian.
-
-    Notes
-    -----
-    * :math:`f(x) = \exp\left[-\frac{1}{2} \left(\frac{x}{\sigma}\right)^{2}\right]
-      1_{[-1, 1]}(x)`
-    * :math:`f^{\mathcal{F}}(v) =
-      \sqrt{2 \pi} \sigma \exp\left[-2 (\pi \sigma v)^{2} \right]
-      \Re\left\{
-      \text{erf}\left(
-      \frac{1}{\sqrt{2} \sigma} +
-      j \sqrt{2} \pi \sigma v
-      \right)
-      \right\}`
-    """
-
-    def __init__(self, dim_shape: pxt.NDArrayShape, sigma: pxt.Real):
-        super().__init__(dim_shape=dim_shape)
-        self._sigma = float(sigma)
-        assert 0 < self._sigma <= 1
-
-    @pxrt.enforce_precision(i="arr")
-    @pxu.redirect(i="arr", DASK=FSSPulse._blockwize_apply)
-    def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        xp, _ = _get_module(arr)
-        w = arr / (np.sqrt(2) * self._sigma)
-        out = xp.exp(-(w**2))
-        out[xp.fabs(arr) > 1] = 0
-        return out
-
-    def support(self) -> pxt.Real:
-        return 1.0
-
-    @pxrt.enforce_precision(i="arr")
-    @pxu.redirect(i="arr", DASK=FSSPulse._blockwize_applyF)
-    def applyF(self, arr: pxt.NDArray) -> pxt.NDArray:
-        xp, sps = _get_module(arr)
-        w = np.sqrt(2) * np.pi * self._sigma * arr
-        a = np.sqrt(2) * self._sigma
-        b = xp.exp(-(w**2))
-        c = sps.erf((1 / a) + 1j * w).real
-        out = np.sqrt(np.pi) * a * b * c
-        return out
 
 
 class KaiserBessel(FSSPulse):

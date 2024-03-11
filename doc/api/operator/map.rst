@@ -94,8 +94,5 @@ Pulses
 .. autoclass:: pyxu.operator.Triangle
    :exclude-members: apply, applyF, support
 
-.. autoclass:: pyxu.operator.TruncatedGaussian
-   :exclude-members: apply, applyF, support
-
 .. autoclass:: pyxu.operator.KaiserBessel
    :exclude-members: apply, applyF, support, supportF
