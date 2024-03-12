@@ -1068,7 +1068,7 @@ class FSSPulse(pxa.Map):
             def blockwise_apply(arr: pxt.NDArray, cls: pxt.OpC, **kwargs) -> pxt.NDArray:
                 return cls(**kwargs)._apply(arr)
 
-            cls, kwargs = self._init_args()
+            cls, kwargs = self._meta()
             out = arr.map_blocks(
                 func=blockwise_apply,
                 dtype=arr.dtype,
@@ -1100,7 +1100,7 @@ class FSSPulse(pxa.Map):
             def blockwise_applyF(arr: pxt.NDArray, cls: pxt.OpC, **kwargs) -> pxt.NDArray:
                 return cls(**kwargs)._applyF(arr)
 
-            cls, kwargs = self._init_args()
+            cls, kwargs = self._meta()
             out = arr.map_blocks(
                 func=blockwise_applyF,
                 dtype=arr.dtype,
@@ -1164,13 +1164,12 @@ class FSSPulse(pxa.Map):
         scalar = float(scalar)
         assert scalar > 0
 
-        cls, kwargs = self._init_args()
+        cls, kwargs = self._meta()
         kwargs["support"] = kwargs["support"] / scalar
         return cls(**kwargs)
 
     # Internal Helpers --------------------------------------------------------
-    def _init_args(self) -> tuple[pxt.OpC, dict]:
-        # Override in sub-classes with (class-to-instantiate, init_kwargs)
+    def _meta(self):
         cls = self.__class__
         kwargs = dict(
             dim_shape=self.dim_shape,
@@ -1283,8 +1282,7 @@ class Triangle(FSSPulse):
     # Internal Helpers --------------------------------------------------------
     def _apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp, _ = _get_module(arr)
-        arr = xp.fabs(arr)
-        arr /= self.support()
+        arr = xp.fabs(arr) / self.support()
         y = xp.clip(1 - arr, 0, None)
         return y
 
@@ -1333,7 +1331,7 @@ class KaiserBessel(FSSPulse):
         return sF
 
     # Internal Helpers --------------------------------------------------------
-    def _init_args(self) -> tuple[pxt.OpC, dict]:
+    def _meta(self):
         cls = self.__class__
         kwargs = dict(
             dim_shape=self.dim_shape,
@@ -1347,8 +1345,7 @@ class KaiserBessel(FSSPulse):
         y = xp.zeros_like(arr)
 
         mask = xp.fabs(arr) <= self.support()
-        x = arr[mask] ** 2
-        x /= self.support() ** 2
+        x = (arr[mask] / self.support()) ** 2
         y[mask] = sps.i0(self._beta * xp.sqrt(1 - x))
 
         y /= sps.i0(self._beta)
