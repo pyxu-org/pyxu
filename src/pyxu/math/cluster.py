@@ -97,7 +97,7 @@ def bisect_cluster(
     def _bisect(x_idx: np.ndarray) -> ClusterMapping:
         # Split point cloud
         _x = x[x_idx]
-        bbox_dim = _x.ptp(axis=0) / 2
+        bbox_dim = np.ptp(_x, axis=0) / 2
         _clusters = grid_cluster(_x, bbox_dim)
 
         # re-label output indices

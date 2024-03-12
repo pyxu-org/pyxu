@@ -1,3 +1,8 @@
+NumPy 2.0 Migration
+    To be done when min supported version becomes 2.0:
+        pyxu.operator.interop.jax.py
+            xp.byte_bounds() -> xp.lib.array_utils.byte_bounds()
+
 doc/
     api/ has/is-being updated to ND API interactively.
 

@@ -1164,8 +1164,8 @@ class NUFFT3(pxa.LinOp):
         N, v_cl = len(v), {0: slice(None)}
         if chunked and (M > 1) and (N > 1):
             x_bbox_dim, v_bbox_dim = NUFFT3._infer_bbox_dims(
-                x_ptp=x.ptp(axis=0),
-                v_ptp=v.ptp(axis=0),
+                x_ptp=np.ptp(x, axis=0),
+                v_ptp=np.ptp(v, axis=0),
                 upsampfac=upsampfac,
                 domain=domain,
                 max_fft_mem=max_fft_mem,
