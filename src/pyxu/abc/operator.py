@@ -441,6 +441,12 @@ class Operator:
         """
         return (self,)
 
+    def _meta(self):
+        # When using DASK inputs, it is sometimes necessary to pass extra information to Dask functions.  This function
+        # serves this purpose: it lets class writers encode any such information and re-use it when processing DASK
+        # inputs.  The action and return types of _meta() are at the sole discretion of the implementer.
+        raise NotImplementedError
+
     def expr(self, level: int = 0, strip: bool = True) -> str:
         """
         Pretty-Print the expression representation of the operator.
