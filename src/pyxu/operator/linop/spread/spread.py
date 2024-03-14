@@ -9,6 +9,7 @@ import warnings
 import numpy as np
 
 import pyxu.abc as pxa
+import pyxu.info.config as pxcfg
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.info.warning as pxw
@@ -876,8 +877,7 @@ class UniformSpread(pxa.LinOp):
         # ---------------------------------------------------------------------
 
         # Store/update cached version as needed.
-        module_name = f"spread_d{dim_rank}_f{width.name}"
-        pxu.cache_module(module_name, code)
-
+        module_name = pxu.cache_module(code)
+        pxcfg.cache_dir(load=True)  # make the Pyxu cache importable (if not already done)
         jit_module = pxu.import_module(module_name)
         return jit_module
