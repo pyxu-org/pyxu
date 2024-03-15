@@ -1,7 +1,7 @@
 # This is a template file used by UniformSpread._gen_code() to JIT-compile critical sections.
 # Dollar-enclosed variables are replaced at runtime.
 
-import numba as nb
+import numba
 import numpy as np
 
 f_flags = dict(
@@ -16,7 +16,7 @@ f_flags = dict(
     boundscheck=False,
 )
 
-@nb.jit(**f_flags)
+@numba.jit(**f_flags)
 def find_bounds(x: np.ndarray[float]) -> tuple[int, int]:
     # Parameters:
     #     x: (N,)
@@ -35,7 +35,7 @@ def find_bounds(x: np.ndarray[float]) -> tuple[int, int]:
             return a, b
     return a, b
 
-@nb.jit(
+@numba.jit(
     "${signature_spread}",
     **f_flags,
 )
@@ -45,7 +45,7 @@ def f_spread(
     out: np.ndarray[float],  # C-(S1,...,SD, Ns)
 ):
     M, Ns = w.shape
-    D = out.ndim - 1
+    D = ${dim_rank}
     S = out.shape[:${dim_rank}]
 
     lb = np.zeros(D, dtype=np.int64)
@@ -67,7 +67,7 @@ def f_spread(
             for ns in range(Ns):
                 out[*idx, ns] += k * w[m, ns]
 
-@nb.jit(
+@numba.jit(
     "${signature_interpolate}",
     **f_flags,
 )
@@ -77,7 +77,7 @@ def f_interpolate(
     out: np.ndarray[float],  # C-(M, Ns)
 ):
     M, Ns = out.shape
-    D = v.ndim - 1
+    D = ${dim_rank}
     S = v.shape[:${dim_rank}]
 
     lb = np.zeros(D, dtype=np.int64)
