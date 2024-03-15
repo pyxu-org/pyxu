@@ -3,13 +3,17 @@ Low-level functions used to define user-facing stencils.
 """
 import collections.abc as cabc
 import itertools
+import pathlib as plib
 import string
+import types
 
 import numpy as np
 
+import pyxu.info.config as pxcfg
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
+import pyxu.util as pxu
 
 
 def _signature(params, returns) -> str:
@@ -182,10 +186,7 @@ class _Stencil:
         """
         assert arr.dtype == out.dtype == self._kernel.dtype
         assert arr.shape == out.shape
-        # assert arr.flags.c_contiguous and out.flags.c_contiguous
-        # [2022.12.25, Sepand]
-        #   Preferable to explicitly enforce C-contiguity for better performance, but then
-        #   LinOp.to_sciop() is partially broken.
+        assert arr.flags.c_contiguous and out.flags.c_contiguous
 
         K_dim = len(self._kernel.shape)
         dim_shape = arr.shape[-K_dim:]
@@ -205,13 +206,19 @@ class _Stencil:
     ):
         self._kernel = kernel
         self._center = center
-        self._code = self._gen_code()
 
-        exec(self._code, locals())  # compile stencil
-        self._dispatch = eval("f_jit")  # keep track of JIT Dispatcher
+        cached_module = self._gen_code()
+        self._dispatch = cached_module.f_jit
 
-    def _gen_code(self) -> str:
-        # Generate code which creates `f_jit()` after execution.
+    def _gen_code(self) -> types.ModuleType:
+        # Compile Numba kernel `void f_jit(arr, out)`.
+        #
+        # The code is compiled only if unavailable beforehand.
+        #
+        # Returns
+        # -------
+        # jit_module: module
+        #     A (loaded) python package containing method f_jit().
         raise NotImplementedError
 
     def _configure_dispatcher(self, pb_size: int, **kwargs) -> cabc.Callable:
@@ -231,50 +238,29 @@ class _Stencil:
 
 
 class _Stencil_NP(_Stencil):
-    def _gen_code(self) -> str:
-        _template = string.Template(
-            r"""
-import numba
+    def _gen_code(self) -> types.ModuleType:
+        # Generate the code which should be compiled --------------------------
+        sig_spec = (self._kernel.dtype, self._kernel.ndim + 1, True)
+        signature = _signature((sig_spec,) * 2, None)
 
-@numba.stencil(
-    func_or_mode="constant",
-    cval=0,
-)
-def f_stencil(a):
-    # rank-D kernel [specified as rank-(D+1) to work across stacked dimension].
-    return ${stencil_spec}
-
-@numba.jit(
-    "${signature}",
-    nopython=True,
-    nogil=True,
-    forceobj=False,
-    parallel=True,
-    error_model="numpy",
-    cache=False,  # not applicable to dynamically-defined functions (https://github.com/numba/numba/issues/3501)
-    fastmath=True,
-    boundscheck=False,
-)
-def f_jit(arr, out):
-    # arr: (N_stack, M1,...,MD)
-    # out: (N_stack, M1,...,MD)
-    f_stencil(arr, out=out)
-"""
-        )
-        code = _template.substitute(
-            signature=self.__sig_spec(),
+        template_file = plib.Path(__file__).parent / "_template_cpu.txt"
+        with open(template_file, mode="r") as f:
+            template = string.Template(f.read())
+        code = template.substitute(
+            signature=signature,
             stencil_spec=self.__stencil_spec(),
         )
-        return code
+        # ---------------------------------------------------------------------
+
+        # Store/update cached version as needed.
+        module_name = pxu.cache_module(code)
+        pxcfg.cache_dir(load=True)  # make the Pyxu cache importable (if not already done)
+        jit_module = pxu.import_module(module_name)
+        return jit_module
 
     def _configure_dispatcher(self, pb_size: int, **kwargs) -> cabc.Callable:
         # Nothing to do for CPU targets.
         return self._dispatch
-
-    def __sig_spec(self) -> str:
-        sig_spec = (self._kernel.dtype, self._kernel.ndim + 1, False)
-        signature = _signature([sig_spec, sig_spec], None)
-        return signature
 
     def __stencil_spec(self) -> str:
         f_fmt = {  # coef float-formatter
@@ -307,91 +293,28 @@ def f_jit(arr, out):
 
 
 class _Stencil_CP(_Stencil):
-    def _gen_code(self) -> str:
-        _template = string.Template(
-            r"""
-import numba.cuda
+    def _gen_code(self) -> types.ModuleType:
+        # Generate the code which should be compiled --------------------------
+        sig_spec = (self._kernel.dtype, self._kernel.ndim + 1, True)
+        signature = _signature((sig_spec,) * 2, None)
 
-@numba.cuda.jit(
-    device=True,
-    inline=True,
-    fastmath=True,
-    opt=True,
-    cache=False,
-)
-def unravel_offset(
-    offset,  # int
-    shape,  # (D+1,)
-):
-    # Compile-time-equivalent of np.unravel_index(offset, shape, order='C').
-    ${unravel_spec}
-    return idx
-
-
-@numba.cuda.jit(
-    device=True,
-    inline=True,
-    fastmath=True,
-    opt=True,
-    cache=False,
-)
-def full_overlap(
-    idx,  # (D+1,)
-    dimensions,  # (D+1,)
-):
-    # Computes intersection of:
-    # * idx[0] < dimensions[0]
-    # * 0 <= idx[1:] - kernel_center
-    # * idx[1:] - kernel_center <= dimensions[1:] - kernel_width
-    if not (idx[0] < dimensions[0]):
-        # went beyond stack-dim limit
-        return False
-
-    kernel_width = ${kernel_width}
-    kernel_center = ${kernel_center}
-    for i, w, c, n in zip(
-        idx[1:],
-        kernel_width,
-        kernel_center,
-        dimensions[1:],
-    ):
-        if not (0 <= i - c <= n - w):
-            # kernel partially overlaps ROI around `idx`
-            return False
-
-    # kernel fully overlaps ROI around `idx`
-    return True
-
-
-@numba.cuda.jit(
-    func_or_sig="${signature}",
-    device=False,
-    inline=False,
-    fastmath=True,
-    opt=True,
-    cache=False,  # not applicable to dynamically-defined functions (https://github.com/numba/numba/issues/3501)
-    # max_registers=None,  # see .apply() notes
-)
-def f_jit(arr, out):
-    # arr: (N_stack, M1,...,MD)
-    # out: (N_stack, M1,...,MD)
-    offset = numba.cuda.grid(1)
-    if offset < arr.size:
-        idx = unravel_offset(offset, arr.shape)
-        if full_overlap(idx, arr.shape):
-            out[idx] = ${stencil_spec}
-        else:
-            out[idx] = 0
-"""
-        )
-        code = _template.substitute(
+        template_file = plib.Path(__file__).parent / "_template_gpu.txt"
+        with open(template_file, mode="r") as f:
+            template = string.Template(f.read())
+        code = template.substitute(
             kernel_center=str(tuple(self._center)),
             kernel_width=str(self._kernel.shape),
-            signature=self.__sig_spec(),
+            signature=signature,
             stencil_spec=self.__stencil_spec(),
             unravel_spec=self.__unravel_spec(),
         )
-        return code
+        # ---------------------------------------------------------------------
+
+        # Store/update cached version as needed.
+        module_name = pxu.cache_module(code)
+        pxcfg.cache_dir(load=True)  # make the Pyxu cache importable (if not already done)
+        jit_module = pxu.import_module(module_name)
+        return jit_module
 
     def _configure_dispatcher(self, pb_size: int, **kwargs) -> cabc.Callable:
         # Set (`threadsperblock`, `blockspergrid`)
@@ -404,11 +327,6 @@ def f_jit(arr, out):
         tpb = kwargs.get("threadsperblock", attr["MaxThreadsPerBlock"])
         bpg = kwargs.get("blockspergrid", (pb_size // tpb) + 1)
         return self._dispatch[bpg, tpb]
-
-    def __sig_spec(self) -> str:
-        sig_spec = (self._kernel.dtype, self._kernel.ndim + 1, False)
-        signature = _signature([sig_spec, sig_spec], None)
-        return signature
 
     def __stencil_spec(self) -> str:
         f_fmt = {  # coef float-formatter

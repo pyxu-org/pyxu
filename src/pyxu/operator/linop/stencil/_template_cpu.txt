@@ -1,0 +1,35 @@
+# This is a template file used by _Stencil_NP._gen_code() to JIT-compile critical sections.
+# Dollar-enclosed variables are replaced at runtime.
+
+import numba
+
+f_flags = dict(
+    nopython=True,
+    nogil=True,
+    cache=True,
+    forceobj=False,
+    parallel=True,
+    error_model="numpy",
+    fastmath=True,
+    locals={},
+    boundscheck=False,
+)
+
+
+@numba.stencil(
+    func_or_mode="constant",
+    cval=0,
+)
+def f_stencil(a):
+    # rank-D kernel [specified as rank-(D+1) to work across stacked dimension].
+    return ${stencil_spec}
+
+
+@numba.jit(
+    "${signature}",
+    **f_flags,
+)
+def f_jit(arr, out):
+    # arr: (N_stack, M1,...,MD)
+    # out: (N_stack, M1,...,MD)
+    f_stencil(arr, out=out)
