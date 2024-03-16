@@ -116,11 +116,6 @@ pyxu.operator.blocks
 
             Composite op completely replaces blocks.py and will be part of abc/.
 
-pyxu.operator.stencil
-    @nb.stencil()-decorated functions do not work with dask.distributed?
-    Strangely @nb.njit() works fine.
-        What type of error message is being given? Related to pickling?
-
 pyxu.operator.UniformSpread
     Passing Operator sub-classes as `kernel` parameter does not work well with dask.distributed.
         pickle errors.

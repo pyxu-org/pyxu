@@ -419,7 +419,10 @@ class Stencil(pxa.SquareOp):
             trim_width=pad_width,
         )
 
-        # Kernels
+        # Kernels (These _Stencil() instances are not used as-is in apply/adjoint calls: their ._[kernel,center]
+        # attributes are used directly there instead to bypass Numba serialization limits. These _Stencil() objects are
+        # used however for all other Operator public methods.)
+        # It is moreover advantageous to instantiate them once here to cache JIT-compile kernels upfront.
         self._st_fw = self._init_fw(_kernel, _center)
         self._st_bw = self._init_bw(_kernel, _center)
 
@@ -704,18 +707,16 @@ class Stencil(pxa.SquareOp):
         #
         # x: (..., M1,...,MD)
         # y: (..., M1,...,MD)
-        ndi = pxd.NDArrayInfo.from_obj(x)
-        if ndi == pxd.NDArrayInfo.DASK:
-            stack_depth = (0,) * (x.ndim - self.dim_rank)
-            return x.map_overlap(
-                self._stencil_chain,
-                depth=stack_depth + self._pad._pad_width,
-                dtype=x.dtype,
-                meta=x._meta,
-                stencils=stencils,
-            )
-        else:  # NUMPY/CUPY
-            xp = ndi.module()
+
+        # _Stencil() instances cannot be serialized by Dask, so we pass around _[kernel,center] directly.
+        # _Stencil(kernel,center) was compiled in __init__() though, hence re-instantiating _Stencil() here is free.
+        kernel = [st._kernel for st in stencils]
+        center = [st._center for st in stencils]
+
+        def _chain(x, kernel, center, dispatch_params):
+            stencils = [_Stencil.init(k, c) for (k, c) in zip(kernel, center)]
+
+            xp = pxu.get_array_module(x)
             if len(stencils) == 1:
                 x = xp.require(x, requirements="C")
                 y = x.copy()
@@ -725,10 +726,27 @@ class Stencil(pxa.SquareOp):
                 x, y = x.copy(), x.copy()
 
             for st in stencils:
-                st.apply(x, y, **self._dispatch_params)
+                st.apply(x, y, **dispatch_params)
                 x, y = y, x
             y = x
             return y
+
+        ndi = pxd.NDArrayInfo.from_obj(x)
+        if ndi == pxd.NDArrayInfo.DASK:
+            stack_depth = (0,) * (x.ndim - self.dim_rank)
+            y = x.map_overlap(
+                _chain,
+                depth=stack_depth + self._pad._pad_width,
+                dtype=x.dtype,
+                meta=x._meta,
+                # extra _chain() kwargs -------------------
+                kernel=kernel,
+                center=center,
+                dispatch_params=self._dispatch_params,
+            )
+        else:  # NUMPY/CUPY
+            y = _chain(x, kernel, center, self._dispatch_params)
+        return y
 
     def _cast_warn(self, arr: pxt.NDArray) -> pxt.NDArray:
         if arr.dtype == self._dtype:
