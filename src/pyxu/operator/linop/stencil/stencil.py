@@ -714,9 +714,11 @@ class Stencil(pxa.SquareOp):
                 meta=x._meta,
                 stencils=stencils,
             )
-        else:
+        else:  # NUMPY/CUPY
+            xp = ndi.module()
             if len(stencils) == 1:
-                x, y = x, x.copy()
+                x = xp.require(x, requirements="C")
+                y = x.copy()
             else:
                 # [2023.04.17, Sepand]
                 # In-place updates of `x` breaks thread-safety of Stencil().
