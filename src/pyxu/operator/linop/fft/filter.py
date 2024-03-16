@@ -4,6 +4,7 @@ import numpy as np
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
+import pyxu.util as pxu
 from pyxu.operator.linop.fft.fft import FFT
 from pyxu.operator.linop.pad import Pad
 from pyxu.operator.linop.stencil._stencil import _Stencil
@@ -159,49 +160,25 @@ class FFTCorrelate(Stencil):
         #
         # x: (..., M1,...,MD)
         # z: (..., M1,...,MD)
-        ndi = pxd.NDArrayInfo.from_obj(x)
-        xp = ndi.module()
-        if ndi == pxd.NDArrayInfo.DASK:
-            # Compute (depth,boundary) values for [overlap,trim_internal]()
-            N_stack = x.ndim - self.dim_rank
-            depth = {ax: 0 for ax in range(x.ndim)}
-            for ax, (p_lhs, p_rhs) in enumerate(self._pad._pad_width):
-                assert p_lhs == p_rhs, "top-level Pad() should be symmetric."
-                depth[N_stack + ax] = p_lhs
-            boundary = 0
 
-            x_overlap = xp.overlap.overlap(  # Share padding between chunks
-                x,
-                depth=depth,
-                boundary=boundary,
-            )
-            z_overlap = x_overlap.map_blocks(  # Map _stencil_chain() to each chunk
-                func=self._stencil_chain,
-                dtype=x.dtype,
-                chunks=x_overlap.chunks,
-                meta=x._meta,
-                stencils=stencils,
-            )
-            z = xp.overlap.trim_internal(  # Trim inter-chunk excess
-                z_overlap,
-                axes=depth,
-                boundary=boundary,
-            )
-            return z
-        else:
+        # Contrary to Stencil._stencil_chain(), the `stencils` parameter is picklable directly.
+        def _chain(x, stencils, fft_kwargs):
+            xp = pxu.get_array_module(x)
             xpf = FFT.fft_backend(xp)
 
             # Compute constants -----------------------------------------------
             if uni_kernel := (len(stencils) == 1):
                 M = np.r_[stencils[0]._kernel.shape]
+                dim_rank = stencils[0]._kernel.ndim
             else:
                 M = np.array([st._kernel.size for st in stencils])
-            Np = np.r_[x.shape[-self.dim_rank :]]
+                dim_rank = len(stencils)
+            Np = np.r_[x.shape[-dim_rank:]]
             L = FFT.next_fast_len(Np + M - 1, xp=xp)
-            axes = tuple(range(-self.dim_rank, 0))
+            axes = tuple(range(-dim_rank, 0))
 
             # Apply stencils in DFT domain ------------------------------------
-            fft = FFT(L, axes, **self._fft_kwargs)
+            fft = FFT(L, axes, **fft_kwargs)
             Z = fft.capply(x)
             if uni_kernel:
                 if len(M) == 1:  # 1D kernel
@@ -222,6 +199,40 @@ class FFTCorrelate(Stencil):
                 center = [st._center[i] for (i, st) in enumerate(stencils)]
             extract = [slice(c, c + n) for (c, n) in zip(center, Np)]
             return z[..., *extract]
+
+        ndi = pxd.NDArrayInfo.from_obj(x)
+        if ndi == pxd.NDArrayInfo.DASK:
+            # Compute (depth,boundary) values for [overlap,trim_internal]()
+            N_stack = x.ndim - self.dim_rank
+            depth = {ax: 0 for ax in range(x.ndim)}
+            for ax, (p_lhs, p_rhs) in enumerate(self._pad._pad_width):
+                assert p_lhs == p_rhs, "top-level Pad() should be symmetric."
+                depth[N_stack + ax] = p_lhs
+            boundary = 0
+
+            xp = ndi.module()
+            x_overlap = xp.overlap.overlap(  # Share padding between chunks
+                x,
+                depth=depth,
+                boundary=boundary,
+            )
+            z_overlap = x_overlap.map_blocks(  # Map _chain() to each chunk
+                func=_chain,
+                dtype=x.dtype,
+                chunks=x_overlap.chunks,
+                meta=x._meta,
+                # extra _chain() kwargs -------------------
+                stencils=stencils,
+                fft_kwargs=self._fft_kwargs,
+            )
+            z = xp.overlap.trim_internal(  # Trim inter-chunk excess
+                z_overlap,
+                axes=depth,
+                boundary=boundary,
+            )
+        else:
+            z = _chain(x, stencils, self._fft_kwargs)
+        return z
 
 
 class FFTConvolve(FFTCorrelate):
