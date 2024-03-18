@@ -6,6 +6,7 @@ import string
 import types
 import warnings
 
+import cloudpickle
 import numpy as np
 
 import pyxu.abc as pxa
@@ -301,6 +302,8 @@ class UniformSpread(pxa.LinOp):
                 align_arrays=False,
                 concatenate=True,
                 meta=self._x._meta,
+                # -- Extra _blockwise_spread() kwargs -----
+                **self._meta(),
             )
             out = parts.sum(axis=-1)  # (..., N1,...,ND)
         else:  # NUMPY
@@ -398,6 +401,8 @@ class UniformSpread(pxa.LinOp):
                 align_arrays=False,
                 concatenate=True,
                 meta=self._x._meta,
+                # -- Extra _blockwise_interpolate() kwargs -----
+                **self._meta(),
             )
             out = parts.sum(axis=tuple(range(-self.codim_rank, 0)))  # (..., M)
         else:  # NUMPY
@@ -429,7 +434,7 @@ class UniformSpread(pxa.LinOp):
         xp = pxu.get_array_module(self._x)
         dtype = self._x.dtype
 
-        lattice = self._lattice(xp, dtype, flatten=False)
+        lattice = self._lattice(self._z, xp, dtype, flatten=False)
 
         A = xp.ones((*self.codim_shape, *self.dim_shape), dtype=dtype)  # (N1,...,ND, M)
         for d in range(self.codim_rank):
@@ -573,8 +578,10 @@ class UniformSpread(pxa.LinOp):
 
         return info
 
+    @classmethod
     def _lattice(
-        self,
+        cls,
+        z: dict,
         xp: pxt.ArrayModule,
         dtype: pxt.DType,
         roi: tuple[slice] = None,
@@ -584,6 +591,8 @@ class UniformSpread(pxa.LinOp):
         #
         # Parameters
         # ----------
+        # z: dict
+        #     Lattice specifier [canonical form; see __init__().]
         # xp: ArrayModule
         #     Which array module to use to represent the mesh.
         # dtype: DType
@@ -598,14 +607,15 @@ class UniformSpread(pxa.LinOp):
         # lattice: tuple[NDArray]
         #     * flatten=True : (D,) 1D lattice nodes.
         #     * flatten=False: (D,) sparse ND-meshgrid of lattice nodes.
+        D = len(z["start"])
         if roi is None:
-            roi = (slice(None),) * self.codim_rank
+            roi = (slice(None),) * D
 
-        lattice = [None] * self.codim_rank
-        for d in range(self.codim_rank):
-            alpha = self._z["start"][d]
-            beta = self._z["stop"][d]
-            N = self._z["num"][d]
+        lattice = [None] * D
+        for d in range(D):
+            alpha = z["start"][d]
+            beta = z["stop"][d]
+            N = z["num"][d]
             step = 0 if (N == 1) else (beta - alpha) / (N - 1)
             _roi = roi[d]
             lattice[d] = (alpha + xp.arange(N)[_roi] * step).astype(dtype)
@@ -650,7 +660,7 @@ class UniformSpread(pxa.LinOp):
         w = w[:, a:b]  # (Ns, Mq)
 
         # Evaluate 1D kernel weights per support point
-        lattice = self._lattice(np, dtype, roi)  # (S1,),...,(SD,)
+        lattice = self._lattice(self._z, np, dtype, roi)  # (S1,),...,(SD,)
         kernel = np.zeros((Mq, max(S), D), dtype=dtype)  # (Mq, S_max, D)
         for d, kern in enumerate(self._kernel):
             kernel[:, : S[d], d] = kern(lattice[d] - x[:, [d]])
@@ -666,7 +676,14 @@ class UniformSpread(pxa.LinOp):
         axes = (-1, *range(self.codim_rank))
         return (q, v.transpose(axes))
 
-    def _blockwise_spread(self, x: pxt.NDArray, w: pxt.NDArray, z_spec: pxt.NDArray) -> pxt.NDArray:
+    @classmethod
+    def _blockwise_spread(
+        cls,
+        x: pxt.NDArray,
+        w: pxt.NDArray,
+        z_spec: pxt.NDArray,
+        **kwargs,
+    ) -> pxt.NDArray:
         # Spread (support, weight) pairs onto sub-lattice.
         #
         # Parameters
@@ -678,6 +695,8 @@ class UniformSpread(pxa.LinOp):
         # z_spec: NDArray[float]
         #     (<D 1s>, D, 2) start/stop lattice bounds per dimension.
         #     This parameter is identical to _lattice()'s `roi` parameter, but in array form.
+        # kwargs: dict
+        #     Extra info passed to UniformSpread(). [Not block-specific.]
         #
         # Returns
         # -------
@@ -686,10 +705,12 @@ class UniformSpread(pxa.LinOp):
         #
         #     [Note the trailing size-1 dim; this is required since blockwise() expects to
         #      stack these outputs given how it was called.]
+        _, D = x.shape
 
         # Get lattice descriptor in suitable form for UniformSpread().
-        z_spec = z_spec[(0,) * self.codim_rank]  # (D, 2)
-        lattice = self._lattice(
+        z_spec = z_spec[(0,) * D]  # (D, 2)
+        lattice = cls._lattice(
+            z=kwargs.pop("z"),  # the full lattice
             xp=pxu.get_array_module(x),
             dtype=x.dtype,
             roi=[slice(start, stop) for (start, stop) in z_spec],
@@ -700,12 +721,12 @@ class UniformSpread(pxa.LinOp):
             num=[_l.size for _l in lattice],
         )
 
-        op = UniformSpread(
+        kernel_bytes = kwargs.pop("kernel")
+        op = cls(
             x=x,
             z=z_spec,
-            kernel=self._kernel,
-            enable_warnings=self._enable_warnings,
-            **self._kwargs,
+            kernel=cloudpickle.loads(kernel_bytes),
+            **kwargs,
         )
         v = op.apply(w)  # (..., S1,...,SD)
         return v[..., np.newaxis]
@@ -743,7 +764,7 @@ class UniformSpread(pxa.LinOp):
         v = v[:, *roi]  # (Ns, S1,...,SD)
 
         # Evaluate 1D kernel weights per support point
-        lattice = self._lattice(np, dtype, roi)  # (S1,),...,(SD,)
+        lattice = self._lattice(self._z, np, dtype, roi)  # (S1,),...,(SD,)
         kernel = np.zeros((Mq, max(S), D), dtype=dtype, order="C")  # (Mq, S_max, D)
         for d, kern in enumerate(self._kernel):
             kernel[:, : S[d], d] = kern(lattice[d] - x[:, [d]])
@@ -759,7 +780,14 @@ class UniformSpread(pxa.LinOp):
 
         return (q, w.T)
 
-    def _blockwise_interpolate(self, x: pxt.NDArray, v: pxt.NDArray, z_spec: pxt.NDArray) -> pxt.NDArray:
+    @classmethod
+    def _blockwise_interpolate(
+        cls,
+        x: pxt.NDArray,
+        v: pxt.NDArray,
+        z_spec: pxt.NDArray,
+        **kwargs,
+    ) -> pxt.NDArray:
         # Spread (lattice, weight) pairs onto support points.
         #
         # Parameters
@@ -771,6 +799,8 @@ class UniformSpread(pxa.LinOp):
         # z_spec: NDArray[float]
         #     (<D 1s>, D, 2) start/stop lattice bounds per dimension.
         #     This parameter is identical to _lattice()'s `roi` parameter, but in array form.
+        # kwargs: dict
+        #     Extra info passed to UniformSpread(). [Not block-specific.]
         #
         # Returns
         # -------
@@ -779,10 +809,12 @@ class UniformSpread(pxa.LinOp):
         #
         #     [Note the trailing size-1 dims; these are required since blockwise() expects to
         #      stack these outputs given how it was called.]
+        _, D = x.shape
 
         # Get lattice descriptor in suitable form for UniformSpread().
-        z_spec = z_spec[(0,) * self.codim_rank]  # (D, 2)
-        lattice = self._lattice(
+        z_spec = z_spec[(0,) * D]  # (D, 2)
+        lattice = cls._lattice(
+            z=kwargs.pop("z"),  # the full lattice
             xp=pxu.get_array_module(x),
             dtype=x.dtype,
             roi=[slice(start, stop) for (start, stop) in z_spec],
@@ -793,16 +825,16 @@ class UniformSpread(pxa.LinOp):
             num=[_l.size for _l in lattice],
         )
 
-        op = UniformSpread(
+        kernel_bytes = kwargs.pop("kernel")
+        op = cls(
             x=x,
             z=z_spec,
-            kernel=self._kernel,
-            enable_warnings=self._enable_warnings,
-            **self._kwargs,
+            kernel=cloudpickle.loads(kernel_bytes),
+            **kwargs,
         )
         w = op.adjoint(v)  # (..., Mq)
 
-        expand = (np.newaxis,) * self.codim_rank
+        expand = (np.newaxis,) * D
         return w[..., *expand]
 
     @staticmethod
@@ -881,3 +913,15 @@ class UniformSpread(pxa.LinOp):
         pxcfg.cache_dir(load=True)  # make the Pyxu cache importable (if not already done)
         jit_module = pxu.import_module(module_name)
         return jit_module
+
+    def _meta(self):
+        # * x: not passed directly since it will be explicitly split in apply/adjoint() calls.
+        # * kernel: not to restrict what object types can be supplied by users, `kernel` cannot be assumed to be
+        #   picklable. Its binary representation is therefore sent around. _blockwise_[spread,interpolate]() unpickle it
+        #   as needed.
+        return dict(
+            z=self._z,
+            kernel=cloudpickle.dumps(self._kernel),
+            enable_warnings=self._enable_warnings,
+            **self._kwargs,
+        )
