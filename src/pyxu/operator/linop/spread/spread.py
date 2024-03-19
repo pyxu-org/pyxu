@@ -721,14 +721,15 @@ class UniformSpread(pxa.LinOp):
             num=[_l.size for _l in lattice],
         )
 
-        kernel_bytes = kwargs.pop("kernel")
-        op = cls(
-            x=x,
-            z=z_spec,
-            kernel=cloudpickle.loads(kernel_bytes),
-            **kwargs,
-        )
-        v = op.apply(w)  # (..., S1,...,SD)
+        with pxrt.EnforcePrecision(False):
+            kernel_bytes = kwargs.pop("kernel")
+            op = cls(
+                x=x,
+                z=z_spec,
+                kernel=cloudpickle.loads(kernel_bytes),
+                **kwargs,
+            )
+            v = op.apply(w)  # (..., S1,...,SD)
         return v[..., np.newaxis]
 
     def _interpolate(self, x: np.ndarray, v: np.ndarray, q: int) -> tuple[int, np.ndarray]:
@@ -825,14 +826,15 @@ class UniformSpread(pxa.LinOp):
             num=[_l.size for _l in lattice],
         )
 
-        kernel_bytes = kwargs.pop("kernel")
-        op = cls(
-            x=x,
-            z=z_spec,
-            kernel=cloudpickle.loads(kernel_bytes),
-            **kwargs,
-        )
-        w = op.adjoint(v)  # (..., Mq)
+        with pxrt.EnforcePrecision(False):
+            kernel_bytes = kwargs.pop("kernel")
+            op = cls(
+                x=x,
+                z=z_spec,
+                kernel=cloudpickle.loads(kernel_bytes),
+                **kwargs,
+            )
+            w = op.adjoint(v)  # (..., Mq)
 
         expand = (np.newaxis,) * D
         return w[..., *expand]
