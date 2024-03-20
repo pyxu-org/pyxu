@@ -3,13 +3,13 @@ import importlib
 import inspect
 import os
 import types
-import typing as typ
 
 import dask.array as da
 import zarr
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
+import pyxu.util.array_module as pxam
 
 __all__ = [
     "copy_if_unsafe",
@@ -250,12 +250,12 @@ def save_zarr(filedir: pxt.Path, kw_in: dict[str, pxt.NDArray]) -> None:
             if array is not None:
                 if pxd.NDArrayInfo.from_obj(array) == pxd.NDArrayInfo.DASK:
                     array.to_zarr(
-                    	filedir / ("dask_" + filename),
-                    	overwrite=True,
-                    	compute=True,
+                        filedir / ("dask_" + filename),
+                        overwrite=True,
+                        compute=True,
                     )
                 else:
-                    zarr.save(filedir / filename, array)
+                    zarr.save(filedir / filename, pxam.to_NUMPY(array))
         except Exception as e:
             print(f"Failed to save {filename}: {e}")
 
