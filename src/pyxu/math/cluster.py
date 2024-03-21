@@ -3,7 +3,6 @@
 # These are low-level routines NOT meant to be imported by default via `import pyxu.math`.
 # Import this module when/where needed only.
 
-import collections
 import concurrent.futures as cf
 
 import numpy as np
@@ -47,13 +46,14 @@ def grid_cluster(
     # Compute (multi,flat) cluster index of each point
     x_min, x_max = x.min(axis=0), x.max(axis=0)
     lattice_shape = np.maximum(1, np.ceil((x_max - x_min) / bbox_dim)).astype(int)
-    c_idx = ((x - x_min) // bbox_dim).clip(0, lattice_shape - 1).astype(int)  # (M, D)
+    c_idx = np.clip((x - x_min) / bbox_dim, 0, lattice_shape - 1, casting="unsafe", dtype=int)  # (M, D)
     cl_idx = np.ravel_multi_index(c_idx.T, lattice_shape)  # flat `c_idx`
 
     idx = np.argsort(cl_idx)
-    count = collections.Counter(cl_idx[idx])  # sort + count occurence
+    _, cl_count = np.unique(cl_idx[idx], return_counts=True)  # point-count per cluster
+
     clusters, start = dict(), 0
-    for i, step in enumerate(count.values()):
+    for i, step in enumerate(cl_count):
         clusters[i] = idx[start : start + step]
         start += step
 
