@@ -1,8 +1,11 @@
 import collections.abc as cabc
 import inspect
+import os
+import subprocess
 import types
 import typing as typ
 
+import dask.distributed
 import numpy as np
 import pytest
 
@@ -10,6 +13,21 @@ import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
+
+
+@pytest.fixture(scope="session", autouse=True)
+def client():
+    # Construct the full path to the script
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    script_path = os.path.join(dir_path, "launch_dask_cluster.py")
+
+    # Start the external Dask cluster
+    subprocess.run(["python", script_path], check=True)
+
+    # Connect to the Dask client
+    client = dask.distributed.Client("tcp://localhost:8786")
+
+    yield client
 
 
 @pytest.fixture(params=pxd.supported_array_modules())
