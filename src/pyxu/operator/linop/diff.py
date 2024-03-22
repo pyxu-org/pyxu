@@ -59,6 +59,8 @@ def _sanitize_init_kwargs(
     Ensures that inputs have the appropriate shape and values.
     """
 
+    dim_shape = pxu.as_canonical_shape(dim_shape)
+
     def _ensure_tuple(param, param_name: str) -> typ.Union[tuple[pxt.Integer, ...], tuple[str, ...]]:
         r"""
         Enforces the input parameters to be tuples of the same size as `dim_shape`.
@@ -700,6 +702,7 @@ class PartialDerivative:
 
         """
         assert isinstance(order, cabc.Sequence), "`order` should be a tuple / list"
+        dim_shape = pxu.as_canonical_shape(dim_shape)
         assert len(order) == len(dim_shape)
         diff_kwargs = {"scheme": scheme, "accuracy": accuracy}
         order, sampling, scheme, accuracy, _ = _sanitize_init_kwargs(
@@ -881,6 +884,7 @@ class PartialDerivative:
 
         """
         assert isinstance(order, cabc.Sequence), "`order` should be a tuple / list"
+        dim_shape = pxu.as_canonical_shape(dim_shape)
         assert len(order) == len(dim_shape)
 
         diff_kwargs = {"sigma": sigma, "truncate": truncate}
@@ -1215,6 +1219,7 @@ def Gradient(
     :py:func:`~pyxu.operator.PartialDerivative`,
     :py:func:`~pyxu.operator.Jacobian`.
     """
+    dim_shape = pxu.as_canonical_shape(dim_shape)
     directions = tuple([i for i in range(len(dim_shape))]) if directions is None else directions
     axes = tuple([i for i in range(len(dim_shape)) if i in directions])
     order, sampling, param1, param2, _ = _sanitize_init_kwargs(
@@ -1368,6 +1373,7 @@ def Jacobian(
                 directions = list(directions)
         directions = tuple([d - 1 for d in directions])
 
+    dim_shape = pxu.as_canonical_shape(dim_shape)
     init_kwargs = dict(
         dim_shape=dim_shape[1:],
         directions=directions,
@@ -1548,6 +1554,7 @@ def Divergence(
                 param.insert(0, "dummy")
         init_kwargs.update({key: param})
 
+    dim_shape = pxu.as_canonical_shape(dim_shape)
     directions = tuple([i for i in range(1, len(dim_shape))]) if directions is None else directions
     assert all(
         [direction > 0 for direction in directions]
@@ -1733,6 +1740,7 @@ def Hessian(
     # However, this might not hold for non-trivial padding conditions, and the user can demand all
     # Hessian components via the `directions` 2nd mode (see ``Notes``).
 
+    dim_shape = pxu.as_canonical_shape(dim_shape)
     order, sampling, param1, param2, _ = _sanitize_init_kwargs(
         order=(1,) * len(dim_shape),
         diff_method=diff_method,
@@ -1878,6 +1886,7 @@ def Laplacian(
     :py:class:`~pyxu.operator.Gradient`,
     :py:class:`~pyxu.operator.Hessian`.
     """
+    dim_shape = pxu.as_canonical_shape(dim_shape)
     ndims = len(dim_shape)
     directions = tuple([i for i in range(len(dim_shape))]) if directions is None else directions
     directions = [(i, i) for i in range(ndims) if i in directions]
@@ -2051,7 +2060,7 @@ def DirectionalDerivative(
     :py:func:`~pyxu.operator.Gradient`,
     :py:func:`~pyxu.operator.DirectionalGradient`
     """
-
+    dim_shape = pxu.as_canonical_shape(dim_shape)
     ndim = len(dim_shape)
     # For first directional derivative, ndim_diff == number of elements in gradient
     # For second directional derivative, ndim_diff == number of unique elements in Hessian
@@ -2252,7 +2261,7 @@ def DirectionalGradient(
 
     diag_ops = []
     diag_ops_compute = []
-
+    dim_shape = pxu.as_canonical_shape(dim_shape)
     ndim = len(dim_shape)
     assert isinstance(directions, cabc.Sequence)
 
@@ -2422,7 +2431,7 @@ def DirectionalLaplacian(
     xp = pxu.get_array_module(directions[0])
     gpu = xp == pxd.NDArrayInfo.CUPY.module()
     dtype = directions[0].dtype
-
+    dim_shape = pxu.as_canonical_shape(dim_shape)
     hess = Hessian(
         dim_shape=dim_shape,
         diff_method=diff_method,
@@ -2614,7 +2623,7 @@ def DirectionalHessian(
     xp = pxu.get_array_module(directions[0])
     gpu = xp == pxd.NDArrayInfo.CUPY.module()
     dtype = directions[0].dtype
-
+    dim_shape = pxu.as_canonical_shape(dim_shape)
     hess = Hessian(
         dim_shape=dim_shape,
         diff_method=diff_method,
