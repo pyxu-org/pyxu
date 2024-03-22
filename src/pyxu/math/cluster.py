@@ -5,6 +5,7 @@
 
 import concurrent.futures as cf
 
+import numba
 import numpy as np
 import scipy.spatial as spl
 
@@ -44,18 +45,17 @@ def grid_cluster(
         return clusters
 
     # Compute (multi,flat) cluster index of each point
-    x_min, x_max = x.min(axis=0), x.max(axis=0)
-    lattice_shape = np.maximum(1, np.ceil((x_max - x_min) / bbox_dim)).astype(int)
-    c_idx = np.clip((x - x_min) / bbox_dim, 0, lattice_shape - 1, casting="unsafe", dtype=int)  # (M, D)
-    cl_idx = np.ravel_multi_index(c_idx.T, lattice_shape)  # flat `c_idx`
+    cM_idx, lattice_shape = _digitize(x, bbox_dim)  # multi-index
+    cF_idx = np.ravel_multi_index(cM_idx.T, lattice_shape, mode="clip")  # flat-index
 
-    idx = np.argsort(cl_idx)
-    _, cl_count = np.unique(cl_idx[idx], return_counts=True)  # point-count per cluster
+    # re-order & count points
+    cl_count, idx = _count_sort(cF_idx, k=np.prod(lattice_shape))
 
     clusters, start = dict(), 0
     for i, step in enumerate(cl_count):
-        clusters[i] = idx[start : start + step]
-        start += step
+        if step > 0:
+            clusters[i] = idx[start : start + step]
+            start += step
 
     return clusters
 
@@ -213,3 +213,116 @@ def fuse_cluster(
 
     fused = {c_idx: x_idx for (c_idx, x_idx) in enumerate(clusters)}
     return fused
+
+
+# Internal Helper functions ---------------------------------------------------
+_nb_flags = dict(
+    nopython=True,
+    nogil=True,
+    cache=True,
+    forceobj=False,
+    parallel=False,
+    error_model="numpy",
+    fastmath=True,
+    locals={},
+    boundscheck=False,
+)
+
+
+@numba.jit(**_nb_flags)
+def _minmax(x: np.ndarray) -> tuple[np.ndarray]:
+    # Computes code below more efficiently:
+    #     (x.min(axis=0), x.max(axis=0))
+    #
+    # Parameters
+    # ----------
+    # x: ndarray[float32/64]
+    #     (M, D)
+    #
+    # Returns
+    # -------
+    # x_min, x_max: ndarray[float32/64]
+    #     (D,) axial min/max values
+    M, D = x.shape
+    x_min = np.full(D, fill_value=np.inf, dtype=x.dtype)
+    x_max = np.full(D, fill_value=-np.inf, dtype=x.dtype)
+
+    for m in range(M):
+        for d in range(D):
+            if x[m, d] < x_min[d]:
+                x_min[d] = x[m, d]
+            if x[m, d] > x_max[d]:
+                x_max[d] = x[m, d]
+    return x_min, x_max
+
+
+@numba.jit(**_nb_flags)
+def _digitize(x: np.ndarray, bbox_dim: np.ndarray) -> tuple[np.ndarray]:
+    # Computes code below more efficiently:
+    #     x_min, x_max = x.min(axis=0), x.max(axis=0)
+    #     lattice_shape = np.maximum(1, np.ceil((x_max - x_min) / bbox_dim)).astype(int)
+    #     c_idx = ((x - x_min) / bbox_dim).astype(int)  # (M, D)
+    #
+    # Parameters
+    # ----------
+    # x: ndarray[float32/64]
+    #     (M, D)
+    # bbox_dim: ndarray[float32/64]
+    #     (D,)
+    #
+    # Returns
+    # -------
+    # c_idx: ndarray[int]
+    #     (M, D) integer bins each element belongs to.
+    # lattice_shape: ndarray[int]
+    #     (D,) bin count per dimension.
+    M, D = x.shape
+    x_min, x_max = _minmax(x)
+
+    lattice_shape = np.zeros(D, dtype=np.int64)
+    for d in range(D):
+        lattice_shape[d] = max(1, np.ceil((x_max[d] - x_min[d]) / bbox_dim[d]))
+
+    c_idx = np.zeros((M, D), dtype=np.int64)
+    for m in range(M):
+        for d in range(D):
+            c_idx[m, d] = (x[m, d] - x_min[d]) / bbox_dim[d]
+
+    return c_idx, lattice_shape
+
+
+@numba.jit(**_nb_flags)
+def _count_sort(x: np.ndarray, k: int) -> tuple[np.ndarray]:
+    # Computes code below more efficiently:
+    #     idx = np.argsort(x)
+    #     _, count = np.unique(x, return_counts=True)
+    #
+    # Parameters
+    # ----------
+    # x: ndarray[int]
+    #     (N,) non-negative integers.
+    # k: int
+    #     Upper bound on values in `x`.
+    #
+    # Returns
+    # -------
+    # count: ndarray[int]
+    #     (k,) counts of each element in `x`.
+    # idx: ndarray[int]
+    #     (N,) indices to sort x into ascending order.
+    count = np.zeros(k, dtype=np.int64)
+    for _x in x:
+        count[_x] += 1
+
+    # Write-index for each category
+    w_idx = np.zeros(k, dtype=np.int64)
+    w_idx[0] = 0
+    w_idx[1:] = np.cumsum(count)[: k - 1]
+
+    N = len(x)
+    idx = np.zeros(N, dtype=x.dtype)
+    for i, _x in enumerate(x):
+        idx[w_idx[_x]] = i
+        w_idx[_x] += 1
+
+    return count, idx
