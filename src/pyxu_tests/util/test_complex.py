@@ -304,8 +304,8 @@ class TestAsRealOp:
         x_r = pxu.view_as_real(x)
 
         dim_rank = len(dim_shape)
-        ip_R = np.tensordot(real_out, x_r, axes=dim_rank + 1)  # real-valued tensor contraction
-        ip_C = np.tensordot(complex_in, x, axes=dim_rank)  # complex-valued tensor contraction
+        ip_R = np.tensordot(pxu.to_NUMPY(real_out), x_r, axes=dim_rank + 1)  # real-valued tensor contraction
+        ip_C = np.tensordot(pxu.to_NUMPY(complex_in), x, axes=dim_rank)  # complex-valued tensor contraction
         ip_C_r = pxu.view_as_real(ip_C)
 
         assert np.allclose(ip_C_r, ip_R)
