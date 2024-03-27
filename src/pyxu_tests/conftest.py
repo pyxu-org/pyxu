@@ -1,6 +1,6 @@
 import collections.abc as cabc
 import inspect
-import os
+import pathlib as plib
 import subprocess
 import types
 import typing as typ
@@ -17,15 +17,20 @@ import pyxu.util as pxu
 
 @pytest.fixture(scope="session", autouse=True)
 def client():
-    # Construct the full path to the script
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    script_path = os.path.join(dir_path, "launch_dask_cluster.py")
+    # find/run dask cluster script
+    host, port = "localhost", "8786"
+    path = plib.Path(__file__).parent / "launch_dask_cluster.py"
+    subprocess.run(
+        [
+            *("python", str(path)),
+            *("--host", host),
+            *("--port", port),
+        ],
+        check=True,
+    )
 
-    # Start the external Dask cluster
-    subprocess.run(["python", script_path], check=True)
-
-    # Connect to the Dask client
-    client = dask.distributed.Client("tcp://localhost:8786")
+    # connect to the Dask client
+    client = dask.distributed.Client(f"tcp://{host}:{port}")
 
     yield client
 
