@@ -434,23 +434,48 @@ class SolverT(ct.DisableTestMixin):
         data, _ = solver.stats()
         assert set(log_var) == set(data.keys())
 
-    def test_halt_implies_disk_storage(self, solver_klass, kwargs_init, kwargs_fit, tmp_path):
-        # When solver stops, data+log files exist at specified folder.
+    @pytest.mark.parametrize("writeback_rate", [None, 0])
+    def test_halt_implies_disk_storage(
+        self,
+        solver_klass,
+        kwargs_init,
+        kwargs_fit,
+        tmp_path,
+        writeback_rate,
+    ):
+        # When solver ends and checkpointing enabled, data+log files exist at specified folder.
         self._skip_if_disabled()
 
         kwargs_init = kwargs_init.copy()
-        kwargs_init.update(folder=tmp_path, exist_ok=True)
+        kwargs_init.update(
+            folder=tmp_path,
+            exist_ok=True,
+            writeback_rate=writeback_rate,
+        )
         solver = solver_klass(**kwargs_init)
         solver.fit(**self.as_early_stop(kwargs_fit))
 
         assert solver.workdir.resolve() == tmp_path.resolve()
         assert solver.logfile.exists()
-        assert solver.datafile.exists()
+        if writeback_rate == 0:
+            # checkpoint to disk at final iter
+            assert solver.datafile.exists()
+        else:
+            # never checkpoint to disk
+            assert not solver.datafile.exists()
 
-    def test_disk_value_matches_memory(self, solver, kwargs_fit):
+    def test_disk_value_matches_memory(
+        self,
+        solver_klass,
+        kwargs_init,
+        kwargs_fit,
+    ):
         # Datafile content (values) match in-memory data after halt.
         self._skip_if_disabled()
 
+        kwargs_init = kwargs_init.copy()
+        kwargs_init.update(writeback_rate=0)  # to force disk write
+        solver = solver_klass(**kwargs_init)
         solver.fit(**self.as_early_stop(kwargs_fit))
 
         disk = pxu.load_zarr(solver.datafile)
@@ -465,11 +490,20 @@ class SolverT(ct.DisableTestMixin):
             {k: hist_mem[k] for k in hist_mem.dtype.fields},
         )
 
-    def test_disk_prec_matches_memory(self, solver, kwargs_fit, width):
+    def test_disk_prec_matches_memory(
+        self,
+        solver_klass,
+        kwargs_init,
+        kwargs_fit,
+        width,
+    ):
         # Datafile content (dtypes) match in-memory dtypes after halt.
         self._skip_if_disabled()
 
         with pxrt.Precision(width):
+            kwargs_init = kwargs_init.copy()
+            kwargs_init.update(writeback_rate=0)  # to force disk write
+            solver = solver_klass(**kwargs_init)
             solver.fit(**self.as_early_stop(kwargs_fit))
 
             disk = pxu.load_zarr(solver.datafile)
