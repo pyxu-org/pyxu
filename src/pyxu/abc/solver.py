@@ -190,11 +190,12 @@ class Solver:
             target directory already exists.
         stop_rate: Integer
             Rate at which solver evaluates stopping criteria.
-        writeback_rate: Integer, optional
-            Controls the frequency of solver checkpoints written to disk. The behavior depends on the value:
-            - If set to a positive integer, checkpoints are written every `writeback_rate` iterations. Must be a multiple of `stop_rate`.
-            - If set to `-1`, only the final state of the solver is checkpointed before stopping, effectively saving only the last iteration.
-            - If `None` (default), checkpointing is disabled, and no intermediate states are saved to disk; only the final output will be.
+        writeback_rate: Integer
+            Rate at which solver checkpoints are written to disk:
+
+            - If `None` (default), all checkpoints are disabled: the final solver output is only stored in memory.
+            - If `0`, intermediate checkpoints are disabled: only the final solver output will be written to disk.
+            - Any other integer: checkpoint to disk at provided interval. Must be a multiple of `stop_rate`.
         verbosity: Integer
             Rate at which stopping criteria statistics are logged.  Must be a multiple of `stop_rate`.  Defaults to
             `stop_rate` if unspecified.
@@ -250,11 +251,18 @@ class Solver:
             raise ValueError(f"stop_rate must be positive, got {stop_rate}.")
 
         try:
-            if writeback_rate is not None and writeback_rate != -1:
-                assert writeback_rate % self._astate["stop_rate"] == 0, "writeback_rate must be a multiple of stop_rate"
-            self._astate["wb_rate"] = int(writeback_rate) if writeback_rate is not None else writeback_rate
-        except AssertionError as e:
-            raise ValueError(f"{e} or -1 for last iteration only, got {writeback_rate}")
+            if writeback_rate is None:  # no checkpoints
+                pass
+            elif writeback_rate == 0:  # final checkpoint only
+                pass
+            else:  # regular checkpoints
+                assert writeback_rate > 0
+                assert writeback_rate % self._astate["stop_rate"] == 0
+                writeback_rate = int(writeback_rate)
+            self._astate["wb_rate"] = writeback_rate
+        except Exception:
+            raise ValueError(f"writeback_rate must be (None, 0, <multiple of stop_rate>), got {writeback_rate}.")
+
         try:
             if verbosity is None:
                 verbosity = self._astate["stop_rate"]
@@ -557,10 +565,8 @@ class Solver:
 
         must_stop = lambda: ast["idx"] % ast["stop_rate"] == 0
         must_log = lambda: ast["idx"] % ast["log_rate"] == 0
-        must_writeback = lambda: (ast["wb_rate"] is not None) and (ast["idx"] % ast["wb_rate"] == 0)
-        must_writeback = (
-            lambda: ast["wb_rate"] is not None and ast["wb_rate"] != -1 and ast["idx"] % ast["wb_rate"] == 0
-        )
+        checkpoint_enabled = ast["wb_rate"] not in (None, 0)  # performing regular checkpoints?
+        must_writeback = lambda: checkpoint_enabled and (ast["idx"] % ast["wb_rate"] == 0)
 
         def _log(msg: str = None):
             if msg is None:  # report stopping-criterion values
@@ -625,7 +631,7 @@ class Solver:
             msg = f"[{dt.datetime.now()}] Something went wrong -> EXCEPTION RAISED"
             msg_xtra = f"More information: {self.logfile}."
             print("\n".join([msg, msg_xtra]), file=sys.stderr)
-            if ast["wb_rate"] is not None:  # checkpointing enabled
+            if checkpoint_enabled:  # checkpointing enabled
                 _, r = divmod(ast["idx"], ast["wb_rate"])
                 idx_valid = ast["idx"] - r
                 msg_idx = f"Last valid checkpoint done at iteration={idx_valid}."
