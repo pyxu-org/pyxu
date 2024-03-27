@@ -5,6 +5,7 @@ import zarr
 
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
+import pyxu.util.array_module as pxam
 
 __all__ = [
     "save_zarr",
@@ -35,7 +36,7 @@ def save_zarr(filedir: pxt.Path, kw_in: dict[str, pxt.NDArray]) -> None:
                         compute=True,
                     )
                 else:
-                    zarr.save(filedir / filename, array)
+                    zarr.save(filedir / filename, pxam.to_NUMPY(array))
         except Exception as e:
             print(f"Failed to save {filename}: {e}")
 
