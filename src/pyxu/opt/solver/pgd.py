@@ -133,6 +133,16 @@ class PGD(pxa.Solver):
 
         if tau is None:
             mst["tau"] = pxrt.coerce(1 / self._f.diff_lipschitz)
+            if math.isclose(mst["tau"], 0):
+                # _f does not provide any "useful" diff_lipschitz constant.
+                msg = "\n".join(
+                    [
+                        "No useful step size could be auto-determined from Parameter[f].",
+                        "Consider initializing Parameter[tau] directly, or set (an estimate of) the diff-Lipschitz constant of Parameter[f] before calling fit().",
+                        "Solver iterations as-is may stagnate.",
+                    ]
+                )
+                warnings.warn(msg, pxw.AutoInferenceWarning)
             if math.isinf(mst["tau"]):
                 # _f is constant-valued: \tau is a free parameter.
                 mst["tau"] = 1
