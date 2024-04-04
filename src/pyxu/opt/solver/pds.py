@@ -415,7 +415,7 @@ class CondatVu(_PrimalDualSplitting):
        cv = CV(f=F, g=0.01 * pxo.L1Norm(N), h=0.1 * pxo.L1Norm(N), K=D)
        x0, z0 = np.zeros((2, N))
        cv.fit(x0=x0, z0=z0)
-       x_recons = cv.solution()[0]
+       x_recons = cv.solution()
 
        plt.figure()
        plt.stem(x, linefmt="C0-", markerfmt="C0o")
@@ -727,7 +727,7 @@ class PD3O(_PrimalDualSplitting):
        pd3o = PD3O(f=F, g=0.01 * pxo.L1Norm(N), h=0.1 * pxo.L1Norm(N), K=D)
        x0, z0 = np.zeros((2, N))
        pd3o.fit(x0=x0, z0=z0)
-       x_recons = pd3o.solution()[0]
+       x_recons = pd3o.solution()
 
        plt.figure()
        plt.stem(x, linefmt="C0-", markerfmt="C0o")
