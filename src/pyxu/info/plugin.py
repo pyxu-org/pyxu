@@ -34,8 +34,9 @@ def _load_entry_points(glob, group, names=None):
     # Load entry points
     try:
         for ep in eps:
-            ep_load = ep.load()
             name = ep.name
+            ep_load = ep.load()
+
             # If plugin can overload, load directly
             if name.startswith("_"):
                 if name[1:] in glob:
