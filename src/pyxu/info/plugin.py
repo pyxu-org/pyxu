@@ -26,8 +26,8 @@ def _load_entry_points(glob, group, names=None):
 
     # Check for duplicated entry points
     seen = set()
-    duplicated = [ep.name for ep in eps if ep in seen or seen.add(ep.name)]
-    if len(duplicated):
+    duplicated = [ep.name for ep in eps if (ep in seen) or seen.add(ep.name)]
+    if len(duplicated) > 0:
         warnings.warn(f"Found duplicated entry points: {duplicated}.", pxw.ContributionWarning)
 
     # Load entry points
