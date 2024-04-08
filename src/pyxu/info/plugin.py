@@ -58,7 +58,7 @@ def _load_entry_points(glob, group, names=None):
             else:
                 if name in glob:
                     warnings.warn(
-                        f"Attempting to overload Pyxu base class/function `{value}`.\n"
+                        f"Attempting to overload a Pyxu base class/function with `{value}`.\n"
                         + "Overloading plugins must start with underscore `_`.\n"
                         + f"Defaulting to base class/function `{value}`.\n",
                         pxw.ContributionWarning,
