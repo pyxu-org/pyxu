@@ -30,45 +30,45 @@ def _load_entry_points(glob, group, names=None):
     if len(duplicated) > 0:
         warnings.warn(f"Found duplicated entry points: {duplicated}.", pxw.ContributionWarning)
 
+    path = lambda name: f"{glob[name].__module__}.{glob[name].__name__}"
+
     # Load entry points
     for ep in eps:
         try:
-            name = ep.name
-            value = ep.value
-            ep_load = ep.load()
-            # If plugin can overload, load directly
-            if name.startswith("_"):
-                if name[1:] in glob:
-                    warnings.warn(
-                        f"Plugin `{value}` overloaded an existing Pyxu base class/function `{glob[name[1:]]}`, use with caution.",
-                        pxw.ContributionWarning,
-                    )
-                    glob[name[1:]] = ep_load
+            # plugin can overload -> load directly
+            if ep.name.startswith("_"):
+                if (core_name := ep.name[1:]) in glob:
+                    msg = f"Plugin `{ep.value}` overloaded Pyxu base class/function `{path(core_name)}`."
+
+                    glob[core_name] = ep.load()
                     if names is not None:
-                        names.append(name[1:])
-
+                        names.append(core_name)
                 else:
-                    warnings.warn(
-                        f"Attempted to overload a non existing Pyxu base class/function `{name}`."
-                        f"Do not use the prefix `_`.",
-                        pxw.ContributionWarning,
+                    msg = "\n".join(
+                        [
+                            f"Attempted to overload non-existing Pyxu base class/function `{ep.name}`.",
+                            "Do not use the prefix `_`.",
+                        ]
                     )
 
-            # Else, check if class/function already exists in Pyxu
+            # check if class/function already exists in Pyxu
             else:
-                if name in glob:
-                    warnings.warn(
-                        f"Attempting to overload a Pyxu base class/function with `{value}`.\n"
-                        + "Overloading plugins must start with underscore `_`.\n"
-                        + f"Defaulting to base class/function `{value}`.\n",
-                        pxw.ContributionWarning,
+                if ep.name in glob:
+                    msg = "\n".join(
+                        [
+                            f"Attempting to overload Pyxu base class/function `{path(ep.name)}` with `{ep.value}`.",
+                            "Overloading plugins must start with underscore `_`.",
+                            f"Defaulting to base class/function `{path(ep.name)}`.",
+                        ]
                     )
                 else:
-                    glob[name] = ep_load
+                    msg = f"Plugin `{ep.value}` loaded."
+
+                    glob[ep.name] = ep.load()
                     if names is not None:
-                        names.append(name)
-                    warnings.warn(f"Plugin `{value}` loaded, use with caution.", pxw.ContributionWarning)
+                        names.append(ep.name)
+            warnings.warn(msg, pxw.ContributionWarning)
         except Exception as exc:
-            warnings.warn(f"Failed to load plugin `{name}`: {exc}.", pxw.ContributionWarning)
+            warnings.warn(f"Failed to load plugin `{ep.name}`: {exc}.", pxw.ContributionWarning)
 
     return names
