@@ -31,16 +31,16 @@ def _load_entry_points(glob, group, names=None):
         warnings.warn(f"Found duplicated entry points: {duplicated}.", pxw.ContributionWarning)
 
     # Load entry points
-    try:
-        for ep in eps:
+    for ep in eps:
+        try:
             name = ep.name
+            value = ep.value
             ep_load = ep.load()
-
             # If plugin can overload, load directly
             if name.startswith("_"):
                 if name[1:] in glob:
                     warnings.warn(
-                        f"Plugin `{name}` overloaded an existing Pyxu base class/function, use with caution.",
+                        f"Plugin `{value}` overloaded an existing Pyxu base class/function `{glob[name[1:]]}`, use with caution.",
                         pxw.ContributionWarning,
                     )
                     glob[name[1:]] = ep_load
@@ -58,17 +58,17 @@ def _load_entry_points(glob, group, names=None):
             else:
                 if name in glob:
                     warnings.warn(
-                        f"Attempting to overload Pyxu base class/function `{name}`.\n"
+                        f"Attempting to overload Pyxu base class/function `{value}`.\n"
                         + "Overloading plugins must start with underscore `_`.\n"
-                        + f"Defaulting to base class/function `{name}`.\n",
+                        + f"Defaulting to base class/function `{value}`.\n",
                         pxw.ContributionWarning,
                     )
                 else:
                     glob[name] = ep_load
                     if names is not None:
                         names.append(name)
-                    warnings.warn(f"Plugin `{name}` loaded, use with caution.", pxw.ContributionWarning)
-    except Exception as exc:
-        warnings.warn(f"Failed to load plugin `{name}`: {exc}.", pxw.ContributionWarning)
+                    warnings.warn(f"Plugin `{value}` loaded, use with caution.", pxw.ContributionWarning)
+        except Exception as exc:
+            warnings.warn(f"Failed to load plugin `{name}`: {exc}.", pxw.ContributionWarning)
 
     return names
