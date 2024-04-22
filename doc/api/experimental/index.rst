@@ -6,4 +6,3 @@ pyxu.experimental
    :hidden:
 
    sampler
-   xray

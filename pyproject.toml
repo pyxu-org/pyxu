@@ -67,8 +67,7 @@ dev = [
     "sphinx-gallery >= 0.14.0, < 1",
     "tox >= 4.6, < 5",
 ]
-xray = [ "drjit == 0.4.4", ]
-complete-cpu = [ "pyxu[interact,xray]", ]
+complete-cpu = [ "pyxu[interact]", ]
 gpu11-base = [ "cupy-cuda11x >= 13.0, < 14", ]
 gpu12-base = [ "cupy-cuda12x >= 13.0, < 14", ]
 complete11 = [ "pyxu[complete-cpu,gpu11-base]", ]

@@ -113,15 +113,6 @@ Sampling Tools
    ~pyxu.experimental.sampler.OnlineVariance
    ~pyxu.experimental.sampler.ULA
 
-Transforms
-^^^^^^^^^^
-
-.. autosummary::
-
-   ~pyxu.experimental.xray.XRayTransform
-   ~pyxu.experimental.xray._rt.RayXRT
-   ~pyxu.experimental.xray._fourier.FourierXRT
-
 pyxu.info.deps
 --------------
 
