@@ -563,7 +563,7 @@ Partners & Sponsors
     position: relative;
     transform: translate3d(0, 0, 0);
     z-index: 1;">
-    <div class="sponsors-list" style="width: 4000px;
+    <div class="sponsors-list" style="width: 2000px;
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
@@ -574,89 +574,46 @@ Partners & Sponsors
     left: 0;
     bottom: 0;
     transform: translate3d(0, 0, 0);
-    animation: platformsSlideshow 60s linear 0s infinite;
+    animation: platformsSlideshow 15s linear 0s infinite;
     padding: 0 40px;
     box-sizing: border-box;">
 
     <div class="sponsors-list-item">
-
     <img width="100" alt="EPFL Slider" src="_static/EPFL_Logo_Digital_BLACK_PROD.png">
-
     </div>
-    <div class="sponsors-list-item">
 
+    <div class="sponsors-list-item">
     <img width="150" alt="Imaging Slider" src="_static/imaging.png">
-
     </div>
-    <div class="sponsors-list-item">
 
+    <div class="sponsors-list-item">
     <img width="100" alt="LCAV Slider" src="_static/LCAV_LOGO.png">
-
     </div>
-    <div class="sponsors-list-item">
 
+    <div class="sponsors-list-item">
     <img width="130" alt="Meta Slider" src="_static/Meta-Logo.png">
-
     </div>
-    <div class="sponsors-list-item">
 
+    <div class="sponsors-list-item">
+    <img width="130" alt="ZEISS Slider" src="_static/Zeiss_logo.png">
+    </div>
+
+    <div class="sponsors-list-item">
     <img width="130" alt="SKACH Slider" style="padding: 0px 0px 30px 0px;" src="_static/skach.png">
-
     </div>
-    <div class="sponsors-list-item">
 
+    <div class="sponsors-list-item">
     <img width="170" alt="ETH Slider" src="_static/ethr_en_rgb_black.png">
-
     </div>
-    <div class="sponsors-list-item">
 
+    <div class="sponsors-list-item">
     <img width="170" alt="SNF Slider" src="_static/SNF_logo_standard_office_color_pos_e.png">
-
     </div>
-    <div class="sponsors-list-item">
 
+    <div class="sponsors-list-item">
     <img width="170" alt="SPC Slider" src="_static/spc.png">
     </div>
 
-    <div class="sponsors-list-item">
-
-    <img width="100" alt="EPFL Slider" src="_static/EPFL_Logo_Digital_BLACK_PROD.png">
-
-    </div>
-    <div class="sponsors-list-item">
-
-    <img width="150" alt="Imaging Slider" src="_static/imaging.png">
-
-    </div>
-    <div class="sponsors-list-item">
-
-    <img width="100" alt="LCAV Slider" src="_static/LCAV_LOGO.png">
-
-    </div>
-    <div class="sponsors-list-item">
-
-    <img width="130" alt="Meta Slider" src="_static/Meta-Logo.png">
-
-    </div>
-    <div class="sponsors-list-item">
-
-    <img width="130" alt="SKACH Slider" style="padding: 0px 0px 30px 0px;" src="_static/skach.png">
-
-    </div>
-    <div class="sponsors-list-item">
-
-    <img width="170" alt="ETH Slider" src="_static/ethr_en_rgb_black.png">
-
-    </div>
-    <div class="sponsors-list-item">
-
-    <img width="170" alt="SNF Slider" src="_static/SNF_logo_standard_office_color_pos_e.png">
-
-    </div>
-    <div class="sponsors-list-item">
-
-    <img width="170" alt="SPC Slider" src="_static/spc.png">
-    </div>
     </div>
     </div>
 
