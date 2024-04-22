@@ -463,17 +463,8 @@ governance.
 Anyone with an interest in the project can join the community, contribute to the project design, and participate in the
 decision-making process.
 
-.. grid:: 1 2 3 3
+.. grid:: 1 2 2 2
     :gutter: 3
-
-    .. grid-item-card::
-            :shadow: none
-            :class-card: sd-border-0
-
-            .. image:: _static/EPFL_Logo_Digital_BLACK_PROD.png
-               :width: 60%
-               :align: center
-               :target: https://www.epfl.ch/en/
 
     .. grid-item-card::
             :shadow: none
@@ -483,18 +474,6 @@ decision-making process.
                :width: 60%
                :align: center
                :target: https://imaging.epfl.ch/
-
-    .. grid-item-card::
-            :shadow: none
-            :class-card: sd-border-0
-
-            .. image:: _static/air.svg
-               :width: 40%
-               :align: center
-
-    .. grid-item-card::
-            :shadow: none
-            :class-card: sd-border-0
 
     .. grid-item-card::
             :shadow: none
