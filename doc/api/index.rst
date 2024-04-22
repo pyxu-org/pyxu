@@ -264,8 +264,6 @@ Transforms
 
    ~pyxu.operator.FFT
    ~pyxu.operator.CZT
-   ~pyxu.operator.NUFFT1
-   ~pyxu.operator.NUFFT2
 
 Stencils & Convolutions
 +++++++++++++++++++++++
@@ -278,7 +276,6 @@ Stencils & Convolutions
    ~pyxu.operator.FFTCorrelate
    ~pyxu.operator.Stencil
    ~pyxu.operator._Stencil
-   ~pyxu.operator.UniformSpread
 
 Filters
 +++++++
@@ -370,17 +367,6 @@ Element-wise Operators
    ~pyxu.operator.Square
    ~pyxu.operator.Tan
    ~pyxu.operator.Tanh
-
-Pulses
-++++++
-
-.. autosummary::
-
-   ~pyxu.operator.Box
-   ~pyxu.operator.Dirac
-   ~pyxu.operator.FSSPulse
-   ~pyxu.operator.KaiserBessel
-   ~pyxu.operator.Triangle
 
 pyxu.opt.solver
 ---------------

@@ -72,9 +72,8 @@ def view_as_complex(x: pxt.NDArray) -> pxt.NDArray:
 
     See Also
     --------
-    :py:func:`~pyxu.util.view_as_real`,
-    :py:func:`~pyxu.util.view_as_real_mat`,
-    :py:func:`~pyxu.util.view_as_complex_mat`
+    :py:func:`~pyxu.util.as_real_op`,
+    :py:func:`~pyxu.util.view_as_real`
     """
     assert x.ndim >= 2
     if _is_complex(x):
@@ -125,9 +124,8 @@ def view_as_real(x: pxt.NDArray) -> pxt.NDArray:
 
     See Also
     --------
-    :py:func:`~pyxu.util.view_as_complex`,
-    :py:func:`~pyxu.util.view_as_real_mat`,
-    :py:func:`~pyxu.util.view_as_complex_mat`
+    :py:func:`~pyxu.util.as_real_op`,
+    :py:func:`~pyxu.util.view_as_complex`
     """
     assert x.ndim >= 1
     if _is_real(x):

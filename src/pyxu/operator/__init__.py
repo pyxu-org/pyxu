@@ -9,13 +9,11 @@ from pyxu.operator.linop.diff import *
 from pyxu.operator.linop.fft.czt import *
 from pyxu.operator.linop.fft.fft import *
 from pyxu.operator.linop.fft.filter import *
-from pyxu.operator.linop.fft.nufft import *
 from pyxu.operator.linop.filter import *
 from pyxu.operator.linop.kron import *
 from pyxu.operator.linop.pad import *
 from pyxu.operator.linop.reduce import *
 from pyxu.operator.linop.select import *
-from pyxu.operator.linop.spread.spread import *
 from pyxu.operator.linop.stencil._stencil import _Stencil
 from pyxu.operator.linop.stencil.stencil import *
 from pyxu.operator.map.base import *

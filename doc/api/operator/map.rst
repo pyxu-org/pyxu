@@ -78,21 +78,3 @@ Misc
 
 .. autoclass:: pyxu.operator.BroadcastAxes
    :exclude-members: apply, adjoint
-
-Pulses
-------
-
-.. autoclass:: pyxu.operator.FSSPulse
-   :exclude-members: argscale
-
-.. autoclass:: pyxu.operator.Dirac
-   :exclude-members: apply, applyF, support, supportF
-
-.. autoclass:: pyxu.operator.Box
-   :exclude-members: apply, applyF, support
-
-.. autoclass:: pyxu.operator.Triangle
-   :exclude-members: apply, applyF, support
-
-.. autoclass:: pyxu.operator.KaiserBessel
-   :exclude-members: apply, applyF, support, supportF

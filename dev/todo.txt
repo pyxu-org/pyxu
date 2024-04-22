@@ -32,12 +32,6 @@ pyxu.math.backtracking_linesearch()
     Known to be algorithmically inefficient for DASK inputs.
         Call pxw.warn_dask_perf()
 
-pyxu.math.cluster
-    [grid,bisect]_cluster() don't depend on KDTree() anymore, hence can be refactored to work with CUPY arrays too.
-
-    CuPy v14 will add support for KDTree [https://github.com/cupy/cupy/pull/7671]
-        This module can hence be made NP/CP-compatible in 2024.H2.
-
 pyxu.opt.adam
     Refactor to ND API. (2023.12.29: not started yet.)
         Update test_adam.py
@@ -116,29 +110,12 @@ pyxu.operator.blocks
 
             Composite op completely replaces blocks.py and will be part of abc/.
 
-pyxu.operator.UniformSpread
-    Passing Operator sub-classes as `kernel` parameter does not work well with dask.distributed.
-        pickle errors.
-    Using a generic function works though.
-    We can side-step this at the moment, but it would be good to be able to pass arbitrary objects as `kernels`.
-
 pyxu.operator.linop.kron
     Refactor to ND API. (2024.01.01: not started yet.)
         Update test_kron.py
 
 pyxu.operator.linop.fft.czt
     There are known closed forms for gram()/cogram(), hence pinv(): implement them.
-
-pyxu.operator.linop.fft.nufft
-    Move old FINUFFT-based NUFFT implementations to an extension module.
-
-    Pyxu-core built-in NUFFTs currently limited to NUMPY/DASK due to UniformSpread's NUMPY/DASK limitation.
-    Since _build_cl_info() no longer depends on kd-trees, adding CUPY support to type-1/2 is simple once UniformSpread becomes CUPY-compliant.
-    [It is advised to change (window_ratio, max_cluster_size) for GPU workloads though.]
-
-    Type-3: CuPy backend currently disabled.
-        At the implementation level, the code is GPU-compatible.  The issue is just _partition_domain() and _init_metadata() which need updates to output CuPy arrays in some places.
-
 
 Known Issues: Cause Unknown (Investigate)
     TestTan::test_transparent_call
@@ -180,34 +157,8 @@ Known Issues: Cause Known (& Fixable?)
         TestExplicitLinXX::test_chunk_fenchel_prox
         TestExplicitLinXX::test_chunk_grad
         TestExplicitLinXX::test_chunk_pinv
-    [OK] DASK-case: Fixture[_op_array] cannot instantiate due to chunk-size mismatch.
-         Can be fixed but complicated, so we accept the failure (for now)
-         We know from manual tests that asarray() is correct for all backends.
-        TestUniformSpread::test_backend_asarray
-        TestUniformSpread::test_prec_asarray
-        TestUniformSpread::test_value_asarray
-        TestNUFFT1::test_backend_asarray [NUFFT1 errors are due to UniformSpread]
-        TestNUFFT1::test_prec_asarray
-        TestNUFFT1::test_value_asarray
     [OK] DASK-case: Fixture[_op_asarray, width=DOUBLE] does not denote the true ground-truth due to DASK-based FFT()
          error accumulation.  Not really a problem because errors are in 1e-7 range, but did not look into how to fix
          them yet.
         TestFFT::test_value_asarray
         TestCZT::test_value_asarray
-        TestFFS::test_value_asarray
-    [OK] DASK-case: fails because generated test data does not match chunking structure of (`op._x`, `op._v`).
-         These tests were not designed with chunk-size restrictions in mind. Can probably make then chunk-aware,
-         but not a priority at the moment.
-         We note that these tests work on NUMPY inputs, so the operators are correct.
-        TestNUFFT1::test_math_adjoint
-        TestNUFFT1::test_math_gram
-        TestNUFFT1::test_math_lipschitz
-        TestNUFFT1::test_math2_lipschitz
-        TestNUFFT1::test_math3_lipschitz
-        TestNUFFT1::test_value1D_svdvals
-        TestNUFFT3::test_math_adjoint
-        TestNUFFT3::test_math_gram
-        TestNUFFT3::test_math_lipschitz
-        TestNUFFT3::test_math2_lipschitz
-        TestNUFFT3::test_math3_lipschitz
-        TestNUFFT3::test_value1D_svdvals

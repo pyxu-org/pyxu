@@ -47,12 +47,6 @@ Transforms
    :members: apply, adjoint
    :special-members: __init__
 
-.. autoclass:: pyxu.operator.NUFFT1
-   :no-members:
-   :members: apply, adjoint, config
-
-.. autofunction:: pyxu.operator.NUFFT2
-
 Stencils & Convolutions
 -----------------------
 
@@ -72,8 +66,6 @@ Stencils & Convolutions
 .. autoclass:: pyxu.operator.FFTCorrelate
 
 .. autoclass:: pyxu.operator.FFTConvolve
-
-.. autoclass:: pyxu.operator.UniformSpread
 
 Filters
 -------
