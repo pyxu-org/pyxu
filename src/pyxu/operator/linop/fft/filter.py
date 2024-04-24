@@ -117,15 +117,18 @@ class FFTCorrelate(Stencil):
         N = _kernel[0].ndim
         pad_width = [None] * N
         for i in range(N):
-            if len(_kernel) == 1:  # non-seperable filter
-                n = _kernel[0].shape[i]
-            else:  # seperable filter(s)
-                n = _kernel[i].size
+            if _mode[i] == "constant":
+                pad_width[i] = (0, 0)
+            else:
+                if len(_kernel) == 1:  # non-seperable filter
+                    n = _kernel[0].shape[i]
+                else:  # seperable filter(s)
+                    n = _kernel[i].size
 
-            # 1. Pad/Trim operators are shared amongst [apply,adjoint]():
-            #    lhs/rhs are thus padded equally.
-            # 2. Pad width must match kernel dimensions to retain border effects.
-            pad_width[i] = (n - 1, n - 1)
+                # 1. Pad/Trim operators are shared amongst [apply,adjoint]():
+                #    lhs/rhs are thus padded equally.
+                # 2. Pad width must match kernel dimensions to retain border effects.
+                pad_width[i] = (n - 1, n - 1)
         return tuple(pad_width)
 
     @staticmethod
@@ -205,9 +208,13 @@ class FFTCorrelate(Stencil):
             # Compute (depth,boundary) values for [overlap,trim_internal]()
             N_stack = x.ndim - self.dim_rank
             depth = {ax: 0 for ax in range(x.ndim)}
-            for ax, (p_lhs, p_rhs) in enumerate(self._pad._pad_width):
-                assert p_lhs == p_rhs, "top-level Pad() should be symmetric."
-                depth[N_stack + ax] = p_lhs
+            for ax in range(self.dim_rank):
+                if len(stencils) == 1:  # non-seperable filter
+                    n = stencils[0]._kernel.shape[ax]
+                else:  # seperable filter(s)
+                    n = stencils[ax]._kernel.size
+
+                depth[N_stack + ax] = n - 1
             boundary = 0
 
             xp = ndi.module()
