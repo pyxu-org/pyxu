@@ -20,7 +20,7 @@ class CG(pxa.Solver):
 
     .. math::
 
-       \min_{x\in\mathbb{R}^{M_{1} \times\cdots\times M_{D}}}
+       \min_{\mathbf{x}\in\mathbb{R}^{M_{1} \times\cdots\times M_{D}}}
        \frac{1}{2} \langle \mathbf{x}, \mathbf{A} \mathbf{x} \rangle - \langle \mathbf{x}, \mathbf{b} \rangle,
 
     where :math:`\mathbf{A}: \mathbb{R}^{{M_{1} \times\cdots\times M_{D}}} \to \mathbb{R}^{{M_{1} \times\cdots\times
