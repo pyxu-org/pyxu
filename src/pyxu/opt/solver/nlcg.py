@@ -18,7 +18,7 @@ class NLCG(pxa.Solver):
 
     .. math::
 
-       \min_{x\in\mathbb{R}^{N}} f(x),
+       \min_{\mathbf{x}\in\mathbb{R}^{N}} f(\mathbf{x}),
 
     where :math:`f: \mathbb{R}^{N} \to \mathbb{R}` is a *differentiable* functional.  When :math:`f` is quadratic, NLCG
     is equivalent to the Conjugate Gradient (CG) method.  NLCG hence has similar convergence behaviour to CG if
@@ -26,7 +26,7 @@ class NLCG(pxa.Solver):
     [NumOpt_NocWri]_.
 
     The norm of the `gradient <https://www.wikiwand.com/en/Nonlinear_conjugate_gradient_method>`_ :math:`\nabla f_k =
-    \nabla f(x_k)` is used as the default stopping criterion.  By default, the iterations stop when the norm of the
+    \nabla f(\mathbf{x}_k)` is used as the default stopping criterion.  By default, the iterations stop when the norm of the
     gradient is smaller than 1e-4.
 
     Multiple variants of NLCG exist.  They differ mainly in how the weights applied to conjugate directions are updated.
