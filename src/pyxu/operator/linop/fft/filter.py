@@ -490,8 +490,8 @@ class FFTCorrelateFast(FFTCorrelate):
                 K = stencils[0]["K"]
                 Z *= K
             else:
-                for ax in stencils:
-                    K = stencils[ax]["K"]
+                for st in stencils:
+                    K = st["K"]
                     Z *= K
             z = fft.cpinv(Z, damp=0).real
 
@@ -499,7 +499,7 @@ class FFTCorrelateFast(FFTCorrelate):
             if uni_kernel:
                 center = stencils[0]["center"]
             else:
-                center = [st["center"] for st in stencils]
+                center = [st["center"][i] for (i, st) in enumerate(stencils)]
             extract = [slice(c, c + n) for (c, n) in zip(center, self._chunk_size)]
             return z[..., *extract]
 
