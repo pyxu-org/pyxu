@@ -213,10 +213,13 @@ class FFTCorrelate(Stencil):
             for ax in range(self.dim_rank):
                 if len(stencils) == 1:  # non-seperable filter
                     n = stencils[0]._kernel.shape[ax]
+                    c = stencils[0]._center[ax]
                 else:  # seperable filter(s)
                     n = stencils[ax]._kernel.size
-
-                depth[N_stack + ax] = n - 1
+                    c = stencils[ax]._center[ax]
+                max_dist = max(c, n - c)
+                # depth[N_stack + ax] = n - 1
+                depth[N_stack + ax] = max_dist
             boundary = 0
 
             xp = ndi.module()
@@ -314,7 +317,7 @@ class FFTCorrelateFast(FFTCorrelate):
         dim_shape: pxt.NDArrayShape,
         kernel: Stencil.KernelSpec,
         center: _Stencil.IndexSpec,
-        chunk_size: pxt.NDArrayShape = None,
+        chunksize: pxt.NDArrayShape = None,
         enable_warnings: bool = True,
         **kwargs,
     ):
@@ -368,13 +371,23 @@ class FFTCorrelateFast(FFTCorrelate):
             enable_warnings=enable_warnings,
         )
         self._fft_kwargs = kwargs  # Extra kwargs passed to FFT()
-        self._chunk_size = self.dim_shape if chunk_size is None else chunk_size
+
+        self._chunksize = self.dim_shape if chunksize is None else chunksize
+        assert (
+            self._chunksize.ndim == self.dim_shape.ndim
+        ), "chunksize and dim_shape must have the same number of dimensions"
+        # msg = "chunksize must be larger than the kernel size"
+        # if len(kernel) == 1:
+        #     assert all([cs <= ds for (cs, ds) in zip(self._chunksize == self.kernel[0].shape)])
+        # else:
+        #     assert all([cs <= ds for (cs, ds) in zip(self._chunksize.ndim == self.dim_shape.ndim)])
+
         self._axes = tuple(range(-self.dim_rank, 0))
         self._compute_constants()
 
     def _compute_constants(self):
         # Compute constants -----------------------------------------------
-        Np = np.r_[self._chunk_size]
+        Np = np.r_[self._chunksize]
         self._st_fw = self._compute_fkernels(self._st_fw, Np, **self._fft_kwargs)
         self._st_bw = self._compute_fkernels(self._st_bw, Np, **self._fft_kwargs)
 
@@ -412,36 +425,6 @@ class FFTCorrelateFast(FFTCorrelate):
                 for ax, st in enumerate(stencils)
             ]
 
-    def configure_dispatcher(self, **kwargs):
-        raise NotImplementedError("Irrelevant for FFT-backed filtering.")
-
-    @staticmethod
-    def _init_fw(_kernel, _center) -> list:
-        # Initialize kernels used in apply().
-        # The returned objects must have the following fields:
-        # * _kernel: ndarray[float] (D,)
-        # * _center: ndarray[int] (D,)
-
-        # Store kernels in convolution form.
-        _st_fw = [None] * len(_kernel)
-        _kernel, _center = Stencil._bw_equivalent(_kernel, _center)
-        for i, (k_fw, c_fw) in enumerate(zip(_kernel, _center)):
-            _st_fw[i] = KernelInfo(k_fw, c_fw)
-        return _st_fw
-
-    @staticmethod
-    def _init_bw(_kernel, _center) -> list:
-        # Initialize kernels used in adjoint().
-        # The returned objects must have the following fields:
-        # * _kernel: ndarray[float] (D,)
-        # * _center: ndarray[int] (D,)
-
-        # Store kernels in convolution form.
-        _st_bw = [None] * len(_kernel)
-        for i, (k_bw, c_bw) in enumerate(zip(_kernel, _center)):
-            _st_bw[i] = KernelInfo(k_bw, c_bw)
-        return _st_bw
-
     def _stencil_chain(self, x: pxt.NDArray, stencils: list) -> pxt.NDArray:
         # Apply sequence of stencils to `x`.
         #
@@ -450,12 +433,20 @@ class FFTCorrelateFast(FFTCorrelate):
         ndi = pxd.NDArrayInfo.from_obj(x)
         xp = ndi.module()
         if ndi == pxd.NDArrayInfo.DASK:
+            assert x.chunksize == self._chunksize, "specified chunksize and Dask Array chunksize don't match"
             # Compute (depth,boundary) values for [overlap,trim_internal]()
             N_stack = x.ndim - self.dim_rank
             depth = {ax: 0 for ax in range(x.ndim)}
-            for ax, (p_lhs, p_rhs) in enumerate(self._pad._pad_width):
-                assert p_lhs == p_rhs, "top-level Pad() should be symmetric."
-                depth[N_stack + ax] = p_lhs
+            for ax in range(self.dim_rank):
+                if len(stencils) == 1:  # non-seperable filter
+                    n = stencils[0]["K"].shape[ax]
+                    c = stencils[0]["center"][ax]
+                else:  # seperable filter(s)
+                    n = stencils[ax]["K"].size
+                    c = stencils[ax]["center"][ax]
+                max_dist = max(c, n - c)
+                # depth[N_stack + ax] = n - 1
+                depth[N_stack + ax] = max_dist
             boundary = 0
 
             x_overlap = xp.overlap.overlap(  # Share padding between chunks
@@ -500,7 +491,7 @@ class FFTCorrelateFast(FFTCorrelate):
                 center = stencils[0]["center"]
             else:
                 center = [st["center"][i] for (i, st) in enumerate(stencils)]
-            extract = [slice(c, c + n) for (c, n) in zip(center, self._chunk_size)]
+            extract = [slice(c, c + n) for (c, n) in zip(center, self._chunksize)]
             return z[..., *extract]
 
 
@@ -523,6 +514,7 @@ class FFTConvolveFast(FFTCorrelateFast):
         dim_shape: pxt.NDArrayShape,
         kernel: Stencil.KernelSpec,
         center: _Stencil.IndexSpec,
+        chunksize: pxt.NDArrayShape = None,
         enable_warnings: bool = True,
         **kwargs,
     ):
@@ -533,6 +525,7 @@ class FFTConvolveFast(FFTCorrelateFast):
             dim_shape=dim_shape,
             kernel=kernel,
             center=center,
+            chunksize=chunksize,
             enable_warnings=enable_warnings,
             **kwargs,
         )
