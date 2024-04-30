@@ -6,6 +6,12 @@ NumPy 2.0 Migration
 doc/
     api/ has/is-being updated to ND API interactively.
 
+pyxu.operator.linop.fft.filter
+    FFTConvolve/FFTCorrelate overpad for boundary conditions != "constant". 
+        Currently there is two padding actions done in the input array:
+            1. op._pad() pads the N-sized input array to N_pad with the desired boundary conditions (reflect, periodic, etc.), 
+            2. fft's in the _stencil_chain used apply/adjoint further zero-pad to shape (N_pad+K-1). 
+
 pyxu.abc.solver
     Allow not writing data to disk at end.
         writeback_rate = None -> don't write (ever)
