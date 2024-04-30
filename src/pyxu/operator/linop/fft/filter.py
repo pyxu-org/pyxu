@@ -375,8 +375,8 @@ class FFTCorrelateFast(FFTCorrelate):
 
         self._chunksize = self.dim_shape if chunksize is None else chunksize
 
-        assert (
-            self._chunksize.ndim == self.dim_shape.ndim
+        assert len(self._chunksize) == len(
+            self.dim_shape
         ), "chunksize and dim_shape must have the same number of dimensions"
         self._axes = tuple(range(-self.dim_rank, 0))
         self._compute_constants()
