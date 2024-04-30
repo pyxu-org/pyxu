@@ -32,12 +32,13 @@ class _PrimalDualSplitting(pxa.Solver):
         self,
         f: typ.Optional[pxa.DiffFunc] = None,
         g: typ.Optional[pxa.ProxFunc] = None,
-        h: typ.Optional[pxa.ProxFunc] = None,
-        K: typ.Optional[pxa.DiffMap] = None,
+        h: typ.Union[pxa.ProxFunc, typ.List[pxa.ProxFunc], None] = None,
+        K: typ.Union[pxa.DiffMap, typ.List[pxa.DiffMap], None] = None,
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
         super().__init__(**kwargs)
+
         if (f is None) and (g is None) and (h is None):
             msg = " ".join(
                 [
@@ -47,32 +48,44 @@ class _PrimalDualSplitting(pxa.Solver):
             )
             raise ValueError(msg)
 
+        # Determine the primal dimension shape based on the first non-None function provided.
+        primal_dim_shape = None
         if f is not None:
             primal_dim_shape = f.dim_shape
         elif g is not None:
             primal_dim_shape = g.dim_shape
-        else:
+        elif isinstance(h, list):
+            for func in h:
+                if func is not None:
+                    primal_dim_shape = func.dim_shape
+                    break
+        elif h is not None:
             primal_dim_shape = h.dim_shape
 
-        if h is not None:
-            dual_dim_shape = h.dim_shape
-        elif K is not None:  # todo: isn't this elif-clause useless? For which solver is it triggered?
-            dual_dim_shape = K.codim_shape
-        else:
-            dual_dim_shape = primal_dim_shape
+        if primal_dim_shape is None:
+            raise ValueError("Dimension shape could not be determined from f, g, or h.")
 
-        self._f = pxo.NullFunc(dim_shape=primal_dim_shape) if (f is None) else f
-        self._g = pxo.NullFunc(dim_shape=primal_dim_shape) if (g is None) else g
-        self._h = pxo.NullFunc(dim_shape=dual_dim_shape) if (h is None) else h
-        if h is not None:
-            self._K = pxo.IdentityOp(dim_shape=h.dim_shape) if (K is None) else K
+        self._f = f or pxo.NullFunc(dim_shape=primal_dim_shape)
+        self._g = g or pxo.NullFunc(dim_shape=primal_dim_shape)
+
+        if isinstance(h, list):
+            self._h = h
         else:
-            if K is None:
-                K_dim_shape = f.dim_shape if f is not None else g.dim_shape
-                self._K = pxo.NullOp(dim_shape=K_dim_shape, codim_shape=K_dim_shape)
-            else:
-                raise ValueError("Optional argument ``h`` mut be specified if ``K`` is not None.")
-        self._objective_func = self._f + self._g + (self._h * self._K)
+            self._h = [h] if h is not None else []
+
+        if isinstance(K, list):
+            self._K = K
+        else:
+            self._K = [K] if K is not None else [pxo.IdentityOp(dim_shape=primal_dim_shape) for _ in self._h]
+
+        if len(self._h) != len(self._K):
+            raise ValueError("Lists 'h' and 'K' must be of the same length.")
+
+        if any(k is not None and not h for h, k in zip(self._h, self._K)):
+            raise ValueError("Optional argument `h` must be specified if `K` is not None.")
+
+    def _objective_func(self, x) -> pxt.NDArray:
+        return self._f(x) + self._g(x) + sum(h(K(x)) for h, K in zip(self._h, self._K))
 
     @pxrt.enforce_precision(i=("x0", "z0", "tau", "sigma", "rho"), allow_None=True)
     def m_init(
@@ -101,18 +114,23 @@ class _PrimalDualSplitting(pxa.Solver):
         stop_crit_x = pxst.RelError(
             eps=1e-4,
             var="x",
+            rank=self._f.dim_rank,
             f=None,
             norm=2,
             satisfy_all=True,
         )
-        stop_crit_z = pxst.RelError(
-            eps=1e-4,
-            var="z",
-            f=None,
-            norm=2,
-            satisfy_all=True,
-        )
-        return stop_crit_x & stop_crit_z if self._h._name != "NullFunc" else stop_crit_x
+        if any(not h._name == "NullFunc" for h in self._h):
+            stop_crit_z = pxst.RelError(
+                eps=1e-4,
+                var="z",
+                rank=[h.dim_rank for h in self._h],
+                f=None,
+                norm=2,
+                satisfy_all=True,
+            )
+            return stop_crit_x & stop_crit_z
+        else:
+            return stop_crit_x
 
     def solution(self, which: typ.Literal["primal", "dual"] = "primal") -> pxt.NDArray:
         data, _ = self.stats()
@@ -146,7 +164,7 @@ class _PrimalDualSplitting(pxa.Solver):
         else:
             return beta
 
-    def _set_dual_variable(self, z: typ.Optional[pxt.NDArray]) -> pxt.NDArray:
+    def _set_dual_variable(self, z: typ.Optional[pxt.NDArray]) -> typ.List[pxt.NDArray]:
         r"""
         Initialize the dual variable if it is :py:obj:`None` by mapping the primal variable through the operator K.
 
@@ -156,9 +174,15 @@ class _PrimalDualSplitting(pxa.Solver):
             Initialized dual variable.
         """
         if z is None:
-            return self._K(self._mstate["x"].copy())
-        else:
+            return [K(self._mstate["x"].copy()) for K in self._K]
+        elif isinstance(z, list):
+            if len(z) != len(self._K):
+                raise ValueError(
+                    f"Length of 'z' ({len(z)}) does not match the number of operators in 'K' ({len(self._K)})."
+                )
             return z
+        else:
+            raise TypeError("`z` should be a list of NDArray or None.")
 
     def _set_gamma(self, tuning_strategy: typ.Literal[1, 2, 3]) -> pxt.Real:
         r"""
@@ -435,17 +459,24 @@ class CondatVu(_PrimalDualSplitting):
     def m_step(self):
         mst = self._mstate
         x_temp = self._g.prox(
-            mst["x"] - mst["tau"] * self._f.grad(mst["x"]) - mst["tau"] * self._K.jacobian(mst["x"]).adjoint(mst["z"]),
+            mst["x"]
+            - mst["tau"] * self._f.grad(mst["x"])
+            - mst["tau"] * sum(K.jacobian(mst["x"]).adjoint(mz) for K, mz in zip(self._K, mst["z"])),
             tau=mst["tau"],
         )
-        if not self._h._name == "NullFunc":
-            u = 2 * x_temp - mst["x"]
-            z_temp = self._h.fenchel_prox(
-                mst["z"] + mst["sigma"] * self._K(u),
-                sigma=mst["sigma"],
-            )
-            mst["z"] = mst["rho"] * z_temp + (1 - mst["rho"]) * mst["z"]
         mst["x"] = mst["rho"] * x_temp + (1 - mst["rho"]) * mst["x"]
+
+        new_z = []
+        for h, K, z, sigma in zip(self._h, self._K, mst["z"], mst["sigma"]):
+            if not (h._name == "NullFunc"):
+                u = 2 * x_temp - mst["x"]
+                z_temp = h.fenchel_prox(
+                    z + sigma * K(u),
+                    sigma=sigma,
+                )
+                z = mst["rho"] * z_temp + (1 - mst["rho"]) * z
+            new_z.append(z)
+        mst["z"] = new_z
 
     def _set_step_sizes(
         self,
@@ -453,74 +484,54 @@ class CondatVu(_PrimalDualSplitting):
         sigma: typ.Optional[pxt.Real],
         gamma: typ.Optional[pxt.Real],
     ) -> tuple[pxt.Real, pxt.Real, pxt.Real]:
-        r"""
-        Set the primal/dual step sizes.
+        """
+        Set the primal/dual step sizes based on provided values and properties of K.
 
         Returns
         -------
         Sensible primal/dual step sizes and value of the parameter :math:`delta`.
         """
-        # todo: this method in general is quite dirty.
-        if not issubclass(self._K.__class__, pxa.LinOp):
-            # todo: wrong! Must raise only if tau/sigma = None
-            msg = (
-                f"Automatic selection of parameters is only supported in the case in which K is a linear operator. "
-                f"Got operator of type {self._K.__class__}."
-            )
-            raise ValueError(msg)
-        tau = None if tau == 0 else tau
-        sigma = None if sigma == 0 else sigma
 
-        if (tau is not None) and (sigma is None):
+        # Check if computations based on K's properties are needed
+        if tau is None or sigma is None:
+            # Ensure all K are linear operators if their properties are needed
+            if any(not isinstance(k, pxa.LinOp) for k in self._K):
+                raise ValueError("All operators in K must be linear operators when computing step sizes.")
+
+            # Compute the maximum Lipschitz constant of K operators if needed
+            if any(math.isinf(k.lipschitz) for k in self._K):
+                raise ValueError("Lipschitz constant of all K operators must be computed beforehand.")
+            lipschitzs = [k.lipschitz for k in self._K if math.isfinite(k.lipschitz)]
+            max_lipschitz = max(lipschitzs)
+
+            # Calculate tau and sigma based on maximum Lipschitz constant
+            if tau is None and sigma is None:
+                if self._beta > 0:
+                    sqrt_term = math.sqrt((gamma**2 / 4) + max_lipschitz**2)
+                    tau = sigma = (1 / max_lipschitz**2) * (-gamma / 2 + sqrt_term)
+
+                else:
+                    tau = sigma = 1 / max_lipschitz
+            elif tau is None:
+                assert sigma > 0, "Parameter sigma must be positive."
+                tau = 1 / (gamma + sigma * max_lipschitz**2)
+            elif sigma is None:
+                assert tau > 0, "Parameter tau must be positive."
+                sigma = (1 / tau - gamma) / max_lipschitz**2
+        else:
+            # If both tau and sigma are provided, assert their positivity
             assert tau > 0, f"Parameter tau must be positive, got {tau}."
-            if self._h._name == "NullFunc":
-                assert tau <= 1 / gamma, f"Parameter tau must be smaller than 1/gamma: {tau} > {1 / gamma}."
-                sigma = 0
-            else:
-                if math.isfinite(self._K.lipschitz):
-                    sigma = ((1 / tau) - gamma) * (1 / self._K.lipschitz**2)
-                else:
-                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
-                    raise ValueError(msg)
-        elif (tau is None) and (sigma is not None):
-            assert sigma > 0
-            if self._h._name == "NullFunc":
-                tau = 1 / gamma
-            else:
-                if math.isfinite(self._K.lipschitz):
-                    tau = 1 / (gamma + (sigma * self._K.lipschitz**2))
-                else:
-                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
-                    raise ValueError(msg)
-        elif (tau is None) and (sigma is None):
-            if self._beta > 0:
-                if self._h._name == "NullFunc":
-                    tau = 1 / gamma
-                    sigma = 0
-                else:
-                    if math.isfinite(self._K.lipschitz):
-                        tau = sigma = (1 / (self._K.lipschitz) ** 2) * (
-                            (-gamma / 2) + math.sqrt((gamma**2 / 4) + self._K.lipschitz**2)
-                        )
-                    else:
-                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
-                        raise ValueError(msg)
-            else:
-                if self._h._name == "NullFunc":
-                    tau = 1
-                    sigma = 0
-                else:
-                    if math.isfinite(self._K.lipschitz):
-                        tau = sigma = 1 / self._K.lipschitz
-                    else:
-                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
-                        raise ValueError(msg)
-        delta = (
-            2
-            if (self._beta == 0 or (isinstance(self._f, pxa.QuadraticFunc) and gamma <= self._beta))
-            else 2 - self._beta / (2 * gamma)
-        )
-        return pxrt.coerce(tau), pxrt.coerce(sigma), pxrt.coerce(delta)
+            assert sigma > 0, f"Parameter sigma must be positive, got {sigma}."
+
+        # Compute delta based on beta, gamma, and specific conditions on f
+        if self._beta == 0 or (isinstance(self._f, pxa.QuadraticFunc) and gamma >= self._beta):
+            delta = 2
+        else:
+            delta = 2 - self._beta / (2 * gamma)
+
+        sigmas = [pxrt.coerce(sigma) / len(self._K)] * len(self._K)
+
+        return pxrt.coerce(tau), sigmas, pxrt.coerce(delta)
 
 
 CV = CondatVu  #: Alias of :py:class:`~pyxu.opt.solver.CondatVu`.

@@ -1,5 +1,6 @@
 import collections.abc as cabc
 import datetime as dt
+import typing as typ
 import warnings
 
 import numpy as np
@@ -261,11 +262,11 @@ class RelError(pxa.StoppingCriterion):
 
     def __init__(
         self,
-        eps: pxt.Real,
+        eps: typ.Union[pxt.Real, list[pxt.Real]],
         var: pxt.VarName = "x",
-        rank: pxt.Integer = 1,
-        f: SVFunction = None,
-        norm: pxt.Real = 2,
+        rank: typ.Union[pxt.Integer, list[pxt.Integer]] = 1,
+        f: typ.Union[SVFunction, list[SVFunction]] = None,
+        norm: typ.Union[pxt.Real, list[pxt.Real]] = 2,
         satisfy_all: bool = True,
     ):
         """
@@ -289,21 +290,33 @@ class RelError(pxa.StoppingCriterion):
             If True (default) and ``_mstate[var]`` is multi-dimensional, stop if all evaluation points lie below
             threshold.
         """
-        try:
-            assert eps > 0
-            self._eps = eps
-        except Exception:
-            raise ValueError(f"eps: expected positive threshold, got {eps}.")
+
+        if isinstance(rank, list):
+            self._rank = [int(r) for r in rank]
+        else:
+            self._rank = [int(rank)]
+
+        # Number of functions to evaluate
+        self._nf = len(self._rank)
+
+        if isinstance(eps, list):
+            self._eps = [float(e) for e in eps]
+        else:
+            self._eps = [float(eps)] * self._nf
 
         self._var = var
-        self._rank = int(rank)
-        self._f = f if (f is not None) else (lambda _: _)
 
-        try:
-            assert norm >= 0
-            self._norm = norm
-        except Exception:
-            raise ValueError(f"norm: expected non-negative, got {norm}.")
+        if isinstance(f, list):
+            self._f = f
+        elif f is not None:
+            self._f = [f] * self._nf
+        else:
+            self._f = [lambda x: x] * self._nf  # Default to identity function if none provided
+
+        if isinstance(norm, list):
+            self._norm = [int(n) for n in norm]
+        else:
+            self._norm = [int(norm)] * self._nf
 
         self._satisfy_all = satisfy_all
         self._val = np.r_[0]  # last computed Ln rel-norm(s) in stop().
@@ -311,29 +324,38 @@ class RelError(pxa.StoppingCriterion):
 
     def stop(self, state: cabc.Mapping) -> bool:
         x = state[self._var]  # (..., M1,...,MD)
+        if not isinstance(x, list):
+            x = [x]
 
         if self._x_prev is None:
             self._x_prev = x.copy()
-            fx_prev = self._f(self._x_prev)  # (..., N1,...,NK)
+            fx_prev = [f(x_prev) for (f, x_prev) in zip(self._f, self._x_prev)]  # (..., N1,...,NK)
 
             # force 1st .info() call to have same format as further calls.
-            sh = fx_prev.shape[: -self._rank]
+            sh = fx_prev[0].shape[: -self._rank[0]]
+
             self._val = np.zeros(shape=(*sh, 1))
             return False  # decision deferred: insufficient history to evaluate rel-err.
         else:
-            xp = pxu.get_array_module(x)
+            xp = pxu.get_array_module(x[0])
             rule = xp.all if self._satisfy_all else xp.any
 
-            fx_prev = self._f(self._x_prev)  # (..., N1,...,NK)
-            numerator = _norm(self._f(x) - fx_prev, ord=self._norm, rank=self._rank)
-            denominator = _norm(fx_prev, ord=self._norm, rank=self._rank)
-            decision = rule(numerator <= self._eps * denominator)  # (..., 1)
+            fx_prev = [f(x_prev) for (f, x_prev) in zip(self._f, self._x_prev)]  # (..., N1,...,NK)
+            fx = [f(x_) for (f, x_) in zip(self._f, x)]
+            numerator = [
+                _norm(fx_ - fx_prev_, ord=norm, rank=rank)
+                for (fx_, fx_prev_, norm, rank) in zip(fx, fx_prev, self._norm, self._rank)
+            ]
+            denominator = [
+                _norm(fx_prev_, ord=norm, rank=rank) for (fx_prev_, norm, rank) in zip(fx_prev, self._norm, self._rank)
+            ]
+            decision = rule([num <= self._eps * den for (num, den) in zip(numerator, denominator)])  # (..., 1)
 
             with warnings.catch_warnings():
                 # Store relative improvement values for info(). Special care must be taken for the
                 # problematic case 0/0 -> NaN.
                 warnings.simplefilter("ignore")
-                self._val = numerator / denominator  # (..., 1)
+                self._val = sum([num / den for (num, den) in zip(numerator, denominator)])  # (..., 1)
                 self._val[xp.isnan(self._val)] = 0  # no relative improvement.
             self._x_prev = x.copy()
 
