@@ -33,6 +33,7 @@ class FFTCorrelate(Stencil):
     .. rubric:: Implementation Notes
 
     * :py:class:`~pyxu.operator.FFTCorrelate` can scale to much larger kernels than :py:class:`~pyxu.operator.Stencil`.
+    * This implementation is most efficient with "constant" boundary conditions (default).
     * Kernels must be small enough to fit in memory, i.e. unbounded kernels are not allowed.
     * Kernels should be supplied an NUMPY/CUPY arrays. DASK arrays will be evaluated if provided.
     * :py:class:`~pyxu.operator.FFTCorrelate` instances are **not arraymodule-agnostic**: they will only work with
@@ -120,6 +121,7 @@ class FFTCorrelate(Stencil):
         pad_width = [None] * N
         for i in range(N):
             if _mode[i] == "constant":
+                # FFT already implements padding with zeros to size N+K-1.
                 pad_width[i] = (0, 0)
             else:
                 if len(_kernel) == 1:  # non-seperable filter
@@ -218,7 +220,6 @@ class FFTCorrelate(Stencil):
                     n = stencils[ax]._kernel.size
                     c = stencils[ax]._center[ax]
                 max_dist = max(c, n - c)
-                # depth[N_stack + ax] = n - 1
                 depth[N_stack + ax] = max_dist
             boundary = 0
 
