@@ -374,15 +374,10 @@ class FFTCorrelateFast(FFTCorrelate):
         self._fft_kwargs = kwargs  # Extra kwargs passed to FFT()
 
         self._chunksize = self.dim_shape if chunksize is None else chunksize
+
         assert (
             self._chunksize.ndim == self.dim_shape.ndim
         ), "chunksize and dim_shape must have the same number of dimensions"
-        # msg = "chunksize must be larger than the kernel size"
-        # if len(kernel) == 1:
-        #     assert all([cs <= ds for (cs, ds) in zip(self._chunksize == self.kernel[0].shape)])
-        # else:
-        #     assert all([cs <= ds for (cs, ds) in zip(self._chunksize.ndim == self.dim_shape.ndim)])
-
         self._axes = tuple(range(-self.dim_rank, 0))
         self._compute_constants()
 
