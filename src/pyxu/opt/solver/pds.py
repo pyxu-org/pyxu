@@ -91,7 +91,7 @@ class _PrimalDualSplitting(pxa.Solver):
     def m_init(
         self,
         x0: pxt.NDArray,
-        z0: typ.Optional[pxt.NDArray] = None,
+        z0: typ.Union[pxt.NDArray, typ.List[pxt.NDArray], None] = None,
         tau: typ.Optional[pxt.Real] = None,
         sigma: typ.Optional[pxt.Real] = None,
         rho: typ.Optional[pxt.Real] = None,
@@ -467,12 +467,12 @@ class CondatVu(_PrimalDualSplitting):
         mst["x"] = mst["rho"] * x_temp + (1 - mst["rho"]) * mst["x"]
 
         new_z = []
-        for h, K, z, sigma in zip(self._h, self._K, mst["z"], mst["sigma"]):
+        for h, K, z in zip(self._h, self._K, mst["z"]):
             if not (h._name == "NullFunc"):
                 u = 2 * x_temp - mst["x"]
                 z_temp = h.fenchel_prox(
-                    z + sigma * K(u),
-                    sigma=sigma,
+                    z + mst["sigma"] * K(u),
+                    sigma=mst["sigma"],
                 )
                 z = mst["rho"] * z_temp + (1 - mst["rho"]) * z
             new_z.append(z)
@@ -492,46 +492,73 @@ class CondatVu(_PrimalDualSplitting):
         Sensible primal/dual step sizes and value of the parameter :math:`delta`.
         """
 
-        # Check if computations based on K's properties are needed
-        if tau is None or sigma is None:
-            # Ensure all K are linear operators if their properties are needed
-            if any(not isinstance(k, pxa.LinOp) for k in self._K):
-                raise ValueError("All operators in K must be linear operators when computing step sizes.")
+        # todo: this method in general is quite dirty.
 
-            # Compute the maximum Lipschitz constant of K operators if needed
-            if any(math.isinf(k.lipschitz) for k in self._K):
-                raise ValueError("Lipschitz constant of all K operators must be computed beforehand.")
-            lipschitzs = [k.lipschitz for k in self._K if math.isfinite(k.lipschitz)]
-            max_lipschitz = max(lipschitzs)
+        if any(not isinstance(k, pxa.LinOp) for k in self._K):
+            raise ValueError("All operators in K must be linear operators when computing step sizes.")
 
-            # Calculate tau and sigma based on maximum Lipschitz constant
-            if tau is None and sigma is None:
-                if self._beta > 0:
-                    sqrt_term = math.sqrt((gamma**2 / 4) + max_lipschitz**2)
-                    tau = sigma = (1 / max_lipschitz**2) * (-gamma / 2 + sqrt_term)
+        # Compute the overall Lipschitz constant of K operators if needed
+        if any(math.isinf(k.lipschitz) for k in self._K):
+            raise ValueError("Lipschitz constant of all K operators must be computed beforehand.")
+
+        # Overall lipschitz
+        lipschitz = math.sqrt(sum([(k.lipschitz**2) for k in self._K]))
+
+        tau = None if tau == 0 else tau
+        sigma = None if sigma == 0 else sigma
+
+        if (tau is not None) and (sigma is None):
+            assert tau > 0, f"Parameter tau must be positive, got {tau}."
+            if all([h._name == "NullFunc" for h in self._h]):
+                assert tau <= 1 / gamma, f"Parameter tau must be smaller than 1/gamma: {tau} > {1 / gamma}."
+                sigma = 0
+            else:
+                if math.isfinite(lipschitz):
+                    sigma = ((1 / tau) - gamma) * (1 / lipschitz**2)
+                else:
+                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
+                    raise ValueError(msg)
+        elif (tau is None) and (sigma is not None):
+            assert sigma > 0
+            if all([h._name == "NullFunc" for h in self._h]):
+                tau = 1 / gamma
+            else:
+                if math.isfinite(lipschitz):
+                    tau = 1 / (gamma + (sigma * lipschitz**2))
+                else:
+                    msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
+                    raise ValueError(msg)
+        elif (tau is None) and (sigma is None):
+            if self._beta > 0:
+                if all([h._name == "NullFunc" for h in self._h]):
+                    tau = 1 / gamma
+                    sigma = 0
+                else:
+                    if math.isfinite(lipschitz):
+                        tau = sigma = (1 / lipschitz**2) * (
+                            (-gamma / 2) + math.sqrt((gamma**2 / 4) + lipschitz**2)
+                        )
+                    else:
+                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
+                        raise ValueError(msg)
+            else:
+                if all([h._name == "NullFunc" for h in self._h]):
+                    tau = 1
+                    sigma = 0
 
                 else:
-                    tau = sigma = 1 / max_lipschitz
-            elif tau is None:
-                assert sigma > 0, "Parameter sigma must be positive."
-                tau = 1 / (gamma + sigma * max_lipschitz**2)
-            elif sigma is None:
-                assert tau > 0, "Parameter tau must be positive."
-                sigma = (1 / tau - gamma) / max_lipschitz**2
-        else:
-            # If both tau and sigma are provided, assert their positivity
-            assert tau > 0, f"Parameter tau must be positive, got {tau}."
-            assert sigma > 0, f"Parameter sigma must be positive, got {sigma}."
+                    if math.isfinite(lipschitz):
+                        tau = sigma = 1 / lipschitz
+                    else:
+                        msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
+                        raise ValueError(msg)
+        delta = (
+            2
+            if (self._beta == 0 or (isinstance(self._f, pxa.QuadraticFunc) and gamma <= self._beta))
+            else 2 - self._beta / (2 * gamma)
+        )
 
-        # Compute delta based on beta, gamma, and specific conditions on f
-        if self._beta == 0 or (isinstance(self._f, pxa.QuadraticFunc) and gamma >= self._beta):
-            delta = 2
-        else:
-            delta = 2 - self._beta / (2 * gamma)
-
-        sigmas = [pxrt.coerce(sigma) / len(self._K)] * len(self._K)
-
-        return pxrt.coerce(tau), sigmas, pxrt.coerce(delta)
+        return pxrt.coerce(tau), pxrt.coerce(sigma), pxrt.coerce(delta)
 
 
 CV = CondatVu  #: Alias of :py:class:`~pyxu.opt.solver.CondatVu`.
@@ -750,7 +777,7 @@ class PD3O(_PrimalDualSplitting):
     def m_init(
         self,
         x0: pxt.NDArray,
-        z0: typ.Optional[pxt.NDArray] = None,
+        z0: typ.Union[pxt.NDArray, typ.List[pxt.NDArray], None] = None,
         tau: typ.Optional[pxt.Real] = None,
         sigma: typ.Optional[pxt.Real] = None,
         rho: typ.Optional[pxt.Real] = None,
@@ -766,7 +793,7 @@ class PD3O(_PrimalDualSplitting):
         )
 
         # if x0 == u0 the first step wouldn't change x and the solver would stop at the first iteration
-        if self._g._name == self._h._name == "NullFunc":
+        if all([h._name == self._g._name == "NullFunc" for h in self._h]):
             self._mstate["u"] = x0 * 1.01
         else:
             self._mstate["u"] = x0.copy()
@@ -775,16 +802,20 @@ class PD3O(_PrimalDualSplitting):
         # Slightly more efficient rewriting of iterations (216) of [PSA] with M=1. Faster than (185) since only one call to the adjoint and the gradient per iteration.
         mst = self._mstate
         mst["x"] = self._g.prox(
-            mst["u"] - mst["tau"] * self._K.jacobian(mst["u"]).adjoint(mst["z"]),
+            mst["u"] - mst["tau"] * sum(K.jacobian(mst["u"]).adjoint(zm) for (K, zm) in zip(self._K, mst["z"])),
             tau=mst["tau"],
         )
         u_temp = mst["x"] - mst["tau"] * self._f.grad(mst["x"])
-        if not self._h._name == "NullFunc":
-            z_temp = self._h.fenchel_prox(
-                mst["z"] + mst["sigma"] * self._K(mst["x"] + u_temp - mst["u"]),
-                sigma=mst["sigma"],
-            )
-            mst["z"] = (1 - mst["rho"]) * mst["z"] + mst["rho"] * z_temp
+        new_z = []
+        for h, K, z in zip(self._h, self._K, mst["z"]):
+            if not h._name == "NullFunc":
+                z_temp = h.fenchel_prox(
+                    z + mst["sigma"] * K(mst["x"] + u_temp - mst["u"]),
+                    sigma=mst["sigma"],
+                )
+                z = (1 - mst["rho"]) * z + mst["rho"] * z_temp
+            new_z.append(z)
+        mst["z"] = new_z
         mst["u"] = (1 - mst["rho"]) * mst["u"] + mst["rho"] * u_temp
 
     def _set_step_sizes(
@@ -802,53 +833,57 @@ class PD3O(_PrimalDualSplitting):
             Sensible primal/dual step sizes and value of :math:`\delta`.
         """
 
-        if not issubclass(self._K.__class__, pxa.LinOp):
-            msg = (
-                f"Automatic selection of parameters is only supported in the case in which K is a linear operator. "
-                f"Got operator of type {self._K.__class__}."
-            )
-            raise ValueError(msg)
+        if any(not isinstance(k, pxa.LinOp) for k in self._K):
+            raise ValueError("All operators in K must be linear operators when computing step sizes.")
+
+        # Compute the overall Lipschitz constant of K operators if needed
+        if any(math.isinf(k.lipschitz) for k in self._K):
+            raise ValueError("Lipschitz constant of all K operators must be computed beforehand.")
+
+        # Overall lipschitz
+        lipschitz = math.sqrt(sum([(k.lipschitz**2) for k in self._K]))
+
         tau = None if tau == 0 else tau
         sigma = None if sigma == 0 else sigma
 
         if (tau is not None) and (sigma is None):
             assert 0 < tau <= 1 / gamma, "tau must be positive and smaller than 1/gamma."
-            if self._h._name == "NullFunc":
+            if all([h._name == "NullFunc" for h in self._h]):
                 sigma = 0
             else:
-                if math.isfinite(self._K.lipschitz):
-                    sigma = 1 / (tau * self._K.lipschitz**2)
+                if math.isfinite(lipschitz):
+                    sigma = 1 / (tau * lipschitz**2)
                 else:
                     msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
                     raise ValueError(msg)
         elif (tau is None) and (sigma is not None):
             assert sigma > 0, f"sigma must be positive, got {sigma}."
-            if self._h._name == "NullFunc":
+            if all([h._name == "NullFunc" for h in self._h]):
                 tau = 1 / gamma
             else:
-                if math.isfinite(self._K.lipschitz):
-                    tau = min(1 / (sigma * self._K.lipschitz**2), 1 / gamma)
+                if math.isfinite(lipschitz):
+                    tau = min(1 / (sigma * lipschitz**2), 1 / gamma)
                 else:
                     msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
                     raise ValueError(msg)
         elif (tau is None) and (sigma is None):
             if self._beta > 0:
-                if self._h._name == "NullFunc":
+                if all([h._name == "NullFunc" for h in self._h]):
                     tau = 1 / gamma
                     sigma = 0
                 else:
-                    if math.isfinite(self._K.lipschitz):
+                    if math.isfinite(lipschitz):
                         tau, sigma = self._optimize_step_sizes(gamma)
                     else:
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
                         raise ValueError(msg)
             else:
-                if self._h._name == "NullFunc":
+                if all([h._name == "NullFunc" for h in self._h]):
                     tau = 1
                     sigma = 0
                 else:
-                    if math.isfinite(self._K.lipschitz):
-                        tau = sigma = 1 / self._K.lipschitz
+                    if math.isfinite(lipschitz):
+                        tau = sigma = 1 / lipschitz
                     else:
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
                         raise ValueError(msg)
@@ -873,9 +908,11 @@ class PD3O(_PrimalDualSplitting):
         import numpy as np
         from scipy.optimize import linprog
 
+        lipschitz = math.sqrt(sum([(k.lipschitz**2) for k in self._K]))
+
         c = np.array([-1, -1])
         A_ub = np.array([[1, 1], [1, 0]])
-        b_ub = np.array([np.log(0.99) - 2 * np.log(self._K.lipschitz), np.log(1 / gamma)])
+        b_ub = np.array([np.log(0.99) - 2 * np.log(lipschitz), np.log(1 / gamma)])
         A_eq = np.array([[1, -1]])
         b_eq = np.array([0])
         result = linprog(
@@ -1095,8 +1132,8 @@ class LorisVerhoeven(PD3O):
     def __init__(
         self,
         f: typ.Optional[pxa.DiffFunc] = None,
-        h: typ.Optional[pxa.ProxFunc] = None,
-        K: typ.Optional[pxa.DiffMap] = None,
+        h: typ.Union[pxa.ProxFunc, typ.List[pxa.ProxFunc], None] = None,
+        K: typ.Union[pxa.DiffMap, typ.List[pxa.DiffMap], None] = None,
         beta: typ.Optional[pxt.Real] = None,
         **kwargs,
     ):
@@ -1220,7 +1257,7 @@ class DavisYin(PD3O):
         self,
         f: typ.Optional[pxa.DiffFunc],
         g: typ.Optional[pxa.ProxFunc] = None,
-        h: typ.Optional[pxa.ProxFunc] = None,
+        h: typ.Union[pxa.ProxFunc, typ.List[pxa.ProxFunc], None] = None,
         beta: typ.Optional[pxt.Real] = None,
         **kwargs,
     ):
