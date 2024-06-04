@@ -557,7 +557,7 @@ class _FromJax(px_src._FromSource):
 
     def asarray(self, **kwargs) -> pxt.NDArray:
         if self.has(pxa.Property.LINEAR):
-            # JAX operators don't accept DASK inputs: cannot call Lin[Op,Func].asaray() with user-specified `xp` value.
+            # JAX operators don't accept DASK inputs: cannot call Lin[Op,Func].asarray() with user-specified `xp` value.
             # -> We arbitrarily perform computations using the NUMPY backend, then cast as needed.
             N = pxd.NDArrayInfo  # shorthand
             dtype = kwargs.get("dtype", pxrt.getPrecision().value)
