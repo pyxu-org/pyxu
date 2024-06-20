@@ -343,7 +343,7 @@ class TestRangeSet(conftest.ProxFuncT):
         return op, ndi, width
 
     @pytest.fixture
-    def dim_shape(self, A) -> pxt.OpShape:
+    def dim_shape(self, A) -> pxt.NDArrayShape:
         return A.codim_shape
 
     @pytest.fixture(
