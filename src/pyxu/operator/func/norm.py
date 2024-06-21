@@ -217,7 +217,7 @@ class LInfinityNorm(pxa.ProxFunc):
             raise NotImplementedError("Not implemented at scale.")
 
         mu_max = self.apply(arr).item()
-        if mu_max > 0:
+        if mu_max > tau:
             xp = ndi.module()
             mu_opt = sopt.brentq(
                 f=lambda mu: (xp.fabs(arr) - mu).clip(0, None).sum() - tau,
