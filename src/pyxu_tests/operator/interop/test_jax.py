@@ -410,10 +410,10 @@ class TestJaxSelfAdjointConvolution(JaxMixin, test_selfadjointop.TestSelfAdjoint
 
     @pytest.fixture
     def kwargs(self, dim_shape) -> dict:
-        dim_rank = len(dim_shape)
+        M = dim_shape[-1]
 
         def j_apply(arr: jax.Array) -> jax.Array:
-            hF = jnp.asarray(test_selfadjointop.filterF(dim_rank))
+            hF = jnp.asarray(test_selfadjointop.filterF(M))
             out = jnp.fft.ifft(jnp.fft.fft(arr, axis=-1) * hF, axis=-1).real
             return out
 
@@ -425,10 +425,10 @@ class TestJaxPSDConvolution(JaxMixin, test_posdefop.TestPSDConvolution):
 
     @pytest.fixture
     def kwargs(self, dim_shape) -> dict:
-        dim_rank = len(dim_shape)
+        M = dim_shape[-1]
 
         def j_apply(arr: jax.Array) -> jax.Array:
-            hF = jnp.asarray(test_posdefop.filterF(dim_rank))
+            hF = jnp.asarray(test_posdefop.filterF(M))
             out = jnp.fft.ifft(jnp.fft.fft(arr, axis=-1) * hF, axis=-1).real
             return out
 
