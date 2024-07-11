@@ -7,7 +7,6 @@ import numpy as np
 import pyxu.abc.operator as pxo
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 
@@ -52,12 +51,10 @@ class Rule:
         D = self.__class__.svdvals(self, **kwargs)
         return D
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         out = self.__class__.pinv(self, arr=arr, damp=damp, **kwargs)
         return out
 
-    @pxrt.enforce_precision()
     def trace(self, **kwargs) -> pxt.Real:
         tr = self.__class__.trace(self, **kwargs)
         return tr
@@ -172,7 +169,6 @@ class ScaleRule(Rule):
         klass = pxo.Operator._infer_operator_type(properties)
         return klass
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = pxu.copy_if_unsafe(self._op.apply(arr))
         out *= self._cst
@@ -187,7 +183,6 @@ class ScaleRule(Rule):
         L *= abs(self._cst)
         return L
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         return self._op.prox(arr, tau * self._cst)
 
@@ -214,13 +209,11 @@ class ScaleRule(Rule):
         dL *= abs(self._cst)
         return dL
 
-    @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = pxu.copy_if_unsafe(self._op.grad(arr))
         out *= self._cst
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = pxu.copy_if_unsafe(self._op.adjoint(arr))
         out *= self._cst
@@ -236,7 +229,6 @@ class ScaleRule(Rule):
         D *= abs(self._cst)
         return D
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         scale = damp / (self._cst**2)
         out = pxu.copy_if_unsafe(self._op.pinv(arr, damp=scale, **kwargs))
@@ -251,7 +243,6 @@ class ScaleRule(Rule):
         op = self._op.cogram() * (self._cst**2)
         return op
 
-    @pxrt.enforce_precision()
     def trace(self, **kwargs) -> pxt.Real:
         tr = self._op.trace(**kwargs) * self._cst
         return tr
@@ -317,7 +308,6 @@ class ArgScaleRule(Rule):
             # ConstantVECTOR output: modify ConstantValued to work.
             from pyxu.operator import ConstantValued
 
-            @pxrt.enforce_precision(i="arr")
             def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
                 xp = pxu.get_array_module(arr)
                 arr = xp.zeros_like(arr)
@@ -373,7 +363,6 @@ class ArgScaleRule(Rule):
         klass = pxo.Operator._infer_operator_type(properties)
         return klass
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         x = arr.copy()
         x *= self._cst
@@ -389,7 +378,6 @@ class ArgScaleRule(Rule):
         L *= abs(self._cst)
         return L
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         x = arr.copy()
         x *= self._cst
@@ -423,7 +411,6 @@ class ArgScaleRule(Rule):
         dL *= self._cst**2
         return dL
 
-    @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         x = arr.copy()
         x *= self._cst
@@ -431,7 +418,6 @@ class ArgScaleRule(Rule):
         out *= self._cst
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = pxu.copy_if_unsafe(self._op.adjoint(arr))
         out *= self._cst
@@ -447,7 +433,6 @@ class ArgScaleRule(Rule):
         D *= abs(self._cst)
         return D
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         scale = damp / (self._cst**2)
         out = pxu.copy_if_unsafe(self._op.pinv(arr, damp=scale, **kwargs))
@@ -462,7 +447,6 @@ class ArgScaleRule(Rule):
         op = self._op.cogram() * (self._cst**2)
         return op
 
-    @pxrt.enforce_precision()
     def trace(self, **kwargs) -> pxt.Real:
         tr = self._op.trace(**kwargs) * self._cst
         return tr
@@ -571,7 +555,6 @@ class ArgShiftRule(Rule):
         klass = pxo.Operator._infer_operator_type(properties)
         return klass
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         x = arr.copy()
         x += self._cst
@@ -586,7 +569,6 @@ class ArgShiftRule(Rule):
             L = self._op.estimate_lipschitz(**kwargs)
         return L
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         x = arr.copy()
         x += self._cst
@@ -626,7 +608,6 @@ class ArgShiftRule(Rule):
             dL = self._op.estimate_diff_lipschitz(**kwargs)
         return dL
 
-    @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         x = arr.copy()
         x += self._cst
@@ -845,7 +826,6 @@ class AddRule(Rule):
         klass = pxo.Operator._infer_operator_type(base)
         return klass
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = pxu.copy_if_unsafe(self._lhs.apply(arr))
         out += self._rhs.apply(arr)
@@ -866,7 +846,6 @@ class AddRule(Rule):
         L = L_lhs + L_rhs
         return L
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         P_LHS = self._lhs.properties()
         P_RHS = self._rhs.properties()
@@ -908,14 +887,12 @@ class AddRule(Rule):
         dL = dL_lhs + dL_rhs
         return dL
 
-    @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = self._lhs.grad(arr)
         out = pxu.copy_if_unsafe(out)
         out += self._rhs.grad(arr)
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = self._lhs.adjoint(arr)
         out = pxu.copy_if_unsafe(out)
@@ -944,7 +921,6 @@ class AddRule(Rule):
         op = op1 + op2 + (op3 + op4).asop(pxo.SelfAdjointOp)
         return op
 
-    @pxrt.enforce_precision()
     def trace(self, **kwargs) -> pxt.Real:
         tr = 0
         for side in (self._lhs, self._rhs):
@@ -1106,7 +1082,6 @@ class ChainRule(Rule):
         klass = pxo.Operator._infer_operator_type(properties)
         return klass
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         x = self._rhs.apply(arr)
         out = self._lhs.apply(x)
@@ -1131,7 +1106,6 @@ class ChainRule(Rule):
             L = L_lhs * L_rhs
         return L
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         if self.has(pxo.Property.PROXIMABLE):
             out = None
@@ -1226,7 +1200,6 @@ class ChainRule(Rule):
             dL = np.inf
         return dL
 
-    @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[: -self.dim_rank]
         if (len(sh) == 0) or self._rhs.has(pxo.Property.LINEAR):
@@ -1262,7 +1235,6 @@ class ChainRule(Rule):
             out = f(arr)
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         x = self._lhs.adjoint(arr)
         out = self._rhs.adjoint(x)
@@ -1363,7 +1335,6 @@ class TransposeRule(Rule):
             klass = pxo.Operator._infer_operator_type(prop)
         return klass
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = self._op.adjoint(arr)
         return out
@@ -1376,7 +1347,6 @@ class TransposeRule(Rule):
             L = self._op.estimate_lipschitz(**kwargs)
         return L
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         out = pxo.LinFunc.prox(self, arr, tau)
         return out
@@ -1387,12 +1357,10 @@ class TransposeRule(Rule):
     def estimate_diff_lipschitz(self, **kwargs) -> pxt.Real:
         return 0
 
-    @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = pxo.LinFunc.grad(self, arr)
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = self._op.apply(arr)
         return out
@@ -1417,7 +1385,6 @@ class TransposeRule(Rule):
         D = self._op.svdvals(**kwargs)
         return D
 
-    @pxrt.enforce_precision()
     def trace(self, **kwargs) -> pxt.Real:
         tr = self._op.trace(**kwargs)
         return tr
