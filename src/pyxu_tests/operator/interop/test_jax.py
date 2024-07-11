@@ -39,7 +39,7 @@ import pyxu_tests.operator.examples.test_unitop as test_unitop
 
 class JaxMixin:
     disable_test = {
-        # from_jax() does not always respect input precision in absence of context manager.
+        # from_jax() does not always respect input precision
         # (See from_jax() notes.)
         "test_prec_apply",
         "test_prec_call",
@@ -117,7 +117,10 @@ class JaxMixin:
                 pxd.NDArrayInfo.CUPY,
                 # DASK inputs are not supported.
             ],
-            pxrt.Width,
+            [
+                pxrt.Width.SINGLE,
+                # DOUBLE not supported
+            ],
         )
     )
     def spec(self, _op, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
