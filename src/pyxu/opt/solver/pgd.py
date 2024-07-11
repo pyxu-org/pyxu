@@ -6,7 +6,6 @@ import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.info.warning as pxw
 import pyxu.operator as pxo
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -120,7 +119,6 @@ class PGD(pxa.Solver):
             self._f = f
             self._g = g
 
-    @pxrt.enforce_precision(i=("x0", "tau"))
     def m_init(
         self,
         x0: pxt.NDArray,
@@ -132,7 +130,7 @@ class PGD(pxa.Solver):
         mst["x"] = mst["x_prev"] = x0
 
         if tau is None:
-            mst["tau"] = pxrt.coerce(1 / self._f.diff_lipschitz)
+            mst["tau"] = 1 / self._f.diff_lipschitz
             if math.isclose(mst["tau"], 0):
                 # _f does not provide any "useful" diff_lipschitz constant.
                 msg = "\n".join(
@@ -163,11 +161,11 @@ class PGD(pxa.Solver):
         if acceleration:
             try:
                 assert d > 2
-                mst["a"] = (pxrt.coerce(k / (k + 1 + d)) for k in itertools.count(start=0))
+                mst["a"] = (k / (k + 1 + d) for k in itertools.count(start=0))
             except Exception:
                 raise ValueError(f"Expected d > 2, got {d}.")
         else:
-            mst["a"] = itertools.repeat(pxrt.coerce(0))
+            mst["a"] = itertools.repeat(0.0)
 
     def m_step(self):
         mst = self._mstate  # shorthand

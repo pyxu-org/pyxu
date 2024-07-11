@@ -3,7 +3,6 @@ import numpy as np
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.math as pxm
-import pyxu.runtime as pxrt
 
 __all__ = [
     "NLCG",
@@ -131,7 +130,6 @@ class NLCG(pxa.Solver):
 
         self._f = f
 
-    @pxrt.enforce_precision(i="x0")
     def m_init(
         self,
         x0: pxt.NDArray,
@@ -147,7 +145,7 @@ class NLCG(pxa.Solver):
                 msg = "[NLCG] cannot auto-infer initial step size: specify `a0` manually in NLCG.fit()"
                 raise ValueError(msg)
             else:
-                a0 = pxrt.coerce(1 / d_l)
+                a0 = 1.0 / d_l
 
         if restart_rate is not None:
             assert restart_rate >= 1
@@ -190,7 +188,7 @@ class NLCG(pxa.Solver):
         # Because NLCG can only generate n conjugate vectors in an n-dimensional space, it makes sense
         # to restart NLCG every n iterations.
         if self._astate["idx"] % mst["restart_rate"] == 0:
-            beta_kp1 = pxrt.coerce(0)
+            beta_kp1 = 0.0
         else:
             beta_kp1 = self.__compute_beta(g_k, g_kp1)
 
