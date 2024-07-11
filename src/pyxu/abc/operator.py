@@ -703,7 +703,7 @@ class Map(Operator):
         if not hasattr(self, "_lipschitz"):
             self._lipschitz = self.estimate_lipschitz()
 
-        return pxrt.coerce(self._lipschitz)
+        return self._lipschitz
 
     @lipschitz.setter
     def lipschitz(self, L: pxt.Real):
@@ -889,7 +889,7 @@ class DiffMap(Map):
         if not hasattr(self, "_diff_lipschitz"):
             self._diff_lipschitz = self.estimate_diff_lipschitz()
 
-        return pxrt.coerce(self._diff_lipschitz)
+        return self._diff_lipschitz
 
     @diff_lipschitz.setter
     def diff_lipschitz(self, dL: pxt.Real):
@@ -1002,7 +1002,6 @@ class ProxFunc(Func):
         """
         raise NotImplementedError
 
-    @pxrt.enforce_precision(i=("arr", "sigma"))
     def fenchel_prox(self, arr: pxt.NDArray, sigma: pxt.Real) -> pxt.NDArray:
         r"""
         Evaluate proximity operator of :math:`\sigma f^{\ast}`, the scaled Fenchel conjugate of :math:`f`, at specified
@@ -1130,7 +1129,6 @@ class ProxFunc(Func):
 
         assert mu > 0, f"mu: expected positive, got {mu}"
 
-        @pxrt.enforce_precision(i="arr")
         def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
             xp = pxu.get_array_module(arr)
 
@@ -1144,7 +1142,6 @@ class ProxFunc(Func):
             out = self.apply(x) + y
             return out
 
-        @pxrt.enforce_precision(i="arr")
         def op_grad(_, arr):
             out = arr - self.prox(arr, tau=_._mu)
             out /= _._mu
@@ -1198,7 +1195,6 @@ class DiffFunc(DiffMap, Func):
                 codim_shape=codim_shape,
             )
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         op = LinFunc.from_array(
             A=self.grad(arr)[np.newaxis, ...],
@@ -1367,7 +1363,6 @@ class QuadraticFunc(ProxDiffFunc):
 
         self.diff_lipschitz = self._Q.lipschitz
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         Q, c, t = self._quad_spec()
         out = (arr * Q.apply(arr)).sum(axis=tuple(range(-self.dim_rank, 0)))[..., np.newaxis]
@@ -1376,13 +1371,11 @@ class QuadraticFunc(ProxDiffFunc):
         out += t
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         Q, c, _ = self._quad_spec()
         out = Q.apply(arr) + c.grad(arr)
         return out
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         from pyxu.operator import HomothetyOp
         from pyxu.opt.solver import CG
@@ -1560,7 +1553,6 @@ class LinOp(DiffMap):
         L = estimate()
         return L
 
-    @pxrt.enforce_precision()
     def svdvals(
         self,
         k: pxt.Integer,
@@ -1588,7 +1580,7 @@ class LinOp(DiffMap):
             (k,) singular values in ascending order.
         """
         if dtype is None:
-            dtype = pxrt.getPrecision().value
+            dtype = pxrt.Width.DOUBLE.value
 
         def _dense_eval():
             if gpu:
@@ -1672,11 +1664,10 @@ class LinOp(DiffMap):
         if xp is None:
             xp = pxd.NDArrayInfo.default().module()
         if dtype is None:
-            dtype = pxrt.getPrecision().value
+            dtype = pxrt.Width.DOUBLE.value
 
         E = xp.eye(self.dim_size, dtype=dtype).reshape(*self.dim_shape, *self.dim_shape)
-        with pxrt.EnforcePrecision(False):
-            A = self.apply(E)  # (*dim_shape, *codim_shape)
+        A = self.apply(E)  # (*dim_shape, *codim_shape)
 
         axes = tuple(range(-self.codim_rank, 0)) + tuple(range(self.dim_rank))
         B = A.transpose(axes)  # (*codim_shape, *dim_shape)
@@ -1730,7 +1721,6 @@ class LinOp(DiffMap):
         op._expr = types.MethodType(op_expr, op)
         return op.asop(SelfAdjointOp)
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(
         self,
         arr: pxt.NDArray,
@@ -1933,7 +1923,6 @@ class SquareOp(LinOp):
         )
         assert self.dim_size == self.codim_size
 
-    @pxrt.enforce_precision()
     def trace(self, **kwargs) -> pxt.Real:
         """
         Compute trace of the operator.
@@ -2040,7 +2029,6 @@ class UnitOp(NormalOp):
     def estimate_lipschitz(self, **kwargs) -> pxt.Real:
         return 1
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         out = self.adjoint(arr)
         if not np.isclose(damp, 0):
@@ -2060,9 +2048,8 @@ class UnitOp(NormalOp):
     def svdvals(self, **kwargs) -> pxt.NDArray:
         gpu = kwargs.get("gpu", False)
         xp = pxd.NDArrayInfo.from_flag(gpu).module()
-        width = pxrt.getPrecision()
-
-        D = xp.ones(kwargs["k"], dtype=width.value)
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
+        D = xp.ones(kwargs["k"], dtype=dtype)
         return D
 
 
@@ -2115,7 +2102,6 @@ class OrthProjOp(ProjOp, SelfAdjointOp):
     def cogram(self) -> pxt.OpT:
         return self
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         out = self.apply(arr)
         if not np.isclose(damp, 0):
@@ -2182,7 +2168,6 @@ class LinFunc(ProxDiffFunc, LinOp):
             except Exception:
                 pass
 
-    @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         ndi = pxd.NDArrayInfo.from_obj(arr)
         xp = ndi.module()
@@ -2200,12 +2185,10 @@ class LinFunc(ProxDiffFunc, LinOp):
                 g = g.rechunk(arr.chunks)
         return g
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         out = arr - tau * self.grad(arr)
         return out
 
-    @pxrt.enforce_precision(i=("arr", "sigma"))
     def fenchel_prox(self, arr: pxt.NDArray, sigma: pxt.Real) -> pxt.NDArray:
         return self.grad(arr)
 
@@ -2218,19 +2201,18 @@ class LinFunc(ProxDiffFunc, LinOp):
     def svdvals(self, **kwargs) -> pxt.NDArray:
         gpu = kwargs.get("gpu", False)
         xp = pxd.NDArrayInfo.from_flag(gpu).module()
-        width = pxrt.getPrecision()
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
 
         L = self.estimate_lipschitz()
-        D = xp.array([L], dtype=width.value)
+        D = xp.array([L], dtype=dtype)
         return D
 
     def asarray(self, **kwargs) -> pxt.NDArray:
         xp = kwargs.get("xp", pxd.NDArrayInfo.default().module())
-        dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
 
         E = xp.ones((1, 1), dtype=dtype)
-        with pxrt.EnforcePrecision(False):
-            A = self.adjoint(E)  # (1, *dim_shape)
+        A = self.adjoint(E)  # (1, *dim_shape)
         return A
 
 
