@@ -21,13 +21,11 @@ class Sum(pxa.LinFunc):
         )
         self.lipschitz = np.sqrt(np.prod(self.dim_shape))
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         axis = tuple(range(-self.dim_rank, 0))
         y = arr.sum(axis=axis)[..., np.newaxis]
         return y
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[: -self.codim_rank]
         extend = (np.newaxis,) * (self.dim_rank - 1)

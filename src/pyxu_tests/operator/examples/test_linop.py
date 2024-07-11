@@ -27,7 +27,6 @@ class Sum(pxa.LinOp):
 
         self.lipschitz = np.sqrt(self.codim_shape[-1])
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         if self.dim_rank == 1:
             y = arr.sum(axis=-1, keepdims=True)
@@ -35,7 +34,6 @@ class Sum(pxa.LinOp):
             y = arr.sum(axis=-1)
         return y
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         sh = arr.shape[: -self.codim_rank]

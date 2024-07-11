@@ -32,11 +32,9 @@ class CircularConvolution(pxa.NormalOp):
         self._h_fw = h.reshape(-1)
         self._h_bw = self._h_fw[[0, *np.arange(1, M)[::-1]]]
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         return self._circ_convolve(self._h_fw, arr)
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         return self._circ_convolve(self._h_bw, arr)
 

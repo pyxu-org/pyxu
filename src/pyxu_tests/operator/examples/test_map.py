@@ -21,7 +21,6 @@ class ReLU(pxa.Map):
         )
         self.lipschitz = np.inf
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         y = arr.clip(min=0)
         return y

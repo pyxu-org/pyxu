@@ -24,7 +24,6 @@ class Sin(pxa.DiffMap):
         self.lipschitz = 1
         self.diff_lipschitz = 1
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         y = xp.sin(arr)

@@ -18,7 +18,6 @@ class ScaleDown(pxa.OrthProjOp):
         )
         assert self.dim_shape[-1] > 1, "Not a orth-projection."
 
-    @pxrt.enforce_precision("arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = arr.copy()
         out[..., -1] = 0

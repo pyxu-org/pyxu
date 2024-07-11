@@ -22,7 +22,6 @@ class L1Norm(pxa.ProxFunc):
         )
         self.lipschitz = np.sqrt(self.dim_size)
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         y = xp.sum(
@@ -31,7 +30,6 @@ class L1Norm(pxa.ProxFunc):
         )[..., np.newaxis]
         return y
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         y = xp.fmax(0, xp.fabs(arr) - tau)
