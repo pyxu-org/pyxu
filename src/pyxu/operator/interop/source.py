@@ -3,7 +3,6 @@ import types
 
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -17,7 +16,6 @@ def from_source(
     codim_shape: pxt.NDArrayShape,
     embed: dict = None,
     vectorize: pxt.VarName = frozenset(),
-    enforce_precision: pxt.VarName = frozenset(),
     **kwargs,
 ) -> pxt.OpT:
     r"""
@@ -47,11 +45,6 @@ def from_source(
 
         `vectorize` is useful if an arithmetic method provided to `kwargs` (ex: :py:meth:`~pyxu.abc.Map.apply`) does not
         support stacking dimensions.
-    enforce_precision: VarName
-        Arithmetic methods to make compliant with Pyxu's runtime FP-precision.
-
-        `enforce_precision` is useful if an arithmetic method provided to `kwargs` (ex: :py:meth:`~pyxu.abc.Map.apply`)
-        is unaware of Pyxu's runtime FP context.
 
     Returns
     -------
@@ -78,10 +71,6 @@ def from_source(
     * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
       :py:func:`~pyxu.util.vectorize`.  Auto-vectorization may be less efficient than explicitly providing a vectorized
       implementation.
-
-    * Enforcing precision consists in decorating `kwargs`-specified arithmetic methods with
-      :py:func:`~pyxu.runtime.enforce_precision`.  Not all arithmetic methods can be made runtime FP-precision
-      compliant.  It is thus recommended to make arithmetic methods precision-compliant manually.
 
     Examples
     --------
@@ -127,17 +116,12 @@ def from_source(
         vectorize = (vectorize,)
     vectorize = frozenset(vectorize)
 
-    if isinstance(enforce_precision, str):
-        enforce_precision = (enforce_precision,)
-    enforce_precision = frozenset(enforce_precision)
-
     src = _FromSource(
         cls=cls,
         dim_shape=dim_shape,
         codim_shape=codim_shape,
         embed=embed,
         vectorize=vectorize,
-        enforce_precision=enforce_precision,
         **kwargs,
     )
     op = src.op()
@@ -152,7 +136,6 @@ class _FromSource:  # See from_source() for a detailed description.
         codim_shape: pxt.NDArrayShape,
         embed: dict,
         vectorize: frozenset[str],
-        enforce_precision: frozenset[str],
         **kwargs,
     ):
         from pyxu.abc.operator import _core_operators
@@ -180,24 +163,16 @@ class _FromSource:  # See from_source() for a detailed description.
         self._vkwargs = self._parse_vectorize(vectorize)
         self._vectorize = vectorize
 
-        # Add-on enforce-precision functionality.
-        self._ekwargs = self._parse_precision(enforce_precision)
-        self._enforce_fp = enforce_precision
-
     def op(self) -> pxt.OpT:
         _op = self._op  # shorthand
         for p in _op.properties():
             for name in p.arithmetic_methods():
                 if func := self._kwargs.get(name, False):
-                    # vectorize() & enforce_precision() do NOT kick in for default-provided methods.
+                    # vectorize() do NOT kick in for default-provided methods.
                     # (We assume they are Pyxu-compliant from the start.)
 
                     if name in self._vectorize:
                         decorate = pxu.vectorize(**self._vkwargs[name])
-                        func = decorate(func)
-
-                    if name in self._enforce_fp:
-                        decorate = pxrt.enforce_precision(**self._ekwargs[name])
                         func = decorate(func)
 
                     setattr(_op, name, types.MethodType(func, _op))
@@ -242,21 +217,3 @@ class _FromSource:  # See from_source() for a detailed description.
             msg_tail = ", ".join([f"{name}()" for name in vkwargs])
             raise ValueError(f"{msg_head} {msg_tail}")
         return vkwargs
-
-    def _parse_precision(self, enforce_precision: frozenset[str]):
-        ekwargs = dict(
-            # Pyxu arithmetic methods enforce FP-precision along these parameters.
-            apply=dict(i="arr"),
-            prox=dict(i=("arr", "tau")),
-            grad=dict(i="arr"),
-            adjoint=dict(i="arr"),
-            pinv=dict(i=("arr", "damp")),
-            svdvals=dict(),
-            trace=dict(),
-        )
-
-        if not (enforce_precision <= set(ekwargs)):
-            msg_head = "Can only enforce precision on arithmetic methods"
-            msg_tail = ", ".join([f"{name}()" for name in ekwargs])
-            raise ValueError(f"{msg_head} {msg_tail}")
-        return ekwargs

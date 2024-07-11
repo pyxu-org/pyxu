@@ -166,11 +166,6 @@ def from_torch(
       the `PyTorch documentation <https://pytorch.org/docs/stable/func.ux_limitations.html#vmap-limitations>`_ for known
       limitations.
 
-    * All arithmetic methods provided in `kwargs` are decorated using :py:func:`~pyxu.runtime.enforce_precision` to
-      abide by Pyxu's FP-runtime semantics.  Note however that Torch does not allow mixed-precision computation, so this
-      wrapper will coerce the input if its precision does not comply with the specified `dtype`.  This triggers a
-      warning by default, which can be silenced via the `enable_warnings`.
-
     * Arithmetic methods are **not currently JIT-ed** even if `jit` is set to ``True``.  This is because of the
       undocumented and currently poor interaction between :py:mod:`torch.func` transforms and :py:func:`torch.compile`.
       See `this issue <https://github.com/pytorch/pytorch/issues/98822>`_ for additional details.
@@ -227,7 +222,6 @@ class _FromTorch(px_src._FromSource):
             codim_shape=codim_shape,
             embed=dict(),
             vectorize=vectorize,
-            enforce_precision=frozenset(),  # will be applied manually in op()
             **kwargs,
         )
 
@@ -387,7 +381,6 @@ class _FromTorch(px_src._FromSource):
         return arr
 
     # Wrapper arithmetic methods ----------------------------------------------
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         bsh = arr.shape[: -self.dim_rank]
         bsize = (int(np.prod(bsh)),)
@@ -398,7 +391,6 @@ class _FromTorch(px_src._FromSource):
         out = _from_torch(func(tensor))
         return out.reshape(bsh + self.codim_shape)
 
-    @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         bsh = arr.shape[: -self.dim_rank]
         bsize = (int(np.prod(bsh)),)
@@ -409,7 +401,6 @@ class _FromTorch(px_src._FromSource):
         out = _from_torch(func(tensor))
         return out.reshape(bsh + self.dim_shape)
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         bsh = arr.shape[: -self.codim_rank]
         bsize = (int(np.prod(bsh)),)
@@ -420,7 +411,6 @@ class _FromTorch(px_src._FromSource):
         out = _from_torch(func(tensor))
         return out.reshape(bsh + self.dim_shape)
 
-    @pxrt.enforce_precision(i=["arr", "tau"])
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         bsh = arr.shape[: -self.dim_rank]
         bsize = (int(np.prod(bsh)),)
@@ -431,7 +421,6 @@ class _FromTorch(px_src._FromSource):
         out = _from_torch(func(tensor, tau))
         return out.reshape(bsh + self.dim_shape)
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         bsh = arr.shape[: -self.codim_rank]
         bsize = (int(np.prod(bsh)),)
@@ -443,7 +432,6 @@ class _FromTorch(px_src._FromSource):
         out = _from_torch(out)
         return out.reshape(bsh + self.dim_shape)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         try:
             # Use the class' method if available ...
@@ -549,7 +537,7 @@ class _FromTorch(px_src._FromSource):
             # Torch operators don't accept DASK inputs: cannot call Lin[Op,Func].asarray() with user-specified `xp` value.
             # -> We arbitrarily perform computations using the NUMPY backend, then cast as needed.
             N = pxd.NDArrayInfo  # shorthand
-            dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+            dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
             xp = kwargs.get("xp", N.default().module())
 
             klass = self.__class__
