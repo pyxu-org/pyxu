@@ -90,7 +90,7 @@ def _to_jax(x: pxt.NDArray, enable_warnings: bool = True) -> JaxArray:
         y = f_wrap(x)
 
     same_dtype = x.dtype == y.dtype
-    same_mem = xp.byte_bounds(x)[0] == y.device_buffer.unsafe_buffer_pointer()
+    same_mem = xp.byte_bounds(x)[0] == y.addressable_data(0).unsafe_buffer_pointer()
     if not (same_dtype and same_mem) and enable_warnings:
         msg = "\n".join(
             [
