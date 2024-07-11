@@ -13,7 +13,6 @@ import typing as typ
 import numpy as np
 
 import pyxu.info.ptype as pxt
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -579,7 +578,8 @@ class Solver:
 
         def _update_history():
             def _as_struct(data: dict[str, float]) -> np.ndarray:
-                ftype = pxrt.getPrecision().value
+                ftype = type(x) if isinstance(x := next(iter(data.values())), float) else x.dtype
+
                 spec_data = [(k, ftype) for k in data]
 
                 itype = np.int64
