@@ -3,7 +3,6 @@ import numpy as np
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -63,14 +62,12 @@ class KLDivergence(pxa.ProxFunc):
             assert (data >= 0).all(), "KL Divergence only defined for non-negative arguments."
         self._data = data
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         axis = tuple(range(-self.dim_rank, 0))
         out = self._kl_div(arr, self._data)
         out = out.sum(axis=axis)[..., np.newaxis]
         return out
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         x = arr - tau
