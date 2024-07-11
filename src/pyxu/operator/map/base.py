@@ -4,7 +4,6 @@ import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.operator.interop.source as px_src
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -38,7 +37,6 @@ def ConstantValued(
             )
     else:
 
-        @pxrt.enforce_precision(i="arr")
         def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
             ndi = pxd.NDArrayInfo.from_obj(arr)
             kwargs = dict()
@@ -64,7 +62,6 @@ def ConstantValued(
                 codim_shape=_.codim_shape,
             )
 
-        @pxrt.enforce_precision(i="arr")
         def op_grad(_, arr: pxt.NDArray) -> pxt.NDArray:
             ndi = pxd.NDArrayInfo.from_obj(arr)
             kwargs = dict()
@@ -79,7 +76,6 @@ def ConstantValued(
             )
             return out
 
-        @pxrt.enforce_precision(i=("arr", "tau"))
         def op_prox(_, arr: pxt.NDArray, tau: pxt.NDArray) -> pxt.NDArray:
             return pxu.read_only(arr)
 
