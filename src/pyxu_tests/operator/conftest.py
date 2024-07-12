@@ -496,6 +496,10 @@ class MapT(ct.DisableTestMixin):
             (x - y) ** 2,
             axis=tuple(range(-op.dim_rank, 0)),
         )
+        # xp.sum((x - y), may return 0s, in which case `INF*0=NaN` may arise above.
+        # less_equal() is not able to handle NaNs, so the former are overwritten by a sensible
+        # value in this context, i.e. inf.
+        rhs[xp.isnan(rhs)] = float("inf")
         success = ct.less_equal(lhs, rhs, as_dtype=width.value)
         assert all(success)
 
@@ -649,6 +653,11 @@ class DiffMapT(MapT):
                 # is not able to handle NaNs, so the former are overwritten by a sensible value
                 # in this context, i.e. 0.
                 lhs = 0
+            if np.isnan(rhs):
+                # xp.sum((x - y) ** 2) may return 0s, in which case `INF*0=NaN` may arise above. less_equal()
+                # is not able to handle NaNs, so the former are overwritten by a sensible value
+                # in this context, i.e. inf.
+                rhs = np.inf
             success = ct.less_equal(lhs, rhs, as_dtype=width.value)
             stats.append((lhs, rhs, success))
 
