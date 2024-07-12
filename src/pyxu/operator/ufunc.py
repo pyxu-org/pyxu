@@ -361,7 +361,7 @@ class Tanh(pxa.DiffMap):
 
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         v = self.apply(arr)
-        v**2
+        v = v**2
         v *= -1
         v += 1
         return pxlb.DiagonalOp(v)
