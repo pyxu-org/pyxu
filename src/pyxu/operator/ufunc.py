@@ -753,7 +753,6 @@ class Sign(pxa.Map):
             dim_shape=dim_shape,
             codim_shape=dim_shape,
         )
-        self.lipschitz = 2
 
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
