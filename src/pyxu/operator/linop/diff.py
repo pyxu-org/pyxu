@@ -14,6 +14,7 @@ import pyxu.operator.linop.base as pxlb
 import pyxu.operator.linop.pad as pxlp
 import pyxu.operator.linop.reduce as pxlr
 import pyxu.operator.linop.stencil.stencil as pxls
+import pyxu.operator.misc as pxm
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -2126,17 +2127,16 @@ def DirectionalDerivative(
             norm_dirs = norm_dirs.ravel()
 
     if directions.ndim == 1:
-        diag = xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()
-
+        diag = xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape)
     else:
-        diag = norm_dirs.ravel()
+        diag = norm_dirs.reshape(-1, *dim_shape)
 
     dop = pxlb.DiagonalOp(diag)
     sop = pxlr.Sum(dim_shape=(ndim_diff,) + dim_shape, axis=0)
-    op = sop * dop * diff
-
+    sqop = pxm.SqueezeAxes(dim_shape=sop.codim_shape, axes=0)
+    op = sqop * sop * dop * diff
     dop_compute = pxlb.DiagonalOp(pxu.compute(diag))
-    op_compute = sop * dop_compute * diff
+    op_compute = sqop * sop * dop_compute * diff
 
     def op_svdvals(_, **kwargs) -> pxt.NDArray:
         return op_compute.svdvals(**kwargs)
@@ -2480,8 +2480,9 @@ def DirectionalLaplacian(
         + dim_shape,
         axis=(0, 1),
     )
-    op = sop * dop * hess
-    op_compute = sop * dop_compute * hess
+    sqop = pxm.SqueezeAxes(dim_shape=sop.codim_shape, axes=0)
+    op = sqop * sop * dop * hess
+    op_compute = sqop * sop * dop_compute * hess
 
     def op_svdvals(_, **kwargs) -> pxt.NDArray:
         return op_compute.svdvals(**kwargs)
