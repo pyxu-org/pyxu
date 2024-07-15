@@ -669,11 +669,6 @@ class TestLaplacian(DiffOpMixin):
         return request.param
 
     @pytest.fixture
-    def codim_shape(self, _spec):  # canonical representation
-        dim_shape, _, _ = _spec
-        return dim_shape
-
-    @pytest.fixture
     def diff_op(self):
         return pxo.Laplacian
 
