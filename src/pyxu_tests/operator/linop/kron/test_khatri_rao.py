@@ -24,23 +24,23 @@ pytestmark = pytest.mark.filterwarnings("ignore::pyxu.info.warning.DenseWarning"
 
 
 # A/B test operators ----------------------------------------------------------
-def op_linop(dim: int, codim_scale: int):
+def op_linop(dim_shape: tuple):
     import pyxu_tests.operator.examples.test_linop as tc
 
-    return tc.Tile(N=dim, M=codim_scale)
+    return tc.Sum(dim_shape=dim_shape)
 
 
 def op_linfunc(dim: int):
     import pyxu_tests.operator.examples.test_linfunc as tc
 
-    op = tc.ScaledSum(N=dim)
+    op = tc.Sum(dim_shape=dim)
     return op
 
 
 def op_squareop(dim: int):
     import pyxu_tests.operator.examples.test_squareop as tc
 
-    return tc.CumSum(N=dim)
+    return tc.CumSum(dim_shape=dim)
 
 
 def op_normalop(dim: int):
@@ -48,37 +48,37 @@ def op_normalop(dim: int):
 
     rng = np.random.default_rng(seed=2)
     h = rng.normal(size=(dim,))
-    return tc.CircularConvolution(h=h)
+    return tc.CircularConvolution(dim_shape=dim, h=h)
 
 
 def op_unitop(dim: int):
     import pyxu_tests.operator.examples.test_unitop as tc
 
-    return tc.Permutation(N=dim)
+    return tc.Permutation(dim_shape=dim)
 
 
 def op_selfadjointop(dim: int):
     import pyxu_tests.operator.examples.test_selfadjointop as tc
 
-    return tc.SelfAdjointConvolution(N=dim)
+    return tc.SelfAdjointConvolution(dim_shape=dim)
 
 
 def op_posdefop(dim: int):
     import pyxu_tests.operator.examples.test_posdefop as tc
 
-    return tc.PSDConvolution(N=dim)
+    return tc.PSDConvolution(dim_shape=dim)
 
 
 def op_projop(dim: int):
     import pyxu_tests.operator.examples.test_projop as tc
 
-    return tc.Oblique(N=dim, alpha=np.pi / 4)
+    return tc.Oblique(dim_shape=dim, alpha=np.pi / 4)
 
 
 def op_orthprojop(dim: int):
     import pyxu_tests.operator.examples.test_orthprojop as tc
 
-    return tc.ScaleDown(N=dim)
+    return tc.ScaleDown(dim_shape=dim)
 
 
 # Data Mixin ------------------------------------------------------------------
@@ -119,7 +119,7 @@ class KhatriRaoMixin:
         return op, ndi, width
 
     @pytest.fixture
-    def data_shape(self, op_A, op_B) -> pxt.OpShape:
+    def data_shape(self, op_A, op_B) -> pxt.NDArrayShape:
         sh = (op_A.codim * op_B.codim, op_A.dim)
         return sh
 
@@ -162,15 +162,15 @@ class KhatriRaoMixin:
 class TestKhatriRaoLinOp(KhatriRaoMixin, conftest.LinOpT):
     @pytest.fixture(
         params=[
-            (op_linop(5, 3), op_linop(5, 1)),
-            (op_linop(5, 3), op_linfunc(5)),
-            (op_linop(5, 3), op_squareop(5)),
-            (op_linop(5, 3), op_normalop(5)),
-            (op_linop(5, 3), op_unitop(5)),
-            (op_linop(5, 3), op_selfadjointop(5)),
-            (op_linop(5, 3), op_posdefop(5)),
-            (op_linop(5, 3), op_projop(5)),
-            (op_linop(5, 3), op_orthprojop(5)),
+            (op_linop((5, 3)), op_linop((5, 1))),
+            (op_linop((5, 3)), op_linfunc(5)),
+            (op_linop((5, 3)), op_squareop(5)),
+            (op_linop((5, 3)), op_normalop(5)),
+            (op_linop((5, 3)), op_unitop(5)),
+            (op_linop((5, 3)), op_selfadjointop(5)),
+            (op_linop((5, 3)), op_posdefop(5)),
+            (op_linop((5, 3)), op_projop(5)),
+            (op_linop((5, 3)), op_orthprojop(5)),
         ]
     )
     def op_AB(self, request):
@@ -180,7 +180,7 @@ class TestKhatriRaoLinOp(KhatriRaoMixin, conftest.LinOpT):
 class TestKhatriRaoSquareOp(KhatriRaoMixin, conftest.SquareOpT):
     @pytest.fixture(
         params=[
-            (op_linop(5, 1), op_linfunc(5)),
+            (op_linop((5, 1)), op_linfunc(5)),
             (op_squareop(5), op_linfunc(5)),
             (op_normalop(5), op_linfunc(5)),
             (op_unitop(5), op_linfunc(5)),

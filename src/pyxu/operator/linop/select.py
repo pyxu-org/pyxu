@@ -7,7 +7,6 @@ import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.operator.interop.source as px_src
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -133,7 +132,6 @@ class SubSample(pxa.LinOp):
         )
         self.lipschitz = 1
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         """
         Sub-sample the data.
@@ -154,7 +152,6 @@ class SubSample(pxa.LinOp):
         out = arr[selector]
         return pxu.read_only(out)
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         """
         Up-sample the data.
@@ -191,7 +188,6 @@ class SubSample(pxa.LinOp):
         return D
 
     def gram(self) -> pxt.OpT:
-        @pxrt.enforce_precision(i="arr")
         def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
             _op = _._op
             out = _op.adjoint(_op.apply(arr))
@@ -212,7 +208,6 @@ class SubSample(pxa.LinOp):
         CG = IdentityOp(dim_shape=self.codim_shape)
         return CG
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         out = self.adjoint(arr)
         out /= 1 + damp

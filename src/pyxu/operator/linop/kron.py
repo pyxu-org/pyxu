@@ -4,7 +4,6 @@ import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.operator.interop.source as px_src
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -62,7 +61,7 @@ def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
     where :math:`\mathbf{A}`, :math:`\mathbf{B}`, and :math:`\mathbf{C}` are matrices.
     """
 
-    def _infer_op_shape(shA: pxt.OpShape, shB: pxt.OpShape) -> pxt.OpShape:
+    def _infer_op_shape(shA: pxt.NDArrayShape, shB: pxt.NDArrayShape) -> pxt.NDArrayShape:
         sh = (shA[0] * shB[0], shA[1] * shB[1])
         return sh
 
@@ -85,7 +84,6 @@ def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
             klass = pxa.Operator._infer_operator_type(properties)
         return klass
 
-    @pxrt.enforce_precision(i="arr")
     def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
         # If `x` is a vector, then:
         #     (A \kron B)(x) = vec(B * mat(x) * A.T)
@@ -101,7 +99,6 @@ def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
         out = u.reshape((*sh_prefix, -1))  # (..., A.codim * B.codim)
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def op_adjoint(_, arr: pxt.NDArray) -> pxt.NDArray:
         # If `x` is a vector, then:
         #     (A \kron B).H(x) = vec(B.H * mat(x) * A.conj)
@@ -163,7 +160,6 @@ def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
         D_C = xp.concatenate([D_A, D_B])[-k:]
         return D_C
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def op_pinv(_, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         if np.isclose(damp, 0):
             # (A \kron B).dagger() = A.dagger() \kron B.dagger()
@@ -174,7 +170,6 @@ def kron(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
             out = _.__class__.pinv(_, arr, damp, **kwargs)
         return out
 
-    @pxrt.enforce_precision()
     def op_trace(_, **kwargs) -> pxt.Real:
         # tr(A \kron B) = tr(A) * tr(B)
         # [if both square, else default algorithm]
@@ -277,7 +272,7 @@ def khatri_rao(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
     applying :py:func:`~pyxu.operator.kron` and pruning its output.
     """
 
-    def _infer_op_shape(shA: pxt.OpShape, shB: pxt.OpShape) -> pxt.OpShape:
+    def _infer_op_shape(shA: pxt.NDArrayShape, shB: pxt.NDArrayShape) -> pxt.NDArrayShape:
         if shA[1] != shB[1]:
             raise ValueError(f"Khatri-Rao product of {shA} and {shB} operators forbidden.")
         sh = (shA[0] * shB[0], shA[1])
@@ -296,7 +291,6 @@ def khatri_rao(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
             klass = pxa.Operator._infer_operator_type(properties)
         return klass
 
-    @pxrt.enforce_precision(i="arr")
     def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
         # If `x` is a vector, then:
         #     (A \kr B)(x) = vec(B * diag(x) * A.T)
@@ -314,7 +308,6 @@ def khatri_rao(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
         out = u.reshape((*sh_prefix, -1))  # (..., A.codim * B.codim)
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def op_adjoint(_, arr: pxt.NDArray) -> pxt.NDArray:
         # If `x` is a vector, then:
         #     (A \kr B).H(x) = diag(B.H * mat(x) * A.conj)
@@ -339,7 +332,6 @@ def khatri_rao(A: pxt.OpT, B: pxt.OpT) -> pxt.OpT:
         C = (A * B).reshape((_.dim, -1)).T
         return C
 
-    @pxrt.enforce_precision()
     def op_lipschitz(_, **kwargs) -> pxt.Real:
         if kwargs.get("tight", False):
             _._lipschitz = _.__class__.lipschitz(_, **kwargs)

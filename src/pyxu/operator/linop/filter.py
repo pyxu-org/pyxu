@@ -61,7 +61,7 @@ def _sanitize_inputs(dim_shape, dtype, gpu):
     ndim = len(dim_shape)
 
     if dtype is None:
-        dtype = pxrt.getPrecision().value
+        dtype = pxrt.Width.DOUBLE.value
 
     if gpu:
         assert pxd.CUPY_ENABLED

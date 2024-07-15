@@ -28,38 +28,37 @@ class TestULA(ct.SamplerT):
 
         scale = 10
 
-        with pxrt.EnforcePrecision(False):
-            out_1 = next(gen_1)
+        out_1 = next(gen_1)
 
-            if pxu.copy_if_unsafe(out_1) is not out_1:
-                # out_1 is read_only -> safe
-                return
+        if pxu.copy_if_unsafe(out_1) is not out_1:
+            # out_1 is read_only -> safe
+            return
+        else:
+            # out_1 is writeable -> test correctness
+            out_gt = out_1.copy()
+            out_1 *= scale  # Scale output -> does it change x0 ?
+            rng_2 = xp.random.default_rng(seed=seed)
+            gen_2 = sampler.samples(rng=rng_2, x0=x0)
+            out_2 = next(gen_2)
+
+        try:
+            assert xp.allclose(out_gt, out_2)
+        except AssertionError:
+            # Function is non-transparent, but which backend caused it?
+            N = pxd.NDArrayInfo
+            ndi = N.from_obj(out_1)
+            if ndi == N.CUPY:
+                # warn about CuPy-only non-transparency.
+                msg = "\n".join(
+                    [
+                        f"{sampler} is not transparent when applied to CuPy starting points.",
+                        f"If the same test fails for non-CuPy inputs, then {sampler}'s implementation is at fault -> user fix required.",
+                        "If the same test passes for non-CuPy inputs, then this warning can be safely ignored.",
+                    ]
+                )
+                warnings.warn(msg, pxw.NonTransparentWarning)
             else:
-                # out_1 is writeable -> test correctness
-                out_gt = out_1.copy()
-                out_1 *= scale  # Scale output -> does it change x0 ?
-                rng_2 = xp.random.default_rng(seed=seed)
-                gen_2 = sampler.samples(rng=rng_2, x0=x0)
-                out_2 = next(gen_2)
-
-            try:
-                assert xp.allclose(out_gt, out_2)
-            except AssertionError:
-                # Function is non-transparent, but which backend caused it?
-                N = pxd.NDArrayInfo
-                ndi = N.from_obj(out_1)
-                if ndi == N.CUPY:
-                    # warn about CuPy-only non-transparency.
-                    msg = "\n".join(
-                        [
-                            f"{sampler} is not transparent when applied to CuPy starting points.",
-                            f"If the same test fails for non-CuPy inputs, then {sampler}'s implementation is at fault -> user fix required.",
-                            "If the same test passes for non-CuPy inputs, then this warning can be safely ignored.",
-                        ]
-                    )
-                    warnings.warn(msg, pxw.NonTransparentWarning)
-                else:
-                    raise
+                raise
 
     @pytest.fixture
     def dim(self):

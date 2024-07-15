@@ -85,7 +85,6 @@ class CZT(pxa.LinOp):
         # the estimate is computed as a special case of estimate_lipschitz()
         self.lipschitz = self.estimate_lipschitz(__rule=True)
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         r"""
         Parameters
@@ -129,7 +128,6 @@ class CZT(pxa.LinOp):
             out *= _Wk2
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         r"""
         Parameters
@@ -244,7 +242,7 @@ class CZT(pxa.LinOp):
 
         # ... then use the backend/precision user asked for.
         xp = kwargs.get("xp", pxd.NDArrayInfo.default().module())
-        dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
         C = xp.array(
             pxu.as_real_op(B_ND, dim_rank=D),
             dtype=pxrt.Width(dtype).value,

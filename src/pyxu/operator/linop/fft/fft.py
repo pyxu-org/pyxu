@@ -185,7 +185,6 @@ class FFT(pxa.NormalOp):
         )
         return G
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         out = self.adjoint(arr)
         out /= (self.lipschitz**2) + damp
@@ -211,7 +210,6 @@ class FFT(pxa.NormalOp):
         op = self.T / ((self.lipschitz**2) + damp)
         return op
 
-    @pxrt.enforce_precision()
     def svdvals(self, **kwargs) -> pxt.NDArray:
         D = pxa.UnitOp.svdvals(self, **kwargs) * self.lipschitz
         return D
@@ -240,14 +238,13 @@ class FFT(pxa.NormalOp):
 
         # ... then use the backend/precision user asked for.
         xp = kwargs.get("xp", pxd.NDArrayInfo.default().module())
-        dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
         C = xp.array(
             pxu.as_real_op(B_ND, dim_rank=D),
             dtype=pxrt.Width(dtype).value,
         )
         return C
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         r"""
         Parameters
@@ -282,7 +279,6 @@ class FFT(pxa.NormalOp):
         out = self._transform(arr, mode="fw")
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         r"""
         Parameters

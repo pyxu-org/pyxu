@@ -434,7 +434,6 @@ class Stencil(pxa.SquareOp):
         # the estimate is computed as a special case of estimate_lipschitz()
         self.lipschitz = self.estimate_lipschitz(__rule=True)
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         x = self._pad.apply(arr)
         y = self._stencil_chain(
@@ -444,7 +443,6 @@ class Stencil(pxa.SquareOp):
         z = self._trim.apply(y)
         return z
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         x = self._trim.adjoint(arr)
         y = self._stencil_chain(
@@ -513,11 +511,10 @@ class Stencil(pxa.SquareOp):
         _A = super().asarray(xp=xp, dtype=self._dtype)
 
         xp = kwargs.get("xp", pxd.NDArrayInfo.NUMPY.module())
-        dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
         A = xp.array(pxu.to_NUMPY(_A), dtype=dtype)
         return A
 
-    @pxrt.enforce_precision()
     def trace(self, **kwargs) -> pxt.Real:
         if all(m == "constant" for m in self._pad._mode):
             # tr = (kernel center coefficient) * dim_size
@@ -619,7 +616,6 @@ class Stencil(pxa.SquareOp):
             pxu.get_array_module(kernel)
             assert kernel.ndim == N
 
-            _kernel = [pxrt.coerce(kernel)]
             _center = [np.array(center, dtype=int)]
         except Exception:
             # sequence input -> seperable filter(s)
@@ -629,7 +625,7 @@ class Stencil(pxa.SquareOp):
             for i in range(N):
                 sh = [1] * N
                 sh[i] = -1
-                _kernel[i] = pxrt.coerce(kernel[i]).reshape(sh)
+                _kernel[i] = kernel[i].reshape(sh)
 
             _center = np.zeros((N, N), dtype=int)
             _center[np.diag_indices(N)] = center

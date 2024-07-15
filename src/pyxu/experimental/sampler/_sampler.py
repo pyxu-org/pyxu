@@ -90,7 +90,6 @@ import math
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.operator as pxo
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -334,7 +333,6 @@ class ULA(_Sampler):
         else:
             self._rng = rng
 
-    @pxrt.enforce_precision()
     def _sample(self) -> pxt.NDArray:
         x = self.x.copy()
         x -= self._gamma * pxu.copy_if_unsafe(self._f.grad(self.x))
@@ -356,7 +354,7 @@ class ULA(_Sampler):
     def _set_gamma(self, gamma: pxt.Real = None) -> pxt.Real:
         if gamma is None:
             if math.isfinite(self._beta):
-                return pxrt.coerce(0.98 / self._beta)
+                return 0.98 / self._beta
             else:
                 msg = "If f has unbounded Lipschitz gradient, the gamma parameter must be provided."
             raise ValueError(msg)
@@ -365,7 +363,7 @@ class ULA(_Sampler):
                 assert gamma > 0
             except Exception:
                 raise ValueError(f"gamma must be positive, got {gamma}.")
-            return pxrt.coerce(gamma)
+            return gamma
 
 
 class MYULA(ULA):
@@ -466,11 +464,11 @@ class MYULA(ULA):
     def _set_lambda(self, lamb: pxt.Real = None) -> pxt.Real:
         if lamb is None:
             if self._g._name == "NullFunc":
-                return pxrt.coerce(1)  # Lambda is irrelevant if g is a NullFunc, but it must be positive
+                return 1.0  # Lambda is irrelevant if g is a NullFunc, but it must be positive
             elif math.isfinite(dl := self._f_diff.diff_lipschitz):
-                return pxrt.coerce(2) if dl == 0 else pxrt.coerce(min(2, 1 / dl))
+                return 2.0 if dl == 0 else min(2.0, 1.0 / dl)
             else:
                 msg = "If f has unbounded Lipschitz gradient, the lambda parameter must be provided."
             raise ValueError(msg)
         else:
-            return pxrt.coerce(lamb)
+            return lamb

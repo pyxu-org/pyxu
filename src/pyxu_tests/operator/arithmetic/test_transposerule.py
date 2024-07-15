@@ -27,7 +27,6 @@ def op_bcast(codim_shape: pxt.NDArrayAxis) -> pxt.OpT:
     # f: \bR -> \bR^{N1,...,NK}
     #      x -> (repeat-x)
 
-    @pxrt.enforce_precision(i="arr")
     def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         sh = arr.shape[: -_.dim_rank]
@@ -39,7 +38,6 @@ def op_bcast(codim_shape: pxt.NDArrayAxis) -> pxt.OpT:
         )
         return y
 
-    @pxrt.enforce_precision(i="arr")
     def op_adjoint(_, arr: pxt.NDArray) -> pxt.NDArray:
         axis = tuple(range(-_.codim_rank, 0))
         y = arr.sum(axis=axis)[..., np.newaxis]

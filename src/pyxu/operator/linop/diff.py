@@ -242,8 +242,8 @@ def _FiniteDifference(
         stencil_mat = np.vander(
             np.array(stencil_ids),
             increasing=True,
-        ).T.astype(pxrt.getPrecision().value)
-        vec = np.zeros(len(stencil_ids), dtype=pxrt.getPrecision().value)
+        ).T
+        vec = np.zeros(len(stencil_ids))
         vec[order] = math.factorial(order)
         coefs = np.linalg.solve(stencil_mat, vec)
         coefs /= sampling**order
@@ -424,7 +424,7 @@ def _PartialDerivative(
         * Truncate (for Gaussian derivative)
     """
     if dtype is None:
-        dtype = pxrt.getPrecision().value
+        dtype = pxrt.Width.DOUBLE.value
 
     if gpu:
         assert pxd.CUPY_ENABLED

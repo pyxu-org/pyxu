@@ -259,8 +259,7 @@ class DiffOpMixin(conftest.LinOpT):
     ) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         kwargs = diff_params.copy()
         kwargs.update(diff_kwargs)
-        with pxrt.Precision(width):
-            op = diff_op(**kwargs)
+        op = diff_op(**kwargs)
         return op, ndi, width
 
 
