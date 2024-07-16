@@ -2655,17 +2655,12 @@ def DirectionalHessian(
                 norm_dirs[off_diag_inds] *= 2
                 inds = dummy_mat[np.triu_indices(ndim, k=0)].ravel()
                 norm_dirs = norm_dirs[inds]
+                norm_dirs = xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape)
             else:
-                norm_dirs = norm_dirs.ravel()
+                norm_dirs = norm_dirs.reshape(-1, *dim_shape)
 
-            if norm_dirs.ndim == 1:
-                dop.append(pxlb.DiagonalOp(xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()))
-                dop_compute.append(
-                    pxlb.DiagonalOp(pxu.compute(xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()))
-                )
-            else:
-                dop.append(pxlb.DiagonalOp(norm_dirs.ravel()))
-                dop_compute.append(pxlb.DiagonalOp(pxu.compute(norm_dirs.ravel())))
+            dop.append(pxlb.DiagonalOp(norm_dirs))
+            dop_compute.append(pxlb.DiagonalOp(pxu.compute(norm_dirs)))
 
     dop = pxb.stack(dop)
     dop_compute = pxb.stack(dop_compute)
