@@ -36,7 +36,7 @@ class DirDerOpMixin(DiffOpMixin):
         return "fd"
 
     @pytest.fixture(params=["constant", "varying"])
-    def directions(self, _spec, dim_shape, request):
+    def directions(self, _spec, dim_shape, xp, width, request):
         dirs = np.array(_spec[1])
         for i in range(len(dirs)):
             dirs[i] = dirs[i] / np.linalg.norm(dirs[i])
@@ -54,6 +54,7 @@ class DirDerOpMixin(DiffOpMixin):
             )
             dirs = np.expand_dims(dirs, expand_dims.tolist()) * broadcast_arr
 
+        dirs = xp.asarray(dirs).astype(width.value)
         return dirs
 
 
