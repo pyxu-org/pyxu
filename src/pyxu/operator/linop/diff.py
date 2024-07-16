@@ -2299,8 +2299,10 @@ def DirectionalGradient(
     dop = pxb.stack(diag_ops)
     dop_compute = pxb.stack(diag_ops_compute)
 
-    op = sop * dop * grad
-    op_compute = sop * dop_compute * grad
+    sqop = pxm.SqueezeAxes(dim_shape=sop.codim_shape, axes=1)
+
+    op = sqop * sop * dop * grad
+    op_compute = sqop * sop * dop_compute * grad
 
     def op_svdvals(_, **kwargs) -> pxt.NDArray:
         return op_compute.svdvals(**kwargs)
