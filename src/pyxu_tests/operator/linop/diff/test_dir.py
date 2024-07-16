@@ -143,8 +143,8 @@ class TestDirectionalGradient(DirDerOpMixin):
         return request.param
 
     @pytest.fixture
-    def codim_shape(self, dim_shape) -> pxt.NDArrayShape:
-        return dim_shape
+    def codim_shape(self, directions, dim_shape) -> pxt.NDArrayShape:
+        return (len(directions),) + dim_shape
 
     @pytest.fixture
     def diff_kwargs(self, dim_shape, directions, ndi, width, sampling, diff_method):
