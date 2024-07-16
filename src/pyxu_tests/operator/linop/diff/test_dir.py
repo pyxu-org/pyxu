@@ -65,6 +65,13 @@ class DirDerOpMixin(DiffOpMixin):
         else:
             pytest.skip("SVD values cannot be computed with SciPy's `svds()` for `dirs` with Dask backend.")
 
+    def test_math3_lipschitz(self, op, _data_estimate_diff_lipschitz, _gpu, ndi):
+        N = pxd.NDArrayInfo
+        if ndi is not N.DASK:
+            super().test_math2_lipschitz(op, _data_estimate_diff_lipschitz, _gpu)
+        else:
+            pytest.skip("SVD values cannot be computed with SciPy's `svds()` for `dirs` with Dask backend.")
+
 
 class TestDirectionalDerivative(DirDerOpMixin):
     @pytest.fixture
