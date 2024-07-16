@@ -201,10 +201,8 @@ class TestDirectionalLaplacian(DirDerOpMixin):
         return _spec[2]
 
     @pytest.fixture
-    def data_shape(self, dim_shape) -> pxt.NDArrayShape:
-        size = np.prod(dim_shape).item()
-        sh = (size, size)
-        return sh
+    def codim_shape(self, dim_shape) -> pxt.NDArrayShape:
+        return dim_shape
 
     @pytest.fixture
     def diff_kwargs(self, dim_shape, directions, ndi, width, sampling, diff_method, weights):
@@ -263,10 +261,9 @@ class TestDirectionalHessian(DirDerOpMixin):
         return request.param
 
     @pytest.fixture
-    def data_shape(self, dim_shape, directions) -> pxt.NDArrayShape:
-        size = np.prod(dim_shape).item()
+    def codim_shape(self, dim_shape, directions) -> pxt.NDArrayShape:
         ndim_hess = len(directions) * (len(directions) + 1) // 2
-        sh = (ndim_hess * size, size)
+        sh = (ndim_hess,) + dim_shape
         return sh
 
     @pytest.fixture
