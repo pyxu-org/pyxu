@@ -2486,7 +2486,7 @@ def DirectionalLaplacian(
         + dim_shape,
         axis=(0, 1),
     )
-    sqop = pxm.SqueezeAxes(dim_shape=sop.codim_shape, axes=0)
+    sqop = pxm.SqueezeAxes(dim_shape=sop.codim_shape, axes=(0, 1))
     op = sqop * sop * dop * hess
     op_compute = sqop * sop * dop_compute * hess
 
