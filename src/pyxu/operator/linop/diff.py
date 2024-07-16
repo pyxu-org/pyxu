@@ -2289,9 +2289,9 @@ def DirectionalGradient(
         # normalize directions to unit norm
         norm_dirs = (direction / xp.linalg.norm(direction, axis=0, keepdims=True)).astype(dtype)
         if direction.ndim == 1:
-            diag = xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()
+            diag = xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape)
         else:
-            diag = norm_dirs.ravel()
+            diag = norm_dirs.reshape(-1, *dim_shape)
 
         diag_ops.append(pxlb.DiagonalOp(diag))
         diag_ops_compute.append(pxlb.DiagonalOp(pxu.compute(diag)))
