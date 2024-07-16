@@ -2461,16 +2461,20 @@ def DirectionalLaplacian(
             inds = dummy_mat[np.triu_indices(ndim, k=0)].ravel()
             norm_dirs = norm_dirs[inds]
         else:
-            norm_dirs = norm_dirs.ravel()
+            norm_dirs = norm_dirs.reshape(-1, *dim_shape)
 
         if direction.ndim == 1:
-            dop.append(pxlb.DiagonalOp(weight * xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()))
+            dop.append(
+                pxlb.DiagonalOp(weight * xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape))
+            )
             dop_compute.append(
-                pxlb.DiagonalOp(pxu.compute(weight * xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()))
+                pxlb.DiagonalOp(
+                    pxu.compute(weight * xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape))
+                )
             )
         else:
-            dop.append(pxlb.DiagonalOp(weight * norm_dirs.ravel()))
-            dop_compute.append(pxlb.DiagonalOp(pxu.compute(weight * norm_dirs.ravel())))
+            dop.append(pxlb.DiagonalOp(weight * norm_dirs.reshape(-1, *dim_shape)))
+            dop_compute.append(pxlb.DiagonalOp(pxu.compute(weight * norm_dirs.reshape(-1, *dim_shape))))
 
     dop = pxb.stack(dop)
     dop_compute = pxb.stack(dop_compute)
