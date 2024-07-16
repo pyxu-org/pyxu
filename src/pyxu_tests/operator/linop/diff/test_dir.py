@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from test_diff import DiffOpMixin, apply_gradient, apply_hessian
 
+import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.operator as pxo
 import pyxu_tests.operator.conftest as conftest
@@ -56,6 +57,13 @@ class DirDerOpMixin(DiffOpMixin):
 
         dirs = xp.asarray(dirs).astype(width.value)
         return dirs
+
+    def test_math2_lipschitz(self, op, _data_estimate_lipschitz, _gpu, ndi):
+        N = pxd.NDArrayInfo
+        if ndi is not N.DASK:
+            super().test_math2_lipschitz(op, _data_estimate_lipschitz, _gpu)
+        else:
+            pytest.skip("SVD values cannot be computed with SciPy's `svds()` for `dirs` with Dask backend.")
 
 
 class TestDirectionalDerivative(DirDerOpMixin):
