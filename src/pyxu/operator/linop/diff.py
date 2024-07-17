@@ -2662,8 +2662,16 @@ def DirectionalHessian(
             else:
                 norm_dirs = norm_dirs.reshape(-1, *dim_shape)
 
-            dop.append(pxlb.DiagonalOp(norm_dirs))
-            dop_compute.append(pxlb.DiagonalOp(pxu.compute(norm_dirs)))
+            if norm_dirs.ndim == 1:
+                dop.append(pxlb.DiagonalOp(xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape)))
+                dop_compute.append(
+                    pxlb.DiagonalOp(
+                        pxu.compute(xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape))
+                    )
+                )
+            else:
+                dop.append(pxlb.DiagonalOp(norm_dirs.reshape(-1, *dim_shape)))
+                dop_compute.append(pxlb.DiagonalOp(pxu.compute(norm_dirs.reshape(-1, *dim_shape))))
 
     dop = pxb.stack(dop)
     dop_compute = pxb.stack(dop_compute)
