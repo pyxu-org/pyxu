@@ -2659,7 +2659,6 @@ def DirectionalHessian(
                 norm_dirs[off_diag_inds] *= 2
                 inds = dummy_mat[np.triu_indices(ndim, k=0)].ravel()
                 norm_dirs = norm_dirs[inds]
-                norm_dirs = xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape)
             else:
                 norm_dirs = norm_dirs.reshape(-1, *dim_shape)
 
