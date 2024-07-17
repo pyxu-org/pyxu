@@ -2687,8 +2687,6 @@ def DirectionalHessian(
     sqop = pxm.SqueezeAxes(dim_shape=sop.codim_shape, axes=1)
     op = sqop * sop * dop * hess
     op_compute = sqop * sop * dop_compute * hess
-    op = sop * dop * hess
-    op_compute = sop * dop_compute * hess
 
     def op_svdvals(_, **kwargs) -> pxt.NDArray:
         return op_compute.svdvals(**kwargs)
