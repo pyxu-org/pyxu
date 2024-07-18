@@ -527,7 +527,7 @@ def Laplace(
     sampling = _to_canonical_form(sampling, dim_shape)
     centers = [[1 if i == dim else 0 for i in range(ndim)] for dim in range(ndim)]
     kernels = [
-        xp.array([1.0, -2.0, 1.0]).reshape([-1 if i == dim else 1 for i in range(ndim)]) / sampling[dim]
+        xp.array([1.0, -2.0, 1.0], dtype=dtype).reshape([-1 if i == dim else 1 for i in range(ndim)]) / sampling[dim]
         for dim in range(ndim)
     ]
     ops = [pxls.Stencil(dim_shape=dim_shape, kernel=k, center=c, mode=mode) for (k, c) in zip(kernels, centers)]
