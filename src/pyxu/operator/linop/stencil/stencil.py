@@ -631,7 +631,7 @@ class Stencil(pxa.SquareOp):
             _center[np.diag_indices(N)] = center
 
         _mode = Pad(  # get `mode` in canonical form
-            (3,) * N,
+            (3,) * _kernel[0].ndim,
             pad_width=1,
             mode=mode,
         )._mode
