@@ -615,7 +615,7 @@ class Stencil(pxa.SquareOp):
             # array input -> non-seperable filter
             pxu.get_array_module(kernel)
             assert kernel.ndim == N
-
+            _kernel = [kernel]
             _center = [np.array(center, dtype=int)]
         except Exception:
             # sequence input -> seperable filter(s)
