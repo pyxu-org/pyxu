@@ -379,7 +379,7 @@ class TestStructureTensor(conftest.DiffMapT):
         op = pxo.StructureTensor(
             dim_shape=dim_shape,
             gpu=ndi == pxd.NDArrayInfo.CUPY,
-            width=width,
+            dtype=width.value,
             **filter_kwargs,
         )
         return op, ndi, width
