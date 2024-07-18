@@ -995,16 +995,17 @@ class StructureTensor(pxa.DiffMap):
 
         if diff_method == "fd":
             diff_kwargs.update({"scheme": diff_kwargs.pop("scheme", "central")})
-            self.grad = pxld.Gradient(
-                dim_shape=dim_shape,
-                directions=None,
-                mode=mode,
-                gpu=gpu,
-                dtype=dtype,
-                sampling=sampling,
-                parallel=parallel,
-                **diff_kwargs,
-            )
+
+        self.grad = pxld.Gradient(
+            dim_shape=dim_shape,
+            directions=None,
+            mode=mode,
+            gpu=gpu,
+            dtype=dtype,
+            sampling=sampling,
+            parallel=parallel,
+            **diff_kwargs,
+        )
 
         if smooth_sigma:
             self.smooth = GaussianFilter(
