@@ -877,7 +877,7 @@ def _EdgeFilter(
     return op
 
 
-class StructureTensor(pxa.Map):
+class StructureTensor(pxa.DiffMap):
     r"""
     Structure tensor operator.
 
@@ -995,17 +995,16 @@ class StructureTensor(pxa.Map):
 
         if diff_method == "fd":
             diff_kwargs.update({"scheme": diff_kwargs.pop("scheme", "central")})
-
-        self.grad = pxld.Gradient(
-            dim_shape=dim_shape,
-            directions=None,
-            mode=mode,
-            gpu=gpu,
-            dtype=dtype,
-            sampling=sampling,
-            parallel=parallel,
-            **diff_kwargs,
-        )
+            self.grad = pxld.Gradient(
+                dim_shape=dim_shape,
+                directions=None,
+                mode=mode,
+                gpu=gpu,
+                dtype=dtype,
+                sampling=sampling,
+                parallel=parallel,
+                **diff_kwargs,
+            )
 
         if smooth_sigma:
             self.smooth = GaussianFilter(
