@@ -368,10 +368,7 @@ class TestStructureTensor(conftest.DiffMapT):
     @pytest.fixture
     def codim_shape(self, dim_shape) -> pxt.NDArrayShape:
         ndim = len(dim_shape)
-        if ndim > 1:
-            return (ndim * (ndim + 1) / 2,) + dim_shape
-        else:
-            return dim_shape
+        return (ndim * (ndim + 1) / 2,) + dim_shape
 
     @pytest.fixture
     def mode(self):
