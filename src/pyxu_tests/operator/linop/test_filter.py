@@ -444,3 +444,15 @@ class TestStructureTensor(conftest.DiffMapT):
             in_=dict(arr=arr),
             out=out,
         )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
+        N_test = 10
+        x = self._random_array((N_test, *op.dim_shape))
+        return x
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
+        N_test = 10
+        x = self._random_array((N_test, *op.dim_shape))
+        return x
