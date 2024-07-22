@@ -210,8 +210,9 @@ class TestConvolve:
     )
     def test_value1D_apply(self, kernel, center, shift):
         N = 10
-        arr = np.arange(N)
-
+        dtype = pxrt.Width.DOUBLE.value
+        arr = np.arange(N, dtype=dtype)
+        kernel = kernel.astype(dtype)
         # Compute ground-truth
         if shift == 0:
             out_gt = arr.copy()
