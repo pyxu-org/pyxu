@@ -25,8 +25,8 @@ class TestAdam(conftest.SolverT):
         kwargs_fit = []
         param_sweep = dict(
             x0=[
-                np.full((N,), 50),
-                np.full((2, 1, 3, N), 50),  # multiple initial points
+                np.full((N,), 50, dtype="float64"),
+                np.full((2, 1, 3, N), 50, dtype="float64"),  # multiple initial points
             ],
             variant=["adam", "amsgrad", "padam"],
             p=[0.25],
