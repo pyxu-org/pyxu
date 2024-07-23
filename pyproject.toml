@@ -63,7 +63,7 @@ dev = [
     "sphinx_copybutton >= 0.5.2, < 1",
     "sphinx_design >= 0.4.1, < 1",
     "sphinx_togglebutton >= 0.3.2, < 1",
-    "sphinx-gallery >= 0.14.0, < 1",
+    "sphinx-gallery >= 0.17.0, < 1",
     "tox >= 4.6, < 5",
 ]
 complete-cpu = [ "pyxu[interact]", ]
