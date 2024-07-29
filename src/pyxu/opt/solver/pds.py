@@ -1080,7 +1080,6 @@ class LorisVerhoeven(PD3O):
         f: typ.Optional[pxa.DiffFunc] = None,
         h: typ.Optional[pxa.ProxFunc] = None,
         K: typ.Optional[pxa.DiffMap] = None,
-        beta: typ.Optional[pxt.Real] = None,
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
@@ -1089,7 +1088,6 @@ class LorisVerhoeven(PD3O):
             g=None,
             h=h,
             K=K,
-            beta=beta,
             **kwargs,
         )
 
@@ -1204,7 +1202,6 @@ class DavisYin(PD3O):
         f: typ.Optional[pxa.DiffFunc],
         g: typ.Optional[pxa.ProxFunc] = None,
         h: typ.Optional[pxa.ProxFunc] = None,
-        beta: typ.Optional[pxt.Real] = None,
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
@@ -1213,7 +1210,6 @@ class DavisYin(PD3O):
             g=g,
             h=h,
             K=None,
-            beta=beta,
             **kwargs,
         )
 
@@ -1797,7 +1793,6 @@ class ForwardBackward(CondatVu):
         self,
         f: typ.Optional[pxa.DiffFunc] = None,
         g: typ.Optional[pxa.ProxFunc] = None,
-        beta: typ.Optional[pxt.Real] = None,
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x",)))
@@ -1806,7 +1801,6 @@ class ForwardBackward(CondatVu):
             g=g,
             h=None,
             K=None,
-            beta=beta,
             **kwargs,
         )
 
