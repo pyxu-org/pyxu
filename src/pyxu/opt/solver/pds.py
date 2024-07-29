@@ -971,7 +971,6 @@ def ChambollePock(
         g=g,
         h=h,
         K=K,
-        beta=0,
         **kwargs,
     )
     obj.__repr__ = lambda _: "ChambollePock"
@@ -1314,7 +1313,7 @@ def DouglasRachford(
     :py:func:`~pyxu.opt.solver.ForwardBackward`
     """
     kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
-    obj = base(f=None, g=g, h=h, K=None, beta=0, **kwargs)
+    obj = base(f=None, g=g, h=h, K=None, **kwargs)
     obj.__repr__ = lambda _: "DouglasRachford"
 
     def _set_step_sizes_custom(
