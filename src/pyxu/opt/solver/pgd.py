@@ -2,6 +2,8 @@ import itertools
 import math
 import warnings
 
+import numpy as np
+
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.info.warning as pxw
@@ -130,7 +132,7 @@ class PGD(pxa.Solver):
         mst["x"] = mst["x_prev"] = x0
 
         if tau is None:
-            mst["tau"] = 1 / self._f.diff_lipschitz
+            mst["tau"] = 1 / np.array(self._f.diff_lipschitz)
             if math.isclose(mst["tau"], 0):
                 # _f does not provide any "useful" diff_lipschitz constant.
                 msg = "\n".join(
