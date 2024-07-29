@@ -1880,7 +1880,6 @@ def ProximalPoint(
         g=g,
         h=None,
         K=None,
-        beta=None,
         **kwargs,
     )
 
