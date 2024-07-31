@@ -27,12 +27,12 @@ class TestCG(conftest.SolverT):
         kwargs_fit = []
         param_sweep = dict(
             b=[
-                np.ones(dim_shape),
-                np.full((2, *dim_shape), -2),  # multiple problems in parallel
+                np.ones(dim_shape, dtype="float64"),
+                np.full((2, *dim_shape), -2, dtype="float64"),  # multiple problems in parallel
             ],
             x0=[
                 None,  # let algorithm choose
-                np.full(dim_shape, 30),
+                np.full(dim_shape, 30, dtype="float64"),
             ],
             restart_rate=[
                 None,
