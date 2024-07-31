@@ -61,21 +61,21 @@ class TestULA(ct.SamplerT):
                 raise
 
     @pytest.fixture
-    def dim(self):
-        return 4
+    def dim_shape(self):
+        return (3, 2)
 
     @pytest.fixture
-    def x0_np(self, dim):
+    def x0_np(self, dim_shape):
         stack_dim = 2, 3
-        return np.arange(np.prod(stack_dim) * dim).reshape((*stack_dim, dim))
+        return np.arange(np.prod(stack_dim) * np.prod(dim_shape)).reshape(stack_dim + dim_shape)
 
     @pytest.fixture
     def x0(self, x0_np, xp, width):
         return xp.array(x0_np, dtype=width.value)
 
     @pytest.fixture
-    def func(self, dim):
-        return 1 / 2 * pxo.SquaredL2Norm(dim=dim)  # Sampling of standard normal distribution
+    def func(self, dim_shape):
+        return 1 / 2 * pxo.SquaredL2Norm(dim_shape=dim_shape)  # Sampling of standard normal distribution
 
     @pytest.fixture
     def sampler(self, func):
@@ -112,8 +112,8 @@ class TestULA(ct.SamplerT):
 
 class TestMYULA(TestULA):
     @pytest.fixture
-    def prox_func(self, dim):
-        return pxo.L1Norm(dim=dim)
+    def prox_func(self, dim_shape):
+        return pxo.L1Norm(dim_shape=dim_shape)
 
     @pytest.fixture
     def sampler(self, func, prox_func):

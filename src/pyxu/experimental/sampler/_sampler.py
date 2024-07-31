@@ -32,16 +32,16 @@ uncertainty in these regions.
    rng = np.random.default_rng(seed=0)
    sigma = 1e-1  # Noise standard deviation
    y = gt + sigma * rng.standard_normal(sh_im)  # Noisy image
-   f = 1 / 2 * pxo.SquaredL2Norm(dim=N).argshift(-y.ravel()) / sigma**2  # Data fidelity loss
+   f = 1 / 2 * pxo.SquaredL2Norm(dim_shape=sh_im).argshift(-y) / sigma**2  # Data fidelity loss
 
    # Smoothed TV regularization
-   g = pxo.L21Norm(arg_shape=(2, *sh_im)).moreau_envelope(1e-2) * pxo.Gradient(arg_shape=sh_im)
+   g = pxo.L21Norm(dim_shape=(2, *sh_im)).moreau_envelope(1e-2) * pxo.Gradient(dim_shape=sh_im)
    theta = 10  # Regularization parameter
 
    # Compute MAP estimator
    pgd = pxsl.PGD(f=f + theta * g)
-   pgd.fit(x0=y.ravel())
-   im_MAP = pgd.solution().reshape(sh_im)
+   pgd.fit(x0=y)
+   im_MAP = pgd.solution()
 
    fig, ax = plt.subplots(1, 3)
    ax[0].imshow(gt)
@@ -73,11 +73,11 @@ uncertainty in these regions.
            var = online_var.update(sample)  # Update online variance
 
    fig, ax = plt.subplots(1, 2)
-   mean_im = ax[0].imshow(mean.reshape(sh_im), vmin=0, vmax=1)
+   mean_im = ax[0].imshow(mean, vmin=0, vmax=1)
    fig.colorbar(mean_im, fraction=0.05, ax=ax[0])
    ax[0].set_title("Mean (MMSE estimator)")
    ax[0].axis("off")
-   var_im = ax[1].imshow(var.reshape(sh_im))
+   var_im = ax[1].imshow(var)
    fig.colorbar(var_im, fraction=0.05, ax=ax[1])
    ax[1].set_title("Variance")
    ax[1].axis("off")
@@ -236,7 +236,7 @@ class ULA(_Sampler):
        import pyxu.operator as pxo
        import scipy as sp
 
-       f = pxo.SquaredL2Norm(dim=1) / 2  # To sample 1D normal distribution (mean 0, variance 1)
+       f = pxo.SquaredL2Norm(dim_shape=1) / 2  # To sample 1D normal distribution (mean 0, variance 1)
        ula = pxe_sampler.ULA(f=f)  # Sampler with maximum step size
        ula_lb = pxe_sampler.ULA(f=f, gamma=1e-1)  # Sampler with small step size
 
@@ -442,19 +442,19 @@ class MYULA(ULA):
         lamb: Real
             Moreau-Yosida envelope parameter for `g`.
         """
-        dim = None
+        dim_shape = None
         if f is not None:
-            dim = f.dim
+            dim_shape = f.dim_shape
         if g is not None:
-            if dim is None:
-                dim = g.dim
+            if dim_shape is None:
+                dim_shape = g.dim_shape
             else:
-                assert g.dim == dim
-        if dim is None:
+                assert g.dim_shape == dim_shape
+        if dim_shape is None:
             raise ValueError("One of f or g must be nonzero.")
 
-        self._f_diff = pxo.NullFunc(dim=dim) if (f is None) else f
-        self._g = pxo.NullFunc(dim=dim) if (g is None) else g
+        self._f_diff = pxo.NullFunc(dim_shape=dim_shape) if (f is None) else f
+        self._g = pxo.NullFunc(dim_shape=dim_shape) if (g is None) else g
 
         self._lambda = self._set_lambda(lamb)
         f = self._f_diff + self._g.moreau_envelope(self._lambda)
