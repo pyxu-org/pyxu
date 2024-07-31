@@ -297,9 +297,7 @@ class Adam(pxa.Solver):
         phi /= psi
         phi *= a
         x -= phi
-        ## =====================================================
-
-        mst["x"] = x
+        mst["x"] = x - phi
 
     def default_stop_crit(self) -> pxa.StoppingCriterion:
         from pyxu.opt.stop import RelError
