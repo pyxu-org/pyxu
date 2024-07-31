@@ -296,7 +296,6 @@ class Adam(pxa.Solver):
         #   x = x - a * (phi / psi)
         phi /= psi
         phi *= a
-        x -= phi
         mst["x"] = x - phi
 
     def default_stop_crit(self) -> pxa.StoppingCriterion:
