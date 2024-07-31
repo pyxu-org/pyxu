@@ -208,6 +208,7 @@ class NLCG(pxa.Solver):
         stop_crit = AbsError(
             eps=1e-4,
             var="gradient",
+            rank=self._f.dim_rank,
             f=None,
             norm=2,
             satisfy_all=True,
