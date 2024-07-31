@@ -3,6 +3,7 @@ import numpy as np
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.math as pxm
+import pyxu.util as pxu
 
 __all__ = [
     "NLCG",
@@ -228,12 +229,13 @@ class NLCG(pxa.Solver):
 
     def __compute_beta(self, g_k: pxt.NDArray, g_kp1: pxt.NDArray) -> pxt.NDArray:
         v = self._mstate["variant"]
+        xp = pxu.get_array_module(g_k)
         if v == "fr":  # Fletcher-Reeves
-            gn_k = pxm.norm(g_k, axis=-1, keepdims=True)
-            gn_kp1 = pxm.norm(g_kp1, axis=-1, keepdims=True)
+            gn_k = xp.linalg.norm(g_k, axis=-1, keepdims=True)
+            gn_kp1 = xp.linalg.norm(g_kp1, axis=-1, keepdims=True)
             beta = (gn_kp1 / gn_k) ** 2
         elif v == "pr":  # Poliak-Ribière+
-            gn_k = pxm.norm(g_k, axis=-1, keepdims=True)
+            gn_k = xp.linalg.norm(g_k, axis=-1, keepdims=True)
             numerator = (g_kp1 * (g_kp1 - g_k)).sum(axis=-1, keepdims=True)
             beta = numerator / (gn_k**2)
             beta = beta.clip(min=0)
