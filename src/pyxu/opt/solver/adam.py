@@ -309,6 +309,7 @@ class Adam(pxa.Solver):
         rel_error = RelError(
             eps=1e-4,
             var="x",
+            rank=self._f.dim_rank,
             f=None,
             norm=2,
             satisfy_all=True,
