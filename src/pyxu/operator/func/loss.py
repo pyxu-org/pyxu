@@ -89,6 +89,8 @@ class KLDivergence(pxa.ProxFunc):
             out = sp.kl_div(data, x)
         elif ndi == N.CUPY:
             sp = pxu.import_module("cupyx.scipy.special")
+            cp = pxd.NDArrayInfo.CUPY.module()
+            cp.cuda.Device(x.device).use()
             out = sp.kl_div(data, x)
         elif ndi == N.DASK:
             assert x.chunks[-data.ndim :] == data.chunks

@@ -3,6 +3,7 @@ import math
 import warnings
 
 import pyxu.abc as pxa
+import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.info.warning as pxw
 import pyxu.operator as pxo
@@ -172,6 +173,10 @@ class PGD(pxa.Solver):
     def m_step(self):
         mst = self._mstate  # shorthand
         a = next(mst["a"])
+        
+        xp = pxu.get_array_module(mst["x"])
+        if xp == pxd.NDArrayInfo.CUPY.module():
+             xp.cuda.Device(mst["x"].device).use()
 
         # In-place implementation of -----------------
         #   y = (1 + a) * mst["x"] - a * mst["x_prev"]
