@@ -39,6 +39,8 @@ def get_array_module(x, fallback: pxt.ArrayModule = None) -> pxt.ArrayModule:
             return None
 
     if (xp := infer_api(x)) is not None:
+        if xp == pxd.NDArrayInfo.CUPY.module():
+            xp.cuda.Device(x.device).use()
         return xp
     elif fallback is not None:
         return fallback
