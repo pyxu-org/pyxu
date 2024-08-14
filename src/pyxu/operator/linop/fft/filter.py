@@ -31,6 +31,7 @@ class FFTCorrelate(Stencil):
     .. rubric:: Implementation Notes
 
     * :py:class:`~pyxu.operator.FFTCorrelate` can scale to much larger kernels than :py:class:`~pyxu.operator.Stencil`.
+    * This implementation is most efficient with "constant" boundary conditions (default).
     * Kernels must be small enough to fit in memory, i.e. unbounded kernels are not allowed.
     * Kernels should be supplied an NUMPY/CUPY arrays. DASK arrays will be evaluated if provided.
     * :py:class:`~pyxu.operator.FFTCorrelate` instances are **not arraymodule-agnostic**: they will only work with
@@ -117,15 +118,19 @@ class FFTCorrelate(Stencil):
         N = _kernel[0].ndim
         pad_width = [None] * N
         for i in range(N):
-            if len(_kernel) == 1:  # non-seperable filter
-                n = _kernel[0].shape[i]
-            else:  # seperable filter(s)
-                n = _kernel[i].size
+            if _mode[i] == "constant":
+                # FFT already implements padding with zeros to size N+K-1.
+                pad_width[i] = (0, 0)
+            else:
+                if len(_kernel) == 1:  # non-seperable filter
+                    n = _kernel[0].shape[i]
+                else:  # seperable filter(s)
+                    n = _kernel[i].size
 
-            # 1. Pad/Trim operators are shared amongst [apply,adjoint]():
-            #    lhs/rhs are thus padded equally.
-            # 2. Pad width must match kernel dimensions to retain border effects.
-            pad_width[i] = (n - 1, n - 1)
+                # 1. Pad/Trim operators are shared amongst [apply,adjoint]():
+                #    lhs/rhs are thus padded equally.
+                # 2. Pad width must match kernel dimensions to retain border effects.
+                pad_width[i] = (n - 1, n - 1)
         return tuple(pad_width)
 
     @staticmethod
@@ -205,9 +210,14 @@ class FFTCorrelate(Stencil):
             # Compute (depth,boundary) values for [overlap,trim_internal]()
             N_stack = x.ndim - self.dim_rank
             depth = {ax: 0 for ax in range(x.ndim)}
-            for ax, (p_lhs, p_rhs) in enumerate(self._pad._pad_width):
-                assert p_lhs == p_rhs, "top-level Pad() should be symmetric."
-                depth[N_stack + ax] = p_lhs
+            for ax in range(self.dim_rank):
+                if len(stencils) == 1:  # non-seperable filter
+                    n = stencils[0]._kernel.shape[ax]
+                else:  # seperable filter(s)
+                    n = stencils[ax]._kernel.size
+                    c = stencils[ax]._center[ax]
+                max_dist = max(c, n - c)
+                depth[N_stack + ax] = max_dist
             boundary = 0
 
             xp = ndi.module()
