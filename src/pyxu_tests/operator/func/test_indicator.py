@@ -38,6 +38,11 @@ class TestL1Ball(conftest.ProxFuncT):
     def radius(self, request) -> pxt.Real:
         return request.param
 
+    # @pytest.mark.parametrize("k", [1, 2])
+    # def test_value1D_svdvals(self, op, ndi, width, _gpu, _op_svd, k):
+
+    #     self._skip_unless_NUMPY_CUPY(ndi)
+
     @pytest.fixture
     def data_apply(self, dim_shape, radius) -> conftest.DataLike:
         x = self._random_array(dim_shape)
@@ -71,6 +76,83 @@ class TestL1Ball(conftest.ProxFuncT):
         N_test = 10
         x = self._random_array(shape=(N_test, *dim_shape))
         return x
+
+    # Overwrite ProxFunc tests for methods that don't scale
+    def test_value1D_prox(self, op, _data_prox, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_value1D_prox(op, _data_prox)
+
+    def test_valueND_prox(self, op, _data_prox, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_valueND_prox(op, _data_prox)
+
+    def test_backend_prox(self, op, _data_prox, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_backend_prox(op, _data_prox)
+
+    def test_chunk_prox(self, op, ndi, _data_prox):
+        pytest.skip("Only NUMPY/CUPY backends supported.")
+
+    def test_prec_prox(self, op, _data_prox, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_prec_prox(op, _data_prox)
+
+    def test_transparent_prox(self, op, _data_prox, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_transparent_prox(op, _data_prox)
+
+    def test_math_prox(self, op, xp, width, _data_prox, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_math_prox(op, xp, width, _data_prox)
+
+    def test_value1D_fenchel_prox(self, op, _data_fenchel_prox, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_value1D_fenchel_prox(op, _data_fenchel_prox)
+
+    def test_valueND_fenchel_prox(self, op, _data_fenchel_prox, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_valueND_fenchel_prox(op, _data_fenchel_prox)
+
+    def test_backend_fenchel_prox(self, op, _data_fenchel_prox, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_backend_fenchel_prox(op, _data_fenchel_prox)
+
+    def test_chunk_fenchel_prox(self, op, ndi, _data_fenchel_prox):
+        pytest.skip("Only NUMPY/CUPY backends supported.")
+
+    def test_prec_fenchel_prox(self, op, _data_fenchel_prox, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_prec_fenchel_prox(op, _data_fenchel_prox)
+
+    def test_transparent_fenchel_prox(self, op, _data_fenchel_prox, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_transparent_fenchel_prox(op, _data_fenchel_prox)
+
+    def test_interface_moreau_envelope(self, _op_m, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_interface_moreau_envelope(_op_m)
+
+    def test_math1_moreau_envelope(self, op, _op_m, _data_apply, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_math1_moreau_envelope(op, _op_m, _data_apply)
+
+    def test_math2_moreau_envelope(self, op, _op_m, _data_apply, ndi):
+        self._skip_if_disabled()
+        self._skip_unless_NUMPY_CUPY(ndi)
+        super().test_math2_moreau_envelope(op, _op_m, _data_apply)
 
 
 class TestL2Ball(conftest.ProxFuncT):
@@ -343,7 +425,7 @@ class TestRangeSet(conftest.ProxFuncT):
         return op, ndi, width
 
     @pytest.fixture
-    def dim_shape(self, A) -> pxt.OpShape:
+    def dim_shape(self, A) -> pxt.NDArrayShape:
         return A.codim_shape
 
     @pytest.fixture(

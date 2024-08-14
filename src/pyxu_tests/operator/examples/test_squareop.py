@@ -22,12 +22,10 @@ class CumSum(pxa.SquareOp):
         N = self.dim_shape[-1]
         self.lipschitz = np.sqrt(N * (N + 1) / 2)  # Frobenius norm
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         y = arr.cumsum(axis=-1)
         return y
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         y = arr[..., ::-1].cumsum(axis=-1)[..., ::-1]
         return y

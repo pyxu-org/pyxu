@@ -8,7 +8,7 @@ import pyxu.util as pxu
 
 
 class SquaredL2Norm(pxo.DiffFunc):
-    def __init__(self, shape: pxt.OpShape = None):
+    def __init__(self, shape: pxt.NDArrayShape = None):
         super(SquaredL2Norm, self).__init__(shape=(1, None))
         self._diff_lipschitz = 2
 

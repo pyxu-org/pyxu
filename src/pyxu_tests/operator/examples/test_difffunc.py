@@ -23,14 +23,12 @@ class SquaredL2Norm(pxa.DiffFunc):
         self.lipschitz = np.inf
         self.diff_lipschitz = 2
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         axis = tuple(range(-self.dim_rank, 0))
         y = xp.sum(arr**2, axis=axis)[..., np.newaxis]
         return y
 
-    @pxrt.enforce_precision(i="arr")
     def grad(self, arr: pxt.NDArray) -> pxt.NDArray:
         return 2 * arr
 

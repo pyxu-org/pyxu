@@ -3,7 +3,6 @@ import numpy as np
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.operator.linop.base as pxlb
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -64,12 +63,10 @@ class Sin(pxa.DiffMap):
         self.lipschitz = 1
         self.diff_lipschitz = 1
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.sin(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         xp = pxu.get_array_module(arr)
         return pxlb.DiagonalOp(xp.cos(arr))
@@ -101,12 +98,10 @@ class Cos(pxa.DiffMap):
         self.lipschitz = 1
         self.diff_lipschitz = 1
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.cos(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         xp = pxu.get_array_module(arr)
         return pxlb.DiagonalOp(-xp.sin(arr))
@@ -137,12 +132,10 @@ class Tan(pxa.DiffMap):
         self.lipschitz = np.inf
         self.diff_lipschitz = np.inf
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.tan(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         xp = pxu.get_array_module(arr)
         v = xp.cos(arr)
@@ -175,12 +168,10 @@ class ArcSin(pxa.DiffMap):
         self.lipschitz = np.inf
         self.diff_lipschitz = np.inf
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.arcsin(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         xp = pxu.get_array_module(arr)
         v = arr**2
@@ -215,12 +206,10 @@ class ArcCos(pxa.DiffMap):
         self.lipschitz = np.inf
         self.diff_lipschitz = np.inf
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.arccos(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         xp = pxu.get_array_module(arr)
         v = arr**2
@@ -258,12 +247,10 @@ class ArcTan(pxa.DiffMap):
         # = max_{x \in R} |2x / (1+x^2)^2|
         # = 3 \sqrt(3) / 8  [at x = +- 1/\sqrt(3)]
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.arctan(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         v = arr**2
         v += 1
@@ -296,12 +283,10 @@ class Sinh(pxa.DiffMap):
         self.lipschitz = np.inf
         self.diff_lipschitz = np.inf
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.sinh(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         xp = pxu.get_array_module(arr)
         return pxlb.DiagonalOp(xp.cosh(arr))
@@ -332,12 +317,10 @@ class Cosh(pxa.DiffMap):
         self.lipschitz = np.inf
         self.diff_lipschitz = np.inf
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.cosh(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         xp = pxu.get_array_module(arr)
         return pxlb.DiagonalOp(xp.sinh(arr))
@@ -372,15 +355,13 @@ class Tanh(pxa.DiffMap):
         # = max_{x \in R} |-2 tanh(x) [1 - tanh(x)^2|
         # = 4 / (3 \sqrt(3))  [at x = ln(2 +- \sqrt(3))]
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.tanh(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         v = self.apply(arr)
-        v**2
+        v = v**2
         v *= -1
         v += 1
         return pxlb.DiagonalOp(v)
@@ -414,12 +395,10 @@ class ArcSinh(pxa.DiffMap):
         # = max_{x \in R} |-x (x^2 + 1)^{-3/2}|
         # = 2 / (3 \sqrt(3))  [at x = += 1 / \sqrt(2)]
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.arcsinh(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         xp = pxu.get_array_module(arr)
         v = arr**2
@@ -453,12 +432,10 @@ class ArcCosh(pxa.DiffMap):
         self.lipschitz = np.inf
         self.diff_lipschitz = np.inf
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.arccosh(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         xp = pxu.get_array_module(arr)
         v = arr**2
@@ -492,12 +469,10 @@ class ArcTanh(pxa.DiffMap):
         self.lipschitz = np.inf
         self.diff_lipschitz = np.inf
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.arctanh(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         v = arr**2
         v *= -1
@@ -532,7 +507,6 @@ class Exp(pxa.DiffMap):
         self.diff_lipschitz = np.inf
         self._base = base
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = arr.copy()
         if self._base is not None:
@@ -542,7 +516,6 @@ class Exp(pxa.DiffMap):
         xp.exp(out, out=out)
         return out
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         v = self.apply(arr)
         if self._base is not None:
@@ -576,7 +549,6 @@ class Log(pxa.DiffMap):
         self.diff_lipschitz = np.inf
         self._base = base
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         out = xp.log(arr)
@@ -584,7 +556,6 @@ class Log(pxa.DiffMap):
             out /= np.log(float(self._base))
         return out
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         v = 1 / arr
         if self._base is not None:
@@ -626,7 +597,6 @@ class Clip(pxa.Map):
         self._ulim = a_max
         self.lipschitz = 1
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         out = arr.copy()
@@ -664,12 +634,10 @@ class Sqrt(pxa.DiffMap):
         self.lipschitz = np.inf
         self.diff_lipschitz = np.inf
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.sqrt(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         v = self.apply(arr)
         v *= 2
@@ -701,12 +669,10 @@ class Cbrt(pxa.DiffMap):
         self.lipschitz = np.inf
         self.diff_lipschitz = np.inf
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.cbrt(arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         v = self.apply(arr)
         v **= 2
@@ -739,13 +705,11 @@ class Square(pxa.DiffMap):
         self.lipschitz = np.inf
         self.diff_lipschitz = 2
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = arr.copy()
         out **= 2
         return out
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         v = arr.copy()
         v *= 2
@@ -769,7 +733,6 @@ class Abs(pxa.Map):
         )
         self.lipschitz = 1
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.abs(arr)
@@ -790,9 +753,7 @@ class Sign(pxa.Map):
             dim_shape=dim_shape,
             codim_shape=dim_shape,
         )
-        self.lipschitz = 2
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.sign(arr)
@@ -824,7 +785,6 @@ class Gaussian(pxa.DiffMap):
         self.lipschitz = np.sqrt(2 / np.e)
         self.diff_lipschitz = 2
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         out = arr.copy()
@@ -833,7 +793,6 @@ class Gaussian(pxa.DiffMap):
         xp.exp(out, out=out)
         return out
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         v = self.apply(arr)
         v *= -2
@@ -866,7 +825,6 @@ class Sigmoid(pxa.DiffMap):
         self.lipschitz = 1 / 4
         self.diff_lipschitz = 1 / (6 * np.sqrt(3))
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         x = -arr
@@ -874,7 +832,6 @@ class Sigmoid(pxa.DiffMap):
         x += 1
         return 1 / x
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         x = self.apply(arr)
         v = x.copy()
@@ -908,12 +865,10 @@ class SoftPlus(pxa.DiffMap):
         self.lipschitz = 1
         self.diff_lipschitz = 1 / 4
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.logaddexp(0, arr)
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         f = Sigmoid(dim_shape=self.dim_shape)
         v = f.apply(arr)
@@ -939,7 +894,6 @@ class LeakyReLU(pxa.Map):
         assert self._alpha >= 0
         self.lipschitz = float(max(alpha, 1))
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         return xp.where(arr >= 0, arr, arr * self._alpha)
@@ -984,14 +938,12 @@ class SiLU(pxa.DiffMap):
         self.lipschitz = 1.1
         self.diff_lipschitz = 1 / 2
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         f = Sigmoid(dim_shape=self.dim_shape)
         out = f.apply(arr)
         out *= arr
         return out
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         f = Sigmoid(dim_shape=self.dim_shape)
         xp = pxu.get_array_module(arr)

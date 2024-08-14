@@ -2,7 +2,6 @@ import numpy as np
 
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -73,14 +72,12 @@ class Sum(pxa.LinOp):
         self._axis = tuple(axis)
         self.lipschitz = self.estimate_lipschitz()
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[: -self.dim_rank]
         axis = tuple(ax + len(sh) for ax in self._axis)
         out = arr.sum(axis=axis, keepdims=True)
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[: -self.codim_rank]
         xp = pxu.get_array_module(arr)

@@ -7,7 +7,6 @@ import scipy.linalg as splinalg
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.opt.solver as pxsl
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 import pyxu_tests.conftest as ct
 import pyxu_tests.opt.solver.conftest as conftest
@@ -28,12 +27,12 @@ class TestCG(conftest.SolverT):
         kwargs_fit = []
         param_sweep = dict(
             b=[
-                np.ones(dim_shape),
-                np.full((2, *dim_shape), -2),  # multiple problems in parallel
+                np.ones(dim_shape, dtype="float64"),
+                np.full((2, *dim_shape), -2, dtype="float64"),  # multiple problems in parallel
             ],
             x0=[
                 None,  # let algorithm choose
-                np.full(dim_shape, 30),
+                np.full(dim_shape, 30, dtype="float64"),
             ],
             restart_rate=[
                 None,
@@ -102,8 +101,8 @@ class TestCG(conftest.SolverT):
 
         # Due to different b/x0 domain combinations, it is difficult to use SolverT.test_value_fit().
         # To test convergence, we just check that the (strongly-convex) cost function is minimized.
-        with pxrt.Precision(width):
-            solver.fit(**_kwargs_fit_xp.copy())
+
+        solver.fit(**_kwargs_fit_xp.copy())
         data, _ = solver.stats()
 
         cost_value = dict()

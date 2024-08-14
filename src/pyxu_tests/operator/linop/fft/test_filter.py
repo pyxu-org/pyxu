@@ -32,14 +32,13 @@ class TestFFTCorrelate(test_stencil.TestStencil):
         except Exception:
             kernel = [xp.array(k, dtype=width.value) for k in kernel]
 
-        with pxrt.Precision(width):
-            op = pxo.FFTCorrelate(
-                dim_shape=dim_shape,
-                kernel=kernel,
-                center=center,
-                mode=mode,
-                enable_warnings=False,
-            )
+        op = pxo.FFTCorrelate(
+            dim_shape=dim_shape,
+            kernel=kernel,
+            center=center,
+            mode=mode,
+            enable_warnings=False,
+        )
         return op, ndi, width
 
 

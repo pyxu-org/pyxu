@@ -35,7 +35,7 @@ import pyxu_tests.operator.examples.test_unitop as test_unitop
 
 class TorchMixin:
     disable_test = {
-        # from_torch() does not always respect input precision in absence of context manager.
+        # from_torch() does not always respect input precision.
         # (See from_torch() notes.)
         "test_prec_apply",
         "test_prec_call",

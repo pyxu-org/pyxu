@@ -6,7 +6,6 @@ import numpy as np
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.operator.interop.source as px_src
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -206,7 +205,6 @@ class _BlockDiag:
         if op.has(pxa.Property.DIFFERENTIABLE):
             op._diff_lipschitz = op.estimate_diff_lipschitz(__rule=True)
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         N_stack = len(arr.shape[: -self.dim_rank])
         select = lambda i: (slice(None),) * N_stack + (i,)
@@ -219,7 +217,6 @@ class _BlockDiag:
     def __call__(self, arr: pxt.NDArray) -> pxt.NDArray:
         return self.apply(arr)
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         N_stack = len(arr.shape[: -self.codim_rank])
         select = lambda i: (slice(None),) * N_stack + (i,)
@@ -229,7 +226,6 @@ class _BlockDiag:
         out = xp.stack(parts, axis=-self.dim_rank)
         return out
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         # op.pinv(y, damp) = stack([op1.pinv(y1, damp), ..., opN.pinv(yN, damp)], axis=0)
         N_stack = len(arr.shape[: -self.codim_rank])
@@ -240,7 +236,6 @@ class _BlockDiag:
         out = xp.stack(parts, axis=-self.dim_rank)
         return out
 
-    @pxrt.enforce_precision()
     def svdvals(self, **kwargs) -> pxt.NDArray:
         # op.svdvals(**kwargs) = top_k([op1.svdvals(**kwargs), ..., opN.svdvals(**kwargs)])
         parts = [_op.svdvals(**kwargs) for _op in self._ops]
@@ -250,7 +245,6 @@ class _BlockDiag:
         D = xp.sort(xp.concatenate(parts))[-k:]
         return D
 
-    @pxrt.enforce_precision()
     def trace(self, **kwargs) -> pxt.Real:
         # op.trace(**kwargs) = sum([op1.trace(**kwargs), ..., opN.trace(**kwargs)])
         parts = [_op.trace(**kwargs) for _op in self._ops]
@@ -373,7 +367,6 @@ class _Stack:
         if op.has(pxa.Property.DIFFERENTIABLE):
             op._diff_lipschitz = op.estimate_diff_lipschitz(__rule=True)
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         parts = [_op.apply(arr) for _op in self._ops]
 
@@ -384,7 +377,6 @@ class _Stack:
     def __call__(self, arr: pxt.NDArray) -> pxt.NDArray:
         return self.apply(arr)
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         N_stack = len(arr.shape[: -self.codim_rank])
         select = lambda i: (slice(None),) * N_stack + (i,)
@@ -412,7 +404,6 @@ class _Stack:
         # It is inefficient however to chain so many operators together via AddRule().
         # apply() is thus redefined to improve performance.
 
-        @pxrt.enforce_precision(i="arr")
         def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
             G = [_op.gram() for _op in _._ops]
             parts = [_G.apply(arr) for _G in G]

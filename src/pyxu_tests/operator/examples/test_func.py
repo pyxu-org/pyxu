@@ -20,7 +20,6 @@ class Median(pxa.Func):
             codim_shape=1,
         )
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         ndi = pxd.NDArrayInfo.from_obj(arr)
 

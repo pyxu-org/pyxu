@@ -45,7 +45,6 @@ class _NormBall(_IndicatorFunction):
         self._ord = ord
         self._radius = float(radius)
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         from pyxu.opt.stop import _norm
 
@@ -53,7 +52,6 @@ class _NormBall(_IndicatorFunction):
         out = self._bool2indicator(norm <= self._radius, arr.dtype)
         return out
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         klass = {  # class of proximal operator to use
             1: pxf.LInfinityNorm,
@@ -197,14 +195,12 @@ class PositiveOrthant(_IndicatorFunction):
     def __init__(self, dim_shape: pxt.NDArrayShape):
         super().__init__(dim_shape=dim_shape)
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         axis = tuple(range(-self.dim_rank, 0))
         in_set = (arr >= 0).all(axis=axis)[..., np.newaxis]
         out = self._bool2indicator(in_set, arr.dtype)
         return out
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         out = arr.clip(0, None)
         return out
@@ -234,7 +230,6 @@ class HyperSlab(_IndicatorFunction):
        \end{cases}
     """
 
-    @pxrt.enforce_precision(i=("lb", "ub"))
     def __init__(self, a: pxa.LinFunc, lb: pxt.Real, ub: pxt.Real):
         """
         Parameters
@@ -255,14 +250,12 @@ class HyperSlab(_IndicatorFunction):
         self._l = lb / _norm
         self._u = ub / _norm
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         y = self._a.apply(arr)  # (..., 1)
         in_set = ((self._l <= y) & (y <= self._u)).all(axis=-1, keepdims=True)
         out = self._bool2indicator(in_set, arr.dtype)  # (..., 1)
         return out
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
 
@@ -306,20 +299,33 @@ class RangeSet(_IndicatorFunction):
         super().__init__(dim_shape=A.codim_shape)
         self._A = A
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
-        xp = pxu.get_array_module(arr)
-
         # I'm in range(A) if prox(x)==x.
         axis = tuple(range(-self.dim_rank, 0))
         y = self.prox(arr, tau=1)
-        in_set = xp.isclose(y, arr).all(axis=axis)  # (...,)
-
+        in_set = self.isclose(y, arr).all(axis=axis)  # (...,)
         out = self._bool2indicator(in_set[..., np.newaxis], arr.dtype)
         return out  # (..., 1)
 
-    @pxrt.enforce_precision(i=("arr", "tau"))
     def prox(self, arr: pxt.NDArray, tau: pxt.Real) -> pxt.NDArray:
         y = self._A.pinv(arr, damp=0)
         out = self._A.apply(y)
         return out
+
+    @staticmethod
+    def isclose(a: pxt.NDArray, b: pxt.NDArray) -> pxt.NDArray:
+        """
+        Equivalent of `xp.isclose`, but where atol is automatically chosen based on input's `dtype`.
+        """
+        atol = {
+            pxrt.Width.SINGLE.value: 2e-4,
+            pxrt.Width.DOUBLE.value: 1e-8,
+        }
+        # Numbers obtained by:
+        # * \sum_{k >= (p+1)//2} 2^{-k}, where p=<number of mantissa bits>; then
+        # * round up value to 3 significant decimal digits.
+        # N_mantissa = [23, 52] for [single, double] respectively.
+        xp = pxu.get_array_module(a)
+        prec = atol.get(a.dtype, pxrt.Width.DOUBLE.value)  # default only should occur for integer types
+        eq = xp.isclose(a, b, atol=prec)
+        return eq

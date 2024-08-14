@@ -51,7 +51,6 @@ class TransposeAxes(pxa.UnitOp):
         self._axes_fw = axes
         self._axes_bw = tuple(np.argsort(axes))
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[: -self.dim_rank]
         N = len(sh)
@@ -59,7 +58,6 @@ class TransposeAxes(pxa.UnitOp):
         out = arr.transpose(axes)
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[: -self.codim_rank]
         N = len(sh)
@@ -111,12 +109,10 @@ class SqueezeAxes(pxa.UnitOp):
         self._idx_fw = tuple(0 if (ax in axes) else slice(None) for ax in range(self.dim_rank))
         self._idx_bw = tuple(np.newaxis if (ax in axes) else slice(None) for ax in range(self.dim_rank))
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = arr[..., *self._idx_fw]
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = arr[..., *self._idx_bw]
         return out
@@ -158,13 +154,11 @@ class ReshapeAxes(pxa.UnitOp):
         )
         assert self.dim_size == self.codim_size  # reshaping does not change cell count.
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[: -self.dim_rank]
         out = arr.reshape(*sh, *self.codim_shape)
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[: -self.codim_rank]
         out = arr.reshape(*sh, *self.dim_shape)
@@ -197,7 +191,6 @@ class BroadcastAxes(pxa.LinOp):
 
         self.lipschitz = self.estimate_lipschitz()
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         # Compute (expand,) assuming no stacking dimensions.
         rank_diff = self.codim_rank - self.dim_rank
@@ -214,7 +207,6 @@ class BroadcastAxes(pxa.LinOp):
         )
         return pxu.read_only(y)
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         # Compute (axis, select) assuming no stacking dimensions.
         rank_diff = self.codim_rank - self.dim_rank
@@ -237,13 +229,12 @@ class BroadcastAxes(pxa.LinOp):
         L = np.sqrt(self.codim_size / self.dim_size)
         return L
 
-    @pxrt.enforce_precision()
     def svdvals(self, **kwargs) -> pxt.NDArray:
         gpu = kwargs.get("gpu", False)
         xp = pxd.NDArrayInfo.from_flag(gpu).module()
-        width = pxrt.getPrecision()
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
 
-        D = xp.full(kwargs["k"], self.lipschitz, dtype=width.value)
+        D = xp.full(kwargs["k"], self.lipschitz, dtype=dtype)
         return D
 
     def gram(self) -> pxt.OpT:
@@ -255,7 +246,6 @@ class BroadcastAxes(pxa.LinOp):
         )
         return op
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         out = pxu.copy_if_unsafe(self.adjoint(arr))
         cst = self.codim_size / self.dim_size
@@ -314,7 +304,6 @@ def RechunkAxes(dim_shape: pxt.NDArrayShape, chunks: dict) -> pxt.OpT:
     }
 
     # Update op.apply() to perform re-chunking
-    @pxrt.enforce_precision(i="arr")
     def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
         ndi = pxd.NDArrayInfo.from_obj(arr)
         if ndi != pxd.NDArrayInfo.DASK:

@@ -37,8 +37,7 @@ def trace(
         xp = pxd.NDArrayInfo.default().module()
 
     if dtype is None:
-        dtype = pxrt.getPrecision().value
-    width = pxrt.Width(dtype)
+        dtype = pxrt.Width.DOUBLE.value
 
     tr = 0
     for i in range(op.dim_size):
@@ -47,8 +46,7 @@ def trace(
 
         e = xp.zeros(op.dim_shape, dtype=dtype)
         e[idx_in] = 1
-        with pxrt.Precision(width):
-            tr += op.apply(e)[idx_out]
+        tr += op.apply(e)[idx_out]
     return float(tr)
 
 
@@ -97,8 +95,7 @@ def hutchpp(
         pxw.warn_dask_perf(msg)
 
     if dtype is None:
-        dtype = pxrt.getPrecision().value
-    width = pxrt.Width(dtype)
+        dtype = pxrt.Width.DOUBLE.value
 
     # To avoid constant reshaping below, we use the 2D-equivalent operator.
     lhs = ReshapeAxes(dim_shape=op.codim_shape, codim_shape=op.codim_size)
@@ -109,8 +106,7 @@ def hutchpp(
     s = rng.standard_normal(size=(op.dim_size, (m + 2) // 4), dtype=dtype)
     g = rng.integers(0, 2, size=(op.dim_size, (m - 2) // 2)) * 2 - 1
 
-    with pxrt.Precision(width):
-        data = op.apply(s.T).T  # (dim, (m+2)//4)
+    data = op.apply(s.T).T  # (dim, (m+2)//4)
 
     kwargs = dict(mode="reduced")
     if using_dask:

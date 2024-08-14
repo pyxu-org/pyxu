@@ -3,7 +3,6 @@ import math
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.info.warning as pxw
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -195,7 +194,6 @@ class Adam(pxa.Solver):
 
         self._f = f
 
-    @pxrt.enforce_precision(i=("x0", "a", "b1", "b2", "m0", "v0", "p", "eps_adam", "eps_var"))
     def m_init(  # default values from https://github.com/pmelchior/proxmin/blob/master/proxmin/algorithms.py
         self,
         x0: pxt.NDArray,
@@ -221,7 +219,7 @@ class Adam(pxa.Solver):
                 error_msg = "Cannot auto-infer step size: choose it manually."
                 raise pxw.AutoInferenceWarning(error_msg)
             else:
-                mst["a"] = pxrt.coerce(1 / self._f.diff_lipschitz)
+                mst["a"] = 1.0 / self._f.diff_lipschitz
         else:
             assert a > 0, f"Parameter[a] must be positive, got {a}."
             mst["a"] = a
@@ -298,10 +296,7 @@ class Adam(pxa.Solver):
         #   x = x - a * (phi / psi)
         phi /= psi
         phi *= a
-        x -= phi
-        ## =====================================================
-
-        mst["x"] = x
+        mst["x"] = x - phi
 
     def default_stop_crit(self) -> pxa.StoppingCriterion:
         from pyxu.opt.stop import RelError
@@ -311,6 +306,7 @@ class Adam(pxa.Solver):
         rel_error = RelError(
             eps=1e-4,
             var="x",
+            rank=self._f.dim_rank,
             f=None,
             norm=2,
             satisfy_all=True,

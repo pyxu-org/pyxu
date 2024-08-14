@@ -135,14 +135,13 @@ class TestStencil(conftest.SquareOpT):
         except Exception:
             kernel = [xp.array(k, dtype=width.value) for k in kernel]
 
-        with pxrt.Precision(width):
-            op = pxo.Stencil(
-                dim_shape=dim_shape,
-                kernel=kernel,
-                center=center,
-                mode=mode,
-                enable_warnings=False,
-            )
+        op = pxo.Stencil(
+            dim_shape=dim_shape,
+            kernel=kernel,
+            center=center,
+            mode=mode,
+            enable_warnings=False,
+        )
         return op, ndi, width
 
     @pytest.fixture(params=[0, 1, 2])  # different seeds to test robustness
@@ -211,8 +210,9 @@ class TestConvolve:
     )
     def test_value1D_apply(self, kernel, center, shift):
         N = 10
-        arr = np.arange(N)
-
+        dtype = pxrt.Width.DOUBLE.value
+        arr = np.arange(N, dtype=dtype)
+        kernel = kernel.astype(dtype)
         # Compute ground-truth
         if shift == 0:
             out_gt = arr.copy()

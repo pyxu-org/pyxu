@@ -204,6 +204,8 @@ class TestSquaredL1Norm(conftest.ProxFuncT):
     )
     def spec(self, dim_shape, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
+        if ndi == pxd.NDArrayInfo.DASK:
+            pytest.skip(f"{ndi} not implemented.")
         op = pxo.SquaredL1Norm(dim_shape=dim_shape)
         return op, ndi, width
 
@@ -263,6 +265,8 @@ class TestLInfinityNorm(conftest.ProxFuncT):
     )
     def spec(self, dim_shape, request) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
+        if ndi == pxd.NDArrayInfo.DASK:
+            pytest.skip(f"{ndi} not implemented.")
         op = pxo.LInfinityNorm(dim_shape=dim_shape)
         return op, ndi, width
 

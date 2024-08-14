@@ -43,7 +43,6 @@ def from_sciop(cls: pxt.OpC, sp_op: spsl.LinearOperator) -> pxt.OpT:
 
     # [r]matmat only accepts 2D inputs -> reshape apply|adjoint inputs as needed.
 
-    @pxrt.enforce_precision(i="arr")
     def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[:-1]
         arr = arr.reshape(-1, _.dim_size)
@@ -51,7 +50,6 @@ def from_sciop(cls: pxt.OpC, sp_op: spsl.LinearOperator) -> pxt.OpT:
         out = out.reshape(*sh, _.codim_size)
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def op_adjoint(_, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[:-1]
         arr = arr.reshape(-1, _.codim_size)
@@ -74,7 +72,7 @@ def from_sciop(cls: pxt.OpC, sp_op: spsl.LinearOperator) -> pxt.OpT:
 
         # Cast to user specs.
         xp = kwargs.get("xp", pxd.NDArrayInfo.NUMPY.module())
-        dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
         A = xp.array(pxu.to_NUMPY(_A), dtype=dtype)
         return A
 
@@ -121,15 +119,13 @@ def to_sciop(
         raise ValueError(msg)
 
     def matmat(arr):
-        with pxrt.EnforcePrecision(False):
-            return op.apply(arr.T).T
+        return op.apply(arr.T).T
 
     def rmatmat(arr):
-        with pxrt.EnforcePrecision(False):
-            return op.adjoint(arr.T).T
+        return op.adjoint(arr.T).T
 
     if dtype is None:
-        dtype = pxrt.getPrecision().value
+        dtype = pxrt.Width.DOUBLE.value
 
     if gpu:
         assert pxd.CUPY_ENABLED

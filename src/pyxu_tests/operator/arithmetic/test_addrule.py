@@ -424,7 +424,7 @@ class TestAddRuleLinOp(AddRuleMixin, conftest.LinOpT):
             (op_linop((5, 3, 4)), op_linfunc((5, 3, 4))),
             # Advanced broadcasting (one term expands) ------------------------
             # Linfuncs which register as LinOps since codim_rank > 1.
-            (op_linfunc((5, 5, 5)), reshape(op_linfunc((5, 5, 5)), codim=(1,))),
+            # (op_linfunc((5, 5, 5)), reshape(op_linfunc((5, 5, 5)), codim=(1,))), # this one doesn't resiter as LinOp (codim_rank = 1)
             (op_linfunc((5, 5, 5)), reshape(op_linfunc((5, 5, 5)), codim=(1, 1))),
             (op_linfunc((5, 5, 5)), reshape(op_linfunc((5, 5, 5)), codim=(1, 1, 1))),
             # Advanced broadcasting (two terms expand) ------------------------

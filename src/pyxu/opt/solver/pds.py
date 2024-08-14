@@ -7,7 +7,6 @@ import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.operator as pxo
 import pyxu.opt.stop as pxst
-import pyxu.runtime as pxrt
 
 __all__ = [
     *("CondatVu", "CV"),
@@ -74,7 +73,6 @@ class _PrimalDualSplitting(pxa.Solver):
                 raise ValueError("Optional argument ``h`` mut be specified if ``K`` is not None.")
         self._objective_func = self._f + self._g + (self._h * self._K)
 
-    @pxrt.enforce_precision(i=("x0", "z0", "tau", "sigma", "rho"), allow_None=True)
     def m_init(
         self,
         x0: pxt.NDArray,
@@ -127,7 +125,6 @@ class _PrimalDualSplitting(pxa.Solver):
     def objective_func(self) -> pxt.NDArray:
         return self._objective_func(self._mstate["x"])
 
-    @pxrt.enforce_precision(i="beta", allow_None=True)
     def _set_beta(self, beta: typ.Optional[pxt.Real]) -> pxt.Real:
         r"""
         Sets the Lipschitz constant.
@@ -139,7 +136,7 @@ class _PrimalDualSplitting(pxa.Solver):
         """
         if beta is None:
             if math.isfinite(dl := self._f.diff_lipschitz):
-                return pxrt.coerce(dl)
+                return dl
             else:
                 msg = "beta: automatic inference not supported for operators with unbounded Lipschitz gradients."
             raise ValueError(msg)
@@ -169,7 +166,7 @@ class _PrimalDualSplitting(pxa.Solver):
         gamma: Real
             Gamma parameter.
         """
-        return pxrt.coerce(self._beta) if tuning_strategy != 2 else pxrt.coerce(self._beta / 1.9)
+        return self._beta if tuning_strategy != 2 else self._beta / 1.9
 
     def _set_step_sizes(
         self,
@@ -200,7 +197,7 @@ class _PrimalDualSplitting(pxa.Solver):
             rho = 1.0 if self._tuning_strategy != 3 else delta - 0.1
         else:
             assert rho <= delta, f"Parameter rho must be smaller than delta: {rho} > {delta}."
-        return pxrt.coerce(rho)
+        return rho
 
 
 _PDS = _PrimalDualSplitting  #: shorthand
@@ -520,7 +517,7 @@ class CondatVu(_PrimalDualSplitting):
             if (self._beta == 0 or (isinstance(self._f, pxa.QuadraticFunc) and gamma <= self._beta))
             else 2 - self._beta / (2 * gamma)
         )
-        return pxrt.coerce(tau), pxrt.coerce(sigma), pxrt.coerce(delta)
+        return tau, sigma, delta
 
 
 CV = CondatVu  #: Alias of :py:class:`~pyxu.opt.solver.CondatVu`.
@@ -735,7 +732,6 @@ class PD3O(_PrimalDualSplitting):
        plt.show()
     """
 
-    @pxrt.enforce_precision(i=("x0", "z0", "tau", "sigma", "rho"), allow_None=True)
     def m_init(
         self,
         x0: pxt.NDArray,
@@ -842,9 +838,8 @@ class PD3O(_PrimalDualSplitting):
                         msg = "Please compute the Lipschitz constant of the linear operator K by calling its method 'estimate_lipschitz()'"
                         raise ValueError(msg)
         delta = 2 if self._beta == 0 else 2 - self._beta * tau / 2
-        return pxrt.coerce(tau), pxrt.coerce(sigma), pxrt.coerce(delta)
+        return tau, sigma, delta
 
-    @pxrt.enforce_precision()
     def _optimize_step_sizes(self, gamma: pxt.Real) -> pxt.Real:
         r"""
         Optimize the primal/dual step sizes.
@@ -976,7 +971,6 @@ def ChambollePock(
         g=g,
         h=h,
         K=K,
-        beta=0,
         **kwargs,
     )
     obj.__repr__ = lambda _: "ChambollePock"
@@ -1086,7 +1080,6 @@ class LorisVerhoeven(PD3O):
         f: typ.Optional[pxa.DiffFunc] = None,
         h: typ.Optional[pxa.ProxFunc] = None,
         K: typ.Optional[pxa.DiffMap] = None,
-        beta: typ.Optional[pxt.Real] = None,
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
@@ -1095,7 +1088,6 @@ class LorisVerhoeven(PD3O):
             g=None,
             h=h,
             K=K,
-            beta=beta,
             **kwargs,
         )
 
@@ -1115,7 +1107,7 @@ class LorisVerhoeven(PD3O):
         """
         tau, sigma, _ = super()._set_step_sizes(tau=tau, sigma=sigma, gamma=gamma)
         delta = 2 if (self._beta == 0 or isinstance(self._f, pxa.QuadraticFunc)) else 2 - self._beta / (2 * gamma)
-        return pxrt.coerce(tau), pxrt.coerce(sigma), pxrt.coerce(delta)
+        return tau, sigma, delta
 
 
 LV = LorisVerhoeven  #: Alias of :py:class:`~pyxu.opt.solver.LorisVerhoeven`.
@@ -1210,7 +1202,6 @@ class DavisYin(PD3O):
         f: typ.Optional[pxa.DiffFunc],
         g: typ.Optional[pxa.ProxFunc] = None,
         h: typ.Optional[pxa.ProxFunc] = None,
-        beta: typ.Optional[pxt.Real] = None,
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
@@ -1219,7 +1210,6 @@ class DavisYin(PD3O):
             g=g,
             h=h,
             K=None,
-            beta=beta,
             **kwargs,
         )
 
@@ -1244,7 +1234,7 @@ class DavisYin(PD3O):
 
         delta = 2.0 if self._beta == 0 else 2 - self._beta * tau / 2
 
-        return pxrt.coerce(tau), pxrt.coerce(1 / tau), pxrt.coerce(delta)
+        return tau, 1 / tau, delta
 
 
 DY = DavisYin  #: Alias of :py:class:`~pyxu.opt.solver.DavisYin`.
@@ -1319,7 +1309,7 @@ def DouglasRachford(
     :py:func:`~pyxu.opt.solver.ForwardBackward`
     """
     kwargs.update(log_var=kwargs.get("log_var", ("x", "z")))
-    obj = base(f=None, g=g, h=h, K=None, beta=0, **kwargs)
+    obj = base(f=None, g=g, h=h, K=None, **kwargs)
     obj.__repr__ = lambda _: "DouglasRachford"
 
     def _set_step_sizes_custom(
@@ -1330,7 +1320,7 @@ def DouglasRachford(
     ) -> tuple[pxt.Real, pxt.Real, pxt.Real]:
         tau = 1.0 if tau is None else tau
         delta = 2.0
-        return pxrt.coerce(tau), pxrt.coerce(1 / tau), pxrt.coerce(delta)
+        return tau, 1 / tau, delta
 
     obj._set_step_sizes = types.MethodType(_set_step_sizes_custom, obj)
     return obj
@@ -1635,7 +1625,6 @@ class ADMM(_PDS):
             **kwargs,
         )
 
-    @pxrt.enforce_precision(i=("x0", "z0", "tau", "rho"), allow_None=True)
     def m_init(
         self,
         x0: pxt.NDArray,
@@ -1718,7 +1707,7 @@ class ADMM(_PDS):
         else:
             tau = 1.0
         delta = 2.0
-        return pxrt.coerce(tau), pxrt.coerce(1 / tau), pxrt.coerce(delta)
+        return tau, 1 / tau, delta
 
 
 class ForwardBackward(CondatVu):
@@ -1804,7 +1793,6 @@ class ForwardBackward(CondatVu):
         self,
         f: typ.Optional[pxa.DiffFunc] = None,
         g: typ.Optional[pxa.ProxFunc] = None,
-        beta: typ.Optional[pxt.Real] = None,
         **kwargs,
     ):
         kwargs.update(log_var=kwargs.get("log_var", ("x",)))
@@ -1813,7 +1801,6 @@ class ForwardBackward(CondatVu):
             g=g,
             h=None,
             K=None,
-            beta=beta,
             **kwargs,
         )
 
@@ -1887,7 +1874,6 @@ def ProximalPoint(
         g=g,
         h=None,
         K=None,
-        beta=None,
         **kwargs,
     )
 

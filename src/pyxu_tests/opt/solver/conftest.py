@@ -13,7 +13,6 @@ import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
 import pyxu.opt.stop as pxst
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 import pyxu_tests.conftest as ct
 
@@ -257,17 +256,6 @@ class SolverT(ct.DisableTestMixin):
         stats = {k: pxu.get_array_module(v) == xp for (k, v) in data.items()}
         assert all(stats.values())
 
-    def test_precCM_fit(self, solver, kwargs_fit, width):
-        # solver output-precision match context manager
-        self._skip_if_disabled()
-
-        with pxrt.Precision(width):
-            solver.fit(**self.as_early_stop(kwargs_fit))
-            data, _ = solver.stats()
-
-            stats = {k: v.dtype == width.value for (k, v) in data.items()}
-            assert all(stats.values())
-
     @pytest.mark.parametrize("eps_threshold", [5e-3])
     @pytest.mark.parametrize("time_threshold", [dt.timedelta(seconds=5)])
     def test_value_fit(
@@ -318,8 +306,7 @@ class SolverT(ct.DisableTestMixin):
             stop_crit=time_crit | functools.reduce(operator.and_, var_crit),
             mode=pxa.SolverMode.MANUAL,
         )
-        with pxrt.Precision(width):
-            solver.fit(**kwargs_fit)
+        solver.fit(**kwargs_fit)
 
         data_0, _ = solver.stats()
         for data in solver.steps():
@@ -357,18 +344,15 @@ class SolverT(ct.DisableTestMixin):
         # Running solver twice returns same results.
         self._skip_if_disabled()
 
-        # `kwargs_fit` values may be coerced on 1st call to solver.fit(), in which case transparency
-        # will not be tested. (May happen if solver takes `kwargs_fit` values as-is, and does not
-        # make a copy internally.)
-        # Solution: Manually enforce precision of all input arrays prior to calling solver.fit().
-        kw_fit = dict()
-        for k, v in kwargs_fit.items():
-            try:
-                v_c = pxrt.coerce(v)
-            except Exception:
-                v_c = v
-            kw_fit[k] = v_c
-        kw_fit = self.as_early_stop(kw_fit)
+        # # `kwargs_fit` values may be coerced on 1st call to solver.fit(), in which case transparency
+        # # will not be tested. (May happen if solver takes `kwargs_fit` values as-is, and does not
+        # # make a copy internally.)
+        # # Solution: Manually enforce precision of all input arrays prior to calling solver.fit().
+        # kw_fit = dict()
+        # for k, v in kwargs_fit.items():
+        #     v_c = v
+        #     kw_fit[k] = v_c
+        kw_fit = self.as_early_stop(kwargs_fit)
 
         solver.fit(**kw_fit.copy())
         data1, _ = solver.stats()
@@ -500,17 +484,16 @@ class SolverT(ct.DisableTestMixin):
         # Datafile content (dtypes) match in-memory dtypes after halt.
         self._skip_if_disabled()
 
-        with pxrt.Precision(width):
-            kwargs_init = kwargs_init.copy()
-            kwargs_init.update(writeback_rate=0)  # to force disk write
-            solver = solver_klass(**kwargs_init)
-            solver.fit(**self.as_early_stop(kwargs_fit))
+        kwargs_init = kwargs_init.copy()
+        kwargs_init.update(writeback_rate=0)  # to force disk write
+        solver = solver_klass(**kwargs_init)
+        solver.fit(**self.as_early_stop(kwargs_fit))
 
-            disk = pxu.load_zarr(solver.datafile)
-            data_disk = {k: v for (k, v) in disk.items() if k != "history"}
-            data_mem, _ = solver.stats()
+        disk = pxu.load_zarr(solver.datafile)
+        data_disk = {k: v for (k, v) in disk.items() if k != "history"}
+        data_mem, _ = solver.stats()
 
-            assert self._check_prec_match(data_disk, data_mem)
+        assert self._check_prec_match(data_disk, data_mem)
 
     def test_transparent_mode(self, solver, kwargs_fit):
         # All execution modes return same results.

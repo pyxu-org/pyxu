@@ -3,7 +3,7 @@ import numpy as np
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.math as pxm
-import pyxu.runtime as pxrt
+import pyxu.util as pxu
 
 __all__ = [
     "NLCG",
@@ -131,7 +131,6 @@ class NLCG(pxa.Solver):
 
         self._f = f
 
-    @pxrt.enforce_precision(i="x0")
     def m_init(
         self,
         x0: pxt.NDArray,
@@ -147,7 +146,7 @@ class NLCG(pxa.Solver):
                 msg = "[NLCG] cannot auto-infer initial step size: specify `a0` manually in NLCG.fit()"
                 raise ValueError(msg)
             else:
-                a0 = pxrt.coerce(1 / d_l)
+                a0 = 1.0 / d_l
 
         if restart_rate is not None:
             assert restart_rate >= 1
@@ -190,7 +189,7 @@ class NLCG(pxa.Solver):
         # Because NLCG can only generate n conjugate vectors in an n-dimensional space, it makes sense
         # to restart NLCG every n iterations.
         if self._astate["idx"] % mst["restart_rate"] == 0:
-            beta_kp1 = pxrt.coerce(0)
+            beta_kp1 = 0.0
         else:
             beta_kp1 = self.__compute_beta(g_k, g_kp1)
 
@@ -209,6 +208,7 @@ class NLCG(pxa.Solver):
         stop_crit = AbsError(
             eps=1e-4,
             var="gradient",
+            rank=self._f.dim_rank,
             f=None,
             norm=2,
             satisfy_all=True,
@@ -230,12 +230,13 @@ class NLCG(pxa.Solver):
 
     def __compute_beta(self, g_k: pxt.NDArray, g_kp1: pxt.NDArray) -> pxt.NDArray:
         v = self._mstate["variant"]
+        xp = pxu.get_array_module(g_k)
         if v == "fr":  # Fletcher-Reeves
-            gn_k = pxm.norm(g_k, axis=-1, keepdims=True)
-            gn_kp1 = pxm.norm(g_kp1, axis=-1, keepdims=True)
+            gn_k = xp.linalg.norm(g_k, axis=-1, keepdims=True)
+            gn_kp1 = xp.linalg.norm(g_kp1, axis=-1, keepdims=True)
             beta = (gn_kp1 / gn_k) ** 2
         elif v == "pr":  # Poliak-Ribière+
-            gn_k = pxm.norm(g_k, axis=-1, keepdims=True)
+            gn_k = xp.linalg.norm(g_k, axis=-1, keepdims=True)
             numerator = (g_kp1 * (g_kp1 - g_k)).sum(axis=-1, keepdims=True)
             beta = numerator / (gn_k**2)
             beta = beta.clip(min=0)

@@ -1,3 +1,4 @@
+import collections.abc as cabc
 import itertools
 
 import numpy as np
@@ -34,14 +35,14 @@ class FilterMixin(conftest.SquareOpT):
     ) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
         self._skip_if_unsupported(ndi)
-        with pxrt.Precision(width):
-            op = filter_klass(
-                dim_shape=dim_shape,
-                mode=mode,
-                gpu=ndi.name == "CUPY",
-                dtype=width.value,
-                **filter_kwargs,
-            )
+
+        op = filter_klass(
+            dim_shape=dim_shape,
+            mode=mode,
+            gpu=ndi.name == "CUPY",
+            dtype=width.value,
+            **filter_kwargs,
+        )
         return op, ndi, width
 
 
@@ -222,14 +223,13 @@ class EdgeFilterMixin(conftest.DiffMapT):
     ) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         ndi, width = request.param
         self._skip_if_unsupported(ndi)
-        with pxrt.Precision(width):
-            op = filter_klass(
-                dim_shape=dim_shape,
-                mode=mode,
-                gpu=ndi.name == "CUPY",
-                dtype=width.value,
-                **filter_kwargs,
-            )
+        op = filter_klass(
+            dim_shape=dim_shape,
+            mode=mode,
+            gpu=ndi.name == "CUPY",
+            dtype=width.value,
+            **filter_kwargs,
+        )
         return op, ndi, width
 
     @pytest.fixture(
@@ -271,6 +271,18 @@ class EdgeFilterMixin(conftest.DiffMapT):
             in_=dict(arr=arr),
             out=out,
         )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
+        N_test = 10
+        x = self._random_array((N_test, *op.dim_shape))
+        return x
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
+        N_test = 10
+        x = self._random_array((N_test, *op.dim_shape))
+        return x
 
 
 class TestSobel(EdgeFilterMixin):
@@ -356,10 +368,7 @@ class TestStructureTensor(conftest.DiffMapT):
     @pytest.fixture
     def codim_shape(self, dim_shape) -> pxt.NDArrayShape:
         ndim = len(dim_shape)
-        if ndim > 1:
-            return (ndim * (ndim + 1) / 2,) + dim_shape
-        else:
-            return dim_shape
+        return (ndim * (ndim + 1) / 2,) + dim_shape
 
     @pytest.fixture
     def mode(self):
@@ -367,13 +376,12 @@ class TestStructureTensor(conftest.DiffMapT):
 
     @pytest.fixture
     def spec(self, dim_shape, filter_kwargs, ndi, width) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
-        with pxrt.Precision(width):
-            op = pxo.StructureTensor(
-                dim_shape=dim_shape,
-                gpu=ndi == pxd.NDArrayInfo.CUPY,
-                width=width,
-                **filter_kwargs,
-            )
+        op = pxo.StructureTensor(
+            dim_shape=dim_shape,
+            gpu=ndi == pxd.NDArrayInfo.CUPY,
+            dtype=width.value,
+            **filter_kwargs,
+        )
         return op, ndi, width
 
     @pytest.fixture(params=[(8,), (4, 4)])
@@ -436,3 +444,15 @@ class TestStructureTensor(conftest.DiffMapT):
             in_=dict(arr=arr),
             out=out,
         )
+
+    @pytest.fixture
+    def data_math_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
+        N_test = 10
+        x = self._random_array((N_test, *op.dim_shape))
+        return x
+
+    @pytest.fixture
+    def data_math_diff_lipschitz(self, op) -> cabc.Collection[np.ndarray]:
+        N_test = 10
+        x = self._random_array((N_test, *op.dim_shape))
+        return x

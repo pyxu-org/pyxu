@@ -72,7 +72,6 @@ class CG(pxa.Solver):
 
         self._A = A
 
-    @pxrt.enforce_precision(i=("b", "x0"))
     def m_init(
         self,
         b: pxt.NDArray,

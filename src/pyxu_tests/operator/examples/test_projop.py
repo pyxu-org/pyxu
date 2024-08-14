@@ -26,13 +26,11 @@ class Oblique(pxa.ProjOp):
         self._alpha = float(alpha)
         assert self.dim_shape[-1] > 1, "Not a projection."
 
-    @pxrt.enforce_precision("arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = np.zeros_like(arr)
         out[..., -1] = (self._alpha * arr[..., 0]) + arr[..., -1]
         return out
 
-    @pxrt.enforce_precision("arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         out = np.zeros_like(arr)
         out[..., 0] = self._alpha * arr[..., -1]

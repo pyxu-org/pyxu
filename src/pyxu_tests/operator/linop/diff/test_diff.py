@@ -259,8 +259,7 @@ class DiffOpMixin(conftest.LinOpT):
     ) -> tuple[pxt.OpT, pxd.NDArrayInfo, pxrt.Width]:
         kwargs = diff_params.copy()
         kwargs.update(diff_kwargs)
-        with pxrt.Precision(width):
-            op = diff_op(**kwargs)
+        op = diff_op(**kwargs)
         return op, ndi, width
 
 
@@ -668,6 +667,10 @@ class TestLaplacian(DiffOpMixin):
     @pytest.fixture(params=[(5,), (5, 5, 5)])
     def dim_shape(self, request):
         return request.param
+
+    @pytest.fixture
+    def codim_shape(self, dim_shape):
+        return dim_shape
 
     @pytest.fixture
     def diff_op(self):

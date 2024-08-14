@@ -29,8 +29,8 @@ class TestPGD(conftest.SolverT):
         kwargs_fit = []
         param_sweep = dict(
             x0=[
-                np.full(dim_shape, 50),
-                np.full((2, *dim_shape), 50),  # multiple initial points
+                np.full(dim_shape, 50, dtype="float64"),
+                np.full((2, *dim_shape), 50, dtype="float64"),  # multiple initial points
             ],
             tau=[None],
             acceleration=[True, False],

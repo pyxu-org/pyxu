@@ -345,8 +345,7 @@ class TestRechunkAxes(conftest.UnitOpT):
             chunks=(2, 2, 2, *arr.chunks),
         )
         in_.update(arr=arr)
-        with pxrt.EnforcePrecision(False):
-            out = func(**in_)
+        out = func(**in_)
 
         assert out.chunks[:3] == arr.chunks[:3]
         assert out.chunks[3:] == core_chunks

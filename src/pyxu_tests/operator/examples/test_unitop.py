@@ -20,12 +20,10 @@ class Permutation(pxa.UnitOp):
             codim_shape=dim_shape,
         )
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         selector = (slice(None, None, -1),) * self.dim_rank
         return pxu.read_only(arr[..., *selector])
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         selector = (slice(None, None, -1),) * self.codim_rank
         return pxu.read_only(arr[..., *selector])

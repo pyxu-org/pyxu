@@ -47,7 +47,6 @@ def get_test_class(cls: pxt.OpC) -> "MapT":
 #       Special test data for mathematical identities.
 #
 # * test_[value,backend,
-#         prec,precCM,
 #         transparent,math,
 #         interface,
 #         chunk,
@@ -56,7 +55,6 @@ def get_test_class(cls: pxt.OpC) -> "MapT":
 #       * value: right output values
 #       * backend: right output type
 #       * prec: input/output have same precision
-#       * precCM: output respects context-manager choice
 #       * transparent: referential-transparency, i.e. no side-effects
 #       * math: mathematical identities hold
 #       * interface: objects have the right interface
@@ -165,8 +163,7 @@ class MapT(ct.DisableTestMixin):
         dtype: pxt.DType = None,  # use in_["arr"].dtype
     ):
         in_ = data["in_"]
-        with pxrt.EnforcePrecision(False):
-            out = func(**in_)
+        out = func(**in_)
         out_gt = data["out"]
 
         dtype = ct.sanitize(dtype, default=in_["arr"].dtype)
@@ -187,8 +184,7 @@ class MapT(ct.DisableTestMixin):
         xp = pxu.get_array_module(arr)
         arr = xp.broadcast_to(arr, (*sh_extra, *arr.shape))
         in_.update(arr=arr)
-        with pxrt.EnforcePrecision(False):
-            out = func(**in_)
+        out = func(**in_)
         out_gt = np.broadcast_to(data["out"], (*sh_extra, *data["out"].shape))
 
         dtype = ct.sanitize(dtype, default=in_["arr"].dtype)
@@ -211,8 +207,7 @@ class MapT(ct.DisableTestMixin):
             chunks=(2, 2, 2, *arr.chunks),
         )
         in_.update(arr=arr)
-        with pxrt.EnforcePrecision(False):
-            out = func(**in_)
+        out = func(**in_)
 
         assert out.chunks[:3] == arr.chunks[:3]
         if preserve_core:
@@ -221,36 +216,15 @@ class MapT(ct.DisableTestMixin):
     @staticmethod
     def _check_backend(func, data: DataLike):
         in_ = data["in_"]
-        with pxrt.EnforcePrecision(False):
-            out = func(**in_)
+        out = func(**in_)
 
         assert type(out) == type(in_["arr"])  # noqa: E721
 
     @staticmethod
     def _check_prec(func, data: DataLike):
         in_ = data["in_"]
-        with pxrt.EnforcePrecision(False):
-            out = func(**in_)
-            assert out.dtype == in_["arr"].dtype
-
-    @staticmethod
-    def _check_precCM(
-        func,
-        data: DataLike,
-        widths: cabc.Collection[pxrt.Width] = pxrt.Width,
-    ):
-        stats = dict()
-        for w in widths:
-            with pxrt.Precision(w):
-                out = func(**data["in_"])
-            stats[w] = out.dtype == w.value
-        assert all(stats.values())
-
-    @staticmethod
-    def _check_precCM_func(func, width: pxrt.Width):
-        with pxrt.Precision(width):
-            out = func()
-        assert out.dtype == width.value
+        out = func(**in_)
+        assert out.dtype == in_["arr"].dtype
 
     @classmethod
     def _check_no_side_effect(cls, func, data: DataLike):
@@ -264,27 +238,26 @@ class MapT(ct.DisableTestMixin):
         scale = 10
         out_gt *= scale
 
-        with pxrt.EnforcePrecision(False):
-            out_1 = func(**in_)
-            if pxu.copy_if_unsafe(out_1) is not out_1:
-                # out_1 is read_only -> safe
-                return
-            else:
-                # out_1 is writeable -> test correctness
-                out_1 *= scale
-                out_2 = func(**in_)
-                out_2 *= scale
+        out_1 = func(**in_)
+        if pxu.copy_if_unsafe(out_1) is not out_1:
+            # out_1 is read_only -> safe
+            return
+        else:
+            # out_1 is writeable -> test correctness
+            out_1 *= scale
+            out_2 = func(**in_)
+            out_2 *= scale
 
-            try:
-                # The large scale introduced to assess transparency may give rise to
-                # operator-dependant round-off errors. We therefore assess transparency at
-                # FP32-precision to avoid false negatives.
-                assert cls._metric(out_1, out_gt, as_dtype=pxrt.Width.SINGLE.value)
-                assert cls._metric(out_2, out_gt, as_dtype=pxrt.Width.SINGLE.value)
-            except AssertionError:
-                # Function is non-transparent, but which backend caused it?
-                ndi = pxd.NDArrayInfo.from_obj(out_1)
-                raise Exception(f"Not transparent to {ndi} inputs.")
+        try:
+            # The large scale introduced to assess transparency may give rise to
+            # operator-dependant round-off errors. We therefore assess transparency at
+            # FP32-precision to avoid false negatives.
+            assert cls._metric(out_1, out_gt, as_dtype=pxrt.Width.SINGLE.value)
+            assert cls._metric(out_2, out_gt, as_dtype=pxrt.Width.SINGLE.value)
+        except AssertionError:
+            # Function is non-transparent, but which backend caused it?
+            ndi = pxd.NDArrayInfo.from_obj(out_1)
+            raise Exception(f"Not transparent to {ndi} inputs.")
 
     # Fixtures (Public-Facing) ------------------------------------------------
     @pytest.fixture
@@ -438,10 +411,6 @@ class MapT(ct.DisableTestMixin):
         self._skip_if_disabled()
         self._check_prec(op.apply, _data_apply)
 
-    def test_precCM_apply(self, op, _data_apply):
-        self._skip_if_disabled()
-        self._check_precCM(op.apply, _data_apply)
-
     def test_transparent_apply(self, op, _data_apply):
         self._skip_if_disabled()
         self._check_no_side_effect(op.apply, _data_apply)
@@ -467,10 +436,6 @@ class MapT(ct.DisableTestMixin):
         self._skip_if_disabled()
         self._check_prec(op.__call__, _data_apply)
 
-    def test_precCM_call(self, op, _data_apply):
-        self._skip_if_disabled()
-        self._check_precCM(op.__call__, _data_apply)
-
     def test_transparent_call(self, op, _data_apply):
         self._skip_if_disabled()
         self._check_no_side_effect(op.__call__, _data_apply)
@@ -490,19 +455,13 @@ class MapT(ct.DisableTestMixin):
         L_new = abs(self._random_array((1,)).item())
         op.lipschitz = L_new
         assert isinstance(op.lipschitz, pxt.Real)
-        with pxrt.EnforcePrecision(False):
-            assert np.isclose(op.lipschitz, L_new)
+        assert np.isclose(op.lipschitz, L_new)
 
         with pytest.raises(Exception):
             op.lipschitz = -1
 
         # reset state for next tests
         op.lipschitz = L_orig
-
-    def test_precCM_lipschitz(self, op, width):
-        self._skip_if_disabled()
-        func = lambda: op.lipschitz
-        self._check_precCM_func(func, width)
 
     # We disable RuntimeWarnings which may arise due to NaNs. (See comment below.)
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
@@ -517,29 +476,32 @@ class MapT(ct.DisableTestMixin):
         # \norm{f(x) - f(y)}{2} \le L * \norm{x - y}{2}
         # L provided by `estimate_lipschitz()`.
         self._skip_if_disabled()
-        with pxrt.EnforcePrecision(False):
-            L = op.estimate_lipschitz(**_data_estimate_lipschitz["in_"])
+        L = op.estimate_lipschitz(**_data_estimate_lipschitz["in_"])
 
-            data = xp.array(data_math_lipschitz, dtype=width.value)
-            data = list(itertools.combinations(data, 2))
-            x = xp.stack([_[0] for _ in data], axis=0)
-            y = xp.stack([_[1] for _ in data], axis=0)
+        data = xp.array(data_math_lipschitz, dtype=width.value)
+        data = list(itertools.combinations(data, 2))
+        x = xp.stack([_[0] for _ in data], axis=0)
+        y = xp.stack([_[1] for _ in data], axis=0)
 
-            lhs = xp.sum(
-                (op.apply(x) - op.apply(y)) ** 2,
-                axis=tuple(range(-op.codim_rank, 0)),
-            )
-            # .apply() may return INFs, in which case `INF-INF=NaN` may arise above.
-            # less_equal() is not able to handle NaNs, so the former are overwritten by a sensible
-            # value in this context, i.e. 0.
-            lhs[xp.isnan(lhs)] = 0
+        lhs = xp.sum(
+            (op.apply(x) - op.apply(y)) ** 2,
+            axis=tuple(range(-op.codim_rank, 0)),
+        )
+        # .apply() may return INFs, in which case `INF-INF=NaN` may arise above.
+        # less_equal() is not able to handle NaNs, so the former are overwritten by a sensible
+        # value in this context, i.e. 0.
+        lhs[xp.isnan(lhs)] = 0
 
-            rhs = (L**2) * xp.sum(
-                (x - y) ** 2,
-                axis=tuple(range(-op.dim_rank, 0)),
-            )
-            success = ct.less_equal(lhs, rhs, as_dtype=width.value)
-            assert all(success)
+        rhs = (L**2) * xp.sum(
+            (x - y) ** 2,
+            axis=tuple(range(-op.dim_rank, 0)),
+        )
+        # xp.sum((x - y), may return 0s, in which case `INF*0=NaN` may arise above.
+        # less_equal() is not able to handle NaNs, so the former are overwritten by a sensible
+        # value in this context, i.e. inf.
+        rhs[xp.isnan(rhs)] = float("inf")
+        success = ct.less_equal(lhs, rhs, as_dtype=width.value)
+        assert all(success)
 
     def test_interface_asop(self, op, _klass):
         # * .asop() is no-op if same klass or parent
@@ -656,19 +618,13 @@ class DiffMapT(MapT):
         dL_new = abs(self._random_array((1,)).item())
         op.diff_lipschitz = dL_new
         assert isinstance(op.diff_lipschitz, pxt.Real)
-        with pxrt.EnforcePrecision(False):
-            assert np.isclose(op.diff_lipschitz, dL_new)
+        assert np.isclose(op.diff_lipschitz, dL_new)
 
         with pytest.raises(Exception):
             op.diff_lipschitz = -1
 
         # reset state for next tests
         op.diff_lipschitz = dL_orig
-
-    def test_precCM_diff_lipschitz(self, op, width):
-        self._skip_if_disabled()
-        func = lambda: op.diff_lipschitz
-        self._check_precCM_func(func, width)
 
     # We disable RuntimeWarnings which may arise due to NaNs. (See comment below.)
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
@@ -683,25 +639,29 @@ class DiffMapT(MapT):
         # \norm{J(x) - J(y)}{F} \le dL * \norm{x - y}{2}
         # dL provided by `estimate_diff_lipschitz()`.
         self._skip_if_disabled()
-        with pxrt.EnforcePrecision(False):
-            dL = op.estimate_diff_lipschitz(**_data_estimate_diff_lipschitz["in_"])
+        dL = op.estimate_diff_lipschitz(**_data_estimate_diff_lipschitz["in_"])
 
-            J = lambda _: op.jacobian(_).asarray(dtype=width.value)
+        J = lambda _: op.jacobian(_).asarray(dtype=width.value)
 
-            stats = []  # (x, y, condition success)
-            data = xp.array(data_math_diff_lipschitz, dtype=width.value)
-            for x, y in itertools.combinations(data, 2):
-                lhs = np.sum((J(x) - J(y)) ** 2)
-                rhs = (dL**2) * xp.sum((x - y) ** 2)
-                if np.isnan(lhs):
-                    # J() may return INFs, in which case `INF-INF=NaN` may arise above. less_equal()
-                    # is not able to handle NaNs, so the former are overwritten by a sensible value
-                    # in this context, i.e. 0.
-                    lhs = 0
-                success = ct.less_equal(lhs, rhs, as_dtype=width.value)
-                stats.append((lhs, rhs, success))
+        stats = []  # (x, y, condition success)
+        data = xp.array(data_math_diff_lipschitz, dtype=width.value)
+        for x, y in itertools.combinations(data, 2):
+            lhs = np.sum((J(x) - J(y)) ** 2)
+            rhs = (dL**2) * xp.sum((x - y) ** 2)
+            if np.isnan(lhs):
+                # J() may return INFs, in which case `INF-INF=NaN` may arise above. less_equal()
+                # is not able to handle NaNs, so the former are overwritten by a sensible value
+                # in this context, i.e. 0.
+                lhs = 0
+            if np.isnan(rhs):
+                # xp.sum((x - y) ** 2) may return 0s, in which case `INF*0=NaN` may arise above. less_equal()
+                # is not able to handle NaNs, so the former are overwritten by a sensible value
+                # in this context, i.e. inf.
+                rhs = np.inf
+            success = ct.less_equal(lhs, rhs, as_dtype=width.value)
+            stats.append((lhs, rhs, success))
 
-            assert all(_[2] for _ in stats)
+        assert all(_[2] for _ in stats)
 
 
 class DiffFuncT(FuncT, DiffMapT):
@@ -756,10 +716,6 @@ class DiffFuncT(FuncT, DiffMapT):
         self._skip_if_disabled()
         self._check_prec(op.grad, _data_grad)
 
-    def test_precCM_grad(self, op, _data_grad):
-        self._skip_if_disabled()
-        self._check_precCM(op.grad, _data_grad)
-
     def test_transparent_grad(self, op, _data_grad):
         self._skip_if_disabled()
         self._check_no_side_effect(op.grad, _data_grad)
@@ -768,37 +724,35 @@ class DiffFuncT(FuncT, DiffMapT):
         # .jacobian/.grad outputs are consistent.
         self._skip_if_disabled()
         arr = _data_grad["in_"]["arr"]
-        with pxrt.EnforcePrecision(False):
-            J = op.jacobian(arr).asarray(dtype=width.value)
-            g = op.grad(arr)
+        J = op.jacobian(arr).asarray(dtype=width.value)
+        g = op.grad(arr)
 
-            assert len(J.shape) == len(g.shape) + 1
-            assert J.size == g.size
-            assert J.shape[1:] == g.shape
-            assert ct.allclose(J, g, as_dtype=arr.dtype)
+        assert len(J.shape) == len(g.shape) + 1
+        assert J.size == g.size
+        assert J.shape[1:] == g.shape
+        assert ct.allclose(J, g, as_dtype=arr.dtype)
 
     def test_math2_grad(self, op, xp, width, _data_estimate_lipschitz):
         # f(x - \frac{1}{L} \grad_{f}(x)) <= f(x)
         # L provided by `estimate_lipschitz()`
         self._skip_if_disabled()
-        with pxrt.EnforcePrecision(False):
-            L = op.estimate_lipschitz(**_data_estimate_lipschitz["in_"])
-            if np.isclose(L, 0):
-                return  # trivially true since f(x) = cst
-            elif np.isclose(L, np.inf):
-                return  # trivially true since f(x) <= f(x)
+        L = op.estimate_lipschitz(**_data_estimate_lipschitz["in_"])
+        if np.isclose(L, 0):
+            return  # trivially true since f(x) = cst
+        elif np.isclose(L, np.inf):
+            return  # trivially true since f(x) <= f(x)
 
-            N_test = 10
-            rhs = self._random_array((N_test, *op.dim_shape), xp=xp, width=width)
-            lhs = rhs - op.grad(rhs) / L
+        N_test = 10
+        rhs = self._random_array((N_test, *op.dim_shape), xp=xp, width=width)
+        lhs = rhs - op.grad(rhs) / L
 
-            assert np.all(
-                ct.less_equal(
-                    op.apply(lhs),
-                    op.apply(rhs),
-                    as_dtype=width.value,
-                )
+        assert np.all(
+            ct.less_equal(
+                op.apply(lhs),
+                op.apply(rhs),
+                as_dtype=width.value,
             )
+        )
 
 
 class ProxFuncT(FuncT):
@@ -896,10 +850,6 @@ class ProxFuncT(FuncT):
         self._skip_if_disabled()
         self._check_prec(op.prox, _data_prox)
 
-    def test_precCM_prox(self, op, _data_prox):
-        self._skip_if_disabled()
-        self._check_precCM(op.prox, _data_prox)
-
     def test_transparent_prox(self, op, _data_prox):
         self._skip_if_disabled()
         self._check_no_side_effect(op.prox, _data_prox)
@@ -950,10 +900,6 @@ class ProxFuncT(FuncT):
     def test_prec_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
         self._check_prec(op.fenchel_prox, _data_fenchel_prox)
-
-    def test_precCM_fenchel_prox(self, op, _data_fenchel_prox):
-        self._skip_if_disabled()
-        self._check_precCM(op.fenchel_prox, _data_fenchel_prox)
 
     def test_transparent_fenchel_prox(self, op, _data_fenchel_prox):
         self._skip_if_disabled()
@@ -1056,13 +1002,11 @@ class QuadraticFuncT(ProxDiffFuncT):
 
         # f(0) == t
         x = xp.zeros(op.dim_shape, dtype=width.value)
-        with pxrt.EnforcePrecision(False):
-            out = op.apply(x)
+        out = op.apply(x)
         assert self._metric(out, t, as_dtype=width.value)
 
         # \grad_{f}(0) == c
-        with pxrt.EnforcePrecision(False):
-            out = op.grad(x)
+        out = op.grad(x)
         assert self._metric(out, c, as_dtype=width.value)
 
         # J_{f}(e_{i}) - c == Q_{i}
@@ -1070,8 +1014,7 @@ class QuadraticFuncT(ProxDiffFuncT):
             xp.eye(op.dim_size, dtype=width.value),
             (*op.dim_shape, *op.dim_shape),
         )
-        with pxrt.EnforcePrecision(False):
-            out = op.grad(x) - c
+        out = op.grad(x) - c
         assert self._metric(out, Q, as_dtype=width.value)
 
     def test_math2_diff_lipschitz(self, op, _data_estimate_diff_lipschitz, _gpu):
@@ -1339,8 +1282,7 @@ class LinOpT(DiffMapT):
             e = xp.zeros(op.dim_shape, dtype=width.value)
             idx = np.unravel_index(i, op.dim_shape)
             e[idx] = 1
-            with pxrt.EnforcePrecision(False):
-                A_gt[..., *idx] = op.apply(e)
+            A_gt[..., *idx] = op.apply(e)
 
         xp_, width_ = request.param
         A = xp_.array(pxu.to_NUMPY(A_gt), dtype=width_.value)
@@ -1368,10 +1310,6 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         self._check_prec(op.adjoint, _data_adjoint)
 
-    def test_precCM_adjoint(self, op, _data_adjoint):
-        self._skip_if_disabled()
-        self._check_precCM(op.adjoint, _data_adjoint)
-
     def test_transparent_adjoint(self, op, _data_adjoint):
         self._skip_if_disabled()
         self._check_no_side_effect(op.adjoint, _data_adjoint)
@@ -1384,9 +1322,8 @@ class LinOpT(DiffMapT):
         y = self._random_array((N, *op.dim_shape), xp=xp, width=width)
 
         ip = lambda a, b, D: (a * b).sum(axis=tuple(range(-D, 0)))  # (N, M1,...,MD) * (N, M1,...,MD) -> (N,)
-        with pxrt.EnforcePrecision(False):
-            lhs = ip(op.adjoint(x), y, D=op.dim_rank)
-            rhs = ip(x, op.apply(y), D=op.codim_rank)
+        lhs = ip(op.adjoint(x), y, D=op.dim_rank)
+        rhs = ip(x, op.apply(y), D=op.codim_rank)
 
         assert self._metric(lhs, rhs, as_dtype=width.value)
 
@@ -1472,17 +1409,6 @@ class LinOpT(DiffMapT):
             reason="svdvals() sparse-evaled via CuPy flaky.",
         )
 
-    def test_precCM_svdvals(self, op, ndi, _gpu, width):
-        self._skip_if_disabled()
-        self._skip_unless_NUMPY_CUPY(ndi)
-        data = dict(in_=dict(k=1, gpu=_gpu, dtype=width.value))
-        ct.flaky(
-            func=self._check_precCM,
-            args=dict(func=op.svdvals, data=data, widths=(width,)),
-            condition=_gpu is True,
-            reason="svdvals() sparse-evaled via CuPy flaky.",
-        )
-
     def test_value1D_pinv(self, op, _data_pinv):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
@@ -1506,10 +1432,6 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         self._check_prec(op.pinv, _data_pinv)
 
-    def test_precCM_pinv(self, op, _data_pinv):
-        self._skip_if_disabled()
-        self._check_precCM(op.pinv, _data_pinv)
-
     def test_interface_dagger(self, _op_dagger):
         self._skip_if_disabled()
         self._check_has_interface(_op_dagger, LinOpT)
@@ -1532,10 +1454,6 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         self._check_prec(_op_dagger.__call__, _data_apply_dagger)
 
-    def test_precCM_call_dagger(self, _op_dagger, _data_apply_dagger):
-        self._skip_if_disabled()
-        self._check_precCM(_op_dagger.__call__, _data_apply_dagger)
-
     def test_value1D_apply_dagger(self, _op_dagger, _data_apply_dagger):
         # To avoid CG convergence issues, correctness is assesed at lowest precision only.
         self._skip_if_disabled()
@@ -1554,10 +1472,6 @@ class LinOpT(DiffMapT):
         self._skip_if_disabled()
         self._check_prec(_op_dagger.apply, _data_apply_dagger)
 
-    def test_precCM_apply_dagger(self, _op_dagger, _data_apply_dagger):
-        self._skip_if_disabled()
-        self._check_precCM(_op_dagger.apply, _data_apply_dagger)
-
     def test_interface_gram(self, op):
         self._skip_if_disabled()
         self._check_has_interface(op.gram(), SelfAdjointOpT)
@@ -1570,9 +1484,8 @@ class LinOpT(DiffMapT):
         N_test = 30
         x = self._random_array((N_test, *op.dim_shape), xp=xp, width=width)
 
-        with pxrt.EnforcePrecision(False):
-            assert self._metric(op_g.apply(x), op_g.adjoint(x), as_dtype=width.value)
-            assert self._metric(op_g.apply(x), op.adjoint(op.apply(x)), as_dtype=width.value)
+        assert self._metric(op_g.apply(x), op_g.adjoint(x), as_dtype=width.value)
+        assert self._metric(op_g.apply(x), op.adjoint(op.apply(x)), as_dtype=width.value)
 
     def test_interface_cogram(self, op):
         self._skip_if_disabled()
@@ -1585,10 +1498,8 @@ class LinOpT(DiffMapT):
 
         N_test = 30
         x = self._random_array((N_test, *op.codim_shape), xp=xp, width=width)
-
-        with pxrt.EnforcePrecision(False):
-            assert self._metric(op_cg.apply(x), op_cg.adjoint(x), as_dtype=width.value)
-            assert self._metric(op_cg.apply(x), op.apply(op.adjoint(x)), as_dtype=width.value)
+        assert self._metric(op_cg.apply(x), op_cg.adjoint(x), as_dtype=width.value)
+        assert self._metric(op_cg.apply(x), op.apply(op.adjoint(x)), as_dtype=width.value)
 
     def test_value_asarray(self, op, _op_array):
         self._skip_if_disabled()
@@ -1705,11 +1616,6 @@ class SquareOpT(LinOpT):
         self._skip_if_disabled()
         tr = op.trace(**_data_trace["in_"])
         assert ct.allclose(tr, _op_trace, as_dtype=width.value)
-
-    def test_precCM_trace(self, op, _data_trace, width):
-        self._skip_if_disabled()
-        func = lambda: op.trace(**_data_trace["in_"])
-        self._check_precCM_func(func, width)
 
 
 class NormalOpT(SquareOpT):

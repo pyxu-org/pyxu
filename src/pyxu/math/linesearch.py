@@ -1,7 +1,6 @@
 import pyxu.abc as pxa
 import pyxu.info.deps as pxd
 import pyxu.info.ptype as pxt
-import pyxu.runtime as pxrt
 
 __all__ = [
     "backtracking_linesearch",
@@ -13,10 +12,6 @@ LINESEARCH_DEFAULT_C = 1e-4
 newaxis = None  # Since we don't import NumPy
 
 
-@pxrt.enforce_precision(
-    i=("x", "direction", "gradient", "a0", "r", "c"),
-    allow_None=True,
-)
 def backtracking_linesearch(
     f: pxa.DiffFunc,
     x: pxt.NDArray,
@@ -68,7 +63,7 @@ def backtracking_linesearch(
     assert 0 < r < 1
     assert 0 < c < 1
     if a0 is None:
-        a0 = pxrt.coerce(1 / f.diff_lipschitz)
+        a0 = 1.0 / f.diff_lipschitz
         assert a0 > 0, "a0: cannot auto-set step size."
     else:
         assert a0 > 0

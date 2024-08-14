@@ -31,7 +31,6 @@ class PSDConvolution(pxa.PosDefOp):
         self.lipschitz = np.inf
         self._hF = filterF(M)
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         # DASK.FFT() only works along non-chunked axes, so we work around the problem
         ndi = pxd.NDArrayInfo.from_obj(arr)

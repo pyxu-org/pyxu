@@ -32,16 +32,16 @@ uncertainty in these regions.
    rng = np.random.default_rng(seed=0)
    sigma = 1e-1  # Noise standard deviation
    y = gt + sigma * rng.standard_normal(sh_im)  # Noisy image
-   f = 1 / 2 * pxo.SquaredL2Norm(dim=N).argshift(-y.ravel()) / sigma**2  # Data fidelity loss
+   f = 1 / 2 * pxo.SquaredL2Norm(dim_shape=sh_im).argshift(-y) / sigma**2  # Data fidelity loss
 
    # Smoothed TV regularization
-   g = pxo.L21Norm(arg_shape=(2, *sh_im)).moreau_envelope(1e-2) * pxo.Gradient(arg_shape=sh_im)
+   g = pxo.L21Norm(dim_shape=(2, *sh_im)).moreau_envelope(1e-2) * pxo.Gradient(dim_shape=sh_im)
    theta = 10  # Regularization parameter
 
    # Compute MAP estimator
    pgd = pxsl.PGD(f=f + theta * g)
-   pgd.fit(x0=y.ravel())
-   im_MAP = pgd.solution().reshape(sh_im)
+   pgd.fit(x0=y)
+   im_MAP = pgd.solution()
 
    fig, ax = plt.subplots(1, 3)
    ax[0].imshow(gt)
@@ -73,11 +73,11 @@ uncertainty in these regions.
            var = online_var.update(sample)  # Update online variance
 
    fig, ax = plt.subplots(1, 2)
-   mean_im = ax[0].imshow(mean.reshape(sh_im), vmin=0, vmax=1)
+   mean_im = ax[0].imshow(mean, vmin=0, vmax=1)
    fig.colorbar(mean_im, fraction=0.05, ax=ax[0])
    ax[0].set_title("Mean (MMSE estimator)")
    ax[0].axis("off")
-   var_im = ax[1].imshow(var.reshape(sh_im))
+   var_im = ax[1].imshow(var)
    fig.colorbar(var_im, fraction=0.05, ax=ax[1])
    ax[1].set_title("Variance")
    ax[1].axis("off")
@@ -90,7 +90,6 @@ import math
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
 import pyxu.operator as pxo
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -237,7 +236,7 @@ class ULA(_Sampler):
        import pyxu.operator as pxo
        import scipy as sp
 
-       f = pxo.SquaredL2Norm(dim=1) / 2  # To sample 1D normal distribution (mean 0, variance 1)
+       f = pxo.SquaredL2Norm(dim_shape=1) / 2  # To sample 1D normal distribution (mean 0, variance 1)
        ula = pxe_sampler.ULA(f=f)  # Sampler with maximum step size
        ula_lb = pxe_sampler.ULA(f=f, gamma=1e-1)  # Sampler with small step size
 
@@ -334,7 +333,6 @@ class ULA(_Sampler):
         else:
             self._rng = rng
 
-    @pxrt.enforce_precision()
     def _sample(self) -> pxt.NDArray:
         x = self.x.copy()
         x -= self._gamma * pxu.copy_if_unsafe(self._f.grad(self.x))
@@ -356,7 +354,7 @@ class ULA(_Sampler):
     def _set_gamma(self, gamma: pxt.Real = None) -> pxt.Real:
         if gamma is None:
             if math.isfinite(self._beta):
-                return pxrt.coerce(0.98 / self._beta)
+                return 0.98 / self._beta
             else:
                 msg = "If f has unbounded Lipschitz gradient, the gamma parameter must be provided."
             raise ValueError(msg)
@@ -365,7 +363,7 @@ class ULA(_Sampler):
                 assert gamma > 0
             except Exception:
                 raise ValueError(f"gamma must be positive, got {gamma}.")
-            return pxrt.coerce(gamma)
+            return gamma
 
 
 class MYULA(ULA):
@@ -444,19 +442,19 @@ class MYULA(ULA):
         lamb: Real
             Moreau-Yosida envelope parameter for `g`.
         """
-        dim = None
+        dim_shape = None
         if f is not None:
-            dim = f.dim
+            dim_shape = f.dim_shape
         if g is not None:
-            if dim is None:
-                dim = g.dim
+            if dim_shape is None:
+                dim_shape = g.dim_shape
             else:
-                assert g.dim == dim
-        if dim is None:
+                assert g.dim_shape == dim_shape
+        if dim_shape is None:
             raise ValueError("One of f or g must be nonzero.")
 
-        self._f_diff = pxo.NullFunc(dim=dim) if (f is None) else f
-        self._g = pxo.NullFunc(dim=dim) if (g is None) else g
+        self._f_diff = pxo.NullFunc(dim_shape=dim_shape) if (f is None) else f
+        self._g = pxo.NullFunc(dim_shape=dim_shape) if (g is None) else g
 
         self._lambda = self._set_lambda(lamb)
         f = self._f_diff + self._g.moreau_envelope(self._lambda)
@@ -466,11 +464,11 @@ class MYULA(ULA):
     def _set_lambda(self, lamb: pxt.Real = None) -> pxt.Real:
         if lamb is None:
             if self._g._name == "NullFunc":
-                return pxrt.coerce(1)  # Lambda is irrelevant if g is a NullFunc, but it must be positive
+                return 1.0  # Lambda is irrelevant if g is a NullFunc, but it must be positive
             elif math.isfinite(dl := self._f_diff.diff_lipschitz):
-                return pxrt.coerce(2) if dl == 0 else pxrt.coerce(min(2, 1 / dl))
+                return 2.0 if dl == 0 else min(2.0, 1.0 / dl)
             else:
                 msg = "If f has unbounded Lipschitz gradient, the lambda parameter must be provided."
             raise ValueError(msg)
         else:
-            return pxrt.coerce(lamb)
+            return lamb

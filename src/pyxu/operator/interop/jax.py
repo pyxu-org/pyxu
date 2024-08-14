@@ -90,7 +90,7 @@ def _to_jax(x: pxt.NDArray, enable_warnings: bool = True) -> JaxArray:
         y = f_wrap(x)
 
     same_dtype = x.dtype == y.dtype
-    same_mem = xp.byte_bounds(x)[0] == y.device_buffer.unsafe_buffer_pointer()
+    same_mem = xp.byte_bounds(x)[0] == y.addressable_data(0).unsafe_buffer_pointer()
     if not (same_dtype and same_mem) and enable_warnings:
         msg = "\n".join(
             [
@@ -167,14 +167,10 @@ def from_jax(
     * Auto-vectorization consists in decorating `kwargs`-specified arithmetic methods with
       :py:func:`jax.numpy.vectorize`.
 
-    * All arithmetic methods provided in `kwargs` are decorated using :py:func:`~pyxu.runtime.enforce_precision` to
-      abide by Pyxu's FP-runtime semantics.  Note however that JAX enforces `32-bit arithmetic
+    * Note that JAX enforces `32-bit arithmetic
       <https://jax.readthedocs.io/en/latest/notebooks/Common_Gotchas_in_JAX.html#double-64bit-precision>`_ by default,
       and this constraint cannot be changed at runtime.  As such, to allow zero-copy transfers between JAX and
-      NumPy/CuPy arrays, it is advised to perform computations in single-precision mode.  This can be achieved locally
-      using the :py:class:`~pyxu.runtime.Precision` context manager.  (See example.) Alternatively,
-      precision/copy-related warnings can be silenced via the `enable_warnings` option of
-      :py:func:`~pyxu.operator.interop.from_jax`.
+      NumPy/CuPy arrays, it is advised to perform computations in single-precision mode.
 
     * Inferred arithmetic methods are not JIT-ed by default since the operation is error-prone depending on how
       :py:meth:`~pyxu.abc.Map.apply` is defined.  If :py:meth:`~pyxu.abc.Map.apply` supplied to
@@ -218,18 +214,18 @@ def from_jax(
                                # --> let JAX figure it out automatically.
            apply=j_apply,
        )
-       with pxrt.Precision(pxrt.Width.SINGLE):
-           rng = np.random.default_rng(0)
-           x = rng.normal(size=(5,3,4,2))
-           y1 = op.apply(x)  # (5,3,4,3)
 
-           x = rng.normal(size=(2,))
-           opJ = op.jacobian(x)  # JAX auto-infers the Jacobian for you.
+       rng = np.random.default_rng(0)
+       x = rng.normal(size=(5,3,4,2))
+       y1 = op.apply(x)  # (5,3,4,3)
 
-           v = rng.normal(size=(5,2))
-           w = rng.normal(size=(4,3))
-           y2 = opJ.apply(v)  # (5,3)
-           y3 = opJ.adjoint(w)  # (4,2)
+       x = rng.normal(size=(2,))
+       opJ = op.jacobian(x)  # JAX auto-infers the Jacobian for you.
+
+       v = rng.normal(size=(5,2))
+       w = rng.normal(size=(4,3))
+       y2 = opJ.apply(v)  # (5,3)
+       y3 = opJ.adjoint(w)  # (4,2)
     """
     if isinstance(vectorize, str):
         vectorize = (vectorize,)
@@ -268,10 +264,9 @@ class _FromJax(px_src._FromSource):
             codim_shape=codim_shape,
             embed=dict(),  # jax-funcs are state-free.
             vectorize=vectorize,
-            enforce_precision=frozenset(),  # will be applied manually in op() ...
             **kwargs,
         )
-        self._enforce_fp = frozenset(self._ekwargs)  # ... based on this list
+
         self._jit = jit
         self._enable_warnings = enable_warnings
 
@@ -287,7 +282,6 @@ class _FromJax(px_src._FromSource):
         #   1. auto-define omitted methods.            [_infer_missing()]
         #   2. auto-vectorize via vmap().              [_auto_vectorize()]
         #   3. JIT & JAX<>NumPy/CuPy conversions.      [_interface()]
-        #   4. delegate enforce_precision() calls to from_source().
         self._infer_missing()
         self._auto_vectorize()
         j_state, kwargs = self._interface()
@@ -302,7 +296,6 @@ class _FromJax(px_src._FromSource):
                 _jit=self._jit,
             ),
             # vectorize=None,  # see top-level comment.
-            enforce_precision=self._enforce_fp,
             **kwargs,
         )
         return _op
@@ -461,7 +454,6 @@ class _FromJax(px_src._FromSource):
         out = _from_jax(j_out, xp=pxu.get_array_module(arr))
         return out
 
-    @pxrt.enforce_precision(i="arr", o=False)
     def jacobian(self, arr: pxt.NDArray) -> pxt.OpT:
         try:
             # Use the class' method if available ...
@@ -560,7 +552,7 @@ class _FromJax(px_src._FromSource):
             # JAX operators don't accept DASK inputs: cannot call Lin[Op,Func].asarray() with user-specified `xp` value.
             # -> We arbitrarily perform computations using the NUMPY backend, then cast as needed.
             N = pxd.NDArrayInfo  # shorthand
-            dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+            dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
             xp = kwargs.get("xp", N.default().module())
 
             klass = self.__class__

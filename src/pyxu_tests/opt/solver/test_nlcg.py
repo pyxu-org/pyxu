@@ -22,8 +22,8 @@ class TestNLCG(conftest.SolverT):
         kwargs_fit = []
         param_sweep = dict(
             x0=[
-                np.full((N,), 50),
-                np.full((2, N), 50),  # multiple initial points
+                np.full((N,), 50, dtype="float64"),
+                np.full((2, N), 50, dtype="float64"),  # multiple initial points
             ],
             variant=[
                 "PR",

@@ -61,7 +61,7 @@ def _sanitize_inputs(dim_shape, dtype, gpu):
     ndim = len(dim_shape)
 
     if dtype is None:
-        dtype = pxrt.getPrecision().value
+        dtype = pxrt.Width.DOUBLE.value
 
     if gpu:
         assert pxd.CUPY_ENABLED
@@ -527,7 +527,7 @@ def Laplace(
     sampling = _to_canonical_form(sampling, dim_shape)
     centers = [[1 if i == dim else 0 for i in range(ndim)] for dim in range(ndim)]
     kernels = [
-        xp.array([1.0, -2.0, 1.0]).reshape([-1 if i == dim else 1 for i in range(ndim)]) / sampling[dim]
+        xp.array([1.0, -2.0, 1.0], dtype=dtype).reshape([-1 if i == dim else 1 for i in range(ndim)]) / sampling[dim]
         for dim in range(ndim)
     ]
     ops = [pxls.Stencil(dim_shape=dim_shape, kernel=k, center=c, mode=mode) for (k, c) in zip(kernels, centers)]
@@ -995,16 +995,17 @@ class StructureTensor(pxa.DiffMap):
 
         if diff_method == "fd":
             diff_kwargs.update({"scheme": diff_kwargs.pop("scheme", "central")})
-            self.grad = pxld.Gradient(
-                dim_shape=dim_shape,
-                directions=None,
-                mode=mode,
-                gpu=gpu,
-                dtype=dtype,
-                sampling=sampling,
-                parallel=parallel,
-                **diff_kwargs,
-            )
+
+        self.grad = pxld.Gradient(
+            dim_shape=dim_shape,
+            directions=None,
+            mode=mode,
+            gpu=gpu,
+            dtype=dtype,
+            sampling=sampling,
+            parallel=parallel,
+            **diff_kwargs,
+        )
 
         if smooth_sigma:
             self.smooth = GaussianFilter(

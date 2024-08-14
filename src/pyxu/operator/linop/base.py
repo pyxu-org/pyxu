@@ -33,11 +33,9 @@ class IdentityOp(pxa.OrthProjOp):
         )
         self.lipschitz = 1
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         return pxu.read_only(arr)
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         return pxu.read_only(arr)
 
@@ -46,12 +44,11 @@ class IdentityOp(pxa.OrthProjOp):
 
     def asarray(self, **kwargs) -> pxt.NDArray:
         xp = kwargs.get("xp", pxd.NDArrayInfo.default().module())
-        dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
         A = xp.eye(N=self.dim_size, dtype=dtype)
         B = A.reshape(*self.codim_shape, *self.dim_shape)
         return B
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def pinv(self, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         out = arr.copy()
         out /= 1 + damp
@@ -64,7 +61,6 @@ class IdentityOp(pxa.OrthProjOp):
         )
         return op
 
-    @pxrt.enforce_precision()
     def trace(self, **kwargs) -> pxt.Real:
         return self.dim_size
 
@@ -87,7 +83,6 @@ class NullOp(pxa.LinOp):
         )
         self.lipschitz = 0
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         ndi = pxd.NDArrayInfo.from_obj(arr)
         kwargs = dict()
@@ -103,7 +98,6 @@ class NullOp(pxa.LinOp):
             **kwargs,
         )
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         ndi = pxd.NDArrayInfo.from_obj(arr)
         kwargs = dict()
@@ -122,9 +116,9 @@ class NullOp(pxa.LinOp):
     def svdvals(self, **kwargs) -> pxt.NDArray:
         gpu = kwargs.get("gpu", False)
         xp = pxd.NDArrayInfo.from_flag(gpu).module()
-        width = pxrt.getPrecision()
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
 
-        D = xp.zeros(kwargs["k"], dtype=width.value)
+        D = xp.zeros(kwargs["k"], dtype=dtype)
         return D
 
     def gram(self) -> pxt.OpT:
@@ -143,14 +137,13 @@ class NullOp(pxa.LinOp):
 
     def asarray(self, **kwargs) -> pxt.NDArray:
         xp = kwargs.get("xp", pxd.NDArrayInfo.default().module())
-        dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
         A = xp.broadcast_to(
             xp.array(0, dtype=dtype),
             (*self.codim_shape, *self.dim_shape),
         )
         return A
 
-    @pxrt.enforce_precision()
     def trace(self, **kwargs) -> pxt.Real:
         return 0
 
@@ -198,7 +191,6 @@ def HomothetyOp(dim_shape: pxt.NDArrayShape, cst: pxt.Real) -> pxt.OpT:
         op = IdentityOp(dim_shape=dim_shape)
     else:  # build PosDef or SelfAdjointOp
 
-        @pxrt.enforce_precision(i="arr")
         def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
             out = arr.copy()
             out *= _._cst
@@ -207,16 +199,15 @@ def HomothetyOp(dim_shape: pxt.NDArrayShape, cst: pxt.Real) -> pxt.OpT:
         def op_svdvals(_, **kwargs) -> pxt.NDArray:
             gpu = kwargs.get("gpu", False)
             xp = pxd.NDArrayInfo.from_flag(gpu).module()
-            width = pxrt.getPrecision()
+            dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
 
             D = xp.full(
                 shape=kwargs["k"],
                 fill_value=abs(_._cst),
-                dtype=width.value,
+                dtype=dtype,
             )
             return D
 
-        @pxrt.enforce_precision(i=("arr", "damp"))
         def op_pinv(_, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
             out = arr.copy()
             out *= _._cst / (_._cst**2 + damp)
@@ -240,7 +231,6 @@ def HomothetyOp(dim_shape: pxt.NDArrayShape, cst: pxt.Real) -> pxt.OpT:
             L = abs(_._cst)
             return L
 
-        @pxrt.enforce_precision()
         def op_trace(_, **kwargs):
             out = _._cst * _.dim_size
             return out
@@ -305,7 +295,6 @@ def DiagonalOp(
         # which one defines the upper bound.
         assert all(s <= d for (s, d) in zip(sh, dim_shape)), "vec and dim_shape are incompatible."
 
-    @pxrt.enforce_precision(i="arr")
     def op_apply(_, arr):
         if (_._vec.dtype != arr.dtype) and _._enable_warnings:
             msg = "Computation may not be performed at the requested precision."
@@ -320,7 +309,7 @@ def DiagonalOp(
         A = xp.diag(vec.reshape(-1)).reshape((*_.codim_shape, *_.dim_shape))
 
         xp = kwargs.get("xp", pxd.NDArrayInfo.default().module())
-        dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
         B = xp.array(pxu.to_NUMPY(A), dtype=dtype)
         return B
 
@@ -335,7 +324,7 @@ def DiagonalOp(
         gpu = kwargs.get("gpu", False)
         xp = pxd.NDArrayInfo.from_flag(gpu).module()
         k = kwargs["k"]
-        width = pxrt.getPrecision()
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
 
         vec = xp.broadcast_to(
             xp.abs(_._vec),
@@ -346,9 +335,8 @@ def DiagonalOp(
         else:
             vec = vec[vec.argsort()]
             D = vec[-k:]
-        return D.astype(width.value)
+        return D.astype(dtype)
 
-    @pxrt.enforce_precision(i=("arr", "damp"))
     def op_pinv(_, arr: pxt.NDArray, damp: pxt.Real, **kwargs) -> pxt.NDArray:
         xp = pxu.get_array_module(arr)
         with warnings.catch_warnings():
@@ -371,7 +359,6 @@ def DiagonalOp(
             enable_warnings=_._enable_warnings,
         )
 
-    @pxrt.enforce_precision()
     def op_trace(_, **kwargs):
         xp = pxu.get_array_module(_._vec)
         vec = xp.broadcast_to(_._vec, _.dim_shape)
@@ -530,7 +517,6 @@ def _ExplicitLinOp(
                 out = out.reshape(*sh, *codim_shape)
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def op_apply(_, arr: pxt.NDArray) -> pxt.NDArray:
         out = tensordot(
             A=_.mat,
@@ -540,7 +526,6 @@ def _ExplicitLinOp(
         )
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def op_adjoint(_, arr: pxt.NDArray) -> pxt.NDArray:
         if is_dense(_.mat):
             axes = (
@@ -583,7 +568,7 @@ def _ExplicitLinOp(
     def op_asarray(_, **kwargs) -> pxt.NDArray:
         N = pxd.NDArrayInfo
         xp = kwargs.get("xp", N.default().module())
-        dtype = kwargs.get("dtype", pxrt.getPrecision().value)
+        dtype = kwargs.get("dtype", pxrt.Width.DOUBLE.value)
 
         if is_dense(_.mat):
             A = _.mat.astype(dtype, copy=False)
@@ -592,7 +577,6 @@ def _ExplicitLinOp(
         B = xp.array(pxu.to_NUMPY(A), dtype=dtype)
         return B
 
-    @pxrt.enforce_precision()
     def op_trace(_, **kwargs) -> pxt.Real:
         if _.dim_size != _.codim_size:
             raise NotImplementedError

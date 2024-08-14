@@ -1,4 +1,3 @@
-import collections.abc as cabc
 import typing as typ
 
 import pytest
@@ -28,24 +27,11 @@ class SamplerT(ct.DisableTestMixin):
         assert all([s.dtype == samples_list[0].dtype for s in samples_list[1:]])
 
     @staticmethod
-    def _check_precCM(
-        gen,
-        widths: cabc.Collection[pxrt.Width] = pxrt.Width,
-    ):
-        stats = dict()
-        for w in widths:
-            with pxrt.Precision(w):
-                out = next(gen)
-            stats[w] = out.dtype == w.value
-        assert all(stats.values())
-
-    @staticmethod
     def _check_reproducibility(samples_1, samples_2, num_samples, xp):
-        with pxrt.EnforcePrecision(False):
-            for _ in range(num_samples):
-                sample_1 = next(samples_1)
-                sample_2 = next(samples_2)
-                assert xp.allclose(sample_1, sample_2)
+        for _ in range(num_samples):
+            sample_1 = next(samples_1)
+            sample_2 = next(samples_2)
+            assert xp.allclose(sample_1, sample_2)
 
     # Fixtures ----------------------------------------------------------------
     @pytest.fixture
@@ -83,8 +69,7 @@ class SamplerT(ct.DisableTestMixin):
 
     @pytest.fixture
     def samples_list(self, num_samples, samples) -> list[pxt.NDArray]:
-        with pxrt.EnforcePrecision(False):
-            s_list = [next(samples) for _ in range(num_samples)]
+        s_list = [next(samples) for _ in range(num_samples)]
         return s_list
 
     @pytest.fixture
@@ -114,10 +99,6 @@ class SamplerT(ct.DisableTestMixin):
     def test_prec_samples(self, samples_list):
         self._skip_if_disabled()
         self._check_prec(samples_list)
-
-    def test_precCM_samples(self, samples):
-        self._skip_if_disabled()
-        self._check_precCM(samples)
 
     def test_reproducibility_samples(self, samples, samples_copy, num_samples, xp):
         self._skip_if_disabled()

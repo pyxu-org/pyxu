@@ -5,7 +5,6 @@ import numpy as np
 
 import pyxu.abc as pxa
 import pyxu.info.ptype as pxt
-import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
 __all__ = [
@@ -232,7 +231,6 @@ class Pad(pxa.LinOp):
         # the estimate is computed as a special case of estimate_lipschitz()
         self.lipschitz = self.estimate_lipschitz(__rule=True)
 
-    @pxrt.enforce_precision(i="arr")
     def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[: -self.dim_rank]
 
@@ -301,7 +299,6 @@ class Pad(pxa.LinOp):
 
         return out
 
-    @pxrt.enforce_precision(i="arr")
     def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         sh = arr.shape[: -self.codim_rank]
 

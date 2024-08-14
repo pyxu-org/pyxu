@@ -14,6 +14,7 @@ import pyxu.operator.linop.base as pxlb
 import pyxu.operator.linop.pad as pxlp
 import pyxu.operator.linop.reduce as pxlr
 import pyxu.operator.linop.stencil.stencil as pxls
+import pyxu.operator.misc as pxm
 import pyxu.runtime as pxrt
 import pyxu.util as pxu
 
@@ -242,8 +243,8 @@ def _FiniteDifference(
         stencil_mat = np.vander(
             np.array(stencil_ids),
             increasing=True,
-        ).T.astype(pxrt.getPrecision().value)
-        vec = np.zeros(len(stencil_ids), dtype=pxrt.getPrecision().value)
+        ).T
+        vec = np.zeros(len(stencil_ids))
         vec[order] = math.factorial(order)
         coefs = np.linalg.solve(stencil_mat, vec)
         coefs /= sampling**order
@@ -424,7 +425,7 @@ def _PartialDerivative(
         * Truncate (for Gaussian derivative)
     """
     if dtype is None:
-        dtype = pxrt.getPrecision().value
+        dtype = pxrt.Width.DOUBLE.value
 
     if gpu:
         assert pxd.CUPY_ENABLED
@@ -2126,17 +2127,16 @@ def DirectionalDerivative(
             norm_dirs = norm_dirs.ravel()
 
     if directions.ndim == 1:
-        diag = xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()
-
+        diag = xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape)
     else:
-        diag = norm_dirs.ravel()
+        diag = norm_dirs.reshape(-1, *dim_shape)
 
     dop = pxlb.DiagonalOp(diag)
     sop = pxlr.Sum(dim_shape=(ndim_diff,) + dim_shape, axis=0)
-    op = sop * dop * diff
-
+    sqop = pxm.SqueezeAxes(dim_shape=sop.codim_shape, axes=0)
+    op = sqop * sop * dop * diff
     dop_compute = pxlb.DiagonalOp(pxu.compute(diag))
-    op_compute = sop * dop_compute * diff
+    op_compute = sqop * sop * dop_compute * diff
 
     def op_svdvals(_, **kwargs) -> pxt.NDArray:
         return op_compute.svdvals(**kwargs)
@@ -2289,9 +2289,9 @@ def DirectionalGradient(
         # normalize directions to unit norm
         norm_dirs = (direction / xp.linalg.norm(direction, axis=0, keepdims=True)).astype(dtype)
         if direction.ndim == 1:
-            diag = xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()
+            diag = xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape)
         else:
-            diag = norm_dirs.ravel()
+            diag = norm_dirs.reshape(-1, *dim_shape)
 
         diag_ops.append(pxlb.DiagonalOp(diag))
         diag_ops_compute.append(pxlb.DiagonalOp(pxu.compute(diag)))
@@ -2299,8 +2299,10 @@ def DirectionalGradient(
     dop = pxb.stack(diag_ops)
     dop_compute = pxb.stack(diag_ops_compute)
 
-    op = sop * dop * grad
-    op_compute = sop * dop_compute * grad
+    sqop = pxm.SqueezeAxes(dim_shape=sop.codim_shape, axes=1)
+
+    op = sqop * sop * dop * grad
+    op_compute = sqop * sop * dop_compute * grad
 
     def op_svdvals(_, **kwargs) -> pxt.NDArray:
         return op_compute.svdvals(**kwargs)
@@ -2459,16 +2461,20 @@ def DirectionalLaplacian(
             inds = dummy_mat[np.triu_indices(ndim, k=0)].ravel()
             norm_dirs = norm_dirs[inds]
         else:
-            norm_dirs = norm_dirs.ravel()
+            norm_dirs = norm_dirs.reshape(-1, *dim_shape)
 
         if direction.ndim == 1:
-            dop.append(pxlb.DiagonalOp(weight * xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()))
+            dop.append(
+                pxlb.DiagonalOp(weight * xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape))
+            )
             dop_compute.append(
-                pxlb.DiagonalOp(pxu.compute(weight * xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()))
+                pxlb.DiagonalOp(
+                    pxu.compute(weight * xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape))
+                )
             )
         else:
-            dop.append(pxlb.DiagonalOp(weight * norm_dirs.ravel()))
-            dop_compute.append(pxlb.DiagonalOp(pxu.compute(weight * norm_dirs.ravel())))
+            dop.append(pxlb.DiagonalOp(weight * norm_dirs.reshape(-1, *dim_shape)))
+            dop_compute.append(pxlb.DiagonalOp(pxu.compute(weight * norm_dirs.reshape(-1, *dim_shape))))
 
     dop = pxb.stack(dop)
     dop_compute = pxb.stack(dop_compute)
@@ -2480,8 +2486,9 @@ def DirectionalLaplacian(
         + dim_shape,
         axis=(0, 1),
     )
-    op = sop * dop * hess
-    op_compute = sop * dop_compute * hess
+    sqop = pxm.SqueezeAxes(dim_shape=sop.codim_shape, axes=(0, 1))
+    op = sqop * sop * dop * hess
+    op_compute = sqop * sop * dop_compute * hess
 
     def op_svdvals(_, **kwargs) -> pxt.NDArray:
         return op_compute.svdvals(**kwargs)
@@ -2653,16 +2660,18 @@ def DirectionalHessian(
                 inds = dummy_mat[np.triu_indices(ndim, k=0)].ravel()
                 norm_dirs = norm_dirs[inds]
             else:
-                norm_dirs = norm_dirs.ravel()
+                norm_dirs = norm_dirs.reshape(-1, *dim_shape)
 
             if norm_dirs.ndim == 1:
-                dop.append(pxlb.DiagonalOp(xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()))
+                dop.append(pxlb.DiagonalOp(xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape)))
                 dop_compute.append(
-                    pxlb.DiagonalOp(pxu.compute(xp.tile(norm_dirs, dim_shape + (1,)).transpose().ravel()))
+                    pxlb.DiagonalOp(
+                        pxu.compute(xp.tile(norm_dirs, dim_shape + (1,)).transpose().reshape(-1, *dim_shape))
+                    )
                 )
             else:
-                dop.append(pxlb.DiagonalOp(norm_dirs.ravel()))
-                dop_compute.append(pxlb.DiagonalOp(pxu.compute(norm_dirs.ravel())))
+                dop.append(pxlb.DiagonalOp(norm_dirs.reshape(-1, *dim_shape)))
+                dop_compute.append(pxlb.DiagonalOp(pxu.compute(norm_dirs.reshape(-1, *dim_shape))))
 
     dop = pxb.stack(dop)
     dop_compute = pxb.stack(dop_compute)
@@ -2675,8 +2684,9 @@ def DirectionalHessian(
         + dim_shape,
         axis=1,
     )
-    op = sop * dop * hess
-    op_compute = sop * dop_compute * hess
+    sqop = pxm.SqueezeAxes(dim_shape=sop.codim_shape, axes=1)
+    op = sqop * sop * dop * hess
+    op_compute = sqop * sop * dop_compute * hess
 
     def op_svdvals(_, **kwargs) -> pxt.NDArray:
         return op_compute.svdvals(**kwargs)
