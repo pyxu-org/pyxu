@@ -33,12 +33,12 @@ classifiers = [
 urls.download = "https://github.com/pyxu-org/pyxu"
 urls.homepage = "https://pyxu-org.github.io/"
 dependencies = [
-    "dask[array,diagnostics,distributed] >= 2023.12, < 2024.6",
+    "dask[array,diagnostics,distributed] >= 2023.12, < 2024.9",
     "numba >= 0.59, < 1",
-    "numpy >= 1.24, < 2",
+    "numpy >= 1.24, < 3",
     "packaging >= 23.1",
     "scipy >= 1.11, < 2",
-    "zarr >= 2.16, < 2.18",
+    "zarr >= 2.16, < 3",
     "cloudpickle >= 3.0.0, < 4",
 ]
 
