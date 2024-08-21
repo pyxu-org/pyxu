@@ -123,7 +123,7 @@ class SquaredL1Norm(pxa.ProxFunc):
         )
         self.lipschitz = np.inf
 
-        # prox(): runtime-coerce & vectorize
+        # prox(): vectorize
         vectorize = pxu.vectorize(
             i="arr",
             dim_shape=self.dim_shape,
@@ -185,7 +185,7 @@ class LInfinityNorm(pxa.ProxFunc):
         )
         self.lipschitz = 1
 
-        # prox(): runtime-coerce & vectorize
+        # prox(): vectorize
         vectorize = pxu.vectorize(
             i="arr",
             dim_shape=self.dim_shape,

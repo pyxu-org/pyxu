@@ -411,13 +411,7 @@ pyxu.runtime
 
 .. autosummary::
 
-   ~pyxu.runtime.coerce
    ~pyxu.runtime.CWidth
-   ~pyxu.runtime.enforce_precision
-   ~pyxu.runtime.EnforcePrecision
-   ~pyxu.runtime.getCoerceState
-   ~pyxu.runtime.getPrecision
-   ~pyxu.runtime.Precision
    ~pyxu.runtime.Width
 
 pyxu.util
