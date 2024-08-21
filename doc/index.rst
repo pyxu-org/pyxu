@@ -626,3 +626,4 @@ Partners & Sponsors
    examples/index
    api/index
    fair/index
+   migration_guide
