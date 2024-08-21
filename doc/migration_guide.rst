@@ -3,7 +3,7 @@
 Migrating from v1 to v2
 =======================
 
-With the release of `Pyxu v2`, several major improvements and changes have been introduced. This guide will help you smoothly transition your code from `v1`` to `v2`. 
+With the release of `Pyxu v2`, several major improvements and changes have been introduced. This guide will help you smoothly transition your code from `v1` to `v2`.
 
 The most significant change is that `Pyxu v2` no longer vectorizes **N-dimensional** signals. In `v1`, vectorizing **N-dimensional** arrays caused Dask arrays to rechunk into 1-dimensional chunks, which required computing the array in a single node, thus breaking the distributed nature of Dask. In `v2`, the arrays remain **N-dimensional** throughout, and Dask arrays are not "computed" at any point, preserving the benefits of distributed computing.
 
@@ -84,7 +84,7 @@ Below is an example showing how to convert code from `v1` to `v2`.
 **v2 Code**:
 
 .. code-block:: python
-    
+
     # Applying the blurring and adding noise
     conv = Convolve(
         dim_shape=dim_shape,  # v2: `dim_shape` replaces `arg_shape`
@@ -113,7 +113,7 @@ Below is an example showing how to convert code from `v1` to `v2`.
     positivity = PositiveOrthant(dim_shape=dim_shape)  # v2: `dim_shape` replaces `dim`
     solver = PD3O(f=loss, g=positivity, h=l21, K=grad)
     solver.fit(x0=y, stop_crit=stop_crit)  # No flattening required in v2
-    
+
 
 Migration Tips
 --------------
