@@ -302,7 +302,7 @@ class _Stencil_CP(_Stencil):
         with open(template_file, mode="r") as f:
             template = string.Template(f.read())
         code = template.substitute(
-            kernel_center=str(tuple(self._center)),
+            kernel_center=str(tuple(self._center.tolist())),
             kernel_width=str(self._kernel.shape),
             signature=signature,
             stencil_spec=self.__stencil_spec(),
