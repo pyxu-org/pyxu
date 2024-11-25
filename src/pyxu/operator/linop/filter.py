@@ -999,6 +999,7 @@ class StructureTensor(pxa.DiffMap):
         self.grad = pxld.Gradient(
             dim_shape=dim_shape,
             directions=None,
+            diff_method=diff_method,
             mode=mode,
             gpu=gpu,
             dtype=dtype,
