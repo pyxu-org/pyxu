@@ -1,21 +1,10 @@
 fail_fast: true
 repos:
-- repo: https://github.com/psf/black
-  rev: 23.7.0
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev: v0.9.6
   hooks:
-  - id: black
-    args: ['--line-length', '120']
-    files: '.+\.py$'
-    always_run: false
-- repo: https://github.com/PyCQA/isort
-  rev: 5.12.0
-  hooks:
-  - id: isort
-    args: []
-    files: '.+\.py$'
-    always_run: false
-- repo: https://github.com/PyCQA/flake8
-  rev: 6.1.0
-  hooks:
-  - id: flake8
-    args: ['--config', 'tox.ini']
+    # Run the linter.
+    - id: ruff
+    # Run the formatter.
+    - id: ruff-format

@@ -9,70 +9,53 @@ build-backend = "hatchling.build"
 [project]
 name = "pyxu"
 dynamic = ["version"]
-description = "Modular and scalable computational imaging in Python with support for GPU/out-of-core computing."
+description = "Modular and scalable computational imaging."
 readme = "README.rst"
-requires-python = ">= 3.10, < 3.13"
+requires-python = ">= 3.10, < 3.14"
 license = "MIT"
 authors = [
     { name = "S. Kashani" },
-    { name = "J. Rué-Queralt" },
     { name = "M. Simeoni" },
-    { name = "Pyxu Developers" },
+    { name = "J. Rué-Queralt" },
     { name = "", email = "contact@pyxu.org" },
 ]
 classifiers = [
     "Topic :: Scientific/Engineering",
     "Intended Audience :: Science/Research",
-    "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 urls.download = "https://github.com/pyxu-org/pyxu"
 urls.homepage = "https://pyxu-org.github.io/"
 dependencies = [
-    "dask[array,diagnostics,distributed] >= 2023.12, < 2024.9",
-    "numba >= 0.59, < 1",
-    "numpy >= 1.24, < 2.1",
-    "packaging >= 23.1",
+    "numpy >= 1.25, < 3",
+    "packaging >= 24.2",
     "scipy >= 1.11, < 2",
-    "zarr >= 2.16, < 3",
-    "cloudpickle >= 3.0.0, < 4",
+    "jax >= 0.5.0, < 1",
 ]
 
 # Optional dependencies =======================================================
 [project.optional-dependencies]
-interact = [
-    "ipython >= 8.14, < 9",
-    "jupyterlab >= 4.0, < 5",
-    "matplotlib >= 3.7, < 4",
+viz = [
+    "matplotlib >= 3.10, < 4",
+]
+gpu = [
+    "jax[cuda12] >= 0.5.0, < 1",
 ]
 dev = [
-    "pyxu[interact]",
-    "graphviz >= 0.20, < 1",
-    "hatch >= 1.7, < 2",
-    "nbsphinx  >= 0.9.0, < 1",
-    "pre-commit >= 3.3, < 4",
-    "pydata_sphinx_theme == 0.13.3",
-    "pytest >= 7.4, < 8",
-    "scikit-image >= 0.21, < 1",
-    "sphinx >= 7.2, < 8",
-    "sphinx_codeautolink >= 0.15.0, < 1",
-    "sphinx_copybutton >= 0.5.2, < 1",
-    "sphinx_design >= 0.4.1, < 1",
-    "sphinx_togglebutton >= 0.3.2, < 1",
-    "sphinx-gallery >= 0.17.0, < 1",
-    "tox >= 4.6, < 5",
+    "hatch >= 1.14, < 2",
+    "pre-commit >= 4.1, < 5",
+    "pytest >= 8.3, < 9",
+    "ruff >= 0.9, < 1",  # keep synced with .pre-commit-config.yaml
+    "tox >= 4.24, < 5",
 ]
-complete-cpu = [ "pyxu[interact]", ]
-gpu11-base = [ "cupy-cuda11x >= 13.0, < 14", ]
-gpu12-base = [ "cupy-cuda12x >= 13.0, < 14", ]
-complete11 = [ "pyxu[complete-cpu,gpu11-base]", ]
-complete12 = [ "pyxu[complete-cpu,gpu12-base]", ]
-complete = [ "pyxu[complete12]", ]
-
+all = [
+    "pyxu[viz,gpu]",
+]
 
 # Get version info from Git ===================================================
 [tool.hatch.version]
@@ -91,3 +74,7 @@ include = [
 packages = [
     "src/pyxu",
 ]
+
+# Ruff config =================================================================
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
