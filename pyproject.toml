@@ -33,7 +33,7 @@ urls.download = "https://github.com/pyxu-org/pyxu"
 urls.homepage = "https://pyxu-org.github.io/"
 dependencies = [
     "equinox >= 0.11, < 1",
-    "jax >= 0.5, < 1",
+    "jax >= 0.5, != 0.5.1, != 0.5.2, < 1",
     "jaxtyping >= 0.2, < 1",
     "lineax >= 0.0.7, < 1",
     "numpy >= 1.25, < 3",
