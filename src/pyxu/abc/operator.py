@@ -35,8 +35,8 @@ class Operator(eqx.Module):
         return jax.tree.map(lambda _: _.ndim, self.dim_info)
 
     @property
-    def dim_size(self) -> jt.PyTree[int]:
-        return jax.tree.map(lambda _: _.size, self.dim_info)
+    def dim_size(self) -> int:
+        return otu.tree_sum(jax.tree.map(lambda _: _.size, self.dim_info))
 
     @property
     def codim_shape(self) -> jt.PyTree[tuple[int]]:
@@ -47,8 +47,8 @@ class Operator(eqx.Module):
         return jax.tree.map(lambda _: _.ndim, self.codim_info)
 
     @property
-    def codim_size(self) -> jt.PyTree[int]:
-        return jax.tree.map(lambda _: _.size, self.codim_info)
+    def codim_size(self) -> int:
+        return otu.tree_sum(jax.tree.map(lambda _: _.size, self.codim_info))
 
     def apply(self, x: Arrays) -> Arrays:
         r"""
