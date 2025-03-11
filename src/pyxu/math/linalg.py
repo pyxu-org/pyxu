@@ -55,7 +55,8 @@ def svdvals(op: LinearOperator, k: int, **kwargs) -> jt.Scalar:
     # large operator case: LOBPCG
     elif op.codim_size <= op.dim_size:
         x = jax.tree.map(lambda _: jnp.zeros(_.shape, _.dtype), op.codim_info)
-        _, f_unravel = jax.flatten_util.ravel_pytree(x)
+        x_flat, f_unravel = jax.flatten_util.ravel_pytree(x)
+        x_dtype = x_flat.dtype
 
         @functools.partial(jax.vmap, in_axes=1, out_axes=1)
         def A(y: Array) -> Array:
@@ -64,10 +65,11 @@ def svdvals(op: LinearOperator, k: int, **kwargs) -> jt.Scalar:
             x, _ = jax.flatten_util.ravel_pytree(_x)
             return x
 
-        X = jnd.normal(jnd.key(0), (op.codim_size, k), op.codim_info.dtype)
+        X = jnd.normal(jnd.key(0), (op.codim_size, k), x_dtype)
     else:
         y = jax.tree.map(lambda _: jnp.zeros(_.shape, _.dtype), op.dim_info)
-        _, f_unravel = jax.flatten_util.ravel_pytree(y)
+        y_flat, f_unravel = jax.flatten_util.ravel_pytree(y)
+        y_dtype = y_flat.dtype
 
         @functools.partial(jax.vmap, in_axes=1, out_axes=1)
         def A(x: Array) -> Array:
@@ -76,7 +78,7 @@ def svdvals(op: LinearOperator, k: int, **kwargs) -> jt.Scalar:
             y, _ = jax.flatten_util.ravel_pytree(_y)
             return y
 
-        X = jnd.normal(jnd.key(0), (op.dim_size, k), op.dim_info.dtype)
+        X = jnd.normal(jnd.key(0), (op.dim_size, k), y_dtype)
 
     D_eig, V_eig, N_iter = jesl.lobpcg_standard(A, X, **kwargs)
     D = jnp.sqrt(D_eig)
