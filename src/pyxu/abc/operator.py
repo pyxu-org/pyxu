@@ -1,3 +1,5 @@
+import functools
+
 import equinox as eqx
 import jax
 import jax.numpy as jnp
@@ -219,54 +221,54 @@ def register_linop_vjp(klass: LinearOperator):
     If :py:func:`pyxu.abc.register_linop_vjp` is not used, then `jax.vjp()` calls will trace computations instead.
     """
 
+    # custom_vjp() not necessary if user did not override default adjoint().
+    if klass.adjoint == LinearOperator.adjoint:
+        return klass
+
+    # custom_vjp() only works with functions, not methods: it cannot be applied to klass.[apply,adjoint]() directly.
+    # As a workaround, we define the functions [_apply,_adjoint](), then bind the instance to them via partialmethod().
+
     # vjp(apply) override =====================================================
     @jax.custom_vjp
-    def _apply(op, x):
-        return op.apply(x)
+    def _apply(self: LinearOperator, x):
+        return klass.apply(self, x)
 
-    def _apply_fwd(op, x):
-        primal_out, f_vjp = jax.vjp(klass.apply, op, x)
-        return primal_out, (op, f_vjp)
+    def _apply_fwd(self: LinearOperator, x):
+        primal_out, f_vjp = jax.vjp(klass.apply, self, x)
+        return primal_out, (self, f_vjp)
 
     def _apply_bwd(residual, y):
-        op, f_vjp = residual
+        self, f_vjp = residual
         vjp_op, _ = f_vjp(y)  # _ optimized away with jit()
-        return (vjp_op, op.adjoint(y))
+        return (vjp_op, klass.adjoint(self, y))
 
     _apply.defvjp(_apply_fwd, _apply_bwd)
     # =========================================================================
 
     # vjp(adjoint) override ===================================================
     @jax.custom_vjp
-    def _adjoint(op, y):
-        return op.adjoint(y)
+    def _adjoint(self: LinearOperator, y):
+        return klass.adjoint(self, y)
 
-    def _adjoint_fwd(op, y):
-        primal_out, f_vjp = jax.vjp(klass.adjoint, op, y)
-        return primal_out, (op, f_vjp)
+    def _adjoint_fwd(self: LinearOperator, y):
+        primal_out, f_vjp = jax.vjp(klass.adjoint, self, y)
+        return primal_out, (self, f_vjp)
 
     def _adjoint_bwd(residual, x):
-        op, f_vjp = residual
+        self, f_vjp = residual
         vjp_op, _ = f_vjp(x)  # _ optimized away with jit()
-        return (vjp_op, op.apply(x))
+        return (vjp_op, klass.apply(self, x))
 
     _adjoint.defvjp(_adjoint_fwd, _adjoint_bwd)
     # =========================================================================
 
-    class VJPCompatibleLinearOperator(LinearOperator):
-        op: LinearOperator
+    wrapper_klass = type(
+        f"VJPCompatible_{klass.__name__}",
+        (klass,),
+        dict(
+            apply=functools.partialmethod(_apply),
+            adjoint=functools.partialmethod(_adjoint),
+        ),
+    )
 
-        def __init__(self, *args, **kwargs):
-            self.op = klass(*args, **kwargs)
-
-            # forward shape information from `op`.
-            self.dim_info = self.op.dim_info
-            self.codim_info = self.op.codim_info
-
-        def apply(self, x):
-            return _apply(self.op, x)
-
-        def adjoint(self, y):
-            return _adjoint(self.op, y)
-
-    return VJPCompatibleLinearOperator
+    return wrapper_klass
