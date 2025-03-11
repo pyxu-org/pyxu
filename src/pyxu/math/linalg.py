@@ -1,19 +1,25 @@
+import functools
+
 import jax
+import jax.experimental.sparse.linalg as jesl
+import jax.flatten_util
 import jax.numpy as jnp
+import jax.random as jnd
 import jaxtyping as jt
 import lineax as lx
 import optax
 import optax.tree_utils as otu
 
 from ..abc import LinearOperator
-from ..typing import Arrays
+from ..typing import Array, Arrays
 
 
 def svdvals(op: LinearOperator, k: int, **kwargs) -> jt.Scalar:
     """
     Compute leading singular values of a linear operator.
 
-    The computation is based on the power method.
+    The singular values of small operators are computed by materializing the operator and computing its SVD.
+    The singular values of large operators are computed using the LOBPCG method.
 
     Parameters
     ----------
@@ -21,41 +27,58 @@ def svdvals(op: LinearOperator, k: int, **kwargs) -> jt.Scalar:
         Operator for which singular values are desired.
     k: int
         Number of singular values to compute.
+        This value should be relatively small.
+    kwargs: dict
+        Extra parameters passed on to :py:class:`~jax.experimental.sparse.linalg.lobpcg_standard`.
 
     Returns
     -------
     D: Array
         (k,) leading singular values of ``op``.
     """
-    # TODO: upgrade to LOBPCG method; converges faster & computes (k >= 1) singular values.
-    # Needs flattening/etc to be performed since jax.experimental.sparse.linalg.lobpcg() accepts a callable with a single array in/out.
+    assert op.dim_info is not None
+    assert op.codim_info is not None
 
-    assert k == 1, "Only leading singular value can be computed (for now)."
+    N = min(op.dim_size, op.codim_size)
+    if not (5 * k < N):
+        # small operator case: materialize + SVD
+        lx_op = lx.FunctionLinearOperator(
+            fn=op.apply,
+            input_structure=op.dim_info,
+        )
+        A = lx_op.as_matrix()
 
-    assert (op.dim_shape is not None) and (op.codim_shape is not None), (
-        "in/out shapes must be known."
-    )
+        D = jnp.linalg.svdvals(A)
+        D = jnp.sort(D, descending=True)[:k]
+        return D
 
-    if op.codim_size <= op.dim_size:
+    # large operator case: LOBPCG
+    elif op.codim_size <= op.dim_size:
+        x = jax.tree.map(lambda _: jnp.zeros(_.shape, _.dtype), op.codim_info)
+        _, f_unravel = jax.flatten_util.ravel_pytree(x)
 
-        def f(y: Arrays) -> Arrays:
-            return op.apply(op.adjoint(y))
+        @functools.partial(jax.vmap, in_axes=1, out_axes=1)
+        def A(y: Array) -> Array:
+            _y = f_unravel(y)
+            _x = op.apply(op.adjoint(_y))
+            x, _ = jax.flatten_util.ravel_pytree(_x)
+            return x
 
-        v0 = jax.tree.map(lambda sh: jnp.ones(sh.shape), op.codim_shape)
+        X = jnd.normal(jnd.key(0), (op.codim_size, k), op.codim_info.dtype)
     else:
+        y = jax.tree.map(lambda _: jnp.zeros(_.shape, _.dtype), op.dim_info)
+        _, f_unravel = jax.flatten_util.ravel_pytree(y)
 
-        def f(x: Arrays) -> Arrays:
-            return op.adjoint(op.apply(x))
+        @functools.partial(jax.vmap, in_axes=1, out_axes=1)
+        def A(x: Array) -> Array:
+            _x = f_unravel(x)
+            _y = op.adjoint(op.apply(_x))
+            y, _ = jax.flatten_util.ravel_pytree(_y)
+            return y
 
-        v0 = jax.tree.map(lambda sh: jnp.ones(sh.shape), op.dim_shape)
+        X = jnd.normal(jnd.key(0), (op.dim_size, k), op.dim_info.dtype)
 
-    if "v0" in kwargs:
-        pass
-    else:
-        kwargs.update(v0=v0)
-
-    D_eig, _ = optax.power_iteration(f, **kwargs)
-
+    D_eig, V_eig, N_iter = jesl.lobpcg_standard(A, X, **kwargs)
     D = jnp.sqrt(D_eig)
     return D
 
