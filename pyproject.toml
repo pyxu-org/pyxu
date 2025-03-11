@@ -79,5 +79,12 @@ packages = [
 ]
 
 # Ruff config =================================================================
+[tool.ruff]
+fix = true  # auto fixing
+exclude = ["src/**/__init__.py"]
+
+[tool.ruff.lint]
+select = ["I"]  # import sorting
+
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
