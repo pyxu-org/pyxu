@@ -1,10 +1,11 @@
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 
 from ..abc import LinearOperator, register_linop_vjp
 from ..math import hadamard_outer
 from ..typing import Array, DType
-from ..util import TranslateDType, cdtype
+from ..util import TranslateDType, UniformSpec, cdtype
 
 
 @register_linop_vjp
@@ -201,3 +202,167 @@ class CZT(LinearOperator):
             An[d] = _An.astype(c_dtype)
 
         return An
+
+
+@register_linop_vjp
+class Uniform2Uniform(LinearOperator):
+    r"""
+    Multi-dimensional Uniform-to-Uniform Fourier Transform.
+
+    Given the Dirac stream
+
+    .. math::
+
+       f(\bbx) = \sum_{i} w_{i} \delta(\bbx - \bbx_{i}),
+
+    computes samples of :math:`f^{F}`, i.e.,
+
+    .. math::
+
+       f^{F}(\bbv_{o}) = \bbz_{o} = \sum_{i} w_{i} \ee^{ -\cj 2\pi \innerProduct{\bbx_{i}}{\bbv_{o}} },
+
+    where :math:`(\bbx_{i}, \bbv_{o})` lie on the regular lattice
+
+    .. math::
+
+       \begin{align}
+           \bbx_{\bbi} &= \bbx_{0} + \Delta_{\bbx} \odot \bbi, & [\bbi]_{d} \in \{0,\ldots,I_{d}-1\}, \\
+           \bbv_{\bbo} &= \bbv_{0} + \Delta_{\bbv} \odot \bbo, & [\bbo]_{d} \in \{0,\ldots,O_{d}-1\},
+       \end{align}
+
+    with :math:`I = \prod_{d} I_{d}` and :math:`O = \prod_{d} O_{d}`.
+    """
+
+    x_spec: UniformSpec = eqx.field(static=True)
+    v_spec: UniformSpec = eqx.field(static=True)
+    isign: int = eqx.field(static=True)
+
+    def __init__(
+        self,
+        x_spec: UniformSpec,
+        v_spec: UniformSpec,
+        isign: int = -1,
+        dtype: DType = None,
+    ):
+        r"""
+        Parameters
+        ----------
+        x_spec: UniformSpec
+            :math:`\bbx_{i}` lattice specifier, with keys:
+
+            * `start`: (D,) values :math:`\bbx_{0} \in \bR^{D}`.
+            * `step` : (D,) values :math:`\Delta_{\bbx} \in \bR^{D}`.
+            * `num`  : (D,) values :math:`\{ I_{1},\ldots,I_{D} \} \in \bN^{D}`.
+
+            Scalars are broadcasted to all dimensions.
+        v_spec: UniformSpec
+            :math:`\bbv_{o}` lattice specifier, with keys:
+
+            * `start`: (D,) values :math:`\bbv_{0} \in \bR^{D}`.
+            * `step` : (D,) values :math:`\Delta_{\bbv} \in \bR^{D}`.
+            * `num`  : (D,) values :math:`\{ O_{1},\ldots,O_{D} \} \in \bN^{D}`.
+
+            Scalars are broadcasted to all dimensions.
+        isign: +1, -1
+            Sign of the exponent.
+        dtype: dtype
+            FP precision of input/outputs.
+            If not provided, uses JAX's default complex FP type.
+        """
+        if dtype is None:
+            c_dtype = cdtype()
+        else:
+            c_dtype = TranslateDType(dtype).to_complex()
+
+        Dx = len(x_spec.num)
+        Dv = len(v_spec.num)
+        assert Dx == Dv
+
+        self.dim_info = jax.ShapeDtypeStruct(x_spec.num, c_dtype)
+        self.codim_info = jax.ShapeDtypeStruct(v_spec.num, c_dtype)
+
+        self.x_spec = x_spec
+        self.v_spec = v_spec
+        self.isign = int(isign / abs(isign))
+
+    def apply(self, w: Array) -> Array:
+        r"""
+        Parameters
+        ----------
+        w: Array[float/complex]
+            (..., I1,...,ID) weights :math:`w_{i} \in \bC^{D}`.
+
+        Returns
+        -------
+        z: ndarray[complex]
+            (..., O1,...,OD) weights :math:`z_{o} \in \bC^{D}`.
+        """
+        czt, B = self._params(w.dtype)
+
+        _w = czt.apply(w)
+        z = hadamard_outer(_w, *B)
+        return z
+
+    def adjoint(self, z: Array) -> Array:
+        r"""
+        Parameters
+        ----------
+        z: Array[float/complex]
+            (..., O1,...,OD) weights :math:`z_{o} \in \bC^{D}`.
+
+        Returns
+        -------
+        w: Array[complex]
+            (..., I1,...,ID) weights :math:`w_{i} \in \bC^{D}`.
+        """
+        czt, B = self._params(z.dtype)
+        B = [_B.conj() for _B in B]
+
+        _z = hadamard_outer(z, *B)
+        w = czt.adjoint(_z)
+        return w
+
+    # Helper routines (internal) ----------------------------------------------
+    def _params(self, dtype: DType):
+        """
+        Parameters
+        ----------
+        dtype: float/complex
+
+        Returns
+        -------
+        czt: CZT
+            CZT(A,W,I,O) instance.
+        B: list[Array]
+            (O1,),...,(OD,) post-CZT modulation vectors.
+        """
+        c_dtype = TranslateDType(dtype).to_complex()
+
+        x0, dx = map(jnp.array, [self.x_spec.start, self.x_spec.step])
+        v0, dv = map(jnp.array, [self.v_spec.start, self.v_spec.step])
+        D = self.dim_rank
+
+        # Build CZT operator
+        A = jnp.exp(-1j * self.isign * 2 * jnp.pi * dx * v0)
+        W = jnp.exp(+1j * self.isign * 2 * jnp.pi * dx * dv)
+        czt = CZT(
+            dim_shape=self.dim_shape,
+            codim_shape=self.codim_shape,
+            A=A,
+            W=W,
+            dtype=c_dtype,
+        )
+
+        # Build modulation vector (B,).
+        B = [None] * D
+        for d in range(D):
+            phase_scale = self.isign * 2 * jnp.pi * x0[d]
+            v = v0[d] + dv[d] * jnp.arange(self.v_spec.num[d])
+            _B = jnp.exp(1j * phase_scale * v)
+
+            B[d] = _B.astype(c_dtype)
+
+        return czt, B
+
+
+U2U = Uniform2Uniform  # alias

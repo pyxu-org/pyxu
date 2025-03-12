@@ -12,4 +12,6 @@ from .indicator import (
 )
 from .fourier import (
     CZT as CZT,
+    U2U as U2U,
+    Uniform2Uniform as Uniform2Uniform,
 )
