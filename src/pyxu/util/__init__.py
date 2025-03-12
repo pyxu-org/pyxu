@@ -6,3 +6,6 @@ from .dtype import (
 from .misc import (
     UniformSpec as UniformSpec,
 )
+from .shape import (
+    ShapeStruct as ShapeStruct,
+)
