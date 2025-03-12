@@ -1,5 +1,4 @@
 import jax.numpy as jnp
-import numpy.typing as npt
 
 
 class TranslateDType:
@@ -24,22 +23,22 @@ class TranslateDType:
         (jnp.dtype(jnp.float64), "c"): jnp.dtype(jnp.complex128),
     }
 
-    def __init__(self, dtype: npt.DTypeLike):
+    def __init__(self, dtype: jnp.dtype):
         dtype = jnp.dtype(dtype)
         assert dtype in self.map_to_float
         self._fdtype = self.map_to_float[dtype]
 
-    def to_int(self) -> np.dtype:
+    def to_int(self) -> jnp.dtype:
         return self.map_from_float[(self._fdtype, "i")]
 
-    def to_float(self) -> np.dtype:
+    def to_float(self) -> jnp.dtype:
         return self.map_from_float[(self._fdtype, "f")]
 
-    def to_complex(self) -> np.dtype:
+    def to_complex(self) -> jnp.dtype:
         return self.map_from_float[(self._fdtype, "c")]
 
 
-def fdtype() -> np.dtype:
+def fdtype() -> jnp.dtype:
     """
     Determine the floating point type used by JAX.
 
@@ -48,7 +47,7 @@ def fdtype() -> np.dtype:
     return jnp.result_type(0.0)
 
 
-def cdtype() -> np.dtype:
+def cdtype() -> jnp.dtype:
     """
     Determine the complex type used by JAX.
 
