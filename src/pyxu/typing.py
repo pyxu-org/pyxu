@@ -2,10 +2,11 @@
 Type annotations used throughout the project.
 """
 
-import jax
 import jaxtyping as jt
+
+from .util.shape import ShapeStruct
 
 Array = jt.Inexact[jt.Array, "..."]
 Arrays = jt.PyTree[Array]
-DimInfo = CoDimInfo = jt.PyTree[jax.ShapeDtypeStruct]
+DimShape = CoDimShape = jt.PyTree[ShapeStruct]
 DType = jt.DTypeLike
