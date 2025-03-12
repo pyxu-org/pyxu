@@ -4,8 +4,8 @@ import jaxtyping as jt
 import optax.tree_utils as otu
 
 from ..abc import ProximableOperator
-from ..typing import Arrays, DimInfo
-from ..util import fdtype
+from ..typing import Arrays, DimShape
+from ..util import ShapeStruct
 
 
 class SquaredL2Norm(ProximableOperator):
@@ -17,9 +17,9 @@ class SquaredL2Norm(ProximableOperator):
        \norm{ \bbx }{2}^{2} = \sum_{i} \abs{ \bbx_{i} }^{2}
     """
 
-    def __init__(self, dim_info: DimInfo = None):
-        self.dim_info = dim_info
-        self.codim_info = jax.ShapeDtypeStruct(shape=(), dtype=fdtype())
+    def __init__(self, dim_shape: DimShape = None):
+        self.dim_shape = dim_shape
+        self.codim_shape = ShapeStruct(shape=())
 
     def apply(self, x: Arrays) -> jt.Scalar:
         z = otu.tree_l2_norm(x, squared=True)
@@ -40,9 +40,9 @@ class L2Norm(ProximableOperator):
        \norm{ \bbx }{2} = \sqrt{ \sum_{i} \abs{ \bbx_{i} }^{2} }
     """
 
-    def __init__(self, dim_info: DimInfo = None):
-        self.dim_info = dim_info
-        self.codim_info = jax.ShapeDtypeStruct(shape=(), dtype=fdtype())
+    def __init__(self, dim_shape: DimShape = None):
+        self.dim_shape = dim_shape
+        self.codim_shape = ShapeStruct(shape=())
 
     def apply(self, x: Arrays) -> jt.Scalar:
         z = otu.tree_l2_norm(x, squared=False)
@@ -63,9 +63,9 @@ class L1Norm(ProximableOperator):
        \norm{ \bbx }{1} = \sum_{i} \abs{ \bbx_{i} }
     """
 
-    def __init__(self, dim_info: DimInfo = None):
-        self.dim_info = dim_info
-        self.codim_info = jax.ShapeDtypeStruct(shape=(), dtype=fdtype())
+    def __init__(self, dim_shape: DimShape = None):
+        self.dim_shape = dim_shape
+        self.codim_shape = ShapeStruct(shape=())
 
     def apply(self, x: Arrays) -> jt.Scalar:
         z = otu.tree_l1_norm(x)
@@ -88,9 +88,9 @@ class LInfinityNorm(ProximableOperator):
        \norm{ \bbx }{\infty} = \max_{i} \abs{ \bbx_{i} }
     """
 
-    def __init__(self, dim_info: DimInfo = None):
-        self.dim_info = dim_info
-        self.codim_info = jax.ShapeDtypeStruct(shape=(), dtype=fdtype())
+    def __init__(self, dim_shape: DimShape = None):
+        self.dim_shape = dim_shape
+        self.codim_shape = ShapeStruct(shape=())
 
     def apply(self, x: Arrays) -> jt.Scalar:
         z = otu.tree_linf_norm(x)
