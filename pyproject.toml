@@ -38,6 +38,7 @@ dependencies = [
     "lineax >= 0.0.7, < 1",
     "numpy >= 1.25, < 3",
     "optax >= 0.2.4, < 1",
+    "opt-einsum >= 3.3.0, < 4",
     "packaging >= 24.2",
 ]
 
