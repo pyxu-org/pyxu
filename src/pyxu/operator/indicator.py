@@ -4,8 +4,8 @@ import jaxtyping as jt
 import optax.projections as opj
 
 from ..abc import ProximableOperator
-from ..typing import Arrays, DimInfo
-from ..util import fdtype
+from ..typing import Arrays, DimShape
+from ..util import ShapeStruct
 from .norm import L1Norm, L2Norm, LInfinityNorm
 
 
@@ -31,9 +31,9 @@ class L2Ball(ProximableOperator):
 
     radius: jt.Scalar
 
-    def __init__(self, dim_info: DimInfo = None, radius: jt.Scalar = 1.0):
-        self.dim_info = dim_info
-        self.codim_info = jax.ShapeDtypeStruct(shape=(), dtype=fdtype())
+    def __init__(self, dim_shape: DimShape = None, radius: jt.Scalar = 1.0):
+        self.dim_shape = dim_shape
+        self.codim_shape = ShapeStruct(shape=())
         self.radius = radius
 
     def apply(self, x: Arrays) -> jt.Scalar:
@@ -68,9 +68,9 @@ class L1Ball(ProximableOperator):
 
     radius: jt.Scalar
 
-    def __init__(self, dim_info: DimInfo = None, radius: jt.Scalar = 1.0):
-        self.dim_info = dim_info
-        self.codim_info = jax.ShapeDtypeStruct(shape=(), dtype=fdtype())
+    def __init__(self, dim_shape: DimShape = None, radius: jt.Scalar = 1.0):
+        self.dim_shape = dim_shape
+        self.codim_shape = ShapeStruct(shape=())
         self.radius = radius
 
     def apply(self, x: Arrays) -> jt.Scalar:
@@ -105,9 +105,9 @@ class LInfinityBall(ProximableOperator):
 
     radius: jt.Scalar
 
-    def __init__(self, dim_info: DimInfo = None, radius: jt.Scalar = 1.0):
-        self.dim_info = dim_info
-        self.codim_info = jax.ShapeDtypeStruct(shape=(), dtype=fdtype())
+    def __init__(self, dim_shape: DimShape = None, radius: jt.Scalar = 1.0):
+        self.dim_shape = dim_shape
+        self.codim_shape = ShapeStruct(shape=())
         self.radius = radius
 
     def apply(self, x: Arrays) -> jt.Scalar:
@@ -140,9 +140,9 @@ class PositiveOrthant(ProximableOperator):
        \max(\bbx, 0)
     """
 
-    def __init__(self, dim_info: DimInfo = None):
-        self.dim_info = dim_info
-        self.codim_info = jax.ShapeDtypeStruct(shape=(), dtype=fdtype())
+    def __init__(self, dim_shape: DimShape = None):
+        self.dim_shape = dim_shape
+        self.codim_shape = ShapeStruct(shape=())
 
     def apply(self, x: Arrays) -> jt.Scalar:
         offset = (x < 0).sum()
