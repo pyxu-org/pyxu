@@ -3,3 +3,6 @@ from .dtype import (
     fdtype as fdtype,
     TranslateDType as TranslateDType,
 )
+from .misc import (
+    UniformSpec as UniformSpec,
+)
