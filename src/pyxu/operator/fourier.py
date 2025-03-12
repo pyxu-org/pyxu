@@ -5,7 +5,7 @@ import jax.numpy as jnp
 from ..abc import LinearOperator, register_linop_vjp
 from ..math import hadamard_outer
 from ..typing import Array, DType
-from ..util import TranslateDType, UniformSpec, cdtype
+from ..util import ShapeStruct, TranslateDType, UniformSpec, cdtype
 
 
 @register_linop_vjp
@@ -38,7 +38,6 @@ class CZT(LinearOperator):
         codim_shape: tuple[int],
         A: tuple[complex],
         W: tuple[complex],
-        dtype: DType = None,
     ):
         r"""
         Parameters
@@ -51,23 +50,15 @@ class CZT(LinearOperator):
             (D,) circular offsets.
         W: tuple[complex]
             (D,) circular spacings between transform points.
-        dtype: dtype
-            FP precision of input/outputs.
-            If not provided, uses JAX's default complex FP type.
         """
-        if dtype is None:
-            c_dtype = cdtype()
-        else:
-            c_dtype = TranslateDType(dtype).to_complex()
-
-        self.dim_info = jax.ShapeDtypeStruct(dim_shape, c_dtype)
-        self.codim_info = jax.ShapeDtypeStruct(codim_shape, c_dtype)
+        self.dim_shape = ShapeStruct(dim_shape)
+        self.codim_shape = ShapeStruct(codim_shape)
 
         D = len(dim_shape)
         assert all([len(_) == D for _ in (dim_shape, codim_shape, A, W)])
 
-        self.A = jnp.asarray(A, dtype=c_dtype)
-        self.W = jnp.asarray(W, dtype=c_dtype)
+        self.A = jnp.asarray(A, dtype=cdtype())
+        self.W = jnp.asarray(W, dtype=cdtype())
 
     def apply(self, x: Array) -> Array:
         r"""
@@ -84,8 +75,8 @@ class CZT(LinearOperator):
         L = jax.tree.map(
             lambda lhs, rhs: lhs + rhs - 1,
             # todo: increase FFT length (L >= I+O-1) to further optimize runtime?
-            self.dim_shape,
-            self.codim_shape,
+            self.dim_shape.shape,
+            self.codim_shape.shape,
         )
         AWk2, FWk2, Wk2, extract = self._mod_params_apply(L, x.dtype)
 
@@ -114,7 +105,6 @@ class CZT(LinearOperator):
             codim_shape=self.dim_shape,
             A=(1,) * self.dim_rank,
             W=self.W.conj(),
-            dtype=y.dtype,
         )
         An = self._mod_params_adjoint(y.dtype)
 
@@ -242,7 +232,6 @@ class Uniform2Uniform(LinearOperator):
         x_spec: UniformSpec,
         v_spec: UniformSpec,
         isign: int = -1,
-        dtype: DType = None,
     ):
         r"""
         Parameters
@@ -265,21 +254,13 @@ class Uniform2Uniform(LinearOperator):
             Scalars are broadcasted to all dimensions.
         isign: +1, -1
             Sign of the exponent.
-        dtype: dtype
-            FP precision of input/outputs.
-            If not provided, uses JAX's default complex FP type.
         """
-        if dtype is None:
-            c_dtype = cdtype()
-        else:
-            c_dtype = TranslateDType(dtype).to_complex()
-
         Dx = len(x_spec.num)
         Dv = len(v_spec.num)
         assert Dx == Dv
 
-        self.dim_info = jax.ShapeDtypeStruct(x_spec.num, c_dtype)
-        self.codim_info = jax.ShapeDtypeStruct(v_spec.num, c_dtype)
+        self.dim_shape = ShapeStruct(x_spec.num)
+        self.codim_shape = ShapeStruct(v_spec.num)
 
         self.x_spec = x_spec
         self.v_spec = v_spec
@@ -350,7 +331,6 @@ class Uniform2Uniform(LinearOperator):
             codim_shape=self.codim_shape,
             A=A,
             W=W,
-            dtype=c_dtype,
         )
 
         # Build modulation vector (B,).
