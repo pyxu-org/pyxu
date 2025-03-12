@@ -1,5 +1,4 @@
 import jax.numpy as jnp
-import numpy as np
 import numpy.typing as npt
 
 
@@ -9,24 +8,24 @@ class TranslateDType:
     """
 
     map_to_float: dict = {
-        np.dtype(np.int32): np.dtype(np.float32),
-        np.dtype(np.int64): np.dtype(np.float64),
-        np.dtype(np.float32): np.dtype(np.float32),
-        np.dtype(np.float64): np.dtype(np.float64),
-        np.dtype(np.complex64): np.dtype(np.float32),
-        np.dtype(np.complex128): np.dtype(np.float64),
+        jnp.dtype(jnp.int32): jnp.dtype(jnp.float32),
+        jnp.dtype(jnp.int64): jnp.dtype(jnp.float64),
+        jnp.dtype(jnp.float32): jnp.dtype(jnp.float32),
+        jnp.dtype(jnp.float64): jnp.dtype(jnp.float64),
+        jnp.dtype(jnp.complex64): jnp.dtype(jnp.float32),
+        jnp.dtype(jnp.complex128): jnp.dtype(jnp.float64),
     }
     map_from_float: dict = {
-        (np.dtype(np.float32), "i"): np.dtype(np.int32),
-        (np.dtype(np.float64), "i"): np.dtype(np.int64),
-        (np.dtype(np.float32), "f"): np.dtype(np.float32),
-        (np.dtype(np.float64), "f"): np.dtype(np.float64),
-        (np.dtype(np.float32), "c"): np.dtype(np.complex64),
-        (np.dtype(np.float64), "c"): np.dtype(np.complex128),
+        (jnp.dtype(jnp.float32), "i"): jnp.dtype(jnp.int32),
+        (jnp.dtype(jnp.float64), "i"): jnp.dtype(jnp.int64),
+        (jnp.dtype(jnp.float32), "f"): jnp.dtype(jnp.float32),
+        (jnp.dtype(jnp.float64), "f"): jnp.dtype(jnp.float64),
+        (jnp.dtype(jnp.float32), "c"): jnp.dtype(jnp.complex64),
+        (jnp.dtype(jnp.float64), "c"): jnp.dtype(jnp.complex128),
     }
 
     def __init__(self, dtype: npt.DTypeLike):
-        dtype = np.dtype(dtype)
+        dtype = jnp.dtype(dtype)
         assert dtype in self.map_to_float
         self._fdtype = self.map_to_float[dtype]
 
