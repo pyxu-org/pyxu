@@ -6,7 +6,8 @@ import jax.numpy as jnp
 import jaxtyping as jt
 import optax.tree_utils as otu
 
-from ..typing import Arrays, CoDimInfo, DimInfo
+from ..typing import Arrays, CoDimShape, DimShape
+from ..util import fdtype
 
 
 class Operator(eqx.Module):
@@ -15,40 +16,32 @@ class Operator(eqx.Module):
     """
 
     # Optional fields users can populate in __init__() to provide cues on (\cI, \cO).
-    dim_info: DimInfo = eqx.field(  # \cI
+    dim_shape: DimShape = eqx.field(  # \cI
         default=None,
         init=False,
         static=True,
     )
-    codim_info: CoDimInfo = eqx.field(  # \cO
+    codim_shape: CoDimShape = eqx.field(  # \cO
         default=None,
         init=False,
         static=True,
     )
-
-    @property
-    def dim_shape(self) -> jt.PyTree[tuple[int]]:
-        return jax.tree.map(lambda _: _.shape, self.dim_info)
 
     @property
     def dim_rank(self) -> jt.PyTree[int]:
-        return jax.tree.map(lambda _: _.ndim, self.dim_info)
+        return jax.tree.map(lambda _: _.ndim, self.dim_shape)
 
     @property
     def dim_size(self) -> int:
-        return otu.tree_sum(jax.tree.map(lambda _: _.size, self.dim_info))
-
-    @property
-    def codim_shape(self) -> jt.PyTree[tuple[int]]:
-        return jax.tree.map(lambda _: _.shape, self.codim_info)
+        return otu.tree_sum(jax.tree.map(lambda _: _.size, self.dim_shape))
 
     @property
     def codim_rank(self) -> jt.PyTree[int]:
-        return jax.tree.map(lambda _: _.ndim, self.codim_info)
+        return jax.tree.map(lambda _: _.ndim, self.codim_shape)
 
     @property
     def codim_size(self) -> int:
-        return otu.tree_sum(jax.tree.map(lambda _: _.size, self.codim_info))
+        return otu.tree_sum(jax.tree.map(lambda _: _.size, self.codim_shape))
 
     def apply(self, x: Arrays) -> Arrays:
         r"""
@@ -178,8 +171,8 @@ class ProximableOperator(Operator):
                 mu: jt.Scalar,
             ):
                 # forward information from `op`.
-                self.dim_info = op.dim_info
-                self.codim_info = op.codim_info
+                self.dim_shape = op.dim_shape
+                self.codim_shape = op.codim_shape
 
                 self.op = op
                 self.mu = mu
@@ -196,7 +189,7 @@ class LinearOperator(Operator):
 
     ``LinearOperator`` allows users to (optionally) provide a custom rule to compute ``adjoint()``, the latter being more efficient than using autodiff rules.
 
-    `dim_info` and `codim_info` fields should typically be specified for linear operators.
+    `dim_shape` and `codim_shape` fields should typically be specified for linear operators.
 
     When a custom implementation of ``adjoint()`` is provided, the class definition should be decorated using :py:func:`~pyxu.abc.register_linop_vjp` to plug into JAX's autodiff system.
     """
@@ -204,8 +197,20 @@ class LinearOperator(Operator):
     def adjoint(self, y: Arrays) -> Arrays:
         r"""
         Evaluate :math:`f^{\adjoint}: \cO \to \cI` at specified point :math:`y`.
+
+        Note
+        ----
+        The autodiff-provided implementation assumes inputs and outputs are floating point arrays.
+
+        Users should override the default implementation when this does not hold.
+        (Most likely only the case for complex-valued operators.)
         """
-        f_adjoint = jax.linear_transpose(self.apply, self.dim_info)
+        dim_info = jax.tree.map(
+            lambda _: jax.ShapeDtypeStruct(shape=_.shape, dtype=fdtype()),
+            self.dim_shape,
+        )
+
+        f_adjoint = jax.linear_transpose(self.apply, dim_info)
         x, *_ = f_adjoint(y)
         return x
 
