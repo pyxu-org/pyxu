@@ -4,12 +4,16 @@
 - LInfinityNorm()
   + Implement prox()
 
-- math.svdvals()
-  + Does not work if the operator is complex-valued?
-
-- CZT
+- CZT()
   + Speed up FFT by having a next_fast_len() function?
   + apply/adjoint() are correct, but grad() [and maybe jvp/vjp?] return the outputs conjugated.
     This does not match our definition of complex differentiation.
     Need to look into JAX's conventions before going any further.
     This problem is replicated when taking grad(SquaredL2Norm), among others.
+
+- U2U()
+  + provide optimized path for FFT case when feasible.
+
+- pinv()
+  + Only works well when operator is real-valued.
+    Same problem as jvp/vjp?
