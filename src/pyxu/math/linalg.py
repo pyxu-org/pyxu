@@ -109,12 +109,17 @@ def pinv(op: LinearOperator, y: Arrays, tau: jt.Scalar = 0, **kwargs) -> Arrays:
     Returns
     -------
     x: Arrays
-        t Pseudo-inverse solution :math:`\hat{\bbx} \in \cI`.
+        Pseudo-inverse solution :math:`\hat{\bbx} \in \cI`.
     diagnostics: lineax.Solution
         CG diagnostic information.
         Can be queried to learn more about the solution.
     """
-    assert op.dim_info is not None
+    assert op.dim_shape is not None
+    dtype = otu.tree_dtype(y, mixed_dtype_handler="promote")
+    dim_info = jax.tree.map(
+        lambda _: jax.ShapeDtypeStruct(shape=_.shape, dtype=dtype),
+        op.dim_shape,
+    )
 
     lx_op = lx.FunctionLinearOperator(
         fn=lambda x: otu.tree_add_scalar_mul(
@@ -122,7 +127,7 @@ def pinv(op: LinearOperator, y: Arrays, tau: jt.Scalar = 0, **kwargs) -> Arrays:
             tau,
             x,
         ),
-        input_structure=op.dim_info,
+        input_structure=dim_info,
         tags=lx.positive_semidefinite_tag,
     )
     solver = lx.CG(**kwargs)
