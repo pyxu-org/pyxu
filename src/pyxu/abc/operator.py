@@ -200,13 +200,12 @@ class LinearOperator(Operator):
 
         Note
         ----
-        The autodiff-provided implementation assumes inputs and outputs are floating point arrays.
-
-        Users should override the default implementation when this does not hold.
-        (Most likely only the case for complex-valued operators.)
+        The autodiff-provided implementation assumes the operator is real-valued.
+        Users should override it for complex-valued operators.
         """
+        dtype = otu.tree_dtype(y, mixed_dtype_handler="promote")
         dim_info = jax.tree.map(
-            lambda _: jax.ShapeDtypeStruct(shape=_.shape, dtype=fdtype()),
+            lambda _: jax.ShapeDtypeStruct(shape=_.shape, dtype=dtype),
             self.dim_shape,
         )
 
