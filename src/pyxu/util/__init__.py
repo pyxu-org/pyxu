@@ -1,6 +1,7 @@
 from .dtype import (
     cdtype as cdtype,
     fdtype as fdtype,
+    idtype as idtype,
     TranslateDType as TranslateDType,
 )
 from .mesh import (

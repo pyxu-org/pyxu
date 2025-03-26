@@ -38,6 +38,15 @@ class TranslateDType:
         return self.map_from_float[(self._fdtype, "c")]
 
 
+def idtype() -> jnp.dtype:
+    """
+    Determine the integer type used by JAX.
+
+    The value depends on the `jax_enable_x64` config.
+    """
+    return jnp.result_type(0)
+
+
 def fdtype() -> jnp.dtype:
     """
     Determine the floating point type used by JAX.
