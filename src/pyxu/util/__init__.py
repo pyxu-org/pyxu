@@ -10,6 +10,7 @@ from .mesh import (
 )
 from .misc import (
     broadcast_seq as broadcast_seq,
+    next_fast_len as next_fast_len,
 )
 from .shape import (
     ShapeStruct as ShapeStruct,
