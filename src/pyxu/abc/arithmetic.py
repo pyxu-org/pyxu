@@ -518,7 +518,7 @@ class ArgShiftRule(Rule):
             no_op = False
         else:  # NUMPY/CUPY
             xp = ndi.module()
-            norm = xp.sum(self._cst) ** 2
+            norm = xp.sum(self._cst ** 2)
             no_op = xp.allclose(norm, 0)
 
         if no_op:
