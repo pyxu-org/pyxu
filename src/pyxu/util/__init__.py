@@ -3,8 +3,11 @@ from .dtype import (
     fdtype as fdtype,
     TranslateDType as TranslateDType,
 )
-from .misc import (
+from .mesh import (
     UniformSpec as UniformSpec,
+)
+from .misc import (
+    broadcast_seq as broadcast_seq,
 )
 from .shape import (
     ShapeStruct as ShapeStruct,
