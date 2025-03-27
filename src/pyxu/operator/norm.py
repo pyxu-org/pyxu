@@ -2,6 +2,7 @@ import jax
 import jax.numpy as jnp
 import jaxtyping as jt
 import optax.tree_utils as otu
+import optimistix
 
 from ..abc import ProximableOperator
 from ..typing import Arrays, DimShape
@@ -97,4 +98,30 @@ class LInfinityNorm(ProximableOperator):
         return z
 
     def prox(self, x: Arrays, tau: jt.Scalar) -> Arrays:
-        raise NotImplementedError  # TODO
+        def fn(s, args) -> jt.Scalar:
+            x, tau = args
+            y = jax.tree.map(lambda _: jnp.fmax(0, jnp.fabs(_) - s), x)
+            y = otu.tree_sum(y) - tau
+            return y
+
+        s_min, s_max = 0, self.apply(x)
+        solution = optimistix.root_find(
+            fn,
+            solver=optimistix.Bisection(
+                rtol=1e-4,
+                atol=1e-6,
+            ),
+            y0=0.5 * (s_min + s_max),
+            args=(x, tau),
+            options=dict(
+                lower=s_min,
+                upper=s_max,
+            ),
+        )
+        s = solution.value
+
+        z = otu.tree_mul(
+            jax.tree.map(jnp.sign, x),
+            jax.tree.map(lambda _: jnp.fmin(jnp.fabs(_), s), x),
+        )
+        return z
