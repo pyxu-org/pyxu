@@ -7,7 +7,7 @@ import jaxtyping as jt
 import optax.tree_utils as otu
 
 from ..typing import Arrays, CoDimShape, DimShape
-from ..util import fdtype
+from ..util import TranslateDType
 
 
 class Operator(eqx.Module):
@@ -123,12 +123,14 @@ class ProximableOperator(Operator):
         Moreau envelope :math:`f^{\mu}: \cI \to \bR`.
         """
 
-        @jax.custom_vjp
-        def apply(
+        def moreau_apply(
             op: ProximableOperator,
             mu: jt.Scalar,
             x: Arrays,
         ) -> jt.Scalar:
+            fdtype = TranslateDType(x.dtype).to_float()
+            mu = jnp.asarray(mu, dtype=fdtype)
+
             prox = op.prox(x=x, tau=mu)
             y = otu.tree_sum(
                 jax.tree.map(
@@ -141,24 +143,26 @@ class ProximableOperator(Operator):
             return z
 
         # Special gradient rule ===============================================
-        def apply_fwd(
+        _apply = jax.custom_vjp(moreau_apply)
+
+        def _apply_fwd(
             op: ProximableOperator,
             mu: jt.Scalar,
             x: Arrays,
         ):
-            return apply(op, mu, x), (op, mu, x)
+            primal_out, f_vjp = jax.vjp(moreau_apply, op, mu, x)
+            return primal_out, ((op, mu, x), f_vjp)
 
-        def apply_bwd(residual, v: jt.Scalar) -> tuple[Arrays]:
-            op, mu, x = residual
+        def _apply_bwd(residual, v: jt.Scalar) -> tuple[Arrays]:
+            (op, mu, x), f_vjp = residual
+            vjp_op, vjp_mu, _ = f_vjp(v)  # _ optimized away with jit()
             vjp_x = otu.tree_scalar_mul(
                 v / mu,
                 otu.tree_sub(x, op.prox(x, tau=mu)),
             )
-            vjp_op = None
-            vjp_mu = None
             return (vjp_op, vjp_mu, vjp_x)
 
-        apply.defvjp(fwd=apply_fwd, bwd=apply_bwd)
+        _apply.defvjp(fwd=_apply_fwd, bwd=_apply_bwd)
         # =====================================================================
 
         class MoreauEnvelope(Operator):
@@ -178,7 +182,7 @@ class ProximableOperator(Operator):
                 self.mu = mu
 
             def apply(self, x: Arrays) -> jt.Scalar:
-                return apply(self.op, self.mu, x)
+                return _apply(self.op, self.mu, x)
 
         return MoreauEnvelope(op=self, mu=mu)
 
