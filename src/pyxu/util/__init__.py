@@ -4,6 +4,7 @@ from .dtype import (
     TranslateDType as TranslateDType,
 )
 from .mesh import (
+    AffineSpec as AffineSpec,
     UniformSpec as UniformSpec,
 )
 from .misc import (

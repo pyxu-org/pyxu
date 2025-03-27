@@ -3,6 +3,7 @@ import jax
 import jax.numpy as jnp
 
 from ..typing import Array
+from .dtype import fdtype
 from .misc import broadcast_seq
 
 
@@ -73,3 +74,59 @@ class UniformSpec(eqx.Module):
 
         mesh = jnp.meshgrid(*mesh_1d, indexing="ij")
         return mesh
+
+
+class AffineSpec(UniformSpec):
+    r"""
+    Multi-dimensional uniform sampling of an affine space.
+
+    Defines points :math:`\bbx_{m} \in \bR^{D}` where each point lies on the regular lattice
+
+    .. math::
+
+       \bbx_{\bbm} = \bbA (\Delta_{\bbx} \odot \bbm) + \bbb,
+       \qquad
+       [\bbm]_{d} \in \{0,\ldots,M_{d}-1\},
+       \bbA \in \bR^{K \times D},
+       \bbb \in \bR^{D}
+
+    """
+
+    A: Array  # (K, D)
+    b: Array  # (K,)
+
+    def __init__(self, A, b, step, num):
+        r"""
+        Parameters
+        ----------
+        A: Array
+            (K, D) linear transform
+        b: Array
+            (K,) offset
+        step: tuple[float]
+            \Delta_{\bbx} \in \bR_{+}^{D}
+        num: tuple[int]
+            (M1,...,MD) lattice size
+
+        Scalars are broadcast to all dimensions.
+        """
+        super().__init__(start=0, step=step, num=num)
+
+        assert A.ndim == 2
+        K, D = A.shape
+        assert D == self.ndim
+
+        assert b.ndim == 1
+        assert K == b.shape[0]
+
+        self.A = jnp.asarray(A, dtype=fdtype())
+        self.b = jnp.asarray(b, dtype=fdtype())
+
+    def meshgrid(self) -> list[Array]:
+        mesh_pre = jnp.stack(super().meshgrid(), axis=-1)  # (M1,...,MD, D)
+        mesh_post = (
+            jnp.tensordot(mesh_pre, self.A, axes=[[-1], [1]]) + self.b
+        )  # (M1,...,MD, K)
+
+        mesh = jnp.moveaxis(mesh_post, -1, 0)  # (K, M1,...,MD)
+        return list(mesh)
