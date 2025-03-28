@@ -1,11 +1,16 @@
 import equinox as eqx
-import jax
 import jax.numpy as jnp
 
 from ..abc import LinearOperator, register_linop_vjp
 from ..math import hadamard_outer
 from ..typing import Array, DType
-from ..util import ShapeStruct, TranslateDType, UniformSpec, cdtype, next_fast_len
+from ..util import (
+    ShapeStruct,
+    TranslateDType,
+    UniformSpec,
+    broadcast_seq,
+    next_fast_len,
+)
 
 
 @register_linop_vjp
@@ -29,8 +34,8 @@ class CZT(LinearOperator):
     A D-dimensional CZT corresponds to taking a 1D CZT along each transform axis.
     """
 
-    A: Array
-    W: Array
+    A: tuple[complex] = eqx.field(static=True)
+    W: tuple[complex] = eqx.field(static=True)
 
     def __init__(
         self,
@@ -53,12 +58,10 @@ class CZT(LinearOperator):
         """
         self.dim_shape = ShapeStruct(dim_shape)
         self.codim_shape = ShapeStruct(codim_shape)
+        assert self.dim_shape.ndim == self.codim_shape.ndim
 
-        D = len(dim_shape)
-        assert all([len(_) == D for _ in (dim_shape, codim_shape, A, W)])
-
-        self.A = jnp.asarray(A, dtype=cdtype())
-        self.W = jnp.asarray(W, dtype=cdtype())
+        self.A = tuple(map(complex, broadcast_seq(A, self.dim_rank)))
+        self.W = tuple(map(complex, broadcast_seq(W, self.dim_rank)))
 
     def apply(self, x: Array) -> Array:
         r"""
@@ -72,11 +75,10 @@ class CZT(LinearOperator):
         y: Array[complex]
             (O1,...,OD) outputs :math:`\bby = (C \, \bbx) \in \bC^{O_{1} \times\cdots\times O_{D}}`.
         """
-        L = jax.tree.map(
-            lambda lhs, rhs: next_fast_len(lhs + rhs - 1),
-            self.dim_shape.shape,
-            self.codim_shape.shape,
-        )
+        L = [
+            next_fast_len(lhs + rhs - 1)
+            for (lhs, rhs) in zip(self.dim_shape, self.codim_shape)
+        ]
         AWk2, FWk2, Wk2, extract = self._mod_params_apply(L, x.dtype)
 
         _x = hadamard_outer(x, *AWk2)
@@ -102,8 +104,8 @@ class CZT(LinearOperator):
         czt = CZT(
             dim_shape=self.codim_shape,
             codim_shape=self.dim_shape,
-            A=(1,) * self.dim_rank,
-            W=self.W.conj(),
+            A=1,
+            W=[w.conjugate() for w in self.W],
         )
         An = self._mod_params_adjoint(y.dtype)
 
