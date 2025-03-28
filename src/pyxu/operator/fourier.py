@@ -14,7 +14,7 @@ class CZT(LinearOperator):
     Multi-dimensional Chirp Z-Transform (CZT) :math:`C: \bC^{I_{1} \times\cdots\times I_{D}} \to
     \bC^{O_{1} \times\cdots\times O_{D}}`.
 
-    The 1D CZT of parameters :math:`(A, W, O)` is defined as:
+    The 1D CZT of parameters :math:`(I, A, W, O)` is defined as:
 
     .. math::
 
@@ -98,7 +98,7 @@ class CZT(LinearOperator):
         x: Array[complex]
             (..., I1,...,ID) inputs :math:`\bbx \in \bC^{I_{1} \times\cdots\times I_{D}}`.
         """
-        # CZT^{*}(y,O,A,W)[n] = CZT(y,I,A=1,W=W*)[n] * A^{n}
+        # (CZT_{I,A,W,O})^{*}(y)[n] = CZT_{O,1,W*,I}(y)[n] * A^{n}
         czt = CZT(
             dim_shape=self.codim_shape,
             codim_shape=self.dim_shape,
