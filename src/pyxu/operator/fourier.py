@@ -5,7 +5,7 @@ import jax.numpy as jnp
 from ..abc import LinearOperator, register_linop_vjp
 from ..math import hadamard_outer
 from ..typing import Array, DType
-from ..util import ShapeStruct, TranslateDType, UniformSpec, cdtype
+from ..util import ShapeStruct, TranslateDType, UniformSpec, cdtype, next_fast_len
 
 
 @register_linop_vjp
@@ -73,8 +73,7 @@ class CZT(LinearOperator):
             (O1,...,OD) outputs :math:`\bby = (C \, \bbx) \in \bC^{O_{1} \times\cdots\times O_{D}}`.
         """
         L = jax.tree.map(
-            lambda lhs, rhs: lhs + rhs - 1,
-            # todo: increase FFT length (L >= I+O-1) to further optimize runtime?
+            lambda lhs, rhs: next_fast_len(lhs + rhs - 1),
             self.dim_shape.shape,
             self.codim_shape.shape,
         )
