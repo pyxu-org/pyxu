@@ -1,5 +1,6 @@
 import equinox as eqx
 import jax.numpy as jnp
+import numpy as np
 
 from ..abc import LinearOperator, register_linop_vjp
 from ..math import hadamard_outer
@@ -297,13 +298,13 @@ class Uniform2Uniform(LinearOperator):
         """
         c_dtype = TranslateDType(dtype).to_complex()
 
-        x0, dx = map(jnp.array, [self.x_spec.start, self.x_spec.step])
-        v0, dv = map(jnp.array, [self.v_spec.start, self.v_spec.step])
+        x0, dx = map(np.array, [self.x_spec.start, self.x_spec.step])
+        v0, dv = map(np.array, [self.v_spec.start, self.v_spec.step])
         D = self.dim_rank
 
         # Build CZT operator
-        A = jnp.exp(-1j * self.isign * 2 * jnp.pi * dx * v0)
-        W = jnp.exp(+1j * self.isign * 2 * jnp.pi * dx * dv)
+        A = np.exp(-1j * self.isign * 2 * np.pi * dx * v0)
+        W = np.exp(+1j * self.isign * 2 * np.pi * dx * dv)
         czt = CZT(
             dim_shape=self.dim_shape,
             codim_shape=self.codim_shape,
@@ -314,7 +315,7 @@ class Uniform2Uniform(LinearOperator):
         # Build modulation vector (B,).
         B = [None] * D
         for d in range(D):
-            phase_scale = self.isign * 2 * jnp.pi * x0[d]
+            phase_scale = self.isign * 2 * np.pi * x0[d]
             v = v0[d] + dv[d] * jnp.arange(self.v_spec.num[d])
             _B = jnp.exp(1j * phase_scale * v)
 
