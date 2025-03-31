@@ -212,16 +212,7 @@ class Uniform2Uniform(LinearOperator):
 
        f^{F}(\bbv_{o}) = \bbz_{o} = \sum_{i} w_{i} \ee^{ -\cj 2\pi \innerProduct{\bbx_{i}}{\bbv_{o}} },
 
-    where :math:`(\bbx_{i}, \bbv_{o})` lie on the regular lattice
-
-    .. math::
-
-       \begin{align}
-           \bbx_{\bbi} &= \bbx_{0} + \Delta_{\bbx} \odot \bbi, & [\bbi]_{d} \in \{0,\ldots,I_{d}-1\}, \\
-           \bbv_{\bbo} &= \bbv_{0} + \Delta_{\bbv} \odot \bbo, & [\bbo]_{d} \in \{0,\ldots,O_{d}-1\},
-       \end{align}
-
-    with :math:`I = \prod_{d} I_{d}` and :math:`O = \prod_{d} O_{d}`.
+    where :math:`(\bbx_{i}, \bbv_{o})` lie on uniform lattices.
     """
 
     x_spec: UniformSpec = eqx.field(static=True)
@@ -232,33 +223,19 @@ class Uniform2Uniform(LinearOperator):
         self,
         x_spec: UniformSpec,
         v_spec: UniformSpec,
-        isign: int = -1,
+        isign: int,
     ):
         r"""
         Parameters
         ----------
         x_spec: UniformSpec
-            :math:`\bbx_{i}` lattice specifier, with keys:
-
-            * `start`: (D,) values :math:`\bbx_{0} \in \bR^{D}`.
-            * `step` : (D,) values :math:`\Delta_{\bbx} \in \bR^{D}`.
-            * `num`  : (D,) values :math:`\{ I_{1},\ldots,I_{D} \} \in \bN^{D}`.
-
-            Scalars are broadcasted to all dimensions.
+            :math:`\bbx_{i}` lattice specifier.
         v_spec: UniformSpec
-            :math:`\bbv_{o}` lattice specifier, with keys:
-
-            * `start`: (D,) values :math:`\bbv_{0} \in \bR^{D}`.
-            * `step` : (D,) values :math:`\Delta_{\bbv} \in \bR^{D}`.
-            * `num`  : (D,) values :math:`\{ O_{1},\ldots,O_{D} \} \in \bN^{D}`.
-
-            Scalars are broadcasted to all dimensions.
+            :math:`\bbv_{o}` lattice specifier.
         isign: +1, -1
             Sign of the exponent.
         """
-        Dx = len(x_spec.num)
-        Dv = len(v_spec.num)
-        assert Dx == Dv
+        assert x_spec.ndim == v_spec.ndim
 
         self.dim_shape = ShapeStruct(x_spec.num)
         self.codim_shape = ShapeStruct(v_spec.num)
@@ -272,12 +249,12 @@ class Uniform2Uniform(LinearOperator):
         Parameters
         ----------
         w: Array[float/complex]
-            (..., I1,...,ID) weights :math:`w_{i} \in \bC^{D}`.
+            (I1,...,ID) weights :math:`w_{i} \in \bC^{D}`.
 
         Returns
         -------
-        z: ndarray[complex]
-            (..., O1,...,OD) weights :math:`z_{o} \in \bC^{D}`.
+        z: Array[complex]
+            (O1,...,OD) weights :math:`z_{o} \in \bC^{D}`.
         """
         czt, B = self._params(w.dtype)
 
@@ -290,12 +267,12 @@ class Uniform2Uniform(LinearOperator):
         Parameters
         ----------
         z: Array[float/complex]
-            (..., O1,...,OD) weights :math:`z_{o} \in \bC^{D}`.
+            (O1,...,OD) weights :math:`z_{o} \in \bC^{D}`.
 
         Returns
         -------
         w: Array[complex]
-            (..., I1,...,ID) weights :math:`w_{i} \in \bC^{D}`.
+            (I1,...,ID) weights :math:`w_{i} \in \bC^{D}`.
         """
         czt, B = self._params(z.dtype)
         B = [_B.conj() for _B in B]
@@ -314,7 +291,7 @@ class Uniform2Uniform(LinearOperator):
         Returns
         -------
         czt: CZT
-            CZT(A,W,I,O) instance.
+            CZT(I,A,W,O) instance.
         B: list[Array]
             (O1,),...,(OD,) post-CZT modulation vectors.
         """
