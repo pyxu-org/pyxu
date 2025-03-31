@@ -2,20 +2,14 @@ import equinox as eqx
 import jax.numpy as jnp
 import numpy as np
 
-from ..abc import LinearOperator, register_linop_vjp
-from ..math import hadamard_outer
-from ..typing import Array, DType
-from ..util import (
-    ShapeStruct,
-    TranslateDType,
-    UniformSpec,
-    broadcast_seq,
-    next_fast_len,
-)
+import pyxu.abc as pxa
+import pyxu.math as pxm
+import pyxu.typing as pxt
+import pyxu.util as pxu
 
 
-@register_linop_vjp
-class CZT(LinearOperator):
+@pxa.register_linop_vjp
+class CZT(pxa.LinearOperator):
     r"""
     Multi-dimensional Chirp Z-Transform (CZT) :math:`C: \bC^{I_{1} \times\cdots\times I_{D}} \to
     \bC^{O_{1} \times\cdots\times O_{D}}`.
@@ -57,14 +51,14 @@ class CZT(LinearOperator):
         W: tuple[complex]
             (D,) circular spacings between transform points.
         """
-        self.dim_shape = ShapeStruct(dim_shape)
-        self.codim_shape = ShapeStruct(codim_shape)
+        self.dim_shape = pxu.ShapeStruct(dim_shape)
+        self.codim_shape = pxu.ShapeStruct(codim_shape)
         assert self.dim_shape.ndim == self.codim_shape.ndim
 
-        self.A = tuple(map(complex, broadcast_seq(A, self.dim_rank)))
-        self.W = tuple(map(complex, broadcast_seq(W, self.dim_rank)))
+        self.A = tuple(map(complex, pxu.broadcast_seq(A, self.dim_rank)))
+        self.W = tuple(map(complex, pxu.broadcast_seq(W, self.dim_rank)))
 
-    def apply(self, x: Array) -> Array:
+    def apply(self, x: pxt.Array) -> pxt.Array:
         r"""
         Parameters
         ----------
@@ -77,19 +71,19 @@ class CZT(LinearOperator):
             (O1,...,OD) outputs :math:`\bby = (C \, \bbx) \in \bC^{O_{1} \times\cdots\times O_{D}}`.
         """
         L = [
-            next_fast_len(lhs + rhs - 1)
+            pxu.next_fast_len(lhs + rhs - 1)
             for (lhs, rhs) in zip(self.dim_shape, self.codim_shape)
         ]
         AWk2, FWk2, Wk2, extract = self._mod_params_apply(L, x.dtype)
 
-        _x = hadamard_outer(x, *AWk2)
+        _x = pxm.hadamard_outer(x, *AWk2)
         _x = jnp.fft.fftn(_x, s=L)
-        _x = hadamard_outer(_x, *FWk2)
+        _x = pxm.hadamard_outer(_x, *FWk2)
         _x = jnp.fft.ifftn(_x)
-        y = hadamard_outer(_x[*extract], *Wk2)
+        y = pxm.hadamard_outer(_x[*extract], *Wk2)
         return y
 
-    def adjoint(self, y: Array) -> Array:
+    def adjoint(self, y: pxt.Array) -> pxt.Array:
         r"""
         Parameters
         ----------
@@ -111,11 +105,11 @@ class CZT(LinearOperator):
         An = self._mod_params_adjoint(y.dtype)
 
         _x = czt.apply(y)
-        x = hadamard_outer(_x, *An)
+        x = pxm.hadamard_outer(_x, *An)
         return x
 
     # Helper routines (internal) ----------------------------------------------
-    def _mod_params_apply(self, _L: tuple[int], dtype: DType):
+    def _mod_params_apply(self, _L: tuple[int], dtype: pxt.DType):
         """
         Parameters
         ----------
@@ -134,7 +128,7 @@ class CZT(LinearOperator):
         extract: list[slice]
             (slice1,...,sliceD) FFT interval to extract.
         """
-        c_dtype = TranslateDType(dtype).to_complex()
+        c_dtype = pxu.TranslateDType(dtype).to_complex()
 
         # Build modulation vectors (Wk2, AWk2, FWk2).
         D = self.dim_rank
@@ -171,7 +165,7 @@ class CZT(LinearOperator):
 
         return AWk2, FWk2, Wk2, extract
 
-    def _mod_params_adjoint(self, dtype: DType):
+    def _mod_params_adjoint(self, dtype: pxt.DType):
         """
         Parameters
         ----------
@@ -182,7 +176,7 @@ class CZT(LinearOperator):
         An: list[Array]
             (I1,),...,(ID,) vectors.
         """
-        c_dtype = TranslateDType(dtype).to_complex()
+        c_dtype = pxu.TranslateDType(dtype).to_complex()
 
         D = self.dim_rank
         An = [None] * D
@@ -196,8 +190,8 @@ class CZT(LinearOperator):
         return An
 
 
-@register_linop_vjp
-class Uniform2Uniform(LinearOperator):
+@pxa.register_linop_vjp
+class Uniform2Uniform(pxa.LinearOperator):
     r"""
     Multi-dimensional Uniform-to-Uniform Fourier Transform.
 
@@ -216,14 +210,14 @@ class Uniform2Uniform(LinearOperator):
     where :math:`(\bbx_{i}, \bbv_{o})` lie on uniform lattices.
     """
 
-    x_spec: UniformSpec = eqx.field(static=True)
-    v_spec: UniformSpec = eqx.field(static=True)
+    x_spec: pxu.UniformSpec = eqx.field(static=True)
+    v_spec: pxu.UniformSpec = eqx.field(static=True)
     isign: int = eqx.field(static=True)
 
     def __init__(
         self,
-        x_spec: UniformSpec,
-        v_spec: UniformSpec,
+        x_spec: pxu.UniformSpec,
+        v_spec: pxu.UniformSpec,
         isign: int,
     ):
         r"""
@@ -238,14 +232,14 @@ class Uniform2Uniform(LinearOperator):
         """
         assert x_spec.ndim == v_spec.ndim
 
-        self.dim_shape = ShapeStruct(x_spec.num)
-        self.codim_shape = ShapeStruct(v_spec.num)
+        self.dim_shape = pxu.ShapeStruct(x_spec.num)
+        self.codim_shape = pxu.ShapeStruct(v_spec.num)
 
         self.x_spec = x_spec
         self.v_spec = v_spec
         self.isign = int(isign / abs(isign))
 
-    def apply(self, w: Array) -> Array:
+    def apply(self, w: pxt.Array) -> pxt.Array:
         r"""
         Parameters
         ----------
@@ -260,10 +254,10 @@ class Uniform2Uniform(LinearOperator):
         czt, B = self._params(w.dtype)
 
         _w = czt.apply(w)
-        z = hadamard_outer(_w, *B)
+        z = pxm.hadamard_outer(_w, *B)
         return z
 
-    def adjoint(self, z: Array) -> Array:
+    def adjoint(self, z: pxt.Array) -> pxt.Array:
         r"""
         Parameters
         ----------
@@ -278,12 +272,12 @@ class Uniform2Uniform(LinearOperator):
         czt, B = self._params(z.dtype)
         B = [_B.conj() for _B in B]
 
-        _z = hadamard_outer(z, *B)
+        _z = pxm.hadamard_outer(z, *B)
         w = czt.adjoint(_z)
         return w
 
     # Helper routines (internal) ----------------------------------------------
-    def _params(self, dtype: DType):
+    def _params(self, dtype: pxt.DType):
         """
         Parameters
         ----------
@@ -296,7 +290,7 @@ class Uniform2Uniform(LinearOperator):
         B: list[Array]
             (O1,),...,(OD,) post-CZT modulation vectors.
         """
-        c_dtype = TranslateDType(dtype).to_complex()
+        c_dtype = pxu.TranslateDType(dtype).to_complex()
 
         x0, dx = map(np.array, [self.x_spec.start, self.x_spec.step])
         v0, dv = map(np.array, [self.v_spec.start, self.v_spec.step])

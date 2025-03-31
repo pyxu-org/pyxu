@@ -6,8 +6,8 @@ import jax.numpy as jnp
 import jaxtyping as jt
 import optax.tree_utils as otu
 
-from ..typing import Arrays, CoDimShape, DimShape
-from ..util import TranslateDType
+import pyxu.typing as pxt
+import pyxu.util as pxu
 
 
 class Operator(eqx.Module):
@@ -16,12 +16,12 @@ class Operator(eqx.Module):
     """
 
     # Optional fields users can populate in __init__() to provide cues on (\cI, \cO).
-    dim_shape: DimShape = eqx.field(  # \cI
+    dim_shape: pxt.DimShape = eqx.field(  # \cI
         default=None,
         init=False,
         static=True,
     )
-    codim_shape: CoDimShape = eqx.field(  # \cO
+    codim_shape: pxt.CoDimShape = eqx.field(  # \cO
         default=None,
         init=False,
         static=True,
@@ -43,13 +43,13 @@ class Operator(eqx.Module):
     def codim_size(self) -> int:
         return otu.tree_sum(jax.tree.map(lambda _: _.size, self.codim_shape))
 
-    def apply(self, x: Arrays) -> Arrays:
+    def apply(self, x: pxt.Arrays) -> pxt.Arrays:
         r"""
         Evaluate :math:`f: \cI \to \cO` at specified point :math:`x`.
         """
         raise NotImplementedError
 
-    def __call__(self, x: Arrays) -> Arrays:
+    def __call__(self, x: pxt.Arrays) -> pxt.Arrays:
         r"""
         Evaluate :math:`f: \cI \to \cO` at specified point :math:`x`.
 
@@ -101,13 +101,13 @@ class ProximableOperator(Operator):
                            x \to \frac{1}{\mu} ( x - \prox_{\mu f}(x) ).
     """
 
-    def prox(self, x: Arrays, tau: jt.Scalar) -> Arrays:
+    def prox(self, x: pxt.Arrays, tau: jt.Scalar) -> pxt.Arrays:
         r"""
         Evaluate :math:`\prox_{\tau f}: \cI \to \cI` at specified point :math:`x`.
         """
         raise NotImplementedError
 
-    def fenchel_prox(self, x: Arrays, sigma: jt.Scalar) -> Arrays:
+    def fenchel_prox(self, x: pxt.Arrays, sigma: jt.Scalar) -> pxt.Arrays:
         r"""
         Evaluate :math:`\prox_{\sigma f^{\ast}}: \cI \to \cI` at specified point :math:`x`.
         """
@@ -126,9 +126,9 @@ class ProximableOperator(Operator):
         def moreau_apply(
             op: ProximableOperator,
             mu: jt.Scalar,
-            x: Arrays,
+            x: pxt.Arrays,
         ) -> jt.Scalar:
-            fdtype = TranslateDType(x.dtype).to_float()
+            fdtype = pxu.TranslateDType(x.dtype).to_float()
             mu = jnp.asarray(mu, dtype=fdtype)
 
             prox = op.prox(x=x, tau=mu)
@@ -148,12 +148,12 @@ class ProximableOperator(Operator):
         def _apply_fwd(
             op: ProximableOperator,
             mu: jt.Scalar,
-            x: Arrays,
+            x: pxt.Arrays,
         ):
             primal_out, f_vjp = jax.vjp(moreau_apply, op, mu, x)
             return primal_out, ((op, mu, x), f_vjp)
 
-        def _apply_bwd(residual, v: jt.Scalar) -> tuple[Arrays]:
+        def _apply_bwd(residual, v: jt.Scalar) -> tuple[pxt.Arrays]:
             (op, mu, x), f_vjp = residual
             vjp_op, vjp_mu, _ = f_vjp(v)  # _ optimized away with jit()
             vjp_x = otu.tree_scalar_mul(
@@ -181,7 +181,7 @@ class ProximableOperator(Operator):
                 self.op = op
                 self.mu = mu
 
-            def apply(self, x: Arrays) -> jt.Scalar:
+            def apply(self, x: pxt.Arrays) -> jt.Scalar:
                 return _apply(self.op, self.mu, x)
 
         return MoreauEnvelope(op=self, mu=mu)
@@ -198,7 +198,7 @@ class LinearOperator(Operator):
     When a custom implementation of ``adjoint()`` is provided, the class definition should be decorated using :py:func:`~pyxu.abc.register_linop_vjp` to plug into JAX's autodiff system.
     """
 
-    def adjoint(self, y: Arrays) -> Arrays:
+    def adjoint(self, y: pxt.Arrays) -> pxt.Arrays:
         r"""
         Evaluate :math:`f^{\adjoint}: \cO \to \cI` at specified point :math:`y`.
 

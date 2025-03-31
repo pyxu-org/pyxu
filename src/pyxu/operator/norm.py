@@ -4,12 +4,12 @@ import jaxtyping as jt
 import optax.tree_utils as otu
 import optimistix
 
-from ..abc import ProximableOperator
-from ..typing import Arrays, DimShape
-from ..util import ShapeStruct
+import pyxu.abc as pxa
+import pyxu.typing as pxt
+import pyxu.util as pxu
 
 
-class SquaredL2Norm(ProximableOperator):
+class SquaredL2Norm(pxa.ProximableOperator):
     r"""
     :math:`\ell^{2}_{2}`-norm.
 
@@ -18,21 +18,21 @@ class SquaredL2Norm(ProximableOperator):
        \norm{ \bbx }{2}^{2} = \sum_{i} \abs{ \bbx_{i} }^{2}
     """
 
-    def __init__(self, dim_shape: DimShape = None):
+    def __init__(self, dim_shape: pxt.DimShape = None):
         self.dim_shape = dim_shape
-        self.codim_shape = ShapeStruct(shape=())
+        self.codim_shape = pxu.ShapeStruct(shape=())
 
-    def apply(self, x: Arrays) -> jt.Scalar:
+    def apply(self, x: pxt.Arrays) -> jt.Scalar:
         z = otu.tree_l2_norm(x, squared=True)
         return z
 
-    def prox(self, x: Arrays, tau: jt.Scalar) -> Arrays:
+    def prox(self, x: pxt.Arrays, tau: jt.Scalar) -> pxt.Arrays:
         scale = 1 / (2 * tau + 1)
         z = otu.tree_scalar_mul(scale, x)
         return z
 
 
-class L2Norm(ProximableOperator):
+class L2Norm(pxa.ProximableOperator):
     r"""
     :math:`\ell_{2}`-norm.
 
@@ -41,21 +41,21 @@ class L2Norm(ProximableOperator):
        \norm{ \bbx }{2} = \sqrt{ \sum_{i} \abs{ \bbx_{i} }^{2} }
     """
 
-    def __init__(self, dim_shape: DimShape = None):
+    def __init__(self, dim_shape: pxt.DimShape = None):
         self.dim_shape = dim_shape
-        self.codim_shape = ShapeStruct(shape=())
+        self.codim_shape = pxu.ShapeStruct(shape=())
 
-    def apply(self, x: Arrays) -> jt.Scalar:
+    def apply(self, x: pxt.Arrays) -> jt.Scalar:
         z = otu.tree_l2_norm(x, squared=False)
         return z
 
-    def prox(self, x: Arrays, tau: jt.Scalar) -> Arrays:
+    def prox(self, x: pxt.Arrays, tau: jt.Scalar) -> pxt.Arrays:
         scale = 1 - tau / jnp.fmax(self.apply(x), tau)
         z = otu.tree_scalar_mul(scale, x)
         return z
 
 
-class L1Norm(ProximableOperator):
+class L1Norm(pxa.ProximableOperator):
     r"""
     :math:`\ell_{1}`-norm.
 
@@ -64,15 +64,15 @@ class L1Norm(ProximableOperator):
        \norm{ \bbx }{1} = \sum_{i} \abs{ \bbx_{i} }
     """
 
-    def __init__(self, dim_shape: DimShape = None):
+    def __init__(self, dim_shape: pxt.DimShape = None):
         self.dim_shape = dim_shape
-        self.codim_shape = ShapeStruct(shape=())
+        self.codim_shape = pxu.ShapeStruct(shape=())
 
-    def apply(self, x: Arrays) -> jt.Scalar:
+    def apply(self, x: pxt.Arrays) -> jt.Scalar:
         z = otu.tree_l1_norm(x)
         return z
 
-    def prox(self, x: Arrays, tau: jt.Scalar) -> Arrays:
+    def prox(self, x: pxt.Arrays, tau: jt.Scalar) -> pxt.Arrays:
         z = otu.tree_mul(
             jax.tree.map(jnp.sign, x),
             jax.tree.map(lambda _: jnp.clip(jnp.abs(_) - tau, min=0), x),
@@ -80,7 +80,7 @@ class L1Norm(ProximableOperator):
         return z
 
 
-class LInfinityNorm(ProximableOperator):
+class LInfinityNorm(pxa.ProximableOperator):
     r"""
     :math:`\ell_{\infty}`-norm.
 
@@ -89,15 +89,15 @@ class LInfinityNorm(ProximableOperator):
        \norm{ \bbx }{\infty} = \max_{i} \abs{ \bbx_{i} }
     """
 
-    def __init__(self, dim_shape: DimShape = None):
+    def __init__(self, dim_shape: pxt.DimShape = None):
         self.dim_shape = dim_shape
-        self.codim_shape = ShapeStruct(shape=())
+        self.codim_shape = pxu.ShapeStruct(shape=())
 
-    def apply(self, x: Arrays) -> jt.Scalar:
+    def apply(self, x: pxt.Arrays) -> jt.Scalar:
         z = otu.tree_linf_norm(x)
         return z
 
-    def prox(self, x: Arrays, tau: jt.Scalar) -> Arrays:
+    def prox(self, x: pxt.Arrays, tau: jt.Scalar) -> pxt.Arrays:
         def fn(s, args) -> jt.Scalar:
             x, tau = args
             y = jax.tree.map(lambda _: jnp.fmax(0, jnp.fabs(_) - s), x)

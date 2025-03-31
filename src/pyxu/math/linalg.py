@@ -1,9 +1,9 @@
 import opt_einsum as oe
 
-from ..typing import Array
+import pyxu.typing as pxt
 
 
-def hadamard_outer(x: Array, *args: list[Array]) -> Array:
+def hadamard_outer(x: pxt.Array, *args: list[pxt.Array]) -> pxt.Array:
     r"""
     Compute Hadamard product of `x` with outer product of `args`:
 

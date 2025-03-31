@@ -3,16 +3,16 @@ import jaxtyping as jt
 import lineax as lx
 import optax.tree_utils as otu
 
-from ..abc import LinearOperator
-from ..typing import Arrays
+import pyxu.abc as pxa
+import pyxu.typing as pxt
 
 
 def pinv(
-    op: LinearOperator,
-    y: Arrays,
+    op: pxa.LinearOperator,
+    y: pxt.Arrays,
     tau: jt.Scalar = 0,
     **kwargs,
-) -> Arrays:
+) -> pxt.Arrays:
     r"""
     Find the least-squares solution to the system :math:`\bbA \bbx = \bby`, where :math:`\bbA: \cI \to \cO` is a linear operator.
 

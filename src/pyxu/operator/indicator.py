@@ -3,13 +3,14 @@ import jax.numpy as jnp
 import jaxtyping as jt
 import optax.projections as opj
 
-from ..abc import ProximableOperator
-from ..typing import Arrays, DimShape
-from ..util import ShapeStruct
+import pyxu.abc as pxa
+import pyxu.typing as pxt
+import pyxu.util as pxu
+
 from .norm import L1Norm, L2Norm, LInfinityNorm
 
 
-class L2Ball(ProximableOperator):
+class L2Ball(pxa.ProximableOperator):
     r"""
     Indicator function of the :math:`\ell_{2}`-ball.
 
@@ -31,22 +32,22 @@ class L2Ball(ProximableOperator):
 
     radius: jt.Scalar
 
-    def __init__(self, dim_shape: DimShape = None, radius: jt.Scalar = 1.0):
+    def __init__(self, dim_shape: pxt.DimShape = None, radius: jt.Scalar = 1.0):
         self.dim_shape = dim_shape
-        self.codim_shape = ShapeStruct(shape=())
+        self.codim_shape = pxu.ShapeStruct(shape=())
         self.radius = radius
 
-    def apply(self, x: Arrays) -> jt.Scalar:
+    def apply(self, x: pxt.Arrays) -> jt.Scalar:
         norm = L2Norm().apply(x)
         z = jnp.where(norm <= self.radius, 0.0, jnp.inf)
         return z
 
-    def prox(self, x: Arrays, tau: jt.Scalar) -> Arrays:
+    def prox(self, x: pxt.Arrays, tau: jt.Scalar) -> pxt.Arrays:
         z = opj.projection_l2_ball(x, self.radius)
         return z
 
 
-class L1Ball(ProximableOperator):
+class L1Ball(pxa.ProximableOperator):
     r"""
     Indicator function of the :math:`\ell_{1}`-ball.
 
@@ -68,22 +69,22 @@ class L1Ball(ProximableOperator):
 
     radius: jt.Scalar
 
-    def __init__(self, dim_shape: DimShape = None, radius: jt.Scalar = 1.0):
+    def __init__(self, dim_shape: pxt.DimShape = None, radius: jt.Scalar = 1.0):
         self.dim_shape = dim_shape
-        self.codim_shape = ShapeStruct(shape=())
+        self.codim_shape = pxu.ShapeStruct(shape=())
         self.radius = radius
 
-    def apply(self, x: Arrays) -> jt.Scalar:
+    def apply(self, x: pxt.Arrays) -> jt.Scalar:
         norm = L1Norm().apply(x)
         z = jnp.where(norm <= self.radius, 0.0, jnp.inf)
         return z
 
-    def prox(self, x: Arrays, tau: jt.Scalar) -> Arrays:
+    def prox(self, x: pxt.Arrays, tau: jt.Scalar) -> pxt.Arrays:
         z = opj.projection_l1_ball(x, self.radius)
         return z
 
 
-class LInfinityBall(ProximableOperator):
+class LInfinityBall(pxa.ProximableOperator):
     r"""
     Indicator function of the :math:`\ell_{\infty}`-ball.
 
@@ -105,22 +106,22 @@ class LInfinityBall(ProximableOperator):
 
     radius: jt.Scalar
 
-    def __init__(self, dim_shape: DimShape = None, radius: jt.Scalar = 1.0):
+    def __init__(self, dim_shape: pxt.DimShape = None, radius: jt.Scalar = 1.0):
         self.dim_shape = dim_shape
-        self.codim_shape = ShapeStruct(shape=())
+        self.codim_shape = pxu.ShapeStruct(shape=())
         self.radius = radius
 
-    def apply(self, x: Arrays) -> jt.Scalar:
+    def apply(self, x: pxt.Arrays) -> jt.Scalar:
         norm = LInfinityNorm().apply(x)
         z = jnp.where(norm <= self.radius, 0.0, jnp.inf)
         return z
 
-    def prox(self, x: Arrays, tau: jt.Scalar) -> Arrays:
+    def prox(self, x: pxt.Arrays, tau: jt.Scalar) -> pxt.Arrays:
         z = opj.projection_linf_ball(x, self.radius)
         return z
 
 
-class PositiveOrthant(ProximableOperator):
+class PositiveOrthant(pxa.ProximableOperator):
     r"""
     Indicator function of the positive orthant.
 
@@ -140,15 +141,15 @@ class PositiveOrthant(ProximableOperator):
        \max(\bbx, 0)
     """
 
-    def __init__(self, dim_shape: DimShape = None):
+    def __init__(self, dim_shape: pxt.DimShape = None):
         self.dim_shape = dim_shape
-        self.codim_shape = ShapeStruct(shape=())
+        self.codim_shape = pxu.ShapeStruct(shape=())
 
-    def apply(self, x: Arrays) -> jt.Scalar:
+    def apply(self, x: pxt.Arrays) -> jt.Scalar:
         offset = (x < 0).sum()
         z = jnp.where(offset > 0, jnp.inf, 0.0)
         return z
 
-    def prox(self, x: Arrays, tau: jt.Scalar) -> Arrays:
+    def prox(self, x: pxt.Arrays, tau: jt.Scalar) -> pxt.Arrays:
         z = jax.tree.map(lambda _: jnp.clip(_, min=0), x)
         return z
