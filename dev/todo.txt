@@ -1,59 +1,57 @@
-- CZT()
-  + Speed up FFT by having a next_fast_len() function?
-  + apply/adjoint() are correct, but grad() [and maybe jvp/vjp?] return the outputs conjugated.
-    This does not match our definition of complex differentiation.
-    Need to look into JAX's conventions before going any further.
-    This problem is replicated when taking grad(SquaredL2Norm), among others.
+- Test Suite API
+
+- Operators to port over from pyxu_v2
+  + RayXRT
+
+  + FiniteDifference()
+    Based on PartialDerivative().finite_difference()
+
+  + kron(), khatri_rao() [array inputs]
+
+  + NU2U, U2NU, NUFFT1, NUFFT2, NU2NU
 
 - U2U()
   + provide optimized path for FFT case when feasible.
 
-- Operators to port over from pyxu_v2
-  + kron(), khatri_rao() [array inputs, not trees]
-  + Pad(), Trim()
-  + Stencil()
-    Not strictly necessary, but helpful to implement ops below.
-  + Convolve(), FFTConvolve(), Correlate(), FFTCorrelate()
-    These differ from jax.signal.[fft][convolve,correlate]() by support for (border modes, center)
-  + FiniteDifference()
-    Based on PartialDerivative().finite_difference()
-  + RayXRT
-  + NU2U, U2NU, NUFFT1, NUFFT2, NU2NU
+- register_linop_vjp()
+  + vjp() computes (A.T y), not (A.H y).
+    Must modify register_linop_vjp() to always return what vjp() expects.
+    Also, don't all LinearOperators need this decorator, even if they use the default adjoint() implementation?
+
+  + The following code causes an error.
+
+    .. code-block:: python
+       import pyxu.abc as pxa, pyxu.util as pxu
+       import jax, jax.numpy as jnp, equinox as eqx
+
+       @pxa.register_linop_vjp
+       class MatMul(pxa.LinearOperator):
+           W: jax.Array = eqx.field(converter=jnp.asarray)
+           def __init__(self, W):
+               self.W = W
+               self.dim_shape = pxu.ShapeStruct((W.shape[1],))
+               self.codim_shape = pxu.ShapeStruct((W.shape[0],))
+           def apply(self, x): return self.W @ x
+           def adjoint(self, y): return self.W.T @ y
+       class Comp(pxa.LinearOperator):
+           W: MatMul
+           def __init__(self, W):
+               self.dim_shape = W.dim_shape
+               self.codim_shape = W.codim_shape
+               self.W = W
+           def apply(self, x): return self.W(x)[::-1]
+
+       dtype = pxu.fdtype()
+       W = jnp.arange(3*5, dtype=dtype).reshape(3,5)
+       op = Comp(MatMul(W))
+       x = jnp.linspace(1, 2, W.shape[1], dtype=dtype)
+       y = op(x)  # ok
+       z = op.adjoint(y)  # error
+       -> NotImplementedError
+          Transpose rule (for reverse-mode differentiation) for 'custom_vjp_call_jaxpr' not implemented
 
 - Solvers to port from pyxu_v2
   First need to think about the API
   + PGD
+
   + PDS family: CV, PD30
-
-- register_linop_vjp()
-  The following code causes an error.
-
-  .. code-block:: python
-     import pyxu.abc as pxa, pyxu.util as pxu
-     import jax, jax.numpy as jnp, equinox as eqx
-
-     @pxa.register_linop_vjp
-     class MatMul(pxa.LinearOperator):
-         W: jax.Array = eqx.field(converter=jnp.asarray)
-         def __init__(self, W):
-             self.W = W
-             self.dim_shape = pxu.ShapeStruct((W.shape[1],))
-             self.codim_shape = pxu.ShapeStruct((W.shape[0],))
-         def apply(self, x): return self.W @ x
-         def adjoint(self, y): return self.W.T @ y
-     class Comp(pxa.LinearOperator):
-         W: MatMul
-         def __init__(self, W):
-             self.dim_shape = W.dim_shape
-             self.codim_shape = W.codim_shape
-             self.W = W
-         def apply(self, x): return self.W(x)[::-1]
-
-     dtype = pxu.fdtype()
-     W = jnp.arange(3*5, dtype=dtype).reshape(3,5)
-     op = Comp(MatMul(W))
-     x = jnp.linspace(1, 2, W.shape[1], dtype=dtype)
-     y = op(x)  # ok
-     z = op.adjoint(y)  # error
-     -> NotImplementedError
-        Transpose rule (for reverse-mode differentiation) for 'custom_vjp_call_jaxpr' not implemented
