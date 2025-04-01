@@ -28,8 +28,8 @@ class CZT(pxa.LinearOperator):
     A D-dimensional CZT corresponds to taking a 1D CZT along each transform axis.
     """
 
-    A: tuple[complex] = eqx.field(static=True)
-    W: tuple[complex] = eqx.field(static=True)
+    A: tuple[complex]
+    W: tuple[complex]
 
     def __init__(
         self,
@@ -159,9 +159,9 @@ class Uniform2Uniform(pxa.LinearOperator):
     where :math:`(\bbx_{i}, \bbv_{o})` lie on uniform lattices.
     """
 
-    x_spec: pxu.UniformSpec = eqx.field(static=True)
-    v_spec: pxu.UniformSpec = eqx.field(static=True)
-    isign: int = eqx.field(static=True)
+    x_spec: pxu.UniformSpec
+    v_spec: pxu.UniformSpec
+    isign: int
 
     def __init__(
         self,

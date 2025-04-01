@@ -19,12 +19,10 @@ class Operator(eqx.Module):
     dim_shape: pxt.DimShape = eqx.field(  # \cI
         default=None,
         init=False,
-        static=True,
     )
     codim_shape: pxt.CoDimShape = eqx.field(  # \cO
         default=None,
         init=False,
-        static=True,
     )
 
     @property

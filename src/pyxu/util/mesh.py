@@ -21,9 +21,9 @@ class UniformSpec(eqx.Module):
 
     """
 
-    start: tuple[float] = eqx.field(static=True)
-    step: tuple[float] = eqx.field(static=True)
-    num: tuple[int] = eqx.field(static=True)
+    start: tuple[float]
+    step: tuple[float]
+    num: tuple[int]
 
     def __init__(self, start, step, num):
         r"""
