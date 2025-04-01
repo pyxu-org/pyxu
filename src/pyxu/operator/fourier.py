@@ -8,7 +8,6 @@ import pyxu.typing as pxt
 import pyxu.util as pxu
 
 
-@pxa.register_linop_vjp
 class CZT(pxa.LinearOperator):
     r"""
     Multi-dimensional Chirp Z-Transform (CZT) :math:`C: \bC^{I_{1} \times\cdots\times I_{D}} \to
@@ -74,7 +73,7 @@ class CZT(pxa.LinearOperator):
             pxu.next_fast_len(lhs + rhs - 1)
             for (lhs, rhs) in zip(self.dim_shape, self.codim_shape)
         ]
-        AWk2, FWk2, Wk2, extract = self._mod_params_apply(L, x.dtype)
+        AWk2, FWk2, Wk2, extract = self._mod_params(L, x.dtype)
 
         _x = pxm.hadamard_outer(x, *AWk2)
         _x = jnp.fft.fftn(_x, s=L)
@@ -83,33 +82,8 @@ class CZT(pxa.LinearOperator):
         y = pxm.hadamard_outer(_x[*extract], *Wk2)
         return y
 
-    def adjoint(self, y: pxt.Array) -> pxt.Array:
-        r"""
-        Parameters
-        ----------
-        y: Array[float/complex]
-            (..., O1,...,OD) outputs :math:`\bby = (C \, \bbx) \in \bC^{O_{1} \times\cdots\times O_{D}}`.
-
-        Returns
-        -------
-        x: Array[complex]
-            (..., I1,...,ID) inputs :math:`\bbx \in \bC^{I_{1} \times\cdots\times I_{D}}`.
-        """
-        # (CZT_{I,A,W,O})^{*}(y)[n] = CZT_{O,1,W*,I}(y)[n] * A^{n}
-        czt = CZT(
-            dim_shape=self.codim_shape,
-            codim_shape=self.dim_shape,
-            A=1,
-            W=[w.conjugate() for w in self.W],
-        )
-        An = self._mod_params_adjoint(y.dtype)
-
-        _x = czt.apply(y)
-        x = pxm.hadamard_outer(_x, *An)
-        return x
-
     # Helper routines (internal) ----------------------------------------------
-    def _mod_params_apply(self, _L: tuple[int], dtype: pxt.DType):
+    def _mod_params(self, _L: tuple[int], dtype: pxt.DType):
         """
         Parameters
         ----------
@@ -165,32 +139,7 @@ class CZT(pxa.LinearOperator):
 
         return AWk2, FWk2, Wk2, extract
 
-    def _mod_params_adjoint(self, dtype: pxt.DType):
-        """
-        Parameters
-        ----------
-        dtype: float/complex
 
-        Returns
-        -------
-        An: list[Array]
-            (I1,),...,(ID,) vectors.
-        """
-        c_dtype = pxu.TranslateDType(dtype).to_complex()
-
-        D = self.dim_rank
-        An = [None] * D
-        for d in range(D):
-            A = self.A[d]
-            N = self.dim_shape[d]
-            _An = A ** jnp.arange(N)
-
-            An[d] = _An.astype(c_dtype)
-
-        return An
-
-
-@pxa.register_linop_vjp
 class Uniform2Uniform(pxa.LinearOperator):
     r"""
     Multi-dimensional Uniform-to-Uniform Fourier Transform.
@@ -256,25 +205,6 @@ class Uniform2Uniform(pxa.LinearOperator):
         _w = czt.apply(w)
         z = pxm.hadamard_outer(_w, *B)
         return z
-
-    def adjoint(self, z: pxt.Array) -> pxt.Array:
-        r"""
-        Parameters
-        ----------
-        z: Array[float/complex]
-            (O1,...,OD) weights :math:`z_{o} \in \bC^{D}`.
-
-        Returns
-        -------
-        w: Array[complex]
-            (I1,...,ID) weights :math:`w_{i} \in \bC^{D}`.
-        """
-        czt, B = self._params(z.dtype)
-        B = [_B.conj() for _B in B]
-
-        _z = pxm.hadamard_outer(z, *B)
-        w = czt.adjoint(_z)
-        return w
 
     # Helper routines (internal) ----------------------------------------------
     def _params(self, dtype: pxt.DType):
