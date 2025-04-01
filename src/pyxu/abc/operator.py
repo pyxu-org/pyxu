@@ -202,19 +202,23 @@ class LinearOperator(Operator):
         r"""
         Evaluate :math:`f^{\adjoint}: \cO \to \cI` at specified point :math:`y`.
 
-        Note
-        ----
-        The autodiff-provided implementation assumes the operator is real-valued.
-        Users should override it for complex-valued operators.
+        Notes
+        -----
+        The auto-inferred adjoint rule works for both real- and complex-valued operators.
+        In the latter case however, ``adjoint()`` only accepts complex-valued inputs.
         """
         dtype = otu.tree_dtype(y, mixed_dtype_handler="promote")
         dim_info = jax.tree.map(
             lambda _: jax.ShapeDtypeStruct(shape=_.shape, dtype=dtype),
             self.dim_shape,
         )
-
         f_adjoint = jax.linear_transpose(self.apply, dim_info)
-        x, *_ = f_adjoint(y)
+
+        # f_adjoint() computes (A.T y) instead of (A.H y).
+        # But (A.H y) = conj(A.T conj(y)), so the true adjoint can still be computed for complex-valued operators.
+        y_conj = jax.tree.map(jnp.conjugate, y)
+        x_conj, *_ = f_adjoint(y_conj)
+        x = jax.tree.map(jnp.conjugate, x_conj)
         return x
 
 
